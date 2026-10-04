@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "kind": "teacher_ontology_backend_operating_review",
+  "status": "backend_real_intake_refresh_and_local_restore_verified_private_site_authentication_blocked",
+  "canonicalCheckpoint": "handoffs/workflow-current-state.json",
+  "deliveryPlan": "docs/teacher-ontology-delivery-plan.ts",
+  "goalComplete": false,
+  "admission": {
+    "goal": "Autonomously deliver real current five-student Backend DB and private teacher site under kcpalantir.tech, with extensible hierarchical typed evidence, book replacement history, selective/whole refresh and shared human/WebMCP logic.",
+    "academyEffects": "strictly_read_only",
+    "initialCoverage": "Current source enrollment/books/progress and recent lesson/result evidence first; qualified history follows.",
+    "refresh": "Click-driven selected student/book/lesson and explicit whole-cohort refresh; no continuous full polling or mandatory scheduler.",
+    "reserved": ["teacher judgment", "academy official finalization", "parent sending"],
+    "secrets": "Native vault/official provider login only; no browser-cookie extraction, credential dumps or second academy session store."
+  },
+  "architecture": {
+    "productCode": "src/academy",
+    "store": "Actual Backend PostgreSQL 18.6; private active-profile academy directory, peer-authenticated Unix socket, data checksums, no TCP listener.",
+    "logicalModel": ["owner/student identity binding", "shared versioned curriculum nodes", "source record versions", "CAS heads", "original idempotency outcomes", "version-qualified source/catalog relations"],
+    "hierarchy": ["book_edition", "major_unit", "middle_unit", "minor_unit", "printed_page", "problem"],
+    "namespaceRule": "Original source keys and video/board/paper/attempt labels remain distinct; no name-only joins, manufactured LEC identities or example-as-record conversion.",
+    "sourceMeaning": "Course learning range is not inferred effective enrollment; source registration is not teacher-confirmed primary/supplementary role; stored grade is not inspection/mastery; missing rows are not nonperformance.",
+    "nativeOwnership": "No dispatcher, native state mirror, per-turn context injector, installed engine modification or unrestricted worker."
+  },
+  "actualBackend": {
+    "studentPartitions": 5,
+    "currentBookSourceHeads": 9,
+    "sharedBookCatalogVersions": 8,
+    "recordVersionsObservedBeforePublication": 19,
+    "sourceCatalogVersionLinksObservedBeforePublication": 19,
+    "bindings": "Authenticated current instructor/student cells and three passive course tuples corroborated against independent name/grouped-row and course/book/student progress tuples for every admitted subject.",
+    "privateData": "Actual names/keys/source payloads/configuration remain outside Git. One requested subject has one currently observed book; no extra book or missing-work assertion was fabricated.",
+    "queryConsumer": "bun run academy:query --help",
+    "lookupAcceptance": "All five DB partitions and exact source registration data were read back; teacher/application queries are owner-filtered."
+  },
+  "realRefresh": {
+    "consumer": "SourceRefreshCoordinator -> nativeBookAcquirer -> existing native browser_exec/browser_vault_list/browser_vault_fill -> reviewed fixed source reads -> sourceBridge -> PostgreSQL append/readback",
+    "selectedScope": "One actual student/native source refresh succeeded.",
+    "unchangedRepeat": {"studentCount":1,"bookCount":1,"changedVersions":0,"unchangedVersions":1},
+    "wholeScope": {"studentCount":5,"bookCount":9,"changedVersions":8,"unchangedVersions":1},
+    "authentication": "Existing origin-bound native saved academy login used by actual native handlers; no password/cookie/token entered the product payload.",
+    "claimLimit": "This exact current local native route worked; not a guarantee of all future MFA, manager unlock, native cleanup, source layouts or arbitrary unattended operation.",
+    "expiryBehavior": "Blocked acquisition preserves original successful heads/time and does not claim a current refresh.",
+    "duplicateRepair": "Actual repeat found an observation-clock-bearing capture reference manufacturing revisions. RED case isolated it; stable per-field provenance now separates content changes from newer verification time. Prior revisions are retained."
+  },
+  "privateSite": {
+    "origin": "https://dc.kcpalantir.tech",
+    "appListen": "127.0.0.1:8411",
+    "tunnelName": "dc-gang-a-teacher",
+    "tunnelId": "825f9329-a79d-44fe-9399-31982a590663",
+    "cloudflared": "2026.9.3 official release; asset digest verified",
+    "dns": "New CNAME provisioned without overwrite; independent Google DNS returned current A answers.",
+    "readback": "Official tunnel metadata and readiness showed four active connector links; actual HTTPS health route returned running. Anonymous /api/cohort returned 401 with no student data.",
+    "authentication": "Single teacher signed session, native-vault password setup, password hash only, secure HttpOnly SameSite cookie, one-use persisted invitation, Origin guard, login throttling, restrictive CSP and no raw HTML rendering.",
+    "actualTeacherLogin": false,
+    "blocker": "Native save-login prompt for the new site returned save_declined. No second request or secret-input workaround was attempted. Teacher credential registration is incomplete and student disclosure remains blocked.",
+    "userExperienceAcceptance": false,
+    "webMcp": "Owned browser adapter uses the same protected application query with standard input/annotation/execute fields when document.modelContext is available. Actual authenticated discovery/invocation is not established; no shim/flags/academy injection.",
+    "preservedConsumers": ["kcpalantir.tech root", "bible.kcpalantir.tech", "spt-classroom tunnel", "Main/shared Sheet tabs", "imported SPT/D1/R2 consumers"]
+  },
+  "recovery": {
+    "format": "Canonical portable bundle encrypted with authenticated AES-256-GCM; tamper/wrong-key refusal tested.",
+    "consistentSnapshot": "Actual PostgreSQL repeatable-read exported snapshot consumed by pg_dump; full owned schema, revisions, catalog dependencies, heads, relations and original outcomes retained.",
+    "actualRestore": "Decrypted and imported into a newly created empty dc_academy_restore_20261004 database; all five original/restored teacher query results compared exactly.",
+    "queryParity": true,
+    "privateReceipt": "Active-profile academy/recovery-20261004/RECEIPT.json",
+    "independentBackendLossRecoveryEstablished": false,
+    "limit": "Copy/key/restore are on this Backend. This is actual local recovery, not an independent off-Backend copy/key placement or lossless future restoration."
+  },
+  "validation": {
+    "localRealPostgresTests": "Actual provider/HTTP/partition/source/retry/shared-catalog/recovery tests ran against a separate synthetic test DB; real student intake/query/refresh/restore are separate acceptance witnesses.",
+    "portableGate": "cloud:check passed with exact source-integrity and pinned toolchain; current academy suite is included. Missing PG test socket causes explicitly reported skips, not production PASS.",
+    "typechecks": "Root, harness and existing agent-runtime checks retained.",
+    "confidentiality": "Review explicit staged paths/diff and run audit:staged before publication; no actual student records, invitation URL, keys, passwords or provider credentials are publication inputs.",
+    "independentReviewer": null,
+    "reviewMode": "Lead source/security self-review, real local execution and exact-head CI; no independent worker verdict claimed."
+  },
+  "preservedFailures": [
+    "Initial browser read hit the native five-second IPC wait, then native idle cleanup; no success was fabricated. Supported CDP per-call wait and immediate post-login capture produced actual five-subject data.",
+    "Coordinate login click opened a presentation-only registration panel; it was dismissed and exact native .webSend login handler used. No membership form/save was submitted.",
+    "PG source bootstrap found missing bison/flex/m4. Build tools were extracted only to the owned runtime from official HTTPS Debian metadata/package hashes; absent gpgv signature verification was explicitly not claimed.",
+    "Actual provider rejected double-encoded JSON references; explicit text-to-jsonb binding corrected it without relaxing constraints.",
+    "A lazy native SQL query passed directly to the test reject matcher never executed and timed out; actual awaited execution proved append-only rejection. Failed synthetic fixture results/processes were retained/ended.",
+    "Canonical context refused oversized objective/more than 24 decisions. Existing decisions were reconciled within the original validator, not a new ledger or weakened guard.",
+    "Source normalization discovered a clock-bearing provenance reference creating fake content changes; stable field proof fixed it while retaining original revisions.",
+    "Credential save declined for the new site; authentication stays blocked. Root service/root/Bible/SPT identities were not substituted."
+  ],
+  "remainingAcceptance": [
+    "Native-approved teacher site credential setup and actual authenticated UI/refresh use",
+    "Qualified actual complete curriculum major/middle/minor/page/problem mappings and video/board/paper/attempt source relations",
+    "Current date/occurrence/header/column/page qualification for recent lesson/homework evidence and expanded graded-item intake",
+    "Actual browser WebMCP/Hermes discovery, invocation and same-scene rejection cases",
+    "Independently placed encrypted recovery and independently recoverable key",
+    "Routine teacher workflow/continuity acceptance; no product-parity or 24-hour uptime claim"
+  ],
+  "publicationStateOwner": "Exact Git/GitHub readback and native Task; this local operating review does not invent a future merge.",
+  "academyWrites": 0,
+  "parentSends": 0,
+  "workersDispatched": 0
+}

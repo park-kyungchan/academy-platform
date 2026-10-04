@@ -1,0 +1,42 @@
+import { describe, expect, test } from 'bun:test';
+import { SQL } from 'bun';
+import { createTeacherServerHandler } from '../../src/academy/server';
+import { createAuthSecrets, signTeacherSession, secretDigest } from '../../src/academy/auth';
+import { TeacherApplication } from '../../src/academy/application';
+import { PostgresAcademyStore } from '../../src/academy/postgresStore';
+const socket=process.env.DC_ACADEMY_TEST_SOCKET;
+describe.skipIf(!socket)('protected teacher HTTP adapter',()=>{
+  test('denies anonymous and cross-origin access before student disclosure',async()=>{
+    const db=new SQL({adapter:'postgres',path:socket!,username:'hermes',database:'dc_academy_test'});
+    const app=new TeacherApplication(new PostgresAcademyStore(db),'fixture-owner-a');
+    const secrets=createAuthSecrets();
+    const handler=createTeacherServerHandler({app,origin:'https://dc.example.invalid',sessionKey:secrets.sessionKey,identity:{actorId:'fixture-teacher',username:'fixture',passwordHash:'not-a-live-credential'},invitationDigest:null,saveIdentity:async()=>{}});
+    const denied=await handler(new Request('https://dc.example.invalid/api/cohort'));
+    expect(denied.status).toBe(401);expect(await denied.text()).not.toContain('Invented Learner');
+    const cookie='dc_teacher='+signTeacherSession(secrets.sessionKey,'fixture-owner-a','fixture-teacher');
+    const allowed=await handler(new Request('https://dc.example.invalid/api/cohort',{headers:{Cookie:cookie}}));
+    expect(allowed.status).toBe(200);
+    const csrf=await handler(new Request('https://dc.example.invalid/api/refresh',{method:'POST',headers:{Cookie:cookie,Origin:'https://foreign.example.invalid','Content-Type':'application/json'},body:'{}'}));
+    expect(csrf.status).toBe(403);
+    await db.close();
+  });
+  test('persists a one-use owner invitation before issuing a setup-only grant',async()=>{
+    const db=new SQL({adapter:'postgres',path:socket!,username:'hermes',database:'dc_academy_test'});
+    const app=new TeacherApplication(new PostgresAcademyStore(db),'fixture-owner-a');
+    const secrets=createAuthSecrets();let consumed=0;
+    const handler=createTeacherServerHandler({app,origin:'https://dc.example.invalid',sessionKey:secrets.sessionKey,identity:null,invitationDigest:secretDigest(secrets.invitation),saveIdentity:async()=>{},consumeInvitation:async()=>{consumed++;}});
+    const request=()=>new Request('https://dc.example.invalid/api/setup-session',{method:'POST',headers:{Origin:'https://dc.example.invalid','Content-Type':'application/json'},body:JSON.stringify({invitation:secrets.invitation})});
+    expect((await handler(request())).status).toBe(200);expect(consumed).toBe(1);
+    expect((await handler(request())).status).toBe(403);
+    await db.close();
+  });
+  test('public login attempts are bounded without disclosing student data',async()=>{
+    const db=new SQL({adapter:'postgres',path:socket!,username:'hermes',database:'dc_academy_test'});
+    const app=new TeacherApplication(new PostgresAcademyStore(db),'fixture-owner-a');
+    const handler=createTeacherServerHandler({app,origin:'https://dc.example.invalid',sessionKey:createAuthSecrets().sessionKey,identity:null,invitationDigest:null,saveIdentity:async()=>{}});
+    let response:Response|null=null;
+    for(let i=0;i<8;i++)response=await handler(new Request('https://dc.example.invalid/api/login',{method:'POST',headers:{Origin:'https://dc.example.invalid','Content-Type':'application/json','CF-Connecting-IP':'192.0.2.1'},body:JSON.stringify({username:'fixture',password:'not-a-live-credential'})}));
+    expect(response!.status).toBe(429);expect(await response!.text()).not.toContain('Invented Learner');
+    await db.close();
+  });
+});

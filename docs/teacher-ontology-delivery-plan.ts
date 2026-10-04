@@ -1,0 +1,46 @@
+/** Current admitted product goal; native Hermes remains the lifecycle/safety/Task owner. */
+export const teacherOntologyDeliveryPlan = {
+  schemaVersion: 1,
+  kind: 'teacher_ontology_product_delivery_plan',
+  goal: 'Operate a private teacher website backed by the real five-student Backend database, with extensible student partitions, changing book assignments, grounded hierarchy and classroom queries/refresh.',
+  userDecisions: {
+    execution: 'Complete research, prioritized architecture, implementation, operation and verification autonomously; do not request routine boundary approvals.',
+    academy: 'Read-only, including semantically mutating GET exclusion; no journal save, grade save, generation or parent send.',
+    initialScope: 'Current enrollment/books/progress/homework and recent lessons/results first; qualified historical backfill follows without pretending all-time coverage.',
+    refresh: 'Selection-driven student/book/lesson refresh plus an explicit whole-cohort button. Do not install continuous polling or a new mandatory scheduler.',
+    site: 'A private personal site under kcpalantir.tech; preserve existing root/Bible/other consumers.',
+    ontology: 'All owned product/code/data architecture connects purpose, hierarchical typed meaning, evidence, deterministic logic, allowed Actions, human/agent experience, evaluation and recovery.',
+    retention: 'Minimized decision-relevant source versions and attributable teacher originals; no credentials, original-media copy, contacts or full transcript mirror.',
+  },
+  leadSelections: {
+    hostnameCandidate: 'dc.kcpalantir.tech',
+    application: 'One modular TypeScript/Bun application, shared by teacher UI, scoped queries and standard browser WebMCP when actually supported.',
+    store: 'Private Backend PostgreSQL, one logical student partition per owner/student, shared source catalogs and indexed append-only versions; no per-student physical DB/Sheet tab.',
+    network: 'Database Unix socket only; loopback application. Compare a scoped Cloudflare Tunnel and deny-by-default teacher identity gateway for the new hostname, without Host/other-container changes.',
+    ingestion: 'Reviewed native-browser acquisition and validated product intake. Prefer a supported scoped source read API for future direct backend integration if actually available; never extract/persist an academy browser cookie.',
+    authority: 'Native source identifiers remain in separate namespaces. Current authenticated instructor/student/course rows and independent book-progress tuples bind identities; user examples are not manufactured evidence.',
+  },
+  ontology: {
+    hierarchy: ['book_edition', 'major_unit', 'middle_unit', 'minor_unit', 'printed_page', 'problem'],
+    separateResources: ['video_lecture_label', 'electronic_board_lecture', 'paper', 'assessment_attempt', 'lesson_occurrence'],
+    studentEdges: ['source_identity_binding', 'book_assignment_revision', 'lesson_membership', 'assigned_activity', 'attempt_evidence', 'teacher_report_revision'],
+    invariants: ['No name-only or same-number cross-namespace joins', 'Unknown hierarchy/time/enrollment remains unknown', 'Course learning dates are not silently assignment validity dates', 'Missing source row does not end an assignment or prove nonperformance', 'Stored grade is not teacher inspection/mastery', 'Book replacement appends history and preserves previous editions/evidence', 'Shared metadata is not copied per student', 'Read refresh cannot mutate the academy'],
+    agentContext: 'Explicit domain/query/tool contracts deliver scene scope, hierarchy, evidence references, allowed operations, freshness and unknowns; no native context injector or dispatcher.',
+  },
+  steps: [
+    { id: 'meaning_and_store', prerequisites: [], targets: ['src/academy/domain.ts', 'src/academy/postgresStore.ts', 'src/academy/application.ts'], gate: 'Real hierarchy/partition/revision/permissions/retry tests and actual PostgreSQL transactions/readback' },
+    { id: 'source_bridge', prerequisites: ['meaning_and_store'], targets: ['src/academy/sourceBridge.ts', 'src/lms/academyReadProtocol.ts'], gate: 'All five independently matched current identities, current source semantics, minimized snapshots and same-target DB readback' },
+    { id: 'teacher_site', prerequisites: ['source_bridge'], targets: ['src/academy/server.ts', 'src/academy/web'], gate: 'Actual protected query/navigation/selected-refresh/whole-refresh behavior, no foreign rows, explicit outage/freshness' },
+    { id: 'domain_publish', prerequisites: ['teacher_site'], targets: ['New owned hostname/tunnel/access application only'], gate: 'Current domain/account authority, verified Free Tier, authentication/TLS/cross-origin denial and exact DNS/resource readback' },
+    { id: 'recovery_and_acceptance', prerequisites: ['source_bridge', 'teacher_site'], targets: ['src/academy/recovery.ts', 'review/teacher-ontology-cohort-db-2026-10-04.json'], gate: 'Actual consistent export/empty-target restore/query parity; independently placed encrypted copy distinguished from same-volume recovery; exact-head CI/merge/owned cleanup' },
+  ],
+  failurePolicy: {
+    authentication: 'Source expiry blocks only acquisition; keep last successful observation and mark auth required. Secure native reauthentication, no keepalive or cookie bridge.',
+    sourceDrift: 'Reject changed headers/tuples/wire/namespace/page contracts; keep original last-verified data and explicit coverage limits.',
+    storage: 'Append/CAS/idempotency in one transaction; exact outcome/readback before retry after uncertain acknowledgement.',
+    publishing: 'No student disclosure before actual teacher-only authentication; no root/Bible overwrite, protection bypass or billing upgrade.',
+    recovery: 'No hash-only independent durability claim; preserve exact source/copy/high-water mark and actually restore a separate empty target.',
+    worker: 'Mechanical work uses code. New agent workers require fresh finite task-specific native controls; no inherited queue/budget or unrestricted substitute.',
+  },
+  status: 'active_implementation_goal_not_completed_by_this_plan',
+} as const;

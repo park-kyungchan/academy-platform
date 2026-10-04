@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-04T00:54:37Z",
-    "objective": "On Hermes Linux Backend, v0.4 connects trusted ingress/store-recovery design and retained-reader integration. Four source families share offline preparation/audit; DayRecord stays blocked until real headers qualify. User admits guarded publication, classified legacy cleanup and supported approval optimization. Preserve recovery snapshots/failures. Next: source-to-domain/application implementation and exact protected resource/access/cost/restore qualification. Native DOM/local gates are not production or WebMCP acceptance. No inherited worker budgets, teacher finalization/parent replay or ingestion into an unqualified target.",
+    "updatedAtUtc": "2026-10-04T03:10:47Z",
+    "objective": "On Hermes Linux Backend, five real student partitions, nine book heads/eight shared catalogs, native selected/whole readonly refresh and exact five-query local encrypted restore are verified. dc.kcpalantir.tech serves HTTPS; anonymous data is denied. Native site credential save declined: no teacher login, actual UI/WebMCP acceptance or complete lesson/item hierarchy yet. Preserve that real blocker and continue the typed Ontology goal, not just design/Git. Code and operating review are linked. Keep academy read-only, native safety/learning, original evidence and unknown joins; no engine/Host changes or sending.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
@@ -181,7 +181,7 @@
     "confirmedDecisions": [
       {
         "id": "priority_order",
-        "statement": "Whole instructor frontend/Backend architecture is the current priority, not the former narrow repair/publication queue. Design hierarchical typed meaning, student-auditable evidence/history, qualified deterministic operations and actual WebMCP together. Date-first all-student review remains the first useful consumer within the full teacher workflow. Preserve completed work and unresolved coverage; do not recheck Client/Backend versions or require a KG example before design.",
+        "statement": "Whole instructor frontend/Backend architecture first: correct maintainable expanding student/book history before a narrow easy repair. Implement the admitted private teacher site/Backend DB through hierarchical typed meaning, source evidence, logic, permitted Actions, teacher/agent context, WebMCP, evaluation and recovery. Date-first all-student review remains a useful scene. Do not recheck Client/Backend versions, require a KG interview or stop at routine engineering boundaries.",
         "source": "user_interview"
       },
       {
@@ -251,7 +251,7 @@
       },
       {
         "id": "student_database_direction",
-        "statement": "Compact logically student-partitioned audit/traceability DB with shared catalogs and separate source evidence, teacher revisions and expendable cache. The user permits an external teacher-only protected primary and independent encrypted recovery candidate, and delegates resource/migration planning. Exact resource/account/region/access, Free Tier, retained fields and actual restore must qualify before real ingestion. Minimal source retention is Lead-recommended; teacher history intent remains. Synthetic SQLite is not production; no physical DB/schema/tab per student.",
+        "statement": "User admits the real five-student Backend DB. Lead selected private PostgreSQL in the active-profile academy directory: Unix socket/peer auth/checksums, logical owner/student partitions, shared catalogs and append-only history. Start current courses/books/progress/recent lessons/results; backfill qualified history. Retain minimized source and teacher originals, not media, contacts, credentials or transcripts. No per-student DB/schema/tab. External encrypted recovery remains a candidate; verify atomic permissions/restore and distinguish same-volume backup from independent durability.",
         "source": "user_interview"
       },
       {
@@ -261,7 +261,7 @@
       },
       {
         "id": "preclass_cohort_presentation",
-        "statement": "Keep date-first review of every scheduled occurrence, including absence/makeup labels, then selected-student hierarchy/evidence/history. Under transition A this becomes the primary teacher-web scene; Main remains a preserved transition consumer, not a second input authority. Human UI and semantic WebMCP tools use the same domain implementation/read model with actor-specific permissions. Preserve assessment/progress meanings, teacher plans, original links and unknowns. A design or tool registration is not actual browser/teacher acceptance.",
+        "statement": "Deliver the private personal teacher site under kcpalantir.tech for the five current students and future growth. Exact names/source keys remain private. Trace changing main/supplementary books through shared book-major-middle-minor-page-problem hierarchy, separate video/board/paper/attempt labels, source evidence and teacher history. Date-first scheduled occurrence review remains useful. Human UI/WebMCP use one scoped implementation; schemas/registration are not browser acceptance. Preserve root/Bible/Main/SPT/other consumers and unknown joins.",
         "source": "user_interview"
       },
       {
@@ -276,17 +276,17 @@
       },
       {
         "id": "backend_repeat_operations",
-        "statement": "Repeated effects require an initial approved exact target/field/change-rule/recovery envelope and same-target readback; none is active. Teacher judgment, official finalization and parent sending remain human-owned. No real student audit store, installed scheduler or production migration is established by these decisions.",
+        "statement": "User approved click-driven student/book/lesson refresh and a whole-cohort button, not full polling. Read only reviewed source operations via native managed-browser acquisition, not saved-cookie proxies. Keep last successful time/coverage on outage. Local DB refresh binds the qualified private target/fields, append/CAS/change rules/recovery/readback. Missing rows do not end assignments or prove nonperformance. Teacher judgment remains human-owned; no mandatory scheduler, academy save, official finalization or parent send. Verify current source authentication.",
         "source": "user_interview"
       },
       {
         "id": "backend_harness_scope",
-        "statement": "The predecessor completed profile/runtime/native-prose qualification and PR 7. The user now owns closing predecessor session default/20261001_172008_38175d; the Lead must not retry its management login or edit native history. For admitted site workflows prefer the existing profile-scoped native vault, explain site and persistence before first Save & sign in, and preserve origin/2FA/approval checks. No new runtime enablement setting or session-cookie persistence follows.",
+        "statement": "Prefer profile-scoped native vault for admitted site login; explain origin/encrypted persistence, preserve origin/2FA/approvals and never extract/persist academy cookies. Predecessor default/20261001_172008_38175d closure remains human-owned; no management-login retry/history edit. User approved official Cloudflare login in their browser; it completed and tunnel-list read succeeded. Preserve spt-classroom. Candidate dc.kcpalantir.tech needs new owned tunnel/hostname and actual teacher-only app authentication before disclosure; no root/Bible override or assumed Free Tier.",
         "source": "user_interview"
       },
       {
         "id": "backend_autonomous_goals",
-        "statement": "User delegates long autonomous engineering, guarded Git/classified cleanup and operational resource/migration/academy/worker categories, and requests native approval optimization for 24-hour Backend operation. Use supported scoped smart policy, not global bypass or interpreter allowlisting. Real resources/effects need qualified identity/fields/rules/cost/recovery and actual native controls. Keep safety/redaction/learning, Free Tier and teacher finalization/sending boundaries; no installed engine/Host/other-container change or old-budget replay.",
+        "statement": "User requires long autonomous goal-to-completion execution, including the needed Backend service/DB/real five-student intake/private website, useful validation and Git. Latest academy restriction is strictly read-only and supersedes older save/send categories. Resolve consequential interviews up front; do not ask for routine technical approvals. Keep actual resource/identity/field/cost/recovery verification, native safety/redaction/learning, Free Tier and teacher judgment boundaries. Workers need effective fresh controls; no installed engine/Host/other-container change or old-budget replay.",
         "source": "user_interview"
       },
       {
@@ -329,6 +329,13 @@
     ],
     "dispatch": [],
     "nextSteps": [
+      {
+        "id": "five_student_product_delivery",
+        "owner": "lead",
+        "action": "validate_confirmed_changes",
+        "referencePaths": ["review/teacher-ontology-cohort-db-2026-10-04.json", "docs/teacher-ontology-delivery-plan.ts", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
+        "dependsOnQuestionIds": []
+      },
       {
         "id": "source_domain_application_spine",
         "owner": "lead",
