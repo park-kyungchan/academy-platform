@@ -72,4 +72,5 @@ test('native autonomous optimization retains safeguards and does not install a s
   expect(autonomy.selectedNativeOptimization.retain.unattendedMode).toBe('deny');
   expect(nativeSmartApprovalPolicy).toContain('Do not blanket-approve interpreters');
   expect(autonomy.unattendedFrontier.installation).toContain('No new job');
+  expect(autonomy.selectedNativeOptimization.observedInitialBlocker.currentQualification).toContain('not claimed repaired');
 });

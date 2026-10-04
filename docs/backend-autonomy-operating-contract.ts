@@ -26,6 +26,13 @@ export const backendAutonomyOperatingContract = {
     retain: { mode: 'smart', redaction: true, commandAllowlist: [], denialBreakerThreshold: 3, cronMode: 'deny', singleQueryMode: 'deny', unattendedMode: 'deny' },
     why: 'Reduce benign-script false positives without disabling command review or approving a broad class. Native headless execution fails closed rather than waiting for a UI that nobody can answer.',
     limitations: 'The smart guardian is model-based, not deterministic target enforcement. Runtime failures or uncertainty may still escalate on Desktop; no guarantee of zero prompts or 24-hour uptime is made.',
+    observedInitialBlocker: {
+      source: 'Active-profile logs/errors.log; 2026-10-04 07:30:52,867 native warning',
+      signature: 'Synchronous Relay LLM execution cannot run on an event-loop thread',
+      causalBoundary: 'The guardian call failed before returning a risk verdict, then native fallback escalated to the user. Operator policy readback does not repair this execution path.',
+      currentQualification: 'The initial incident is observed; the same path is not claimed repaired or universally broken after the policy change. Subsequent explicit owner approvals are not autonomous-guardian acceptance.',
+      fixOwner: 'Native runtime owner/upstream supported repair and real route requalification. Installed engine/Host/other-container modification, approval bypass and another dispatcher are excluded.',
+    },
     rollback: "Use the native writer to restore the previous empty approvals.smart_policy; retain unrelated profile settings. Do not edit config.yaml or native state by hand.",
   },
   operationAdmission: [

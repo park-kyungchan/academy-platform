@@ -71,13 +71,14 @@
     "policySha256":"b0e64ccb5a32e041a91dd510f5f5daaa6d8bba0fec60ab3c7d80a4beef73fa62",
     "policyCharacters":1833,
     "settingsRetained":{"mode":"smart","redactSecrets":true,"commandAllowlist":[],"denialBreakerThreshold":3,"cronMode":"deny","singleQueryMode":"deny","unattendedMode":"deny"},
-    "broadClassCorrection":"The native approval response briefly added the script execution via -e/-c class. Removed it through the native config writer; no broad interpreter bypass is retained.",
+    "broadClassCorrection":"Native approval responses temporarily added interpreter/heredoc classes. Removed them through the native config writer; no broad interpreter bypass is retained.",
     "operatingImprovement":"Clearly inspectable low-risk scripts/snapshots receive operator context, while novel risk still receives native review. Use reviewed file-based operations rather than opaque inline spawning. No deterministic zero-prompt, billing reduction or 24-hour uptime claim.",
+    "observedInitialRuntimeBlocker":{"source":"Active-profile logs/errors.log","nativeWarningTime":"2026-10-04 07:30:52,867","signature":"Synchronous Relay LLM execution cannot run on an event-loop thread","meaning":"Initial guardian infrastructure failure escalated to UI without a risk verdict. Current policy reader is verified, but this path is not claimed repaired, nor are subsequent owner approvals autonomous-guardian acceptance.","repairOwner":"Native runtime owner/upstream supported repair and route requalification; no installed engine modification or global approval bypass."},
     "rollback":"Restore the previous empty smart_policy via native config writer; preserve all unrelated profile settings."
   },
   "validation": [
     {"command":"bun --no-env-file run cloud:check","exitCode":0,"passedTestExecutions":851,"failedTestExecutions":0,"optionalSkips":1,"typechecks":3,"sourceIntegrity":{"backendFiles":13,"canonicalOperations":54,"importedSourceFiles":329},"meaning":"Portable synthetic/source-integrity acceptance; counts are test executions across overlapping focused commands, not distinct cases."},
-    {"command":"bun --no-env-file run test:architecture","passed":26,"failed":0,"expectations":389,"exitCode":0},
+    {"command":"bun --no-env-file run test:architecture","passed":26,"failed":0,"expectations":390,"exitCode":0},
     {"command":"bun --no-env-file run test:endpoint-catalog","passed":60,"failed":0,"expectations":1124,"exitCode":0},
     {"command":"bun --no-env-file test --dots tests/harness/workflowCheckpoint.test.ts tests/harness/contextRouting.test.ts","passed":41,"failed":0,"expectations":240,"exitCode":0},
     {"command":"Native browser evaluation of runNativeDayRecordRegression and runExtendedNativeDomRegression from final browser bundles","passed":17,"failed":0,"actualAcademyNetworkRequests":0,"dayRecordHeaderLayoutEstablished":false,"wholeEnrollmentEstablished":false,"evidence":"Active-profile scratch ingress-integration-20261004-25e358/native-final-results.json"},
