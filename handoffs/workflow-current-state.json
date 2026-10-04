@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-04T12:09:33Z",
-    "objective": "On Hermes Linux Backend, teacher password recovery is implemented/deployed. Human reset persisted: hash changed, old sessions revoked, grant consumed; actor/username and 5 student partitions/143 heads/153 versions preserved. See review/teacher-password-recovery-2026-10-04.json. Finish exact-head Git closeout and verify fresh teacher login. User keeps only current Lead product authority while retaining predecessor runtime/history; check actual target conflicts, not lease count. Academy stays read-only. Date-first scenes, full hierarchy/joins, actual WebMCP and independent recovery remain open.",
+    "updatedAtUtc": "2026-10-04T12:22:04Z",
+    "objective": "On Hermes Linux Backend, teacher password recovery is implemented/deployed and published in PR 15; exact PR/main readback owns publication state. Human reset changed hash, revoked sessions and consumed its grant; teacher identity and 5 partitions/143 heads/153 versions preserved. See review/teacher-password-recovery-2026-10-04.json. Next: fresh teacher login acceptance, then coherent source-to-scene usefulness. Only current Lead has product authority; predecessor runtime/history may remain. Check actual conflicts, not lease count. Academy stays read-only. Full hierarchy/joins, actual WebMCP and independent recovery remain open.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
