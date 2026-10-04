@@ -66,6 +66,7 @@ test('the aggregate executes all eight restored source-only test files through e
   expect(executed).not.toContain('test:python');
   expect(executed).toContain('test:storage');
   expect(pkg.scripts['test:storage']).toBe('bun test --dots tests/storage/syntheticLearningSqlite.test.ts');
+  expect(executed).toContain('test:academy');
 });
 test('a backend validation failure stops the aggregate before later workflow gates and success reporting', () => {
   const executed: string[] = [];
