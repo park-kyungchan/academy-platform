@@ -6,6 +6,17 @@ import { TeacherApplication } from '../../src/academy/application';
 import { PostgresAcademyStore } from '../../src/academy/postgresStore';
 const socket=process.env.DC_ACADEMY_TEST_SOCKET;
 describe.skipIf(!socket)('protected teacher HTTP adapter',()=>{
+  test('deploys a public WebMCP trial token only on the exact admitted host document',async()=>{
+    const db=new SQL({adapter:'postgres',path:socket!,username:'hermes',database:'dc_academy_test'});
+    const bytes=Buffer.from(JSON.stringify({origin:'https://dc.example.invalid:443',feature:'WebMCP',expiry:2000000000,isSubdomain:true})),header=Buffer.alloc(69);header[0]=2;header.writeUInt32BE(bytes.length,65);
+    const trial=Buffer.concat([header,bytes]).toString('base64');
+    const handler=createTeacherServerHandler({app:new TeacherApplication(new PostgresAcademyStore(db),'fixture-owner-a'),origin:'https://dc.example.invalid',sessionKey:createAuthSecrets().sessionKey,identity:null,invitationDigest:null,saveIdentity:async()=>{},originTrialToken:trial});
+    expect((await handler(new Request('https://dc.example.invalid/'))).headers.get('Origin-Trial')).toBe(trial);
+    expect((await handler(new Request('https://child.dc.example.invalid/'))).headers.get('Origin-Trial')).toBeNull();
+    expect((await handler(new Request('https://other.example.invalid/'))).headers.get('Origin-Trial')).toBeNull();
+    expect((await handler(new Request('https://dc.example.invalid/api/cohort'))).status).toBe(401);
+    await db.close();
+  });
   test('denies anonymous and cross-origin access before student disclosure',async()=>{
     const db=new SQL({adapter:'postgres',path:socket!,username:'hermes',database:'dc_academy_test'});
     const app=new TeacherApplication(new PostgresAcademyStore(db),'fixture-owner-a');
@@ -16,6 +27,9 @@ describe.skipIf(!socket)('protected teacher HTTP adapter',()=>{
     const cookie='dc_teacher='+signTeacherSession(secrets.sessionKey,'fixture-owner-a','fixture-teacher');
     const allowed=await handler(new Request('https://dc.example.invalid/api/cohort',{headers:{Cookie:cookie}}));
     expect(allowed.status).toBe(200);
+    const dateClass=await handler(new Request('https://dc.example.invalid/api/class?date=2090-01-02',{headers:{Cookie:cookie}}));
+    expect(dateClass.status).toBe(200);
+    expect(await dateClass.json()).toMatchObject({kind:'date_class_preparation',date:'2090-01-02'});
     const csrf=await handler(new Request('https://dc.example.invalid/api/refresh',{method:'POST',headers:{Cookie:cookie,Origin:'https://foreign.example.invalid','Content-Type':'application/json'},body:'{}'}));
     expect(csrf.status).toBe(403);
     await db.close();

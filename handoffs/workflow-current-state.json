@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-04T03:10:47Z",
-    "objective": "On Hermes Linux Backend, five real student partitions, nine book heads/eight shared catalogs, native selected/whole readonly refresh and exact five-query local encrypted restore are verified. dc.kcpalantir.tech serves HTTPS; anonymous data is denied. Native site credential save declined: no teacher login, actual UI/WebMCP acceptance or complete lesson/item hierarchy yet. Preserve that real blocker and continue the typed Ontology goal, not just design/Git. Code and operating review are linked. Keep academy read-only, native safety/learning, original evidence and unknown joins; no engine/Host changes or sending.",
+    "updatedAtUtc": "2026-10-04T10:05:47Z",
+    "objective": "On Hermes Linux Backend, bounded five-student intake is verified: 102 textbook assessments/906 items, 32 DayRecords/10 dates and protected date-class queries. User requests Git closeout and fresh-session Whole-Lens priorities, not more features now. Trial header is exact-host verified; native UnknownTrial/no modelContext, refused login, full hierarchy/scenes and independent recovery remain open. See review/teacher-source-evidence-closeout-2026-10-04.json. Native session-close transport is authenticated and unavailable; verify predecessor release before successor writes. Preserve foreign history, read-only academy/native safeguards.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
@@ -332,9 +332,9 @@
       {
         "id": "five_student_product_delivery",
         "owner": "lead",
-        "action": "validate_confirmed_changes",
-        "referencePaths": ["review/teacher-ontology-cohort-db-2026-10-04.json", "docs/teacher-ontology-delivery-plan.ts", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
-        "dependsOnQuestionIds": []
+        "action": "resolve_continuation_source",
+        "referencePaths": ["review/teacher-source-evidence-closeout-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "docs/academy-dayrecord-column-qualification-2026-10-04.json", "review/teacher-ontology-cohort-db-2026-10-04.json", "docs/teacher-ontology-delivery-plan.ts", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
+        "dependsOnQuestionIds": ["backend_lead_authority"]
       },
       {
         "id": "source_domain_application_spine",

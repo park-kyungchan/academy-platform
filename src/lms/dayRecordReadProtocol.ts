@@ -1,13 +1,15 @@
 import type {AcademyReadEnvironment,DayRecordReadRequest} from './academyReadProtocol';
 import {createAcademyReadPlan} from './academyReadProtocol';
 import {bindDayRecordDomRow,type DayRecordColumnGroup,type DayRecordHandler,type DayRecordEventAttribute,type DayRecordSourceSignature} from './dayRecordDomBinding';
+import { verifyDayRecordHeaderRows, type DayRecordHeaderCell } from './dayRecordColumnContract';
 /** Trusted collector input, not a caller flag or proof created by this reader.
- * Only a reviewed single-row, unspanned header layout is supported; other layouts fail closed.
- * No real academy header contract is installed by this module.
+ * Exact reviewed header rows and column handlers are required. Unreviewed spans fail closed.
  */
 export interface DayRecordColumnContract {
   contractRef:string;
   headerCells:readonly string[];
+  headerRows?:readonly (readonly DayRecordHeaderCell[])[];
+  dataRowsMayRemainInThead?:true;
   columnGroups:readonly DayRecordColumnGroup[];
   handlersByColumn:readonly (readonly DayRecordHandler[])[];
 }
@@ -53,16 +55,22 @@ export async function readDayRecordSource(request:DayRecordReadRequest,environme
         row=row.parentElement?.closest('tr')??null;}
       if(!row)throw new Error('requested_row_structure_unresolved');
       const table=row.closest('table'),headers=table?.tHead?.rows;
-      const header=headers?.length===1?headers[0]:null;
-      if(!header||header.cells.length!==columns.headerCells.length||row.cells.length!==columns.headerCells.length
-        ||[...header.cells,...row.cells].some(cell=>cell.colSpan!==1||cell.rowSpan!==1)
-        ||[...header.cells].some((cell,i)=>cell.textContent?.trim()!==columns.headerCells[i]))throw new Error('day_record_column_contract_rejected');
+      const headerCount=columns.headerRows?.length??1;
+      const headerList=headers?[...headers]:[];
+      if(columns.dataRowsMayRemainInThead&&headerList.slice(headerCount).some(extra=>extra.cells.length!==columns.headerCells.length
+        ||[...extra.cells].some(cell=>cell.tagName!=='TD'||cell.colSpan!==1||cell.rowSpan!==1)))throw new Error('day_record_column_contract_rejected');
+      const selectedHeaders=columns.dataRowsMayRemainInThead?headerList.slice(0,headerCount):headerList;
+      const observedHeaders=selectedHeaders.map(header=>[...header.cells].map(cell=>({text:cell.textContent?.trim()??'',colSpan:cell.colSpan,rowSpan:cell.rowSpan})));
+      if(!verifyDayRecordHeaderRows(observedHeaders,columns)||row.cells.length!==columns.headerCells.length
+        ||[...row.cells].some(cell=>cell.colSpan!==1||cell.rowSpan!==1))throw new Error('day_record_column_contract_rejected');
       const attributes:DayRecordEventAttribute[]=[];const fields:Record<string,string>={};
       for(const element of row.querySelectorAll<HTMLElement>('[onchange],[onfocusout],[onclick]'))for(const event of ['onchange','onfocusout','onclick'] as const){
         const source=element.getAttribute(event);if(!source)continue;
         const match=/(onAttn|onFoPrg|onFoHw|onFoMm|onFoStuMemo|onOpenDaysMain|onDailyReport|setDailyTest|openHomeWorkRate)\s*\(/.exec(source);if(!match)continue;
         const handler=match[1] as DayRecordHandler;
-        const cell=element.closest('td,th'),index=[...row.cells].findIndex(candidate=>candidate===cell);
+        // The deployed view nests report/homework-rate controls in inner tables.
+        // Bind to the qualified outer student-row cell, never the nearest inner td.
+        const index=[...row.cells].findIndex(candidate=>candidate.contains(element));
         if(index<0||!columns.handlersByColumn[index]!.includes(handler))throw new Error('requested_row_binding_unresolved');
         const columnGroup=columns.columnGroups[index]!;
         attributes.push({event,source,columnGroup});

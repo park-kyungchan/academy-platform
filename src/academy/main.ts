@@ -32,9 +32,19 @@ const store=new PostgresAcademyStore(db);await store.migrate();
 const build=await Bun.build({entrypoints:[resolve(import.meta.dir,'web/client.ts')],target:'browser',format:'esm',minify:true});
 if(!build.success)throw Error('teacher_client_build_failed');
 const script=await build.outputs[0]!.text();
+const trialFile=resolve(directory,'web-origin-trial.json');
+let originTrialToken:string|undefined;
+if(existsSync(trialFile)){
+  const stat=lstatSync(trialFile);
+  if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size>20000)throw Error('owned_origin_trial_file_required');
+  const trial=JSON.parse(readFileSync(trialFile,'utf8')) as {origin:string;token:string};
+  if(trial.origin!=='https://'+config.hostname)throw Error('origin_trial_deployment_scope_conflict');
+  originTrialToken=trial.token;
+}
 const app=new TeacherApplication(store,config.ownerId);
 const coordinator=new SourceRefreshCoordinator(store,{ownerId:config.ownerId,teacherLabel:config.teacherLabel,teacherKey:config.teacherSourceKey,collegeKey:config.collegeSourceKey},nativeBookAcquirer);
 const handler=createTeacherServerHandler({app,origin:'https://'+config.hostname,sessionKey:auth.sessionKey,identity:auth.identity,invitationDigest:auth.invitationDigest,page:teacherPage,script,
+  originTrialToken,
   refresh:(context,selection)=>coordinator.refresh(context,selection.studentId),
   consumeInvitation:async()=>{
     auth={...auth,invitationDigest:null};

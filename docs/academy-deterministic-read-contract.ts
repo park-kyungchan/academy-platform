@@ -25,7 +25,7 @@ export const academyDeterministicReadContract = {
       pipeline: ['POST p_process=Main', 'four matching passive handler tuples', 'current principal comparison', 'GET SelSglRecord XML identity/date verification'],
       grain: 'teacher/date/group/student/course/record/membership',
       coverage: 'requested students/groups, not proof of a whole-current-cohort roster or immutable parent-sent history',
-      currentGate: 'Public preparation is blocked: day_record_column_contract_required. No real source header/column/handler contract is installed. Internal native synthetic tests use explicitly invented headers; they do not qualify the current academy layout.',
+      currentGate: 'Public preparation supplies the source-qualified two-row/thirteen-column contract. Actual native reads and independent selected-record readback verified thirty-two occurrences across ten observed dates. Header/handler/principal/tuple drift still fails closed. See docs/academy-dayrecord-column-qualification-2026-10-04.json; no save/finalization or complete-history acceptance follows.',
     },
     student_course: {
       input: ['family=student_course', 'teacherLabel', 'studentKey', 'studentName'],
@@ -56,7 +56,7 @@ export const academyDeterministicReadContract = {
   },
   wholeScopeDisposition: {
     inventory: 'Keep every existing canonical/source candidate/deployed declaration in endpointCatalog; do not replace it with a small successful sample.',
-    enabled: 'Four scoped families have offline native-browser preparation: textbook, daily_zero, student_course and item_metadata. DayRecord is retained as a blocked contract/audit compatibility lane until current headers qualify. No generic catalog execution is enabled.',
+    enabled: 'Five scoped families have offline native-browser preparation: textbook, daily_zero, day_record, student_course and item_metadata. DayRecord binds the independently qualified native-entry header/handler contract. No generic catalog execution is enabled.',
     unknown: 'All other operations retain exact blocker/provenance/current-source references. Unknown IDs never create guessed requests or fallback results.',
     externalLimits: 'A loaded website Tree is not a production DB schema or complete native-app/server implementation. No direct SQL interface is approved or exposed.',
     continuation: 'Qualify additional exact read operations against the same source, identity, effect, response and coverage contract; preserve the program until whole teacher-accessible coverage is accepted.',

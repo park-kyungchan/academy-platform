@@ -1,4 +1,5 @@
 import {createAcademyReadPlan,executeAcademyRead} from '../src/lms/academyReadProtocol';
+import {currentDayRecordColumns} from '../src/lms/dayRecordColumnContract';
 
 /** Executed only by the native browser, never by importing this entry in Bun. */
 export async function runNativeAcademyRead(input:unknown) {
@@ -6,5 +7,6 @@ export async function runNativeAcademyRead(input:unknown) {
   const authenticated=location.origin===plan.origin&&!document.querySelector('input[type=password]')
     &&!!document.body?.innerText.includes(plan.request.teacherLabel+'- [로그아웃]');
   return executeAcademyRead(plan,{origin:location.origin,authenticatedTeacherVisible:authenticated,
+    ...(plan.family==='day_record'?{dayRecordColumnContract:currentDayRecordColumns}:{}),
     principalKey:document.querySelector<HTMLInputElement>('[name=pri_no]')?.value,fetcher:(url,init)=>fetch(url,init)});
 }
