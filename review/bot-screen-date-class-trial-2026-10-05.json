@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "kind": "executed_bot_screen_teacher_development_trial",
+  "profile": "dc-gang-a-dev",
+  "canonicalCheckpoint": "handoffs/workflow-current-state.json",
+  "status": "actual_app_browser_trial_passed_production_continuity_blocked",
+  "wholeTeacherProductComplete": false,
+  "currentUserDecisions": {
+    "login": "User explicitly reports the new-password teacher login succeeded; do not interview it again. This human acceptance predates the newly observed current outage.",
+    "botUse": "Execute a trial in existing work rather than write a proposal; formal standing Workflow integration remains user-selected after results.",
+    "restoration": "Windows PM restores only reproducible PostgreSQL 18/cloudflared prerequisites. After exact readiness readback, dc Lead may restart the existing DB/app/dc-only tunnel with original data/current authentication. No new DB, account/DNS/billing, native interruption or Host/other-container execution by dc Lead."
+  },
+  "actualChanges": [
+    "Bind existing authenticated date-class queries to a date-first all-observed-occurrence UI; retain literal attendance and multiple groups for one student.",
+    "Distinguish exact selected lesson source fields/keys/times from the student's whole evidence; preserve unknown joins and roster completeness.",
+    "Refuse foreign/date/count/duplicate-occurrence drift and prevent late date/student responses from changing the latest selection.",
+    "Serve pinned OFL Nanum Gothic from the application, with exact hash test and readable Korean screenshot; no OS font or installed-engine change.",
+    "Add explicit active-profile synthetic-only localhost rehearsal over the actual TeacherApplication/HTTP/client with an invented in-memory reader; no real DB, credential file or academy connector. Final rehearsal asserts its synthetic actor server-side and does not issue browser cookies."
+  ],
+  "executedLoop": ["Read goal and current source contracts", "Run tight failing source/native-browser cases", "Implement scoped source change", "Build/test before opening Screen", "Bind exact owned URL/page and invoke reusable browser cases", "Capture the same profile's composited Screen immediately", "Consume repair/defer/block separately and retain exact evidence"],
+  "validation": {
+    "focusedUnit": {"pass":6,"fail":0},
+    "nativeBrowserActualApplication": {"pass":9,"fail":0,"source":"tests/academy/dateClassBrowserCases.ts","syntheticOnly":true,"actualPostgres":false,"realTeacherLoginAcceptance":false},
+    "browserCases": ["all_observed_occurrences","literal_N_not_hidden","exact_other_group_selection","exact_empty_date","outage_retains_old_date_and_clocks","different_date_occurrence","late_date_response_refused","late_student_response_refused","same_origin_korean_font"],
+    "nativeFullScreen": {"width":1440,"height":900,"readableKoreanAndThreeOccurrencesObserved":true,"windowsDesktopClientRenderConfirmedByUser":false},
+    "actualDatabaseSuite": {"pass":35,"fail":8,"skip":0,"reason":"Existing PostgreSQL connection refused; retain failure instead of substituting the in-memory reader."},
+    "portableAcademy": {"pass":32,"skip":11,"fail":0,"meaning":"Portable synthetic acceptance only, not actual database acceptance."},
+    "cloudCheck": "passed_synthetic_and_source_integrity",
+    "typechecks": ["project","harness","agent-runtime"],
+    "academyRequests": 0,
+    "humanTakeoverHandback": "not_exercised_in_this_model_trial",
+    "singleWindowComputerCapture": "failed_then_stale_target; composited capture succeeds; root cause not certified",
+    "independentReview": "not_dispatched_no_fresh_restricted_worker_admission"
+  },
+  "observedCurrentRuntime": {
+    "version": "Hermes Agent vgit.1298c8e.dirty (2026.9.24), upstream short 1298c8e7; not an independent full-byte commit attestation",
+    "profileHome": "/opt/data/profiles/dc-gang-a-dev",
+    "browserHeaded": true,
+    "screenAutoStart": true,
+    "browserInactivitySeconds": 120,
+    "nativeOwner": "Installed native inactivity cleanup respects human control; do not replace it with a keepalive/config change.",
+    "currentProfileCronJobCount": 0,
+    "operatorEvidence": "Active-profile screen-tests/1298c8e7 is historical operator tool-path evidence with llm_turn_executed=false, not this trial or all upstream regression acceptance."
+  },
+  "retainedFailuresAndLimits": [
+    "Default CDP Target.getTargetInfo was a browser target; qualify a unique exact page target before switch_tab/Runtime evaluation.",
+    "Native cosmetic horse title prefix is source-qualified; preserve literal original heading/URL/profile checks.",
+    "A long code/research gap outlived the native inactivity window; old DOM/OS targets were not persistent state. Batch build first and capture immediately without changing cleanup.",
+    "Generic native typing into the date field changed 2090-01-04 into 0104-02-09. Retain the false-positive evaluator attempt and require exact requested-date equality; the final semantic DOM date setter and complete case rerun passed.",
+    "Korean DOM text was correct while pixels showed missing glyphs; same-origin licensed font and subsequent real capture repaired it.",
+    "Existing primary PG_VERSION 18 and directory remain, but PostgreSQL/pg_ctl/cloudflared tools and DB/app processes are absent. The public teacher host currently returns HTTP 530/tunnel error 1033; data-row/auth parity and restore remain unverified.",
+    "No actual user Take over/Hand back, gateway/Cron GUI, ocp-readonly-review plugin or physical-device acceptance was claimed."
+  ],
+  "measured": {"apiResourceCounts":{"/api/cohort":1,"/api/class":8,"/api/student":9},"fontTransferBytes":2054744,"scope":"One invented local browser run including deliberately injected outage/latency; not production throughput or measured time/cost reduction."},
+  "priority": ["PM prerequisite readiness then independently restore/read back existing teacher stack", "Finish actual DB and teacher date/student acceptance plus exact-head Git integration", "Qualified hierarchy/source joins and attributable teacher review/history/drafts", "Independent encrypted copy/actual restore before non-regenerable teacher capture expands", "Actual supported WebMCP consumer; no installed-engine shim"],
+  "ownedWork": {"branch":"feat/date-class-screen-qa-20261005","temporaryRehearsalProcess":"proc_d84aaca6a1c3","privateEvidenceRoot":"Active-profile cache/scratch/date-class-screen-qa-20261005","publication":"No merge/production deployment while real DB gate and PM prerequisite recovery remain blocked."},
+  "recovery": "Preserve current dirty owned source, private evidence and original database/current authentication. Clean only created fixture tabs/servers; never initialize the primary, restore an old password/key, kill foreign work or rewrite native history. Use normal reviewed code revert if needed; actual stack start waits for the admitted readiness gate."
+}

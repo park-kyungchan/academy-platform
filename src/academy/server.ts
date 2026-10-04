@@ -49,6 +49,7 @@ export function createTeacherServerHandler(options:TeacherServerOptions){
       if((path==='/'||path==='/setup'||path==='/reset')&&req.method==='GET')return new Response(options.page??'Private teacher application',{headers:{...securityHeaders,'Content-Type':'text/html; charset=utf-8',
         ...(trial&&url.hostname===admittedHost&&Date.parse(trial.expiresAt)>Date.now()?{'Origin-Trial':trial.token}:{})}});
       if(path==='/client.js'&&req.method==='GET')return new Response(options.script??'',{headers:{...securityHeaders,'Content-Type':'text/javascript; charset=utf-8'}});
+      if(path==='/teacher-ko-76f45ef4.ttf'&&req.method==='GET')return new Response(Bun.file(new URL('./web/assets/NanumGothic-Regular.ttf',import.meta.url)),{headers:{...securityHeaders,'Content-Type':'font/ttf','Cache-Control':'public, max-age=31536000, immutable'}});
       if(path==='/api/setup-session'&&req.method==='POST'){
         const data=await body(req);assertExactKeys(data,['invitation']);
         if(identity||!invitationDigest||typeof data.invitation!=='string'||secretDigest(data.invitation)!==invitationDigest)return json({error:'setup_not_admitted'},403);

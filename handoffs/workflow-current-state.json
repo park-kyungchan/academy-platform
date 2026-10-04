@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-04T12:22:04Z",
-    "objective": "On Hermes Linux Backend, teacher password recovery is implemented/deployed and published in PR 15; exact PR/main readback owns publication state. Human reset changed hash, revoked sessions and consumed its grant; teacher identity and 5 partitions/143 heads/153 versions preserved. See review/teacher-password-recovery-2026-10-04.json. Next: fresh teacher login acceptance, then coherent source-to-scene usefulness. Only current Lead has product authority; predecessor runtime/history may remain. Check actual conflicts, not lease count. Academy stays read-only. Full hierarchy/joins, actual WebMCP and independent recovery remain open.",
+    "updatedAtUtc": "2026-10-04T23:44:02Z",
+    "objective": "On Hermes Linux Backend, user reports new-password login success. Date-class UI and Bot Screen actual-app trial: 9 invented browser cases pass, Korean pixels repaired; see review/bot-screen-date-class-trial-2026-10-05.json. Current site 530/1033: PG18 dir exists, but tools/DB/app absent; actual tests 35 pass/8 fail. User selects Windows PM prerequisite restoration, then Lead existing-stack restart/readback with current auth/data. Hold merge/rollout until real DB gate. Owned branch feat/date-class-screen-qa-20261005. Academy read-only; full hierarchy, teacher history, WebMCP and independent recovery remain open.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
@@ -271,7 +271,7 @@
       },
       {
         "id": "backend_execution_scope",
-        "statement": "All work executes on the Hermes Linux Backend. Windows Desktop is remote-only; no Windows-local or Host/other-container administration is admitted by repo leadership. The official profile creation callback may register its stopped container-local s6 gateway, without starting it or restarting existing services.",
+        "statement": "All dc Lead execution stays on connected Linux Backend; Windows Desktop is remote-only, no Host/other-container administration. Profile creation may register its stopped container-local s6 gateway, not start/restart services. Latest user selects Windows PM to restore only reproducible PG18/cloudflared prerequisites; after exact readiness readback, Lead may restart existing DB/teacher app/dc-only tunnel with original data/current auth. No initdb, old-password/key restoration, native interruption, account/DNS/billing or automatic worker/schedule changes. Bot Screen is a current trial, not an installed standing Workflow.",
         "source": "user_interview"
       },
       {
@@ -333,8 +333,8 @@
         "id": "five_student_product_delivery",
         "owner": "lead",
         "action": "resolve_continuation_source",
-        "referencePaths": ["review/teacher-password-recovery-2026-10-04.json", "docs/teacher-password-recovery-contract.ts", "review/teacher-source-evidence-closeout-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "docs/academy-dayrecord-column-qualification-2026-10-04.json", "review/teacher-ontology-cohort-db-2026-10-04.json", "docs/teacher-ontology-delivery-plan.ts", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
-        "dependsOnQuestionIds": ["backend_lead_authority"]
+        "referencePaths": ["review/bot-screen-date-class-trial-2026-10-05.json", "review/teacher-password-recovery-2026-10-04.json", "docs/teacher-password-recovery-contract.ts", "review/teacher-source-evidence-closeout-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "docs/academy-dayrecord-column-qualification-2026-10-04.json", "review/teacher-ontology-cohort-db-2026-10-04.json", "docs/teacher-ontology-delivery-plan.ts", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
+        "dependsOnQuestionIds": ["backend_lead_authority", "backend_execution_scope"]
       },
       {
         "id": "source_domain_application_spine",
