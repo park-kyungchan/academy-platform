@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "kind": "academy_whole_read_extension_result",
+  "status": "two_additional_source_components_exercised_public_consumer_integration_pending",
+  "programComplete": false,
+  "sourceBase": "be4729dd8621dd012598107c2d802357aaadceb9",
+  "ownership": {
+    "developmentWorktree": "/opt/data/workspace/dc-gang-a-whole-read",
+    "developmentBranch": "feat/academy-whole-read-20261003",
+    "priorUnitFrozen": "/opt/data/workspace/dc-gang-a-deterministic-read",
+    "priorPublicationOwner": "default profile / Ontology Platform / 20261002_215029_524dfe",
+    "oldWorktreeOrIndexModifiedByThisExtension": false,
+    "commitsPushPrMergeCleanupPerformedHere": false
+  },
+  "teacherUpdate": "Teacher reports final review, some corrections and parent sending of four 2026-10-02 journals. Do not overwrite or resend; actual delivered-body/receipt join remains separately unverified.",
+  "unblockedPriorOperation": {"threePrivateV2AuditsSucceeded":true,"bookAndDailyRepeatContentDigestsMatched":true,"exactPhotoWrongReferenceMatches":9,"dayRequestedScopeRetained":true},
+  "newComponents": [
+    {
+      "source":"src/lms/studentCourseRead.ts",
+      "test":"tests/lms/studentCourseRead.test.ts",
+      "actualOperation":"StudyCourse fixed GET plus its current source-declared exact-student POST search",
+      "identity":"academy_student_course: studentKey/collegeKey/courseKey/userCourseKey",
+      "proof":"onChangeStatus, onResetCourse and onDeleteCourse three passive literal tuples agree; never invoke the mutating handlers",
+      "nativeCompiledReaderSourceRows":1,
+      "sourceCells":"Seven literal cells, no inferred course/book/lesson semantics",
+      "coverage":"observed_row_not_all_assignments_or_pagination"
+    },
+    {
+      "source":"src/lms/itemMetadataRead.ts",
+      "test":"tests/lms/itemMetadataRead.test.ts",
+      "actualOperation":"GET TestPageShowExServlet p_process=GetLectureList with one previously verified literal lecture_list key",
+      "response":"result=OK; exactly one rows entry; exact lecture_key and id match, outer_lecture_key remains separate",
+      "nativeCompiledReaderSourceItems":1,
+      "minimization":"Answer omitted; unit/pattern/difficulty/play_seconds are source item metadata, not student grading, mastery or watch history",
+      "coverage":"one_exact_verified_item_not_all_content_or_batch_encoding"
+    }
+  ],
+  "syntheticValidation": {
+    "command":"bun test tests/lms/studentCourseRead.test.ts tests/lms/itemMetadataRead.test.ts",
+    "pass":7,
+    "fail":0,
+    "assertions":30,
+    "rootTypecheck":"passed",
+    "basePortableGate":"cloud:check passed separately; its existing package list does not yet include these two new source tests",
+    "redGreen":"Observed missing parser/reader failures and numeric request key regression before fixes",
+    "review":"Lead source review and tests, not independent reviewer acceptance"
+  },
+  "architectureResearch": {
+    "artifact":"docs/academy-data-architecture-research-2026-10-03.json",
+    "claims":"Seven primary-source claims have mechanically verified citation IDs/URL mappings in an isolated prose projection. Incidental RLS source is registered but not cited.",
+    "recommendedDirection":"Modular product and existing consumer, semantic per-domain adapters, relational candidate store with indexed bounded version payloads and separate teacher/evidence/cache lanes. Graph projection/provider remains unselected and requires measured requirements.",
+    "noResourceAdmission":"Extra native Projects are allowed; this is not new cloud, billing, account, service, independent backup or production DB approval."
+  },
+  "fullInventoryDisposition": {"knownEntries":95,"families":17,"readEntriesNeedingDataQualification":30,"unknownEffectAndWireEntries":44,"notReadOperations":21,"derivedView":"Active profile artifacts/2026-10-03-whole-catalog-disposition.json; source is existing endpoint:query, not another registry"},
+  "nextBoundedAction": [
+    "After exact prior-unit merge and publication-owner release, reconcile the new worktree against that tested base and connect both adapters to the existing preparation/audit consumer; do not maintain a parallel CLI or overwrite the frozen unit.",
+    "Qualify current Park roster/assignment/course key spelling and selected-student progress, full requested pagination and temporal semantics through the current teacher channel.",
+    "Follow verified item/paper/attempt identifiers and current source handlers for remaining source data without requiring an official API provision; refuse unknown mutating variants rather than fabricate results.",
+    "Retain requested on-demand whole-student coverage, context-aware typed hierarchy, outage continuity and independent recovery as program acceptance gates; no three/five-family sample closes the mission."
+  ],
+  "notEstablished": ["Whole teacher-accessible data synchronization", "Source backend/native-app/SQL completeness", "Full roster/history/page acceptance", "Public fresh-context agent delivery for these two adapters", "Unattended authentication", "Protected persistent store or independent restore", "Native/browser WebMCP registration"]
+}

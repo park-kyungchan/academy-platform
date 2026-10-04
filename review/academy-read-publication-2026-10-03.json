@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "kind": "academy_read_publication_checkpoint",
+  "observedAtUtc": "2026-10-03T12:01:10Z",
+  "status": "working_repairs_verified_publication_blocked_on_dayrecord_contract_and_native_dom",
+  "publicationOwner": {"profile":"default","session":"20261002_215029_524dfe"},
+  "peer": {"profile":"dc-gang-a-dev","session":"20261003_195827_a9aba4","purpose":"Teacher source read-only acquisition","gitEffects":"Not assigned; default retains integrated publication and cleanup"},
+  "source": {
+    "worktree":"/opt/data/workspace/dc-gang-a-deterministic-read",
+    "branch":"feat/deterministic-academy-read-20261002",
+    "base":"be4729dd8621dd012598107c2d802357aaadceb9",
+    "otherWorktree":"/opt/data/workspace/dc-gang-a-whole-read",
+    "otherWorktreeEdits":"None by this publisher",
+    "primaryCheckoutAdvance":"Not performed during peer source reads"
+  },
+  "worker": {
+    "assignment":"DC-DREAD-I1-524dfe",
+    "nativeSession":"20261003_202241_d87bd7",
+    "terminalHandle":"proc_f7d948257ac2",
+    "model":"gpt-6.1-sol",
+    "provider":"openai-codex",
+    "reasoning":"xhigh",
+    "maximumTurns":60,
+    "runBudgetSeconds":12000,
+    "terminalExitCode":0,
+    "observedNativeApiCalls":30,
+    "distinctToolCalls":29,
+    "observedUnderlyingTools":["ocp_review_read","tool_describe"],
+    "sourceCoverage":{"requiredDocuments":17,"completeDocuments":17,"requiredPages":27,"observedPages":27},
+    "final":{"messageId":148887,"unicodeCharacters":19263,"consumerMaximumCharacters":16000,"verdict":"reject","outputSchemaValid":true,"completeConsumerEvidence":"INSUFFICIENT: final output exceeds the declared bound"},
+    "disposition":"Unaccepted implementation-proposal data only; Lead independently reproduced selected findings. Not independent code acceptance.",
+    "actualWorkerTests":0,
+    "actualBilledCost":null,
+    "actualWorkerAssignmentsConsumed":1,
+    "maximumAssignmentsApproved":2,
+    "remainingIndependentReview":"V1 not launched/reserved; no automatic I1 replacement",
+    "evidenceLocation":"Default-owned scratch I1/EVIDENCE.json; native rows stay in their native store"
+  },
+  "nativeSelectionRecovery": {
+    "verifiedRestored":true,
+    "pluginsEnabled":["browser-workbench"],
+    "pluginsDisabled":["ocp-readonly-review"],
+    "contextLengthPin":"Still absent",
+    "workerProcess":"Exited; no native worker remains active from this unit",
+    "current900kSessionSelection":"Not changed",
+    "clientVersion":"User-confirmed synchronized; do not repeat version probes"
+  },
+  "leadRepairs": [
+    {"source":"src/lms/academySourceAudit.ts","change":"Reject unexpected snapshot-envelope properties, malformed/populated foreign-family arrays and inappropriate requestedScope."},
+    {"source":"src/lms/academySourceAudit.ts","change":"Reject mixed DayRecord principals and unsupported/non-string journal fields."},
+    {"source":"src/lms/academySourceAudit.ts","change":"Preserve exact positive-decimal nonrenderable paperKey representations; reject observed zero-item grades."},
+    {"source":"harness/academy_read_prepare.ts","change":"Reject linked/noncanonical parent directories, retain exclusive private output creation and revalidate the output boundary immediately before writing."},
+    {"source":"src/lms/dayRecordReadProtocol.ts","change":"Align principal ingress with the existing canonical positive safe-decimal key contract, retaining the existing refusal code."},
+    {"source":"tests/lms/lmsLiveQueryService.test.ts","change":"Replace touched real-student examples with explicitly invented names, identities, titles, dates and scores. Existing Git history is not rewritten."}
+  ],
+  "leadVerification": {
+    "tdd":"Observed actual RED then GREEN for audit envelope/principal/paper invariants, linked-parent acceptance and principal grammar; no fabricated RED or worker test claim.",
+    "focused":{"command":"bun --no-env-file test --dots tests/lms/academyReadProtocol.test.ts tests/lms/academySourceAudit.test.ts","pass":23,"fail":0,"assertions":104},
+    "portable":{"command":"bun --no-env-file run cloud:check","exitCode":0,"passedTestExecutions":799,"failedTestExecutions":0,"optionalSkips":1,"typechecks":3,"scope":"Synthetic/source integrity only"},
+    "skip":"Existing optional Poppler-dependent test",
+    "preservedFailure":"One new principal test initially failed typecheck due widened family string; fixed by the literal type, without loosening behavior assertions.",
+    "diffCheck":"Passed"
+  },
+  "blockingSourceAndRuntimeGaps": [
+    {"id":"dayrecord_column_semantics","state":"source_evidence_needed","meaning":"Collector infers column groups from handler names while the binder contract expects actual header/column layout. Request current minimized structural evidence from the peer; do not guess, weaken the binder or publish that gap as accepted."},
+    {"id":"native_dom_regressions","state":"unexecuted_prerequisite_failure","meaning":"Synthetic native-DOM cases were authored/compiled but browser.use_real_profile could not use the client's default browser. An existing bundled Chrome for Testing 145.0.7632.6 launched with sandbox enabled, then refused with No usable sandbox. No fixture assertions ran and no RED/GREEN native-DOM result is claimed."},
+    {"id":"browser_policy","state":"unchanged","meaning":"No browser real-profile toggle, sandbox policy, Host/AppArmor/container security setting, existing browser profile or service was changed. A separately authorized existing native-browser synthetic evaluation or exact isolated-test permission is required."},
+    {"id":"dayrecord_pending_repairs","state":"not_claimed_done","meaning":"Non-string value controls and selected XML authentication/size/parser-error/multiple-record checks still need discriminating DOM-backed validation. Existing live receipts belong to earlier source generations."}
+  ],
+  "legacyAuditDisposition": "Unscoped legacy observed DayRecord snapshots already retain requestedScope=null and requested_scope_not_retained_in_legacy_snapshot. Originals are preserved. Their observational status is not requested-scope or whole-cohort acceptance; final reviewer must evaluate this explicit compatibility distinction rather than silently fabricate or overwrite their scope.",
+  "publication": {
+    "newCommit":false,"push":false,"newPr":false,"merged":false,"ownedBranchCleanup":false,
+    "pr6":"Still open; current code-level disposition is supersede without merging, preserve foreign branch. Close only with the qualified replacement publication.",
+    "pr10Pr11":"Merged code retained",
+    "branchProtectionRead":"403 with current token; no assumption of absent protection or bypass",
+    "ontologyPlatform":"Private target is user-reported/inaccessible to current credential; absence is not asserted and no visibility change is proposed"
+  },
+  "coordination": {
+    "request":"/opt/data/cache/scratch/git-publication-20261002_215029_524dfe/SOURCE-CONTRACT-REQUEST.json",
+    "delivery":"User-carried @file; no automatic cross-profile message or acknowledgement claimed",
+    "recipientNext":"Return minimized DayRecord structural source contract without touching branches/index or performing Git lifecycle",
+    "publisherNext":"Consume peer evidence, qualify the remaining DOM-dependent repairs, freeze exact final source, launch the one remaining independent reviewer and continue the guarded Git lifecycle"
+  },
+  "excludedEffects": ["Duplicate academy read/save/send","Source profile configuration/history writes","Source-code changes in peer worktree or primary checkout","Installed Hermes or Host/other-container modification","Credential reveal/copy/expiry changes","Security-policy weakening","Forced Git history or foreign cleanup"],
+  "wholeLensLimit": "A passing portable gate and selected repaired boundaries do not close the full 95-entry/17-family teacher-data program or establish protected storage, independent restore, source backend/SQL/native-app completeness or whole product acceptance."
+}

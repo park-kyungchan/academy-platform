@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "kind": "academy_agent_data_architecture_research",
+  "status": "researched_direction_not_hosted_selection_or_complete_data_acceptance",
+  "objective": "A context-aware structured/typed/hierarchical agent facade enabling current on-demand reads of every authorized datum for the teacher's students. The whole known interface remains in scope, not only three canaries.",
+  "confirmedLatestInterview": {
+    "firstScale": "One teacher with multi-teacher extensibility",
+    "priority": "Any required teacher-owned student information synchronized from the academy to the connected Backend on demand",
+    "widerAdminScope": "Conditional on a demonstrated required-workflow bottleneck and separately verified authority. Not an automatic privilege expansion.",
+    "agentMeaning": "Agents understand purpose, resource identity, relationships, source/effect/authority, temporal scope and outcome rather than re-discovering routes",
+    "readRealtimeMeaning": "Fresh source acquisition on a requested operation, not an installed continuous replication or a promise to bypass authentication/source outages",
+    "sourceProviderAssumption": "Assume no separately supplied official API/export. Use the teacher-visible current functionality, verified paper/item/student/attempt identifiers and multiple source-specific acquisition paths; do not make official source provision a startup dependency.",
+    "projectCreation": "The user permits additional native Projects in dc-gang-a-dev if useful. Preserve a maintainable directory/ownership tree; this does not approve cloud resources, billing or access changes.",
+    "webMcpProgression": "Build meaningful typed/hierarchical operations linked to qualified current academy functionality incrementally. A browser registration label or item identifier alone does not prove student-specific activity or a production agent facade."
+  },
+  "preservedObserverDecisions": {
+    "sourceServer": "Externally owned, read/analyze only; build an agent-facing facade rather than modifying or copying its backend",
+    "lanes": ["Minimal necessary source evidence and accepted-time version", "Non-regenerable teacher judgments/notes/approvals/corrections", "Regenerable derived cache/view"],
+    "outage": "Last verified facts remain dated/scoped and visibly unavailable-current; teacher inputs continue without claiming official source save",
+    "recovery": "Input received, history saved/read back, independent copy verified, actual restore verified are distinct states",
+    "kg": "A later consumer; individual mathematics examples are not current architecture prerequisites"
+  },
+  "repoAssessment": [
+    {"finding":"The known endpoint inventory is valuable but all static entries stay non-callable; metadata alone does not satisfy data acquisition.","sourceRefs":["src/lms/endpointCatalog.ts","docs/academy-backend-reengineering-contract.ts"],"disposition":"Keep exact original IDs and effect/source provenance; attach qualified per-domain capabilities through the existing consumer, not another endpoint registry."},
+    {"finding":"The prior three-family reader is a valid bounded acquisition/audit foundation, not complete student history, whole roster, pagination or unattended authentication.","sourceRefs":["Prior publication unit: src/lms/academyReadProtocol.ts","Prior publication unit: src/lms/academySourceAudit.ts"],"disposition":"Extend through semantic family modules with runtime input/response validation, request-scope coverage, source drift refusal and source-specific joins. Integrate after the publication owner releases its exact merged base."},
+    {"finding":"The local revision store is explicitly synthetic and its existing whole-partition validation is not a measured large-scale production history implementation.","sourceRefs":["src/storage/syntheticLearningSqlite.ts","docs/student-database-architecture-2026-10-01.json"],"disposition":"Preserve it as compatibility/recovery rehearsal; do not place real students in it or label it a protected hosted store."}
+  ],
+  "recommendedTargetArchitecture": {
+    "status":"Lead recommendation; implementation/resource selection gates remain",
+    "form":"One modular product with ports/adapters and one semantic contract spine, not early microservices or a fleet of parallel state registries",
+    "sourceBoundary":"Origin-bound native authentication with reviewed fixed operations; no exported cookie, generic URL dispatcher, simulated backend row or implicit save/generation",
+    "domainBoundary":"Separate identity/enrollment/occurrence, assignments/prestudy, assessment attempts/item grades/clinic lanes, shared content/media, teacher review and delivery evidence",
+    "historyBoundary":"Append-only teacher/evidence revisions with explicit valid/source-observed/recorded/approved times; current indexed projections remain rebuildable",
+    "storeCandidate":"PostgreSQL is the preferred candidate to evaluate for relational identities, constraints, transactions and indexed version/evidence queries; provider selection and provisioning are not approved here",
+    "graphBoundary":"Versioned relation/edge tables and recursive queries can support hierarchical traversal initially. A graph projection or separate graph store is justified only by measured query requirements; a database is not the Ontology layer.",
+    "agentBoundary":"Describe and validate purpose, input identity, scope, typed result, permitted effect, completeness/unknown states and recovery per tool. Native tool/MCP exposure and browser WebMCP are separate activation decisions.",
+    "multiAgent":"Concurrent reads may use bounded acquisition concurrency; retained histories require store-level CAS/idempotency and exact owner scope. Profile/session names are not isolation or locks."
+  },
+  "primarySourceFindings": [
+    {"claim":"PostgreSQL provides primary/unique/foreign-key constraints. Cross-row restrictions should not be encoded as CHECK constraints that inspect other rows.[2]","implication":"Keep identity and relation invariants in appropriate relational constraints rather than only JSON blobs."},
+    {"claim":"JSON document updates acquire a row-level lock on the whole row.[1]","implication":"Avoid one giant per-student mutable JSON document; retain bounded versioned payloads beside indexed typed identity columns."},
+    {"claim":"PostgreSQL recursive WITH supports hierarchical traversal and explicit CYCLE detection.[5]","implication":"A hierarchy requirement alone does not require an additional graph database. Benchmark representative traversals before selecting one."},
+    {"claim":"PostgreSQL exposes transaction isolation choices; successful Serializable transactions are equivalent to a serial execution order.[8]","implication":"Multi-agent history writes need transaction/retry semantics and a persisted idempotency key, not only a hash or in-memory preview."},
+    {"claim":"Neo4j documents uniqueness constraints and marks property-existence/type/key constraints as Enterprise Edition.[7]","implication":"Evaluate actual edition/entitlement and operations before assuming a free graph option offers identical integrity guarantees."},
+    {"claim":"Event sourcing introduces substantial schema, concurrency, query and migration trade-offs; Microsoft recommends it when its benefits justify that complexity.[4]","implication":"Use append-only evidence/teacher revisions where required without automatically adopting a queue/event-bus architecture for every source entity."},
+    {"claim":"PostgreSQL distinguishes SQL dump, filesystem backup and continuous archiving.[6]","implication":"An independent protected recovery destination and actual restore test remain required; local file existence or provider marketing is insufficient."}
+  ],
+  "necessaryAcceptance": [
+    "For every teacher-owned requested resource, bind exact source subject and resource identity, read all requested pages or explicitly block completeness.",
+    "Expose unsupported source fields, native-app-only data, unknown effects and inaccessible history as specific blockers; do not replace them with guessed states.",
+    "A fresh-context agent can discover the operation, supply current scope, acquire real source data and consume a typed audited result without route re-discovery.",
+    "Test multi-agent read concurrency, source-expiry/drift/outage, duplicate/mismatched identity and teacher correction conflicts at routine workload.",
+    "Retained teacher/evidence history survives the explicitly named failure domain with verified audience, identities/counts/revisions and real restore output.",
+    "Measure required production-scale query and backup/restore performance rather than infer scalability from a small synthetic test."
+  ],
+  "currentNewCode": {"modules":["src/lms/studentCourseRead.ts","src/lms/itemMetadataRead.ts"],"tests":["tests/lms/studentCourseRead.test.ts","tests/lms/itemMetadataRead.test.ts"],"scope":"Passive three-tuple student/course binding and current StudyCourse acquisition; one previously verified item key through GetLectureList with exact lecture_key/id validation. Original course cells remain literal; item metadata does not establish student activity.","focusedTest":{"pass":7,"fail":0,"assertions":30},"rootTypecheck":"passed","compiledNativeBrowserReaders":{"courseSourceRowsObserved":1,"exactThreeTupleBindings":1,"sourceItemsObserved":1,"wholeCourseOrPageCoverageEstablished":false,"mutationHandlersInvoked":false},"publicConsumerIntegration":"Await exact prior-unit publication base; no edits to its frozen worktree or index"},
+  "excludedEffects": ["Installed runtime or academy site changes", "Host/other-container operations", "Database/account/billing provisioning", "Scheduled jobs", "Unrestricted workers", "Official journal overwrite or parent sending", "Independent Git publication"],
+  "researchSources": [
+    {"id":1,"url":"https://www.postgresql.org/docs/current/datatype-json.html"},
+    {"id":2,"url":"https://www.postgresql.org/docs/18/ddl-constraints.html"},
+    {"id":3,"url":"https://www.postgresql.org/docs/current/ddl-rowsecurity.html"},
+    {"id":4,"url":"https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing"},
+    {"id":5,"url":"https://www.postgresql.org/docs/current/queries-with.html"},
+    {"id":6,"url":"https://www.postgresql.org/docs/current/backup.html"},
+    {"id":7,"url":"https://neo4j.com/docs/cypher-manual/current/schema/constraints"},
+    {"id":8,"url":"https://www.postgresql.org/docs/current//transaction-iso.html"}
+  ]
+}

@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from 'bun:test';
 import { LmsLiveQueryService } from '../../src/lms/lmsLiveQueryService';
 import type { LmsTestSummaryItem } from '../../src/lms/lmsLiveQueryService';
 
+// Invented names, identifiers, titles, scores and dates only; no academy records.
+
 describe('LmsLiveQueryService & Deterministic Parser', () => {
   let service: LmsLiveQueryService;
 
@@ -34,19 +36,19 @@ describe('LmsLiveQueryService & Deterministic Parser', () => {
       const mockHtml = `
         <script>
         EXTERN_DIALOG = {
-          testResultList: JSON.parse('[{"pNo":6343283,"testingNo":20549621,"score":84,"oQuestions":25,"userName":"유지연","testingName":"[대단원총괄평가] [가우스] 3 방정식 대단원 총괄 - 유지연","hangDate":"09.28","applyDate":"09-28 16:35"}]')
+          testResultList: JSON.parse('[{"pNo":7101,"testingNo":8101,"score":63,"oQuestions":2,"userName":"Invented Student","testingName":"Invented assessment - Invented Student","hangDate":"01.01","applyDate":"01-01 10:15"}]')
         };
         </script>
       `;
 
       const list = service.parseTestSummaryList(mockHtml);
       expect(list.length).toBe(1);
-      expect(list[0].pNo).toBe('6343283');
-      expect(list[0].testingNo).toBe('20549621');
-      expect(list[0].score).toBe(84);
-      expect(list[0].oQuestions).toBe(25);
-      expect(list[0].userName).toBe('유지연');
-      expect(list[0].applyDate).toBe('09-28 16:35');
+      expect(list[0].pNo).toBe('7101');
+      expect(list[0].testingNo).toBe('8101');
+      expect(list[0].score).toBe(63);
+      expect(list[0].oQuestions).toBe(2);
+      expect(list[0].userName).toBe('Invented Student');
+      expect(list[0].applyDate).toBe('01-01 10:15');
     });
 
     it('throws clear error when session expired or login redirect happens', () => {
@@ -65,14 +67,14 @@ describe('LmsLiveQueryService & Deterministic Parser', () => {
     it('extracts question-level scoring and answers for specified student', () => {
       const mockPupilHtml = `
         <script>
-        var cache = JSON.parse('[{"studentName":"유지연","score":84.0,"allCorrect":false,"priNo":1293138,"pNo":"6343283","testingNo":20549621,"applyDate":"09.28","applyEndDate":"16:35","examResultList":[{"_examNo":1,"examScore":0.0,"examScoreMax":4.0,"answer1":"3"},{"_examNo":2,"examScore":4.0,"examScoreMax":4.0,"answer1":"2"}]}]');
+        var cache = JSON.parse('[{"studentName":"Invented Student","score":63.0,"allCorrect":false,"priNo":9101,"pNo":"7101","testingNo":8101,"applyDate":"01.01","applyEndDate":"10:15","examResultList":[{"_examNo":1,"examScore":0.0,"examScoreMax":4.0,"answer1":"3"},{"_examNo":2,"examScore":4.0,"examScoreMax":4.0,"answer1":"2"}]}]');
         </script>
       `;
 
-      const detail = service.parsePupilGradingDetails(mockPupilHtml, '유지연');
+      const detail = service.parsePupilGradingDetails(mockPupilHtml, 'Invented Student');
       expect(detail).not.toBeNull();
-      expect(detail!.studentName).toBe('유지연');
-      expect(detail!.score).toBe(84);
+      expect(detail!.studentName).toBe('Invented Student');
+      expect(detail!.score).toBe(63);
       expect(detail!.examResultList.length).toBe(2);
       expect(detail!.examResultList[0]._examNo).toBe(1);
       expect(detail!.examResultList[0].examScore).toBe(0);
@@ -81,16 +83,16 @@ describe('LmsLiveQueryService & Deterministic Parser', () => {
       expect(detail!.examResultList[1].examScore).toBe(4);
     });
 
-    it('converts PupilResultDetail into normalized RawAppAssessmentSubmission', () => {
+    it('refuses fabricated answer keys, lecture identities and submission timing', () => {
       const detail = {
-        studentName: '유지연',
-        priNo: 1293138,
-        pNo: '6343283',
-        testingNo: 20549621,
-        score: 84,
+        studentName: 'Invented Student',
+        priNo: 9101,
+        pNo: '7101',
+        testingNo: 8101,
+        score: 63,
         allCorrect: false,
-        applyDate: '09.28',
-        applyEndDate: '16:35',
+        applyDate: '01.01',
+        applyEndDate: '10:15',
         examResultList: [
           { _examNo: 1, examScore: 0, examScoreMax: 4, answer1: '3' },
           { _examNo: 2, examScore: 4, examScoreMax: 4, answer1: '1' }
@@ -98,42 +100,35 @@ describe('LmsLiveQueryService & Deterministic Parser', () => {
       };
 
       const summary: LmsTestSummaryItem = {
-        pNo: '6343283',
-        testingNo: '20549621',
+        pNo: '7101',
+        testingNo: '8101',
         testNo: 1180,
-        priNo: '1293138',
-        userName: '유지연',
-        testingName: '[대단원총괄평가] [가우스] 3 방정식 대단원 총괄 - 유지연',
-        printTestingName: '[가우스] 3 방정식 대단원 총괄',
-        gradeName: '(2022 개정) 중1',
+        priNo: '9101',
+        userName: 'Invented Student',
+        testingName: 'Invented assessment - Invented Student',
+        printTestingName: 'Invented assessment',
+        gradeName: 'Invented grade',
         paperType: 1,
         assNo: 1001,
-        score: 84,
+        score: 63,
         oQuestions: 2,
         sQuestions: 0,
         dQuestions: 0,
-        hangDate: '09.28',
-        applyDate: '09-28 16:35',
+        hangDate: '01.01',
+        applyDate: '01-01 10:15',
         useTerm: -1
       };
 
-      const submission = service.toRawAppSubmission({
+      expect(() => service.toRawAppSubmission({
         detail,
         summary,
-        studentId: '1293138',
+        studentId: '9101',
         enrolledGroup: '3',
-        bookTitle: '가우스 1-1',
-        unitName: '3. 방정식',
-        scope: '3. 방정식 대단원 총괄',
-        sessionDate: '2026-09-28'
-      });
-
-      expect(submission.studentId).toBe('1293138');
-      expect(submission.questions.length).toBe(2);
-      expect(submission.questions[0].questionNo).toBe(1);
-      expect(submission.questions[0].submittedAnswer).toBe('3');
-      expect(submission.questions[1].questionNo).toBe(2);
-      expect(submission.questions[1].submittedAnswer).toBe('1');
+        bookTitle: 'Invented book',
+        unitName: 'Invented unit',
+        scope: 'Invented assessment',
+        sessionDate: '2099-01-01'
+      })).toThrow('unverified_raw_learning_projection');
     });
   });
 });

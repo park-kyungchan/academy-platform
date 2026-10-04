@@ -155,11 +155,11 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-02T10:47:08Z",
-    "objective": "On the Hermes Linux Backend, retain completed P0/P1 and PR 8/10; preserve PR 6. Resume academy-wide Backend interface reverse engineering as the P2 evidence foundation. The static catalog covers 95 entries in 17 families; 18 fixed documents and three public scripts have fresh source observations, not complete data/effect proof. Use endpoint:query coverage/declarations rather than rediscovery. Current roster/lesson/app joins, native-app protocols and physical DB internals remain unresolved. P2 product Ontology and single-Main review remain the consumer; no broader platform/runtime, worker, migration or production write follows.",
+    "updatedAtUtc": "2026-10-04T00:54:37Z",
+    "objective": "On Hermes Linux Backend, v0.4 connects trusted ingress/store-recovery design and retained-reader integration. Four source families share offline preparation/audit; DayRecord stays blocked until real headers qualify. User admits guarded publication, classified legacy cleanup and supported approval optimization. Preserve recovery snapshots/failures. Next: source-to-domain/application implementation and exact protected resource/access/cost/restore qualification. Native DOM/local gates are not production or WebMCP acceptance. No inherited worker budgets, teacher finalization/parent replay or ingestion into an unqualified target.",
     "priorityOrder": [
-      "continuity_lead_governance",
       "development_test_feedback",
+      "continuity_lead_governance",
       "google_api_integration"
     ],
     "ambiguityPolicy": "interview_before_dependent_implementation",
@@ -181,7 +181,7 @@
     "confirmedDecisions": [
       {
         "id": "priority_order",
-        "statement": "P0 profile/runtime qualification and P1 PR 7 publication are complete and must not be rebuilt. P2 date-first preparation for every scheduled student is the first real product Ontology consumer. Product Ontology is not deferred. P3 expanded personal mathematics KG, atomic prerequisite queries and DB/provider comparison follow P2 and stable single-Main operation.",
+        "statement": "Whole instructor frontend/Backend architecture is the current priority, not the former narrow repair/publication queue. Design hierarchical typed meaning, student-auditable evidence/history, qualified deterministic operations and actual WebMCP together. Date-first all-student review remains the first useful consumer within the full teacher workflow. Preserve completed work and unresolved coverage; do not recheck Client/Backend versions or require a KG example before design.",
         "source": "user_interview"
       },
       {
@@ -191,7 +191,7 @@
       },
       {
         "id": "lead_structure",
-        "statement": "One Hermes Backend Lead owns integration and final merge judgment. No other PC/Cloud editor remains assigned. Workers require fresh effective native controls; model-facing delegate_task is excluded; eligible workers use gpt-6.1-sol/xhigh or gpt-6-luna/xhigh, with Luna only for low judgment.",
+        "statement": "The dc Lead owns all academy practice and both retained branches' future Git lifecycle; default released its academy reservation after verified transfer. No old worker queue or budget transfers. Code first for mechanical work; new workers require actual detailed native controls and fresh admission. User prefers literal gpt-6.1-sol for complex work, gpt-6-luna only for negligible judgment and supported effort by complexity; reconcile effective existing instructions before execution. No model-facing delegate_task or current worker launch.",
         "source": "user_interview"
       },
       {
@@ -246,27 +246,27 @@
       },
       {
         "id": "single_main_visibility",
-        "statement": "Park Main is the sole operational frontend in the shared academy workbook. Earlier Park auxiliary hiding is preserved evidence. Inspect all five trailing visible tabs and their exact contents/consumers before deciding which Park-owned functions belong in Main and which histories belong in a protected Backend DB. Generic titles, hidden state and a Park label do not establish exclusive ownership. Preserve other instructor/shared tabs and rollback originals; migration needs exact targets, parity and recovery.",
-        "source": "current_user_request"
+        "statement": "User selected transition A: design the new owned teacher web app as primary. Keep Park Main until useful workflow acceptance; later retain only necessary reviewed shared summaries, without duplicate teacher input. Preserve other instructors, shared tabs and deployed consumers. Main is not the history DB; tab ownership, exact summary fields, consumer parity and recovery precede any real Sheet transition. No deletion, migration or new sharing is admitted now; older sole-Main decisions remain historical.",
+        "source": "user_interview"
       },
       {
         "id": "student_database_direction",
-        "statement": "Student/week/occurrence/edition/unit/page/question granularity is settled. Main is the frontend, not the revision DB. Future student evidence, notes and approval/correction histories are teacher-only plus agents separately admitted to that task. Shared/common Profiles and Leads receive minimized contracts/verification, not student raw material. Do not bulk-copy sessions or create per-student tabs. Actual protected resource, retention for raw academy snapshots, access and restore remain unselected; no provisioning or migration is admitted. Synthetic SQLite is not production storage.",
-        "source": "current_user_request"
+        "statement": "Compact logically student-partitioned audit/traceability DB with shared catalogs and separate source evidence, teacher revisions and expendable cache. The user permits an external teacher-only protected primary and independent encrypted recovery candidate, and delegates resource/migration planning. Exact resource/account/region/access, Free Tier, retained fields and actual restore must qualify before real ingestion. Minimal source retention is Lead-recommended; teacher history intent remains. Synthetic SQLite is not production; no physical DB/schema/tab per student.",
+        "source": "user_interview"
       },
       {
         "id": "student_knowledge_graph_ontology",
-        "statement": "The product is Ontology-driven from its first unit: connect meaning, verified evidence, logic, permitted Actions, teacher/agent UX, Evals and recovery. Reuse common Backend knowledge under its separate Wiki owner. This is Palantir-derived local engineering, not Foundry/AIP adoption or parity. Future individual mathematics KG and atomic prerequisite traceability remain required; expanded concept queries and PostgreSQL/graph/provider comparison follow stable P2/Main operation, with no default provider.",
+        "statement": "Always design frontend, Backend and WebMCP through Whole-Lens: purpose, hierarchical typed meaning, authoritative evidence, deterministic logic, permitted Actions, human/agent experience, Evals and recovery. Reuse shared Ontology contracts and preserve Hermes native ownership; no parallel dispatcher/state mirror/context injector. Concept blank-test, original/wrong/similar clinic and Daily Test retain independent evidence/states; missing records do not imply nonperformance. Future KG remains a consumer, not this architecture's prerequisite or scope ceiling.",
         "source": "user_interview"
       },
       {
         "id": "preclass_cohort_presentation",
-        "statement": "Display every student occurrence for the selected lesson date, including absence/makeup labels, before selected-student detail. The user selected an always-visible whole-class preparation table in Main cells, with selected-student detail/originals/review in a Main-launched companion panel. The Lead designs exact placement while preserving current assessment/progress meanings, teacher O/R plans and legacy consumers. This UX choice is not an exact production layout/write envelope.",
+        "statement": "Keep date-first review of every scheduled occurrence, including absence/makeup labels, then selected-student hierarchy/evidence/history. Under transition A this becomes the primary teacher-web scene; Main remains a preserved transition consumer, not a second input authority. Human UI and semantic WebMCP tools use the same domain implementation/read model with actor-specific permissions. Preserve assessment/progress meanings, teacher plans, original links and unknowns. A design or tool registration is not actual browser/teacher acceptance.",
         "source": "user_interview"
       },
       {
         "id": "backend_lead_authority",
-        "statement": "The user delegates sole repo development and operations leadership. Once a task goal is approved, commit, push, PR, review/CI, merge, exact readback and owned cleanup may complete autonomously. No force-push main, protection bypass or foreign-work deletion follows.",
+        "statement": "Sole dc Lead owns academy development/operations. The latest user explicitly resumes retained-reader integration and commit/push/PR/checks/merge/readback/owned cleanup, permits removal of classified superseded legacy after unique evidence/recovery are verified, and renews the blocked native command. Integrate useful work through Whole-Lens; do not merge stale queues as authority. Default is no longer publisher. No force-push main, protection bypass or unknown/foreign-work deletion.",
         "source": "user_interview"
       },
       {
@@ -286,7 +286,7 @@
       },
       {
         "id": "backend_autonomous_goals",
-        "statement": "Use autonomous completion of each approved goal, intervening only for consequential decisions, authority change or an actual blocker. Operating schedules must be separately verified before activation; no unbounded background development or new worker/job admission follows. The user assigned the current classroom raw-data session to implement the separate read-only assessment automation work and carry results to the active P2 session. The teacher identified the captured score-view button as displaying already-graded results, not saving grades. No clinic generation, official record mutation, scheduler or production storage follows.",
+        "statement": "User delegates long autonomous engineering, guarded Git/classified cleanup and operational resource/migration/academy/worker categories, and requests native approval optimization for 24-hour Backend operation. Use supported scoped smart policy, not global bypass or interpreter allowlisting. Real resources/effects need qualified identity/fields/rules/cost/recovery and actual native controls. Keep safety/redaction/learning, Free Tier and teacher finalization/sending boundaries; no installed engine/Host/other-container change or old-budget replay.",
         "source": "user_interview"
       },
       {
@@ -322,7 +322,7 @@
       },
       {
         "id": "protected_history_storage_boundary",
-        "question": "Teacher-only plus separately admitted task agents is confirmed. Before real history retention, the Lead must propose the exact protected destination, raw academy snapshot retention, source selection, access and restore evidence; existing note/review retention intent remains. No actual data copying or provisioning follows from audience agreement.",
+        "question": "External teacher-only primary and independent encrypted recovery candidates are accepted; operational categories are delegated. Lead selects and verifies exact account/resource/region/access, Free Tier, minimal source fields and actual restore before ingestion. Interview only a consequential privacy/cost/recovery tradeoff not settled by existing intent. Do not re-ask audience, logical student partitions or require a KG example.",
         "dependentWork": "production_history_storage",
         "state": "not_asked"
       }
@@ -330,57 +330,71 @@
     "dispatch": [],
     "nextSteps": [
       {
-        "id": "backend_interface_contract_continuation",
+        "id": "source_domain_application_spine",
         "owner": "lead",
         "action": "validate_confirmed_changes",
         "referencePaths": [
-          "docs/academy-backend-reengineering-contract.ts",
-          "docs/academy-backend-source-survey-2026-10-02.json",
-          "src/lms/backendSourceEvidence.ts",
+          "docs/academy-whole-lens-target-architecture.json",
+          "docs/academy-student-evidence-contract.json",
+          "docs/academy-teacher-workspace-tool-contract.json",
+          "docs/academy-application-ingress-storage-design.ts",
+          "review/academy-ingress-read-integration-2026-10-04.json",
+          "tests/architecture/applicationIngressStorageDesign.test.ts",
+          "src/learning/model.ts",
+          "src/learning/revisions.ts"
+        ],
+        "dependsOnQuestionIds": []
+      },
+      {
+        "id": "real_dayrecord_source_qualification",
+        "owner": "lead",
+        "action": "validate_confirmed_changes",
+        "referencePaths": [
+          "docs/academy-deterministic-read-contract.ts",
+          "src/lms/dayRecordReadProtocol.ts",
+          "tests/lms/dayRecordNativeDomCases.ts",
           "src/lms/endpointCatalog.ts",
-          "tests/lms/backendCoverage.test.ts",
-          "review/academy-backend-reengineering-2026-10-02.json"
+          "docs/academy-assessment-manual-read-contract.ts"
         ],
         "dependsOnQuestionIds": []
       },
       {
-        "id": "manual_assessment_read_continuation",
-        "owner": "lead",
-        "action": "validate_confirmed_changes",
-        "referencePaths": [
-          "docs/academy-assessment-manual-read-contract.ts",
-          "review/academy-assessment-read-canary-2026-10-02.json",
-          "src/lms/assessmentReadProtocol.ts",
-          "harness/assessment_read.ts"
-        ],
-        "dependsOnQuestionIds": []
-      },
-      {
-        "id": "verify_p2_source_and_sheet_contracts",
-        "owner": "lead",
-        "action": "validate_confirmed_changes",
-        "referencePaths": [
-          "research/backend-map/README.md",
-          "src/lms/endpointCatalog.ts",
-          "docs/main-sheet-live-input-map-2026-10-01.json",
-          "docs/main-sheet-live-refresh-wiring.json",
-          "docs/main-sheet-trailing-five-disposition-2026-10-01.json",
-          "tests/lms/endpointCatalog.test.ts"
-        ],
-        "dependsOnQuestionIds": []
-      },
-      {
-        "id": "resolve_ontology_continuation",
+        "id": "teacher_frontend_and_webmcp_ingress",
         "owner": "lead",
         "action": "resolve_continuation_source",
         "referencePaths": [
+          "docs/academy-whole-lens-target-architecture.json",
+          "docs/academy-teacher-workspace-tool-contract.json",
+          "docs/academy-application-ingress-storage-design.ts",
+          "docs/main-sheet-live-refresh-wiring.json",
+          "docs/main-sheet-live-input-map-2026-10-01.json"
+        ],
+        "dependsOnQuestionIds": ["single_main_visibility"]
+      },
+      {
+        "id": "protected_history_resource_qualification",
+        "owner": "lead",
+        "action": "resolve_continuation_source",
+        "referencePaths": [
+          "docs/academy-whole-lens-target-architecture.json",
+          "docs/academy-student-evidence-contract.json",
           "docs/student-database-architecture-2026-10-01.json",
-          "docs/learning/domain-design.json"
+          "docs/academy-application-ingress-storage-design.ts"
         ],
         "dependsOnQuestionIds": [
-          "ontology_acceptance_queries",
-          "ontology_provider_selection"
+          "student_database_direction"
         ]
+      },
+      {
+        "id": "native_unattended_operation_qualification",
+        "owner": "lead",
+        "action": "validate_confirmed_changes",
+        "referencePaths": [
+          "docs/backend-autonomy-operating-contract.ts",
+          "docs/main-sheet-live-refresh-wiring.json",
+          "review/academy-ingress-read-integration-2026-10-04.json"
+        ],
+        "dependsOnQuestionIds": []
       }
     ],
     "runtimeBoundary": {

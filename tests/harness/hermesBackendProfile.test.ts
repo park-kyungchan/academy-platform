@@ -53,7 +53,10 @@ describe('Hermes Backend profile continuation contract', () => {
     const decisions = new Map(state.engineeringContext!.confirmedDecisions.map(item => [item.id, item.statement]));
     expect(state.activeStep.action).toBe('verify_current_academy_scope');
     expect(state.engineeringContext!.nextSteps.map(item => item.id)).not.toContain('qualify_backend_profile');
-    expect(decisions.get('priority_order')).toContain('first real product Ontology consumer');
+    // The latest teacher decision broadens the architecture, retaining date-first as its first consumer.
+    // Do not pin an obsolete phase-two sentence and force it back into the current checkpoint.
+    expect(decisions.get('priority_order')).toContain('Whole instructor frontend/Backend architecture');
+    expect(decisions.get('priority_order')).toContain('Date-first all-student review');
     expect(decisions.get('preclass_source_coverage')).toContain('DayRecord');
     expect(decisions.get('historical_approved_revision_views')).toContain('unknown');
     expect(decisions.get('backend_harness_scope')).toContain('native vault');
