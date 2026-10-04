@@ -3,7 +3,7 @@ type Scene=Awaited<ReturnType<TeacherApplication['student']>>;
 type Cohort=Awaited<ReturnType<TeacherApplication['cohort']>>;
 const element=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 const status=(text:string)=>{element('status').textContent=text;};
-let setupMode=false,selectedStudentId:string|null=null,currentScene:Scene|null=null;
+let setupMode=false,recoveryReady=false,selectedStudentId:string|null=null,currentScene:Scene|null=null;
 async function api<T>(path:string,options:RequestInit={}):Promise<T>{
   const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options});
   const data=await response.json();if(!response.ok)throw Error(data.error??data.reason??'request_failed');return data as T;
@@ -52,12 +52,47 @@ element<HTMLFormElement>('login-form').addEventListener('submit',async event=>{
   finally{button.disabled=false;}
 });
 element('refresh-all').addEventListener('click',()=>refresh(null));element('refresh-student').addEventListener('click',()=>refresh(selectedStudentId));
+element<HTMLButtonElement>('request-recovery').addEventListener('click',async()=>{
+  const button=element<HTMLButtonElement>('request-recovery');button.disabled=true;
+  try{
+    const result=await post<{requestRef:string;expiresAt:number}>('/api/password-recovery-request',{});
+    element('recovery-request').textContent='복구 요청: '+result.requestRef+' · 요청 기한: '+new Date(result.expiresAt*1000).toISOString();
+    element('recovery-request').dataset.expiresAt=String(result.expiresAt);
+    status('소유자 확인을 기다립니다. 요청 번호만으로는 비밀번호를 변경할 수 없습니다. 승인 후 이 페이지를 새로고침하세요.');
+  }catch{button.disabled=false;status('복구 요청을 만들지 못했습니다. 잠시 후 다시 확인하세요.');}
+});
+element<HTMLFormElement>('password-reset-form').addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(!recoveryReady)return;
+  const password=element<HTMLInputElement>('reset-password'),confirmation=element<HTMLInputElement>('reset-password-confirm'),button=element<HTMLButtonElement>('password-reset-submit');
+  if(password.value!==confirmation.value){status('새 비밀번호와 확인 값이 다릅니다.');return;}
+  button.disabled=true;
+  try{
+    const result=await post<{username:string}>('/api/password-reset',{password:password.value});
+    password.value='';confirmation.value='';recoveryReady=false;
+    element('password-recovery').hidden=true;element('auth').hidden=false;
+    element<HTMLInputElement>('username').value=result.username;element<HTMLInputElement>('password').value='';
+    history.replaceState(null,'','/');status('비밀번호를 변경했습니다. 기존 로그인은 만료됐습니다. 새 비밀번호로 로그인하세요.');
+  }catch(error){status('재설정 응답을 확인하지 못했습니다: '+(error as Error).message+' · 저장됐을 수도 있으므로 먼저 새 비밀번호로 로그인하세요. 링크를 다시 제출하지 마세요.');}
+  finally{button.disabled=false;}
+});
 async function registerSemanticTools(){
   const modelContext=(document as Document&{modelContext?:{registerTool:(tool:unknown)=>unknown}}).modelContext;
   if(!modelContext?.registerTool)return;
   await modelContext.registerTool({name:'query_student_learning',description:'Read the admitted teacher student scene: source books, hierarchy, evidence, versions, freshness and unknowns; no academy write or mastery judgment.',inputSchema:{type:'object',additionalProperties:false,required:['studentId'],properties:{studentId:{type:'string',maxLength:200,description:'An authorized student ID from the current teacher cohort.'}}},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:async(input:{studentId:string})=>{const scene=await api<Scene>('/api/student?id='+encodeURIComponent(input.studentId));return {content:[{type:'text',text:JSON.stringify({student:scene.student.displayName,studentId:scene.student.id,sceneRevision:scene.sceneRevision,books:scene.books.map(book=>({revisionId:book.revisionId,lastVerifiedAt:book.lastVerifiedAt})),unknownLevels:scene.hierarchy.unknownLevels,knowledge:scene.knowledge})}]};}});
 }
 (async()=>{
+  const recoveryToken=new URLSearchParams(location.hash.slice(1)).get('password_recovery');
+  if(location.pathname==='/reset'||recoveryToken){
+    history.replaceState(null,'','/reset');element('auth').hidden=true;element('workspace').hidden=true;element('password-recovery').hidden=false;
+    try{
+      const result=recoveryToken?await post<{username:string}>('/api/password-recovery-session',{token:recoveryToken}):await api<{username:string}>('/api/password-recovery-status');
+      recoveryReady=true;element('password-reset-form').hidden=false;element('recovery-account').textContent='교사 계정: '+result.username;
+      element('request-recovery').hidden=true;element('recovery-request').hidden=true;
+      status('복구 링크를 확인했습니다. 새 비밀번호를 입력하세요. 학생 이력과 교사 식별자는 유지됩니다.');
+    }catch{status(recoveryToken?'복구 링크가 만료됐거나 이미 사용됐습니다. 새 소유자 확인 요청이 필요합니다.':'소유자 확인 요청을 눌러 계정 복구를 시작하세요.');}
+    return;
+  }
   const invitation=new URLSearchParams(location.hash.slice(1)).get('owner_invite');
   if(invitation){history.replaceState(null,'','/setup');try{await post('/api/setup-session',{invitation});setupMode=true;element('auth-title').textContent='나의 교사 계정 설정';element('login-submit').textContent='교사 계정 등록';element<HTMLInputElement>('password').autocomplete='new-password';status('Backend 소유자 초대가 검증됐습니다. 전용 계정 비밀번호를 설정하세요.');}catch(error){status('초대를 확인하지 못했습니다: '+(error as Error).message);}return;}
   try{await loadWorkspace();await registerSemanticTools();}catch{status('교사 로그인 후 학생 근거를 조회합니다.');}
