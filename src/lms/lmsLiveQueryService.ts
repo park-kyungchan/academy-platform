@@ -8,7 +8,7 @@
  */
 
 import type { StudentId, ClassGroupId } from '../../data/raw_sessions/2026-09-28/main_sheet_v2.types';
-import type { RawAppAssessmentSubmission, RawAppQuestionSubmission } from '../assessment/appGradingReader';
+import type { RawAppAssessmentSubmission } from '../assessment/appGradingReader';
 
 export interface LmsTestSummaryItem {
   pNo: string;
@@ -346,7 +346,8 @@ export class LmsLiveQueryService {
   }
 
   /**
-   * Converts PupilResultDetail into normalized RawAppAssessmentSubmission.
+   * Historical projection lacked real answer keys, lecture identities and timing.
+   * Preserve the compatibility seam but reject instead of fabricating learning evidence.
    */
   public toRawAppSubmission(params: {
     detail: PupilResultDetail;
@@ -360,33 +361,6 @@ export class LmsLiveQueryService {
     timeLimitMinutes?: number;
     deviceInfo?: string;
   }): RawAppAssessmentSubmission {
-    const questions: RawAppQuestionSubmission[] = params.detail.examResultList.map(q => {
-      const isCorrect = q.examScore === q.examScoreMax;
-      return {
-        questionNo: q._examNo,
-        submittedAnswer: q.answer1,
-        correctAnswer: isCorrect ? q.answer1 : '(오답-정답확인요)',
-        points: q.examScoreMax,
-        lectureKey: `LEC_${params.summary.pNo}_Q${String(q._examNo).padStart(2, '0')}`,
-        topic: `${params.unitName} 문항 ${q._examNo}`
-      };
-    });
-
-    return {
-      pNo: params.summary.pNo,
-      studentId: params.studentId,
-      studentName: params.detail.studentName,
-      enrolledGroup: params.enrolledGroup,
-      sessionDate: params.sessionDate,
-      assessmentCategory: '대단원총괄평가',
-      bookTitle: params.bookTitle,
-      unitName: params.unitName,
-      scope: params.scope,
-      timeLimitMinutes: params.timeLimitMinutes || 60,
-      timeSpentMinutes: 55, // default
-      submittedAt: `${params.sessionDate}T${params.detail.applyEndDate || '16:35'}:00+09:00`,
-      deviceInfo: params.deviceInfo || '학원 앱/태블릿 제출',
-      questions
-    };
+    throw new Error('unverified_raw_learning_projection');
   }
 }

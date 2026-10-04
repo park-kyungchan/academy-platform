@@ -226,7 +226,7 @@ function renderKey(value: string): number {
   return numeric;
 }
 
-function parseScoreView(value: unknown, target: AssessmentReadTarget) {
+export function parseScoreView(value: unknown, target: AssessmentReadTarget) {
   const result = object(value);
   if (result.result !== 'OK' || !Array.isArray(result.print_list) || result.print_list.length !== 1) {
     throw new Error('ambiguous_captured_result');

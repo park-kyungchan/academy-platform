@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "kind": "academy_ingress_source_integration_review",
+  "status": "local_design_source_integration_verified_publication_owned_by_git",
+  "canonicalContinuation": "handoffs/workflow-current-state.json",
+  "designVersion": "0.4",
+  "actor": {"profile":"dc-gang-a-dev","session":"20261004_065829_25e358","nativeProject":"p_a5676068","projectRoot":"/opt/data/workspace/dc-gang-a","executionWorktree":"/opt/data/workspace/dc-gang-a-ingress-integration","model":"gpt-6.1-sol-900k","provider":"openai-codex","identityMeaning":"Current native Project, environment and read-only turn metadata; no predecessor identity/lease/budget inherited."},
+  "authority": {
+    "userExpansion":"User resumed code integration/publication, authorized classified legacy removal, renewed the blocked command and requested supported native approval optimization for autonomous Backend operation. Service/DB/migration/academy/worker categories are delegated, not verified target/auth/field/cost/native-control evidence.",
+    "teacherReserved":["teacher judgment","official-record finalization","final parent sending"],
+    "scopeNow":"Complete this design/source-integration/publication/owned-retirement unit, not blind provisioning, source mutation or worker queue replay."
+  },
+  "deliveredDesigns": ["docs/academy-whole-lens-target-architecture.json","docs/academy-student-evidence-contract.json","docs/academy-teacher-workspace-tool-contract.json","docs/academy-application-ingress-storage-design.ts","docs/backend-autonomy-operating-contract.ts"],
+  "wholeLensDecisions": [
+    "Primary teacher web app and constrained WebMCP share one application logic/read model, with trusted server identity/scene/reference enforcement rather than browser booleans.",
+    "Academy browser/vault authentication is separate from product teacher login; no cookie/session extraction or backend proxy is added.",
+    "A teacher browser cookie does not distinguish human judgment from agent invocation. Human confirmation and narrow agent capabilities remain separate qualification gates.",
+    "Shared catalogs plus logically student-partitioned evidence/revisions; no physical per-student DB/schema/Sheet tabs or raw academy mirror.",
+    "Compare an external private relational primary, initially a PostgreSQL candidate, and an independently protected encrypted portable export; exact resources/region/access/cost/restore remain unselected.",
+    "Native Hermes owns lifecycle/safety/learning/scheduling. No product-side dispatcher, state mirror or automatic context injector is created."
+  ],
+  "sourceIntegration": {
+    "publicConsumer":"bun run endpoint:query --help",
+    "preparedFamilies":["daily_zero","item_metadata","student_course","textbook"],
+    "blockedPreparation":{"day_record":"day_record_column_contract_required"},
+    "catalog":{"entries":95,"families":17,"callable":0,"meaning":"Original complete known static inventory retained; no generic network executor or server/native-app completeness claim."},
+    "changes":[
+      "Connected both retained course/item components through the existing plan/compile/audit consumer, preserving literal source keys and their namespaces.",
+      "Student-course acquisition checks the native principal and college at initial and result forms; native foreign-row and principal-drift cases reject.",
+      "Item metadata omits source answers and never becomes student mastery, concept binding or video-watch history.",
+      "DayRecord rejects missing/non-value controls, oversized/authentication responses, malformed/multiple selected XML records and mismatched independent occurrence keys.",
+      "Removed handler-name-based column inference. Internal collector requires explicit reviewed header/column/handler mappings and exact source layout; only an invented single-row/unspanned layout is tested. Public preparation is blocked because no real academy layout contract is installed.",
+      "DT/ZT currently exposes grade aggregates, not itemized AssessmentAttempt evidence. Original grade, written work, teacher inspection, clinic solving and mastery remain distinct.",
+      "Legacy raw-learning conversion now refuses instead of inventing answer keys, LEC identities, duration or submission timestamps.",
+      "Updated an obsolete literal priority assertion to preserve the latest whole-architecture decision and its date-first all-student consumer; runtime/profile boundaries remain tested."
+    ]
+  },
+  "retainedChangeDisposition": {
+    "retainedBranchFiles":25,
+    "deterministicRead":{
+      "worktree":"/opt/data/workspace/dc-gang-a-deterministic-read",
+      "branch":"feat/deterministic-academy-read-20261002",
+      "integratedOrRetained":["AGENTS.md","docs/academy-deterministic-read-contract.ts","harness/academy_read_prepare.ts","harness/endpoints.ts","harness/native_read_entry.ts","package.json","review/academy-deterministic-read-2026-10-02.json","review/academy-read-publication-2026-10-03.json","src/lms/academyReadProtocol.ts","src/lms/academySourceAudit.ts","src/lms/assessmentReadProtocol.ts","src/lms/dayRecordReadProtocol.ts","src/lms/endpointCatalog.ts","src/lms/lmsLiveQueryService.ts","tests/lms/academyReadProtocol.test.ts","tests/lms/academySourceAudit.test.ts","tests/lms/dayRecordNativeDomCases.ts","tests/lms/lmsLiveQueryService.test.ts"],
+      "supersededActivePointer":["handoffs/workflow-current-state.json"],
+      "decision":"Useful consumer/code/tests are integrated, with repairs where required; dated results/failures remain historical evidence. The branch's old engineering pointer/queue is not current authority. Original staged and unstaged generations are recoverable before retirement."
+    },
+    "wholeRead":{
+      "worktree":"/opt/data/workspace/dc-gang-a-whole-read",
+      "branch":"feat/academy-whole-read-20261003",
+      "integratedOrRetained":["docs/academy-data-architecture-research-2026-10-03.json","review/academy-whole-read-extension-2026-10-03.json","src/lms/itemMetadataRead.ts","src/lms/studentCourseRead.ts","tests/lms/itemMetadataRead.test.ts","tests/lms/studentCourseRead.test.ts"],
+      "decision":"Both source modules are connected to the existing CLI, not maintained as a parallel consumer. Unique architecture research and dated verification are retained; no extra latest-state registry is introduced."
+    },
+    "unrepresentedUniquePaths":[],
+    "retirementCondition":"Verified successor merge, unchanged source prestates, verified private recovery archive and fresh native writer checks. This prepublication review itself does not claim deletion or merge.",
+    "pr6":{"reviewedHead":"63ce4cbe64a4870f2a01c4387660efe43a4c2884","disposition":"Supersede without merging the six-file retired Cloud change; retain only its useful Git-only scope rule in current Backend AGENTS. Close after verified replacement merge; foreign remote branch remains preserved."}
+  },
+  "recovery": {
+    "privateArchive":"Active-profile artifacts/reader-integration-recovery-20261004/MANIFEST.json",
+    "verifiedFiles":57,
+    "roots":3,
+    "allArchiveHashesMatch":true,
+    "contents":"Changed working files, original staged blobs, Git index snapshots and regenerable lock receipts; no broad credentials/data/node_modules copy.",
+    "v03Snapshot":"Active-profile artifacts/architecture-design-20261004/target-architecture-v0.3.snapshot.json",
+    "v03Sha256":"0ec613c1bab1432357be4979e35e658367fb0403e6e75836414b2284a14de7e0",
+    "v02Snapshot":"Active-profile artifacts/architecture-design-20261003/target-architecture-v0.2.snapshot.json",
+    "meaning":"Local source recovery for classified worktree cleanup, not independent production student-history backup/restore."
+  },
+  "nativeApprovalOptimization": {
+    "writer":"hermes config set approvals.smart_policy",
+    "consumer":"tools.approval_smart._get_smart_policy",
+    "policySha256":"b0e64ccb5a32e041a91dd510f5f5daaa6d8bba0fec60ab3c7d80a4beef73fa62",
+    "policyCharacters":1833,
+    "settingsRetained":{"mode":"smart","redactSecrets":true,"commandAllowlist":[],"denialBreakerThreshold":3,"cronMode":"deny","singleQueryMode":"deny","unattendedMode":"deny"},
+    "broadClassCorrection":"The native approval response briefly added the script execution via -e/-c class. Removed it through the native config writer; no broad interpreter bypass is retained.",
+    "operatingImprovement":"Clearly inspectable low-risk scripts/snapshots receive operator context, while novel risk still receives native review. Use reviewed file-based operations rather than opaque inline spawning. No deterministic zero-prompt, billing reduction or 24-hour uptime claim.",
+    "rollback":"Restore the previous empty smart_policy via native config writer; preserve all unrelated profile settings."
+  },
+  "validation": [
+    {"command":"bun --no-env-file run cloud:check","exitCode":0,"passedTestExecutions":851,"failedTestExecutions":0,"optionalSkips":1,"typechecks":3,"sourceIntegrity":{"backendFiles":13,"canonicalOperations":54,"importedSourceFiles":329},"meaning":"Portable synthetic/source-integrity acceptance; counts are test executions across overlapping focused commands, not distinct cases."},
+    {"command":"bun --no-env-file run test:architecture","passed":26,"failed":0,"expectations":389,"exitCode":0},
+    {"command":"bun --no-env-file run test:endpoint-catalog","passed":60,"failed":0,"expectations":1124,"exitCode":0},
+    {"command":"bun --no-env-file test --dots tests/harness/workflowCheckpoint.test.ts tests/harness/contextRouting.test.ts","passed":41,"failed":0,"expectations":240,"exitCode":0},
+    {"command":"Native browser evaluation of runNativeDayRecordRegression and runExtendedNativeDomRegression from final browser bundles","passed":17,"failed":0,"actualAcademyNetworkRequests":0,"dayRecordHeaderLayoutEstablished":false,"wholeEnrollmentEstablished":false,"evidence":"Active-profile scratch ingress-integration-20261004-25e358/native-final-results.json"},
+    {"command":"bun --no-env-file run workflow:context continuation","exitCode":0,"metadataValid":true,"entryReadPlanValid":true,"executesNextStep":false},
+    {"command":"git diff --check","exitCode":0}
+  ],
+  "preservedFailures": [
+    "Initial native command approval timed out without execution; the user then explicitly renewed it. No bypass retry occurred before renewed admission.",
+    "Renewed snapshot command copied the file, then its ArrayBuffer hashing expression failed while the shell's final date returned zero. Independent sha256sum proved exact snapshot equality; outer exit zero was not treated as hashing success.",
+    "Actual initial native DayRecord run had five failing control/XML cases. The result printed before a recorder NameError; subsequent native results were retained correctly.",
+    "Native header regression rejected the old inferred collector only after three discriminating RED cases; all final twelve DayRecord cases passed, with real-source layout still unqualified.",
+    "Student-course native integration first failed as an unsupported family, then exact/empty/foreign/principal-drift cases passed after integration and checks.",
+    "Full portable gate found two checkpoint/profile prose-contract failures. Restored explicit Backend identity and aligned the obsolete priority assertion to current user intent; the full gate then passed.",
+    "Current branch-protection read returns HTTP 403. Rulesets read returns an empty list, not proof of absent branch protections; use normal server-enforced PR merge without admin bypass."
+  ],
+  "review": {"mode":"Lead source/security self-review plus real local/native tests and exact-head remote CI","independentWorkerVerdict":null,"meaning":"No eligible restricted independent reviewer was launched. Repository-required review/check rules remain binding; do not call self-review independent acceptance."},
+  "publicationStateOwner":"Exact Git/GitHub branch/PR/CI/merge readbacks and the native task; this immutable local review predates publication and does not invent its result.",
+  "effectsNotPerformed":["Production service/job/DB creation","Student ingestion/migration","Academy save or parent sending","Worker/model dispatch","Installed engine/Host/other-container modification","Main/SPT/shared-consumer transition"],
+  "remainingGates":["Actual DayRecord headers/layout and full date/group/occurrence/page coverage","Expanded source-to-domain revision union and trusted authenticated application ingress","Exact protected primary/copy/region/access/Free Tier and actual independent restore","Implemented primary teacher frontend and actual browser WebMCP/Hermes invocation","Routine teacher-day/outage/correction acceptance and deliberate Main transition","Native unattended execution/source authentication and narrow recurring operation envelopes"],
+  "nextBoundedAction":"Use the validated v0.4 contracts to build the explicit source-to-domain/application spine while qualifying current source headers and the protected resource/restore path. Technical plumbing belongs to the Lead; interview only consequential unresolved privacy/cost/authority/outcome, not settled A/logical-partition/KG-nonprerequisite decisions."
+}

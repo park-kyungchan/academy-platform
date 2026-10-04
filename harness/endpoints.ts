@@ -1,8 +1,27 @@
 #!/usr/bin/env bun
-/** Offline metadata only; no student lookup, login, HTTP client, or request builder. */
+/** Offline catalog and scoped native-read preparation; no credentials or HTTP execution. */
 import { endpointOutputMetrics, queryEndpoints, type EndpointQuery } from '../src/lms/endpointCatalog';
+import {prepareAcademyReadFile,auditAcademyReadFile} from './academy_read_prepare';
 
 export function endpointCli(args: string[]): unknown {
+  if(args.includes('--audit-read')||args.includes('--output-audit')) {
+    if(args.length!==4||args[0]!=='--audit-read'||args[2]!=='--output-audit'||!args[1]||!args[3])throw new Error('invalid_read_audit_flags');
+    return auditAcademyReadFile(args[1],args[3]);
+  }
+  if(args.includes('--prepare-read')||args.includes('--output-script')) {
+    if(args.length!==4||args[0]!=='--prepare-read'||args[2]!=='--output-script'||!args[1]||!args[3])throw new Error('invalid_read_preparation_flags');
+    return prepareAcademyReadFile(args[1],args[3]);
+  }
+  if (args.length===1 && args[0]==='--help') return {
+    command:'bun run endpoint:query',nativeAuthentication:'browser_vault_required',
+    catalog:'--id <exact-id> | --operation <literal-selector> | --projection coverage',
+    readPreparation:'--prepare-read <private-request.json> --output-script <private-script.js>',
+    sourceAudit:'--audit-read <private-result.json> --output-audit <private-audit.json>',
+    preparedFamilies:['daily_zero','item_metadata','student_course','textbook'],
+    blockedPreparation:{day_record:'day_record_column_contract_required; current source headers and column/handler mapping are not installed'},
+    policy:'Review the source-specific contract; output scripts perform only the admitted existing-result reads in an authenticated native browser.',
+    limits:'Unknown/effectful operations stay blocked. Source declarations are not full backend or SQL access.',
+  };
   const query: EndpointQuery = {};
   const seen = new Set<string>();
   let metrics = false;
@@ -30,7 +49,7 @@ export function endpointCli(args: string[]): unknown {
 }
 
 if (import.meta.main) {
-  try { process.stdout.write(JSON.stringify(endpointCli(process.argv.slice(2))) + '\n'); }
+  try { process.stdout.write(JSON.stringify(await endpointCli(process.argv.slice(2))) + '\n'); }
   catch (error) {
     const code = error instanceof Error && /^[a-z_]+$/.test(error.message) ? error.message : 'endpoint_catalog_failed';
     process.stderr.write(JSON.stringify({ ok: false, code }) + '\n');
