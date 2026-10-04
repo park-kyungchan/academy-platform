@@ -1,6 +1,7 @@
 import type { TeacherApplication, TrustedTeacherContext } from './application';
 import { readCookie, secretDigest, signTeacherSession, verifyTeacherSession } from './auth';
 import { assertExactKeys } from '../learning/model';
+import { validateWebMcpTrialToken } from './originTrial';
 
 export interface LoginIdentity { readonly actorId:string; readonly username:string; readonly passwordHash:string }
 export interface TeacherServerOptions {
@@ -9,6 +10,7 @@ export interface TeacherServerOptions {
   readonly saveIdentity:(identity:LoginIdentity)=>Promise<void>;
   readonly consumeInvitation?:()=>Promise<void>;
   readonly page?:string; readonly script?:string;
+  readonly originTrialToken?:string;
   readonly refresh?:(context:TrustedTeacherContext,selection:{studentId:string|null})=>Promise<unknown>;
 }
 const securityHeaders={ 'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY',
@@ -16,6 +18,8 @@ const securityHeaders={ 'Cache-Control':'no-store','X-Content-Type-Options':'nos
 function json(value:unknown,status=200,headers:Record<string,string>={}){return new Response(JSON.stringify(value),{status,headers:{...securityHeaders,'Content-Type':'application/json; charset=utf-8',...headers}});}
 const cookie=(name:string,value:string,age=3600)=>`${name}=${value}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${age}`;
 export function createTeacherServerHandler(options:TeacherServerOptions){
+  const trial=options.originTrialToken?validateWebMcpTrialToken(options.originTrialToken,options.origin):null;
+  const admittedHost=new URL(options.origin).hostname;
   let identity=options.identity,invitationDigest=options.invitationDigest,setupRunning=false;
   const loginAttempts=new Map<string,{count:number;windowStart:number}>();
   const context=(req:Request):TrustedTeacherContext|null=>{
@@ -35,7 +39,8 @@ export function createTeacherServerHandler(options:TeacherServerOptions){
     if(req.method==='POST'&&req.headers.get('Origin')!==options.origin)return json({error:'origin_denied'},403);
     try{
       if(path==='/health'&&req.method==='GET')return json({status:'running',studentDisclosure:false});
-      if((path==='/'||path==='/setup')&&req.method==='GET')return new Response(options.page??'Private teacher application',{headers:{...securityHeaders,'Content-Type':'text/html; charset=utf-8'}});
+      if((path==='/'||path==='/setup')&&req.method==='GET')return new Response(options.page??'Private teacher application',{headers:{...securityHeaders,'Content-Type':'text/html; charset=utf-8',
+        ...(trial&&url.hostname===admittedHost&&Date.parse(trial.expiresAt)>Date.now()?{'Origin-Trial':trial.token}:{})}});
       if(path==='/client.js'&&req.method==='GET')return new Response(options.script??'',{headers:{...securityHeaders,'Content-Type':'text/javascript; charset=utf-8'}});
       if(path==='/api/setup-session'&&req.method==='POST'){
         const data=await body(req);assertExactKeys(data,['invitation']);
@@ -71,6 +76,11 @@ export function createTeacherServerHandler(options:TeacherServerOptions){
       if(path.startsWith('/api/')){
         const actor=context(req);if(!actor)return json({error:'teacher_authentication_required'},401);
         if(path==='/api/cohort'&&req.method==='GET')return json(await options.app.cohort(actor));
+        if(path==='/api/class'&&req.method==='GET'){
+          if([...url.searchParams.keys()].some(key=>key!=='date')||url.searchParams.getAll('date').length!==1)return json({error:'unexpected_query_scope'},400);
+          const date=url.searchParams.get('date');if(!date)return json({error:'date_required'},400);
+          return json(await options.app.classPreparation(actor,date));
+        }
         if(path==='/api/student'&&req.method==='GET'){
           if([...url.searchParams.keys()].some(key=>key!=='id'))return json({error:'unexpected_query_scope'},400);
           const id=url.searchParams.get('id');if(!id)return json({error:'student_required'},400);

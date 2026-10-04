@@ -138,8 +138,8 @@ export function queryEndpoints(query: EndpointQuery = {}, entries = buildEndpoin
     coverage: {
       executionEnabled: false, physicalBackendCompletenessEstablished: false, nativeAppCompletenessEstablished: false,
       readPreparation: {consumer:'bun run endpoint:query',families:['daily_zero','day_record','item_metadata','student_course','textbook'],
-        preparedFamilies:['daily_zero','item_metadata','student_course','textbook'],
-        blockedFamilies:[{family:'day_record',reason:'day_record_column_contract_required'}],authentication:'native_browser_vault',unattended:false,
+        preparedFamilies:['daily_zero','day_record','item_metadata','student_course','textbook'],
+        blockedFamilies:[],authentication:'native_browser_vault',unattended:false,
         command:'--prepare-read <private-request.json> --output-script <private-script.js>',
         contractRef:'docs/academy-deterministic-read-contract.ts',meaning:'scoped_native_browser_preparation_not_generic_catalog_execution'},
       families: [...new Set(matched.map(entry => entry.family))].sort().map(family => {

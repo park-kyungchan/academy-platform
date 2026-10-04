@@ -54,7 +54,7 @@ test.each(['student_course', 'item_metadata'] as const)('public %s preparation u
   }
 });
 
-test('public DayRecord preparation cannot activate an unqualified source-column contract', async () => {
+test('public DayRecord preparation binds the source-qualified columns, not caller-supplied authority', async () => {
   const home = mkdtempSync(join(tmpdir(), 'academy-day-blocked-'));
   const previous = process.env.HERMES_HOME;
   try {
@@ -62,8 +62,10 @@ test('public DayRecord preparation cannot activate an unqualified source-column 
     const dir = join(home, 'cache', 'scratch'); mkdirSync(dir, { recursive: true });
     const input = join(dir, 'request.json'), output = join(dir, 'prepared.js');
     writeFileSync(input, JSON.stringify({ family: 'day_record', teacherLabel: 'Invented Teacher', date: '2099-01-01', groupIds: ['3'], studentNames: ['Invented Student'] }));
-    await expect(Promise.resolve().then(() => endpointCli(['--prepare-read', input, '--output-script', output]))).rejects.toThrow('day_record_column_contract_required');
-    expect(existsSync(output)).toBe(false);
+    const receipt=await endpointCli(['--prepare-read', input, '--output-script', output]);
+    expect(receipt).toMatchObject({prepared:true,family:'day_record',networkRequests:0});
+    expect(existsSync(output)).toBe(true);
+    expect(readFileSync(output,'utf8')).toContain('academy-dayrecord-column-qualification-2026-10-04.json');
   } finally {
     if (previous === undefined) delete process.env.HERMES_HOME; else process.env.HERMES_HOME = previous;
     rmSync(home, { recursive: true, force: true });

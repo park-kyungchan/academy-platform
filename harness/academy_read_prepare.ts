@@ -17,8 +17,7 @@ export async function prepareAcademyReadFile(inputPath:string,outputPath:string,
   const input=privatePath(inputPath,home,'.json',true),output=privatePath(outputPath,home,'.js',false);
   const request=JSON.parse(readFileSync(input,'utf8'));
   const plan=createAcademyReadPlan(request);
-  // No current academy header contract is installed. Do not compile a guessed collector.
-  if(plan.family==='day_record')throw new Error('day_record_column_contract_required');
+  // DayRecord uses the independently source-qualified native-entry column contract.
   const built=await Bun.build({entrypoints:[resolve(import.meta.dir,'native_read_entry.ts')],target:'browser',format:'esm',minify:false});
   if(!built.success||built.outputs.length!==1)throw new Error('native_read_bundle_failed');
   const code=await built.outputs[0]!.text(),boundary=code.lastIndexOf('\nexport {');
@@ -27,7 +26,7 @@ export async function prepareAcademyReadFile(inputPath:string,outputPath:string,
   if(Buffer.byteLength(expression)>131072)throw new Error('native_read_bundle_too_large');
   writeFileSync(privatePath(output,home,'.js',false),expression,{encoding:'utf8',flag:'wx',mode:0o600});
   return {schemaVersion:1,prepared:true,family:plan.family,networkRequests:0,credentialValuesWritten:false,
-    outputScript:output,nativeAuthentication:'browser_vault_required',effect:'read_only',recordsRequested:plan.family==='textbook'?plan.request.sourceTitles.length:plan.family==='daily_zero'?plan.request.targets.length:1,
+    outputScript:output,nativeAuthentication:'browser_vault_required',effect:'read_only',recordsRequested:plan.family==='textbook'?plan.request.sourceTitles.length:plan.family==='daily_zero'?plan.request.targets.length:plan.family==='day_record'?plan.request.studentNames.length:1,
     privateScopeValuesEmitted:false,automaticRetryAllowed:false};
 }
 

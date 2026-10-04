@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "kind": "owned_webmcp_origin_trial_deployment_review",
+  "status": "exact_host_deployment_verified_native_browser_acceptance_blocked",
+  "goalComplete": false,
+  "admission": {"source": "current_user_native_interview", "target": "https://dc.kcpalantir.tech", "userRegisteredTrial": true, "tokenReceivedThroughNativeForm": true, "tokenAllowsSubdomains": true, "actualDeploymentLimitedToExactHost": true, "otherSitesAdmitted": false},
+  "tokenMetadata": {"feature": "WebMCP", "expiresAtUtc": "2027-03-30T00:00:00Z", "thirdParty": false, "literalTokenPreserved": true, "signatureVerifiedByLocalParser": false, "tokenValueIncluded": false},
+  "deployment": {"publicPageStatus": 200, "exactOriginTrialHeaderReadback": true, "foreignHostTrialHeaderAbsent": true, "anonymousStudentApiStatus": 401, "nativeEngineModified": false, "browserFlagsModified": false, "hostOrOtherContainersModified": false},
+  "nativeBrowserReadback": {"method": "Page.getOriginTrials", "trialName": "UNKNOWN", "trialStatus": "ValidTokenNotProvided", "tokenStatus": "UnknownTrial", "parsedFeature": "WebMCP", "secureContext": true, "documentModelContext": "undefined", "navigatorModelContext": "undefined", "toolDiscoveryAccepted": false, "toolInvocationAccepted": false},
+  "validation": {"focusedTestsPassed": 6, "focusedTestsFailed": 0, "actualPostgresProductTestsPassed": 25, "actualPostgresProductTestsFailed": 0, "rootTypecheck": "passed", "harnessTypecheck": "passed", "diffCheck": "passed", "syntheticTokenFixturesAreNotIssuerSignatures": true},
+  "references": ["https://developer.chrome.com/docs/ai/webmcp/imperative-api", "https://developer.chrome.com/origintrials/#/register_trial/4163014905550602241", "https://developer.chrome.com/en/blog/origin-trial-troubleshooting", "src/academy/originTrial.ts", "src/academy/server.ts", "src/academy/main.ts", "tests/academy/originTrial.test.ts", "tests/academy/server.test.ts"],
+  "remainingGate": "Use an actually supported native browser consumer under its owner's admission, or a user-selected supported teacher browser. Do not modify the installed engine, spoof native APIs or claim schema/header/token delivery establishes WebMCP acceptance.",
+  "recovery": "Remove only the owned trial configuration to disable this header and restart the owned teacher application. Preserve teacher identity, session signing key, academy source evidence and all database history. Do not reset authentication or touch the existing tunnel/domain consumers.",
+  "publication": "pending_with_the_existing_owned_source_evidence_branch_not_full_product_completion"
+}
