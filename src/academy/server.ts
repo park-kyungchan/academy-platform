@@ -7,6 +7,12 @@ export interface LoginIdentity { readonly actorId:string; readonly username:stri
 export interface TeacherServerOptions {
   readonly app:TeacherApplication; readonly origin:string; readonly sessionKey:string;
   readonly identity:LoginIdentity|null; readonly invitationDigest:string|null;
+  readonly currentAuthentication?:()=>{identity:LoginIdentity|null;sessionKey:string};
+  readonly passwordRecovery?:{
+    claim:(token:string)=>Promise<{id:string;expiresAt:number}>;
+    status:(id:string)=>Promise<{id:string;expiresAt:number}>;
+    complete:(id:string,passwordHash:string)=>Promise<{identity:LoginIdentity;sessionKey:string}>;
+  };
   readonly saveIdentity:(identity:LoginIdentity)=>Promise<void>;
   readonly consumeInvitation?:()=>Promise<void>;
   readonly page?:string; readonly script?:string;
@@ -20,11 +26,11 @@ const cookie=(name:string,value:string,age=3600)=>`${name}=${value}; Path=/; Htt
 export function createTeacherServerHandler(options:TeacherServerOptions){
   const trial=options.originTrialToken?validateWebMcpTrialToken(options.originTrialToken,options.origin):null;
   const admittedHost=new URL(options.origin).hostname;
-  let identity=options.identity,invitationDigest=options.invitationDigest,setupRunning=false;
+  let identity=options.identity,sessionKey=options.sessionKey,invitationDigest=options.invitationDigest,setupRunning=false,resetRunning=false;
   const loginAttempts=new Map<string,{count:number;windowStart:number}>();
   const context=(req:Request):TrustedTeacherContext|null=>{
     const raw=readCookie(req.headers.get('Cookie'),'dc_teacher');
-    const session=raw?verifyTeacherSession(options.sessionKey,raw):null;
+    const session=raw?verifyTeacherSession(sessionKey,raw):null;
     return session&&identity&&session.ownerId===options.app.ownerId&&session.actorId===identity.actorId?{ownerId:session.ownerId,actorId:session.actorId,role:'teacher'}:null;
   };
   const body=async(req:Request):Promise<Record<string,unknown>>=>{
@@ -38,8 +44,9 @@ export function createTeacherServerHandler(options:TeacherServerOptions){
     if(!['GET','POST'].includes(req.method))return json({error:'method_not_allowed'},405);
     if(req.method==='POST'&&req.headers.get('Origin')!==options.origin)return json({error:'origin_denied'},403);
     try{
+      if(options.currentAuthentication){const current=options.currentAuthentication();identity=current.identity;sessionKey=current.sessionKey;}
       if(path==='/health'&&req.method==='GET')return json({status:'running',studentDisclosure:false});
-      if((path==='/'||path==='/setup')&&req.method==='GET')return new Response(options.page??'Private teacher application',{headers:{...securityHeaders,'Content-Type':'text/html; charset=utf-8',
+      if((path==='/'||path==='/setup'||path==='/reset')&&req.method==='GET')return new Response(options.page??'Private teacher application',{headers:{...securityHeaders,'Content-Type':'text/html; charset=utf-8',
         ...(trial&&url.hostname===admittedHost&&Date.parse(trial.expiresAt)>Date.now()?{'Origin-Trial':trial.token}:{})}});
       if(path==='/client.js'&&req.method==='GET')return new Response(options.script??'',{headers:{...securityHeaders,'Content-Type':'text/javascript; charset=utf-8'}});
       if(path==='/api/setup-session'&&req.method==='POST'){
@@ -47,11 +54,11 @@ export function createTeacherServerHandler(options:TeacherServerOptions){
         if(identity||!invitationDigest||typeof data.invitation!=='string'||secretDigest(data.invitation)!==invitationDigest)return json({error:'setup_not_admitted'},403);
         invitationDigest=null;
         await options.consumeInvitation?.();
-        const token=signTeacherSession(options.sessionKey,options.app.ownerId,'bootstrap-owner',undefined,900);
+        const token=signTeacherSession(sessionKey,options.app.ownerId,'bootstrap-owner',undefined,900);
         return json({status:'owner_setup_admitted'},200,{'Set-Cookie':cookie('dc_setup',token,900)});
       }
       if(path==='/api/setup-user'&&req.method==='POST'){
-        const token=readCookie(req.headers.get('Cookie'),'dc_setup');const grant=token?verifyTeacherSession(options.sessionKey,token):null;
+        const token=readCookie(req.headers.get('Cookie'),'dc_setup');const grant=token?verifyTeacherSession(sessionKey,token):null;
         if(identity||setupRunning||!grant||grant.ownerId!==options.app.ownerId||grant.actorId!=='bootstrap-owner')return json({error:'setup_not_admitted'},403);
         const data=await body(req);assertExactKeys(data,['username','password']);
         if(typeof data.username!=='string'||!data.username.trim()||data.username.length>200||typeof data.password!=='string'||data.password.length<10||data.password.length>1024)return json({error:'invalid_credentials_shape'},400);
@@ -59,7 +66,7 @@ export function createTeacherServerHandler(options:TeacherServerOptions){
         try{
           const newIdentity:LoginIdentity={actorId:crypto.randomUUID(),username:data.username,passwordHash:await Bun.password.hash(data.password)};
           await options.saveIdentity(newIdentity);identity=newIdentity;
-          return json({status:'teacher_registered'},200,{'Set-Cookie':cookie('dc_teacher',signTeacherSession(options.sessionKey,options.app.ownerId,newIdentity.actorId))});
+          return json({status:'teacher_registered'},200,{'Set-Cookie':cookie('dc_teacher',signTeacherSession(sessionKey,options.app.ownerId,newIdentity.actorId))});
         }finally{setupRunning=false;}
       }
       if(path==='/api/login'&&req.method==='POST'){
@@ -70,8 +77,55 @@ export function createTeacherServerHandler(options:TeacherServerOptions){
         attempt.count++;loginAttempts.set(remote,attempt);
         if(attempt.count>5)return json({error:'login_rate_limited'},429,{'Retry-After':'900'});
         const data=await body(req);assertExactKeys(data,['username','password']);
-        if(!identity||typeof data.username!=='string'||typeof data.password!=='string'||data.password.length>1024||data.username!==identity.username||!await Bun.password.verify(data.password,identity.passwordHash))return json({error:'login_required'},401);
-        return json({status:'teacher_authenticated'},200,{'Set-Cookie':cookie('dc_teacher',signTeacherSession(options.sessionKey,options.app.ownerId,identity.actorId))});
+        const loginIdentity=identity,loginKey=sessionKey;
+        if(!loginIdentity||typeof data.username!=='string'||typeof data.password!=='string'||data.password.length>1024||data.username!==loginIdentity.username||!await Bun.password.verify(data.password,loginIdentity.passwordHash))return json({error:'login_required'},401);
+        const current=options.currentAuthentication?.()??{identity,sessionKey};
+        if(current.sessionKey!==loginKey||current.identity?.actorId!==loginIdentity.actorId||current.identity.passwordHash!==loginIdentity.passwordHash||current.identity.username!==loginIdentity.username)return json({error:'login_required'},401);
+        return json({status:'teacher_authenticated'},200,{'Set-Cookie':cookie('dc_teacher',signTeacherSession(loginKey,options.app.ownerId,loginIdentity.actorId))});
+      }
+      if(path==='/api/password-recovery-request'&&req.method==='POST'){
+        if(!identity||!options.passwordRecovery)return json({error:'password_recovery_denied'},403);
+        const now=Date.now(),remote='recovery-request:'+(req.headers.get('CF-Connecting-IP')??'direct-loopback').slice(0,64),prior=loginAttempts.get(remote);
+        const attempt=prior&&now-prior.windowStart<900000?prior:{count:0,windowStart:now};
+        if(!prior&&loginAttempts.size>=2048)return json({error:'recovery_rate_limited'},429);
+        attempt.count++;loginAttempts.set(remote,attempt);
+        if(attempt.count>5)return json({error:'recovery_rate_limited'},429,{'Retry-After':'900'});
+        const data=await body(req);assertExactKeys(data,[]);
+        const requestRef=crypto.randomUUID(),expiresAt=Math.floor(now/1000)+900;
+        return json({status:'owner_approval_required',requestRef,expiresAt,referenceGrantsAccess:false},200,{'Set-Cookie':cookie('dc_password_recovery',signTeacherSession(sessionKey,options.app.ownerId,'password-recovery:'+requestRef,undefined,900),900)});
+      }
+      if(path==='/api/password-recovery-session'&&req.method==='POST'){
+        if(!identity||!options.passwordRecovery)return json({error:'password_recovery_denied'},403);
+        const now=Date.now(),remote='recovery:'+(req.headers.get('CF-Connecting-IP')??'direct-loopback').slice(0,64),prior=loginAttempts.get(remote);
+        const attempt=prior&&now-prior.windowStart<900000?prior:{count:0,windowStart:now};
+        if(!prior&&loginAttempts.size>=2048)return json({error:'recovery_rate_limited'},429);
+        attempt.count++;loginAttempts.set(remote,attempt);
+        if(attempt.count>5)return json({error:'recovery_rate_limited'},429,{'Retry-After':'900'});
+        const data=await body(req);assertExactKeys(data,['token']);
+        if(typeof data.token!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(data.token))return json({error:'password_recovery_denied'},403);
+        const grant=await options.passwordRecovery.claim(data.token);
+        const lifetime=grant.expiresAt-Math.floor(Date.now()/1000);
+        if(lifetime<1||lifetime>900)throw Error('password_recovery_denied');
+        return json({status:'password_recovery_admitted',username:identity.username},200,{'Set-Cookie':cookie('dc_password_recovery',signTeacherSession(sessionKey,options.app.ownerId,'password-recovery:'+grant.id,undefined,lifetime),lifetime)});
+      }
+      if(path==='/api/password-recovery-status'&&req.method==='GET'){
+        const raw=readCookie(req.headers.get('Cookie'),'dc_password_recovery'),grant=raw?verifyTeacherSession(sessionKey,raw):null;
+        if(!options.passwordRecovery||!identity||!grant||grant.ownerId!==options.app.ownerId||!grant.actorId.startsWith('password-recovery:'))return json({error:'password_recovery_denied'},403);
+        await options.passwordRecovery.status(grant.actorId.slice('password-recovery:'.length));
+        return json({status:'password_recovery_admitted',username:identity.username});
+      }
+      if(path==='/api/password-reset'&&req.method==='POST'){
+        const raw=readCookie(req.headers.get('Cookie'),'dc_password_recovery'),grant=raw?verifyTeacherSession(sessionKey,raw):null;
+        if(!options.passwordRecovery||!identity||resetRunning||!grant||grant.ownerId!==options.app.ownerId||!grant.actorId.startsWith('password-recovery:'))return json({error:'password_recovery_denied'},403);
+        const data=await body(req);assertExactKeys(data,['password']);
+        if(typeof data.password!=='string'||data.password.length<10||data.password.length>1024)return json({error:'invalid_credentials_shape'},400);
+        if(resetRunning)return json({error:'password_recovery_denied'},403);
+        resetRunning=true;
+        try{
+          const next=await options.passwordRecovery.complete(grant.actorId.slice('password-recovery:'.length),await Bun.password.hash(data.password));
+          identity=next.identity;sessionKey=next.sessionKey;
+          return json({status:'teacher_password_reset',username:identity.username,requiresLogin:true},200,{'Set-Cookie':cookie('dc_password_recovery','',0)});
+        }finally{resetRunning=false;}
       }
       if(path.startsWith('/api/')){
         const actor=context(req);if(!actor)return json({error:'teacher_authentication_required'},401);
@@ -98,8 +152,8 @@ export function createTeacherServerHandler(options:TeacherServerOptions){
       return json({error:'not_found'},404);
     }catch(error){
       const code=error instanceof Error?error.message:'operation_failed';
-      const safe=['owner_scope_conflict','student_scope_conflict','invalid_student_selector','invalid_input','json_required','input_too_large','unexpected or missing domain fields'].includes(code)?code:'operation_failed';
-      return json({error:safe},safe.includes('scope_conflict')?403:400);
+      const safe=['owner_scope_conflict','student_scope_conflict','invalid_student_selector','invalid_input','json_required','input_too_large','password_recovery_denied','unexpected or missing domain fields'].includes(code)?code:'operation_failed';
+      return json({error:safe},safe.includes('scope_conflict')||safe==='password_recovery_denied'?403:400);
     }
   };
 }

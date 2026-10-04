@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-04T10:05:47Z",
-    "objective": "On Hermes Linux Backend, bounded five-student intake is verified: 102 textbook assessments/906 items, 32 DayRecords/10 dates and protected date-class queries. User requests Git closeout and fresh-session Whole-Lens priorities, not more features now. Trial header is exact-host verified; native UnknownTrial/no modelContext, refused login, full hierarchy/scenes and independent recovery remain open. See review/teacher-source-evidence-closeout-2026-10-04.json. Native session-close transport is authenticated and unavailable; verify predecessor release before successor writes. Preserve foreign history, read-only academy/native safeguards.",
+    "updatedAtUtc": "2026-10-04T12:09:33Z",
+    "objective": "On Hermes Linux Backend, teacher password recovery is implemented/deployed. Human reset persisted: hash changed, old sessions revoked, grant consumed; actor/username and 5 student partitions/143 heads/153 versions preserved. See review/teacher-password-recovery-2026-10-04.json. Finish exact-head Git closeout and verify fresh teacher login. User keeps only current Lead product authority while retaining predecessor runtime/history; check actual target conflicts, not lease count. Academy stays read-only. Date-first scenes, full hierarchy/joins, actual WebMCP and independent recovery remain open.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
@@ -266,7 +266,7 @@
       },
       {
         "id": "backend_lead_authority",
-        "statement": "Sole dc Lead owns academy development/operations. The latest user explicitly resumes retained-reader integration and commit/push/PR/checks/merge/readback/owned cleanup, permits removal of classified superseded legacy after unique evidence/recovery are verified, and renews the blocked native command. Integrate useful work through Whole-Lens; do not merge stale queues as authority. Default is no longer publisher. No force-push main, protection bypass or unknown/foreign-work deletion.",
+        "statement": "Sole current dc Lead owns product development/operations and commit/push/PR/checks/merge/readback/owned cleanup. Prior classified legacy removal requires unique evidence/recovery; preserve foreign work. User permits predecessor runtime/history but revokes its product authority; closure is not a universal development gate. Check actual conflicts/drift and stop overlapping or unknown writes. User admits secure teacher recovery and replacement of its existing app only; preserve identity/history and DB/tunnel/Hermes. No old-password disclosure, academy mutation, protection bypass or inherited worker budget.",
         "source": "user_interview"
       },
       {
@@ -333,7 +333,7 @@
         "id": "five_student_product_delivery",
         "owner": "lead",
         "action": "resolve_continuation_source",
-        "referencePaths": ["review/teacher-source-evidence-closeout-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "docs/academy-dayrecord-column-qualification-2026-10-04.json", "review/teacher-ontology-cohort-db-2026-10-04.json", "docs/teacher-ontology-delivery-plan.ts", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
+        "referencePaths": ["review/teacher-password-recovery-2026-10-04.json", "docs/teacher-password-recovery-contract.ts", "review/teacher-source-evidence-closeout-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "docs/academy-dayrecord-column-qualification-2026-10-04.json", "review/teacher-ontology-cohort-db-2026-10-04.json", "docs/teacher-ontology-delivery-plan.ts", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
         "dependsOnQuestionIds": ["backend_lead_authority"]
       },
       {
