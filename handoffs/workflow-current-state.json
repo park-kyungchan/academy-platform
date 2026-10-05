@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-05T09:38:46Z",
-    "objective": "On Hermes Linux Backend, architecture/code Lead; analysis session owns operational capture. Preparation-history leaf implemented: additive typed source/assignment/teacher revisions, no-write legacy compatibility, persistent acceptance/reopening and existing student/date-class/HTTP/UI/agent query binding. Isolated PostgreSQL and real HTTP tests pass; internal read canary succeeds without writes or source requests. Browser localhost access denied; no bypass, UI/WebMCP acceptance remains open. No production schema migration or service restart. PR18 integrated; local gates pass. Finish exact-head publication/CI. Old Bot budgets closed.",
+    "updatedAtUtc": "2026-10-05T09:52:25Z",
+    "objective": "On Hermes Linux Backend, architecture Lead; analysis owns operational capture. History code merged PR19 with exact-head CI/readback; owned branch cleaned, foreign worktree preserved. Typed records, no-write legacy compatibility and persistent acceptance/reopening reach student/date-class HTTP and human/agent bindings. Isolated PostgreSQL/HTTP and private internal read canary pass; no operational writes or academy requests. Native localhost browser denied; UI/WebMCP acceptance unverified. No runtime activation/migration/restart. Next qualify new source intake/delta refresh and protected site runtime. Old Bot budgets closed.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
