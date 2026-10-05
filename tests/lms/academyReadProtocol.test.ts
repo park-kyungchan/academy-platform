@@ -88,8 +88,8 @@ test('refuses DayRecord reads without an independently bound native principal',a
 
 test('whole-catalog coverage exposes scoped preparation without promoting unknown operations',()=>{
   const result=queryEndpoints({projection:'coverage'});
-  expect(result.coverage?.readPreparation).toMatchObject({consumer:'bun run endpoint:query',families:['daily_zero','day_record','item_metadata','student_course','textbook'],
-    preparedFamilies:['daily_zero','day_record','item_metadata','student_course','textbook'],blockedFamilies:[],
+  expect(result.coverage?.readPreparation).toMatchObject({consumer:'bun run endpoint:query',families:['daily_zero','day_record','item_answer','item_metadata','student_course','textbook'],
+    preparedFamilies:['daily_zero','day_record','item_answer','item_metadata','student_course','textbook'],blockedFamilies:[],
     authentication:'native_browser_vault',unattended:false});
   expect(result.coverage?.physicalBackendCompletenessEstablished).toBe(false);
   expect(queryEndpoints({effect:'unknown',projection:'full'}).rows.every(x=>'callable' in x&&x.callable===false)).toBe(true);

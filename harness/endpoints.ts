@@ -17,7 +17,7 @@ export function endpointCli(args: string[]): unknown {
     catalog:'--id <exact-id> | --operation <literal-selector> | --projection coverage',
     readPreparation:'--prepare-read <private-request.json> --output-script <private-script.js>',
     sourceAudit:'--audit-read <private-result.json> --output-audit <private-audit.json>',
-    preparedFamilies:['daily_zero','day_record','item_metadata','student_course','textbook'],
+    preparedFamilies:['daily_zero','day_record','item_answer','item_metadata','student_course','textbook'],
     blockedPreparation:{},
     policy:'Review the source-specific contract; output scripts perform only the admitted existing-result reads in an authenticated native browser.',
     limits:'Unknown/effectful operations stay blocked. Source declarations are not full backend or SQL access.',

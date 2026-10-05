@@ -137,8 +137,8 @@ export function queryEndpoints(query: EndpointQuery = {}, entries = buildEndpoin
     truncated: false, callable: 0, rows: [] as Array<CompactEndpoint | EndpointCatalogEntry>,
     coverage: {
       executionEnabled: false, physicalBackendCompletenessEstablished: false, nativeAppCompletenessEstablished: false,
-      readPreparation: {consumer:'bun run endpoint:query',families:['daily_zero','day_record','item_metadata','student_course','textbook'],
-        preparedFamilies:['daily_zero','day_record','item_metadata','student_course','textbook'],
+      readPreparation: {consumer:'bun run endpoint:query',families:['daily_zero','day_record','item_answer','item_metadata','student_course','textbook'],
+        preparedFamilies:['daily_zero','day_record','item_answer','item_metadata','student_course','textbook'],
         blockedFamilies:[],authentication:'native_browser_vault',unattended:false,
         command:'--prepare-read <private-request.json> --output-script <private-script.js>',
         contractRef:'docs/academy-deterministic-read-contract.ts',meaning:'scoped_native_browser_preparation_not_generic_catalog_execution'},

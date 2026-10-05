@@ -344,8 +344,7 @@
         "referencePaths": [
           "review/classroom-cycle-policy-2026-10-05.json",
           "review/preparation-history-integration-2026-10-05.json",
-          "docs/academy-preparation-history-contract.ts",
-          "src/academy/preparationHistory.ts",
+          "review/item-answer-paper-lineage-2026-10-05.json",
           "src/academy/classroomCyclePolicy.ts",
           "docs/academy-whole-lens-target-architecture.json",
           "docs/academy-student-evidence-contract.json",
