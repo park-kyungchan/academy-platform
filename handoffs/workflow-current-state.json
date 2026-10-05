@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-04T23:44:02Z",
-    "objective": "On Hermes Linux Backend, user reports new-password login success. Date-class UI and Bot Screen actual-app trial: 9 invented browser cases pass, Korean pixels repaired; see review/bot-screen-date-class-trial-2026-10-05.json. Current site 530/1033: PG18 dir exists, but tools/DB/app absent; actual tests 35 pass/8 fail. User selects Windows PM prerequisite restoration, then Lead existing-stack restart/readback with current auth/data. Hold draft PR16 merge/rollout until real DB gate. Branch feat/date-class-screen-qa-20261005. Academy read-only; full hierarchy, teacher history, WebMCP and independent recovery remain open.",
+    "updatedAtUtc": "2026-10-05T01:15:53Z",
+    "objective": "On Hermes Linux Backend, user stops new work for checkpoint/Git closeout, then fresh-session priorities and intent interview. PR16 date UI: actual DB 45 pass, native invented-browser 11 pass after Bot review repair. Existing PG restored: 5 partitions/143 heads/153 versions/current auth retained; app/tunnel still open. Two input-only native Bots exited; budgets ended. See review/bot-orchestration-session-closeout-2026-10-05.json. Preserve foreign raw/classroom checkout; close only owned work. Next Lead uses structured typed Ontology/WebMCP Bot orchestration, not an external-human PM assumption. Academy read-only.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
@@ -191,7 +191,7 @@
       },
       {
         "id": "lead_structure",
-        "statement": "The dc Lead owns all academy practice and both retained branches' future Git lifecycle; default released its academy reservation after verified transfer. No old worker queue or budget transfers. Code first for mechanical work; new workers require actual detailed native controls and fresh admission. User prefers literal gpt-6.1-sol for complex work, gpt-6-luna only for negligible judgment and supported effort by complexity; reconcile effective existing instructions before execution. No model-facing delegate_task or current worker launch.",
+        "statement": "The dc Lead owns all academy practice/integration and retained Git work; default released its reservation. User now explicitly wants multiple native Linux Bots under Lead orchestration, with hierarchical typed goals/inputs/effects/results improving agent context through Ontology/WebMCP. Code handles mechanical work. Every Bot task needs fresh native model/tool/effect/input/budget limits; old budgets ended, no inherited queues. Prefer gpt-6.1-sol/xhigh for complex work, gpt-6-luna only for negligible judgment. Model-facing delegate_task remains excluded. Current stop admits closeout only; successor interviews purpose first.",
         "source": "user_interview"
       },
       {
@@ -271,7 +271,7 @@
       },
       {
         "id": "backend_execution_scope",
-        "statement": "All dc Lead execution stays on connected Linux Backend; Windows Desktop is remote-only, no Host/other-container administration. Profile creation may register its stopped container-local s6 gateway, not start/restart services. Latest user selects Windows PM to restore only reproducible PG18/cloudflared prerequisites; after exact readiness readback, Lead may restart existing DB/teacher app/dc-only tunnel with original data/current auth. No initdb, old-password/key restoration, native interruption, account/DNS/billing or automatic worker/schedule changes. Bot Screen is a current trial, not an installed standing Workflow.",
+        "statement": "All Lead/Bot execution stays on connected Linux Backend; Windows Desktop is a remote interface, no Host/other-container work. A Bot is a profile; Windows PM must not be presumed an external human. User corrected to Lead-owned restoration with limited native Bot analysis. Original mounted runtime binaries remain; preserve data/current auth. Profile callback may register a stopped container-local gateway, not start native services. User now stops further restoration/features for Git closeout. Bot Screen is this profile's Linux display, not the user's screen; no new Cron/account/DNS/billing or engine modification.",
         "source": "user_interview"
       },
       {
@@ -333,7 +333,7 @@
         "id": "five_student_product_delivery",
         "owner": "lead",
         "action": "resolve_continuation_source",
-        "referencePaths": ["review/bot-screen-date-class-trial-2026-10-05.json", "review/teacher-password-recovery-2026-10-04.json", "docs/teacher-password-recovery-contract.ts", "review/teacher-source-evidence-closeout-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "docs/academy-dayrecord-column-qualification-2026-10-04.json", "review/teacher-ontology-cohort-db-2026-10-04.json", "docs/teacher-ontology-delivery-plan.ts", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
+        "referencePaths": ["review/bot-orchestration-session-closeout-2026-10-05.json", "review/bot-screen-date-class-trial-2026-10-05.json", "review/teacher-password-recovery-2026-10-04.json", "review/teacher-source-evidence-closeout-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "docs/academy-dayrecord-column-qualification-2026-10-04.json", "review/teacher-ontology-cohort-db-2026-10-04.json", "docs/teacher-ontology-delivery-plan.ts", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
         "dependsOnQuestionIds": ["backend_lead_authority", "backend_execution_scope"]
       },
       {

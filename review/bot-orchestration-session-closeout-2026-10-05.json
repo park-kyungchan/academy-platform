@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "kind": "bounded_delivery_checkpoint_and_successor_direction",
+  "profile": "dc-gang-a-dev",
+  "canonicalCheckpoint": "handoffs/workflow-current-state.json",
+  "status": "verified_closeout_candidate_exact_head_git_owner",
+  "wholeTeacherProductComplete": false,
+  "latestUserIntent": "Stop new implementation/recovery now due to context contamination risk. Finish checkpoint/commit/push/PR/review/CI/merge/readback/owned cleanup; yield to a fresh Lead session which first reprioritizes and interviews consequential unresolved purpose before admitted work. Native Linux Bots are explicitly desired under typed, hierarchical Lead orchestration for an Ontology-Driven System and real WebMCP agent context.",
+  "settled": {
+    "lead": "One dc integration/operations/writer Lead; additional admitted Bots consume exact scoped inputs and independently return evaluated results. A fresh session does not renew a consumed worker budget.",
+    "bot": "A native Bot is a profile, not an external person. Windows can be a connection/device label; do not infer actor kind from it. This profile's Linux Bot Screen is the GUI work surface, Windows Desktop is a remote viewer.",
+    "northStar": "An actually useful personal teacher system linking date-first every scheduled student, selected-student book hierarchy/evidence, attributable judgment/history/carryover/review/safe drafts and recovery. Tool installation, a schema or a fake-data browser pass is not that outcome.",
+    "reserved": ["Teacher judgment", "Official record finalization", "Final parent sending"],
+    "academy": "strictly_read_only"
+  },
+  "delivered": {
+    "dateClass": "Existing protected date-class query now drives all observed occurrences and exact selected lesson context, separate from whole-student evidence. Unknown roster/content/homework/attempt/correction joins stay unknown; literal attendance and multiple groups retained.",
+    "reviewRepair": "dc-review found a real registered-student refresh regression. Lead reproduced the failing actual-client case, preserved selected student/view kind, kept blocked reason/data and separated scoped refresh status. Full tuple identity now drives refusal/highlight/matching; explicit cohort membership refuses missing-name/unknown-ID JSON.",
+    "font": "Pinned licensed same-origin Nanum Gothic fixes actual Korean pixel tofu. No OS font/engine installation.",
+    "rehearsal": "Explicit active-profile synthetic-only localhost harness uses actual application/HTTP/client with an invented in-memory reader and server-owned invented actor. Not live source/real login/actual PostgreSQL acceptance."
+  },
+  "validation": {
+    "actualPostgresApplication": {"pass":45,"fail":0,"skip":0},
+    "nativeBrowserFinal": {"pass":11,"fail":0,"syntheticOnly":true,"productionAcceptance":false},
+    "nativeBrowserRepairRed": "registered_student_refresh_preserves_scope failed before repair",
+    "screen": {"width":1440,"height":900,"readableKoreanObserved":true,"humanTakeover":"not_exercised"},
+    "cloudCheck": "passed_synthetic_and_source_integrity_not_production_acceptance",
+    "typechecks": ["project","harness","agent-runtime"],
+    "academyRequests": 0,
+    "officialWrites": 0,
+    "parentSends": 0
+  },
+  "actualBotTrials": [
+    {"taskId":"dc_review_date_class","profile":"dc-review","nativeSession":"20261005_095631_816fb7","model":"gpt-6.1-sol","provider":"openai-codex","reasoning":"xhigh","effectiveModelToolCount":0,"maxTurns":3,"runBudgetSeconds":300,"observedDurationMs":305994,"nativeExit":0,"processExited":true,"result":"schema_validated_repair","consumed":"Demonstrated refresh blocker repaired and revalidated by Lead; warning hardening partially fixed; no independent re-review of successor head claimed."},
+    {"taskId":"dc_context_ontology_webmcp","profile":"dc-context","nativeSession":"20261005_095632_f579e0","model":"gpt-6.1-sol","provider":"openai-codex","reasoning":"xhigh","effectiveModelToolCount":0,"maxTurns":3,"runBudgetSeconds":300,"observedDurationMs":226411,"nativeExit":0,"processExited":true,"result":"schema_validated_repair_advice","consumed":"Existing/future agent evidence projection, action availability, date/occurrence same-context semantics, WebMCP capability and per-book hierarchy gaps deferred to successor interview/design. They do not certify or block a claim this bounded delivery does not make."}
+  ],
+  "botTrialLimits": ["Native CLI/process handoff, not exercised canonical message_agent/room orchestration", "Input-only supplied-source review, no repository exploration or source/data access by Bots", "No strict observed wall-time-within-300 claim for dc-review; native observed duration was 305994 ms", "Both budgets ended; no replay/retry/ongoing worker granted by this checkpoint", "Profiles remain scoped input-only with native deny approvals and all toolsets disabled; Lead profile model/settings unchanged"],
+  "serviceReadback": {
+    "postgres": "Existing primary restored on Unix socket port 55432 using verified profile-local PostgreSQL 18.6; no initdb/TCP listener.",
+    "ownedLiveHandle": "proc_f495b0bfd039",
+    "persistOnRelease": true,
+    "ownerReadback": {"studentPartitions":5,"currentRecordHeads":143,"recordVersions":153,"observedLessonDates":10,"currentAuthenticationUnchanged":true},
+    "privateRecovery": "Active-profile academy/recovery-native-bot-20261005: cold primary snapshot, CURRENT authentication backup and private exact readback. Same volume, not independent Backend-loss recovery.",
+    "appAndTunnel": "Not restarted/restored in this session; new user stop applies. Public teacher service recovery remains open. Source presence/current auth is not running UI/tunnel acceptance.",
+    "nativeEngineHostOtherContainers": "not_modified"
+  },
+  "correctedFailures": [
+    "Windows PM was wrongly treated as an external human operator; user corrected Bot-only intent. That external-human prerequisite is superseded.",
+    "Missing PATH/system /usr/lib executable was wrongly promoted to missing installation. Original mounted runtime/postgresql-18.6 and runtime/cloudflared binaries remain and version probes pass. Prefer qualified absolute resource paths; inspect existing validated owners before downloading/rebuilding.",
+    "Initial bounded Bot launches used hermes from a background PATH where it was absent; no model calls ran. Absolute packaged native launcher then completed both fresh tasks.",
+    "Native cosmetic horse title prefix, locale date typing mismatch and native inactivity cleanup were retained and qualified instead of changing installed engine/configuration.",
+    "Foreign primary checkout switched to raw/classroom-20261005-parts-1-2 at the old head. Lead isolated PR16 closeout in an owned worktree, preserves that branch/worktree and does not reset/pull/switch/delete it."
+  ],
+  "preservedForeignWork": {"primaryPath":"/opt/data/workspace/dc-gang-a","branch":"raw/classroom-20261005-parts-1-2","observedHead":"100dc54bc9b4183838e85bb7ca94d7bdeba3b652","ownership":"not_inferred","rule":"Recheck actual writers before new writes. Do not treat a foreign checkout or a native lease as automatic successor authority."},
+  "publication": {"pullRequest":16,"url":"https://github.com/park-kyungchan/dc-gang-a/pull/16","ownedBranch":"feat/date-class-screen-qa-20261005","owner":"Fresh exact tested PR head/checks/normal merge/main readback, not this self-contained pre-merge record."},
+  "successor": {
+    "first": "Recover actual profile/Project/cwd/Git ownership and scoped canonical context. Read needed source bodies and shared foundation; do not inject the entire old transcript or replay its queue.",
+    "interview": "Reprioritize from teacher outcomes and ask only consequential unresolved purpose, risk/cost/authority or participation. Preserve already accepted teacher login, primary owned-app candidate, five logical partitions/shared catalogs, read-only academy, click-driven refresh and human finalization/sending. Do not make a KG provider example a prerequisite.",
+    "botOrchestration": "Actively use native Linux Bots with a typed parent goal, bounded leaf task, exact supplied inputs, effect/tool/model/budget controls, result schema, real verification and accept/repair/defer/stop. Native lifecycle/process/Task owners stay authoritative; no new dispatcher, context injector or progress mirror.",
+    "webMcp": "Improve agent-legible typed evidence/action/scene contracts over shared application semantics, then exercise an actually supported browser. Existing registration/header is not discovery/invocation/teacher-visible effect acceptance; no shim or installed-engine flags.",
+    "screen": "Profile-owned Linux work surface (:21 at this observation), not the user's Windows screen. Use short scdev session, exact owned page/URL/state and immediate DOM/pixel verification; preserve Take over/Hand back fencing. Gateway/Cron GUI remains separately unverified.",
+    "remaining": ["Owned app/tunnel continuity and actual source authentication", "Useful real teacher date/student acceptance", "Qualified full hierarchy and source joins", "Attributable teacher input/review/history/drafts", "Independent encrypted recovery and restore", "Actual WebMCP consumer", "Fresh native Bot orchestration qualification beyond input-only trials"]
+  },
+  "recovery": "Preserve original evidence/current authentication and operating DB. Revert only owned code through normal reviewed Git if needed; never reset primary, restore an old password/key, dump credentials/cookies, change installed engine/Host, delete foreign work, force-push main or bypass protections."
+}

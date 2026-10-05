@@ -38,14 +38,14 @@ const app=new TeacherApplication(reader as PostgresAcademyStore,owner);
 const build=await Bun.build({entrypoints:[resolve('src/academy/web/client.ts')],target:'browser',format:'esm',minify:true});
 if(!build.success)throw Error('rehearsal_client_build_failed');
 const script=await build.outputs[0]!.text(),sessionKey=createAuthSecrets().sessionKey;
-let handler:(request:Request)=>Promise<Response>,origin='',failure=false;
+let handler:(request:Request)=>Promise<Response>,origin='',failure=false,refreshBlocked=false;
 const server=Bun.serve({hostname:'127.0.0.1',port:0,async fetch(request){
   const url=new URL(request.url);
   if(url.pathname==='/qa/start'&&request.method==='GET')return new Response(null,{status:303,headers:{Location:'/?date=2090-01-02','Cache-Control':'no-store'}});
   if(url.pathname==='/qa/control'&&request.method==='POST'){
     if(request.headers.get('Origin')!==origin)return new Response('Origin denied',{status:403});
-    const data=await request.json() as {failure?:unknown};if(Object.keys(data).length!==1||typeof data.failure!=='boolean')return new Response('Invalid fixture control',{status:400});
-    failure=data.failure;return Response.json({syntheticOnly:true,failure});
+    const data=await request.json() as {failure?:unknown;refreshBlocked?:unknown};if(Object.keys(data).some(key=>!['failure','refreshBlocked'].includes(key))||typeof data.failure!=='boolean'||(data.refreshBlocked!==undefined&&typeof data.refreshBlocked!=='boolean'))return new Response('Invalid fixture control',{status:400});
+    failure=data.failure;if(typeof data.refreshBlocked==='boolean')refreshBlocked=data.refreshBlocked;return Response.json({syntheticOnly:true,failure,refreshBlocked});
   }
   if(failure&&url.pathname==='/api/class')return Response.json({error:'synthetic_source_outage'},{status:503});
   if(url.pathname.startsWith('/api/')){
@@ -56,7 +56,7 @@ const server=Bun.serve({hostname:'127.0.0.1',port:0,async fetch(request){
   return handler(request);
 }});
 origin=`http://127.0.0.1:${server.port}`;
-handler=createTeacherServerHandler({app,origin,sessionKey,identity:{actorId:actor,username:'synthetic-fixture-only',passwordHash:'no-real-login-credential'},invitationDigest:null,saveIdentity:async()=>{throw Error('rehearsal_write_denied');},page:teacherPage.replace('<header>','<div class="notice" id="synthetic-rehearsal">SYNTHETIC REHEARSAL · localhost only · no real student data or academy requests</div><header>'),script});
+handler=createTeacherServerHandler({app,origin,sessionKey,identity:{actorId:actor,username:'synthetic-fixture-only',passwordHash:'no-real-login-credential'},invitationDigest:null,saveIdentity:async()=>{throw Error('rehearsal_write_denied');},refresh:async()=>({status:refreshBlocked?'blocked':'unchanged',reason:refreshBlocked?'synthetic_refresh_blocked':undefined,syntheticOnly:true,sourceWrites:0}),page:teacherPage.replace('<header>','<div class="notice" id="synthetic-rehearsal">SYNTHETIC REHEARSAL · localhost only · no real student data or academy requests</div><header>'),script});
 const endpoint={schemaVersion:1,profile:'dc-gang-a-dev',url:origin+'/qa/start',origin,pid:process.pid,syntheticOnly:true,store:'minimal_in_memory_read_fixture_not_postgres',realApplicationAndHttpBoundary:true,authentication:'server_owned_invented_actor_not_real_login_acceptance',browserCookiesModified:false,academyRequests:0,productionModified:false};
 writeFileSync(output+'/endpoint.json',JSON.stringify(endpoint,null,2)+'\n',{flag:'wx',mode:0o600});
 console.log(JSON.stringify(endpoint));

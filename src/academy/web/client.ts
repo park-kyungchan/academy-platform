@@ -1,5 +1,5 @@
 import type { TeacherApplication } from '../application';
-import { dateClassView, requestGate, type DateClassPreparation, type DateClassRow } from './dateClassView';
+import { dateClassView, occurrenceIdentity, requestGate, type DateClassPreparation, type DateClassRow } from './dateClassView';
 type Scene=Awaited<ReturnType<TeacherApplication['student']>>;
 type Cohort=Awaited<ReturnType<TeacherApplication['cohort']>>;
 const element=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
@@ -7,6 +7,7 @@ const status=(text:string)=>{element('status').textContent=text;};
 let setupMode=false,recoveryReady=false,selectedStudentId:string|null=null,currentScene:Scene|null=null;
 let cohortStudents:Cohort['students']=[],selectedOccurrence:DateClassRow|null=null,lastClass:DateClassPreparation|null=null;
 const classRequests=requestGate(),studentRequests=requestGate();
+let refreshRunning=false;
 async function api<T>(path:string,options:RequestInit={}):Promise<T>{
   const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options});
   const data=await response.json();if(!response.ok)throw Error(data.error??data.reason??'request_failed');return data as T;
@@ -15,7 +16,7 @@ const post=<T>(path:string,value:unknown)=>api<T>(path,{method:'POST',headers:{'
 function node(tag:string,text:string,className=''):HTMLElement{const result=document.createElement(tag);result.textContent=text;result.className=className;return result;}
 function renderScene(scene:Scene){
   currentScene=scene;selectedStudentId=scene.student.id;
-  element('student-title').textContent=scene.student.displayName;element<HTMLButtonElement>('refresh-student').disabled=false;
+  element('student-title').textContent=scene.student.displayName;element<HTMLButtonElement>('refresh-student').disabled=refreshRunning;
   const target=element('scene');target.replaceChildren();
   target.append(node('div','학원 근거를 읽어온 시각과 DB에 보존한 시각을 구분합니다. 원본 채점은 교사 검토·숙련도 판정이 아닙니다.','notice'));
   const tags=node('div','');for(const level of scene.hierarchy.levels)tags.append(node('span',level+(scene.hierarchy.unknownLevels.includes(level)?' · source 연결 미확인':''),'badge'));target.append(tags);
@@ -33,7 +34,7 @@ function renderScene(scene:Scene){
   evidence.append(node('p',scene.evidence.length?'원문 source와 독립 상태를 유지한 근거가 있습니다.':'아직 연결된 수업·문항·성적 근거가 없습니다. 미수행으로 판정하지 않습니다.','muted'));
   for(const row of scene.evidence){const detail=node('details','');detail.append(node('summary',row.payload.kind+' · '+new Date(row.lastVerifiedAt).toLocaleString('ko-KR')),node('pre',JSON.stringify(row.payload,null,2)));evidence.append(detail);}target.append(evidence);
   const context=node('details','','card');context.append(node('summary','에이전트와 교사를 위한 typed 업무 맥락'),node('pre',JSON.stringify({sceneRevision:scene.sceneRevision,allowedOperations:scene.allowedOperations,knowledge:scene.knowledge,limits:scene.limits},null,2)));target.append(context);
-  document.querySelectorAll('[data-student-id]').forEach(button=>{const data=(button as HTMLElement).dataset;button.classList.toggle('selected',data.studentId===scene.student.id&&(!data.recordKey||(data.recordKey===selectedOccurrence?.occurrence.recordKey&&data.membershipKey===selectedOccurrence?.occurrence.membershipKey)));});
+  document.querySelectorAll('[data-student-id]').forEach(button=>{const data=(button as HTMLElement).dataset;button.classList.toggle('selected',data.studentId===scene.student.id&&(!data.occurrenceIdentity||(selectedOccurrence!==null&&data.occurrenceIdentity===occurrenceIdentity(selectedOccurrence))));});
 }
 function renderOccurrence(row:DateClassRow|null){
   const target=element('occurrence-context');target.replaceChildren();
@@ -62,10 +63,10 @@ async function showDate(date:string,preferred:DateClassRow|null=null){
     const view=dateClassView(source,date,cohortStudents);lastClass=source;
     element('class-title').textContent=date+' · 수업 준비';element('class-status').textContent='관측된 수업 '+view.occurrenceCount+'건 · 학생 '+view.studentCount+'명 · 현재 출석 명단 완전성 미확인. '+(view.occurrenceCount?'같은 학생의 다른 group/수업도 생략하지 않습니다.':'이 날짜의 검증된 수업 근거가 없습니다. 학생 없음·결석·미수행을 뜻하지 않습니다.');
     const list=element('class-list');list.replaceChildren();
-    for(const row of view.rows){const button=node('button','','class-occurrence') as HTMLButtonElement;button.dataset.studentId=row.studentId;button.dataset.recordKey=row.occurrence.recordKey;button.dataset.membershipKey=row.occurrence.membershipKey;
+    for(const row of view.rows){const button=node('button','','class-occurrence') as HTMLButtonElement;button.dataset.studentId=row.studentId;button.dataset.recordKey=row.occurrence.recordKey;button.dataset.membershipKey=row.occurrence.membershipKey;button.dataset.occurrenceIdentity=occurrenceIdentity(row);
       button.append(node('strong',row.studentName),node('span','group '+row.occurrence.groupId+' · record '+row.occurrence.recordKey),node('small',Object.entries(row.fields).map(([key,value])=>key+': '+value).join(' · ')),node('small','마지막 source 검증: '+row.lastVerifiedAt));button.addEventListener('click',()=>showStudent(row.studentId,row));list.append(button);}
     history.replaceState(null,'','/?date='+encodeURIComponent(date));
-    const selected=preferred?view.rows.find(row=>row.studentId===preferred.studentId&&JSON.stringify(row.occurrence)===JSON.stringify(preferred.occurrence)):view.rows[0];
+    const selected=preferred?view.rows.find(row=>occurrenceIdentity(row)===occurrenceIdentity(preferred)):view.rows[0];
     if(selected&&studentRequests.current(selectionAtStart))await showStudent(selected.studentId,selected);
   }catch(error){if(classRequests.current(ticket))element('class-status').textContent=date+' 조회 실패: '+(error as Error).message+(lastClass?' · 이전 '+lastClass.date+' 근거와 검증 시각을 유지합니다.':' · 이전 검증 근거 없음.');}
 }
@@ -78,12 +79,22 @@ async function loadWorkspace(){
   await showDate(element<HTMLInputElement>('lesson-date').value);
 }
 async function refresh(studentId:string|null){
+  if(refreshRunning)return;refreshRunning=true;
   const priorId=selectedStudentId,priorOccurrence=selectedOccurrence,date=element<HTMLInputElement>('lesson-date').value;
-  status(studentId?'선택 학생의 source를 갱신 중…':'전체 학생 source를 갱신 중…');
+  const classTicket=classRequests.snapshot(),studentTicket=studentRequests.snapshot();
+  const label=studentId?(cohortStudents.find(student=>student.id===studentId)?.displayName??'선택 학생'):'전체 학생';
+  const refreshStatus=(text:string)=>{element('refresh-status').textContent=label+' · '+text;};
+  refreshStatus('source 갱신 중…');
   for(const id of ['refresh-all','refresh-student'])element<HTMLButtonElement>(id).disabled=true;
-  try{const result=await post<{status:string;reason?:string}>('/api/refresh',{studentId});status(result.status==='blocked'?'source 갱신 보류: '+result.reason+' · 이전 검증 근거는 유지합니다.':'source 갱신 결과: '+result.status);if(priorId===selectedStudentId&&priorOccurrence===selectedOccurrence&&date===element<HTMLInputElement>('lesson-date').value)await showDate(date,priorOccurrence);}
-  catch(error){status('갱신하지 못했습니다: '+(error as Error).message+' · 이전 근거는 유지합니다.');}
-  finally{element<HTMLButtonElement>('refresh-all').disabled=false;element<HTMLButtonElement>('refresh-student').disabled=!selectedStudentId;}
+  try{
+    const result=await post<{status:string;reason?:string}>('/api/refresh',{studentId});
+    refreshStatus(result.status==='blocked'?'source 갱신 보류: '+result.reason+' · 이전 검증 근거는 유지합니다.':'source 갱신 결과: '+result.status);
+    if(result.status==='blocked')return;
+    if(classRequests.current(classTicket)&&studentRequests.current(studentTicket)&&priorId===selectedStudentId&&priorOccurrence===selectedOccurrence&&date===element<HTMLInputElement>('lesson-date').value){
+      if(priorOccurrence)await showDate(date,priorOccurrence);else if(priorId)await showStudent(priorId);
+    }
+  }catch(error){refreshStatus('갱신하지 못했습니다: '+(error as Error).message+' · 이전 근거는 유지합니다.');}
+  finally{refreshRunning=false;element<HTMLButtonElement>('refresh-all').disabled=false;element<HTMLButtonElement>('refresh-student').disabled=!currentScene;}
 }
 element<HTMLFormElement>('login-form').addEventListener('submit',async event=>{
   event.preventDefault();const button=element<HTMLButtonElement>('login-submit');button.disabled=true;

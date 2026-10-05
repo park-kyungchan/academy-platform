@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { dateClassView, requestGate } from '../../src/academy/web/dateClassView';
+import { dateClassView, occurrenceIdentity, requestGate } from '../../src/academy/web/dateClassView';
 import type { TeacherApplication } from '../../src/academy/application';
 type Preparation = Awaited<ReturnType<TeacherApplication['classPreparation']>>;
 const cohort = [{ id: 'fixture-a', displayName: 'Invented Learner A' }, { id: 'fixture-b', displayName: 'Invented Learner B' }];
@@ -43,5 +43,14 @@ describe('date-first occurrence presentation', () => {
     const gate = requestGate(), earlier = gate.begin(), latest = gate.begin();
     expect(gate.current(earlier)).toBe(false);
     expect(gate.current(latest)).toBe(true);
+  });
+  test('rejects an unknown ID with missing display name instead of matching two undefined values',()=>{
+    const source=preparation(),row={...source.rows[0],studentId:'foreign',studentName:undefined};
+    expect(()=>dateClassView({...source,rows:[row],rowCount:1} as unknown as Preparation,source.date,cohort)).toThrow('date_scene_student_conflict');
+  });
+  test('uses the full occurrence tuple even when record and membership labels repeat',()=>{
+    const row=preparation().rows[0];
+    expect(occurrenceIdentity(row)).not.toBe(occurrenceIdentity({...row,occurrence:{...row.occurrence,groupId:'22001'}}));
+    expect(occurrenceIdentity(row)).not.toBe(occurrenceIdentity({...row,occurrence:{...row.occurrence,courseKey:'99002'}}));
   });
 });
