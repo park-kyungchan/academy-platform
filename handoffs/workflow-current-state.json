@@ -156,7 +156,7 @@
   "engineeringContext": {
     "schemaVersion": 1,
     "updatedAtUtc": "2026-10-04T23:44:02Z",
-    "objective": "On Hermes Linux Backend, user reports new-password login success. Date-class UI and Bot Screen actual-app trial: 9 invented browser cases pass, Korean pixels repaired; see review/bot-screen-date-class-trial-2026-10-05.json. Current site 530/1033: PG18 dir exists, but tools/DB/app absent; actual tests 35 pass/8 fail. User selects Windows PM prerequisite restoration, then Lead existing-stack restart/readback with current auth/data. Hold merge/rollout until real DB gate. Owned branch feat/date-class-screen-qa-20261005. Academy read-only; full hierarchy, teacher history, WebMCP and independent recovery remain open.",
+    "objective": "On Hermes Linux Backend, user reports new-password login success. Date-class UI and Bot Screen actual-app trial: 9 invented browser cases pass, Korean pixels repaired; see review/bot-screen-date-class-trial-2026-10-05.json. Current site 530/1033: PG18 dir exists, but tools/DB/app absent; actual tests 35 pass/8 fail. User selects Windows PM prerequisite restoration, then Lead existing-stack restart/readback with current auth/data. Hold draft PR16 merge/rollout until real DB gate. Branch feat/date-class-screen-qa-20261005. Academy read-only; full hierarchy, teacher history, WebMCP and independent recovery remain open.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
