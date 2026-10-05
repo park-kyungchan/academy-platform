@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-04T12:22:04Z",
-    "objective": "On Hermes Linux Backend, teacher password recovery is implemented/deployed and published in PR 15; exact PR/main readback owns publication state. Human reset changed hash, revoked sessions and consumed its grant; teacher identity and 5 partitions/143 heads/153 versions preserved. See review/teacher-password-recovery-2026-10-04.json. Next: fresh teacher login acceptance, then coherent source-to-scene usefulness. Only current Lead has product authority; predecessor runtime/history may remain. Check actual conflicts, not lease count. Academy stays read-only. Full hierarchy/joins, actual WebMCP and independent recovery remain open.",
+    "updatedAtUtc": "2026-10-05T01:15:53Z",
+    "objective": "On Hermes Linux Backend, user stops new work for checkpoint/Git closeout, then fresh-session priorities and intent interview. PR16 date UI: actual DB 45 pass, native invented-browser 11 pass after Bot review repair. Existing PG restored: 5 partitions/143 heads/153 versions/current auth retained; app/tunnel still open. Two input-only native Bots exited; budgets ended. See review/bot-orchestration-session-closeout-2026-10-05.json. Preserve foreign raw/classroom checkout; close only owned work. Next Lead uses structured typed Ontology/WebMCP Bot orchestration, not an external-human PM assumption. Academy read-only.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
@@ -191,7 +191,7 @@
       },
       {
         "id": "lead_structure",
-        "statement": "The dc Lead owns all academy practice and both retained branches' future Git lifecycle; default released its academy reservation after verified transfer. No old worker queue or budget transfers. Code first for mechanical work; new workers require actual detailed native controls and fresh admission. User prefers literal gpt-6.1-sol for complex work, gpt-6-luna only for negligible judgment and supported effort by complexity; reconcile effective existing instructions before execution. No model-facing delegate_task or current worker launch.",
+        "statement": "The dc Lead owns all academy practice/integration and retained Git work; default released its reservation. User now explicitly wants multiple native Linux Bots under Lead orchestration, with hierarchical typed goals/inputs/effects/results improving agent context through Ontology/WebMCP. Code handles mechanical work. Every Bot task needs fresh native model/tool/effect/input/budget limits; old budgets ended, no inherited queues. Prefer gpt-6.1-sol/xhigh for complex work, gpt-6-luna only for negligible judgment. Model-facing delegate_task remains excluded. Current stop admits closeout only; successor interviews purpose first.",
         "source": "user_interview"
       },
       {
@@ -271,7 +271,7 @@
       },
       {
         "id": "backend_execution_scope",
-        "statement": "All work executes on the Hermes Linux Backend. Windows Desktop is remote-only; no Windows-local or Host/other-container administration is admitted by repo leadership. The official profile creation callback may register its stopped container-local s6 gateway, without starting it or restarting existing services.",
+        "statement": "All Lead/Bot execution stays on connected Linux Backend; Windows Desktop is a remote interface, no Host/other-container work. A Bot is a profile; Windows PM must not be presumed an external human. User corrected to Lead-owned restoration with limited native Bot analysis. Original mounted runtime binaries remain; preserve data/current auth. Profile callback may register a stopped container-local gateway, not start native services. User now stops further restoration/features for Git closeout. Bot Screen is this profile's Linux display, not the user's screen; no new Cron/account/DNS/billing or engine modification.",
         "source": "user_interview"
       },
       {
@@ -333,8 +333,8 @@
         "id": "five_student_product_delivery",
         "owner": "lead",
         "action": "resolve_continuation_source",
-        "referencePaths": ["review/teacher-password-recovery-2026-10-04.json", "docs/teacher-password-recovery-contract.ts", "review/teacher-source-evidence-closeout-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "docs/academy-dayrecord-column-qualification-2026-10-04.json", "review/teacher-ontology-cohort-db-2026-10-04.json", "docs/teacher-ontology-delivery-plan.ts", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
-        "dependsOnQuestionIds": ["backend_lead_authority"]
+        "referencePaths": ["review/bot-orchestration-session-closeout-2026-10-05.json", "review/bot-screen-date-class-trial-2026-10-05.json", "review/teacher-password-recovery-2026-10-04.json", "review/teacher-source-evidence-closeout-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "docs/academy-dayrecord-column-qualification-2026-10-04.json", "review/teacher-ontology-cohort-db-2026-10-04.json", "docs/teacher-ontology-delivery-plan.ts", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
+        "dependsOnQuestionIds": ["backend_lead_authority", "backend_execution_scope"]
       },
       {
         "id": "source_domain_application_spine",

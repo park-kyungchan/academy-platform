@@ -1,9 +1,13 @@
 import type { TeacherApplication } from '../application';
+import { dateClassView, occurrenceIdentity, requestGate, type DateClassPreparation, type DateClassRow } from './dateClassView';
 type Scene=Awaited<ReturnType<TeacherApplication['student']>>;
 type Cohort=Awaited<ReturnType<TeacherApplication['cohort']>>;
 const element=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 const status=(text:string)=>{element('status').textContent=text;};
 let setupMode=false,recoveryReady=false,selectedStudentId:string|null=null,currentScene:Scene|null=null;
+let cohortStudents:Cohort['students']=[],selectedOccurrence:DateClassRow|null=null,lastClass:DateClassPreparation|null=null;
+const classRequests=requestGate(),studentRequests=requestGate();
+let refreshRunning=false;
 async function api<T>(path:string,options:RequestInit={}):Promise<T>{
   const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options});
   const data=await response.json();if(!response.ok)throw Error(data.error??data.reason??'request_failed');return data as T;
@@ -12,7 +16,7 @@ const post=<T>(path:string,value:unknown)=>api<T>(path,{method:'POST',headers:{'
 function node(tag:string,text:string,className=''):HTMLElement{const result=document.createElement(tag);result.textContent=text;result.className=className;return result;}
 function renderScene(scene:Scene){
   currentScene=scene;selectedStudentId=scene.student.id;
-  element('student-title').textContent=scene.student.displayName;element<HTMLButtonElement>('refresh-student').disabled=false;
+  element('student-title').textContent=scene.student.displayName;element<HTMLButtonElement>('refresh-student').disabled=refreshRunning;
   const target=element('scene');target.replaceChildren();
   target.append(node('div','학원 근거를 읽어온 시각과 DB에 보존한 시각을 구분합니다. 원본 채점은 교사 검토·숙련도 판정이 아닙니다.','notice'));
   const tags=node('div','');for(const level of scene.hierarchy.levels)tags.append(node('span',level+(scene.hierarchy.unknownLevels.includes(level)?' · source 연결 미확인':''),'badge'));target.append(tags);
@@ -30,20 +34,67 @@ function renderScene(scene:Scene){
   evidence.append(node('p',scene.evidence.length?'원문 source와 독립 상태를 유지한 근거가 있습니다.':'아직 연결된 수업·문항·성적 근거가 없습니다. 미수행으로 판정하지 않습니다.','muted'));
   for(const row of scene.evidence){const detail=node('details','');detail.append(node('summary',row.payload.kind+' · '+new Date(row.lastVerifiedAt).toLocaleString('ko-KR')),node('pre',JSON.stringify(row.payload,null,2)));evidence.append(detail);}target.append(evidence);
   const context=node('details','','card');context.append(node('summary','에이전트와 교사를 위한 typed 업무 맥락'),node('pre',JSON.stringify({sceneRevision:scene.sceneRevision,allowedOperations:scene.allowedOperations,knowledge:scene.knowledge,limits:scene.limits},null,2)));target.append(context);
-  document.querySelectorAll('[data-student-id]').forEach(button=>button.classList.toggle('selected',(button as HTMLElement).dataset.studentId===scene.student.id));
+  document.querySelectorAll('[data-student-id]').forEach(button=>{const data=(button as HTMLElement).dataset;button.classList.toggle('selected',data.studentId===scene.student.id&&(!data.occurrenceIdentity||(selectedOccurrence!==null&&data.occurrenceIdentity===occurrenceIdentity(selectedOccurrence))));});
 }
-async function showStudent(id:string){status('학생 근거 조회 중…');try{renderScene(await api<Scene>('/api/student?id='+encodeURIComponent(id)));status('보존된 근거를 표시했습니다. 조회만으로 source 검증 시각을 바꾸지 않습니다.');}catch(error){status('조회하지 못했습니다: '+(error as Error).message);}}
+function renderOccurrence(row:DateClassRow|null){
+  const target=element('occurrence-context');target.replaceChildren();
+  if(!row){target.append(node('p','등록 학생의 전체 근거 보기입니다. 특정 수업·과제와의 연결을 뜻하지 않습니다.','muted'));return;}
+  const card=node('section','','card');card.append(node('h3',row.occurrence.date+' · '+row.studentName+' · 선택 수업 원문'));
+  card.append(node('p','group '+row.occurrence.groupId+' · record '+row.occurrence.recordKey+' · membership '+row.occurrence.membershipKey,'muted'));
+  const table=node('table','','source-fields');for(const [key,value] of Object.entries(row.fields)){const tr=node('tr','');tr.append(node('th',key),node('td',value||'원문 빈 값 · 미수행 판정 아님'));table.append(tr);}card.append(table);
+  card.append(node('p','source 관측: '+row.sourceObservedAt+' · 마지막 검증: '+row.lastVerifiedAt,'muted'));
+  card.append(node('p','과제↔예습 · 과제↔풀이/채점 · 오답 교사 확인 · 교사 검토: 모두 연결 미확인. 아래 학생 전체 근거가 이 수업의 과제라는 뜻은 아닙니다.','notice'));
+  target.append(card);
+}
+async function showStudent(id:string,occurrence:DateClassRow|null=null){
+  const ticket=studentRequests.begin();selectedStudentId=id;selectedOccurrence=occurrence;currentScene=null;
+  element('scene').replaceChildren(node('p','선택 학생의 근거 조회 중…','muted'));element('student-title').textContent=cohortStudents.find(student=>student.id===id)?.displayName??'학생 근거 조회 중';element<HTMLButtonElement>('refresh-student').disabled=true;
+  renderOccurrence(occurrence);status('학생 근거 조회 중…');
+  try{const scene=await api<Scene>('/api/student?id='+encodeURIComponent(id));if(!studentRequests.current(ticket))return;if(scene.student.id!==id)throw Error('student_scene_scope_conflict');renderScene(scene);status('보존된 학생 전체 근거를 표시했습니다. 선택 수업 연결과 source 검증 시각은 별개입니다.');}
+  catch(error){if(studentRequests.current(ticket))status('조회하지 못했습니다: '+(error as Error).message);}
+}
+async function showDate(date:string,preferred:DateClassRow|null=null){
+  const ticket=classRequests.begin(),selectionAtStart=studentRequests.begin();selectedStudentId=null;selectedOccurrence=null;currentScene=null;
+  element<HTMLButtonElement>('refresh-student').disabled=true;element('student-title').textContent='수업 또는 등록 학생을 선택하세요';element('scene').replaceChildren();element('occurrence-context').replaceChildren();
+  element('class-list').querySelectorAll('button').forEach(button=>(button as HTMLButtonElement).disabled=true);
+  element('class-status').textContent=date+' 조회 중…'+(lastClass?' 이전 '+lastClass.date+' 근거는 현재 선택 날짜의 결과가 아닙니다.':'');
+  try{
+    const source=await api<DateClassPreparation>('/api/class?date='+encodeURIComponent(date));if(!classRequests.current(ticket))return;
+    const view=dateClassView(source,date,cohortStudents);lastClass=source;
+    element('class-title').textContent=date+' · 수업 준비';element('class-status').textContent='관측된 수업 '+view.occurrenceCount+'건 · 학생 '+view.studentCount+'명 · 현재 출석 명단 완전성 미확인. '+(view.occurrenceCount?'같은 학생의 다른 group/수업도 생략하지 않습니다.':'이 날짜의 검증된 수업 근거가 없습니다. 학생 없음·결석·미수행을 뜻하지 않습니다.');
+    const list=element('class-list');list.replaceChildren();
+    for(const row of view.rows){const button=node('button','','class-occurrence') as HTMLButtonElement;button.dataset.studentId=row.studentId;button.dataset.recordKey=row.occurrence.recordKey;button.dataset.membershipKey=row.occurrence.membershipKey;button.dataset.occurrenceIdentity=occurrenceIdentity(row);
+      button.append(node('strong',row.studentName),node('span','group '+row.occurrence.groupId+' · record '+row.occurrence.recordKey),node('small',Object.entries(row.fields).map(([key,value])=>key+': '+value).join(' · ')),node('small','마지막 source 검증: '+row.lastVerifiedAt));button.addEventListener('click',()=>showStudent(row.studentId,row));list.append(button);}
+    history.replaceState(null,'','/?date='+encodeURIComponent(date));
+    const selected=preferred?view.rows.find(row=>occurrenceIdentity(row)===occurrenceIdentity(preferred)):view.rows[0];
+    if(selected&&studentRequests.current(selectionAtStart))await showStudent(selected.studentId,selected);
+  }catch(error){if(classRequests.current(ticket))element('class-status').textContent=date+' 조회 실패: '+(error as Error).message+(lastClass?' · 이전 '+lastClass.date+' 근거와 검증 시각을 유지합니다.':' · 이전 검증 근거 없음.');}
+}
 async function loadWorkspace(){
   const cohort=await api<Cohort>('/api/cohort');element('auth').hidden=true;element('workspace').hidden=false;
   const list=element('students');list.replaceChildren();for(const student of cohort.students){const button=node('button',student.displayName) as HTMLButtonElement;button.dataset.studentId=student.id;button.addEventListener('click',()=>showStudent(student.id));list.append(button);}
-  if(cohort.students.length)await showStudent(cohort.students[0]!.id);
+  cohortStudents=cohort.students;const dates=element('observed-dates');dates.replaceChildren();for(const date of cohort.availableLessonDates){const option=document.createElement('option');option.value=date;dates.append(option);}
+  const requested=new URLSearchParams(location.search).get('date');
+  element<HTMLInputElement>('lesson-date').value=requested??new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  await showDate(element<HTMLInputElement>('lesson-date').value);
 }
 async function refresh(studentId:string|null){
-  status(studentId?'선택 학생의 source를 갱신 중…':'전체 학생 source를 갱신 중…');
+  if(refreshRunning)return;refreshRunning=true;
+  const priorId=selectedStudentId,priorOccurrence=selectedOccurrence,date=element<HTMLInputElement>('lesson-date').value;
+  const classTicket=classRequests.snapshot(),studentTicket=studentRequests.snapshot();
+  const label=studentId?(cohortStudents.find(student=>student.id===studentId)?.displayName??'선택 학생'):'전체 학생';
+  const refreshStatus=(text:string)=>{element('refresh-status').textContent=label+' · '+text;};
+  refreshStatus('source 갱신 중…');
   for(const id of ['refresh-all','refresh-student'])element<HTMLButtonElement>(id).disabled=true;
-  try{const result=await post<{status:string;reason?:string}>('/api/refresh',{studentId});status(result.status==='blocked'?'source 갱신 보류: '+result.reason+' · 이전 검증 근거는 유지합니다.':'source 갱신 결과: '+result.status);if(selectedStudentId)renderScene(await api<Scene>('/api/student?id='+encodeURIComponent(selectedStudentId)));}
-  catch(error){status('갱신하지 못했습니다: '+(error as Error).message+' · 이전 근거는 유지합니다.');}
-  finally{element<HTMLButtonElement>('refresh-all').disabled=false;element<HTMLButtonElement>('refresh-student').disabled=!selectedStudentId;}
+  try{
+    const result=await post<{status:string;reason?:string}>('/api/refresh',{studentId});
+    refreshStatus(result.status==='blocked'?'source 갱신 보류: '+result.reason+' · 이전 검증 근거는 유지합니다.':'source 갱신 결과: '+result.status);
+    if(result.status==='blocked')return;
+    if(classRequests.current(classTicket)&&studentRequests.current(studentTicket)&&priorId===selectedStudentId&&priorOccurrence===selectedOccurrence&&date===element<HTMLInputElement>('lesson-date').value){
+      if(priorOccurrence)await showDate(date,priorOccurrence);else if(priorId)await showStudent(priorId);
+    }
+  }catch(error){refreshStatus('갱신하지 못했습니다: '+(error as Error).message+' · 이전 근거는 유지합니다.');}
+  finally{refreshRunning=false;element<HTMLButtonElement>('refresh-all').disabled=false;element<HTMLButtonElement>('refresh-student').disabled=!currentScene;}
 }
 element<HTMLFormElement>('login-form').addEventListener('submit',async event=>{
   event.preventDefault();const button=element<HTMLButtonElement>('login-submit');button.disabled=true;
@@ -52,6 +103,8 @@ element<HTMLFormElement>('login-form').addEventListener('submit',async event=>{
   finally{button.disabled=false;}
 });
 element('refresh-all').addEventListener('click',()=>refresh(null));element('refresh-student').addEventListener('click',()=>refresh(selectedStudentId));
+element('load-class').addEventListener('click',()=>showDate(element<HTMLInputElement>('lesson-date').value));
+element('lesson-date').addEventListener('change',()=>showDate(element<HTMLInputElement>('lesson-date').value));
 element<HTMLButtonElement>('request-recovery').addEventListener('click',async()=>{
   const button=element<HTMLButtonElement>('request-recovery');button.disabled=true;
   try{
