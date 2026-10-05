@@ -2,11 +2,12 @@ import { describe, expect, test } from 'bun:test';
 import { dateClassView, occurrenceIdentity, requestGate } from '../../src/academy/web/dateClassView';
 import type { TeacherApplication } from '../../src/academy/application';
 import {buildStudentPreparation} from '../../src/academy/preparationHistory';
+import {academyConnectionStatus} from '../../src/academy/nativeConnector';
 type Preparation = Awaited<ReturnType<TeacherApplication['classPreparation']>>;
 const cohort = [{ id: 'fixture-a', displayName: 'Invented Learner A' }, { id: 'fixture-b', displayName: 'Invented Learner B' }];
 function preparation(): Preparation {
   return { schemaVersion: 1, kind: 'date_class_preparation', date: '2090-01-02', rowCount: 3, scope: 'verified_occurrences_in_observed_calendar_window_not_all_history',
-    knowledge: { missingRows: 'not_evidence_of_absence_or_nonperformance', completeCurrentRoster: 'not_established' }, officialSaved: false, parentSent: false,
+    knowledge: { missingRows: 'not_evidence_of_absence_or_nonperformance', completeCurrentRoster: 'not_established' }, connection:academyConnectionStatus,officialSaved: false, parentSent: false,
     rows: [0, 1, 2].map(index => ({ studentId: index === 1 ? 'fixture-b' : 'fixture-a', studentName: index === 1 ? 'Invented Learner B' : 'Invented Learner A',
       occurrence: { date: '2090-01-02', groupId: index === 2 ? '22001' : '21001', courseKey: '99001', recordKey: String(41001 + index), membershipKey: String(81001 + index) },
       fields: { attendance: index === 1 ? 'N' : 'Y', homework: 'Invented range', memo: index === 2 ? 'Invented makeup label' : '' },

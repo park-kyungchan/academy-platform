@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "kind": "teacher_runtime_recovery_and_architecture_decision_receipt",
+  "observedAtUtc": "2026-10-05T15:21:37Z",
+  "lessonScopeDate": "2026-10-05",
+  "goalComplete": false,
+  "scope": "Existing personal teacher site recovery and user-intent-aligned shared application improvements; not completed direct academy authentication or journal saving",
+  "userOutcome": "Review every scheduled occurrence by date, inspect selected student evidence and attributable teacher judgments, prepare exact reviewed journal values, independently confirm reflection and leave final parent review/sending to the teacher.",
+  "historicalConnection": {
+    "implementedChain": ["Teacher app manual refresh", "SourceRefreshCoordinator", "nativeBookAcquirer native browser/vault executor", "Existing academy course/book discovery", "Validated private PostgreSQL source revisions", "TeacherApplication", "HTTP teacher UI and registered WebMCP student query"],
+    "limitation": "The WebMCP query read retained application records, not a new academy request on every invocation. The refresh producer handled course/book registration; it did not establish current whole-family lesson/assessment/history refresh or an official journal writer.",
+    "previousExplanationCorrection": "Saying only that WebMCP was a personal-app query obscured the implemented academy acquisition chain. Preserve that distinction without promoting historical browser success to current direct HTTP qualification.",
+    "sourceRefs": ["src/academy/main.ts", "src/academy/refresh.ts", "src/academy/nativeConnector.ts", "src/academy/nativeBookSource.ts", "src/academy/web/client.ts", "src/lms/lessonJournalHitl.ts"]
+  },
+  "measuredFailure": {
+    "localAppHealth": "connection_failed_before_recovery",
+    "localTunnelReady": "connection_failed_before_recovery",
+    "publicHealth": {"status": 530, "cloudflareError": 1033},
+    "existingTunnelIngress": "validated",
+    "oldProcessHandles": "not_found_not_termination_or_shutdown_cause_proof",
+    "whyOldProcessesStopped": "unknown"
+  },
+  "recovery": {
+    "existingApp": {"origin": "https://dc.kcpalantir.tech", "listen": "127.0.0.1:8411", "ownedProcess": "proc_cd17accc0b4c", "persistOnRelease": true, "childEnvironment": "minimal_no_env_file", "health": 200},
+    "existingTunnel": {"ownedProcess": "proc_26afb73bc75f", "persistOnRelease": true, "existingConfigurationChanged": false, "newTunnelOrDnsCreated": false, "ready": 200},
+    "publicHealth": 200,
+    "anonymousStudentQuery": 401,
+    "automaticSchemaMigration": "removed_from_selected_startup",
+    "automaticIdentityCreation": "removed_from_selected_startup",
+    "existingAuthAndStorage": "qualified_through_read_only_consumers_before_start",
+    "runningCode": "owned_verified_candidate_not_yet_final_merge_runtime_readback",
+    "restartRebootOr24HourAcceptance": false,
+    "udpBufferWarning": "Observed while tunnel remained ready; no kernel/Host change or invented causal repair"
+  },
+  "architectureDecision": {
+    "claim": "Recommended best fit for the established teacher purpose and observed constraints, not a measured universal optimum",
+    "selected": "One modular TypeScript/Bun teacher application over protected PostgreSQL source versions and attributable teacher revisions; exact direct HTTP source adapters, shared authenticated human/agent query and Action consumers, and supported standard WebMCP as an interaction surface.",
+    "sourceAndStorage": "Materialize minimized source evidence and append-only teacher judgments separately. Reuse unchanged versioned content; refresh actual changing assignments/submissions/grades through qualified source operations. Fetch current exact before values again for an admitted official write. Source timestamps are not view time.",
+    "meaning": "Preserve owner/student partitions, literal namespaced keys, book edition/major/middle/minor/page/problem hierarchy, paper versus original/clinic attempt, separate upload/grading/written solution/inspection/correction/teacher approval and explicit unknown joins.",
+    "humanAgentParity": "Date-first complete observed occurrences and selected-student scenes consume the same TeacherApplication and connection capability result. Agent outputs retain source clocks, scene revisions, unsupported operations and coverage unknowns; no automatic Hermes context injector, second dispatcher or mirrored task store.",
+    "authority": "Native Hermes retains lifecycle/configuration/learning/safety. Secure credential ingress is owned by its supported native/secret-source consumer. Teacher judgment/final-value approval and final parent sending remain distinct from read refresh or app uptime.",
+    "officialReflection": "Implement only a qualified exact target/field/before/after/approval/recovery/readback executor. Previous-homework assessment targets its prior occurrence, not today's record. Never convert missing tests to score zero or app grades to teacher inspection. Uncertain effects stop before any retry.",
+    "availability": "Use the existing owned app/tunnel lifecycle and exact health/readback. Current persistent process recovery is exercised; a new supervisor, scheduler, account, DNS/IAM or reboot guarantee needs its applicable admission and independent evidence.",
+    "alternatives": [
+      {"option": "Every UI/WebMCP query directly reads the academy", "disposition": "not_selected", "reason": "Repeats authentication/reads and cannot preserve aged-out source or attributable teacher history; live source freshness and retained explanatory context are different needs."},
+      {"option": "Separate human, agent, Sheet and MCP workflows with independent stores", "disposition": "not_selected", "reason": "Duplicates identity joins, teacher input and revision/approval rules. Keep necessary existing consumers until an accepted transition, not a second operational authority."},
+      {"option": "Keep the native browser as a permanent academy authentication broker", "disposition": "not_admitted", "reason": "Conflicts with the user's explicit direct HTTP requirement and refused browser exception; native browser idle/control failures must not become source access workarounds."},
+      {"option": "Select a new graph provider or add a workflow platform now", "disposition": "deferred", "reason": "Private PostgreSQL and current shared modules already exist. Atomic KG acceptance queries and new privacy/cost/account effects remain separate; new machinery would not fix the missing secure source consumer."}
+    ],
+    "coverageDisposition": {"meaningAndHistory": "existing_validated_modules_reused", "readApplication": "shared_capability_delivery_improved", "personalSiteTransport": "recovered_and_publicly_read_back", "directAcademyAuthentication": "blocked_native_secure_consumer_unqualified", "currentWholeFamilyIntake": "not_qualified", "officialJournalExecutor": "not_implemented", "actualBrowserWebMcp": "unaccepted", "independentRecovery": "not_verified_by_this_unit"}
+  },
+  "implementedImprovements": [
+    "Removed the automatic browser/Python execution bridge from the active source acquirer; exported seam and source parsers/history remain compatible",
+    "Exposed the current direct-auth blocker, retained-query availability, unsupported official save and teacher-owned send through shared application results",
+    "Human controls refuse refresh before network; backend acquirer independently remains fail-closed",
+    "Added date-class WebMCP source binding and aligned student query with source clocks/connection/allowed operations; registration is not native invocation acceptance",
+    "Existing-site startup requires preserved teacher identity and read-only storage qualification instead of implicit authentication creation or DDL",
+    "Prioritized the pinned local Korean font after real screenshot showed missing bold/header glyphs; source/asset regression added, final visual readback still pending",
+    "Reconciled the existing typed delivery plan and canonical continuation instead of adding a parallel runtime registry"
+  ],
+  "secureInputAndBrowser": {
+    "savedOldWebsiteLogin": "One real submit was refused; account identifier independently matched existing identity, no password guessing or reset",
+    "currentUserNativePrompt": "User requested the native masked correction prompt; save and origin-bound page fill succeeded without secret output or account reset",
+    "newSavedLoginVerifiedOnSite": false,
+    "browserControlFailure": "Named and default native-control attempts failed before code execution with Chrome exit0 without DevToolsActivePort. Preserve the repeated startup failures; no profile-lock deletion, cookie export, engine patch or unapproved raw-CDP substitute.",
+    "screenBoundary": "Connected Linux profile display21 was independently reachable; no stopped fallback routed to Windows/user display",
+    "standardWebMcp": {"nativeApi": "undefined", "originTrialStatus": "UnknownTrial", "invocationAccepted": false},
+    "academyCredentialConsumer": "Local website-vault page fill is not direct HTTP credential injection; external native secret sources remain unconfigured",
+    "secretsOrVaultHandlesIncluded": false
+  },
+  "verification": {
+    "tdd": "Observed RED/GREEN for retired browser execution, read-only storage readiness, existing identity recovery/startup consumer, application capability propagation, connection rendering/source bindings and Korean-font selection",
+    "academySuite": {"passed": 73, "failed": 0, "files": 21, "actualIsolatedPostgres": true},
+    "typecheck": "project_harness_and_agent_runtime_passed",
+    "portableGate": "Passed the full cloud:check synthetic/source-integrity gate with actual isolated PostgreSQL enabled locally. The first run stopped on obsolete checkpoint prose assertions; updated the actual consumer to current assignment/direct-transport meaning while retaining native/external-effect and peer-preservation gates.",
+    "publicRuntime": "Actual app/tunnel/public health200 and anonymous cohort401",
+    "dataPreservationReadback": {"mode": "repeatable_read_read_only", "privateSourceHeadsUnchanged": true, "privateHistoryCountsUnchanged": true, "authenticationFileMetadataUnchanged": true, "authenticationBytesNotExported": true, "timing": "after initial app/tunnel recovery and native login correction; final merged runtime readback remains separate"},
+    "selfReview": "Lead inspected the complete explicitly staged21-file source/test/design/receipt delta; staged credential-pattern/protected-path audit and diff check passed. This is not independent review or live UI acceptance.",
+    "independentReviewer": "not_dispatched_no_fresh_restricted_worker_admission"
+  },
+  "effects": {"academyStudentDataRequests": 0, "academyWrites": 0, "officialFinalizations": 0, "parentSends": 0, "productionRecordWrites": 0, "productionSchemaMigrations": 0, "teacherIdentityResets": 0, "newWorkers": 0, "newSchedulesOrAccounts": 0, "engineHostOtherContainerChanges": 0},
+  "remaining": ["Finish permitted exact-head Git publication/check/merge/readback and owned cleanup", "Read back final served code/data/auth preservation after owned restart", "Requalify native browser control through its supported owner and test the corrected saved login", "Qualify supported direct HTTP credential ingress and all required source families", "Verify original clinic header and field-specific official write/readback before final-value approval and the requested journal input"],
+  "references": ["docs/teacher-ontology-delivery-plan.ts", "handoffs/workflow-current-state.json", "review/lesson-journal-direct-http-blocker-2026-10-05.json", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/main.ts", "src/academy/postgresStore.ts", "src/academy/teacherAuthStore.ts", "src/academy/web/connectionView.ts", "src/academy/web/client.ts", "review/webmcp-origin-trial-2026-10-04.json"],
+  "publication": {"state": "verified_candidate_for_exact_head_publication", "actualPublicationAuthority": "GitHub exact branch_PR_head_checks_merge_readback_and_native_tool_receipts_not_this_prepublication_snapshot", "ownedBranch": "feat/teacher-runtime-direct-source-20261005", "foreignContractAuditWorktree": "preserved_unadopted", "rawStudentAndSecretPublication": false}
+}

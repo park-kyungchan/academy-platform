@@ -1,6 +1,7 @@
 import type { TeacherApplication } from '../application';
 import { dateClassView, occurrenceIdentity, requestGate, type DateClassPreparation, type DateClassRow } from './dateClassView';
 import {preparationView} from './preparationView';
+import {connectionView} from './connectionView';
 type Scene=Awaited<ReturnType<TeacherApplication['student']>>;
 type Cohort=Awaited<ReturnType<TeacherApplication['cohort']>>;
 const element=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
@@ -9,15 +10,24 @@ let setupMode=false,recoveryReady=false,selectedStudentId:string|null=null,curre
 let cohortStudents:Cohort['students']=[],selectedOccurrence:DateClassRow|null=null,lastClass:DateClassPreparation|null=null;
 const classRequests=requestGate(),studentRequests=requestGate();
 let refreshRunning=false;
+let sourceRefreshDisabled=true;
 async function api<T>(path:string,options:RequestInit={}):Promise<T>{
   const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options});
   const data=await response.json();if(!response.ok)throw Error(data.error??data.reason??'request_failed');return data as T;
 }
 const post=<T>(path:string,value:unknown)=>api<T>(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
 function node(tag:string,text:string,className=''):HTMLElement{const result=document.createElement(tag);result.textContent=text;result.className=className;return result;}
+function renderConnection(value:unknown){
+  const view=connectionView(value);sourceRefreshDisabled=view.refreshDisabled;
+  const target=element('source-connection');target.hidden=false;
+  target.textContent=[view.retainedLabel,view.acquisitionLabel,view.journalLabel,view.sendLabel].join('\n');
+  element<HTMLButtonElement>('refresh-all').disabled=refreshRunning||sourceRefreshDisabled;
+  element<HTMLButtonElement>('refresh-student').disabled=refreshRunning||sourceRefreshDisabled||!currentScene;
+}
 function renderScene(scene:Scene){
   currentScene=scene;selectedStudentId=scene.student.id;
-  element('student-title').textContent=scene.student.displayName;element<HTMLButtonElement>('refresh-student').disabled=refreshRunning;
+  renderConnection(scene.connection);
+  element('student-title').textContent=scene.student.displayName;element<HTMLButtonElement>('refresh-student').disabled=refreshRunning||sourceRefreshDisabled;
   const target=element('scene');target.replaceChildren();
   target.append(node('div','학원 근거를 읽어온 시각과 DB에 보존한 시각을 구분합니다. 원본 채점은 교사 검토·숙련도 판정이 아닙니다.','notice'));
   const tags=node('div','');for(const level of scene.hierarchy.levels)tags.append(node('span',level+(scene.hierarchy.unknownLevels.includes(level)?' · source 연결 미확인':''),'badge'));target.append(tags);
@@ -42,7 +52,7 @@ function renderScene(scene:Scene){
   const evidence=node('section','','card');evidence.append(node('h3','수업·문항·채점 근거'));
   evidence.append(node('p',scene.evidence.length?'원문 source와 독립 상태를 유지한 근거가 있습니다.':'아직 연결된 수업·문항·성적 근거가 없습니다. 미수행으로 판정하지 않습니다.','muted'));
   for(const row of scene.evidence){const detail=node('details','');detail.append(node('summary',row.payload.kind+' · '+new Date(row.lastVerifiedAt).toLocaleString('ko-KR')),node('pre',JSON.stringify(row.payload,null,2)));evidence.append(detail);}target.append(evidence);
-  const context=node('details','','card');context.append(node('summary','에이전트와 교사를 위한 typed 업무 맥락'),node('pre',JSON.stringify({sceneRevision:scene.sceneRevision,allowedOperations:scene.allowedOperations,knowledge:scene.knowledge,limits:scene.limits},null,2)));target.append(context);
+  const context=node('details','','card');context.append(node('summary','에이전트와 교사를 위한 typed 업무 맥락'),node('pre',JSON.stringify({sceneRevision:scene.sceneRevision,connection:scene.connection,allowedOperations:scene.allowedOperations,knowledge:scene.knowledge,limits:scene.limits},null,2)));target.append(context);
   document.querySelectorAll('[data-student-id]').forEach(button=>{const data=(button as HTMLElement).dataset;button.classList.toggle('selected',data.studentId===scene.student.id&&(!data.occurrenceIdentity||(selectedOccurrence!==null&&data.occurrenceIdentity===occurrenceIdentity(selectedOccurrence))));});
 }
 function renderOccurrence(row:DateClassRow|null){
@@ -82,6 +92,7 @@ async function showDate(date:string,preferred:DateClassRow|null=null){
 }
 async function loadWorkspace(){
   const cohort=await api<Cohort>('/api/cohort');element('auth').hidden=true;element('workspace').hidden=false;
+  renderConnection(cohort.connection);
   const list=element('students');list.replaceChildren();for(const student of cohort.students){const button=node('button',student.displayName) as HTMLButtonElement;button.dataset.studentId=student.id;button.addEventListener('click',()=>showStudent(student.id));list.append(button);}
   cohortStudents=cohort.students;const dates=element('observed-dates');dates.replaceChildren();for(const date of cohort.availableLessonDates){const option=document.createElement('option');option.value=date;dates.append(option);}
   const requested=new URLSearchParams(location.search).get('date');
@@ -89,6 +100,7 @@ async function loadWorkspace(){
   await showDate(element<HTMLInputElement>('lesson-date').value);
 }
 async function refresh(studentId:string|null){
+  if(sourceRefreshDisabled){element('refresh-status').textContent='직접 HTTP 인증 연결 전에는 학원 갱신을 실행하지 않습니다. 보존 자료는 계속 조회할 수 있습니다.';return;}
   if(refreshRunning)return;refreshRunning=true;
   const priorId=selectedStudentId,priorOccurrence=selectedOccurrence,date=element<HTMLInputElement>('lesson-date').value;
   const classTicket=classRequests.snapshot(),studentTicket=studentRequests.snapshot();
@@ -104,7 +116,7 @@ async function refresh(studentId:string|null){
       if(priorOccurrence)await showDate(date,priorOccurrence);else if(priorId)await showStudent(priorId);
     }
   }catch(error){refreshStatus('갱신하지 못했습니다: '+(error as Error).message+' · 이전 근거는 유지합니다.');}
-  finally{refreshRunning=false;element<HTMLButtonElement>('refresh-all').disabled=false;element<HTMLButtonElement>('refresh-student').disabled=!currentScene;}
+  finally{refreshRunning=false;element<HTMLButtonElement>('refresh-all').disabled=sourceRefreshDisabled;element<HTMLButtonElement>('refresh-student').disabled=sourceRefreshDisabled||!currentScene;}
 }
 element<HTMLFormElement>('login-form').addEventListener('submit',async event=>{
   event.preventDefault();const button=element<HTMLButtonElement>('login-submit');button.disabled=true;
@@ -142,7 +154,8 @@ element<HTMLFormElement>('password-reset-form').addEventListener('submit',async 
 async function registerSemanticTools(){
   const modelContext=(document as Document&{modelContext?:{registerTool:(tool:unknown)=>unknown}}).modelContext;
   if(!modelContext?.registerTool)return;
-  await modelContext.registerTool({name:'query_student_learning',description:'Read the admitted teacher student scene: source books, hierarchy, persistent teacher completion/reopening, evidence, versions, freshness and unknowns; no academy write or mastery judgment.',inputSchema:{type:'object',additionalProperties:false,required:['studentId'],properties:{studentId:{type:'string',maxLength:200,description:'An authorized student ID from the current teacher cohort.'},date:{type:'string',maxLength:10,description:'ISO lesson date; defaults to the selected teacher date.'}}},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:async(input:{studentId:string;date?:string})=>{const date=input.date??element<HTMLInputElement>('lesson-date').value;const scene=await api<Scene>('/api/student?id='+encodeURIComponent(input.studentId)+'&date='+encodeURIComponent(date));return {content:[{type:'text',text:JSON.stringify({student:scene.student.displayName,studentId:scene.student.id,sceneRevision:scene.sceneRevision,books:scene.books.map(book=>({revisionId:book.revisionId,lastVerifiedAt:book.lastVerifiedAt})),preparation:scene.preparation,unknownLevels:scene.hierarchy.unknownLevels,knowledge:scene.knowledge})}]};}});
+  await modelContext.registerTool({name:'query_student_learning',description:'Read protected retained student evidence, hierarchy, teacher revisions, source clocks and actual connection capabilities. This query does not refresh the academy, save a journal, infer mastery or send a parent report.',inputSchema:{type:'object',additionalProperties:false,required:['studentId'],properties:{studentId:{type:'string',maxLength:200,description:'An authorized student ID from the current teacher cohort.'},date:{type:'string',maxLength:10,description:'ISO lesson date; defaults to the selected teacher date.'}}},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:async(input:{studentId:string;date?:string})=>{const date=input.date??element<HTMLInputElement>('lesson-date').value;const scene=await api<Scene>('/api/student?id='+encodeURIComponent(input.studentId)+'&date='+encodeURIComponent(date));return {content:[{type:'text',text:JSON.stringify({student:scene.student.displayName,studentId:scene.student.id,sceneRevision:scene.sceneRevision,connection:scene.connection,allowedOperations:scene.allowedOperations,books:scene.books.map(book=>({revisionId:book.revisionId,sourceObservedAt:book.sourceObservedAt,lastVerifiedAt:book.lastVerifiedAt})),preparation:scene.preparation,unknownLevels:scene.hierarchy.unknownLevels,knowledge:scene.knowledge,limits:scene.limits})}]};}});
+  await modelContext.registerTool({name:'query_date_class',description:'Read every protected retained lesson occurrence for the selected date with original fields, source clocks, preparation, coverage unknowns and connection blockers. No academy refresh, official save or parent send.',inputSchema:{type:'object',additionalProperties:false,properties:{date:{type:'string',maxLength:10,description:'ISO lesson date; defaults to the selected teacher date.'}}},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:async(input:{date?:string})=>{const date=input.date??element<HTMLInputElement>('lesson-date').value;const source=await api<DateClassPreparation>('/api/class?date='+encodeURIComponent(date));dateClassView(source,date,cohortStudents);return {content:[{type:'text',text:JSON.stringify(source)}]};}});
 }
 (async()=>{
   const recoveryToken=new URLSearchParams(location.hash.slice(1)).get('password_recovery');

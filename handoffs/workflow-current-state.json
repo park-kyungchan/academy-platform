@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-05T09:52:25Z",
-    "objective": "On Hermes Linux Backend, architecture Lead; analysis owns operational capture. History code merged PR19 with exact-head CI/readback; owned branch cleaned, foreign worktree preserved. Typed records, no-write legacy compatibility and persistent acceptance/reopening reach student/date-class HTTP and human/agent bindings. Isolated PostgreSQL/HTTP and private internal read canary pass; no operational writes or academy requests. Native localhost browser denied; UI/WebMCP acceptance unverified. No runtime activation/migration/restart. Next qualify new source intake/delta refresh and protected site runtime. Old Bot budgets closed.",
+    "updatedAtUtc": "2026-10-05T15:21:37Z",
+    "objective": "On Hermes Linux Backend, existing app/tunnel recovered: public health200, anonymous cohort401; no DDL/identity reset or academy requests. Retired browser acquisition; shared UI/agent connection state marks direct auth/save blocked. Four private Oct5 drafts retained; no final approval/save/send. Native secure login correction saved, but browser control startup fails and WebMCP is unsupported; no engine change/control bypass. Next qualify supported native browser control and direct HTTP credential consumer, then exact source/header/write/readback. See review/teacher-runtime-direct-source-recovery-2026-10-05.json.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
@@ -181,7 +181,7 @@
     "confirmedDecisions": [
       {
         "id": "priority_order",
-        "statement": "Architecture and shared product consumers first. Operational class analysis and evidence capture belong to the separate analysis session. This Lead owns code, schemas, integration and the canonical engineering checkpoint. First replace temporary opaque teacher-note JSON with validated compatible domain/history records; connect existing application queries, source refresh, teacher UI and WebMCP. Preserve data and current consumers. Whole-class experience is already selected; do not reopen it, DB provider choice or Main transition. Only verified non-disruptive runtime updates during class; actual generation/printing remain excluded.",
+        "statement": "Whole-Lens architecture and shared product consumers first: recover the existing site, reuse protected source/teacher history, expose real connection state, then qualify direct HTTP authentication/read/save/readback before Oct5 journal input. Reuse four private drafts and recorded answers; no repeated teacher recollection. Whole-class experience is already selected; do not reopen KG provider choice or Main transition. No browser source exception, generation/printing or parent send.",
         "source": "user_interview"
       },
       {
@@ -191,7 +191,7 @@
       },
       {
         "id": "lead_structure",
-        "statement": "This session is the architecture/code/schema/site integration Lead; native analysis session 20261005_145336_8c8885 owns Oct5 operational source reads and evidence recording. Do not edit its tasks or duplicate its capture. Share existing validated storage/intake contracts, not another transcript mirror, dispatcher or automatic cross-profile sync. Native Bots may support fresh admitted engineering units with effective role/model/tool/input/budget controls; spent/cancelled budgets remain closed. Complex work prefers gpt-6.1-sol/xhigh; Luna only for negligible judgment. Model-facing delegate_task stays excluded.",
+        "statement": "The closeout session 20261005_232259_7b1b12 is assigned to synthesize Oct5 evidence and prepare reviewed journal input. Reuse earlier analysis and evening corrections; do not edit peer tasks, duplicate capture or adopt foreign dirty worktree changes. Assignment is not native termination or a repository lock. Keep one checkpoint, no transcript mirror/dispatcher/automatic cross-profile sync. Fresh Bots need effective role/model/tool/input/budget controls; spent budgets stay closed. Model-facing delegate_task is excluded.",
         "source": "user_interview"
       },
       {
@@ -271,12 +271,12 @@
       },
       {
         "id": "backend_execution_scope",
-        "statement": "All Lead/Bot execution stays on connected Linux Backend; Windows Desktop is remote UI. No Host/other-container or installed-engine changes. A native Profile is not an OS sandbox. Existing protected teacher app/tunnel code updates are admitted, preserving authentication/history. During class apply only verified non-disruptive changes; stop on disclosure, data-loss or interruption risk. Source analysis/capture belongs to the analysis session. Native Screen is usable only while running with agent control; never route stopped fallback to the user's display. No new gateway execution, Cron, account/IAM, DNS or billing effect.",
+        "statement": "All execution stays on connected Linux Backend; Windows Desktop is remote UI. Existing protected teacher app/tunnel recovery and compatible code updates are admitted, preserving identity/history/DB/tunnel settings. Current profile screen is usable only while running with agent control; never route a stopped fallback to the user display. Native secure login correction is admitted, not account reset or direct academy credential export. No engine/Host/other-container change, new gateway/Cron/account/DNS/IAM/billing or unqualified source activation.",
         "source": "user_interview"
       },
       {
         "id": "backend_repeat_operations",
-        "statement": "User approved automatic reflection of new submissions/grading while the teacher screen is open, plus manual refresh; this supersedes click-only design, not native controls. Reuse versioned content and long-lived book mappings; reconcile meaningful changes, not invented daily/three-month TTLs. src/academy/classroomCyclePolicy.ts separates lesson/homework, dynamic source and append-only teacher capture. Only qualified native-browser reads; no cookies, unknown effects or control bypass. Private DB refresh needs exact fields/CAS/recovery/readback. No installed loop/job or automatic academy save, finalization or send.",
+        "statement": "Active-screen source-change reflection plus manual refresh remains a product requirement, not an installed loop or grant. Latest direction requires supported direct HTTP/API authentication; the closeout interview refuses browser data-read/save exception. Never export website-vault passwords/cookies or replay old sessions. Reuse versioned content, long-lived mappings and classroomCyclePolicy, not invented TTLs. DB refresh needs exact fields/CAS/recovery/readback. No automatic academy save/finalization/send or new loop/job.",
         "source": "user_interview"
       },
       {
@@ -286,7 +286,7 @@
       },
       {
         "id": "backend_autonomous_goals",
-        "statement": "User requires long autonomous goal-to-completion execution, including the needed Backend service/DB/real five-student intake/private website, useful validation and Git. Latest academy restriction is strictly read-only and supersedes older save/send categories. Resolve consequential interviews up front; do not ask for routine technical approvals. Keep actual resource/identity/field/cost/recovery verification, native safety/redaction/learning, Free Tier and teacher judgment boundaries. Workers need effective fresh controls; no installed engine/Host/other-container change or old-budget replay.",
+        "statement": "Require actual autonomous completion/validation and permitted Git, not schema/registration/stub success. General academy access is read-only; current interview conditionally permits the requested Oct5 journals and linked prior-homework assessments after final approval in this session. This is not final-value approval or a recurring/send grant; teacher checks and sends afterward. Qualify direct HTTP auth/read/save/readback first; browser exception refused. Keep native safety/redaction/learning, identity/field/recovery/Free Tier gates. No engine/Host/other-container change, vault extraction or spent-worker replay.",
         "source": "user_interview"
       },
       {
@@ -334,7 +334,7 @@
         "id": "five_student_product_delivery",
         "owner": "lead",
         "action": "resolve_continuation_source",
-        "referencePaths": ["review/bot-orchestration-session-closeout-2026-10-05.json", "review/bot-screen-date-class-trial-2026-10-05.json", "review/teacher-password-recovery-2026-10-04.json", "review/teacher-source-evidence-closeout-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "docs/academy-dayrecord-column-qualification-2026-10-04.json", "review/teacher-ontology-cohort-db-2026-10-04.json", "docs/teacher-ontology-delivery-plan.ts", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
+        "referencePaths": ["review/teacher-runtime-direct-source-recovery-2026-10-05.json", "docs/teacher-ontology-delivery-plan.ts", "review/bot-orchestration-session-closeout-2026-10-05.json", "review/teacher-password-recovery-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/main.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
         "dependsOnQuestionIds": ["backend_lead_authority", "backend_execution_scope"]
       },
       {
@@ -360,15 +360,18 @@
       {
         "id": "real_dayrecord_source_qualification",
         "owner": "lead",
-        "action": "validate_confirmed_changes",
+        "action": "resolve_continuation_source",
         "referencePaths": [
+          "review/lesson-journal-direct-http-blocker-2026-10-05.json",
           "docs/academy-deterministic-read-contract.ts",
+          "src/lms/lessonJournalHitl.ts",
+          "src/lms/lessonJournalReviewBundle.ts",
           "src/lms/dayRecordReadProtocol.ts",
           "tests/lms/dayRecordNativeDomCases.ts",
           "src/lms/endpointCatalog.ts",
           "docs/academy-assessment-manual-read-contract.ts"
         ],
-        "dependsOnQuestionIds": []
+        "dependsOnQuestionIds": ["backend_autonomous_goals", "backend_repeat_operations"]
       },
       {
         "id": "teacher_frontend_and_webmcp_ingress",

@@ -5,11 +5,22 @@ import { unknown } from '../../src/learning/model';
 import { randomUUID } from 'node:crypto';
 
 const socket = process.env.DC_ACADEMY_TEST_SOCKET;
+describe('read-only runtime storage qualification',()=>{
+  test('rejects missing storage without attempting automatic schema migration',async()=>{
+    const queries:string[]=[];
+    const db=(async(parts:TemplateStringsArray)=>{queries.push(parts.join('?'));return [{tables_ready:false,history_triggers:0}];}) as unknown as SQL;
+    await expect(new PostgresAcademyStore(db).assertRuntimeReady()).rejects.toThrow('existing_academy_schema_required');
+    expect(queries).toHaveLength(1);
+    expect(queries[0]!.trim().startsWith('SELECT')).toBe(true);
+    expect(queries[0]).not.toMatch(/\b(?:CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|REVOKE|GRANT)\b/i);
+  });
+});
 describe.skipIf(!socket)('real PostgreSQL student partitions and durable versions', () => {
   test('persists, reopens and isolates a source-bound student without inventing learning facts', async () => {
     const db = new SQL({ adapter: 'postgres', path: socket!, username: 'hermes', database: 'dc_academy_test', max: 3 });
     const store = new PostgresAcademyStore(db);
     await store.migrate();
+    await store.assertRuntimeReady();
     const owner = 'fixture-owner-a';
     await store.registerStudent({ ownerId: owner, id: 'fixture-student-a', displayName: 'Invented Learner', sourceKey: { namespace: 'academy_student', literalKey: '91001' }, proofRefs: ['synthetic-independent-course-and-book-binding'] });
     const own = await store.students(owner);

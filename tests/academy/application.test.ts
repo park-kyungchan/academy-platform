@@ -79,6 +79,10 @@ describe.skipIf(!socket)('shared teacher/application query boundary',()=>{
     const app=new TeacherApplication(store,'fixture-owner-a');
     const scene=await app.student({ownerId:'fixture-owner-a',actorId:'fixture-user',role:'teacher'},'fixture-student-a');
     expect(scene.student.displayName).toBe('Invented Learner');
+    expect(scene.connection).toMatchObject({retainedQuery:'available',acquisition:{transport:'direct_http_api',state:'blocked',reason:'direct_http_authentication_not_qualified',browserFallback:false},officialJournalSave:'not_implemented',parentSend:'teacher_owned'});
+    expect(scene.allowedOperations).not.toContain('refresh_selected_source');
+    expect((await app.cohort({ownerId:'fixture-owner-a',actorId:'fixture-user',role:'teacher'})).connection).toEqual(scene.connection);
+    expect((await app.classPreparation({ownerId:'fixture-owner-a',actorId:'fixture-user',role:'teacher'},'2090-01-02')).connection).toEqual(scene.connection);
     expect(scene.knowledge.mastery).toBe('not_established');
     await expect(app.student({ownerId:'fixture-owner-b',actorId:'foreign-user',role:'teacher'},'fixture-student-a')).rejects.toThrow('owner_scope_conflict');
     await db.close();
