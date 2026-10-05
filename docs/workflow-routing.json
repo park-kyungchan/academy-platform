@@ -364,12 +364,20 @@
         "authority": "current_engineering",
         "role": "Latest user-requested pause and new-session KG/Ontology interview checkpoint. Provider selection is unresolved; SQLite/UX are prior synthetic prototypes.",
         "declaredAsOf": "2026-10-01"
+      },
+      {
+        "id": "classroom_cycle_policy",
+        "path": "src/academy/classroomCyclePolicy.ts",
+        "authority": "scope_contract",
+        "role": "Teacher-confirmed Gauss/Davinci minor-unit obligations, explicit teacher inspection, complete latest-homework audit and data-specific refresh guidance for requirements, source/storage, frontend/WebMCP and evaluation.",
+        "declaredAsOf": "2026-10-05"
       }
     ],
     "purposes": [
       {
         "id": "continuation",
         "sourceIds": [
+          "classroom_cycle_policy",
           "cloud_environment",
           "cloud_checkpoint",
           "cloud_start_skill",
@@ -390,6 +398,7 @@
       {
         "id": "interview",
         "sourceIds": [
+          "classroom_cycle_policy",
           "main_sheet_design",
           "main_sheet_live_wiring",
           "learning_domain",
@@ -430,6 +439,7 @@
       {
         "id": "main_sheet",
         "sourceIds": [
+          "classroom_cycle_policy",
           "main_sheet_skill",
           "main_sheet_design",
           "main_sheet_live_wiring",
@@ -469,6 +479,7 @@
       {
         "id": "academy_local",
         "sourceIds": [
+          "classroom_cycle_policy",
           "academy_checkpoint",
           "academy_read_contracts",
           "backend_map",

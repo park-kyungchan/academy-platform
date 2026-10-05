@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-05T01:15:53Z",
-    "objective": "On Hermes Linux Backend, user stops new work for checkpoint/Git closeout, then fresh-session priorities and intent interview. PR16 date UI: actual DB 45 pass, native invented-browser 11 pass after Bot review repair. Existing PG restored: 5 partitions/143 heads/153 versions/current auth retained; app/tunnel still open. Two input-only native Bots exited; budgets ended. See review/bot-orchestration-session-closeout-2026-10-05.json. Preserve foreign raw/classroom checkout; close only owned work. Next Lead uses structured typed Ontology/WebMCP Bot orchestration, not an external-human PM assumption. Academy read-only.",
+    "updatedAtUtc": "2026-10-05T01:52:47Z",
+    "objective": "On Hermes Linux Backend, raw cycle raw/classroom-20261005-parts-1-2: four subjects, seven books, 83 returned scores/691 items and prestudy lists private. PostgreSQL: 91 source targets refreshed/read back, 89 unchanged/two versions. Typed Gauss/Davinci and refresh policy/context/Evals updated; review/classroom-cycle-policy-2026-10-05.json. Whole unit/upload coverage, prestudy joins, classroom judgments and independent recovery remain open. PR16 merge verified; preserve closeout/ended Bot budgets, no app/tunnel restart. Journal-before-send awaits reviewed values/wire/recovery; no academy write or send.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
@@ -241,7 +241,7 @@
       },
       {
         "id": "preclass_source_coverage",
-        "statement": "Use academy DayRecord as the official homework basis and attributable Main/session supplements separately. A clear teacher instruction with exact subject, lesson date and content is approval evidence for a supplement; discussions or ambiguous scope stay draft. Show all scheduled occurrences, homework/prestudy/attempts/backend grading/correction/video and notes. Teacher solution inspection determines correction completion without app answer re-entry; preserve the initial app grade separately. Official finalization and parent sending remain human-owned; delivery receipts are unverified.",
+        "statement": "Use DayRecord homework plus exact attributable teacher supplements. Audit every progressed Gauss minor unit through latest homework: video always required; surface missing/unknown uploads and pending review. src/academy/classroomCyclePolicy.ts owns notebook checks, concept blank-test, original/similar clinics, Daily Test and Havruta completion: explicit teacher judgment, separate student app grading. Davinci requires only wrong/similar clinics, no videos. Preserve original grades and unknown joins/coverage; no app re-entry required for teacher correction acceptance. Official finalization and sending remain human-owned.",
         "source": "user_interview"
       },
       {
@@ -276,7 +276,7 @@
       },
       {
         "id": "backend_repeat_operations",
-        "statement": "User approved click-driven student/book/lesson refresh and a whole-cohort button, not full polling. Read only reviewed source operations via native managed-browser acquisition, not saved-cookie proxies. Keep last successful time/coverage on outage. Local DB refresh binds the qualified private target/fields, append/CAS/change rules/recovery/readback. Missing rows do not end assignments or prove nonperformance. Teacher judgment remains human-owned; no mandatory scheduler, academy save, official finalization or parent send. Verify current source authentication.",
+        "statement": "User approved automatic reflection of new submissions/grading while the teacher screen is open, plus manual refresh; this supersedes click-only design, not native controls. Reuse versioned content and long-lived book mappings; reconcile meaningful changes, not invented daily/three-month TTLs. src/academy/classroomCyclePolicy.ts separates lesson/homework, dynamic source and append-only teacher capture. Only qualified native-browser reads; no cookies, unknown effects or control bypass. Private DB refresh needs exact fields/CAS/recovery/readback. No installed loop/job or automatic academy save, finalization or send.",
         "source": "user_interview"
       },
       {
@@ -329,6 +329,7 @@
     ],
     "dispatch": [],
     "nextSteps": [
+
       {
         "id": "five_student_product_delivery",
         "owner": "lead",
@@ -341,6 +342,8 @@
         "owner": "lead",
         "action": "validate_confirmed_changes",
         "referencePaths": [
+          "review/classroom-cycle-policy-2026-10-05.json",
+          "src/academy/classroomCyclePolicy.ts",
           "docs/academy-whole-lens-target-architecture.json",
           "docs/academy-student-evidence-contract.json",
           "docs/academy-teacher-workspace-tool-contract.json",
@@ -350,7 +353,7 @@
           "src/learning/model.ts",
           "src/learning/revisions.ts"
         ],
-        "dependsOnQuestionIds": []
+        "dependsOnQuestionIds": ["preclass_source_coverage", "backend_repeat_operations"]
       },
       {
         "id": "real_dayrecord_source_qualification",
