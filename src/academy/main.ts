@@ -1,11 +1,10 @@
 import { SQL } from 'bun';
-import { existsSync, lstatSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PostgresAcademyStore } from './postgresStore';
 import { TeacherApplication } from './application';
-import { createAuthSecrets, secretDigest } from './auth';
 import { createTeacherServerHandler } from './server';
-import { TeacherAuthStore, type ProductAuthState } from './teacherAuthStore';
+import { TeacherAuthStore } from './teacherAuthStore';
 import { teacherPage } from './web/page';
 import { SourceRefreshCoordinator } from './refresh';
 import { nativeBookAcquirer } from './nativeConnector';
@@ -18,19 +17,10 @@ const directory=resolve(home,'academy');
 if(lstatSync(directory).isSymbolicLink()||(lstatSync(directory).mode&0o077)!==0)throw Error('private_product_directory_required');
 const config=JSON.parse(readFileSync(resolve(directory,'owner.json'),'utf8')) as OwnerRuntime;
 const file=resolve(directory,'web-auth.json');
-let auth:ProductAuthState;
-if(!existsSync(file)){
-  const generated=createAuthSecrets();
-  auth={schemaVersion:1,sessionKey:generated.sessionKey,invitationDigest:secretDigest(generated.invitation),identity:null};
-  writeFileSync(file,JSON.stringify(auth)+'\n',{flag:'wx',mode:0o600});
-  writeFileSync(resolve(directory,'owner-invitation.url'),'https://'+config.hostname+'/#owner_invite='+generated.invitation,{flag:'wx',mode:0o600});
-}else{
-  if(lstatSync(file).isSymbolicLink()||(lstatSync(file).mode&0o077)!==0)throw Error('private_auth_file_required');
-  auth=new TeacherAuthStore(file).read();
-}
 const authStore=new TeacherAuthStore(file);
+const auth=authStore.readExistingIdentity();
 const db=new SQL({adapter:'postgres',path:config.postgresSocket,username:'hermes',database:config.database,max:5});
-const store=new PostgresAcademyStore(db);await store.migrate();
+const store=new PostgresAcademyStore(db);await store.assertRuntimeReady();
 const build=await Bun.build({entrypoints:[resolve(import.meta.dir,'web/client.ts')],target:'browser',format:'esm',minify:true});
 if(!build.success)throw Error('teacher_client_build_failed');
 const script=await build.outputs[0]!.text();
@@ -46,7 +36,7 @@ if(existsSync(trialFile)){
 const app=new TeacherApplication(store,config.ownerId);
 const coordinator=new SourceRefreshCoordinator(store,{ownerId:config.ownerId,teacherLabel:config.teacherLabel,teacherKey:config.teacherSourceKey,collegeKey:config.collegeSourceKey},nativeBookAcquirer);
 const handler=createTeacherServerHandler({app,origin:'https://'+config.hostname,sessionKey:auth.sessionKey,identity:auth.identity,invitationDigest:auth.invitationDigest,page:teacherPage,script,
-  currentAuthentication:()=>authStore.read(),
+  currentAuthentication:()=>authStore.readExistingIdentity(),
   passwordRecovery:{claim:async token=>authStore.claimRecovery(token),status:async id=>authStore.recoveryStatus(id),complete:async(id,hash)=>authStore.completeRecovery(id,hash)},
   originTrialToken,
   refresh:(context,selection)=>coordinator.refresh(context,selection.studentId),
@@ -57,5 +47,5 @@ const handler=createTeacherServerHandler({app,origin:'https://'+config.hostname,
     authStore.registerIdentity(identity);
   }});
 const server=Bun.serve({hostname:'127.0.0.1',port:8411,idleTimeout:255,fetch:handler,error:()=>new Response('Operation failed',{status:500,headers:{'Cache-Control':'no-store'}})});
-console.log(JSON.stringify({status:'teacher_application_running',listen:'127.0.0.1:'+server.port,origin:'https://'+config.hostname,authentication:'single_teacher_native_vault_setup_required',academyEffect:'read_only',nativeSessionMirror:false}));
+console.log(JSON.stringify({status:'teacher_application_running',listen:'127.0.0.1:'+server.port,origin:'https://'+config.hostname,authentication:'existing_teacher_login',academyAcquisition:'direct_http_authentication_not_qualified',academyEffect:'read_only',nativeSessionMirror:false}));
 for(const signal of ['SIGTERM','SIGINT'])process.on(signal,async()=>{server.stop();await db.close();process.exit(0);});

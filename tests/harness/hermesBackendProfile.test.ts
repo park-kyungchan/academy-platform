@@ -30,8 +30,10 @@ describe('Hermes Backend profile continuation contract', () => {
     expect(decisions.get('backend_lead_authority')).toContain('merge');
     expect(decisions.get('backend_lead_authority')).toContain('cleanup');
     expect(decisions.get('backend_execution_scope')).toContain('Windows Desktop');
-    expect(decisions.get('backend_repeat_operations')?.toLowerCase()).toContain('teacher');
-    expect(decisions.get('backend_repeat_operations')).toContain('approved');
+    expect(current.confirmedDecisions.find(item=>item.id==='backend_repeat_operations')?.source).toBe('user_interview');
+    expect(decisions.get('backend_repeat_operations')).toContain('product requirement');
+    expect(decisions.get('backend_repeat_operations')).toContain('direct HTTP/API');
+    expect(decisions.get('backend_repeat_operations')).toContain('refuses browser');
   });
   test('prior product questions remain unanswered and the dated checkpoint remains preserved', () => {
     const current = checkpoint().engineeringContext!;
@@ -53,12 +55,15 @@ describe('Hermes Backend profile continuation contract', () => {
     const decisions = new Map(state.engineeringContext!.confirmedDecisions.map(item => [item.id, item.statement]));
     expect(state.activeStep.action).toBe('verify_current_academy_scope');
     expect(state.engineeringContext!.nextSteps.map(item => item.id)).not.toContain('qualify_backend_profile');
-    // The architecture Lead consumes analysis evidence instead of duplicating the operational queue.
-    // Whole-class experience remains selected; a wording change is not a reason to reopen product intent.
-    expect(decisions.get('priority_order')).toContain('Architecture and shared product consumers first');
+    // Fresh assignment can change the proving priority without reviving a predecessor's capture queue.
+    // Keep the settled whole-class intent, direct transport and peer/original-preservation boundaries.
     expect(decisions.get('priority_order')).toContain('Whole-class experience is already selected');
-    expect(decisions.get('lead_structure')).toContain('operational source reads and evidence recording');
-    expect(decisions.get('lead_structure')).toContain('Do not edit its tasks or duplicate its capture');
+    expect(decisions.get('priority_order')).toContain('direct HTTP');
+    expect(decisions.get('lead_structure')).toContain('Reuse earlier analysis');
+    expect(decisions.get('lead_structure')).toContain('do not edit peer tasks, duplicate capture');
+    const sourceStep=state.engineeringContext!.nextSteps.find(item=>item.id==='real_dayrecord_source_qualification')!;
+    expect(sourceStep.dependsOnQuestionIds).toContain('backend_repeat_operations');
+    expect(sourceStep.dependsOnQuestionIds).toContain('backend_autonomous_goals');
     expect(decisions.get('preclass_source_coverage')).toContain('DayRecord');
     expect(decisions.get('historical_approved_revision_views')).toContain('unknown');
     expect(decisions.get('backend_harness_scope')).toContain('native vault');

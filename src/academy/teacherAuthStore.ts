@@ -31,6 +31,17 @@ export class TeacherAuthStore {
     return {state,serialized};
   }
   read():ProductAuthState{return this.snapshot().state;}
+  /** Existing-site recovery cannot bootstrap a missing or unregistered identity. */
+  readExistingIdentity():ProductAuthState {
+    let state:ProductAuthState;
+    try{state=this.read();}
+    catch(error){
+      if((error as NodeJS.ErrnoException).code==='ENOENT')throw Error('existing_teacher_authentication_required');
+      throw error;
+    }
+    if(!state.identity)throw Error('existing_teacher_identity_required');
+    return state;
+  }
   private update<T>(change:(state:ProductAuthState)=>{state:ProductAuthState;result:T}):T {
     const parent=lstatSync(dirname(this.file));
     if(!parent.isDirectory()||parent.isSymbolicLink()||(parent.mode&0o077)!==0||parent.uid!==process.getuid!())throw Error('private_auth_directory_required');

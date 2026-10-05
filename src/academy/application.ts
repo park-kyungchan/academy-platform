@@ -4,6 +4,7 @@ import type { PostgresAcademyStore } from './postgresStore';
 import { readInputRecord } from '../lms/academyReadProtocol';
 import type { DayRecordSourceRow } from '../lms/dayRecordReadProtocol';
 import {buildStudentPreparation,assertPreparationDate} from './preparationHistory';
+import {academyConnectionStatus} from './nativeConnector';
 export interface TrustedTeacherContext { readonly ownerId:string; readonly actorId:string; readonly role:'teacher' }
 /** The HTTP/native adapter authenticates this context; a caller role string is never its issuer. */
 export class TeacherApplication {
@@ -22,7 +23,7 @@ export class TeacherApplication {
     }
     return {schemaVersion:1,kind:'teacher_cohort',scope:'registered_teacher_owned_students_not_scheduled_date_completeness',rowCount:students.length,
       availableLessonDates:[...dates].sort(),
-      students:students.map(student=>({id:student.id,displayName:student.displayName,registeredAt:student.registeredAt})),academyEffect:'read_only',officialSaved:false,parentSent:false};
+      students:students.map(student=>({id:student.id,displayName:student.displayName,registeredAt:student.registeredAt})),connection:academyConnectionStatus,academyEffect:'read_only',officialSaved:false,parentSent:false};
   }
   async student(context:TrustedTeacherContext,studentId:string,date=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())) {
     this.scope(context);requireText(studentId,'student id');if(studentId.length>200)throw Error('invalid_student_selector');
@@ -47,7 +48,7 @@ export class TeacherApplication {
       preparation:buildStudentPreparation(student.sourceKey,preparationVersions,date),
       hierarchy:{levels:catalogLevels,unknownLevels:catalogLevels.filter(kind=>!selectedCatalog.some(node=>node.kind===kind))},
       knowledge:{mastery:'not_established',teacherInspection:'unknown',effectiveEnrollment:'unknown',scheduledLessonCompleteness:'unknown',sourceFreshness:'last_successful_acquisition_not_view_time'},
-      allowedOperations:['query_student_learning','explain_learning_evidence','refresh_selected_source'],
+      connection:academyConnectionStatus,allowedOperations:['query_student_learning','query_date_class'],
       limits:['Source registration/learning range is not effective enrollment or book-slot judgment','No missing evidence becomes nonperformance','Printed paper, board and video labels remain separate source namespaces','Current sources do not prove full historical/native-app coverage'],
       officialSaved:false,parentSent:false};
   }
@@ -73,6 +74,6 @@ export class TeacherApplication {
       }
     }
     rows.sort((a,b)=>a.studentName.localeCompare(b.studentName,'ko')||a.occurrence.recordKey.localeCompare(b.occurrence.recordKey));
-    return {schemaVersion:1,kind:'date_class_preparation',date,rows,rowCount:rows.length,scope:'verified_occurrences_in_observed_calendar_window_not_all_history',knowledge:{missingRows:'not_evidence_of_absence_or_nonperformance',completeCurrentRoster:'not_established'},officialSaved:false,parentSent:false};
+    return {schemaVersion:1,kind:'date_class_preparation',date,rows,rowCount:rows.length,scope:'verified_occurrences_in_observed_calendar_window_not_all_history',connection:academyConnectionStatus,knowledge:{missingRows:'not_evidence_of_absence_or_nonperformance',completeCurrentRoster:'not_established'},officialSaved:false,parentSent:false};
   }
 }

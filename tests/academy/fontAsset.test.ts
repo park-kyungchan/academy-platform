@@ -3,6 +3,10 @@ import { createHash } from 'node:crypto';
 import { createTeacherServerHandler } from '../../src/academy/server';
 import { createAuthSecrets } from '../../src/academy/auth';
 import type { TeacherApplication } from '../../src/academy/application';
+import {teacherPage} from '../../src/academy/web/page';
+test('the deployed page prefers its pinned Korean font for headings as well as regular text',()=>{
+  expect(teacherPage.includes('body{font-family:"DC Korean",system-ui')).toBe(true);
+});
 test('serves a pinned licensed Korean font without a teacher session or external font request',async()=>{
   const handler=createTeacherServerHandler({app:{ownerId:'fixture-font-owner'} as TeacherApplication,origin:'https://fixture.example.invalid',sessionKey:createAuthSecrets().sessionKey,identity:null,invitationDigest:null,saveIdentity:async()=>{}});
   const response=await handler(new Request('https://fixture.example.invalid/teacher-ko-76f45ef4.ttf'));

@@ -36,6 +36,27 @@ function versionFrom(row: VersionRow): RecordVersion {
 /** Trusted provider adapter; caller authentication and operation grants belong to application ingress. */
 export class PostgresAcademyStore {
   constructor(readonly db: SQL) {}
+  /** Startup qualification only; never repairs or migrates a production store. */
+  async assertRuntimeReady():Promise<void> {
+    const [row]=await this.db`
+      SELECT to_regclass('academy.students') IS NOT NULL
+        AND to_regclass('academy.record_versions') IS NOT NULL
+        AND to_regclass('academy.record_heads') IS NOT NULL
+        AND to_regclass('academy.command_outcomes') IS NOT NULL
+        AND to_regclass('academy.catalog_versions') IS NOT NULL
+        AND to_regclass('academy.source_catalog_links') IS NOT NULL AS tables_ready,
+        (SELECT count(*)::int FROM pg_catalog.pg_trigger t
+          JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid
+          JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+          JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid
+          JOIN pg_catalog.pg_namespace pn ON pn.oid=p.pronamespace
+          WHERE n.nspname='academy' AND pn.nspname='academy'
+            AND p.proname='prevent_history_mutation' AND NOT t.tgisinternal
+            AND t.tgenabled='O' AND t.tgtype=27
+            AND ((c.relname='record_versions' AND t.tgname='immutable_history')
+              OR (c.relname='catalog_versions' AND t.tgname='immutable_catalog'))) AS history_triggers`;
+    if(row?.tables_ready!==true||row.history_triggers!==2)throw Error('existing_academy_schema_required');
+  }
   async migrate(): Promise<void> {
     await this.db.unsafe(`
       CREATE SCHEMA IF NOT EXISTS academy;

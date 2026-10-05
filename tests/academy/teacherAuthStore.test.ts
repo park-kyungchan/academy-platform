@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createAuthSecrets } from '../../src/academy/auth';
@@ -13,6 +13,28 @@ function fixture(){
   return {directory,file,initial,store:new TeacherAuthStore(file)};
 }
 describe('owner-qualified teacher password recovery persistence',()=>{
+  test('the selected runtime uses recovery qualification rather than creating authentication or migrating schema',()=>{
+    const source=readFileSync(new URL('../../src/academy/main.ts',import.meta.url),'utf8');
+    expect(source).toContain('authStore.readExistingIdentity()');
+    expect(source).toContain('await store.assertRuntimeReady()');
+    expect(source).not.toContain('createAuthSecrets');
+    expect(source).not.toContain('store.migrate()');
+    expect(source).not.toContain('writeFileSync');
+  });
+  test('runtime recovery requires the existing identity without creating or replacing authentication',()=>{
+    const f=fixture();
+    try{
+      const before=readFileSync(f.file,'utf8');
+      expect(f.store.readExistingIdentity()).toEqual(f.initial);
+      expect(readFileSync(f.file,'utf8')).toBe(before);
+      writeFileSync(f.file,JSON.stringify({...f.initial,identity:null}));
+      expect(()=>f.store.readExistingIdentity()).toThrow('existing_teacher_identity_required');
+      expect(f.store.read().identity).toBeNull();
+      rmSync(f.file);
+      expect(()=>f.store.readExistingIdentity()).toThrow('existing_teacher_authentication_required');
+      expect(existsSync(f.file)).toBe(false);
+    }finally{rmSync(f.directory,{recursive:true});}
+  });
   test('issues a new expiring grant without changing teacher identity or existing authentication',()=>{
     const f=fixture();
     try{
