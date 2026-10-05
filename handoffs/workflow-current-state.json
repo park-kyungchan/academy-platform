@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-05T08:10:44Z",
-    "objective": "On Hermes Linux Backend, raw cycle raw/classroom-20261005-parts-1-2: four subjects, seven books, 83 returned scores/691 items and prestudy lists private. PostgreSQL: 91 source targets refreshed/read back, 89 unchanged/two versions. Typed Gauss/Davinci and refresh policy/context/Evals updated; review/classroom-cycle-policy-2026-10-05.json. Whole unit/upload coverage, prestudy joins, classroom judgments and independent recovery remain open. PR16 merge verified; preserve closeout/ended Bot budgets, no app/tunnel restart. Journal-before-send awaits reviewed values/wire/recovery; no academy write or send.",
+    "updatedAtUtc": "2026-10-05T09:38:46Z",
+    "objective": "On Hermes Linux Backend, architecture/code Lead; analysis session owns operational capture. Preparation-history leaf implemented: additive typed source/assignment/teacher revisions, no-write legacy compatibility, persistent acceptance/reopening and existing student/date-class/HTTP/UI/agent query binding. Isolated PostgreSQL and real HTTP tests pass; internal read canary succeeds without writes or source requests. Browser localhost access denied; no bypass, UI/WebMCP acceptance remains open. No production schema migration or service restart. PR18 integrated; local gates pass. Finish exact-head publication/CI. Old Bot budgets closed.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
@@ -181,7 +181,7 @@
     "confirmedDecisions": [
       {
         "id": "priority_order",
-        "statement": "Whole instructor frontend/Backend architecture first: correct maintainable expanding student/book history before a narrow easy repair. Implement the admitted private teacher site/Backend DB through hierarchical typed meaning, source evidence, logic, permitted Actions, teacher/agent context, WebMCP, evaluation and recovery. Date-first all-student review remains a useful scene. Do not recheck Client/Backend versions, require a KG interview or stop at routine engineering boundaries.",
+        "statement": "Architecture and shared product consumers first. Operational class analysis and evidence capture belong to the separate analysis session. This Lead owns code, schemas, integration and the canonical engineering checkpoint. First replace temporary opaque teacher-note JSON with validated compatible domain/history records; connect existing application queries, source refresh, teacher UI and WebMCP. Preserve data and current consumers. Whole-class experience is already selected; do not reopen it, DB provider choice or Main transition. Only verified non-disruptive runtime updates during class; actual generation/printing remain excluded.",
         "source": "user_interview"
       },
       {
@@ -191,7 +191,7 @@
       },
       {
         "id": "lead_structure",
-        "statement": "The dc Lead owns all academy practice/integration and retained Git work; default released its reservation. User now explicitly wants multiple native Linux Bots under Lead orchestration, with hierarchical typed goals/inputs/effects/results improving agent context through Ontology/WebMCP. Code handles mechanical work. Every Bot task needs fresh native model/tool/effect/input/budget limits; old budgets ended, no inherited queues. Prefer gpt-6.1-sol/xhigh for complex work, gpt-6-luna only for negligible judgment. Model-facing delegate_task remains excluded. Current stop admits closeout only; successor interviews purpose first.",
+        "statement": "This session is the architecture/code/schema/site integration Lead; native analysis session 20261005_145336_8c8885 owns Oct5 operational source reads and evidence recording. Do not edit its tasks or duplicate its capture. Share existing validated storage/intake contracts, not another transcript mirror, dispatcher or automatic cross-profile sync. Native Bots may support fresh admitted engineering units with effective role/model/tool/input/budget controls; spent/cancelled budgets remain closed. Complex work prefers gpt-6.1-sol/xhigh; Luna only for negligible judgment. Model-facing delegate_task stays excluded.",
         "source": "user_interview"
       },
       {
@@ -241,7 +241,7 @@
       },
       {
         "id": "preclass_source_coverage",
-        "statement": "Use DayRecord homework plus exact attributable teacher supplements. Audit every progressed Gauss minor unit through latest homework: video always required; surface missing/unknown uploads and pending review. src/academy/classroomCyclePolicy.ts owns notebook checks, concept blank-test, original/similar clinics, Daily Test and Havruta completion: explicit teacher judgment, separate student app grading. Davinci requires only wrong/similar clinics, no videos. Preserve original grades and unknown joins/coverage; no app re-entry required for teacher correction acceptance. Official finalization and sending remain human-owned.",
+        "statement": "Use DayRecord homework plus attributable teacher supplements and complete mapped unit inventories. Gauss video is mandatory; Davinci has none. Teacher confirms inspected videos and the eight aged-out historical units as resolved for video only. Visible lists age out about two weeks; this is not deletion or a TTL. Preserve private append-only completion and source history, ingest new/changed evidence and skip unchanged completed detail reads. Keep first solving/app grading, clinic generation/printing, written correction and teacher acceptance separate. Official finalization and sending remain human-owned.",
         "source": "user_interview"
       },
       {
@@ -271,7 +271,7 @@
       },
       {
         "id": "backend_execution_scope",
-        "statement": "All Lead/Bot execution stays on connected Linux Backend; Windows Desktop is a remote interface, no Host/other-container work. A Bot is a profile; Windows PM must not be presumed an external human. User corrected to Lead-owned restoration with limited native Bot analysis. Original mounted runtime binaries remain; preserve data/current auth. Profile callback may register a stopped container-local gateway, not start native services. User now stops further restoration/features for Git closeout. Bot Screen is this profile's Linux display, not the user's screen; no new Cron/account/DNS/billing or engine modification.",
+        "statement": "All Lead/Bot execution stays on connected Linux Backend; Windows Desktop is remote UI. No Host/other-container or installed-engine changes. A native Profile is not an OS sandbox. Existing protected teacher app/tunnel code updates are admitted, preserving authentication/history. During class apply only verified non-disruptive changes; stop on disclosure, data-loss or interruption risk. Source analysis/capture belongs to the analysis session. Native Screen is usable only while running with agent control; never route stopped fallback to the user's display. No new gateway execution, Cron, account/IAM, DNS or billing effect.",
         "source": "user_interview"
       },
       {
@@ -343,6 +343,7 @@
         "action": "validate_confirmed_changes",
         "referencePaths": [
           "review/classroom-cycle-policy-2026-10-05.json",
+          "review/preparation-history-integration-2026-10-05.json",
           "review/item-answer-paper-lineage-2026-10-05.json",
           "src/academy/classroomCyclePolicy.ts",
           "docs/academy-whole-lens-target-architecture.json",

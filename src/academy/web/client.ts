@@ -1,5 +1,6 @@
 import type { TeacherApplication } from '../application';
 import { dateClassView, occurrenceIdentity, requestGate, type DateClassPreparation, type DateClassRow } from './dateClassView';
+import {preparationView} from './preparationView';
 type Scene=Awaited<ReturnType<TeacherApplication['student']>>;
 type Cohort=Awaited<ReturnType<TeacherApplication['cohort']>>;
 const element=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
@@ -30,6 +31,14 @@ function renderScene(scene:Scene){
     const detail=node('details','');detail.append(node('summary','원문 라벨·근거·버전 보기'),node('pre',JSON.stringify({sourceCourse:book.source.sourceCourse,sourceBook:book.source.sourceBook,sourceUserCourse:book.source.sourceUserCourse,sourceLearningRange:book.source.sourceLearningRangeLiteral,revisionId:book.revisionId,recordedAt:book.recordedAt,evidenceRefs:book.source.evidenceRefs},null,2)));card.append(detail);grid.append(card);
   }
   target.append(grid);
+  const preparation=preparationView(scene.preparation,scene.preparation.date),history=node('section','','card');
+  history.append(node('h3','소단원별 보존 이력 · '+preparation.date),node('p',preparation.coverageLabel+' · 영상 완료는 문제풀이·종이 검사 완료가 아닙니다.','notice'));
+  for(const book of preparation.books){const detail=node('details','');detail.append(node('summary',book.label+' · '+book.coverageLabel));
+    for(const unit of book.units){const line=node('div','','card');line.append(node('strong',unit.label),node('p',unit.videoLabel),node('p',unit.dutyLabel,'muted'));
+      if(unit.referenceSubmissionCount)line.append(node('p','추가 참고 제출 '+unit.referenceSubmissionCount+'건 · 기존 완료 유지','muted'));
+      const refs=node('details','');refs.append(node('summary','판정·원본 참조'),node('pre',JSON.stringify({teacherRevisionRefs:unit.teacherRevisionRefs,sourceVideoRefs:unit.sourceVideoRefs},null,2)));line.append(refs);detail.append(line);}
+    history.append(detail);}
+  target.append(history);
   const evidence=node('section','','card');evidence.append(node('h3','수업·문항·채점 근거'));
   evidence.append(node('p',scene.evidence.length?'원문 source와 독립 상태를 유지한 근거가 있습니다.':'아직 연결된 수업·문항·성적 근거가 없습니다. 미수행으로 판정하지 않습니다.','muted'));
   for(const row of scene.evidence){const detail=node('details','');detail.append(node('summary',row.payload.kind+' · '+new Date(row.lastVerifiedAt).toLocaleString('ko-KR')),node('pre',JSON.stringify(row.payload,null,2)));evidence.append(detail);}target.append(evidence);
@@ -50,7 +59,8 @@ async function showStudent(id:string,occurrence:DateClassRow|null=null){
   const ticket=studentRequests.begin();selectedStudentId=id;selectedOccurrence=occurrence;currentScene=null;
   element('scene').replaceChildren(node('p','선택 학생의 근거 조회 중…','muted'));element('student-title').textContent=cohortStudents.find(student=>student.id===id)?.displayName??'학생 근거 조회 중';element<HTMLButtonElement>('refresh-student').disabled=true;
   renderOccurrence(occurrence);status('학생 근거 조회 중…');
-  try{const scene=await api<Scene>('/api/student?id='+encodeURIComponent(id));if(!studentRequests.current(ticket))return;if(scene.student.id!==id)throw Error('student_scene_scope_conflict');renderScene(scene);status('보존된 학생 전체 근거를 표시했습니다. 선택 수업 연결과 source 검증 시각은 별개입니다.');}
+  const date=occurrence?.occurrence.date??element<HTMLInputElement>('lesson-date').value;
+  try{const scene=await api<Scene>('/api/student?id='+encodeURIComponent(id)+'&date='+encodeURIComponent(date));if(!studentRequests.current(ticket))return;if(scene.student.id!==id||scene.preparation.date!==date)throw Error('student_scene_scope_conflict');renderScene(scene);status('보존된 학생 전체 근거를 표시했습니다. 선택 수업 연결과 source 검증 시각은 별개입니다.');}
   catch(error){if(studentRequests.current(ticket))status('조회하지 못했습니다: '+(error as Error).message);}
 }
 async function showDate(date:string,preferred:DateClassRow|null=null){
@@ -132,7 +142,7 @@ element<HTMLFormElement>('password-reset-form').addEventListener('submit',async 
 async function registerSemanticTools(){
   const modelContext=(document as Document&{modelContext?:{registerTool:(tool:unknown)=>unknown}}).modelContext;
   if(!modelContext?.registerTool)return;
-  await modelContext.registerTool({name:'query_student_learning',description:'Read the admitted teacher student scene: source books, hierarchy, evidence, versions, freshness and unknowns; no academy write or mastery judgment.',inputSchema:{type:'object',additionalProperties:false,required:['studentId'],properties:{studentId:{type:'string',maxLength:200,description:'An authorized student ID from the current teacher cohort.'}}},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:async(input:{studentId:string})=>{const scene=await api<Scene>('/api/student?id='+encodeURIComponent(input.studentId));return {content:[{type:'text',text:JSON.stringify({student:scene.student.displayName,studentId:scene.student.id,sceneRevision:scene.sceneRevision,books:scene.books.map(book=>({revisionId:book.revisionId,lastVerifiedAt:book.lastVerifiedAt})),unknownLevels:scene.hierarchy.unknownLevels,knowledge:scene.knowledge})}]};}});
+  await modelContext.registerTool({name:'query_student_learning',description:'Read the admitted teacher student scene: source books, hierarchy, persistent teacher completion/reopening, evidence, versions, freshness and unknowns; no academy write or mastery judgment.',inputSchema:{type:'object',additionalProperties:false,required:['studentId'],properties:{studentId:{type:'string',maxLength:200,description:'An authorized student ID from the current teacher cohort.'},date:{type:'string',maxLength:10,description:'ISO lesson date; defaults to the selected teacher date.'}}},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:async(input:{studentId:string;date?:string})=>{const date=input.date??element<HTMLInputElement>('lesson-date').value;const scene=await api<Scene>('/api/student?id='+encodeURIComponent(input.studentId)+'&date='+encodeURIComponent(date));return {content:[{type:'text',text:JSON.stringify({student:scene.student.displayName,studentId:scene.student.id,sceneRevision:scene.sceneRevision,books:scene.books.map(book=>({revisionId:book.revisionId,lastVerifiedAt:book.lastVerifiedAt})),preparation:scene.preparation,unknownLevels:scene.hierarchy.unknownLevels,knowledge:scene.knowledge})}]};}});
 }
 (async()=>{
   const recoveryToken=new URLSearchParams(location.hash.slice(1)).get('password_recovery');

@@ -137,9 +137,9 @@ export function createTeacherServerHandler(options:TeacherServerOptions){
           return json(await options.app.classPreparation(actor,date));
         }
         if(path==='/api/student'&&req.method==='GET'){
-          if([...url.searchParams.keys()].some(key=>key!=='id'))return json({error:'unexpected_query_scope'},400);
+          if([...url.searchParams.keys()].some(key=>key!=='id'&&key!=='date')||url.searchParams.getAll('id').length!==1||url.searchParams.getAll('date').length>1)return json({error:'unexpected_query_scope'},400);
           const id=url.searchParams.get('id');if(!id)return json({error:'student_required'},400);
-          return json(await options.app.student(actor,id));
+          return json(await options.app.student(actor,id,url.searchParams.get('date')??undefined));
         }
         if(path==='/api/refresh'&&req.method==='POST'){
           const data=await body(req);assertExactKeys(data,['studentId']);

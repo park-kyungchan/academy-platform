@@ -1,6 +1,8 @@
 import { assertExactKeys, assertKnowledge, assertRefs, canonicalJson, requireText, type Knowledge } from '../learning/model';
 import { createAcademySourceAudit } from '../lms/academySourceAudit';
 import { validateSourceKey, type SourceKey } from './domain';
+import {validateCourseInventory,validatePrestudySnapshot,validatePreparationScope,type SourceCourseInventory,type SourcePrestudySnapshot,type TeacherBookPreparationScope} from './bookPreparation';
+import {requirementsForSeries,type CycleActivity} from './classroomCyclePolicy';
 
 /** A current source registration, deliberately not inferred effective enrollment or teacher book-slot assignment. */
 export interface SourceBookRegistration {
@@ -13,9 +15,34 @@ export interface SourceBookRegistration {
 }
 export interface SourceAuditRecord { readonly kind: 'source_audit'; readonly acquisition: Parameters<typeof createAcademySourceAudit>[0]; readonly contractRef: string }
 export interface TeacherReportedNote { readonly kind: 'teacher_reported_note'; readonly text: string; readonly directiveRef: string }
-export type AcademyRecord = SourceBookRegistration | SourceAuditRecord | TeacherReportedNote;
+/** Trusted intake attributes the report; this label is not authentication or an actual performance timestamp. */
+export interface TeacherActivityRevision {
+  kind:'teacher_activity_revision';sourceStudent:SourceKey;sourceCourse:SourceKey;sourceBook:SourceKey;sourceMinorUnit:SourceKey;
+  activity:CycleActivity;scope:'minor_unit';decision:'accepted'|'reopen';effectiveDate:string;
+  authority:'explicit_teacher_report';directiveRef:string;evidenceRefs:readonly string[];
+}
+export interface TeacherPreparationAssignment extends Omit<TeacherBookPreparationScope,'kind'> {
+  kind:'teacher_preparation_assignment';sourceStudent:SourceKey;effectiveDate:string;
+}
+export type AcademyRecord = SourceBookRegistration | SourceAuditRecord | TeacherReportedNote | SourceCourseInventory | SourcePrestudySnapshot | TeacherActivityRevision | TeacherPreparationAssignment;
 export function validateAcademyRecord(payload: AcademyRecord): void {
   canonicalJson(payload);
+  if(payload.kind==='source_course_inventory'){validateCourseInventory(payload);return;}
+  if(payload.kind==='source_prestudy_snapshot'){validatePrestudySnapshot(payload);return;}
+  if(payload.kind==='teacher_preparation_assignment'){
+    validateSourceKey(payload.sourceStudent);if(payload.sourceStudent.namespace!=='academy_student')throw Error('source_namespace_conflict');
+    const {kind,sourceStudent,effectiveDate,...scope}=payload;
+    validatePreparationScope({kind:'teacher_book_preparation_scope',...scope});
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)||!Number.isFinite(Date.parse(effectiveDate+'T00:00:00Z'))||new Date(effectiveDate+'T00:00:00Z').toISOString().slice(0,10)!==effectiveDate)throw Error('invalid_preparation_date');return;
+  }
+  if(payload.kind==='teacher_activity_revision'){
+    assertExactKeys(payload,['kind','sourceStudent','sourceCourse','sourceBook','sourceMinorUnit','activity','scope','decision','effectiveDate','authority','directiveRef','evidenceRefs']);
+    for(const [key,namespace] of [[payload.sourceStudent,'academy_student'],[payload.sourceCourse,'academy_course'],[payload.sourceBook,'academy_book'],[payload.sourceMinorUnit,'academy_minor_unit']] as const){validateSourceKey(key);if(key.namespace!==namespace)throw Error('source_namespace_conflict');}
+    if(payload.scope!=='minor_unit'||payload.authority!=='explicit_teacher_report'||!['accepted','reopen'].includes(payload.decision)||!requirementsForSeries('gauss').some(r=>r.activity===payload.activity&&r.completionAuthority==='explicit_teacher_judgment'))throw Error('teacher_activity_authority');
+    const date=payload.effectiveDate;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date+'T00:00:00Z'))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)throw Error('invalid_preparation_date');
+    requireText(payload.directiveRef,'teacher directive');assertRefs(payload.evidenceRefs);return;
+  }
   if (payload.kind === 'source_book_registration') {
     assertExactKeys(payload, ['kind','sourceStudent','sourceCourse','sourceUserCourse','sourceBook','catalogNodeId','sourceCourseLabel','sourceBookLabel','sourceStatus','sourceProgressLiteral','sourceLearningRangeLiteral','assignmentValidity','role','contractRef','evidenceRefs']);
     for (const [key, namespace] of [[payload.sourceStudent,'academy_student'],[payload.sourceCourse,'academy_course'],[payload.sourceUserCourse,'academy_user_course'],[payload.sourceBook,'academy_book']] as const) {

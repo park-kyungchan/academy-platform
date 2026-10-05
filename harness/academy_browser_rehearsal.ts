@@ -22,19 +22,23 @@ function records(student:StoredStudent):Current{
   return ['2090-01-02','2090-01-03'].flatMap(date=>{
     if(date==='2090-01-03'&&student.id.endsWith('B'))return [];
     const rowCount=date==='2090-01-02'&&student.id.endsWith('A')?2:1;
-    const dayRecords=Array.from({length:rowCount},(_,index)=>({studentName:student.displayName,date,groupId:index?'22001':'21001',teacherKey:'11001',studentKey:student.sourceKey.literalKey,courseKey:'99001',recordKey:date==='2090-01-03'?'41004':String(student.id.endsWith('B')?41002:41001+index*2),membershipKey:date==='2090-01-03'?'81004':String(student.id.endsWith('B')?81002:81001+index*2),fields:{attendance:student.id.endsWith('B')?'N':'Y',homework:'Invented homework range',memo:index||date==='2090-01-03'?'Invented makeup label':''}}));
-    const acquisition={schemaVersion:1,family:'day_record',status:'observed',records:[],dailyResults:[],dayRecords,requestedScope:{family:'day_record',teacherLabel:'Invented Teacher',date,groupIds:[...new Set(dayRecords.map(row=>row.groupId))],studentNames:[student.displayName]},observedAt:date+'T00:00:00Z',coverage:'requested_date_groups_students_not_cohort_completeness',unknownStates:['synthetic_not_source_qualification'],nativePrintInvoked:false,automaticRetryAllowed:false};
-    const payload={kind:'source_audit' as const,acquisition,contractRef:'synthetic-browser-rehearsal-not-source-qualification'};
-    const body={ownerId:owner,studentId:student.id,entityId:'fixture-date-'+date,sequence:1,revisionId:'fixture-'+student.id+'-'+date,previousRevisionId:null,previousDigest:null,payload,contentDigest:digest(payload),sourceObservedAt:acquisition.observedAt,recordedAt:date+'T00:00:01Z',actorId:actor,idempotencyKey:'fixture-'+date,commandDigest:digest({student:student.id,date})};
-    return [{...body,integrityDigest:digest(body),lastVerifiedAt:date+'T00:00:01Z'}];
+    const dayRecords=Array.from({length:rowCount},(_,index)=>({studentName:student.displayName,date,groupId:index?'22001':'21001',teacherKey:'11001',studentKey:student.sourceKey.literalKey,courseKey:'99001',recordKey:date==='2090-01-03'?'41004':String(student.id.endsWith('B')?41002:41001+index*2),membershipKey:date==='2090-01-03'?'81004':String(student.id.endsWith('B')?81002:81001+index*2),fields:{attendance:student.id.endsWith('B')?'N':'Y',homework:'Invented homework range',lessonMemo:index||date==='2090-01-03'?'Invented makeup label':''}}));
+    return dayRecords.map(row=>{
+      const acquisition={schemaVersion:1,family:'day_record',status:'observed',records:[],dailyResults:[],dayRecords:[row],requestedScope:{family:'day_record',teacherLabel:'Invented Teacher',date,groupIds:[row.groupId],studentNames:[student.displayName]},observedAt:date+'T00:00:00Z',coverage:'requested_date_groups_students_not_cohort_completeness',unknownStates:['synthetic_not_source_qualification'],nativePrintInvoked:false,automaticRetryAllowed:false};
+      const payload={kind:'source_audit' as const,acquisition,contractRef:'synthetic-browser-rehearsal-not-source-qualification'};
+      const body={ownerId:owner,studentId:student.id,entityId:'fixture-date-'+date+'-'+row.recordKey,sequence:1,revisionId:'fixture-'+student.id+'-'+date+'-'+row.recordKey,previousRevisionId:null,previousDigest:null,payload,contentDigest:digest(payload),sourceObservedAt:acquisition.observedAt,recordedAt:date+'T00:00:01Z',actorId:actor,idempotencyKey:'fixture-'+date+'-'+row.recordKey,commandDigest:digest({student:student.id,date,recordKey:row.recordKey})};
+      return {...body,integrityDigest:digest(body),lastVerifiedAt:date+'T00:00:01Z'};
+    });
   });
 }
-const reader:Pick<PostgresAcademyStore,'students'|'current'|'catalog'>={
+const reader:Pick<PostgresAcademyStore,'students'|'current'|'catalog'|'preparationRevisions'>={
   students:async requested=>requested===owner?structuredClone(students):[],
   current:async(requested,id)=>requested===owner?records(students.find(student=>student.id===id)!):[],
   catalog:async()=>[],
+  preparationRevisions:async()=>[],
 };
 const app=new TeacherApplication(reader as PostgresAcademyStore,owner);
+await app.classPreparation({ownerId:owner,actorId:actor,role:'teacher'},'2090-01-02');
 const build=await Bun.build({entrypoints:[resolve('src/academy/web/client.ts')],target:'browser',format:'esm',minify:true});
 if(!build.success)throw Error('rehearsal_client_build_failed');
 const script=await build.outputs[0]!.text(),sessionKey=createAuthSecrets().sessionKey;

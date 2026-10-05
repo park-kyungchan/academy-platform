@@ -4,6 +4,7 @@ import { validateHierarchy, validateSourceKey, type CatalogNode, type SourceKey 
 import { createAcademySourceAudit } from '../lms/academySourceAudit';
 import { readInputRecord } from '../lms/academyReadProtocol';
 import { validateAcademyRecord, type AcademyRecord } from './records';
+import {assertPreparationDate} from './preparationHistory';
 
 export interface StudentRegistration {
   readonly ownerId: string; readonly id: string; readonly displayName: string;
@@ -128,7 +129,14 @@ export class PostgresAcademyStore {
       if(retry){if(retry.command_digest!==commandDigest)throw Error('idempotency_reuse');return {...retry.acknowledgement,status:'replay'} as WriteAcknowledgement;}
       const [student]=await tx`SELECT source_key FROM academy.students WHERE owner_id=${command.ownerId} AND id=${command.studentId}`;
       if(!student)throw Error('unknown_student_partition');
-      if(command.payload.kind==='source_book_registration'&&command.payload.sourceStudent.literalKey!==student.source_key)throw Error('source_student_binding_conflict');
+      if('sourceStudent' in command.payload&&command.payload.sourceStudent.literalKey!==student.source_key)throw Error('source_student_binding_conflict');
+      if(command.payload.kind==='source_course_inventory'||command.payload.kind==='teacher_activity_revision'||command.payload.kind==='teacher_preparation_assignment'){
+        const payload=command.payload;
+        const registrations=await tx`SELECT v.payload FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
+          WHERE h.owner_id=${command.ownerId} AND h.student_id=${command.studentId} AND v.payload->>'kind'='source_book_registration'`;
+        const matches=registrations.filter((r:{payload:AcademyRecord})=>r.payload.kind==='source_book_registration'&&canonicalJson(r.payload.sourceCourse)===canonicalJson(payload.sourceCourse)&&canonicalJson(r.payload.sourceBook)===canonicalJson(payload.sourceBook)&&(!('sourceUserCourse' in payload)||canonicalJson(r.payload.sourceUserCourse)===canonicalJson(payload.sourceUserCourse)));
+        if(matches.length!==1)throw Error('preparation_book_binding_conflict');
+      }
       let catalogRevisionId:string|null=null;
       if(command.payload.kind==='source_book_registration'){
         await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson([command.ownerId,'catalog-write'])},0))`;
@@ -153,6 +161,12 @@ export class PostgresAcademyStore {
       const prior=head?versionFrom(head):null;
       if(command.expectedRevisionId!==(prior?.revisionId??null))throw Error('stale_base');
       if(prior&&(prior.payload.kind!==command.payload.kind||Date.parse(prior.sourceObservedAt)>Date.parse(command.sourceObservedAt)||Date.parse(prior.recordedAt)>Date.parse(recordedAt)))throw Error('invalid_revision_transition');
+      if(prior){
+        for(const field of ['sourceStudent','sourceCourse','sourceBook','sourceUserCourse','sourceMinorUnit','activity','scope','teacherKey'] as const){
+          const previous=prior.payload as unknown as Record<string,unknown>,next=command.payload as unknown as Record<string,unknown>;
+          if(['source_course_inventory','source_prestudy_snapshot','teacher_preparation_assignment','teacher_activity_revision'].includes(command.payload.kind)&&(field in previous||field in next)&&canonicalJson(previous[field])!==canonicalJson(next[field]))throw Error('preparation_identity_changed');
+        }
+      }
       let result:WriteAcknowledgement;
       if(prior?.contentDigest===contentDigest){
         await tx`UPDATE academy.record_heads SET last_verified_at=${command.sourceObservedAt} WHERE owner_id=${command.ownerId} AND student_id=${command.studentId} AND entity_id=${command.entityId}`;
@@ -185,6 +199,13 @@ export class PostgresAcademyStore {
   async current(ownerId:string,studentId:string):Promise<(RecordVersion&{lastVerifiedAt:string})[]> {
     const rows=await this.db`SELECT v.*,h.last_verified_at FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence) WHERE h.owner_id=${ownerId} AND h.student_id=${studentId} ORDER BY h.entity_id`;
     return rows.map((row:VersionRow&{last_verified_at:Date|string})=>({...versionFrom(row),lastVerifiedAt:new Date(row.last_verified_at).toISOString()}));
+  }
+  async preparationRevisions(ownerId:string,studentId:string,date:string):Promise<RecordVersion[]> {
+    requireText(ownerId,'owner');requireText(studentId,'student');assertPreparationDate(date);
+    const rows=await this.db`SELECT * FROM academy.record_versions WHERE owner_id=${ownerId} AND student_id=${studentId}
+      AND payload->>'kind' IN ('teacher_activity_revision','teacher_preparation_assignment') AND payload->>'effectiveDate'<=${date}
+      ORDER BY entity_id,sequence`;
+    return rows.map((row:VersionRow)=>versionFrom(row));
   }
   async saveCatalog(ownerId:string,node:CatalogNode):Promise<{revisionId:string;sequence:number;contentDigest:string}> {
     requireText(ownerId,'catalog owner');canonicalJson(node);

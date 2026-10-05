@@ -7,10 +7,13 @@ export const teacherOntologyDeliveryPlan = {
     execution: 'Complete research, prioritized architecture, implementation, operation and verification autonomously; do not request routine boundary approvals.',
     academy: 'Read-only, including semantically mutating GET exclusion; no journal save, grade save, generation or parent send.',
     initialScope: 'Current enrollment/books/progress/homework and recent lessons/results first; qualified historical backfill follows without pretending all-time coverage.',
-    refresh: 'Selection-driven student/book/lesson refresh plus an explicit whole-cohort button. Do not install continuous polling or a new mandatory scheduler.',
+    refresh: 'Qualified new/changed submission and grading reflection while the teacher scene is active, plus selected/whole-cohort manual refresh. Reuse unchanged completed evidence. This requirement does not install a loop, scheduler or unattended authentication, or bypass native controls.',
     site: 'A private personal site under kcpalantir.tech; preserve existing root/Bible/other consumers.',
     ontology: 'All owned product/code/data architecture connects purpose, hierarchical typed meaning, evidence, deterministic logic, allowed Actions, human/agent experience, evaluation and recovery.',
     retention: 'Minimized decision-relevant source versions and attributable teacher originals; no credentials, original-media copy, contacts or full transcript mirror.',
+    collaboration: 'The separate operational analysis session owns academy reads and evidence recording. This architecture Lead owns code/schema/site integration and the engineering checkpoint; consume the existing protected record contracts without duplicate class capture or peer-task edits.',
+    runtimeUpdates: 'Existing protected site updates during class are admitted only when verified non-disruptive and backward-compatible. Preserve authentication, source evidence, student history and current consumers; uncertain interruption or loss blocks runtime application.',
+    clinics: 'Current scope is source grading query, wrong/similar target preparation, teacher confirmation and official-screen handoff. Actual clinic generation and physical printing remain excluded and require later contracts/admission.',
   },
   leadSelections: {
     hostnameCandidate: 'dc.kcpalantir.tech',
@@ -18,6 +21,7 @@ export const teacherOntologyDeliveryPlan = {
     store: 'Private Backend PostgreSQL, one logical student partition per owner/student, shared source catalogs and indexed append-only versions; no per-student physical DB/Sheet tab.',
     network: 'Database Unix socket only; loopback application. Compare a scoped Cloudflare Tunnel and deny-by-default teacher identity gateway for the new hostname, without Host/other-container changes.',
     ingestion: 'Reviewed native-browser acquisition and validated product intake. Prefer a supported scoped source read API for future direct backend integration if actually available; never extract/persist an academy browser cookie.',
+    nextIntegration: 'Evolve temporary teacher-note JSON into dedicated validated source/assignment/teacher-revision records with a compatible legacy reader. Connect persistent video completion and delta refresh to the existing TeacherApplication, then the same teacher UI/WebMCP query. Do not add a parallel registry or dispatcher.',
     authority: 'Native source identifiers remain in separate namespaces. Current authenticated instructor/student/course rows and independent book-progress tuples bind identities; user examples are not manufactured evidence.',
   },
   ontology: {
