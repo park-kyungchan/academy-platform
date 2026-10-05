@@ -41,6 +41,7 @@ export const contextSourcePaths = {
   preclass_main_sheet_ux: 'docs/preclass-main-sheet-ux-2026-10-01.json',
   phase_two_dependencies: 'review/harness-phase-two-dependencies-2026-10-01.json',
   main_sheet_tab_visibility: 'review/main-sheet-tab-visibility-2026-10-01.json',
+  classroom_cycle_policy: 'src/academy/classroomCyclePolicy.ts',
 } as const;
 export type ContextSourceId = keyof typeof contextSourcePaths;
 const commonSourceIds: ContextSourceId[] = [

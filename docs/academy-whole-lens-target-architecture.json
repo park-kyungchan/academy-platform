@@ -10,6 +10,7 @@
     "teacherSceneAndWebMcp": "docs/academy-teacher-workspace-tool-contract.json",
     "applicationIngressStorage": "docs/academy-application-ingress-storage-design.ts",
     "nativeAutonomy": "docs/backend-autonomy-operating-contract.ts",
+    "classroomCyclePolicy": "src/academy/classroomCyclePolicy.ts",
     "designConformanceTests": ["tests/architecture/studentEvidenceContracts.test.ts", "tests/architecture/teacherWorkspaceContracts.test.ts", "tests/architecture/applicationIngressStorageDesign.test.ts"],
     "unitPredecessor": {"version":"0.3","sha256":"0ec613c1bab1432357be4979e35e658367fb0403e6e75836414b2284a14de7e0","snapshot":"Active-profile artifacts/architecture-design-20261004/target-architecture-v0.3.snapshot.json"},
     "meaning": "Concrete serialized field, query, scene/tool input/result and acknowledgement design contracts. Schema conformance is not authenticated enforcement, runtime persistence, actual browser interoperability or teacher acceptance.",

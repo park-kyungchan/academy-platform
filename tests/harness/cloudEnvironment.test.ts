@@ -49,14 +49,14 @@ test('source-only checkouts work without optional workflow metadata and reject i
       .toThrowError(new Error('invalid_cloud_workflow_checkpoint'));
   }
 });
-test('the aggregate executes all eight restored source-only test files through explicit suites', () => {
+test('the aggregate executes restored source-only files and classroom policy gates through explicit suites', () => {
   const executed: string[] = [];
   runCloudChecks(args => { executed.push(args[1]!); });
   const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { scripts: Record<string, string> };
   const requiredSuites = {
     'test:backend': ['tests/backend/googleReadAdapter.test.ts', 'tests/backend/pdfExtraction.test.ts', 'tests/backend/dependencyDoctor.test.ts'],
     'test:workflow': ['tests/harness/workflowCheckpoint.test.ts', 'tests/harness/contextRouting.test.ts', 'tests/harness/workspaceEntry.test.ts', 'tests/harness/hermesBackendProfile.test.ts', 'tests/lms/academyReadAcceptance.test.ts',
-      'tests/lms/lessonJournalReviewBundle.test.ts', 'tests/sheets/deployedMainRefresh.test.ts', 'tests/sheets/nativePreservationPreview.test.ts'],
+      'tests/lms/lessonJournalReviewBundle.test.ts', 'tests/sheets/deployedMainRefresh.test.ts', 'tests/sheets/nativePreservationPreview.test.ts', 'tests/architecture/classroomCycleEntry.test.ts'],
   };
   for (const [name, files] of Object.entries(requiredSuites)) {
     expect(executed).toContain(name);
@@ -67,6 +67,7 @@ test('the aggregate executes all eight restored source-only test files through e
   expect(executed).toContain('test:storage');
   expect(pkg.scripts['test:storage']).toBe('bun test --dots tests/storage/syntheticLearningSqlite.test.ts');
   expect(executed).toContain('test:academy');
+  expect(pkg.scripts['test:academy']!.split(' ').slice(3)).toContain('tests/academy/classroomCyclePolicy.test.ts');
 });
 test('a backend validation failure stops the aggregate before later workflow gates and success reporting', () => {
   const executed: string[] = [];
