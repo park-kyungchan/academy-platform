@@ -31,7 +31,7 @@ test('student-course normalized audit preserves scope, literal cells and empty-q
   expect(() => createAcademySourceAudit({ ...input, studentCourses: [{ ...input.studentCourses[0], handlersInvoked: true }] })).toThrow('invalid_course_audit');
 });
 
-test.each(['student_course', 'item_metadata'] as const)('public %s preparation uses the same exclusive private CLI boundary', async family => {
+test.each(['student_course', 'item_metadata', 'item_answer'] as const)('public %s preparation uses the same exclusive private CLI boundary', async family => {
   const home = mkdtempSync(join(tmpdir(), 'academy-integrated-'));
   const previous = process.env.HERMES_HOME;
   try {
@@ -39,6 +39,7 @@ test.each(['student_course', 'item_metadata'] as const)('public %s preparation u
     const dir = join(home, 'cache', 'scratch'); mkdirSync(dir, { recursive: true });
     const request = family === 'student_course'
       ? { family, teacherLabel: 'Invented Teacher', studentKey: '9101', studentName: 'Invented Student' }
+      : family === 'item_answer' ? {family,teacherLabel:'Invented Teacher',teacherKey:'9101',lectureKeys:['8201'],answerReadAdmission:true}
       : { family, teacherLabel: 'Invented Teacher', lectureKey: '8201' };
     const input = join(dir, 'request.json'), output = join(dir, 'prepared.js');
     writeFileSync(input, JSON.stringify(request));

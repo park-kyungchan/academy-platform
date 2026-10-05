@@ -155,7 +155,7 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-05T01:52:47Z",
+    "updatedAtUtc": "2026-10-05T08:10:44Z",
     "objective": "On Hermes Linux Backend, raw cycle raw/classroom-20261005-parts-1-2: four subjects, seven books, 83 returned scores/691 items and prestudy lists private. PostgreSQL: 91 source targets refreshed/read back, 89 unchanged/two versions. Typed Gauss/Davinci and refresh policy/context/Evals updated; review/classroom-cycle-policy-2026-10-05.json. Whole unit/upload coverage, prestudy joins, classroom judgments and independent recovery remain open. PR16 merge verified; preserve closeout/ended Bot budgets, no app/tunnel restart. Journal-before-send awaits reviewed values/wire/recovery; no academy write or send.",
     "priorityOrder": [
       "development_test_feedback",
@@ -343,6 +343,7 @@
         "action": "validate_confirmed_changes",
         "referencePaths": [
           "review/classroom-cycle-policy-2026-10-05.json",
+          "review/item-answer-paper-lineage-2026-10-05.json",
           "src/academy/classroomCyclePolicy.ts",
           "docs/academy-whole-lens-target-architecture.json",
           "docs/academy-student-evidence-contract.json",
