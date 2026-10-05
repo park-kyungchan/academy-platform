@@ -1,0 +1,23 @@
+{
+  "schemaVersion":1,
+  "kind":"bounded_preparation_history_integration_receipt",
+  "scope":"architecture_code_and_read_model_not_operational_class_analysis",
+  "implementation":["Additive course-unit inventory, prestudy snapshot, teacher audit assignment and teacher activity revision contracts","Student/course/book/minor-unit identity validation and immutable typed entity scope","Append-only accepted/reopen history through existing PostgreSQL storage without new SQL schema","Validated no-write legacy teacher-note compatibility projection","Existing student/date-class HTTP queries, teacher UI and agent query binding share preparation results","Asia/Seoul observation cutoffs; source labels/scalars do not issue teacher acceptance or app grading"],
+  "verification":{
+    "review":"Lead self-review; no independent reviewer or new worker dispatched",
+    "tdd":"RED/GREEN observed for persistent completion, reference-only later video, explicit reopening, full unit scope, existing PostgreSQL query integration, prior revision read, dated HTTP, identity rejection, timezone cutoff and independent teacher activities",
+    "isolatedPostgres":"Existing dc_academy_test database used; dedicated owner fixtures; actual transaction/reopen/query/history tests passed",
+    "http":"Actual ephemeral loopback HTTP query returned the same preparation result; anonymous request denied; owned server stopped",
+    "privateCompatibilityCanary":{"mode":"repeatable-read read-only internal application query, not HTTP authentication or a new academy lookup","occurrences":4,"bookViews":7,"retainedUnitReferences":74,"resolvedVideoUnitReferences":41,"productionWrites":0,"sourceRequests":0},
+    "academySuite":{"passed":65,"failed":0,"files":20},
+    "typecheck":true,
+    "harnessTypecheck":true,
+    "cloudCheck":"Passed before incorporating newly merged PR18; rerun after base integration",
+    "browserUi":{"state":"blocked","reason":"Native browser tool denied private/internal localhost URL; no guard bypass","actualBrowserWebMcpAccepted":false},
+    "syntheticRehearsal":"HTTP fixture preflight passed after preserving source validation and splitting multi-occurrence fixture snapshots; prior fixture failures retained as failures, not production evidence"
+  },
+  "recovery":{"productionRecordsRewritten":false,"analysisCaptureRepeated":false,"sqlSchemaMigrationPerformedOnProduction":false,"legacyReadersRetained":true,"activation":"Readers and validators must be deployed compatibly before production writers emit new record kinds. Git merge is not runtime activation."},
+  "remaining":["Exact source acquisition/preparation/intake for newly typed source kinds","Qualified active-scene delta refresh runtime","Full homework page/problem/attempt denominator and actual stored comments","Existing private-site runtime and browser access qualification","Actual browser-standard WebMCP invocation and teacher acceptance","Independent recovery beyond prior retained high-water mark"],
+  "effects":{"academyWrites":0,"clinicGeneration":0,"physicalPrints":0,"officialJournalFinalization":0,"parentSends":0,"newWorkers":0,"newSchedules":0,"engineHostOrOtherContainerChanges":0},
+  "publication":"Pending exact-head publication and CI; do not infer from this receipt"
+}

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { dateClassView, occurrenceIdentity, requestGate } from '../../src/academy/web/dateClassView';
 import type { TeacherApplication } from '../../src/academy/application';
+import {buildStudentPreparation} from '../../src/academy/preparationHistory';
 type Preparation = Awaited<ReturnType<TeacherApplication['classPreparation']>>;
 const cohort = [{ id: 'fixture-a', displayName: 'Invented Learner A' }, { id: 'fixture-b', displayName: 'Invented Learner B' }];
 function preparation(): Preparation {
@@ -10,6 +11,7 @@ function preparation(): Preparation {
       occurrence: { date: '2090-01-02', groupId: index === 2 ? '22001' : '21001', courseKey: '99001', recordKey: String(41001 + index), membershipKey: String(81001 + index) },
       fields: { attendance: index === 1 ? 'N' : 'Y', homework: 'Invented range', memo: index === 2 ? 'Invented makeup label' : '' },
       revisionId: 'fixture-revision-' + index, sourceObservedAt: '2090-01-02T00:00:00Z', lastVerifiedAt: '2090-01-02T00:00:01Z',
+      preparation:buildStudentPreparation({namespace:'academy_student',literalKey:String(91001+index)},[],'2090-01-02'),
       knowledge: { prestudyHomeworkJoin: 'unknown', homeworkAttemptJoin: 'unknown', correctionInspection: 'unknown', teacherReview: 'unknown' } })) };
 }
 describe('date-first occurrence presentation', () => {

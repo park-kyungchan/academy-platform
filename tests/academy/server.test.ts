@@ -30,6 +30,10 @@ describe.skipIf(!socket)('protected teacher HTTP adapter',()=>{
     const dateClass=await handler(new Request('https://dc.example.invalid/api/class?date=2090-01-02',{headers:{Cookie:cookie}}));
     expect(dateClass.status).toBe(200);
     expect(await dateClass.json()).toMatchObject({kind:'date_class_preparation',date:'2090-01-02'});
+    const dated=await handler(new Request('https://dc.example.invalid/api/student?id=fixture-student-a&date=2090-01-02',{headers:{Cookie:cookie}}));
+    expect(dated.status).toBe(200);
+    expect((await dated.json()).preparation.date).toBe('2090-01-02');
+    expect((await handler(new Request('https://dc.example.invalid/api/student?id=fixture-student-a&date=2090-01-02&date=2090-01-03',{headers:{Cookie:cookie}}))).status).toBe(400);
     const csrf=await handler(new Request('https://dc.example.invalid/api/refresh',{method:'POST',headers:{Cookie:cookie,Origin:'https://foreign.example.invalid','Content-Type':'application/json'},body:'{}'}));
     expect(csrf.status).toBe(403);
     await db.close();

@@ -68,6 +68,7 @@ test('the aggregate executes restored source-only files and classroom policy gat
   expect(pkg.scripts['test:storage']).toBe('bun test --dots tests/storage/syntheticLearningSqlite.test.ts');
   expect(executed).toContain('test:academy');
   expect(pkg.scripts['test:academy']!.split(' ').slice(3)).toContain('tests/academy/classroomCyclePolicy.test.ts');
+  for(const file of ['tests/academy/bookPreparation.test.ts','tests/academy/preparationHistory.test.ts','tests/academy/preparationView.test.ts'])expect(pkg.scripts['test:academy']!.split(' ').slice(3)).toContain(file);
 });
 test('a backend validation failure stops the aggregate before later workflow gates and success reporting', () => {
   const executed: string[] = [];

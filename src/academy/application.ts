@@ -3,6 +3,7 @@ import { catalogLevels, type CatalogNode } from './domain';
 import type { PostgresAcademyStore } from './postgresStore';
 import { readInputRecord } from '../lms/academyReadProtocol';
 import type { DayRecordSourceRow } from '../lms/dayRecordReadProtocol';
+import {buildStudentPreparation,assertPreparationDate} from './preparationHistory';
 export interface TrustedTeacherContext { readonly ownerId:string; readonly actorId:string; readonly role:'teacher' }
 /** The HTTP/native adapter authenticates this context; a caller role string is never its issuer. */
 export class TeacherApplication {
@@ -23,11 +24,13 @@ export class TeacherApplication {
       availableLessonDates:[...dates].sort(),
       students:students.map(student=>({id:student.id,displayName:student.displayName,registeredAt:student.registeredAt})),academyEffect:'read_only',officialSaved:false,parentSent:false};
   }
-  async student(context:TrustedTeacherContext,studentId:string) {
+  async student(context:TrustedTeacherContext,studentId:string,date=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())) {
     this.scope(context);requireText(studentId,'student id');if(studentId.length>200)throw Error('invalid_student_selector');
+    assertPreparationDate(date);
     const student=(await this.store.students(this.ownerId)).find(row=>row.id===studentId);
     if(!student)throw Error('student_scope_conflict');
-    const [current,catalog]=await Promise.all([this.store.current(this.ownerId,studentId),this.store.catalog(this.ownerId)]);
+    const [current,catalog,revisions]=await Promise.all([this.store.current(this.ownerId,studentId),this.store.catalog(this.ownerId),this.store.preparationRevisions(this.ownerId,studentId,date)]);
+    const preparationVersions=[...new Map([...current,...revisions].map(v=>[v.revisionId,v])).values()];
     const bookSources=current.filter(row=>row.payload.kind==='source_book_registration');
     const rootIds=new Set(bookSources.map(row=>row.payload.kind==='source_book_registration'?row.payload.catalogNodeId:''));
     const nodes=new Map(catalog.map(node=>[node.id,node]));
@@ -38,9 +41,10 @@ export class TeacherApplication {
     };
     const selectedCatalog=catalog.filter(belongs);
     return {schemaVersion:1,kind:'student_learning_scene',student:{id:student.id,displayName:student.displayName,sourceKey:student.sourceKey,proofRefs:student.proofRefs},
-      sceneRevision:digest({studentId,heads:current.map(row=>({revisionId:row.revisionId,lastVerifiedAt:row.lastVerifiedAt})),catalog:selectedCatalog}),
+      sceneRevision:digest({studentId,date,heads:current.map(row=>({revisionId:row.revisionId,lastVerifiedAt:row.lastVerifiedAt})),teacherRevisions:revisions.map(v=>v.revisionId),catalog:selectedCatalog}),
       books:bookSources.map(row=>({entityId:row.entityId,revisionId:row.revisionId,sourceObservedAt:row.sourceObservedAt,lastVerifiedAt:row.lastVerifiedAt,recordedAt:row.recordedAt,source:row.payload})),
       evidence:current.filter(row=>row.payload.kind!=='source_book_registration'),catalog:selectedCatalog,
+      preparation:buildStudentPreparation(student.sourceKey,preparationVersions,date),
       hierarchy:{levels:catalogLevels,unknownLevels:catalogLevels.filter(kind=>!selectedCatalog.some(node=>node.kind===kind))},
       knowledge:{mastery:'not_established',teacherInspection:'unknown',effectiveEnrollment:'unknown',scheduledLessonCompleteness:'unknown',sourceFreshness:'last_successful_acquisition_not_view_time'},
       allowedOperations:['query_student_learning','explain_learning_evidence','refresh_selected_source'],
@@ -53,7 +57,9 @@ export class TeacherApplication {
     const students=await this.store.students(this.ownerId);
     const rows=[];
     for(const student of students){
-      for(const version of await this.store.current(this.ownerId,student.id)){
+      const [current,revisions]=await Promise.all([this.store.current(this.ownerId,student.id),this.store.preparationRevisions(this.ownerId,student.id,date)]);
+      const preparation=buildStudentPreparation(student.sourceKey,[...new Map([...current,...revisions].map(v=>[v.revisionId,v])).values()],date);
+      for(const version of current){
         if(version.payload.kind!=='source_audit')continue;
         const snapshot=readInputRecord(version.payload.acquisition);
         if(snapshot.family!=='day_record'||!Array.isArray(snapshot.dayRecords))continue;
@@ -62,7 +68,7 @@ export class TeacherApplication {
           if(source.studentKey!==student.sourceKey.literalKey||source.studentName!==student.displayName)throw Error('stored_source_subject_conflict');
           rows.push({studentId:student.id,studentName:student.displayName,occurrence:{date:source.date,groupId:source.groupId,courseKey:source.courseKey,recordKey:source.recordKey,membershipKey:source.membershipKey},fields:source.fields,
             revisionId:version.revisionId,sourceObservedAt:version.sourceObservedAt,lastVerifiedAt:version.lastVerifiedAt,
-            knowledge:{prestudyHomeworkJoin:'unknown',homeworkAttemptJoin:'unknown',correctionInspection:'unknown',teacherReview:'unknown'}});
+            preparation,knowledge:{prestudyHomeworkJoin:'unknown',homeworkAttemptJoin:'unknown',correctionInspection:'unknown',teacherReview:'unknown'}});
         }
       }
     }
