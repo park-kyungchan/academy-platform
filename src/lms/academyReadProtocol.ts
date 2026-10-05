@@ -2,6 +2,8 @@
 import {parseScoreView,readAssessmentBatch,type AssessmentReadTarget,type AssessmentReadResult} from './assessmentReadProtocol';
 import {readDayRecordSource,type DayRecordColumnContract,type DayRecordSourceRow} from './dayRecordReadProtocol';
 import {readItemMetadata,type ItemMetadataObservation} from './itemMetadataRead';
+import {readItemAnswerBatch} from './itemAnswerBatch';
+import type {ItemAnswerObservation} from './itemAnswerRead';
 import {createStudentCourseRequest,readStudentCourses,type StudentCourseObservation,type StudentCourseRequest} from './studentCourseRead';
 export interface TextbookReadRequest {
   family: 'textbook'; teacherLabel: string; studentKey: string; studentName: string;
@@ -27,9 +29,11 @@ export interface DayRecordReadRequest {family:'day_record';teacherLabel:string;d
 export interface DayRecordReadPlan extends Omit<AcademyReadPlan,'family'|'request'> {family:'day_record';request:DayRecordReadRequest}
 export interface ItemMetadataReadRequest {family:'item_metadata';teacherLabel:string;lectureKey:string}
 export interface ItemMetadataReadPlan extends Omit<AcademyReadPlan,'family'|'request'> {family:'item_metadata';request:ItemMetadataReadRequest}
+export interface ItemAnswerReadRequest {family:'item_answer';teacherLabel:string;teacherKey:string;lectureKeys:string[];answerReadAdmission:true}
+export interface ItemAnswerReadPlan extends Omit<AcademyReadPlan,'family'|'request'> {family:'item_answer';request:ItemAnswerReadRequest}
 export interface StudentCourseReadRequest extends StudentCourseRequest {family:'student_course'}
 export interface StudentCourseReadPlan extends Omit<AcademyReadPlan,'family'|'request'> {family:'student_course';request:StudentCourseReadRequest}
-export type ScopedAcademyReadPlan=AcademyReadPlan|DailyReadPlan|DayRecordReadPlan|ItemMetadataReadPlan|StudentCourseReadPlan;
+export type ScopedAcademyReadPlan=AcademyReadPlan|DailyReadPlan|DayRecordReadPlan|ItemMetadataReadPlan|ItemAnswerReadPlan|StudentCourseReadPlan;
 export function readInputRecord(input: unknown): Record<string, unknown> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('invalid_read_request');
   const descriptors = Object.getOwnPropertyDescriptors(input);
@@ -46,6 +50,15 @@ export function readLiteralKey(value: unknown): string {
 }
 export function createAcademyReadPlan(input: unknown): ScopedAcademyReadPlan {
   const data = readInputRecord(input);
+  if(data.family==='item_answer') {
+    const required=['family','teacherLabel','teacherKey','lectureKeys','answerReadAdmission'];
+    if(Object.keys(data).length!==required.length||Object.keys(data).some(key=>!required.includes(key)))throw Error('unexpected_read_request_field');
+    if(data.answerReadAdmission!==true||!Array.isArray(data.lectureKeys)||data.lectureKeys.length<1||data.lectureKeys.length>32||new Set(data.lectureKeys).size!==data.lectureKeys.length)throw Error('invalid_answer_batch_scope');
+    return {schemaVersion:1,kind:'prepared_scoped_native_browser_read',family:'item_answer',effect:'read_only',credentialChannel:'native_browser_vault',origin:'https://dc.gang-a.kr',
+      request:{family:'item_answer',teacherLabel:readLiteralName(data.teacherLabel),teacherKey:readLiteralKey(data.teacherKey),lectureKeys:data.lectureKeys.map(readLiteralKey),answerReadAdmission:true},
+      operations:[{path:'/servlet/controller.common.TestPageShowExServlet',method:'GET',selectorKey:'p_process',selector:'GetLectureList',selectorPlacement:'query'}],
+      unknownStates:['answer_renderer','generated_paper_membership','printed_answer_version','student_response','teacher_inspection'],automaticRetryAllowed:false};
+  }
   if(data.family==='student_course') {
     const {family,...fields}=data;
     const request=createStudentCourseRequest(fields);
@@ -111,6 +124,7 @@ export function createAcademyReadPlan(input: unknown): ScopedAcademyReadPlan {
 export interface AcademyReadEnvironment {
   origin: string; authenticatedTeacherVisible: boolean;
   principalKey?:string;
+  onItemAnswerObservation?:(answer:ItemAnswerObservation)=>void|Promise<void>;
   dayRecordColumnContract?:DayRecordColumnContract;
   fetcher: (url:string, init:RequestInit)=>Promise<Response>;
 }
@@ -123,14 +137,18 @@ export interface StoredSourceRecord {
   sourceDate: {literal:string|null;precision:'month_day'|'unknown';meaning:'source_apply_date_not_exact_grade_time'};
 }
 export interface AcademyReadResult {
-  schemaVersion:1; family:'textbook'|'daily_zero'|'day_record'|'item_metadata'|'student_course'; status:'observed'|'partial'|'blocked'; records:StoredSourceRecord[];
+  schemaVersion:1; family:'textbook'|'daily_zero'|'day_record'|'item_metadata'|'item_answer'|'student_course'; status:'observed'|'partial'|'blocked'; records:StoredSourceRecord[];
   dailyResults:AssessmentReadResult[];
   dayRecords:DayRecordSourceRow[];
   itemMetadata?:ItemMetadataObservation[];
+  itemAnswers?:ItemAnswerObservation[];
+  requestedAnswerLabels?:string[];
+  pendingAnswerLabels?:string[];
+  answerBlockedReason?:string|null;
   studentCourses?:StudentCourseObservation[];
   studentCourseScope?:StudentCourseRequest;
   requestedScope?:DayRecordReadRequest;
-  observedAt:string; coverage:'exact_selected_existing_records_not_whole_book'|'requested_daily_targets'|'requested_date_groups_students_not_cohort_completeness'|'one_exact_verified_item_not_all_content_or_batch_encoding'|'observed_rows_not_all_assignments_or_pagination'; unknownStates:string[];
+  observedAt:string; coverage:'exact_selected_existing_records_not_whole_book'|'requested_daily_targets'|'requested_date_groups_students_not_cohort_completeness'|'one_exact_verified_item_not_all_content_or_batch_encoding'|'exact_requested_shared_answers_not_printed_versions'|'observed_rows_not_all_assignments_or_pagination'; unknownStates:string[];
   nativePrintInvoked:false; automaticRetryAllowed:false;
 }
 export function sourceResponseKey(value:unknown):string {
@@ -150,6 +168,13 @@ export async function executeAcademyRead(plan:ScopedAcademyReadPlan,environment:
   const trusted=createAcademyReadPlan(plan.request);
   if(environment.origin!==trusted.origin||environment.authenticatedTeacherVisible!==true)throw new Error('authentication_required');
   if(JSON.stringify(plan)!==JSON.stringify(trusted))throw new Error('read_plan_drift');
+  if(trusted.family==='item_answer') {
+    if(environment.principalKey!==trusted.request.teacherKey)throw Error('exact_teacher_principal_required');
+    const result=await readItemAnswerBatch(trusted.request.lectureKeys,environment,environment.onItemAnswerObservation??(()=>{}));
+    return {schemaVersion:1,family:'item_answer',status:result.status,records:[],dailyResults:[],dayRecords:[],itemAnswers:result.observations,
+      requestedAnswerLabels:result.requestedLabels,pendingAnswerLabels:result.pendingLabels,answerBlockedReason:result.blockedReason,
+      observedAt:new Date().toISOString(),coverage:'exact_requested_shared_answers_not_printed_versions',unknownStates:[...trusted.unknownStates],nativePrintInvoked:false,automaticRetryAllowed:false};
+  }
   if(trusted.family==='student_course') {
     const {family,...request}=trusted.request;
     const rows=await readStudentCourses(request,environment);

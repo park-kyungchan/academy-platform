@@ -1,18 +1,21 @@
 import {assertInstant,digest} from '../learning/model';
 import {createAcademyReadPlan,readInputRecord,readLiteralKey,readLiteralName} from './academyReadProtocol';
 import {createStudentCourseRequest} from './studentCourseRead';
+import {createItemAnswerAudit} from './itemAnswerAudit';
 
 /** Pure source normalization and integrity, not permission, storage or conceptual mastery. */
 export function createAcademySourceAudit(input:unknown) {
   const snapshot=readInputRecord(input);
-  const allowed=['schemaVersion','family','status','records','dailyResults','dayRecords','itemMetadata','studentCourses','studentCourseScope','requestedScope','observedAt','coverage','unknownStates','nativePrintInvoked','automaticRetryAllowed'];
+  const allowed=['schemaVersion','family','status','records','dailyResults','dayRecords','itemMetadata','itemAnswers','requestedAnswerLabels','pendingAnswerLabels','answerBlockedReason','studentCourses','studentCourseScope','requestedScope','observedAt','coverage','unknownStates','nativePrintInvoked','automaticRetryAllowed'];
   if(Object.keys(snapshot).some(key=>!allowed.includes(key)))throw new Error('unexpected_source_audit_field');
-  for(const [field,family] of [['records','textbook'],['dailyResults','daily_zero'],['dayRecords','day_record'],['itemMetadata','item_metadata'],['studentCourses','student_course']] as const) {
+  for(const [field,family] of [['records','textbook'],['dailyResults','daily_zero'],['dayRecords','day_record'],['itemMetadata','item_metadata'],['itemAnswers','item_answer'],['studentCourses','student_course']] as const) {
     const rows=snapshot[field];
     if(rows!==undefined&&(!Array.isArray(rows)||(snapshot.family!==family&&rows.length!==0)))throw new Error('source_family_conflict');
   }
   if(snapshot.requestedScope!==undefined&&snapshot.family!=='day_record')throw new Error('source_scope_conflict');
   if(snapshot.studentCourseScope!==undefined&&snapshot.family!=='student_course')throw new Error('source_scope_conflict');
+  if(snapshot.family!=='item_answer'&&['requestedAnswerLabels','pendingAnswerLabels','answerBlockedReason'].some(key=>snapshot[key]!==undefined))throw Error('source_scope_conflict');
+  if(snapshot.family==='item_answer')return createItemAnswerAudit(snapshot);
   if(snapshot.family==='student_course') {
     if(snapshot.schemaVersion!==1||snapshot.status!=='observed'||snapshot.nativePrintInvoked!==false||snapshot.automaticRetryAllowed!==false
       ||snapshot.coverage!=='observed_rows_not_all_assignments_or_pagination'||!Array.isArray(snapshot.studentCourses)||snapshot.studentCourses.length>1000

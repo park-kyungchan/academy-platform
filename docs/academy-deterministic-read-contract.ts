@@ -39,6 +39,16 @@ export const academyDeterministicReadContract = {
       grain: 'academy_item lecture/outer-lecture/source-id shared metadata; no student attempt or copied answer',
       coverage: 'one exact item, not complete content, student watch history or concept/prerequisite mapping',
     },
+    item_answer: {
+      input: ['family=item_answer', 'teacherLabel', 'previously qualified teacherKey', 'one to thirty-two exact lectureKeys in teacher-request order', 'answerReadAdmission=true'],
+      authentication: 'Exact StudyCourse route with one reqCmd. userForm pri_no and form1 g_pri_no both equal the exact admitted teacherKey, current academy origin/logout and no password form. A teacher name in a class dropdown is not authentication.',
+      pipeline: ['GetLectureList fixed single-key GET per label', 'exact source lecture_key/id equality', 'retain official answer literal and namespaced metadata'],
+      grain: 'academy_item_answer shared current content; not a student response or a printed answer version',
+      availability: 'The qualified source solution-file pointer is external_solution_reference, not acquired answer content. Other literal payloads remain unrendered; no automatic solution-file lookup or human-rendering claim.',
+      coverage: 'Sequential exact requests stop on the first failure and retain observed versus pending labels; no speculative multi-key encoding or automatic retry.',
+      recovery: 'Read globalThis.__academyItemAnswerRecovery after an IPC timeout before any deliberate pending-only continuation; append each medium batch to private evidence. In-memory recovery is not durable storage or a browser keepalive.',
+      rendering: 'Wire literals remain unchanged. Renderer qualification, generated paper membership, physical provision and teacher inspection remain independent unknowns.',
+    },
   },
   sourceOntology: {
     identities: 'Opaque source keys retain their namespace and grain; no generated LEC identifier or name-only join becomes canonical.',
@@ -56,7 +66,7 @@ export const academyDeterministicReadContract = {
   },
   wholeScopeDisposition: {
     inventory: 'Keep every existing canonical/source candidate/deployed declaration in endpointCatalog; do not replace it with a small successful sample.',
-    enabled: 'Five scoped families have offline native-browser preparation: textbook, daily_zero, day_record, student_course and item_metadata. DayRecord binds the independently qualified native-entry header/handler contract. No generic catalog execution is enabled.',
+    enabled: 'Six scoped families have offline native-browser preparation: textbook, daily_zero, day_record, student_course, item_metadata and explicitly admitted item_answer. DayRecord binds the independently qualified native-entry header/handler contract. No generic catalog execution is enabled.',
     unknown: 'All other operations retain exact blocker/provenance/current-source references. Unknown IDs never create guessed requests or fallback results.',
     externalLimits: 'A loaded website Tree is not a production DB schema or complete native-app/server implementation. No direct SQL interface is approved or exposed.',
     continuation: 'Qualify additional exact read operations against the same source, identity, effect, response and coverage contract; preserve the program until whole teacher-accessible coverage is accepted.',
