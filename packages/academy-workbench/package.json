@@ -6,7 +6,6 @@
   "type": "module",
   "scripts": {
     "check": "bun run scripts/check.ts",
-    "benchmark:sync": "bun run scripts/benchmark-sync.ts",
     "build": "bun run scripts/build.ts",
     "preview": "bun run scripts/serve.ts",
     "test": "bun test",

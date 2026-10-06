@@ -1,4 +1,4 @@
-const checks = [ ['typecheck', ['run','typecheck']], ['test', ['test']], ['build', ['run','build']], ['validate', ['run','validate']], ['demo', ['run','demo']], ['sync-benchmark', ['run','benchmark:sync']] ] as const;
+const checks = [ ['typecheck', ['run','typecheck']], ['test', ['test']], ['build', ['run','build']], ['validate', ['run','validate']], ['demo', ['run','demo']] ] as const;
 const results = [];
 for(const [name,args] of checks) {
   const child=Bun.spawn(['bun',...args],{stdout:'pipe',stderr:'pipe'});

@@ -38,20 +38,3 @@ bun run build
 The ten supplied semantic cases are executed separately from the original 55-test foundation. Additional tests check imported bytes, the supplied schema, negative schema cases, simultaneous UI badges, event-time preservation, structure completeness and repository policy. The offline schema checker supports only the keywords used by this pinned schema and rejects unsupported keywords/references; it is not a general JSON Schema validator.
 
 GitHub Actions runs this package on Linux and Windows with frozen installs. Existing repository CI is retained. Live academy access, production persistence, actual WebMCP and mobile-device acceptance remain unverified.
-
-## Synthetic source synchronization
-
-`src/sync/` contains deterministic civil-date query planning and an executable synthetic-only sync engine. `SyncAuthority` is supplied by a trusted boundary and allowlists the exact academy/student/source-student/book-edition tuple and source kind. `AllowedDomBatchAdapter` is an interface only; no academy browser, cookie or HTTP connector is implemented or enabled.
-
-The engine verifies every page and row against the selected scope, cursor ordinal, snapshot token and unique total before committing a page. Incomplete pagination cannot prove an empty query, and even a verified empty query cannot prove student nonperformance. Each source partition retains its own coverage and successful watermark; gaps are not collapsed into a global completed date. Unknown source timezone and event times remain null.
-
-Catalog cache reuse requires the exact academy, edition, catalog revision, timezone and explicit freshness policy. Student observations use content hashes, deduplication and monotonic revisions; changes append minimized history while unchanged content creates no new history event. Raw DOM/response bodies are discarded and teacher notes are never overwritten. `DataContext`, `LogicContract`, `ActionContract`, `ActionAttempt` and `HistoryEvent` references connect the result to its scope and evidence.
-
-```sh
-bun test tests/sync-engine.test.ts
-bun run benchmark:sync
-```
-
-The benchmark executes three fabricated students, two date windows, duplicate rows and one transient read failure over two cycles. Catalog caching reduces **31 → 26 calls** and **42 → 37 extracted rows** in that scenario. Both variants perform one bounded retry, preserve 12 source-observation history events, and create no changes on the warm pass. Virtual read latency is **310 → 260 ms**, with 10 ms backoff in either variant. These are synthetic counter/virtual-clock measurements, **not actual academy server performance**. The deterministic result is saved in `docs/sync-benchmark-results.json` and checked by the test suite.
-
-Retries apply only to explicitly transient read failures, with capped attempts/backoff. `MemorySyncStore.snapshot()` supports checkpoint export/restore in tests; it is not crash-safe persistence. Locks exclude overlapping work sharing one store instance, not other processes or machines. A production adapter needs qualified DOM batches, durable transactions and cross-process leases before activation. Failed refresh remains stale; catalog failures invalidate cached eligibility. Watermarks do not skip rereading mutable historical windows. No source data is transmitted by this implementation.
