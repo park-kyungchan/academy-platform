@@ -40,23 +40,23 @@ test('reads exact existing textbook grades and never invokes a generation tail',
 });
 
 test('zero-context public discovery explains the read consumer without source dumps',()=>{
-  expect(endpointCli(['--help'])).toMatchObject({command:'bun run endpoint:query',nativeAuthentication:'browser_vault_required',
-    readPreparation:'--prepare-read <private-request.json> --output-script <private-script.js>'});
+  expect(endpointCli(['--help'])).toMatchObject({command:'bun run endpoint:query',nativeAuthentication:'direct_client_secure_authentication_required',
+    requiredReadTransport:'direct_http_api',automaticBrowserFallback:false,preparedFamilies:[]});
 });
 
-test('public preparation writes an exclusive private script and emits no student values',async()=>{
+test('explicit offline legacy preparation writes an exclusive private script and emits no student values',async()=>{
   const home=mkdtempSync(join(tmpdir(),'academy-read-cli-'));const previous=process.env.HERMES_HOME;
   try {
     process.env.HERMES_HOME=home;const dir=join(home,'cache','scratch');mkdirSync(dir,{recursive:true});
     const input=join(dir,'request.json'),output=join(dir,'prepared.js');
     writeFileSync(input,JSON.stringify({family:'textbook',teacherLabel:'Invented Teacher',studentKey:'9101',studentName:'Invented Student',
       courseKey:'6101',bookNo:'5101',sourceTitles:['Invented section'],gradeViewAdmission:true}));
-    const receipt=await endpointCli(['--prepare-read',input,'--output-script',output]);
-    expect(receipt).toMatchObject({prepared:true,networkRequests:0,credentialValuesWritten:false,family:'textbook'});
+    const receipt=await endpointCli(['--prepare-legacy-browser-read',input,'--output-script',output]);
+    expect(receipt).toMatchObject({prepared:true,networkRequests:0,credentialValuesWritten:false,family:'textbook',legacyCompatibilityOnly:true,executionAdmission:'not_provided',effect:'offline_compilation_only'});
     expect(JSON.stringify(receipt)).not.toContain('Invented Student');
     expect(readFileSync(output,'utf8')).toContain('getWrongAnswerNoteResult');
     expect(statSync(output).mode&0o777).toBe(0o600);
-    await expect(Promise.resolve().then(()=>endpointCli(['--prepare-read',input,'--output-script',output]))).rejects.toThrow();
+    await expect(Promise.resolve().then(()=>endpointCli(['--prepare-legacy-browser-read',input,'--output-script',output]))).rejects.toThrow();
   } finally {if(previous===undefined)delete process.env.HERMES_HOME;else process.env.HERMES_HOME=previous;rmSync(home,{recursive:true,force:true});}
 });
 
@@ -89,8 +89,8 @@ test('refuses DayRecord reads without an independently bound native principal',a
 test('whole-catalog coverage exposes scoped preparation without promoting unknown operations',()=>{
   const result=queryEndpoints({projection:'coverage'});
   expect(result.coverage?.readPreparation).toMatchObject({consumer:'bun run endpoint:query',families:['daily_zero','day_record','item_answer','item_metadata','student_course','textbook'],
-    preparedFamilies:['daily_zero','day_record','item_answer','item_metadata','student_course','textbook'],blockedFamilies:[],
-    authentication:'native_browser_vault',unattended:false});
+    preparedFamilies:[],legacyOfflineFamilies:['daily_zero','day_record','item_answer','item_metadata','student_course','textbook'],
+    authentication:'direct_client_secure_authentication_required',requiredTransport:'direct_http_api',automaticBrowserFallback:false,unattended:false});
   expect(result.coverage?.physicalBackendCompletenessEstablished).toBe(false);
   expect(queryEndpoints({effect:'unknown',projection:'full'}).rows.every(x=>'callable' in x&&x.callable===false)).toBe(true);
 });
@@ -136,7 +136,7 @@ test.each(['input','output'])('private preparation rejects a linked %s parent ev
     process.env.HERMES_HOME=home;const base=join(home,'cache','scratch'),real=join(base,'real'),alias=join(base,'alias');
     mkdirSync(real,{recursive:true});symlinkSync(real,alias,'dir');
     const input=join(real,'request.json');writeFileSync(input,JSON.stringify({family:'textbook',teacherLabel:'Invented Teacher',studentKey:'9101',studentName:'Invented Student',courseKey:'6101',bookNo:'5101',sourceTitles:['Invented section'],gradeViewAdmission:true}));
-    await expect(Promise.resolve().then(()=>endpointCli(['--prepare-read',which==='input'?join(alias,'request.json'):input,'--output-script',join(which==='output'?alias:real,'prepared.js')]))).rejects.toThrow('private_read_path_required');
+    await expect(Promise.resolve().then(()=>endpointCli(['--prepare-legacy-browser-read',which==='input'?join(alias,'request.json'):input,'--output-script',join(which==='output'?alias:real,'prepared.js')]))).rejects.toThrow('private_read_path_required');
   }finally{if(previous===undefined)delete process.env.HERMES_HOME;else process.env.HERMES_HOME=previous;rmSync(home,{recursive:true,force:true});}
 });
 

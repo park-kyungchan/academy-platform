@@ -1,5 +1,12 @@
 import { expect, it } from 'bun:test';
 import { parseAssessmentReadArguments } from '../../harness/assessment_read';
+import {resolve} from 'node:path';
+
+it('legacy assessment CLI refuses the implicit browser path before reading a private capture',()=>{
+  const result=Bun.spawnSync({cmd:[process.execPath,'--no-env-file',resolve(import.meta.dir,'../../harness/assessment_read.ts'),'--har','/synthetic/not-read.har'],stdout:'pipe',stderr:'pipe'});
+  expect(result.exitCode).toBe(1);
+  expect(JSON.parse(new TextDecoder().decode(result.stderr))).toEqual({ok:false,code:'direct_http_client_required'});
+});
 
 it('requires explicit score-view admission and a profile-private script destination', () => {
   const args = ['--har', '/private/capture.har', '--teacher', 'Invented Teacher', '--admit-score-view',

@@ -23,6 +23,37 @@ function sourceFixture(routing = routingFixture()) {
 }
 
 describe('purpose-based project context routing', () => {
+  test('Bot development selects actual typed owners without an unrelated legacy runtime gate', () => {
+    const plan = entryReadPlan(project, routingFixture(), 'bot_development' as any);
+    expect(plan.ok).toBe(true);
+    const ids = plan.requiredReads.map(source => String(source.id));
+    for (const id of ['backend_profile', 'backend_autonomy', 'bot_development_contract', 'bot_development_runbook']) expect(ids).toContain(id);
+    for (const id of ['academy_checkpoint', 'cloud_start_skill', 'phase_two_checkpoint']) expect(ids).not.toContain(id);
+    expect(plan.commandReferences).toContain('bun run harness/bot_governance.ts contract');
+    expect(plan.commandReferencesExecuted).toBe(false);
+    expect(plan.authorizesProductionEffects).toBe(false);
+  });
+  test('the completed phase-two pause is history, not another current engineering owner', () => {
+    const plan = entryReadPlan(project, routingFixture(), 'interview');
+    expect(plan.requiredReads.find(source => source.id === 'phase_two_checkpoint')?.authority).toBe('dated_evidence');
+    expect(plan.requiredReads.find(source => source.id === 'engineering_checkpoint')?.authority).toBe('current_engineering');
+  });
+  test('a missing Bot contract closes its selected route, not unrelated continuation', () => {
+    const {root, routing} = sourceFixture();
+    expect(entryReadPlan(root, routing, 'bot_development' as any).ok).toBe(true);
+    unlinkSync(resolve(root, 'docs/bot-development-contract.ts'));
+    const selected = entryReadPlan(root, routing, 'bot_development' as any);
+    expect(selected.sourceFailures).toEqual([{path:'docs/bot-development-contract.ts', status:'missing'}]);
+    expect(entryReadPlan(root, routing, 'continuation').ok).toBe(true);
+  });
+  test('actual CLI exposes the Bot-development entry without dispatching its commands', () => {
+    const result = Bun.spawnSync({cmd:[process.execPath,'--no-env-file',resolve(project,'harness/workflow_checkpoint.ts'),'context','bot_development'],cwd:tmpdir(),stdout:'pipe',stderr:'pipe'});
+    expect(result.exitCode).toBe(0);
+    const output = JSON.parse(result.stdout.toString());
+    expect(output.entryReadPlan.purpose).toBe('bot_development');
+    expect(output.entryReadPlan.ok).toBe(true);
+    expect(output.entryReadPlan.commandReferencesExecuted).toBe(false);
+  });
   test('current contract covers every closed purpose and every purpose retains durable intent', () => {
     const routing = validateContextReadRouting(routingFixture());
     expect(routing.purposes.map(route => route.id)).toEqual([...contextPurposes]);
@@ -190,11 +221,13 @@ describe('purpose-based project context routing', () => {
     writeFileSync(resolve(root, 'handoffs/workflow-current-state.json'),
       readFileSync(resolve(project, 'handoffs/workflow-current-state.json'), 'utf8'));
     writeFileSync(resolve(root, 'docs/workflow-routing.json'), JSON.stringify({ contextReadRouting: routing }));
+    writeFileSync(resolve(root, 'docs/academy-operational-contract.json'), readFileSync(resolve(project, 'docs/academy-operational-contract.json')));
     // Preserve the actual CLI while importing its unchanged support modules from the source checkout.
     const source = readFileSync(resolve(project, 'harness/workflow_checkpoint.ts'), 'utf8')
       .replace("from './backend_dependencies'", 'from ' + JSON.stringify(resolve(project, 'harness/backend_dependencies.ts')))
       .replace("from './tools/prepush_audit'", 'from ' + JSON.stringify(resolve(project, 'harness/tools/prepush_audit.ts')))
-      .replace("from './context_routing'", 'from ' + JSON.stringify(resolve(project, 'harness/context_routing.ts')));
+      .replace("from './context_routing'", 'from ' + JSON.stringify(resolve(project, 'harness/context_routing.ts')))
+      .replace("from '../src/academy/operationalContract'", 'from ' + JSON.stringify(resolve(project, 'src/academy/operationalContract.ts')));
     const cli = resolve(root, 'harness/workflow_checkpoint.ts');
     writeFileSync(cli, source);
     unlinkSync(resolve(root, 'docs/CODEX_CONTEXT.md'));

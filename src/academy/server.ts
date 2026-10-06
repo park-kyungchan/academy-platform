@@ -35,8 +35,21 @@ export function createTeacherServerHandler(options:TeacherServerOptions){
   };
   const body=async(req:Request):Promise<Record<string,unknown>>=>{
     if(req.headers.get('Content-Type')?.split(';')[0]!=='application/json')throw Error('json_required');
-    if(Number(req.headers.get('Content-Length')??0)>20000)throw Error('input_too_large');
-    const text=await req.text();if(text.length>20000)throw Error('input_too_large');
+    // 16000 UTF-16 text units may occupy 96000 JSON bytes after escaping; keep a bounded envelope.
+    const limit=['/api/teacher-observation','/api/record'].includes(new URL(req.url).pathname)?128000:20000;
+    const length=req.headers.get('Content-Length');
+    if(length!==null&&(!/^\d+$/.test(length)||Number(length)>limit))throw Error('input_too_large');
+    const reader=req.body?.getReader();if(!reader)throw Error('invalid_input');
+    const decoder=new TextDecoder('utf-8',{fatal:true});let bytes=0,text='';
+    try{
+      while(true){
+        const chunk=await reader.read();if(chunk.done)break;
+        bytes+=chunk.value.byteLength;
+        if(bytes>limit){await reader.cancel();throw Error('input_too_large');}
+        text+=decoder.decode(chunk.value,{stream:true});
+      }
+      text+=decoder.decode();
+    }finally{reader.releaseLock();}
     const data:unknown=JSON.parse(text);if(!data||typeof data!=='object'||Array.isArray(data))throw Error('invalid_input');return data as Record<string,unknown>;
   };
   return async(req:Request):Promise<Response>=>{
@@ -130,6 +143,11 @@ export function createTeacherServerHandler(options:TeacherServerOptions){
       }
       if(path.startsWith('/api/')){
         const actor=context(req);if(!actor)return json({error:'teacher_authentication_required'},401);
+        if(path==='/api/teacher-observation'&&req.method==='POST')return json(await options.app.saveObservation(actor,await body(req)));
+        if(path==='/api/teacher-observation-result'&&req.method==='GET'){
+          if([...url.searchParams.keys()].some(key=>!['studentId','requestId'].includes(key))||url.searchParams.getAll('studentId').length!==1||url.searchParams.getAll('requestId').length!==1)return json({error:'unexpected_query_scope'},400);
+          return json(await options.app.observationResult(actor,url.searchParams.get('studentId')!,url.searchParams.get('requestId')!));
+        }
         if(path==='/api/cohort'&&req.method==='GET')return json(await options.app.cohort(actor));
         if(path==='/api/class'&&req.method==='GET'){
           if([...url.searchParams.keys()].some(key=>key!=='date')||url.searchParams.getAll('date').length!==1)return json({error:'unexpected_query_scope'},400);
@@ -153,6 +171,9 @@ export function createTeacherServerHandler(options:TeacherServerOptions){
       return json({error:'not_found'},404);
     }catch(error){
       const code=error instanceof Error?error.message:'operation_failed';
+      if(['stale_base','stale_evidence_basis','idempotency_reuse','observation_basis_conflict'].includes(code))return json({error:code,originalRetained:true,automaticRetry:false},409);
+      if(code==='committed_outcome_uncertain')return json({error:code,automaticRetry:false,readOriginalRequestBeforeNewIntent:true},503);
+      if(code==='observation_result_not_found')return json({error:code,automaticRetry:false},404);
       const safe=['owner_scope_conflict','student_scope_conflict','invalid_student_selector','invalid_input','json_required','input_too_large','password_recovery_denied','unexpected or missing domain fields'].includes(code)?code:'operation_failed';
       return json({error:safe},safe.includes('scope_conflict')||safe==='password_recovery_denied'?403:400);
     }

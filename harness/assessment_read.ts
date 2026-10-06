@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-/** Offline preparation only. Native browser/vault remains the authenticated executor. */
+/** Explicit offline legacy preparation only; current acquisition requires qualified direct HTTP/API. */
 import { dirname, extname, resolve } from 'node:path';
 import { open, realpath } from 'node:fs/promises';
 import { prepareAssessmentRead } from '../src/lms/assessmentReadProtocol';
@@ -36,7 +36,9 @@ export function parseAssessmentReadArguments(args: string[], profileHome: string
 
 if (import.meta.main) {
   try {
-    const options = parseAssessmentReadArguments(process.argv.slice(2), process.env.HERMES_HOME);
+    const args=process.argv.slice(2);
+    if(args[0]!=='--legacy-offline')throw Error('direct_http_client_required');
+    const options = parseAssessmentReadArguments(args.slice(1), process.env.HERMES_HOME);
     const root = await realpath(resolve(process.env.HERMES_HOME!, 'cache/scratch'));
     if (await realpath(dirname(options.output)) !== root) throw new Error('profile_scratch_destination_required');
     const captures: unknown[] = [];
@@ -51,7 +53,7 @@ if (import.meta.main) {
     try { await handle.writeFile(prepared.expression); }
     finally { await handle.close(); }
     process.stdout.write(JSON.stringify({ ok: true, ...prepared.summary, preparedPrivateBrowserScript: true,
-      credentialsExported: false, authenticationMode: 'native_browser_vault_required' }) + '\n');
+      credentialsExported: false, legacyCompatibilityOnly:true,executionAdmission:'not_provided',requiredCurrentTransport:'direct_http_api',authenticationMode:'historical_browser_channel_not_current_admission' }) + '\n');
   } catch (error) {
     const code = error instanceof Error && /^[a-z_]+$/.test(error.message) ? error.message : 'assessment_preparation_failed';
     process.stderr.write(JSON.stringify({ ok: false, code }) + '\n');

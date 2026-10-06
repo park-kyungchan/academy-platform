@@ -37,13 +37,13 @@ export async function runDateClassBrowserCases(){
     await wait(()=>byId('student-title').textContent==='Invented Learner B'&&ready());await new Promise(resolve=>setTimeout(resolve,350));
     s=state();record('late_student_response_refused',{student:'Invented Learner B',context:'registered_student_not_lesson_join'},s,s.student==='Invented Learner B'&&s.context.includes('특정 수업·과제와의 연결을 뜻하지 않습니다.'));
   }finally{window.fetch=originalFetch;}
-  const beforeRefresh=state();byId('refresh-student').click();
-  await wait(()=>!(byId('refresh-student') as HTMLButtonElement).disabled);await new Promise(resolve=>setTimeout(resolve,80));
-  s=state();record('registered_student_refresh_preserves_scope',{student:beforeRefresh.student,date:beforeRefresh.date,context:beforeRefresh.context},s,s.student===beforeRefresh.student&&s.date===beforeRefresh.date&&s.context===beforeRefresh.context);
-  await fetch('/qa/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({failure:false,refreshBlocked:true})});
-  byId('refresh-student').click();await wait(()=>!(byId('refresh-student') as HTMLButtonElement).disabled);
-  s=state();record('blocked_refresh_preserves_selection_and_reason',{student:beforeRefresh.student,context:beforeRefresh.context,blockedReasonVisible:true},s,s.student===beforeRefresh.student&&s.context===beforeRefresh.context&&document.body.textContent!.includes('synthetic_refresh_blocked'));
-  await fetch('/qa/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({failure:false,refreshBlocked:false})});
+  // The actual shipped app currently refuses unqualified source refresh. Do not
+  // fabricate a qualified connection merely to click the fixture's refresh stub.
+  const beforeRefresh=state(),refresh=byId('refresh-student') as HTMLButtonElement;
+  record('unqualified_source_refresh_is_disabled',{disabled:true,reasonVisible:true},{disabled:refresh.disabled,connection:byId('source-connection').textContent},refresh.disabled&&byId('source-connection').textContent!.includes('직접 HTTP 인증 연결 필요'));
+  const refreshRequests=()=>performance.getEntriesByType('resource').filter(row=>new URL(row.name).pathname==='/api/refresh').length;
+  const requestsBefore=refreshRequests();refresh.click();await new Promise(resolve=>setTimeout(resolve,80));
+  s=state();record('disabled_refresh_preserves_selection_without_request',{student:beforeRefresh.student,date:beforeRefresh.date,context:beforeRefresh.context,additionalRequests:0},s,s.student===beforeRefresh.student&&s.date===beforeRefresh.date&&s.context===beforeRefresh.context&&refreshRequests()===requestsBefore);
   const faces=await document.fonts.load('14px "DC Korean"','수업 준비');record('same_origin_korean_font',{loaded:true}, {loaded:faces.length>0},faces.length>0);
   date('2090-01-02');await wait(()=>rows().length===3&&ready());
   byId('class-list').scrollIntoView({block:'center'});

@@ -1,4 +1,5 @@
-import { describe, expect, test } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test';
+import {ensureSyntheticStudentFixture} from './postgresFixture';
 import { SQL } from 'bun';
 import { TeacherApplication } from '../../src/academy/application';
 import { PostgresAcademyStore } from '../../src/academy/postgresStore';
@@ -7,6 +8,7 @@ import {createTeacherServerHandler} from '../../src/academy/server';
 import {createAuthSecrets,signTeacherSession} from '../../src/academy/auth';
 const socket=process.env.DC_ACADEMY_TEST_SOCKET;
 describe.skipIf(!socket)('shared teacher/application query boundary',()=>{
+  beforeAll(ensureSyntheticStudentFixture);
   test('existing student and date-class queries consume retained teacher completion without rewriting legacy records',async()=>{
     const db=new SQL({adapter:'postgres',path:socket!,username:'hermes',database:'dc_academy_test',max:1});
     try{

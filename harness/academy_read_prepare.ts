@@ -26,7 +26,7 @@ export async function prepareAcademyReadFile(inputPath:string,outputPath:string,
   if(Buffer.byteLength(expression)>131072)throw new Error('native_read_bundle_too_large');
   writeFileSync(privatePath(output,home,'.js',false),expression,{encoding:'utf8',flag:'wx',mode:0o600});
   return {schemaVersion:1,prepared:true,family:plan.family,networkRequests:0,credentialValuesWritten:false,
-    outputScript:output,nativeAuthentication:'browser_vault_required',effect:'read_only',recordsRequested:plan.family==='textbook'?plan.request.sourceTitles.length:plan.family==='daily_zero'?plan.request.targets.length:plan.family==='day_record'?plan.request.studentNames.length:plan.family==='item_answer'?plan.request.lectureKeys.length:1,
+    outputScript:output,legacyCompatibilityOnly:true,executionAdmission:'not_provided',requiredCurrentTransport:'direct_http_api',nativeAuthentication:'historical_browser_vault_channel_not_current_admission',effect:'offline_compilation_only',recordsRequested:plan.family==='textbook'?plan.request.sourceTitles.length:plan.family==='daily_zero'?plan.request.targets.length:plan.family==='day_record'?plan.request.studentNames.length:plan.family==='item_answer'?plan.request.lectureKeys.length:1,
     privateScopeValuesEmitted:false,automaticRetryAllowed:false};
 }
 

@@ -1,3 +1,4 @@
+import {operationalContractShape,OPERATIONAL_CONTRACT_PATH} from '../src/academy/operationalContract';
 export const academyDeterministicReadContract = {
   schemaVersion: 1,
   kind: 'whole_interface_read_audit_program',
@@ -5,8 +6,10 @@ export const academyDeterministicReadContract = {
   owner: 'park-kyungchan/dc-gang-a on the connected Hermes Linux Backend',
   publicConsumer: 'bun run endpoint:query --help',
   catalogConsumer: 'bun run endpoint:query --projection coverage',
-  prepareConsumer: 'bun run endpoint:query --prepare-read <private-request.json> --output-script <private-script.js>',
-  execution: 'Evaluate the owned prepared expression with native browser tools after origin-bound native vault authentication. No cookie, password or raw HAR replay.',
+  operationalContract: OPERATIONAL_CONTRACT_PATH,
+  sourceAccess: operationalContractShape.sourceAccess,
+  prepareConsumer: 'bun run endpoint:query --prepare-legacy-browser-read <private-request.json> --output-script <private-script.js>',
+  execution: 'Retained preparation compiles offline only. Current acquisition uses the existing academy:http direct client after current secure authentication, operation/response and scope qualification. No silent browser fallback, cookie extraction, password or raw HAR replay.',
   sourceContracts: {
     textbook: {
       input: ['family=textbook', 'teacherLabel', 'studentKey', 'studentName', 'courseKey', 'bookNo', 'sourceTitles', 'gradeViewAdmission=true'],
@@ -59,14 +62,14 @@ export const academyDeterministicReadContract = {
   },
   security: {
     origin: 'https://dc.gang-a.kr',
-    authenticationOwner: 'Native Hermes browser/vault',
+    authenticationOwner: operationalContractShape.sourceAccess.authenticationOwner,
     preparedFileBoundary: 'Exclusive mode-0600 files under the active HERMES_HOME cache/scratch or artifacts only; reject credential files, links, scope drift and extra input fields.',
     requester: 'Standing task-bounded teacher-owned student/date/field scope; a preparation plan cannot grant authority.',
     excluded: ['unknown-effect selectors', 'mutating GET', 'grade saving', 'clinic/report generation flags', 'native Print/WebSocket', 'setPrintedCheck/cache writes', 'parent sending', 'unattended jobs'],
   },
   wholeScopeDisposition: {
     inventory: 'Keep every existing canonical/source candidate/deployed declaration in endpointCatalog; do not replace it with a small successful sample.',
-    enabled: 'Six scoped families have offline native-browser preparation: textbook, daily_zero, day_record, student_course, item_metadata and explicitly admitted item_answer. DayRecord binds the independently qualified native-entry header/handler contract. No generic catalog execution is enabled.',
+    enabled: 'Six retained families have explicit offline legacy-browser compilation, not current acquisition admission. Existing direct-client implementation and field-specific live qualification are separate. DayRecord preserves its qualified header/handler contract; no generic catalog execution is enabled.',
     unknown: 'All other operations retain exact blocker/provenance/current-source references. Unknown IDs never create guessed requests or fallback results.',
     externalLimits: 'A loaded website Tree is not a production DB schema or complete native-app/server implementation. No direct SQL interface is approved or exposed.',
     continuation: 'Qualify additional exact read operations against the same source, identity, effect, response and coverage contract; preserve the program until whole teacher-accessible coverage is accepted.',
@@ -80,7 +83,7 @@ export const academyDeterministicReadContract = {
     meaning: 'Document-scoped client tool registration/discovery/execution, not backend SQL/MCP transport or automatic website reconstruction.',
     changesPerformed: 'No engine/browser flags, installed runtime, website source, extensions, gateways or MCP services changed.',
   },
-  recovery: ['Authentication expiry returns an explicit refusal; use native vault again, never keepalive/cookie extraction.',
+  recovery: ['Authentication expiry returns an explicit refusal; use the current direct-client secure credential owner, never browser fallback, keepalive or cookie extraction.',
     'Scope/source/enum drift blocks the affected operation without manufacturing a completed status.',
     'Preserve originals and private snapshots. Never publish student data or overwrite a prepared scope file.',
     'Official journal effects remain a separate exact approved batch plus independent readback; final teacher confirmation and parent sending stay human-owned.'],

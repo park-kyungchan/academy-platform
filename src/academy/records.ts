@@ -1,4 +1,4 @@
-import { assertExactKeys, assertKnowledge, assertRefs, canonicalJson, requireText, type Knowledge } from '../learning/model';
+import { assertExactKeys, assertInstant, assertKnowledge, assertRefs, canonicalJson, requireText, type Knowledge } from '../learning/model';
 import { createAcademySourceAudit } from '../lms/academySourceAudit';
 import { validateSourceKey, type SourceKey } from './domain';
 import {validateCourseInventory,validatePrestudySnapshot,validatePreparationScope,type SourceCourseInventory,type SourcePrestudySnapshot,type TeacherBookPreparationScope} from './bookPreparation';
@@ -15,6 +15,12 @@ export interface SourceBookRegistration {
 }
 export interface SourceAuditRecord { readonly kind: 'source_audit'; readonly acquisition: Parameters<typeof createAcademySourceAudit>[0]; readonly contractRef: string }
 export interface TeacherReportedNote { readonly kind: 'teacher_reported_note'; readonly text: string; readonly directiveRef: string }
+export interface ObservationOccurrence { date:string; groupId:string; courseKey:string; recordKey:string; membershipKey:string }
+/** An attributable original/correction, never an inspection approval, official save or delivery receipt. */
+export interface TeacherObservation {
+  kind:'teacher_observation';sourceStudent:SourceKey;occurrence:ObservationOccurrence;
+  basisRevisionId:string;reportedAt:string;text:string;
+}
 /** Trusted intake attributes the report; this label is not authentication or an actual performance timestamp. */
 export interface TeacherActivityRevision {
   kind:'teacher_activity_revision';sourceStudent:SourceKey;sourceCourse:SourceKey;sourceBook:SourceKey;sourceMinorUnit:SourceKey;
@@ -24,9 +30,19 @@ export interface TeacherActivityRevision {
 export interface TeacherPreparationAssignment extends Omit<TeacherBookPreparationScope,'kind'> {
   kind:'teacher_preparation_assignment';sourceStudent:SourceKey;effectiveDate:string;
 }
-export type AcademyRecord = SourceBookRegistration | SourceAuditRecord | TeacherReportedNote | SourceCourseInventory | SourcePrestudySnapshot | TeacherActivityRevision | TeacherPreparationAssignment;
+export type AcademyRecord = SourceBookRegistration | SourceAuditRecord | TeacherReportedNote | TeacherObservation | SourceCourseInventory | SourcePrestudySnapshot | TeacherActivityRevision | TeacherPreparationAssignment;
 export function validateAcademyRecord(payload: AcademyRecord): void {
   canonicalJson(payload);
+  if(payload.kind==='teacher_observation'){
+    assertExactKeys(payload,['kind','sourceStudent','occurrence','basisRevisionId','reportedAt','text']);
+    validateSourceKey(payload.sourceStudent);if(payload.sourceStudent.namespace!=='academy_student')throw Error('source_namespace_conflict');
+    assertExactKeys(payload.occurrence,['date','groupId','courseKey','recordKey','membershipKey']);
+    const date=payload.occurrence.date;
+    if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date+'T00:00:00Z'))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)throw Error('invalid_observation_date');
+    for(const field of ['groupId','courseKey','recordKey','membershipKey'] as const){const key=payload.occurrence[field];if(typeof key!=='string'||!/^[1-9][0-9]*$/.test(key)||!Number.isSafeInteger(Number(key)))throw Error('invalid_observation_occurrence');}
+    requireText(payload.basisRevisionId,'evidence basis');requireText(payload.text,'teacher observation');assertInstant(payload.reportedAt);
+    if(payload.basisRevisionId.length>200||payload.text.length>16000)throw Error('observation_too_large');return;
+  }
   if(payload.kind==='source_course_inventory'){validateCourseInventory(payload);return;}
   if(payload.kind==='source_prestudy_snapshot'){validatePrestudySnapshot(payload);return;}
   if(payload.kind==='teacher_preparation_assignment'){
