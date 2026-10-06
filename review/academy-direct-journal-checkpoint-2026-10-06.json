@@ -51,11 +51,29 @@
     "realPrivateEvidence": "Active-profile raw-classroom-20261005 collection: initial apply/readback, teacher-final source and post-delivery format final readback. No raw student bodies, credentials, source sessions or transcripts published."
   },
   "remaining": [
-    {"priority": "P1", "work": "Complete exact-head Git/CI/merge/readback and only owned cleanup"},
     {"priority": "P1", "work": "Connect the qualified direct source and retained teacher feedback to the existing shared teacher-app/agent consumer, preserving private history and actual source capability states"},
     {"priority": "P2", "work": "Complete ordered existing-clinic membership and label-to-paper lineage. One exact-student result-search page and literal printed-header candidates are observed, not all history or physical-paper proof"},
     {"priority": "conditional", "work": "Native protected browser and browser-standard WebMCP invocation remain separate acceptance; no forged API, academy browser acquisition, installed-engine change or automatic source loop"}
   ],
   "recovery": "Preserve teacher-final source and consumed attempt identities. Read back uncertain effects; never replay an old approval, auto-revert teacher edits, regenerate/print clinics or resend to parents. Code rollback is separate from business-record recovery.",
-  "publication": "Pending exact tested-head CI and remote merge readback; this dated artifact is not deployment or effect authority"
+  "publication": {
+    "status": "merged_and_read_back",
+    "pr": 23,
+    "url": "https://github.com/park-kyungchan/dc-gang-a/pull/23",
+    "testedHead": "0fab2a30ec1205977f55cf6951bfcba229fd2303",
+    "mergeCommit": "82ba91a89a52d80c60e126d12a733ac09069e645",
+    "actionsRun": 37400589824,
+    "actionsResult": "Exact head and PR23 matched; linux-clean-checkout and its defined steps succeeded",
+    "checkRollup": "GraphQL read refused by scoped-token permissions; not represented as a checks-rollup PASS",
+    "mergeMethod": "Normal matched-head merge; no admin/protection bypass",
+    "ownedFeatureBranch": "Verified absent remotely and deleted locally after exact merge readback",
+    "preserved": "Existing delivery-plan modification and foreign worktrees",
+    "deployment": "Not performed or certified by publication"
+  },
+  "nextConsumerEvidence": {
+    "nativeConnector": "src/academy/nativeConnector.ts still returns an unconditional acquisition blocker; CLI qualification alone does not change that running consumer",
+    "startup": "src/academy/main.ts selects that connector",
+    "sourceFeedback": "src/academy/sourceEvidence.ts already plans exact day-record source evidence; compatible intake and actual protected-store readback are required, not another capture ledger",
+    "firstUsefulGate": "The existing teacher UI and agent query show the same fresh scoped source and retained teacher-final revisions without losing prior history or performing another academy save/send"
+  }
 }
