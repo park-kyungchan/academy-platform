@@ -60,7 +60,7 @@ export function cloudReadiness(base = root, today = new Date().toLocaleDateStrin
 export type InstallRunner = (args: string[], extraEnv?: Record<string,string>) => void;
 export const cloudCheckScripts = [
   'typecheck', 'typecheck:harness', 'typecheck:agent-runtime', 'test:bun', 'test:synthetic', 'test:agent-runtime',
-  'test:endpoint-catalog', 'test:learning', 'test:learning-projection', 'test:backend', 'test:workflow', 'test:storage', 'test:model-config', 'test:academy', 'verify:evidence',
+  'test:endpoint-catalog', 'test:learning', 'test:learning-projection', 'test:backend', 'test:workflow', 'test:storage', 'test:model-config', 'test:academy', 'test:journal-http', 'verify:evidence',
 ] as const;
 export function runCloudChecks(runCheck: InstallRunner): void {
   for (const script of cloudCheckScripts) runCheck(['run', script]);

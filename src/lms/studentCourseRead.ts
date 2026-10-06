@@ -4,7 +4,7 @@ export interface StudentCourseObservation {
   identity:{sourceNamespace:'academy_student_course';studentKey:string;collegeKey:string;courseKey:string;userCourseKey:string};
   sourceCells:string[];coverage:'observed_row_not_all_assignments_or_pagination';handlersInvoked:false;
 }
-export interface StudentCourseEnvironment {origin:string;authenticatedTeacherVisible:boolean;principalKey?:string;fetcher:(url:string,init:RequestInit)=>Promise<Response>}
+export interface StudentCourseEnvironment {origin:string;authenticatedTeacherVisible:boolean;principalKey?:string;domParser?:Pick<DOMParser,'parseFromString'>;fetcher:(url:string,init:RequestInit)=>Promise<Response>}
 function literalKey(value:unknown):string {
   if(typeof value!=='string'||!/^[1-9][0-9]{0,15}$/.test(value)||BigInt(value)>BigInt(Number.MAX_SAFE_INTEGER))throw Error('invalid_course_key');
   return value;
@@ -40,13 +40,14 @@ export async function readStudentCourses(input:unknown,environment:StudentCourse
   if(environment.origin!=='https://dc.gang-a.kr'||environment.authenticatedTeacherVisible!==true)throw Error('authentication_required');
   const request=createStudentCourseRequest(input);
   if(typeof environment.principalKey!=='string'||!/^[1-9][0-9]{0,15}$/.test(environment.principalKey)||BigInt(environment.principalKey)>BigInt(Number.MAX_SAFE_INTEGER))throw Error('principal_binding_required');
-  if(typeof DOMParser==='undefined')throw Error('native_browser_dom_required');
+  const parser=environment.domParser??(typeof DOMParser==='undefined'?undefined:new DOMParser());
+  if(!parser)throw Error('native_browser_dom_required');
   const path='/servlet/controller.coursemanage.CourseManageServlet';
   const fetchDocument=async(url:string,init:RequestInit)=>{
     const response=await environment.fetcher(url,{...init,credentials:'same-origin',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20000)});
     if(!response.ok||response.redirected)throw Error('course_transport_failed');const text=await response.text();
     if(text.length>2000000||/webUserPass|세션이 만료/.test(text))throw Error('course_source_contract_refused');
-    return new DOMParser().parseFromString(text,'text/html');
+    return parser.parseFromString(text,'text/html');
   };
   const doc=await fetchDocument(path+'?reqCmd=StudyCourse',{method:'GET'});
   const form=doc.querySelector('form[name=form1]');if(!form)throw Error('course_source_form_missing');

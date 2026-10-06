@@ -124,6 +124,7 @@ export function createAcademyReadPlan(input: unknown): ScopedAcademyReadPlan {
 export interface AcademyReadEnvironment {
   origin: string; authenticatedTeacherVisible: boolean;
   principalKey?:string;
+  domParser?:Pick<DOMParser,'parseFromString'>;
   onItemAnswerObservation?:(answer:ItemAnswerObservation)=>void|Promise<void>;
   dayRecordColumnContract?:DayRecordColumnContract;
   fetcher: (url:string, init:RequestInit)=>Promise<Response>;
