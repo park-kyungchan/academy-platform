@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { backendDependencyDoctor } from './backend_dependencies';
 import { scanPublicationText } from './tools/prepush_audit';
 import { contextPurposes, entryReadPlan, isContextPurpose } from './context_routing';
+import {loadAcademyOperationalContract,operationalContext} from '../src/academy/operationalContract';
 
 export const workflowActions = [
   'verify_scoped_resource_access', 'request_metadata_token_approval', 'await_metadata_token_approval', 'read_current_sheet_metadata',
@@ -292,8 +293,9 @@ if (import.meta.main) {
     if (command === 'context') {
       const routingDocument = JSON.parse(readFileSync(resolve(base, 'docs/workflow-routing.json'), 'utf8')) as { contextReadRouting?: unknown };
       const plan = entryReadPlan(base, routingDocument.contextReadRouting, purpose as typeof contextPurposes[number],
-        ['engineering_checkpoint', 'routing_contract']);
-      const context = workflowContext(checkpoint, new Date(), plan);
+        ['engineering_checkpoint', 'routing_contract', 'operational_contract']);
+      const context = {...workflowContext(checkpoint, new Date(), plan),
+        operationalContract:operationalContext(loadAcademyOperationalContract(base))};
       console.log(JSON.stringify(context, null, 2));
       process.exitCode = !plan.ok || context.freshness === 'future_dated' || context.engineeringFreshness === 'future_dated' ? 1 : 0;
     } else if (command === 'status') {

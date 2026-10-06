@@ -1,9 +1,11 @@
-import { describe, expect, test } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test';
+import {ensureSyntheticStudentFixture} from './postgresFixture';
 import { SourceRefreshCoordinator } from '../../src/academy/refresh';
 import { SQL } from 'bun';
 import { PostgresAcademyStore } from '../../src/academy/postgresStore';
 const socket=process.env.DC_ACADEMY_TEST_SOCKET;
 describe.skipIf(!socket)('source refresh failure recovery',()=>{
+  beforeAll(ensureSyntheticStudentFixture);
   test('authentication failure leaves previous verified source heads untouched',async()=>{
     const db=new SQL({adapter:'postgres',path:socket!,username:'hermes',database:'dc_academy_test'});
     const store=new PostgresAcademyStore(db);

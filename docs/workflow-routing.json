@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "asOfUtc": "2026-10-01",
-  "purpose": "User-owned workflow routing and evidence observability for the academy-to-Main-Sheet project.",
+  "purpose": "User-owned academy product and native Lead workflow routing; historical Sheet/Cloud scopes retain their explicit roles.",
   "scope": "Project files and supported task tools. This contract does not control the managed assistant, its model, permissions, context window, security, or network settings.",
   "commands": {
     "status": "bun run harness/workflow_checkpoint.ts status",
     "doctor": "bun run harness/workflow_checkpoint.ts doctor",
     "tests": "bun test --dots tests/harness/workflowCheckpoint.test.ts",
     "dependencyDoctor": "bun run harness/backend_dependencies.ts doctor",
-    "context": "bun run workflow:context [continuation|interview|dependencies|main_sheet|google_integration|academy_local|spt_mobile]"
+    "context": "bun run workflow:context [continuation|interview|dependencies|main_sheet|google_integration|academy_local|spt_mobile|bot_development]"
   },
   "execution": [
     "Use the existing pinned Bun executable. If bun is absent from PATH, invoke its already verified executable path or prepend its bin directory for the current command only.",
@@ -136,7 +136,7 @@
         "effects": "no_automatic_execution"
       }
     ],
-    "configurationScope": "Current user authorization is repository Cloud .codex/config.toml only. Windows/local-host connection and local global configuration work are cancelled. Repository file readback does not establish effective managed context capacity."
+    "configurationScope": "Current user assignment and native guards determine exact configuration authority. The former repository Cloud .codex/config.toml grant is historical, not a restriction on all later Backend work or a renewable grant. Keep installed Hermes, Host/Windows and credentials outside ordinary repository changes. Use supported native writers only within actual admission; file readback does not prove effective runtime capacity."
   },
   "contextReadRouting": {
     "schemaVersion": 1,
@@ -145,9 +145,17 @@
       "user_intent",
       "product_direction",
       "engineering_checkpoint",
-      "routing_contract"
+      "routing_contract",
+      "operational_contract"
     ],
     "sources": [
+      {
+        "id": "operational_contract",
+        "path": "docs/academy-operational-contract.json",
+        "authority": "scope_contract",
+        "role": "Boundary-validated domain ownership, format, source transport and meaning; no authentication or effect grant.",
+        "declaredAsOf": null
+      },
       {
         "id": "agent_instructions",
         "path": "AGENTS.md",
@@ -361,8 +369,8 @@
       {
         "id": "phase_two_checkpoint",
         "path": "handoffs/harness-phase-two-checkpoint-2026-10-01.json",
-        "authority": "current_engineering",
-        "role": "Latest user-requested pause and new-session KG/Ontology interview checkpoint. Provider selection is unresolved; SQLite/UX are prior synthetic prototypes.",
+        "authority": "dated_evidence",
+        "role": "Preserved phase-two pause and interview history, superseded as a current execution stop. Resolve current questions and priorities from engineering_checkpoint; SQLite/UX evidence retains its historical scope.",
         "declaredAsOf": "2026-10-01"
       },
       {
@@ -371,6 +379,34 @@
         "authority": "scope_contract",
         "role": "Teacher-confirmed Gauss/Davinci minor-unit obligations, explicit teacher inspection, complete latest-homework audit and data-specific refresh guidance for requirements, source/storage, frontend/WebMCP and evaluation.",
         "declaredAsOf": "2026-10-05"
+      },
+      {
+        "id": "backend_profile",
+        "path": "docs/hermes-backend-profile.ts",
+        "authority": "scope_contract",
+        "role": "Domain responsibility and supported native entry; declared defaults are not current caller identity or per-assignment routing.",
+        "declaredAsOf": null
+      },
+      {
+        "id": "backend_autonomy",
+        "path": "docs/backend-autonomy-operating-contract.ts",
+        "authority": "scope_contract",
+        "role": "Native smart/headless safety and bounded autonomous engineering; historical incident or command allowances are not current permission.",
+        "declaredAsOf": null
+      },
+      {
+        "id": "bot_development_contract",
+        "path": "docs/bot-development-contract.ts",
+        "authority": "scope_contract",
+        "role": "Typed advisory Bot development inputs and role/route/effect/budget/GUI evidence boundaries; metadata declarations do not authenticate native state.",
+        "declaredAsOf": null
+      },
+      {
+        "id": "bot_development_runbook",
+        "path": "docs/bot-development-runbook.ts",
+        "authority": "scope_contract",
+        "role": "Finite procedure consuming the actual Bot CLI and existing synthetic application/browser cases; no automatic dispatch or GUI activation.",
+        "declaredAsOf": null
       }
     ],
     "purposes": [
@@ -507,6 +543,13 @@
           "bun run workflow:context"
         ],
         "interviewRule": "Do not reopen paid Apple membership or assume current device acceptance. Ask whether the recorded mobile pause should change only if the requested work depends on that choice."
+      },
+      {
+        "id": "bot_development",
+        "sourceIds": ["backend_profile", "backend_autonomy", "bot_development_contract", "bot_development_runbook", "package_scripts"],
+        "entryRule": "Use the real typed Bot contract and decision CLI for a bounded current Work. Separate trusted Lead, restricted worker/reviewer and native caller scopes. Qualify only the affected tools/effects; no historical private resume, Cloud bootstrap or GUI gate for source-only engineering. Failed child mutation stays blocked without declaring every Bot or independent lane unavailable.",
+        "commandReferences": ["bun run workflow:context", "bun run harness/bot_governance.ts contract", "bun run harness/bot_governance.ts runbook"],
+        "interviewRule": "Reuse settled native-first, Backend-only and task-selected effort decisions. Ask only new consequential authority, sharing, cost or recovery decisions. Do not ask the user to design plumbing or repeat a known context distinction. No serialized report, process name, daemon or Profile label establishes current GUI ownership or permission."
       }
     ],
     "scopeConflicts": [

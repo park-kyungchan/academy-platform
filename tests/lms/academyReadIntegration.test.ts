@@ -43,7 +43,7 @@ test.each(['student_course', 'item_metadata', 'item_answer'] as const)('public %
       : { family, teacherLabel: 'Invented Teacher', lectureKey: '8201' };
     const input = join(dir, 'request.json'), output = join(dir, 'prepared.js');
     writeFileSync(input, JSON.stringify(request));
-    const receipt = await endpointCli(['--prepare-read', input, '--output-script', output]);
+    const receipt = await endpointCli(['--prepare-legacy-browser-read', input, '--output-script', output]);
     expect(receipt).toMatchObject({ prepared: true, family, networkRequests: 0, recordsRequested: 1 });
     expect(JSON.stringify(receipt)).not.toContain('Invented Student');
     expect(readFileSync(output, 'utf8')).toContain(family === 'student_course' ? 'StudyCourse' : 'GetLectureList');
@@ -63,7 +63,7 @@ test('public DayRecord preparation binds the source-qualified columns, not calle
     const dir = join(home, 'cache', 'scratch'); mkdirSync(dir, { recursive: true });
     const input = join(dir, 'request.json'), output = join(dir, 'prepared.js');
     writeFileSync(input, JSON.stringify({ family: 'day_record', teacherLabel: 'Invented Teacher', date: '2099-01-01', groupIds: ['3'], studentNames: ['Invented Student'] }));
-    const receipt=await endpointCli(['--prepare-read', input, '--output-script', output]);
+    const receipt=await endpointCli(['--prepare-legacy-browser-read', input, '--output-script', output]);
     expect(receipt).toMatchObject({prepared:true,family:'day_record',networkRequests:0});
     expect(existsSync(output)).toBe(true);
     expect(readFileSync(output,'utf8')).toContain('academy-dayrecord-column-qualification-2026-10-04.json');

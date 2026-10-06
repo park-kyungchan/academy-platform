@@ -2,6 +2,8 @@
 import { getAllRoutes, type LmsRouteDefinition } from './lmsRouteRegistry';
 import { sourceEndpointCandidates, type SourceEndpointCandidate } from './endpointCandidates';
 import { loadBackendSourceEvidence, type BackendSourceStructure } from './backendSourceEvidence';
+import {scopedReadFamilies} from './academyReadProtocol';
+import {operationalContractShape,OPERATIONAL_CONTRACT_PATH} from '../academy/operationalContract';
 
 export type EndpointOrigin = 'canonical' | 'source_candidate';
 export type RequestGate = 'blocked_effect' | 'unreviewed_candidate' | 'reviewed_adapter_and_scope_required';
@@ -137,11 +139,13 @@ export function queryEndpoints(query: EndpointQuery = {}, entries = buildEndpoin
     truncated: false, callable: 0, rows: [] as Array<CompactEndpoint | EndpointCatalogEntry>,
     coverage: {
       executionEnabled: false, physicalBackendCompletenessEstablished: false, nativeAppCompletenessEstablished: false,
-      readPreparation: {consumer:'bun run endpoint:query',families:['daily_zero','day_record','item_answer','item_metadata','student_course','textbook'],
-        preparedFamilies:['daily_zero','day_record','item_answer','item_metadata','student_course','textbook'],
-        blockedFamilies:[],authentication:'native_browser_vault',unattended:false,
-        command:'--prepare-read <private-request.json> --output-script <private-script.js>',
-        contractRef:'docs/academy-deterministic-read-contract.ts',meaning:'scoped_native_browser_preparation_not_generic_catalog_execution'},
+      readPreparation: {consumer:'bun run endpoint:query',families:[...scopedReadFamilies],
+        preparedFamilies:[],legacyOfflineFamilies:[...scopedReadFamilies],
+        blockedFamilies:[...scopedReadFamilies],authentication:'direct_client_secure_authentication_required',unattended:false,
+        requiredTransport:operationalContractShape.sourceAccess.requiredTransport,automaticBrowserFallback:false,
+        directClientQualification:operationalContractShape.sourceAccess.directClientQualification,
+        command:'--contract-topic source_access',legacyCommand:'--prepare-legacy-browser-read <private-request.json> --output-script <private-script.js>',
+        contractRef:OPERATIONAL_CONTRACT_PATH,meaning:'source_contracts_and_offline_legacy_compatibility_not_qualified_current_acquisition'},
       families: [...new Set(matched.map(entry => entry.family))].sort().map(family => {
         const familyEntries = matched.filter(entry => entry.family === family);
         return { family, operations: familyEntries.length,

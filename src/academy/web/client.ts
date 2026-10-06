@@ -2,6 +2,7 @@ import type { TeacherApplication } from '../application';
 import { dateClassView, occurrenceIdentity, requestGate, type DateClassPreparation, type DateClassRow } from './dateClassView';
 import {preparationView} from './preparationView';
 import {connectionView} from './connectionView';
+import {observationEditor} from './teacherObservationEditor';
 type Scene=Awaited<ReturnType<TeacherApplication['student']>>;
 type Cohort=Awaited<ReturnType<TeacherApplication['cohort']>>;
 const element=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
@@ -24,7 +25,9 @@ function renderConnection(value:unknown){
   element<HTMLButtonElement>('refresh-all').disabled=refreshRunning||sourceRefreshDisabled;
   element<HTMLButtonElement>('refresh-student').disabled=refreshRunning||sourceRefreshDisabled||!currentScene;
 }
+let observationLifetime:AbortController|null=null;
 function renderScene(scene:Scene){
+  observationLifetime?.abort();observationLifetime=new AbortController();
   currentScene=scene;selectedStudentId=scene.student.id;
   renderConnection(scene.connection);
   element('student-title').textContent=scene.student.displayName;element<HTMLButtonElement>('refresh-student').disabled=refreshRunning||sourceRefreshDisabled;
@@ -49,6 +52,7 @@ function renderScene(scene:Scene){
       const refs=node('details','');refs.append(node('summary','판정·원본 참조'),node('pre',JSON.stringify({teacherRevisionRefs:unit.teacherRevisionRefs,sourceVideoRefs:unit.sourceVideoRefs},null,2)));line.append(refs);detail.append(line);}
     history.append(detail);}
   target.append(history);
+  target.append(observationEditor(scene,selectedOccurrence,api,post,observationLifetime.signal));
   const evidence=node('section','','card');evidence.append(node('h3','수업·문항·채점 근거'));
   evidence.append(node('p',scene.evidence.length?'원문 source와 독립 상태를 유지한 근거가 있습니다.':'아직 연결된 수업·문항·성적 근거가 없습니다. 미수행으로 판정하지 않습니다.','muted'));
   for(const row of scene.evidence){const detail=node('details','');detail.append(node('summary',row.payload.kind+' · '+new Date(row.lastVerifiedAt).toLocaleString('ko-KR')),node('pre',JSON.stringify(row.payload,null,2)));evidence.append(detail);}target.append(evidence);

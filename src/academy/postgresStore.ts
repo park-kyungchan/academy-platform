@@ -145,12 +145,27 @@ export class PostgresAcademyStore {
     const commandDigest=digest(command);
     const contentDigest=command.payload.kind==='source_audit'?createAcademySourceAudit(command.payload.acquisition).contentDigest:digest(command.payload);
     const acknowledgement=await this.db.begin(async tx=>{
+      // Serialize source replacement and source-bound teacher intake in the same student partition.
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson(['student-records',command.ownerId,command.studentId])},0))`;
       await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson([command.ownerId,command.actorId,command.idempotencyKey])},0))`;
       const [retry]=await tx`SELECT command_digest,acknowledgement FROM academy.command_outcomes WHERE owner_id=${command.ownerId} AND actor_id=${command.actorId} AND idempotency_key=${command.idempotencyKey}`;
       if(retry){if(retry.command_digest!==commandDigest)throw Error('idempotency_reuse');return {...retry.acknowledgement,status:'replay'} as WriteAcknowledgement;}
       const [student]=await tx`SELECT source_key FROM academy.students WHERE owner_id=${command.ownerId} AND id=${command.studentId}`;
       if(!student)throw Error('unknown_student_partition');
       if('sourceStudent' in command.payload&&command.payload.sourceStudent.literalKey!==student.source_key)throw Error('source_student_binding_conflict');
+      if(command.payload.kind==='teacher_observation'){
+        const payload=command.payload;
+        if(payload.reportedAt!==command.sourceObservedAt)throw Error('observation_clock_conflict');
+        const [basis]=await tx`SELECT v.* FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
+          WHERE h.owner_id=${command.ownerId} AND h.student_id=${command.studentId} AND v.revision_id=${payload.basisRevisionId}`;
+        if(!basis)throw Error('stale_evidence_basis');
+        const version=versionFrom(basis);
+        if(version.payload.kind!=='source_audit')throw Error('observation_basis_conflict');
+        const snapshot=readInputRecord(version.payload.acquisition);
+        if(snapshot.family!=='day_record'||!Array.isArray(snapshot.dayRecords)||!snapshot.dayRecords.some(raw=>{
+          const row=readInputRecord(raw);return row.studentKey===student.source_key&&Object.entries(payload.occurrence).every(([key,value])=>row[key]===value);
+        }))throw Error('observation_basis_conflict');
+      }
       if(command.payload.kind==='source_course_inventory'||command.payload.kind==='teacher_activity_revision'||command.payload.kind==='teacher_preparation_assignment'){
         const payload=command.payload;
         const registrations=await tx`SELECT v.payload FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
@@ -182,6 +197,7 @@ export class PostgresAcademyStore {
       const prior=head?versionFrom(head):null;
       if(command.expectedRevisionId!==(prior?.revisionId??null))throw Error('stale_base');
       if(prior&&(prior.payload.kind!==command.payload.kind||Date.parse(prior.sourceObservedAt)>Date.parse(command.sourceObservedAt)||Date.parse(prior.recordedAt)>Date.parse(recordedAt)))throw Error('invalid_revision_transition');
+      if(prior?.payload.kind==='teacher_observation'&&command.payload.kind==='teacher_observation'&&canonicalJson(prior.payload.occurrence)!==canonicalJson(command.payload.occurrence))throw Error('observation_identity_changed');
       if(prior){
         for(const field of ['sourceStudent','sourceCourse','sourceBook','sourceUserCourse','sourceMinorUnit','activity','scope','teacherKey'] as const){
           const previous=prior.payload as unknown as Record<string,unknown>,next=command.payload as unknown as Record<string,unknown>;
@@ -189,7 +205,8 @@ export class PostgresAcademyStore {
         }
       }
       let result:WriteAcknowledgement;
-      if(prior?.contentDigest===contentDigest){
+      // A fresh teacher observation intent needs its own actor/request/predecessor even when text is identical.
+      if(command.payload.kind!=='teacher_observation'&&prior?.contentDigest===contentDigest){
         await tx`UPDATE academy.record_heads SET last_verified_at=${command.sourceObservedAt} WHERE owner_id=${command.ownerId} AND student_id=${command.studentId} AND entity_id=${command.entityId}`;
         result={status:'unchanged',revisionId:prior.revisionId,sequence:prior.sequence,recordedAt:prior.recordedAt,contentDigest,officialSaved:false,parentSent:false};
       }else{
@@ -211,6 +228,13 @@ export class PostgresAcademyStore {
     const [committed]=await this.db`SELECT * FROM academy.record_versions WHERE owner_id=${command.ownerId} AND student_id=${command.studentId} AND revision_id=${acknowledgement.revisionId}`;
     if(!committed||versionFrom(committed).contentDigest!==acknowledgement.contentDigest)throw Error('committed_outcome_uncertain');
     return acknowledgement;
+  }
+  async observationResult(ownerId:string,studentId:string,actorId:string,requestId:string):Promise<RecordVersion|null>{
+    const rows=await this.db`SELECT v.* FROM academy.command_outcomes o JOIN academy.record_versions v
+      ON v.owner_id=o.owner_id AND v.actor_id=o.actor_id AND v.revision_id=o.acknowledgement->>'revisionId'
+      WHERE o.owner_id=${ownerId} AND o.actor_id=${actorId} AND o.idempotency_key=${requestId} AND v.student_id=${studentId}`;
+    if(rows.length!==1)return null;
+    const record=versionFrom(rows[0]);return record.payload.kind==='teacher_observation'?record:null;
   }
   async history(ownerId:string,studentId:string,entityId:string,afterSequence=0,limit=200):Promise<RecordVersion[]> {
     if(!Number.isSafeInteger(afterSequence)||afterSequence<0||!Number.isSafeInteger(limit)||limit<1||limit>1000)throw Error('invalid_history_range');

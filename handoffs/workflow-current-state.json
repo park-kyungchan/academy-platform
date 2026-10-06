@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-06T01:51:42Z",
-    "objective": "Hermes Linux Backend: PR23 merged 82ba91a with tested head0fab2a3 and exact-head Actions success. Oct5 input/readback complete; teacher reports final editing/parent delivery, no independent sender receipt claimed. Teacher-final text retained; one bullet/newline omission repaired without wording/other-field change or resend. Template revision2 verified. Next connect qualified direct source and teacher feedback to the shared app: nativeConnector/main still block acquisition. No app/WebMCP or whole clinic-coverage acceptance claimed. See review/academy-direct-journal-checkpoint-2026-10-06.json.",
+    "updatedAtUtc": "2026-10-06T13:07:31Z",
+    "objective": "Hermes Linux Backend: D3 integrated owned D0/D2/D1 at existing UI/HTTP/app/PG and continuation/test consumers. Independent native source review FAIL->FAIL->PASS; D1 3+D3 4 findings resolved. Final PG/DOM HTTP31, workflow101, cloud/types pass. Native GUI unperformed: memory guard refused start. No redundant reader retired. Source-only publication/CI/merge pending; see review/d3-consumer-integration-2026-10-06.json. No deployment/current academy auth/teacher acceptance/finalization/send/independent durability. Preserve foreign/unknown dirty and retained audit candidate.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
@@ -191,7 +191,7 @@
       },
       {
         "id": "lead_structure",
-        "statement": "User stopped predecessor 20261005_232259_7b1b12 and assigned Lead 20261006_083919_e6bada to finish Oct5 and continue Whole-Lens work. Reuse earlier analysis; do not edit peer tasks, duplicate capture or adopt foreign changes. Preserve originals, teacher-final evidence and native learning. Teacher reports final editing/parent sending complete; only requested format repairs follow, no resend. Native leases are not locks/grants. Spent review/scout budgets stay ended; no delegate_task, transcript mirror or automatic cross-profile sync.",
+        "statement": "User submitted final kickoff/pre-flight for dc-gang-a-dev session20261006_192758_0a13a2 / Project p_a5676068. Lead owns bounded Bot/Screen/app work. Reuse earlier analysis; do not edit peer tasks, duplicate capture or adopt foreign work. Preserve D0/D2, originals, dirty audit and teacher plan. Precise-task schema is exposed; zero-tool dc-review used a finite native reader, not Kanban/messaging. D1 browser/Screen: review/d1-native-observation-2026-10-06.json. No publication/official effects from kickoff; old budgets stay ended. No delegate_task, state mirror, force handback or engine edits.",
         "source": "user_interview"
       },
       {
@@ -334,7 +334,7 @@
         "id": "five_student_product_delivery",
         "owner": "lead",
         "action": "resolve_continuation_source",
-        "referencePaths": ["review/teacher-runtime-direct-source-recovery-2026-10-05.json", "docs/teacher-ontology-delivery-plan.ts", "review/bot-orchestration-session-closeout-2026-10-05.json", "review/teacher-password-recovery-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/main.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
+        "referencePaths": ["review/d3-consumer-integration-2026-10-06.json", "review/domain-reconciliation-2026-10-06.json", "review/teacher-runtime-direct-source-recovery-2026-10-05.json", "docs/teacher-ontology-delivery-plan.ts", "review/bot-orchestration-session-closeout-2026-10-05.json", "review/teacher-password-recovery-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/main.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
         "dependsOnQuestionIds": ["backend_lead_authority", "backend_execution_scope"]
       },
       {
@@ -406,6 +406,11 @@
         "owner": "lead",
         "action": "validate_confirmed_changes",
         "referencePaths": [
+          "review/d3-consumer-integration-2026-10-06.json",
+          "review/d1-native-observation-2026-10-06.json",
+          "review/domain-reconciliation-2026-10-06.json",
+          "docs/bot-development-contract.ts",
+          "docs/bot-development-runbook.ts",
           "docs/backend-autonomy-operating-contract.ts",
           "docs/main-sheet-live-refresh-wiring.json",
           "review/academy-ingress-read-integration-2026-10-04.json"

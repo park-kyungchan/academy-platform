@@ -1,4 +1,5 @@
-import { describe, expect, test } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test';
+import {ensureSyntheticStudentFixture} from './postgresFixture';
 import { SQL } from 'bun';
 import { createTeacherServerHandler } from '../../src/academy/server';
 import { createAuthSecrets, signTeacherSession, secretDigest } from '../../src/academy/auth';
@@ -6,6 +7,7 @@ import { TeacherApplication } from '../../src/academy/application';
 import { PostgresAcademyStore } from '../../src/academy/postgresStore';
 const socket=process.env.DC_ACADEMY_TEST_SOCKET;
 describe.skipIf(!socket)('protected teacher HTTP adapter',()=>{
+  beforeAll(ensureSyntheticStudentFixture);
   test('deploys a public WebMCP trial token only on the exact admitted host document',async()=>{
     const db=new SQL({adapter:'postgres',path:socket!,username:'hermes',database:'dc_academy_test'});
     const bytes=Buffer.from(JSON.stringify({origin:'https://dc.example.invalid:443',feature:'WebMCP',expiry:2000000000,isSubdomain:true})),header=Buffer.alloc(69);header[0]=2;header.writeUInt32BE(bytes.length,65);

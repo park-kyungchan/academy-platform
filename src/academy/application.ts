@@ -1,16 +1,43 @@
-import { digest, requireText } from '../learning/model';
+import { assertExactKeys, canonicalJson, digest, requireText } from '../learning/model';
 import { catalogLevels, type CatalogNode } from './domain';
 import type { PostgresAcademyStore } from './postgresStore';
 import { readInputRecord } from '../lms/academyReadProtocol';
 import type { DayRecordSourceRow } from '../lms/dayRecordReadProtocol';
 import {buildStudentPreparation,assertPreparationDate} from './preparationHistory';
 import {academyConnectionStatus} from './nativeConnector';
+import {validateAcademyRecord,type TeacherObservation} from './records';
+import {operationalContractShape} from './operationalContract';
 export interface TrustedTeacherContext { readonly ownerId:string; readonly actorId:string; readonly role:'teacher' }
 /** The HTTP/native adapter authenticates this context; a caller role string is never its issuer. */
 export class TeacherApplication {
   constructor(readonly store:PostgresAcademyStore,readonly ownerId:string){}
   private scope(context:TrustedTeacherContext):void {
     if(context.ownerId!==this.ownerId||context.role!=='teacher'||!context.actorId)throw Error('owner_scope_conflict');
+  }
+  async saveObservation(context:TrustedTeacherContext,input:unknown){
+    this.scope(context);
+    const data=readInputRecord(input);
+    canonicalJson(data);
+    assertExactKeys(data,['studentId','occurrence','basisRevisionId','expectedRevisionId','idempotencyKey','reportedAt','text']);
+    for(const key of ['studentId','basisRevisionId','idempotencyKey','reportedAt','text'])if(typeof data[key]!=='string'||!data[key].trim())throw Error('invalid_observation_input');
+    if((data.studentId as string).length>200||(data.idempotencyKey as string).length>200||!(data.expectedRevisionId===null||typeof data.expectedRevisionId==='string'&&data.expectedRevisionId.length>0&&data.expectedRevisionId.length<=200))throw Error('invalid_observation_input');
+    const student=(await this.store.students(this.ownerId)).find(row=>row.id===data.studentId);
+    if(!student)throw Error('student_scope_conflict');
+    const payload:TeacherObservation={kind:'teacher_observation',sourceStudent:student.sourceKey,occurrence:structuredClone(data.occurrence) as TeacherObservation['occurrence'],basisRevisionId:data.basisRevisionId as string,reportedAt:data.reportedAt as string,text:data.text as string};
+    validateAcademyRecord(payload);
+    const entityId='teacher-observation-'+digest({studentId:student.id,occurrence:payload.occurrence});
+    const outcome=await this.store.append({ownerId:this.ownerId,studentId:student.id,entityId,actorId:context.actorId,idempotencyKey:data.idempotencyKey as string,expectedRevisionId:data.expectedRevisionId as string|null,sourceObservedAt:payload.reportedAt,payload});
+    const records=await this.store.history(this.ownerId,student.id,entityId,outcome.sequence-1,1);
+    const record=records[0];if(!record||record.revisionId!==outcome.revisionId||record.contentDigest!==outcome.contentDigest)throw Error('committed_outcome_uncertain');
+    return {...outcome,record,teacherObservationPolicy:operationalContractShape.meaning.teacherAcceptance};
+  }
+  async observationResult(context:TrustedTeacherContext,studentId:string,requestId:string){
+    this.scope(context);
+    if(typeof studentId!=='string'||!studentId||studentId.length>200||typeof requestId!=='string'||!requestId||requestId.length>200)throw Error('invalid_observation_input');
+    if(!(await this.store.students(this.ownerId)).some(row=>row.id===studentId))throw Error('student_scope_conflict');
+    const record=await this.store.observationResult(this.ownerId,studentId,context.actorId,requestId);
+    if(!record)throw Error('observation_result_not_found');
+    return {status:'recorded' as const,revisionId:record.revisionId,record,officialSaved:false,parentSent:false};
   }
   async cohort(context:TrustedTeacherContext) {
     this.scope(context);
@@ -48,7 +75,8 @@ export class TeacherApplication {
       preparation:buildStudentPreparation(student.sourceKey,preparationVersions,date),
       hierarchy:{levels:catalogLevels,unknownLevels:catalogLevels.filter(kind=>!selectedCatalog.some(node=>node.kind===kind))},
       knowledge:{mastery:'not_established',teacherInspection:'unknown',effectiveEnrollment:'unknown',scheduledLessonCompleteness:'unknown',sourceFreshness:'last_successful_acquisition_not_view_time'},
-      connection:academyConnectionStatus,allowedOperations:['query_student_learning','query_date_class'],
+      connection:academyConnectionStatus,allowedOperations:['query_student_learning','query_date_class','record_teacher_observation'],
+      teacherObservationPolicy:operationalContractShape.meaning.teacherAcceptance,
       limits:['Source registration/learning range is not effective enrollment or book-slot judgment','No missing evidence becomes nonperformance','Printed paper, board and video labels remain separate source namespaces','Current sources do not prove full historical/native-app coverage'],
       officialSaved:false,parentSent:false};
   }

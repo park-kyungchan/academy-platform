@@ -4,7 +4,7 @@ import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 export const contextPurposes = [
-  'continuation', 'interview', 'dependencies', 'main_sheet', 'google_integration', 'academy_local', 'spt_mobile',
+  'continuation', 'interview', 'dependencies', 'main_sheet', 'google_integration', 'academy_local', 'spt_mobile', 'bot_development',
 ] as const;
 export type ContextPurpose = typeof contextPurposes[number];
 
@@ -16,6 +16,7 @@ export const contextSourcePaths = {
   engineering_checkpoint: 'handoffs/workflow-current-state.json',
   phase_two_checkpoint: 'handoffs/harness-phase-two-checkpoint-2026-10-01.json',
   routing_contract: 'docs/workflow-routing.json',
+  operational_contract: 'docs/academy-operational-contract.json',
   cloud_environment: 'harness/cloud-environment.json',
   cloud_checkpoint: 'handoffs/cloud-current-state.json',
   cloud_start_skill: '.agents/skills/codex-cloud-start/SKILL.md',
@@ -42,14 +43,19 @@ export const contextSourcePaths = {
   phase_two_dependencies: 'review/harness-phase-two-dependencies-2026-10-01.json',
   main_sheet_tab_visibility: 'review/main-sheet-tab-visibility-2026-10-01.json',
   classroom_cycle_policy: 'src/academy/classroomCyclePolicy.ts',
+  backend_profile: 'docs/hermes-backend-profile.ts',
+  backend_autonomy: 'docs/backend-autonomy-operating-contract.ts',
+  bot_development_contract: 'docs/bot-development-contract.ts',
+  bot_development_runbook: 'docs/bot-development-runbook.ts',
 } as const;
 export type ContextSourceId = keyof typeof contextSourcePaths;
 const commonSourceIds: ContextSourceId[] = [
-  'agent_instructions', 'user_intent', 'product_direction', 'engineering_checkpoint', 'routing_contract',
+  'agent_instructions', 'user_intent', 'product_direction', 'engineering_checkpoint', 'routing_contract', 'operational_contract',
 ];
 const entryCommands = [
   'bun run cloud:start', 'bun run workflow:context', 'bun run harness/backend_dependencies.ts doctor',
   'bun run cloud:check', 'bun run harness/resume.ts --json', 'bun run harness roster --json', 'bun run harness routes --json',
+  'bun run harness/bot_governance.ts contract', 'bun run harness/bot_governance.ts runbook',
 ] as const;
 type Authority = 'native_instructions' | 'durable_intent' | 'current_engineering' | 'scope_contract' | 'dated_evidence' | 'source_reference';
 export interface ContextSource {
@@ -101,7 +107,7 @@ export function isContextPurpose(value: unknown): value is ContextPurpose {
 export function validateContextReadRouting(value: unknown): ContextReadRouting {
   if (!object(value) || !exactKeys(value, ['schemaVersion', 'commonSourceIds', 'sources', 'purposes', 'scopeConflicts'])
     || value.schemaVersion !== 1 || JSON.stringify(value.commonSourceIds) !== JSON.stringify(commonSourceIds)
-    || !Array.isArray(value.sources) || value.sources.length < commonSourceIds.length || value.sources.length > 32
+    || !Array.isArray(value.sources) || value.sources.length < commonSourceIds.length || value.sources.length > Object.keys(contextSourcePaths).length
     || !Array.isArray(value.purposes) || value.purposes.length !== contextPurposes.length
     || !Array.isArray(value.scopeConflicts) || value.scopeConflicts.length > 8) fail();
   const sourceIds = new Set<string>();

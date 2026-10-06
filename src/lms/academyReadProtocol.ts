@@ -4,6 +4,7 @@ import {readDayRecordSource,type DayRecordColumnContract,type DayRecordSourceRow
 import {readItemMetadata,type ItemMetadataObservation} from './itemMetadataRead';
 import {readItemAnswerBatch} from './itemAnswerBatch';
 import type {ItemAnswerObservation} from './itemAnswerRead';
+export const scopedReadFamilies=['daily_zero','day_record','item_answer','item_metadata','student_course','textbook'] as const;
 import {createStudentCourseRequest,readStudentCourses,type StudentCourseObservation,type StudentCourseRequest} from './studentCourseRead';
 export interface TextbookReadRequest {
   family: 'textbook'; teacherLabel: string; studentKey: string; studentName: string;

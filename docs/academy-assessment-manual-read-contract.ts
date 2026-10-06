@@ -31,10 +31,10 @@ export const manualAssessmentReadContract = {
   implementation: ['src/lms/assessmentReadProtocol.ts', 'src/lms/printedPaperCode.ts', 'harness/assessment_read.ts'],
   runbook: [
     'Use current task admission and user-supplied captures or an independently verified exact target. Raw HAR remains private; never load headers/cookies into output, copy captured requests or commit real student evidence.',
-    'Run bun run academy:read-prepare --har <PRIVATE_CAPTURE.har> [--har <SECOND_PRIVATE_CAPTURE.har>] --teacher <AUTHORIZED_TEACHER_LABEL> --admit-score-view --output <ACTIVE_HERMES_HOME>/cache/scratch/<UNIQUE_SCRIPT.js>. The CLI performs no network requests and refuses overwriting an existing script.',
+    'Current transport/authority owner is docs/academy-operational-contract.json. Run bun run academy:read-prepare --legacy-offline --har <PRIVATE_CAPTURE.har> [--har <SECOND_PRIVATE_CAPTURE.har>] --teacher <AUTHORIZED_TEACHER_LABEL> --admit-score-view --output <ACTIVE_HERMES_HOME>/cache/scratch/<UNIQUE_SCRIPT.js> only for retained offline compatibility. The CLI performs no network requests and refuses overwriting an existing script.',
     'The generated script contains minimized private student/attempt identity. It is an ephemeral native-browser input, not a public artifact, shared database or admission token. Keep it in profile scratch with owner-only permissions.',
-    'Open the exact academy origin through native browser_exec. On the login form call browser_vault_list, type the identifier, then browser_vault_fill. Use the site .webSend handler, not generic form submission. Wait until the authorized teacher/logout marker actually renders; use native code entry for 2FA if requested.',
-    'Evaluate the owned prepared expression with native js immediately after authentication; this sends allowlisted same-origin POSTs using browser-managed credentials and never extracts or exports cookies. Print only minimized requested facts and blocked states, never keys, original bodies, answers or media.',
+    'The former browser/vault acquisition route is historical, not current admission. Use the existing academy:http direct client with its supported secure credential owner and current exact operation qualification. No browser fallback or cookie/session extraction.',
+    'Retained generated expressions are offline artifacts only. Their source readers preserve the reviewed exact request/response semantics; compilation is not permission to execute or a current source-health observation.',
     'The adapter searches recent one week (sort_date=1), requires one exact student+attempt+name match and reads only that score view. It never invokes the site native Print/WebSocket command, a clinic/report renderer, grade save or messaging action.',
     'Numeric JSON student/attempt wire keys are required by the observed renderer. The adapter rejects noncanonical, leading-zero or unsafe keys instead of silently changing identity. Search/detail score disagreement, duplicate items or unknown O/X enums fail closed.',
     'Use decodePaperCode/encodePaperCode for the reviewed # paper-key display representation. The site module.js codeToKey/keyToCode delegates to a custom 32-digit alphabet, not RFC base32 or base36. Validate the entire literal token before looking up its decoded source key; do not trim, uppercase, skip invalid characters or collapse leading zero digits. A mathematical conversion is not student/attempt/lesson join proof. The current reader derives paperCode only from representable exact paper keys and otherwise preserves the original key with paperCode=null.',
@@ -46,7 +46,7 @@ export const manualAssessmentReadContract = {
     independentReview: 'not_dispatched',
   },
   limits: [
-    'Manual native-browser acquisition is activated; browser-independent unattended authentication, services, scheduled refresh and production storage are not established.',
+    'The dated manual browser canary does not activate current acquisition. Qualified direct HTTP/API is required; browser-independent authentication, services, schedules and production storage are not established by this contract.',
     'Hermes browser inactivity cleanup can remove authentication between engineering steps. Official documentation reports a default 120-second inactivity timeout. Do not disable cleanup, change installed engine/configuration or keep sessions alive by polling as a workaround; securely reauthenticate on demand.',
     'Teacher visibility and caller admission fields are integration guards, not cryptographic ownership proofs, server tenant isolation or authority to query another instructor. The trusted native caller owns actual task scope.',
     'The search period is a relative week, not a lesson date. Source grading timestamp, exact LMS occurrence, complete roster/pagination and full classroom-cycle coverage remain unverified. observedAt is acquisition time, not event or approval time.',
@@ -58,7 +58,7 @@ export const manualAssessmentReadContract = {
     'Photographed clinic headers, item-adjacent numbers/QR payloads and original assessment paper codes have different grains. Decoding a paper code does not identify a generated clinic, prove all photographed pages or establish teacher inspection. A bounded recent-month search did not supply the photographed Gauss/Davinci clinic source bindings; that missing join remains unresolved, not absent.',
   ],
   recovery: [
-    'On authentication failure stop and use the native vault/2FA workflow; never expose credentials or extract a session.',
+    'On authentication failure stop and use the supported current direct-client credential workflow; never switch to browser acquisition, expose credentials or extract a session.',
     'On source drift or score/identity conflict keep a blocked result and re-review only the affected contract; do not save or repair academy data.',
     'On a transport failure retain any successful target, report the blocked target and retry only the same admitted read deliberately; do not generate new attempts or clinics.',
     'No official record, Sheet, parent message, persistent service, scheduler or production DB was modified by this adapter. Reverting owned source changes disables preparation without erasing original captures or foreign work.',

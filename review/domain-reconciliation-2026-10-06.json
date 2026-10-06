@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "kind": "immutable_domain_result_reference",
+  "owner": "dc-gang-a-dev",
+  "sessionId": "20261006_162102_278e60",
+  "resultPath": "/opt/data/artifacts/dc-domain-reconciliation-20261006_278e60/result.json",
+  "sha256": "d6bedb992712973997d0af17e3378c9340fb6abbc13272c62332f33f42147d4b",
+  "scope": "D0 main policy/CLI adoption and D2 local application observation persistence verified; D1 native Screen/browser acceptance partial; broader D3 retirement pending",
+  "authority": "evidence_not_permission",
+  "currentWorkOwner": "handoffs/workflow-current-state.json",
+  "wholeProgramAccepted": false
+}

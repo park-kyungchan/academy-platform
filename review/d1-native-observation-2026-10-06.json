@@ -1,0 +1,320 @@
+{
+  "schemaVersion": 1,
+  "kind": "academy_d1_native_observation_result",
+  "owner": "dc-gang-a-dev",
+  "updatedAtUtc": "2026-10-06T11:15:55.973Z",
+  "status": "bounded_local_native_application_acceptance_verified",
+  "wholeProgramAccepted": false,
+  "identity": {
+    "profileHome": "/opt/data/profiles/dc-gang-a-dev",
+    "projectId": "p_a5676068",
+    "projectSlug": "dc-gang-a",
+    "sessionId": "20261006_192758_0a13a2",
+    "sessionCwd": "/opt/data/workspace/dc-gang-a",
+    "branch": "main",
+    "head": "7a08a152c0443f938d66134747f19b1dcadcde98",
+    "leadModel": "gpt-6.1-sol-900k",
+    "leadModelChanged": false,
+    "profileIsOsSandbox": false
+  },
+  "preflight": {
+    "kickoffConsumed": true,
+    "nativeProjectAndTerminalPathMatched": true,
+    "selectedCurrentContext": [
+      "continuation",
+      "bot_development"
+    ],
+    "requiredPurposeSourcesRead": true,
+    "relevantNativeRunningTaskQueries": [],
+    "screenInitiallyStopped": true,
+    "screenInitiallyAgentHeldEpoch": 4,
+    "preciseTaskToolSchemaExposed": true,
+    "preciseTaskCreated": false,
+    "taskDispatchAcceptance": false,
+    "foreignTeacherPlanSha": "2d4d3cb2015737c2b65b3ec6b0b381aa05976d5632b5db7a009de5aa0f0acfd0",
+    "auditCandidateWritten": false,
+    "dirtyWorkPreserved": true
+  },
+  "work": {
+    "purpose": "Verify the existing teacher application in a useful native Bot/Screen D1 development slice, retaining source-bound original observations, corrections and uncertain-outcome recovery without official effects.",
+    "reusedOwners": [
+      "TeacherApplication",
+      "createTeacherServerHandler",
+      "PostgresAcademyStore",
+      "classroomCyclePolicy.ts"
+    ],
+    "changedPaths": [
+      "harness/academy_browser_rehearsal.ts",
+      "src/academy/web/teacherObservationEditor.ts",
+      "tests/academy/dateClassBrowserCases.ts",
+      "tests/academy/teacherObservationBrowserCases.ts",
+      "tests/academy/teacherObservationBrowser.test.ts",
+      "tests/academy/teacherObservationRehearsal.test.ts",
+      "tests/academy/teacherObservationEditor.test.ts",
+      "tests/harness/academyBrowserRehearsal.test.ts",
+      "docs/bot-development-contract.ts",
+      "docs/bot-development-runbook.ts",
+      "harness/bot_governance.ts",
+      "tests/harness/botGovernance.test.ts",
+      "package.json"
+    ],
+    "sourceRevisions": [
+      {
+        "path": "harness/academy_browser_rehearsal.ts",
+        "sha256": "0af90e9f3ca717c998ab0245d0611fe5645ac11fbb72414b2887c2e1aee7419a"
+      },
+      {
+        "path": "src/academy/web/teacherObservationEditor.ts",
+        "sha256": "bbcd4e618848f605b43f29bf85cb604406b96d26d5e8893b6fff3cf52af420ba"
+      },
+      {
+        "path": "tests/academy/dateClassBrowserCases.ts",
+        "sha256": "22bb43d5330164c1b20d1d9fadf22680b263eaa3b3d5453c74faaa883bef9229"
+      },
+      {
+        "path": "tests/academy/teacherObservationBrowserCases.ts",
+        "sha256": "16ecfdeeda5c6336b75f8f8adc8281bbcff8dbac9de837efc3dfb1b4d7518444"
+      },
+      {
+        "path": "tests/academy/teacherObservationBrowser.test.ts",
+        "sha256": "4a06d68cb9ed09ee82177c299b581d2c94c46dc4a364884c7558f6fcd069adf7"
+      },
+      {
+        "path": "tests/academy/teacherObservationRehearsal.test.ts",
+        "sha256": "c3aa5646e45e2fdcd244541053dff6bc5b7736d69c95df0666b6ad4e7faada8c"
+      },
+      {
+        "path": "tests/academy/teacherObservationEditor.test.ts",
+        "sha256": "72b7d005c919a753607ce14a8a48d772541075861e8438165b2af05cee14f20d"
+      },
+      {
+        "path": "tests/harness/academyBrowserRehearsal.test.ts",
+        "sha256": "ce4d3c4a54132ffc32271f5b5f1206fcfdb7c5e4287a2c78c052221cfc39c369"
+      },
+      {
+        "path": "docs/bot-development-contract.ts",
+        "sha256": "207ff7b13a1cc6639ff685b533f6d91e8b161fe6195e3d14fd49c910b8e65d72"
+      },
+      {
+        "path": "docs/bot-development-runbook.ts",
+        "sha256": "5a0464b3e0bb8403a9d4a0fd71fcfac232aa2e7607147ae8a763d1a88f760197"
+      },
+      {
+        "path": "harness/bot_governance.ts",
+        "sha256": "b9910ddbb41eca6bdaa91ef3f5921e1486685ffe6a5278313b886b197e22e0e9"
+      },
+      {
+        "path": "tests/harness/botGovernance.test.ts",
+        "sha256": "54fa8ed09c935dec88a3fc86a6ac94a1e8c5ab1feefb850c905ded4f859c9fcc"
+      },
+      {
+        "path": "package.json",
+        "sha256": "ea11261078c138d185514188a5f68ec554258b68e2d8f87410bb02b6894425be"
+      }
+    ],
+    "changes": [
+      "Opt-in scratch Unix-socket test PostgreSQL lane in the existing localhost rehearsal; default remains in-memory.",
+      "Original-request response guards prevent late recovery from regressing a newer correction.",
+      "Dirty or refused drafts do not silently adopt changed source/head revisions; explicit teacher reconciliation preserves local text.",
+      "Readback requires the exact idempotency key and predecessor revision.",
+      "Current date-class cases verify disabled unqualified refresh and no request instead of fabricating source qualification.",
+      "Advisory contract retains the observed trusted Lead model identifier literally, without changing native model selection or extending worker/reviewer controls.",
+      "Existing test script/cloud gate now consumes the new focused regressions."
+    ]
+  },
+  "botReview": {
+    "route": "native_hermes_chat_input_only_not_kanban_or_canonical_messaging",
+    "nativeSessionId": "20261006_193955_a6d0ee",
+    "model": "gpt-6.1-sol",
+    "provider": "openai-codex",
+    "reasoningSelected": "high",
+    "maxTurns": 3,
+    "runBudgetSeconds": 300,
+    "concurrency": 1,
+    "assignmentRetries": 0,
+    "actualToolCalls": 0,
+    "nativeRestriction": "existing agent.disabled_toolsets=[all] retained; no setting or SOUL change",
+    "controlsAreOsSandbox": false,
+    "findingsConsumed": [
+      {
+        "id": "D1-OBS-001",
+        "path": "src/academy/web/teacherObservationEditor.ts",
+        "independentlyReproduced": true,
+        "regressionVerified": true
+      },
+      {
+        "id": "D1-OBS-002",
+        "path": "src/academy/web/teacherObservationEditor.ts",
+        "independentlyReproduced": true,
+        "regressionVerified": true
+      },
+      {
+        "id": "D1-OBS-003",
+        "path": "src/academy/web/teacherObservationEditor.ts",
+        "independentlyReproduced": true,
+        "regressionVerified": true
+      }
+    ],
+    "postChangePublicationReview": false,
+    "limitations": [
+      "No tools, filesystem access, edits, tests, browser actions, database operations or external actions were performed.",
+      "Reproductions are proposed bounded cases derived from the supplied source, not executed results.",
+      "No production, teacher, physical-device or independent deployment acceptance is claimed."
+    ]
+  },
+  "verification": {
+    "realSyntheticPostgres": {
+      "pass": 25,
+      "fail": 0,
+      "skip": 0,
+      "files": 10,
+      "log": "postgres-final.log",
+      "privateProductionDbOpened": false
+    },
+    "cloudCheck": {
+      "exitCode": 0,
+      "scope": "synthetic_and_source_integrity",
+      "rootHarnessAgentRuntimeTypechecks": true,
+      "databaseAndOptionalProviderSkipsRetained": true,
+      "countsNotSummed": true,
+      "log": "cloud-check-final.log",
+      "canonicalCheckpointConsumer": "workflow:context bot_development verified after closeout",
+      "workflowRegression": { "pass": 101, "fail": 0 }
+    },
+    "nativeBrowser": {
+      "origin": "http://127.0.0.1:34963",
+      "managedLocal": true,
+      "callerHome": "/opt/data/profiles/dc-gang-a-dev",
+      "namedSession": "dc-d1-0a13a2",
+      "suiteCounts": [
+        {
+          "name": "dateClass",
+          "total": 11,
+          "pass": 11
+        },
+        {
+          "name": "observation",
+          "total": 6,
+          "pass": 6
+        }
+      ],
+      "totalCases": 17,
+      "details": "gui__browser-results.json",
+      "persistedHistoryCount": 4,
+      "observationPostCount": 4,
+      "latestRevisionId": "revision_357b396c93784994c3b16276eceabcfc428df87f5ee605c74ec7190862425a70"
+    },
+    "screen": {
+      "profile": "dc-gang-a-dev",
+      "placement": "gateway",
+      "leaseEpoch": 4,
+      "holder": "agent",
+      "sameProfileImmediateCompositedCapture": true,
+      "image": "native-screen.png",
+      "teacherObservationAndConfirmedRevisionVisuallyObserved": true,
+      "humanTakeoverExercised": false,
+      "windowsAcceptance": false
+    }
+  },
+  "attemptedFailures": [
+    {
+      "lane": "checkpoint_closeout",
+      "outcome": "Initial closeout prose exceeded the existing 640-character boundary; a compact revision then omitted two settled-intent phrases required by the existing reader tests",
+      "recovery": "Preserved the bounded schema and established intent, shortened only the new text, then verified the actual context consumer, 101 workflow tests and final cloud:check. No validator or test weakening."
+    },
+    {
+      "lane": "screen_cleanup_lifecycle",
+      "outcome": "A later status showed the same-profile Screen running again after the first normal stop; the initiating actor was not established",
+      "recovery": "Native same-profile status/agent epoch and relevant runtime metadata were rechecked; no current app/browser writer was found. Normal stop then returned stopped status again. Unknown browser daemons were preserved; no future inactivity/restart guarantee or daemon teardown is claimed."
+    },
+    {
+      "lane": "background_bot_setup",
+      "outcome": "relative bun/hermes executable resolution failed before dispatch",
+      "recovery": "Foreground setup and actual absolute native executables; no Bot budget consumed by the failed shell."
+    },
+    {
+      "lane": "scratch_typescript_writer_lint",
+      "outcome": "Per-file auto-check reported TS5112 due to surrounding project tsconfig",
+      "recovery": "Actual root/harness typechecks and runtime execution passed; no invented per-file PASS."
+    },
+    {
+      "lane": "test_fixture_ingress",
+      "outcome": "New test lane initially refused future source observation timestamps",
+      "recovery": "Retained literal 2090 lesson dates; source-observed time is a distinct past fixture clock, without weakening the store guard."
+    },
+    {
+      "lane": "postgres_test_restart",
+      "outcome": "A scratch restart without exact options attempted defaults and failed before serving",
+      "recovery": "Same-root stopped-state readback and explicit Unix-socket-only flags; no primary DB or service settings changed."
+    },
+    {
+      "lane": "native_browser_batch_1",
+      "outcome": "Awaited long page evaluation timed out at native 5s IPC boundary; Screen showed about:blank active",
+      "readback": "Original endpoint had zero observation POSTs/history; later native target readback was empty after inactivity",
+      "recovery": "No lock deletion or timeout change. Fresh owned page; native Page.bringToFront and finite page-local async result/error capture."
+    },
+    {
+      "lane": "native_chrome_input",
+      "outcome": "Background tab click had no observed change; native foreground action refused active-window confirmation and sent no input",
+      "recovery": "No repeated confirmed input or forced handback. The owned page consumer brought only the verified app page to front."
+    },
+    {
+      "lane": "native_browser_batch_2",
+      "outcome": "Actual source refresh is disabled; stale cases waited for an enabled refresh button and timed out",
+      "recovery": "Preserved production refusal; repaired the test expectations and verified the current 11 date-class cases."
+    }
+  ],
+  "effects": {
+    "academyNetworkRequests": 0,
+    "officialWrites": 0,
+    "parentSends": 0,
+    "productionDatabaseOpened": false,
+    "productionDeployments": 0,
+    "gitCommits": 0,
+    "gitPushes": 0,
+    "installedHermesEdits": 0,
+    "profileConfigurationChanges": 0,
+    "newRecurringJobs": 0,
+    "nativeReviewSessions": 1,
+    "syntheticObservationPosts": 4
+  },
+  "cleanup": {
+    "ownedAppTargetId": "EA3EDE49EAD14A7CE607C81F1FF59F45",
+    "ownedTabClosedAndReadBack": true,
+    "ownedTabsRemaining": 0,
+    "foreignTabsClosed": false,
+    "rehearsalHandle": "proc_d284e84431a2",
+    "rehearsalPid": 53095,
+    "rehearsalExited": true,
+    "loopbackEndpointConnectionRefused": true,
+    "syntheticPostgresRoot": "/opt/data/profiles/dc-gang-a-dev/cache/scratch/pg-278e60-b4WDaw",
+    "syntheticPostgresStoppedAndReadBack": true,
+    "finalIntegrationDatabaseStoppedAndReadBack": true,
+    "screenStoppedNormally": true,
+    "forceHandback": false,
+    "locksDeleted": false,
+    "browserPreferencesRetained": {
+      "headed": true,
+      "cdpUrl": ""
+    }
+  },
+  "remaining": {
+    "currentAcademyDirectHttpAuthentication": "not_qualified_by_this_work",
+    "productionDeployment": "not_performed",
+    "independentDurabilityRestore": "not_verified",
+    "nativeWebMcp": "not_accepted_by_browser_cases",
+    "teacherProductAcceptance": "not_observed",
+    "fullD3ConsumerRetirement": "pending_actual_reader_product_cutover",
+    "gitPublication": "not_performed_under_this_kickoff",
+    "nextOwner": "dc-gang-a-dev",
+    "nextBoundedAction": "Review and integrate the retained dirty D0/D2 plus this D1 delta at exact consumer revisions before publication/cutover. Qualify current direct HTTP source/authentication and teacher/private production/recovery separately; do not redo completed D0/D2 or infer official effects."
+  },
+  "artifacts": {
+    "root": "/opt/data/artifacts/dc-d1-native-observation-20261006-0a13a2",
+    "reviewResult": "review-result.json",
+    "nativeScreen": "native-screen.png",
+    "browserResults": "gui__browser-results.json",
+    "persistenceReadback": "gui__postgres-readback.json"
+  },
+  "authorizesEffects": false
+}
