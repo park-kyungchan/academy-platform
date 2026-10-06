@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-06T13:07:31Z",
-    "objective": "Hermes Linux Backend: D3 integrated owned D0/D2/D1 at existing UI/HTTP/app/PG and continuation/test consumers. Independent native source review FAIL->FAIL->PASS; D1 3+D3 4 findings resolved. Final PG/DOM HTTP31, workflow101, cloud/types pass. Native GUI unperformed: memory guard refused start. No redundant reader retired. Source-only publication/CI/merge pending; see review/d3-consumer-integration-2026-10-06.json. No deployment/current academy auth/teacher acceptance/finalization/send/independent durability. Preserve foreign/unknown dirty and retained audit candidate.",
+    "updatedAtUtc": "2026-10-06T13:15:36Z",
+    "objective": "Hermes Linux Backend: D3 owned D0/D2/D1 integrated at existing consumers. PR28 merged e6570e1, exact tested head afef3b0 and Actions37468997620 success. Independent source review FAIL->FAIL->PASS; D1 3+D3 4 resolved. Final PG/DOM HTTP31, workflow101, cloud/types pass. Native GUI unperformed: memory guard refusal; no bypass. No reader retirement, deployment/current academy auth/teacher acceptance/finalization/send/independent durability. Preserve foreign/unknown dirty and audit candidate. See review/d3-consumer-integration-2026-10-06.json; next bounded teacher/direct-client qualification.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
