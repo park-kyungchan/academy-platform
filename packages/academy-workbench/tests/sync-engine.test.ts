@@ -45,6 +45,8 @@ test('sync hashes dedupe and no-op repeated data, revisions preserve history and
   const engine=new SyntheticSyncEngine(store,adapter,clock,syncPolicy);store.setTeacherNote('synthetic-note','Teacher wording remains verbatim.');
   const first=await engine.run(single(),{requestId:'first'});expect(first.metrics).toMatchObject({changedRows:1,duplicateRows:1,extractedRows:2});
   const firstEvent=Object.values(store.data.history)[0]!;
+  const initialVersions=structuredClone(store.data.observationVersions);clock.advance(10);
+  await engine.run(single(),{requestId:'same-revision'});expect(store.data.observationVersions).toEqual(initialVersions);
   clock.advance(1000);revision=2;
   const second=await engine.run(single(),{requestId:'second'});expect(second.metrics.noOpRows).toBe(1);expect(Object.keys(store.data.history)).toHaveLength(1);
   revision=3;score=50;

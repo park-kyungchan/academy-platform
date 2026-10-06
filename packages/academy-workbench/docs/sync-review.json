@@ -13,7 +13,7 @@
     "Shared-memory resource locks, source timezone/event-time unknown preservation and teacher-note isolation",
     "Typed DATA/LOGIC/ACTION definitions, attempt audit and source-observed event references"
   ],
-  "validation": {"newSyncTests": 15, "totalTests": 87, "failed": 0, "assertions": 399, "typecheck": "PASS", "build": "PASS", "fixtureValidation": "PASS", "demo": "PASS", "syntheticBenchmark": "PASS"},
+  "validation": {"newSyncTests": 15, "totalTests": 87, "failed": 0, "assertions": 400, "typecheck": "PASS", "build": "PASS", "fixtureValidation": "PASS", "demo": "PASS", "syntheticBenchmark": "PASS"},
   "syntheticBenchmark": {"baselineQueries": 31, "optimizedQueries": 26, "baselineExtractedRows": 42, "optimizedExtractedRows": 37, "retriesEach": 1, "baselineVirtualLatencyMs": 310, "optimizedVirtualLatencyMs": 260, "backoffMsEach": 10, "historyEventsEach": 12, "warmChangedRowsEach": 0, "realServerMeasurement": false},
   "limits": [
     "Only the synthetic adapter can execute; approved DOM batch support is an interface declaration only",

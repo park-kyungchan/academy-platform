@@ -73,7 +73,11 @@ export class SyntheticSyncEngine {
     if(page.expectedUniqueRows!==null)check(uniqueRows<=page.expectedUniqueRows,'ROW_COUNT_EXCEEDED');
     if(page.exhausted)check(page.coverage==='complete'&&page.expectedUniqueRows!==null&&uniqueRows===page.expectedUniqueRows,'INCOMPLETE_CLOSURE');
     // Page transaction: validation of all rows and closure precedes every mutation.
-    for(const [id,row]of pending){this.store.data.observations[id]=row;this.store.data.observationVersions[hash({id,revision:row.sourceRevision,contentHash:row.contentHash})]=structuredClone(row);}
+    for(const [id,row]of pending){
+      this.store.data.observations[id]=row;
+      const versionKey=hash({id,revision:row.sourceRevision,contentHash:row.contentHash});
+      if(!this.store.data.observationVersions[versionKey])this.store.data.observationVersions[versionKey]=structuredClone(row);
+    }
     for(const event of history)this.store.data.history[event.id]=event;
     this.store.data.attempts[attemptId]!.resultingHistoryEventIds.push(...history.map(e=>e.id));
     metrics.duplicateRows+=duplicateRows;metrics.olderRows+=olderRows;metrics.noOpRows+=noOpRows;metrics.changedRows+=changedRows;
