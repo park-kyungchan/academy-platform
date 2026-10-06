@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-05T16:01:50Z",
-    "objective": "On Hermes Linux Backend, PR21 merged ae05835 with exact-head CI. Served page/client match merged code; health200, anonymous cohort401. Source heads/history and auth-file metadata unchanged. Owned app proc_dabada9b1385 and tunnel proc_26afb73bc75f persist. Four private Oct5 drafts retained; no final approval/save/send. Native login correction saved; browser startup/WebMCP and direct HTTP credential ingress remain blocked. No browser source fallback or engine change. Next qualify native controls/secure HTTP, then source/header/write/readback. See review/teacher-runtime-direct-source-recovery-2026-10-05.json.",
+    "updatedAtUtc": "2026-10-06T01:23:40Z",
+    "objective": "Hermes Linux Backend: Oct5 four-target journal input and independent HTTP readback complete. Teacher reports final editing/parent delivery; no independent sender receipt claimed. Teacher-final text retained privately; one bullet/newline omission repaired without wording/other-field change or resend. Template revision2 uses one semantic entry per hyphen line. Direct CLI qualification is not app/WebMCP integration or whole clinic coverage. Finish bounded Git/CI, then connect qualified source and teacher feedback to the shared app consumer. See review/academy-direct-journal-checkpoint-2026-10-06.json.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
@@ -191,7 +191,7 @@
       },
       {
         "id": "lead_structure",
-        "statement": "The closeout session 20261005_232259_7b1b12 is assigned to synthesize Oct5 evidence and prepare reviewed journal input. Reuse earlier analysis and evening corrections; do not edit peer tasks, duplicate capture or adopt foreign dirty worktree changes. Assignment is not native termination or a repository lock. Keep one checkpoint, no transcript mirror/dispatcher/automatic cross-profile sync. Fresh Bots need effective role/model/tool/input/budget controls; spent budgets stay closed. Model-facing delegate_task is excluded.",
+        "statement": "User stopped predecessor 20261005_232259_7b1b12 and assigned Lead 20261006_083919_e6bada to finish Oct5 and continue Whole-Lens work. Reuse earlier analysis; do not edit peer tasks, duplicate capture or adopt foreign changes. Preserve originals, teacher-final evidence and native learning. Teacher reports final editing/parent sending complete; only requested format repairs follow, no resend. Native leases are not locks/grants. Spent review/scout budgets stay ended; no delegate_task, transcript mirror or automatic cross-profile sync.",
         "source": "user_interview"
       },
       {
@@ -286,7 +286,7 @@
       },
       {
         "id": "backend_autonomous_goals",
-        "statement": "Require actual autonomous completion/validation and permitted Git, not schema/registration/stub success. General academy access is read-only; current interview conditionally permits the requested Oct5 journals and linked prior-homework assessments after final approval in this session. This is not final-value approval or a recurring/send grant; teacher checks and sends afterward. Qualify direct HTTP auth/read/save/readback first; browser exception refused. Keep native safety/redaction/learning, identity/field/recovery/Free Tier gates. No engine/Host/other-container change, vault extraction or spent-worker replay.",
+        "statement": "Keep Whole-Lens product purpose across source, teacher evidence, exact permitted effects, shared UI/agent consumers, Evals and recovery. Oct5 approved input/readback completed; latest teacher-final source supersedes earlier drafts. User permits formatting-only omission fixes after reported delivery, not wording/grade changes or resend. General academy access remains admitted direct HTTP/API reads; no recurring writes or browser/cookie export. Routine engineering/Git is Lead-owned; interview only consequential unresolved outcomes, risk, authority, cost or recovery.",
         "source": "user_interview"
       },
       {
@@ -362,6 +362,7 @@
         "owner": "lead",
         "action": "resolve_continuation_source",
         "referencePaths": [
+          "review/academy-direct-journal-checkpoint-2026-10-06.json",
           "review/lesson-journal-direct-http-blocker-2026-10-05.json",
           "docs/academy-deterministic-read-contract.ts",
           "src/lms/lessonJournalHitl.ts",

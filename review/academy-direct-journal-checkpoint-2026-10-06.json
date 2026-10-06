@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "kind": "bounded_direct_http_journal_checkpoint",
+  "observedOn": "2026-10-06",
+  "scope": "Native profile credential ingress, direct HTTP source client, exact approved journal fields and teacher-format feedback; not whole-product acceptance",
+  "owners": {
+    "sourceAndOfficialFields": "Academy LMS",
+    "sourceWire": "src/lms/lessonJournalHttp.ts",
+    "parentTextTemplates": "src/lms/lessonJournalTemplates.ts",
+    "classroomDuties": "src/academy/classroomCyclePolicy.ts",
+    "currentWork": "handoffs/workflow-current-state.json",
+    "nativeStateAndSafety": "Hermes native owners"
+  },
+  "observedOutcomes": {
+    "requestedLessonDate": "2026-10-05",
+    "requestedStudentTargets": 4,
+    "directAuthentication": "Fresh fixed-origin client session, independently matched teacher and college principal",
+    "originalApprovedBatch": {"outcomes": 18, "persisted": 17, "noop": 1},
+    "laterHomework": "One separately admitted remaining field persisted with type 0 excluded and no unconfirmed type 20 replacement",
+    "teacherFinalRevision": "Teacher reports final editing and parent sending complete; teacher-final source read independently and retained privately",
+    "postDeliveryFormatting": {"fieldsChanged": 1, "wordingChanged": false, "fourTargetReadbackIssues": 0, "otherFieldsPreserved": true},
+    "agentParentSend": "Not invoked",
+    "independentDeliveryReceipt": "Not qualified or inspected",
+    "templateRevision": "2",
+    "templateBehavior": "One hyphen-prefixed line per attributable activity, homework task or notice; first homework entry carries the due date; explanation sentences stay with their entry; no repeated bullets or automatic rewriting of teacher-final text"
+  },
+  "fieldQualification": {
+    "method": "Dated inspected source handlers, popup request contracts and literal value-label options, plus actual approved field writes and new independent HTTP readback",
+    "staticSourceDigestOwner": "JOURNAL_HTTP_SOURCE_CONTRACT in src/lms/lessonJournalHttp.ts",
+    "recordBinding": "Current exact date/group/student/course/record/membership; daily-test tuple checked; previous homework targets independently selected previous occurrence",
+    "drift": "Unknown digest, method/parameter contract or assessment value-label drift fails closed",
+    "notClaimed": ["Server compare-and-swap", "Atomic multi-request snapshot", "Causal proof from readback alone", "Recurring academy write authority"]
+  },
+  "review": {
+    "independentPredecessorVerdict": "revise",
+    "repairs": [
+      "Effect-owning CLI always reads the genuine native clarify result; caller environment digest cannot establish approval",
+      "Generic CLI rejects qualified free-text prefixes and requires the exact affirmative native response",
+      "Canonical exclusive, flushed approval/action consumption files are independent of result filenames; prior successful actions were also fenced without another academy write",
+      "Field-specific source contract and assessment value-label drift checks gate current client dispatch",
+      "Private input/output descriptors and immutable bridge payloads replace mutable pathname rereads/truncating output rewrites"
+    ],
+    "currentAssessment": "Lead repair and self-review with executed tests/live readback; no independent successor approval claimed",
+    "endedBudgets": "Template reviewer, code reviewer and source-gap scout remain ended; no automatic rerun or inherited budget"
+  },
+  "validation": {
+    "focusedCommand": "bun run test:journal-http",
+    "focusedResult": {"pass": 33, "fail": 0, "files": 6},
+    "typechecks": ["bun run typecheck", "bun run typecheck:harness"],
+    "portableAggregate": "bun run cloud:check is the final publication gate; duplicate suite executions and optional skipped integration tests are not unique-case or live-product acceptance",
+    "realPrivateEvidence": "Active-profile raw-classroom-20261005 collection: initial apply/readback, teacher-final source and post-delivery format final readback. No raw student bodies, credentials, source sessions or transcripts published."
+  },
+  "remaining": [
+    {"priority": "P1", "work": "Complete exact-head Git/CI/merge/readback and only owned cleanup"},
+    {"priority": "P1", "work": "Connect the qualified direct source and retained teacher feedback to the existing shared teacher-app/agent consumer, preserving private history and actual source capability states"},
+    {"priority": "P2", "work": "Complete ordered existing-clinic membership and label-to-paper lineage. One exact-student result-search page and literal printed-header candidates are observed, not all history or physical-paper proof"},
+    {"priority": "conditional", "work": "Native protected browser and browser-standard WebMCP invocation remain separate acceptance; no forged API, academy browser acquisition, installed-engine change or automatic source loop"}
+  ],
+  "recovery": "Preserve teacher-final source and consumed attempt identities. Read back uncertain effects; never replay an old approval, auto-revert teacher edits, regenerate/print clinics or resend to parents. Code rollback is separate from business-record recovery.",
+  "publication": "Pending exact tested-head CI and remote merge readback; this dated artifact is not deployment or effect authority"
+}

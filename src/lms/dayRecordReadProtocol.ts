@@ -19,7 +19,8 @@ export async function readDayRecordSource(request:DayRecordReadRequest,environme
   const plan=createAcademyReadPlan(request);if(plan.family!=='day_record')throw new Error('invalid_day_record_scope');request=plan.request;
   if(typeof environment.principalKey!=='string'||!/^[1-9][0-9]{0,15}$/.test(environment.principalKey)
     ||BigInt(environment.principalKey)>BigInt(Number.MAX_SAFE_INTEGER))throw new Error('principal_binding_required');
-  if(typeof DOMParser==='undefined')throw new Error('native_browser_dom_required');
+  const parser=environment.domParser??(typeof DOMParser==='undefined'?undefined:new DOMParser());
+  if(!parser)throw new Error('native_browser_dom_required');
   const columns=environment.dayRecordColumnContract;
   if(!columns)throw new Error('day_record_column_contract_required');
   if(typeof columns.contractRef!=='string'||!columns.contractRef.trim()||!Array.isArray(columns.headerCells)
@@ -40,7 +41,7 @@ export async function readDayRecordSource(request:DayRecordReadRequest,environme
       headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:new URLSearchParams({p_process:'Main',std_ymd:request.date.replaceAll('-',''),grp_seq:group}).toString(),signal:AbortSignal.timeout(20000)});
     if(!response.ok||response.redirected)throw new Error('day_record_transport_failed');
     const html=await responseText(response);
-    const doc=new DOMParser().parseFromString(html,'text/html');
+    const doc=parser.parseFromString(html,'text/html');
     if(doc.querySelector<HTMLInputElement>('[name=std_date]')?.value!==request.date
       ||doc.querySelector<HTMLSelectElement>('[name=grp_seq]')?.value!==group
       ||doc.querySelector<HTMLInputElement>('[name=teacher_pri_no]')?.value!==environment.principalKey)throw new Error('day_record_scope_conflict');
@@ -87,7 +88,7 @@ export async function readDayRecordSource(request:DayRecordReadRequest,environme
         sel_grp_seq:group,tut_pri_no:environment.principalKey,cm_seq:target.cm_seq});
       const selected=await environment.fetcher('/servlet/controller.cct.tutor.CourseScheduleServlet?'+query,{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20000)});
       if(!selected.ok||selected.redirected)throw new Error('independent_occurrence_transport_failed');
-      const xml=new DOMParser().parseFromString(await responseText(selected),'text/xml');
+      const xml=parser.parseFromString(await responseText(selected),'text/xml');
       const records=xml.querySelectorAll('record');
       if(xml.querySelector('parsererror')||records.length!==1)throw new Error('independent_occurrence_contract_rejected');
       const values=records[0]?.textContent?.split('!');

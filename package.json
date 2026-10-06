@@ -9,6 +9,9 @@
     "harness": "bun run harness/cli.ts",
     "endpoint:query": "bun run harness/endpoints.ts",
     "academy:read-prepare": "bun run harness/assessment_read.ts",
+    "academy:http": "bun run harness/academy_http.ts",
+    "academy:journal-http": "bun run harness/academy_journal_http.ts",
+    "test:journal-http": "bun test --dots tests/lms/academyHttpClient.test.ts tests/lms/lessonJournalHttp.test.ts tests/lms/lessonJournalTemplates.test.ts tests/harness/academyHttpCli.test.ts tests/harness/academyPrivateIo.test.ts tests/lms/sourceFunctionText.test.ts",
     "academy:query": "bun run harness/academy_query.ts",
     "academy:serve": "bun run src/academy/main.ts",
     "academy:rehearse": "bun run harness/academy_browser_rehearsal.ts",
@@ -45,6 +48,7 @@
     "@modelcontextprotocol/sdk": "1.31.0",
     "@playwright/mcp": "0.0.83",
     "@types/bun": "1.4.2",
+    "@types/jsdom": "30.0.0",
     "chrome-devtools-mcp": "1.10.1",
     "typescript": "7.0.2"
   },
@@ -52,5 +56,8 @@
   "packageManager": "bun@1.4.2",
   "engines": {
     "bun": "1.4.2"
+  },
+  "dependencies": {
+    "jsdom": "30.1.2"
   }
 }

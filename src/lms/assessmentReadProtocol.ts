@@ -204,6 +204,22 @@ export function parseAssessmentSearch(html: string): AssessmentSearchRow[] {
   });
 }
 
+/** One observed search page, exact source subject only; metadata is not generated-clinic membership. */
+export function inspectAssessmentSearchMetadata(html:string,target:{studentKey:string;studentName:string}){
+  renderKey(target.studentKey);name(target.studentName);
+  if(html.length>2000000||/<input\b[^>]*\btype\s*=\s*["']password["']/i.test(html))throw Error('assessment_search_source_rejected');
+  const matches=[...html.matchAll(/\btestResultList\s*:\s*JSON\.parse\(\s*'((?:\\.|[^'\\])*)'\s*\)/g)];
+  if(matches.length!==1)throw Error('result_list_missing_or_ambiguous');
+  const raw:unknown=JSON.parse(decodeSingleQuotedString(matches[0]![1]!));if(!Array.isArray(raw)||raw.length>2000)throw Error('student_search_list_rejected');
+  const rows=raw.map(object).filter(row=>sourceKey(row.priNo)===target.studentKey).map(row=>{
+    if(name(row.userName)!==target.studentName)throw Error('student_search_identity_conflict');
+    const titles:Record<string,string>={};for(const key of ['testpageName','testPageName','pName','examName','title','testName','testingName','printTestingName','testTypeName','applyDate'])if(typeof row[key]==='string'&&(row[key] as string).length<2000)titles[key]=row[key] as string;
+    const questionMetadata=Object.fromEntries(['dQuestions','oQuestions','sQuestions'].map(key=>[key,typeof row[key]==='number'?row[key]:{valueKind:Array.isArray(row[key])?'array':typeof row[key],keys:row[key]&&typeof row[key]==='object'?Object.keys(row[key] as object):[]} ]));
+    return {studentKey:target.studentKey,studentName:target.studentName,paperKey:sourceKey(row.pNo),attemptKey:sourceKey(row.testingNo),fieldNames:Object.keys(row).sort(),titles,questionMetadata,sourceScore:typeof row.score==='number'&&Number.isFinite(row.score)?row.score:null};
+  });
+  if(new Set(rows.map(r=>JSON.stringify([r.paperKey,r.attemptKey]))).size!==rows.length)throw Error('duplicate_student_search_row');
+  return {rows,coverage:'one_observed_student_search_page_not_complete_history' as const,generatedMembership:'unqualified' as const};
+}
 function object(value: unknown): ObjectValue {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid_capture_shape');
   return value as ObjectValue;
