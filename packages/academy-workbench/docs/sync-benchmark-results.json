@@ -1,0 +1,90 @@
+{
+  "synthetic": true,
+  "measurement": "Executed synthetic adapters and virtual clock; NOT real academy server performance",
+  "scenario": {
+    "students": 3,
+    "studentDateWindows": 2,
+    "pagesPerWindow": 2,
+    "sharedBookEditions": 1,
+    "cycles": 2,
+    "duplicateRowPerFirstPage": 1,
+    "transientFailures": 1,
+    "virtualReadLatencyMs": 10
+  },
+  "baseline": {
+    "description": "Same engine with catalog refresh forced for every target",
+    "cold": {
+      "synthetic": true,
+      "queries": 16,
+      "extractedRows": 21,
+      "retries": 1,
+      "latencyMs": 160,
+      "backoffMs": 10,
+      "changedRows": 13,
+      "noOpRows": 2,
+      "duplicateRows": 6,
+      "olderRows": 0,
+      "catalogCacheHits": 0,
+      "resumedSteps": 0
+    },
+    "warm": {
+      "synthetic": true,
+      "queries": 15,
+      "extractedRows": 21,
+      "retries": 0,
+      "latencyMs": 150,
+      "backoffMs": 0,
+      "changedRows": 0,
+      "noOpRows": 15,
+      "duplicateRows": 6,
+      "olderRows": 0,
+      "catalogCacheHits": 0,
+      "resumedSteps": 0
+    },
+    "totalQueries": 31,
+    "totalExtractedRows": 42,
+    "historyEvents": 12
+  },
+  "optimized": {
+    "description": "Version-scoped catalog cache with unchanged observation no-op handling",
+    "cold": {
+      "synthetic": true,
+      "queries": 14,
+      "extractedRows": 19,
+      "retries": 1,
+      "latencyMs": 140,
+      "backoffMs": 10,
+      "changedRows": 13,
+      "noOpRows": 0,
+      "duplicateRows": 6,
+      "olderRows": 0,
+      "catalogCacheHits": 2,
+      "resumedSteps": 0
+    },
+    "warm": {
+      "synthetic": true,
+      "queries": 12,
+      "extractedRows": 18,
+      "retries": 0,
+      "latencyMs": 120,
+      "backoffMs": 0,
+      "changedRows": 0,
+      "noOpRows": 12,
+      "duplicateRows": 6,
+      "olderRows": 0,
+      "catalogCacheHits": 3,
+      "resumedSteps": 0
+    },
+    "totalQueries": 26,
+    "totalExtractedRows": 37,
+    "historyEvents": 12
+  },
+  "savedQueries": 5,
+  "savedExtractedRows": 5,
+  "limitations": [
+    "Not an end-to-end application speed measurement",
+    "Virtual latency excludes browser and network costs",
+    "Changed source windows are reread; watermarks do not justify skipping mutable historical rows",
+    "No live adapter or academy connection exists"
+  ]
+}
