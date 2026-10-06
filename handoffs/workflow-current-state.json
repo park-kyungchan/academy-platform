@@ -155,8 +155,8 @@
   ],
   "engineeringContext": {
     "schemaVersion": 1,
-    "updatedAtUtc": "2026-10-06T01:23:40Z",
-    "objective": "Hermes Linux Backend: Oct5 four-target journal input and independent HTTP readback complete. Teacher reports final editing/parent delivery; no independent sender receipt claimed. Teacher-final text retained privately; one bullet/newline omission repaired without wording/other-field change or resend. Template revision2 uses one semantic entry per hyphen line. Direct CLI qualification is not app/WebMCP integration or whole clinic coverage. Finish bounded Git/CI, then connect qualified source and teacher feedback to the shared app consumer. See review/academy-direct-journal-checkpoint-2026-10-06.json.",
+    "updatedAtUtc": "2026-10-06T01:51:42Z",
+    "objective": "Hermes Linux Backend: PR23 merged 82ba91a with tested head0fab2a3 and exact-head Actions success. Oct5 input/readback complete; teacher reports final editing/parent delivery, no independent sender receipt claimed. Teacher-final text retained; one bullet/newline omission repaired without wording/other-field change or resend. Template revision2 verified. Next connect qualified direct source and teacher feedback to the shared app: nativeConnector/main still block acquisition. No app/WebMCP or whole clinic-coverage acceptance claimed. See review/academy-direct-journal-checkpoint-2026-10-06.json.",
     "priorityOrder": [
       "development_test_feedback",
       "continuity_lead_governance",
