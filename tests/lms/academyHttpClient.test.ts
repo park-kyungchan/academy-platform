@@ -5,6 +5,17 @@ const login='<form id="loginForm" name="loginForm" method="post"><input name="p_
 // Construct explicitly invented cookie pairs at runtime; no captured session literal is stored.
 const anonymousCookie=['JSESSIONID','synthetic-anonymous'].join('=');
 const authenticatedCookie=['JSESSIONID','synthetic-authenticated'].join('=');
+test('direct DT/ZT results retain direct transport rather than fabricating historical browser provenance',async()=>{
+ const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');let calls=0;
+ const search=`<script>EXTERN_DIALOG={testResultList:JSON.parse('[{"pNo":7101,"score":50,"testingNo":8101,"priNo":9101,"userName":"Invented Student"}]')}</script>`;
+ const detail={result:'OK',print_list:[{pri_no:9101,student_name:'Invented Student',score:50,exam_list:[{exam_no:1,scoring_result:'O'},{exam_no:2,scoring_result:'X'}]}]};
+ const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},async()=>new Response(++calls===1?login:calls<=3?principal:calls===4?search:JSON.stringify(detail)));
+ try{
+  await client.authenticate({username:'inventedUser',password:'inventedPassword'});
+  const result=await client.execute({family:'daily_zero',teacherLabel:'Invented Teacher',targets:[{studentKey:'9101',studentName:'Invented Student',attemptKey:'8101'}],gradeViewAdmission:true});
+  expect(result.dailyResults[0]).toMatchObject({status:'observed',authenticationMode:'direct_http_api'});
+ }finally{client.close();}
+});
 test('fixed-origin fresh HTTP login independently qualifies principal and keeps secrets in request memory',async()=>{
   const module=await import('../../src/lms/academyHttpClient').catch(()=>({AcademyHttpClient:undefined}));
   expect(typeof module.AcademyHttpClient).toBe('function');

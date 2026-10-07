@@ -61,6 +61,7 @@ export interface AssessmentReadEnvironment {
   authenticatedTeacherVisible: boolean;
   /** Explicit admission of score rendering, never arbitrary create flags. */
   scoreViewAdmission: boolean;
+  authenticationMode?:'browser_managed_manual'|'direct_http_api';
   fetcher: (url: string, init: RequestInit) => Promise<Response>;
 }
 export interface AssessmentObservation extends AssessmentReadTarget {
@@ -76,7 +77,7 @@ export interface AssessmentObservation extends AssessmentReadTarget {
   durationMs: number;
   sourceTimestamp: null;
   lessonOccurrence: 'unverified';
-  authenticationMode: 'browser_managed_manual';
+  authenticationMode: 'browser_managed_manual'|'direct_http_api';
 }
 export interface BlockedAssessmentRead extends AssessmentReadTarget {
   status: 'blocked';
@@ -90,6 +91,7 @@ export async function readAssessmentBatch(
 ): Promise<AssessmentReadResult[]> {
   if (environment.origin !== ORIGIN || !environment.authenticatedTeacherVisible) throw new Error('authentication_required');
   if (environment.scoreViewAdmission !== true) throw new Error('score_view_admission_required');
+  if(environment.authenticationMode!==undefined&&!['browser_managed_manual','direct_http_api'].includes(environment.authenticationMode))throw Error('authentication_transport_required');
   if (targets.length === 0 || targets.length > 2) throw new Error('invalid_manual_batch_scope');
   const seen = new Set<string>();
   for (const target of targets) {
@@ -127,7 +129,7 @@ export async function readAssessmentBatch(
         ? encodePaperCode(row.paperKey) : null;
       return { ...target, ...detail, status: 'observed', paperKey: row.paperKey, paperCode,
         observedAt: new Date().toISOString(), durationMs: performance.now() - start,
-        sourceTimestamp: null, lessonOccurrence: 'unverified', authenticationMode: 'browser_managed_manual' };
+        sourceTimestamp: null, lessonOccurrence: 'unverified', authenticationMode: environment.authenticationMode??'browser_managed_manual' };
     } catch (error) {
       const reason = error instanceof Error && error.message === 'authentication_required' ? 'authentication_required'
         : error instanceof Error && (error.message === 'assessment_transport_failed'
