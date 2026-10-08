@@ -2,7 +2,7 @@ import { assertExactKeys, assertInstant, canonicalJson, digest, requireText, sta
 import { readInputRecord, readLiteralKey, readLiteralName } from '../lms/academyReadProtocol';
 import { bindStudentCourseRow } from '../lms/studentCourseRead';
 import { sourceId, type CatalogNode } from './domain';
-import type { StudentRegistration } from './postgresStore';
+import type { StudentRegistration } from './contracts/storageRecords';
 import { validateAcademyRecord, type SourceBookRegistration } from './records';
 
 interface DiscoveryStudent { name:string;observedAt:string;courseRows:Array<{cells:string[];handlers:string[]}>;bookRows:Array<{cells:string[];bindings:string[]}> }
@@ -16,7 +16,8 @@ export function normalizeCohortDiscovery(input:unknown,expectedNames:readonly st
   canonicalJson(input);
   const data=readInputRecord(input);
   assertExactKeys(data,['schemaVersion','teacherLabel','principalKey','collegeKey','observedAt','source','students','academyMutations']);
-  if(data.schemaVersion!==1||data.source!=='native_browser_managed_auth'||data.academyMutations!==0||!Array.isArray(data.students)||data.students.length!==expectedNames.length||expectedNames.length<1||expectedNames.length>64||new Set(expectedNames).size!==expectedNames.length)throw Error('invalid_cohort_scope');
+  if(data.schemaVersion!==1||(data.source!=='native_browser_managed_auth'&&data.source!=='direct_http_api')||data.academyMutations!==0||!Array.isArray(data.students)||data.students.length!==expectedNames.length||expectedNames.length<1||expectedNames.length>64||new Set(expectedNames).size!==expectedNames.length)throw Error('invalid_cohort_scope');
+  const acquisitionPrefix=data.source==='direct_http_api'?'direct-http':'native';
   const teacherLabel=readLiteralName(data.teacherLabel),teacherKey=readLiteralKey(data.principalKey),collegeKey=readLiteralKey(data.collegeKey);
   const observedAt=readLiteralName(data.observedAt);assertInstant(observedAt);
   const ownerId=stableId('owner','academy_instructor',collegeKey,teacherKey);
@@ -42,7 +43,8 @@ export function normalizeCohortDiscovery(input:unknown,expectedNames:readonly st
     const studentKey=[...keys][0]!;
     if(studentKeys.has(studentKey))throw Error('duplicate_student_identity');studentKeys.add(studentKey);
     const id=stableId('student','academy_student',ownerId,studentKey);
-    const refs=[`native-capture:${captureDigest}`, 'source:StudyCourse:teacher-and-student-cells-and-three-passive-tuples', 'source:getTextBookProgress:row-subject-and-course-book-student-tuple'];
+    const courseProof=raw.courseRows.every(row=>row.handlers.length===3)?'source:StudyCourse:teacher-and-student-cells-and-three-passive-tuples':'source:StudyCourse:teacher-and-student-cells-qualified-started-row-status-delete-variant';
+    const refs=[`${acquisitionPrefix}-capture:${captureDigest}`, courseProof, 'source:getTextBookProgress:row-subject-and-course-book-student-tuple'];
     const courses=new Map(raw.courseRows.map(row=>{
       const observed=bindStudentCourseRow(row,{teacherLabel,studentKey,studentName:name});
       if(observed.identity.collegeKey!==collegeKey)throw Error('source_college_binding');
@@ -75,7 +77,7 @@ export function normalizeCohortDiscovery(input:unknown,expectedNames:readonly st
         sourceCourseLabel:course.row.cells[3]!,sourceBookLabel:bookLabel,sourceStatus:course.row.cells[5]!,sourceProgressLiteral:progress,
         sourceLearningRangeLiteral:course.row.cells[3]!.split('\n')[0]!,assignmentValidity:unknown('source_learning_range_not_effective_enrollment'),role:unknown('teacher_primary_supplementary_role_not_declared'),
         contractRef:'docs/academy-deterministic-read-contract.ts#sourceContracts/student_course-and-textbook',
-        evidenceRefs:[`native-field-proof:${digest({teacherKey,collegeKey,name,courseRow:course.row,bookRow:row})}`,...refs.slice(1)]};
+        evidenceRefs:[`${acquisitionPrefix}-field-proof:${digest({teacherKey,collegeKey,name,courseRow:course.row,bookRow:row})}`,...refs.slice(1)]};
       validateAcademyRecord(payload);
       return {entityId:stableId('entity','academy_book_registration',id,course.observed.identity.userCourseKey,bookNo!),payload};
     });

@@ -1,5 +1,7 @@
 /** Teacher-confirmed operational policy, not authentication, source proof or a deployed refresh loop. */
 export type ClassroomSeries='gauss'|'davinci';
+export const clinicDecisionKinds=['grading','correction_required','explanation_required','review_pending','completed','reopened'] as const;
+export type ClinicDecision=typeof clinicDecisionKinds[number];
 export type CycleActivity='prestudy_review'|'concept_note_inspection'|'solution_note_inspection'|'app_problem_grading'|'concept_blank_test'|'wrong_clinic'|'similar_clinic'|'daily_test'|'havruta';
 export interface CycleRequirement {
   activity:CycleActivity;
@@ -20,6 +22,30 @@ const gauss:readonly CycleRequirement[]=[
 export const classroomCyclePolicy={
   schemaVersion:1,
   authority:'teacher_interview_2026_10_05',
+  operationalContextRevision:'teacher_interview_2026_10_07',
+  sectionWork:{
+    expectedWork:'assigned_section_and_item_range',
+    catalogEntryImpliesAssignment:false,
+    prerequisiteCompletionImpliesAssignment:false,
+    missingEvidenceState:'unknown',
+    comprehensiveAssessment:{scope:'major_unit',prerequisite:'designated_minor_unit_boundary'},
+  },
+  clinicWorkflow:{
+    recordDestination:'protected_product_history',
+    officialProjection:'separate_exact_approved_dayrecord_or_teacher_final_send',
+    automaticCompletion:false,
+    decisionKinds:clinicDecisionKinds,
+    completionInvalidatingDecisions:['correction_required','explanation_required','reopened'] as readonly ClinicDecision[],
+    completionTrigger:'explicit_teacher_record_after_correction_and_explanation',
+    repeatedStage:'correction_and_explanation',
+    stages:[
+      {stage:'written_solving',responsibleActor:'student'},
+      {stage:'grading',responsibleActor:'teacher'},
+      {stage:'correction_and_explanation',responsibleActor:'student'},
+      {stage:'review',responsibleActor:'teacher'},
+      {stage:'completion',responsibleActor:'teacher'},
+    ],
+  },
   auditRange:'every_progressed_minor_unit_through_latest_assigned_homework',
   auditOwnership:'teacher_owned_progress_prior_evidence_retained_as_history',
   naming:'source_book_edition_volume_and_literal_minor_unit_number_and_name',

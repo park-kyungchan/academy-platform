@@ -56,7 +56,7 @@ test('the aggregate executes restored source-only files and classroom policy gat
   const requiredSuites = {
     'test:backend': ['tests/backend/googleReadAdapter.test.ts', 'tests/backend/pdfExtraction.test.ts', 'tests/backend/dependencyDoctor.test.ts'],
     'test:workflow': ['tests/harness/workflowCheckpoint.test.ts', 'tests/harness/contextRouting.test.ts', 'tests/harness/workspaceEntry.test.ts', 'tests/harness/hermesBackendProfile.test.ts', 'tests/lms/academyReadAcceptance.test.ts',
-      'tests/lms/lessonJournalReviewBundle.test.ts', 'tests/sheets/deployedMainRefresh.test.ts', 'tests/sheets/nativePreservationPreview.test.ts', 'tests/architecture/classroomCycleEntry.test.ts'],
+      'tests/lms/lessonJournalReviewBundle.test.ts', 'tests/sheets/deployedMainRefresh.test.ts', 'tests/sheets/nativePreservationPreview.test.ts', 'tests/architecture/classroomCycleEntry.test.ts', 'tests/harness/academyHttpInvocation.test.ts'],
   };
   for (const [name, files] of Object.entries(requiredSuites)) {
     expect(executed).toContain(name);

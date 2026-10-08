@@ -5,6 +5,14 @@ const login='<form id="loginForm" name="loginForm" method="post"><input name="p_
 // Construct explicitly invented cookie pairs at runtime; no captured session literal is stored.
 const anonymousCookie=['JSESSIONID','synthetic-anonymous'].join('=');
 const authenticatedCookie=['JSESSIONID','synthetic-authenticated'].join('=');
+test('a source login challenge closes the ephemeral client instead of becoming an ordinary area miss',async()=>{
+ const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');let calls=0;
+ const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},async()=>new Response(++calls===1?login:calls<=3?principal:'<form name="loginForm"><input type="password"></form>'));
+ const request={family:'daily_zero',teacherLabel:'Invented Teacher',targets:[{studentKey:'9101',studentName:'Invented Student',attemptKey:'8101'}],gradeViewAdmission:true};
+ await client.authenticate({username:'inventedUser',password:'inventedPassword'});
+ await expect(client.execute(request)).rejects.toThrow('authentication_required');expect(client.authenticated).toBe(false);
+ const stopped=calls;await expect(client.execute(request)).rejects.toThrow('authentication_required');expect(calls).toBe(stopped);
+});
 test('direct DT/ZT results retain direct transport rather than fabricating historical browser provenance',async()=>{
  const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');let calls=0;
  const search=`<script>EXTERN_DIALOG={testResultList:JSON.parse('[{"pNo":7101,"score":50,"testingNo":8101,"priNo":9101,"userName":"Invented Student"}]')}</script>`;
@@ -120,4 +128,45 @@ test('one-page student paper search requires authentication before any request',
  const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');let calls=0;
  const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},async()=>{calls++;return new Response('');});
  expect(typeof client.searchStudentPaperMetadata).toBe('function');await expect(client.searchStudentPaperMetadata({teacherLabel:'Invented Teacher',studentName:'Invented Learner',studentKey:'77001'})).rejects.toThrow('authentication_required');expect(calls).toBe(0);
+});
+
+test('textbook index exposes existing subject-bound headers without generation or answer content',async()=>{
+ const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');let count=0;
+ const progress='<button onclick="createBookIncorrectPapers(5,6,77001)">Existing book</button>';
+ const notes={result:'ok',noteResultList:[{pri_no:77001,name:'Invented Learner',p_no:81001,testing_no:82001,testing_name:'Invented existing section',apply_date:'10-01',answer:'withheld answer'}]};
+ const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},async(url,init)=>{
+  count++;if(count<=3)return new Response(count===1?login:principal);
+  const body=new URLSearchParams(init.body as string);
+  if(count===4){expect(url).toContain('reqCmd=getTextBookProgress');expect(body.get('student_name')).toBe('Invented Learner');return new Response(progress);}
+  expect(count).toBe(5);expect(body.get('p_process')).toBe('getWrongAnswerNoteResult');
+  expect(JSON.parse(body.get('answerNoteResult')!)).toEqual({courseKeyList:['5'],bookNoList:['6'],userKeyList:['77001']});return new Response(JSON.stringify(notes));
+ });
+ const method=(client as unknown as {inspectTextbookIndex?: (input:unknown)=>Promise<unknown>}).inspectTextbookIndex;
+ expect(typeof method).toBe('function');await client.authenticate({username:'inventedUser',password:'inventedPassword'});
+ const result=await method!.call(client,{family:'textbook',teacherLabel:'Invented Teacher',studentKey:'77001',studentName:'Invented Learner',courseKey:'5',bookNo:'6',sourceTitles:['Invented existing section'],gradeViewAdmission:true});
+ expect(result).toMatchObject({rows:[{sourceTitle:'Invented existing section',paperKey:'81001',attemptKey:'82001'}],sourceHandlersInvoked:false,generatedPaperMembership:'unqualified'});
+ expect(JSON.stringify(result)).not.toContain('withheld answer');expect(count).toBe(5);client.close();
+});
+test('HTTP failure exposes only safe status and operation metadata, not source content or credentials',async()=>{
+ const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');
+ const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},async()=>new Response('withheld source body',{status:503}));
+ let failure:unknown;try{await client.authenticate({username:'inventedUser',password:'inventedPassword'});}catch(error){failure=error;}
+ expect(failure).toBeInstanceOf(Error);expect((failure as Error).message).toBe('source_http_failed');
+ expect((failure as {httpStatus:number}).httpStatus).toBe(503);expect((failure as {sourceOperation:string}).sourceOperation).toBe('login_document');
+ expect(JSON.stringify(failure)).not.toContain('withheld source body');expect(JSON.stringify(failure)).not.toContain('inventedPassword');
+});
+test('textbook index refuses foreign teacher and unauthenticated access before source requests',async()=>{
+ const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');let calls=0;
+ const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},async()=>{calls++;return new Response('');});
+ const request={family:'textbook',teacherLabel:'Invented Teacher',studentKey:'77001',studentName:'Invented Learner',courseKey:'5',bookNo:'6',sourceTitles:['Invented existing section'],gradeViewAdmission:true};
+ await expect(client.inspectTextbookIndex({...request,teacherLabel:'Other Teacher'})).rejects.toThrow('textbook_index_scope_required');
+ await expect(client.inspectTextbookIndex(request)).rejects.toThrow('authentication_required');expect(calls).toBe(0);
+});
+test('textbook index refuses a foreign subject returned by the scoped wrong-note query',async()=>{
+ const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');let count=0;
+ const progress='<button onclick="createBookIncorrectPapers(5,6,77001)">Existing book</button>';
+ const notes={result:'ok',noteResultList:[{pri_no:77002,name:'Foreign Learner',p_no:81001,testing_no:82001,testing_name:'Foreign section'}]};
+ const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},async()=>new Response(++count===1?login:count<=3?principal:count===4?progress:JSON.stringify(notes)));
+ await client.authenticate({username:'inventedUser',password:'inventedPassword'});
+ await expect(client.inspectTextbookIndex({family:'textbook',teacherLabel:'Invented Teacher',studentKey:'77001',studentName:'Invented Learner',courseKey:'5',bookNo:'6',sourceTitles:['Invented existing section'],gradeViewAdmission:true})).rejects.toThrow('source_subject_conflict');client.close();
 });

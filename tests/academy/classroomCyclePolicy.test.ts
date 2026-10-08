@@ -2,6 +2,18 @@ import {describe,expect,test} from 'bun:test';
 import {classroomCyclePolicy,requirementsForSeries} from '../../src/academy/classroomCyclePolicy';
 
 describe('teacher-admitted classroom cycle requirements',()=>{
+  test('section eligibility and clinic completion retain the confirmed actors and effect destinations',()=>{
+    expect(classroomCyclePolicy).toMatchObject({
+      sectionWork:{expectedWork:'assigned_section_and_item_range',catalogEntryImpliesAssignment:false,prerequisiteCompletionImpliesAssignment:false,missingEvidenceState:'unknown',comprehensiveAssessment:{scope:'major_unit',prerequisite:'designated_minor_unit_boundary'}},
+      clinicWorkflow:{recordDestination:'protected_product_history',automaticCompletion:false,completionTrigger:'explicit_teacher_record_after_correction_and_explanation',stages:[
+        {stage:'written_solving',responsibleActor:'student'},
+        {stage:'grading',responsibleActor:'teacher'},
+        {stage:'correction_and_explanation',responsibleActor:'student'},
+        {stage:'review',responsibleActor:'teacher'},
+        {stage:'completion',responsibleActor:'teacher'},
+      ]},
+    });
+  });
   test('current duties begin at teacher-owned progress and unresolved later revision requests prevent completion',()=>{
     expect(classroomCyclePolicy.auditOwnership).toBe('teacher_owned_progress_prior_evidence_retained_as_history');
     expect(classroomCyclePolicy.evidenceRules.resubmission).toBe('latest_teacher_resubmission_or_correction_request_must_be_resolved_prior_acceptance_retained');

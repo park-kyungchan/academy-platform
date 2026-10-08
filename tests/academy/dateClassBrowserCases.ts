@@ -44,11 +44,11 @@ export async function runDateClassBrowserCases(){
   const refreshRequests=()=>performance.getEntriesByType('resource').filter(row=>new URL(row.name).pathname==='/api/refresh').length;
   const requestsBefore=refreshRequests();refresh.click();await new Promise(resolve=>setTimeout(resolve,80));
   s=state();record('disabled_refresh_preserves_selection_without_request',{student:beforeRefresh.student,date:beforeRefresh.date,context:beforeRefresh.context,additionalRequests:0},s,s.student===beforeRefresh.student&&s.date===beforeRefresh.date&&s.context===beforeRefresh.context&&refreshRequests()===requestsBefore);
-  const faces=await document.fonts.load('14px "DC Korean"','수업 준비');record('same_origin_korean_font',{loaded:true}, {loaded:faces.length>0},faces.length>0);
+  const faces=await Promise.all([document.fonts.load('14px "Noto Sans KR"','수업 준비'),document.fonts.load('24px "Noto Serif KR"','교재의 흐름')]);record('same_origin_korean_fonts',{sans:true,serif:true},{sans:faces[0]!.length>0,serif:faces[1]!.length>0},faces.every(face=>face.length>0));
   date('2090-01-02');await wait(()=>rows().length===3&&ready());
   byId('class-list').scrollIntoView({block:'center'});
   const resources=performance.getEntriesByType('resource') as PerformanceResourceTiming[];
   const requestCounts:Record<string,number>={};for(const resource of resources){const path=new URL(resource.name).pathname;if(path.startsWith('/api/'))requestCounts[path]=(requestCounts[path]??0)+1;}
-  return {syntheticOnly:true,productionAcceptance:false,cases,total:cases.length,pass:cases.filter(row=>row.status==='PASS').length,actualApiResourceCounts:requestCounts,fontTransferBytes:resources.filter(row=>new URL(row.name).pathname.includes('teacher-ko')).reduce((sum,row)=>sum+row.encodedBodySize,0),finalState:state(),userTakeover:'not_exercised'};
+  return {syntheticOnly:true,productionAcceptance:false,cases,total:cases.length,pass:cases.filter(row=>row.status==='PASS').length,actualApiResourceCounts:requestCounts,fontTransferBytes:resources.filter(row=>new URL(row.name).pathname.includes('/assets/noto-')).reduce((sum,row)=>sum+row.encodedBodySize,0),finalState:state(),userTakeover:'not_exercised'};
 }
 Object.assign(window,{runDateClassBrowserCases});

@@ -17,10 +17,10 @@ export function createStudentCourseRequest(input:unknown):StudentCourseRequest {
   const name=(v:unknown)=>{if(typeof v!=='string'||!v.trim()||v.length>200)throw Error('invalid_course_name');return v;};
   return {teacherLabel:name(d.teacherLabel!.value),studentKey:literalKey(d.studentKey!.value),studentName:name(d.studentName!.value)};
 }
-/** Parse only three exact passive calls. Never evaluate their mutation handlers. */
+/** Parse qualified passive identity tuples only. Never evaluate mutation handlers. */
 export function bindStudentCourseRow(input:CourseRowInput,request:StudentCourseRequest):StudentCourseObservation {
   const target=createStudentCourseRequest(request);
-  if(!Array.isArray(input.cells)||input.cells.length!==7||input.cells.some(c=>typeof c!=='string')||!Array.isArray(input.handlers)||input.handlers.length!==3)throw Error('course_row_structure_drift');
+  if(!Array.isArray(input.cells)||input.cells.length!==7||input.cells.some(c=>typeof c!=='string')||!Array.isArray(input.handlers)||![2,3].includes(input.handlers.length))throw Error('course_row_structure_drift');
   const calls=new Map<string,string[]>();
   for(const source of input.handlers){
     const match=/^\s*(onChangeStatus|onResetCourse|onDeleteCourse)\(\s*([0-9]+(?:\s*,\s*[0-9]+)*)\s*\)\s*;?\s*$/.exec(source);
@@ -28,9 +28,11 @@ export function bindStudentCourseRow(input:CourseRowInput,request:StudentCourseR
     calls.set(match[1]!,match[2]!.split(',').map(x=>x.trim()));
   }
   const status=calls.get('onChangeStatus'),reset=calls.get('onResetCourse'),del=calls.get('onDeleteCourse');
-  if(!status||status.length!==5||!reset||reset.length!==3||!del||del.length!==4)throw Error('course_handler_signature_drift');
+  if(!status||status.length!==5||!del||del.length!==4||reset&&reset.length!==3)throw Error('course_handler_signature_drift');
+  // Fresh direct source exposes no reset control on this exact started-row variant.
+  if(!reset&&(input.handlers.length!==2||input.cells[5]!=='시작됨'||status[0]!=='0'||input.cells[1]!==target.teacherLabel||input.cells[2]!==target.studentName))throw Error('course_handler_signature_drift');
   const [collegeKey,studentKey,courseKey,userCourseKey]=status.slice(1).map(literalKey);
-  if(studentKey!==target.studentKey||reset.join(',')!==[courseKey,studentKey,collegeKey].join(',')
+  if(studentKey!==target.studentKey||reset&&reset.join(',')!==[courseKey,studentKey,collegeKey].join(',')
     ||del.join(',')!==[collegeKey,studentKey,courseKey,userCourseKey].join(','))throw Error('course_source_identity_conflict');
   return {identity:{sourceNamespace:'academy_student_course',studentKey:studentKey!,collegeKey:collegeKey!,courseKey:courseKey!,userCourseKey:userCourseKey!},
     sourceCells:[...input.cells],coverage:'observed_row_not_all_assignments_or_pagination',handlersInvoked:false};

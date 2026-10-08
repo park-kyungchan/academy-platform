@@ -4,8 +4,11 @@ import { createTeacherServerHandler } from '../../src/academy/server';
 import { createAuthSecrets } from '../../src/academy/auth';
 import type { TeacherApplication } from '../../src/academy/application';
 import {teacherPage} from '../../src/academy/web/page';
-test('the deployed page prefers its pinned Korean font for headings as well as regular text',()=>{
-  expect(teacherPage.includes('body{font-family:"DC Korean",system-ui')).toBe(true);
+test('the deployed page provides pinned Korean sans and serif fonts for the accepted visual roles',()=>{
+  expect(teacherPage).toContain("font-family:Arial,'Noto Sans KR'");
+  expect(teacherPage).toContain("font-family:Georgia,'Noto Serif KR'");
+  expect(teacherPage).toContain('/assets/noto-sans-kr-11e0e8ae.woff2');
+  expect(teacherPage).toContain('/assets/noto-serif-kr-dde003b5.woff2');
 });
 test('serves a pinned licensed Korean font without a teacher session or external font request',async()=>{
   const handler=createTeacherServerHandler({app:{ownerId:'fixture-font-owner'} as TeacherApplication,origin:'https://fixture.example.invalid',sessionKey:createAuthSecrets().sessionKey,identity:null,invitationDigest:null,saveIdentity:async()=>{}});
