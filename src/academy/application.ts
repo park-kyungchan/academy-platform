@@ -1,107 +1,33 @@
-import { assertExactKeys, canonicalJson, digest, requireText } from '../learning/model';
-import { catalogLevels, type CatalogNode } from './domain';
-import type { PostgresAcademyStore } from './postgresStore';
-import { readInputRecord } from '../lms/academyReadProtocol';
-import type { DayRecordSourceRow } from '../lms/dayRecordReadProtocol';
-import {buildStudentPreparation,assertPreparationDate} from './preparationHistory';
-import {academyConnectionStatus} from './nativeConnector';
-import {validateAcademyRecord,type TeacherObservation} from './records';
-import {operationalContractShape} from './operationalContract';
-export interface TrustedTeacherContext { readonly ownerId:string; readonly actorId:string; readonly role:'teacher' }
-/** The HTTP/native adapter authenticates this context; a caller role string is never its issuer. */
+import type {TeacherStore} from './ports/teacherStore';
+import {academyConnectionStatus,type AcademySourceConnection} from './nativeConnector';
+import type {TrustedTeacherContext} from './contracts/teacherOperations';
+import {assertTeacherScope} from './usecases/requestRecovery';
+import {TeacherObservationCommands} from './usecases/teacherObservation';
+import {TeacherClinicCommands} from './usecases/teacherClinic';
+import {TeacherQueries} from './usecases/studentScene';
+export type {TrustedTeacherContext,ObservationInput,ClinicDecisionInput} from './contracts/teacherOperations';
+/** Stable human/agent facade. Business slices own behavior; adapters own transactional enforcement. */
 export class TeacherApplication {
-  constructor(readonly store:PostgresAcademyStore,readonly ownerId:string){}
-  private scope(context:TrustedTeacherContext):void {
-    if(context.ownerId!==this.ownerId||context.role!=='teacher'||!context.actorId)throw Error('owner_scope_conflict');
+  private readonly observations:TeacherObservationCommands;
+  private readonly clinics:TeacherClinicCommands;
+  constructor(readonly store:TeacherStore,readonly ownerId:string,readonly connection:()=>AcademySourceConnection=()=>academyConnectionStatus){
+    this.observations=new TeacherObservationCommands(store,ownerId);
+    this.clinics=new TeacherClinicCommands(store,ownerId);
   }
-  async saveObservation(context:TrustedTeacherContext,input:unknown){
-    this.scope(context);
-    const data=readInputRecord(input);
-    canonicalJson(data);
-    assertExactKeys(data,['studentId','occurrence','basisRevisionId','expectedRevisionId','idempotencyKey','reportedAt','text']);
-    for(const key of ['studentId','basisRevisionId','idempotencyKey','reportedAt','text'])if(typeof data[key]!=='string'||!data[key].trim())throw Error('invalid_observation_input');
-    if((data.studentId as string).length>200||(data.idempotencyKey as string).length>200||!(data.expectedRevisionId===null||typeof data.expectedRevisionId==='string'&&data.expectedRevisionId.length>0&&data.expectedRevisionId.length<=200))throw Error('invalid_observation_input');
-    const student=(await this.store.students(this.ownerId)).find(row=>row.id===data.studentId);
-    if(!student)throw Error('student_scope_conflict');
-    const payload:TeacherObservation={kind:'teacher_observation',sourceStudent:student.sourceKey,occurrence:structuredClone(data.occurrence) as TeacherObservation['occurrence'],basisRevisionId:data.basisRevisionId as string,reportedAt:data.reportedAt as string,text:data.text as string};
-    validateAcademyRecord(payload);
-    const entityId='teacher-observation-'+digest({studentId:student.id,occurrence:payload.occurrence});
-    const outcome=await this.store.append({ownerId:this.ownerId,studentId:student.id,entityId,actorId:context.actorId,idempotencyKey:data.idempotencyKey as string,expectedRevisionId:data.expectedRevisionId as string|null,sourceObservedAt:payload.reportedAt,payload});
-    const records=await this.store.history(this.ownerId,student.id,entityId,outcome.sequence-1,1);
-    const record=records[0];if(!record||record.revisionId!==outcome.revisionId||record.contentDigest!==outcome.contentDigest)throw Error('committed_outcome_uncertain');
-    return {...outcome,record,teacherObservationPolicy:operationalContractShape.meaning.teacherAcceptance};
+  saveObservation(context:TrustedTeacherContext,input:unknown){return this.observations.saveObservation(context,input);}
+  observationResult(context:TrustedTeacherContext,studentId:string,requestId:string){return this.observations.observationResult(context,studentId,requestId);}
+  saveClinicDecision(context:TrustedTeacherContext,input:unknown){return this.clinics.saveClinicDecision(context,input);}
+  clinicResult(context:TrustedTeacherContext,studentId:string,requestId:string){return this.clinics.clinicResult(context,studentId,requestId);}
+  async student(context:TrustedTeacherContext,studentId:string,date?:string){
+    assertTeacherScope(this.ownerId,context);
+    return this.store.readSnapshot(store=>new TeacherQueries(store,this.ownerId,this.connection).student(context,studentId,date));
   }
-  async observationResult(context:TrustedTeacherContext,studentId:string,requestId:string){
-    this.scope(context);
-    if(typeof studentId!=='string'||!studentId||studentId.length>200||typeof requestId!=='string'||!requestId||requestId.length>200)throw Error('invalid_observation_input');
-    if(!(await this.store.students(this.ownerId)).some(row=>row.id===studentId))throw Error('student_scope_conflict');
-    const record=await this.store.observationResult(this.ownerId,studentId,context.actorId,requestId);
-    if(!record)throw Error('observation_result_not_found');
-    return {status:'recorded' as const,revisionId:record.revisionId,record,officialSaved:false,parentSent:false};
-  }
-  async cohort(context:TrustedTeacherContext) {
-    this.scope(context);
-    const students=await this.store.students(this.ownerId);
-    const dates=new Set<string>();
-    for(const student of students)for(const row of await this.store.current(this.ownerId,student.id)){
-      if(row.payload.kind!=='source_audit')continue;
-      const snapshot=readInputRecord(row.payload.acquisition);
-      if(snapshot.family==='day_record'&&Array.isArray(snapshot.dayRecords))for(const lesson of snapshot.dayRecords as DayRecordSourceRow[])dates.add(lesson.date);
-    }
-    return {schemaVersion:1,kind:'teacher_cohort',scope:'registered_teacher_owned_students_not_scheduled_date_completeness',rowCount:students.length,
-      availableLessonDates:[...dates].sort(),
-      students:students.map(student=>({id:student.id,displayName:student.displayName,registeredAt:student.registeredAt})),connection:academyConnectionStatus,academyEffect:'read_only',officialSaved:false,parentSent:false};
-  }
-  async student(context:TrustedTeacherContext,studentId:string,date=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())) {
-    this.scope(context);requireText(studentId,'student id');if(studentId.length>200)throw Error('invalid_student_selector');
-    assertPreparationDate(date);
-    const student=(await this.store.students(this.ownerId)).find(row=>row.id===studentId);
-    if(!student)throw Error('student_scope_conflict');
-    const [current,catalog,revisions]=await Promise.all([this.store.current(this.ownerId,studentId),this.store.catalog(this.ownerId),this.store.preparationRevisions(this.ownerId,studentId,date)]);
-    const preparationVersions=[...new Map([...current,...revisions].map(v=>[v.revisionId,v])).values()];
-    const bookSources=current.filter(row=>row.payload.kind==='source_book_registration');
-    const rootIds=new Set(bookSources.map(row=>row.payload.kind==='source_book_registration'?row.payload.catalogNodeId:''));
-    const nodes=new Map(catalog.map(node=>[node.id,node]));
-    const belongs=(node:CatalogNode):boolean=>{
-      let currentNode:CatalogNode|undefined=node;
-      while(currentNode){if(rootIds.has(currentNode.id))return true;if(currentNode.parent.state==='unknown')return false;currentNode=nodes.get(currentNode.parent.value);}
-      return false;
-    };
-    const selectedCatalog=catalog.filter(belongs);
-    return {schemaVersion:1,kind:'student_learning_scene',student:{id:student.id,displayName:student.displayName,sourceKey:student.sourceKey,proofRefs:student.proofRefs},
-      sceneRevision:digest({studentId,date,heads:current.map(row=>({revisionId:row.revisionId,lastVerifiedAt:row.lastVerifiedAt})),teacherRevisions:revisions.map(v=>v.revisionId),catalog:selectedCatalog}),
-      books:bookSources.map(row=>({entityId:row.entityId,revisionId:row.revisionId,sourceObservedAt:row.sourceObservedAt,lastVerifiedAt:row.lastVerifiedAt,recordedAt:row.recordedAt,source:row.payload})),
-      evidence:current.filter(row=>row.payload.kind!=='source_book_registration'),catalog:selectedCatalog,
-      preparation:buildStudentPreparation(student.sourceKey,preparationVersions,date),
-      hierarchy:{levels:catalogLevels,unknownLevels:catalogLevels.filter(kind=>!selectedCatalog.some(node=>node.kind===kind))},
-      knowledge:{mastery:'not_established',teacherInspection:'unknown',effectiveEnrollment:'unknown',scheduledLessonCompleteness:'unknown',sourceFreshness:'last_successful_acquisition_not_view_time'},
-      connection:academyConnectionStatus,allowedOperations:['query_student_learning','query_date_class','record_teacher_observation'],
-      teacherObservationPolicy:operationalContractShape.meaning.teacherAcceptance,
-      limits:['Source registration/learning range is not effective enrollment or book-slot judgment','No missing evidence becomes nonperformance','Printed paper, board and video labels remain separate source namespaces','Current sources do not prove full historical/native-app coverage'],
-      officialSaved:false,parentSent:false};
+  async cohort(context:TrustedTeacherContext){
+    assertTeacherScope(this.ownerId,context);
+    return this.store.readSnapshot(store=>new TeacherQueries(store,this.ownerId,this.connection).cohort(context));
   }
   async classPreparation(context:TrustedTeacherContext,date:string){
-    this.scope(context);
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date+'T00:00:00Z'))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)throw Error('invalid_lesson_date');
-    const students=await this.store.students(this.ownerId);
-    const rows=[];
-    for(const student of students){
-      const [current,revisions]=await Promise.all([this.store.current(this.ownerId,student.id),this.store.preparationRevisions(this.ownerId,student.id,date)]);
-      const preparation=buildStudentPreparation(student.sourceKey,[...new Map([...current,...revisions].map(v=>[v.revisionId,v])).values()],date);
-      for(const version of current){
-        if(version.payload.kind!=='source_audit')continue;
-        const snapshot=readInputRecord(version.payload.acquisition);
-        if(snapshot.family!=='day_record'||!Array.isArray(snapshot.dayRecords))continue;
-        for(const source of snapshot.dayRecords as DayRecordSourceRow[]){
-          if(source.date!==date)continue;
-          if(source.studentKey!==student.sourceKey.literalKey||source.studentName!==student.displayName)throw Error('stored_source_subject_conflict');
-          rows.push({studentId:student.id,studentName:student.displayName,occurrence:{date:source.date,groupId:source.groupId,courseKey:source.courseKey,recordKey:source.recordKey,membershipKey:source.membershipKey},fields:source.fields,
-            revisionId:version.revisionId,sourceObservedAt:version.sourceObservedAt,lastVerifiedAt:version.lastVerifiedAt,
-            preparation,knowledge:{prestudyHomeworkJoin:'unknown',homeworkAttemptJoin:'unknown',correctionInspection:'unknown',teacherReview:'unknown'}});
-        }
-      }
-    }
-    rows.sort((a,b)=>a.studentName.localeCompare(b.studentName,'ko')||a.occurrence.recordKey.localeCompare(b.occurrence.recordKey));
-    return {schemaVersion:1,kind:'date_class_preparation',date,rows,rowCount:rows.length,scope:'verified_occurrences_in_observed_calendar_window_not_all_history',connection:academyConnectionStatus,knowledge:{missingRows:'not_evidence_of_absence_or_nonperformance',completeCurrentRoster:'not_established'},officialSaved:false,parentSent:false};
+    assertTeacherScope(this.ownerId,context);
+    return this.store.readSnapshot(store=>new TeacherQueries(store,this.ownerId,this.connection).classPreparation(context,date));
   }
 }

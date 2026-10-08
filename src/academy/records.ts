@@ -3,6 +3,7 @@ import { createAcademySourceAudit } from '../lms/academySourceAudit';
 import { validateSourceKey, type SourceKey } from './domain';
 import {validateCourseInventory,validatePrestudySnapshot,validatePreparationScope,type SourceCourseInventory,type SourcePrestudySnapshot,type TeacherBookPreparationScope} from './bookPreparation';
 import {requirementsForSeries,type CycleActivity} from './classroomCyclePolicy';
+import {validateLearningAssignment,validateLearningAttempt,validateTeacherClinic,validateClinicRequest,type LearningWorkAssignment,type LearningWorkAttempt,type TeacherClinicRevision,type TeacherClinicRequest} from './learningWork';
 
 /** A current source registration, deliberately not inferred effective enrollment or teacher book-slot assignment. */
 export interface SourceBookRegistration {
@@ -21,6 +22,13 @@ export interface TeacherObservation {
   kind:'teacher_observation';sourceStudent:SourceKey;occurrence:ObservationOccurrence;
   basisRevisionId:string;reportedAt:string;text:string;
 }
+/** A protected submitted original is not an accepted observation or teacher approval. */
+export interface TeacherObservationRequest {
+  kind:'teacher_observation_request';sourceStudent:SourceKey;requestId:string;
+  expectedRevisionId:string|null;observation:TeacherObservation;resolution:'pending'|'rejected';refusal:string|null;
+}
+export const observationTerminalRefusals:readonly string[]=['stale_base','stale_evidence_basis','observation_basis_conflict','observation_identity_changed','invalid_revision_transition','unresolved_observation_request','idempotency_reuse'];
+export class ObservationCommandRefusal extends Error {constructor(code:string,readonly originalRetained:boolean){super(code);}}
 /** Trusted intake attributes the report; this label is not authentication or an actual performance timestamp. */
 export interface TeacherActivityRevision {
   kind:'teacher_activity_revision';sourceStudent:SourceKey;sourceCourse:SourceKey;sourceBook:SourceKey;sourceMinorUnit:SourceKey;
@@ -30,9 +38,23 @@ export interface TeacherActivityRevision {
 export interface TeacherPreparationAssignment extends Omit<TeacherBookPreparationScope,'kind'> {
   kind:'teacher_preparation_assignment';sourceStudent:SourceKey;effectiveDate:string;
 }
-export type AcademyRecord = SourceBookRegistration | SourceAuditRecord | TeacherReportedNote | TeacherObservation | SourceCourseInventory | SourcePrestudySnapshot | TeacherActivityRevision | TeacherPreparationAssignment;
+export type AcademyRecord = SourceBookRegistration | SourceAuditRecord | TeacherReportedNote | TeacherObservation | TeacherObservationRequest | SourceCourseInventory | SourcePrestudySnapshot | TeacherActivityRevision | TeacherPreparationAssignment | LearningWorkAssignment | LearningWorkAttempt | TeacherClinicRevision | TeacherClinicRequest;
 export function validateAcademyRecord(payload: AcademyRecord): void {
   canonicalJson(payload);
+  if(payload.kind==='learning_work_assignment'){validateLearningAssignment(payload);return;}
+  if(payload.kind==='learning_work_attempt'){validateLearningAttempt(payload);return;}
+  if(payload.kind==='teacher_clinic_revision'){validateTeacherClinic(payload);return;}
+  if(payload.kind==='teacher_clinic_request'){validateClinicRequest(payload);return;}
+  if(payload.kind==='teacher_observation_request'){
+    assertExactKeys(payload,['kind','sourceStudent','requestId','expectedRevisionId','observation','resolution','refusal']);
+    validateSourceKey(payload.sourceStudent);requireText(payload.requestId,'observation request');
+    if(payload.requestId.length>200||payload.sourceStudent.namespace!=='academy_student'||payload.observation.kind!=='teacher_observation')throw Error('invalid_observation_request');
+    if(payload.expectedRevisionId!==null){requireText(payload.expectedRevisionId,'observation predecessor');if(payload.expectedRevisionId.length>200)throw Error('invalid_observation_request');}
+    validateAcademyRecord(payload.observation);
+    if(canonicalJson(payload.sourceStudent)!==canonicalJson(payload.observation.sourceStudent)||!['pending','rejected'].includes(payload.resolution)
+      ||(payload.resolution==='pending'?payload.refusal!==null:typeof payload.refusal!=='string'||!observationTerminalRefusals.includes(payload.refusal)))throw Error('invalid_observation_request');
+    return;
+  }
   if(payload.kind==='teacher_observation'){
     assertExactKeys(payload,['kind','sourceStudent','occurrence','basisRevisionId','reportedAt','text']);
     validateSourceKey(payload.sourceStudent);if(payload.sourceStudent.namespace!=='academy_student')throw Error('source_namespace_conflict');

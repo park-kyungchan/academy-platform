@@ -4,9 +4,13 @@ import {resolve,join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {loadAcademyOperationalContract,validateAcademyOperationalContract,operationalContext,selectOperationalTopic,OPERATIONAL_CONTRACT_PATH} from '../../src/academy/operationalContract';
 import {endpointCli} from '../../harness/endpoints';
+import {catalogLevels} from '../../src/academy/domain';
 const root=resolve(import.meta.dir,'../..');const fixture=()=>JSON.parse(readFileSync(resolve(root,OPERATIONAL_CONTRACT_PATH),'utf8'));
 const dirs:string[]=[];afterEach(()=>{for(const p of dirs.splice(0))rmSync(p,{recursive:true,force:true});});
 describe('operational contract semantic and transport boundaries',()=>{
+ test('the selected product hierarchy matches the real section-capable catalog',()=>{
+  expect(loadAcademyOperationalContract(root).product.contentHierarchy).toEqual(catalogLevels);
+ });
  test('current loader refuses missing and stale policy sources without a browser fallback',()=>{
   const p=mkdtempSync(join(tmpdir(),'dc-operation-missing-'));dirs.push(p);mkdirSync(join(p,'docs'));
   expect(()=>loadAcademyOperationalContract(p)).toThrow();

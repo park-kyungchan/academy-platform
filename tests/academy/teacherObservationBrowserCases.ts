@@ -58,8 +58,9 @@ export async function runTeacherObservationBrowserCases(){
    setText(uncertain?'Invented remounted uncertain draft':'Invented remounted confirmed draft');el('teacher-observation-save').click();await wait(()=>releasePost!==null);
    el('class-list').querySelector<HTMLButtonElement>('[data-record-key="41003"]')!.click();await wait(()=>selected('41003'));
    el('class-list').querySelector<HTMLButtonElement>('[data-record-key="41001"]')!.click();await wait(()=>selected('41001'));
-   releasePost!();await wait(()=>el('teacher-observation-status').textContent!.includes(uncertain?'확인하지 못했습니다':'저장 확인'));
-   if(uncertain){el('teacher-observation-recover').click();await wait(()=>el('teacher-observation-status').textContent!.includes('저장 확인'));}
+   releasePost!();await wait(()=>el('teacher-observation-status').textContent!.includes('저장 확인')||(uncertain&&el('teacher-observation-status').textContent!.includes('확인하지 못했습니다')));
+   // A fresh authenticated scene may already carry the exact committed original before the held acknowledgement arrives.
+   if(uncertain&&!el('teacher-observation-status').textContent!.includes('저장 확인')){el('teacher-observation-recover').click();await wait(()=>el('teacher-observation-status').textContent!.includes('저장 확인'));}
    record(uncertain?'remounted_lost_acknowledgement_recovers_original':'remounted_pending_confirmation_updates_active_editor',!el<HTMLTextAreaElement>('teacher-observation-text').readOnly&&!el<HTMLButtonElement>('teacher-observation-save').disabled&&el<HTMLTextAreaElement>('teacher-observation-text').value===inputs.at(-1)!.text,{posts:inputs.length,recoveredWithoutRetry:uncertain});
   }
   const maximal='가'.repeat(16000);setText(maximal);el('teacher-observation-save').click();await wait(()=>el('teacher-observation-status').textContent!.includes('저장 확인'));

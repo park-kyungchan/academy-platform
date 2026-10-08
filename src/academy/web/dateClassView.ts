@@ -1,7 +1,6 @@
-import type { TeacherApplication } from '../application';
-export type DateClassPreparation = Awaited<ReturnType<TeacherApplication['classPreparation']>>;
-export type DateClassRow = DateClassPreparation['rows'][number];
-export function occurrenceIdentity(row:DateClassRow){return JSON.stringify([row.studentId,row.occurrence.date,row.occurrence.groupId,row.occurrence.courseKey,row.occurrence.recordKey,row.occurrence.membershipKey]);}
+import type {DateClassPreparation,DateClassRow} from '../contracts/teacherOperations';
+export type {DateClassPreparation,DateClassRow} from '../contracts/teacherOperations';
+export function occurrenceIdentity(row:Pick<DateClassRow,'studentId'|'occurrence'>){return JSON.stringify([row.studentId,row.occurrence.date,row.occurrence.groupId,row.occurrence.courseKey,row.occurrence.recordKey,row.occurrence.membershipKey]);}
 export function dateClassView(source: DateClassPreparation, requestedDate: string, students: readonly { id: string; displayName: string }[]) {
   if(source.kind!=='date_class_preparation'||source.date!==requestedDate)throw Error('date_scene_scope_conflict');
   if(source.rowCount!==source.rows.length)throw Error('date_scene_count_conflict');

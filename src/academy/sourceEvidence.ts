@@ -2,7 +2,7 @@ import { createAcademySourceAudit } from '../lms/academySourceAudit';
 import { readInputRecord, readLiteralKey, readLiteralName } from '../lms/academyReadProtocol';
 import { stableId, requireText } from '../learning/model';
 import { validateAcademyRecord, type SourceAuditRecord, type SourceBookRegistration } from './records';
-import type { StoredStudent } from './postgresStore';
+import type { StoredStudent } from './contracts/storageRecords';
 
 export interface PlannedSourceEvidence {
   readonly studentId:string;

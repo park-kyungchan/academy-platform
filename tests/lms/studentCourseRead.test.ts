@@ -13,6 +13,12 @@ test('binds a course row through three independent passive literal tuples withou
   expect(bound.handlersInvoked).toBe(false);
 });
 
+test('the observed started-row variant binds status/delete without inventing a missing reset control',()=>{
+ const started={cells:['Invented grade','Invented Teacher','Invented Student','Invented course','Invented version','시작됨','Controls'],handlers:['onChangeStatus(0,5101,9101,6101,7101);','onDeleteCourse(5101,9101,6101,7101);']};
+ expect(bindStudentCourseRow(started,request()).identity).toEqual({sourceNamespace:'academy_student_course',studentKey:'9101',collegeKey:'5101',courseKey:'6101',userCourseKey:'7101'});
+ for(const bad of [{...started,cells:started.cells.map((cell,index)=>index===5?'진행중':cell)},{...started,cells:started.cells.map((cell,index)=>index===1?'Foreign Teacher':cell)},{...started,handlers:['onChangeStatus(1,5101,9101,6101,7101);',started.handlers[1]!]},{...started,handlers:[started.handlers[0]!,'onDeleteCourse(5101,9101,6101,7102);']}])expect(()=>bindStudentCourseRow(bad,request())).toThrow();
+});
+
 test('rejects foreign students, mismatched tuple identities and executable handler tails',()=>{
   for(const bad of [
     {...row(),handlers:['onChangeStatus(1,5101,9102,6101,7101);',...row().handlers.slice(1)]},

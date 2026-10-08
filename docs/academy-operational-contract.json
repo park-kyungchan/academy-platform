@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "kind": "academy_operational_contract",
-  "revision": "2026-10-06-r1",
-  "asOf": "2026-10-06",
+  "revision": "2026-10-07-r1",
+  "asOf": "2026-10-07",
   "claimClass": "USER_APPROVED_LOCAL",
   "roles": {
     "academyOwner": "dc-gang-a-dev",
@@ -50,7 +50,7 @@
   "product": {
     "primaryTeacherSurface": "owned_teacher_web_application",
     "classroomOutcome": {"unitOfPreparation": "selected_date_all_scheduled_occurrences", "nextDecision": "selected_student_source_grounded_teacher_judgment", "coverage": "all_current_students_and_future_growth", "waitingTimeThreshold": "not_invented"},
-    "contentHierarchy": ["book_edition", "major_unit", "middle_unit", "minor_unit", "printed_page", "problem"],
+    "contentHierarchy": ["book_edition", "major_unit", "middle_unit", "minor_unit", "learning_section", "printed_page", "problem"],
     "humanAgentConsumer": "shared_TeacherApplication_queries_scope_and_validation",
     "mobileReadiness": "deferred_until_backend_contract_and_teacher_site_acceptance",
     "cost": {"preference": "free_tier", "actualCost": "requires_current_resource_verification"},

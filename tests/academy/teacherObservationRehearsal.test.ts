@@ -14,7 +14,8 @@ describe.skipIf(!socket)('synthetic PostgreSQL browser rehearsal',()=>{
    const read=(path:string)=>fetch(endpoint.origin+path);
    const lesson=(await (await read('/api/class?date=2090-01-02')).json()).rows.find((row:{occurrence:{recordKey:string}})=>row.occurrence.recordKey==='41001');
    const input={studentId:lesson.studentId,occurrence:lesson.occurrence,basisRevisionId:lesson.revisionId,expectedRevisionId:null,idempotencyKey:'fixture-rehearsal-original',reportedAt:new Date().toISOString(),text:'Invented browser rehearsal original'};
-   const save=()=>fetch(endpoint.origin+'/api/teacher-observation',{method:'POST',headers:{Origin:endpoint.origin,'Content-Type':'application/json'},body:JSON.stringify(input)});
+   const scene=await (await read('/api/student?id='+encodeURIComponent(lesson.studentId)+'&date=2090-01-02')).json();
+   const save=()=>fetch(endpoint.origin+'/api/teacher-observation',{method:'POST',headers:{Origin:endpoint.origin,'Content-Type':'application/json','X-Teacher-Owner':scene.teacherScope.ownerId,'X-Teacher-Actor':scene.teacherScope.actorId},body:JSON.stringify(input)});
    const first=await save();expect(first.status).toBe(200);const receipt=await first.json();
    expect(receipt.record.payload.text).toBe(input.text);expect(receipt.officialSaved).toBe(false);expect(receipt.parentSent).toBe(false);
    input.expectedRevisionId=receipt.revisionId;input.idempotencyKey='fixture-rehearsal-correction';input.text='Invented browser rehearsal correction';

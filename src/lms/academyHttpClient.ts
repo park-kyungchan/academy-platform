@@ -1,6 +1,6 @@
 import {JSDOM} from 'jsdom';
 import {randomInt} from 'node:crypto';
-import {createAcademyReadPlan,executeAcademyRead,readLiteralKey,readLiteralName,type AcademyReadResult,type ScopedAcademyReadPlan} from './academyReadProtocol';
+import {createAcademyReadPlan,executeAcademyRead,readInputRecord,readLiteralKey,readLiteralName,sourceResponseKey,parseTextbookScopeBinding,type AcademyReadResult,type ScopedAcademyReadPlan} from './academyReadProtocol';
 import {currentDayRecordColumns} from './dayRecordColumnContract';
 import type {SourceDiscoveryRequest} from '../academy/nativeBookSource';
 import {canonicalJson,digest,assertExactKeys} from '../learning/model';
@@ -13,6 +13,10 @@ export const ACADEMY_ORIGIN='https://dc.gang-a.kr' as const;
 export interface AcademyPrincipal {teacherLabel:string;teacherKey:string;collegeKey:string}
 export interface AcademyCredential {username:string;password:string}
 export type SourceTransport=(url:string,init:RequestInit)=>Promise<Response>;
+/** Failure metadata deliberately excludes URL parameters, bodies, headers and session values. */
+export class AcademyHttpFailure extends Error {
+  constructor(readonly httpStatus:number,readonly sourceOperation:string){super('source_http_failed');this.name='AcademyHttpFailure';}
+}
 /** Inert standards DOM: no resources, scripts or event handlers execute. */
 export const sourceDomParser={parseFromString:(text:string,mime:DOMParserSupportedType):Document=>new JSDOM(text,{contentType:mime}).window.document as unknown as Document};
 /** Fresh client-issued session only. No vault/cookie export, persistent jar or automatic login retry. */
@@ -28,7 +32,7 @@ export class AcademyHttpClient {
   }
   get authenticated(){return this.#authenticated;}
   close(){this.#cookies.clear();this.#authenticated=false;}
-  async #request(path:string,init:RequestInit={},followLoginRedirect=false):Promise<Response>{
+  async #request(path:string,init:RequestInit={},followLoginRedirect=false,sourceOperation?:string):Promise<Response>{
     const url=new URL(path,ACADEMY_ORIGIN);
     if(url.origin!==ACADEMY_ORIGIN||url.username||url.password||url.hash)throw Error('fixed_academy_origin_required');
     const headers=new Headers(init.headers);
@@ -54,7 +58,7 @@ export class AcademyHttpClient {
       if(!followLoginRedirect)throw Error('source_redirect_rejected');
       return this.#request(next.href,{method:'GET'},false);
     }
-    if(!response.ok)throw Error('source_http_failed');
+    if(!response.ok)throw new AcademyHttpFailure(response.status,sourceOperation??(url.pathname==='/c_login.jsp'?'login_document':url.pathname==='/servlet/controller.login.LoginServlet'?'login_submission':'owned_source_request'));
     return response;
   }
   async authenticate(credential:AcademyCredential){
@@ -185,6 +189,29 @@ export class AcademyHttpClient {
     if(selected.querySelector('form[name=userForm] [name=pri_no]')?.getAttribute('value')!==this.#principal.teacherKey)throw Error('student_paper_owner_drift');
     return {...inspectAssessmentSearchMetadata(html,input),operation:'UserBySearchTestResult',page:1,sourcePeriod:{from:body.get('sort_date1'),to:body.get('sort_date2')},observedAt:new Date().toISOString(),browserRequests:0,academyWrites:0};
   }
+  async inspectTextbookIndex(input:unknown){
+    const plan=createAcademyReadPlan(input);
+    if(plan.family!=='textbook'||plan.request.teacherLabel!==this.#principal.teacherLabel)throw Error('textbook_index_scope_required');
+    const post=async(path:string,fields:Record<string,string>)=>{
+      const response=await this.#readRequest(plan,path,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams(fields).toString()});
+      const text=await response.text();if(text.length>2000000||/webUserPass|세션이 만료/.test(text))throw Error('textbook_index_source_rejected');return text;
+    };
+    const request=plan.request;
+    const progress=await post('/servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookProgress',{student_name:request.studentName});
+    parseTextbookScopeBinding(progress,request);
+    const data=readInputRecord(JSON.parse(await post('/servlet/controller.common.TestpageSelectExServlet',{
+      p_process:'getWrongAnswerNoteResult',answerNoteResult:JSON.stringify({courseKeyList:[request.courseKey],bookNoList:[request.bookNo],userKeyList:[request.studentKey]}),
+    })));
+    if(data.result!=='ok'||!Array.isArray(data.noteResultList)||data.noteResultList.length>1000)throw Error('wrong_note_contract_rejected');
+    const identities=new Set<string>();
+    const rows=data.noteResultList.map(readInputRecord).map(row=>{
+      if(sourceResponseKey(row.pri_no)!==request.studentKey||row.name!==request.studentName)throw Error('source_subject_conflict');
+      const paperKey=sourceResponseKey(row.p_no),attemptKey=sourceResponseKey(row.testing_no),identity=JSON.stringify([paperKey,attemptKey]);
+      if(identities.has(identity))throw Error('ambiguous_textbook_index');identities.add(identity);
+      return {sourceTitle:readLiteralName(row.testing_name),paperKey,attemptKey,fieldNames:Object.keys(row).sort(),sourceDate:{literal:typeof row.apply_date==='string'?row.apply_date:null,meaning:'source_apply_date_not_exact_grade_time' as const}};
+    });
+    return {schemaVersion:1,sourceOperation:'getWrongAnswerNoteResult' as const,scope:{teacherLabel:request.teacherLabel,studentKey:request.studentKey,studentName:request.studentName,courseKey:request.courseKey,bookNo:request.bookNo},rows,rowCount:rows.length,sourceHandlersInvoked:false as const,generatedPaperMembership:'unqualified' as const,observedAt:new Date().toISOString()};
+  }
   async inspectItemHeader(input:unknown){
     const plan=createAcademyReadPlan(input);
     if(plan.family!=='item_metadata'||plan.request.teacherLabel!==this.#principal.teacherLabel)throw Error('item_header_scope_required');
@@ -247,8 +274,9 @@ export class AcademyHttpClient {
     const plan=createAcademyReadPlan(input);
     if(plan.request.teacherLabel!==this.#principal.teacherLabel)throw Error('teacher_scope_conflict');
     if(!this.#authenticated)throw Error('authentication_required');
-    return executeAcademyRead(plan,{origin:ACADEMY_ORIGIN,authenticatedTeacherVisible:true,authenticationMode:'direct_http_api',principalKey:this.#principal.teacherKey,
+    const result=await executeAcademyRead(plan,{origin:ACADEMY_ORIGIN,authenticatedTeacherVisible:true,authenticationMode:'direct_http_api',principalKey:this.#principal.teacherKey,
       domParser:sourceDomParser,dayRecordColumnContract:currentDayRecordColumns,fetcher:(url,init)=>this.#readRequest(plan,url,init)});
+    if(!this.#authenticated)throw Error('authentication_required');return result;
   }
   async #readRequest(plan:ScopedAcademyReadPlan,path:string,init:RequestInit):Promise<Response>{
     if(!this.#authenticated)throw Error('authentication_required');
@@ -258,6 +286,16 @@ export class AcademyHttpClient {
       &&(op.selectorPlacement==='query'?query:body).getAll(op.selectorKey).length===1
       &&(op.selectorPlacement==='query'?query:body).get(op.selectorKey)===op.selector);
     if(url.origin!==ACADEMY_ORIGIN||!operation||query.getAll(operation.selectorKey).length+body.getAll(operation.selectorKey).length>2)throw Error('reviewed_read_operation_required');
-    return this.#request(path,init);
+    let response:Response;
+    try{response=await this.#request(path,init,false,operation.selector);}catch(error){
+      if(error instanceof AcademyHttpFailure&&[401,403].includes(error.httpStatus)||error instanceof Error&&error.message==='source_redirect_rejected'){this.close();throw Error('authentication_required');}
+      throw error;
+    }
+    // Bound the actual body, then let every family parser consume the same unchanged text.
+    const reader=response.body?.getReader(),chunks:Uint8Array[]=[];let length=0;
+    if(reader)try{for(;;){const part=await reader.read();if(part.done)break;length+=part.value.length;if(length>2000000){await reader.cancel();throw Error('source_response_too_large');}chunks.push(part.value);}}finally{reader.releaseLock();}
+    const text=Buffer.concat(chunks).toString('utf8');
+    if(/webUserPass|세션이 만료|<input\b[^>]*\btype\s*=\s*["']?password\b|<form\b[^>]*\bname\s*=\s*["']?loginForm\b/i.test(text)){this.close();throw Error('authentication_required');}
+    return new Response(text,{status:response.status,headers:response.headers});
   }
 }

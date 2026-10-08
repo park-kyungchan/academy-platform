@@ -35,6 +35,7 @@ export const academyDeterministicReadContract = {
       pipeline: ['StudyCourse fixed GET', 'current principal and college equality', 'exact-student POST search', 'three passive source tuples'],
       grain: 'academy_student_course student/college/course/user-course; literal seven cells remain uninterpreted',
       coverage: 'observed rows, including an explicit empty query; not all assignments/pagination/effective-date proof',
+      identityVariant: 'The observed started row (literal status 시작됨, status flag 0, exact teacher/student cells) has status/delete tuples and no reset control. Both complete identities must agree; other missing-reset variants fail closed. No handler is invoked and the missing control is not synthesized.',
     },
     item_metadata: {
       input: ['family=item_metadata', 'teacherLabel', 'one previously verified literal lectureKey'],

@@ -2,14 +2,12 @@ import { SQL } from 'bun';
 import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PostgresAcademyStore } from './postgresStore';
-import { TeacherApplication } from './application';
 import { createTeacherServerHandler } from './server';
 import { TeacherAuthStore } from './teacherAuthStore';
 import { teacherPage } from './web/page';
-import { SourceRefreshCoordinator } from './refresh';
-import { nativeBookAcquirer } from './nativeConnector';
+import { createTeacherSourceRuntime } from './sourceRuntime';
 
-interface OwnerRuntime { ownerId:string;hostname:string;postgresSocket:string;database:string;teacherLabel:string;teacherSourceKey:string;collegeSourceKey:string;expectedStudentNames:string[] }
+interface OwnerRuntime { ownerId:string;hostname:string;postgresSocket:string;database:string;teacherLabel:string;teacherSourceKey:string;collegeSourceKey:string;expectedStudentNames:string[];sourceUsername?:string }
 
 const home=process.env.HERMES_HOME;
 if(home!=='/opt/data/profiles/dc-gang-a-dev')throw Error('active_profile_required');
@@ -33,13 +31,15 @@ if(existsSync(trialFile)){
   if(trial.origin!=='https://'+config.hostname)throw Error('origin_trial_deployment_scope_conflict');
   originTrialToken=trial.token;
 }
-const app=new TeacherApplication(store,config.ownerId);
-const coordinator=new SourceRefreshCoordinator(store,{ownerId:config.ownerId,teacherLabel:config.teacherLabel,teacherKey:config.teacherSourceKey,collegeKey:config.collegeSourceKey},nativeBookAcquirer);
+const {app,coordinator,connection,close:closeSource}=createTeacherSourceRuntime(store,{ownerId:config.ownerId,teacherLabel:config.teacherLabel,teacherKey:config.teacherSourceKey,collegeKey:config.collegeSourceKey,studentNames:config.expectedStudentNames,username:config.sourceUsername??null});
 const handler=createTeacherServerHandler({app,origin:'https://'+config.hostname,sessionKey:auth.sessionKey,identity:auth.identity,invitationDigest:auth.invitationDigest,page:teacherPage,script,
   currentAuthentication:()=>authStore.readExistingIdentity(),
   passwordRecovery:{claim:async token=>authStore.claimRecovery(token),status:async id=>authStore.recoveryStatus(id),complete:async(id,hash)=>authStore.completeRecovery(id,hash)},
   originTrialToken,
-  refresh:(context,selection)=>coordinator.refresh(context,selection.studentId),
+  refresh:(context,selection)=>coordinator.refresh(context,selection.studentId,selection.requestId,selection.date),
+  refreshResult:(context,requestId)=>coordinator.result(context,requestId),
+  refreshPending:context=>coordinator.pending(context),
+  refreshHistory:(context,cursor)=>coordinator.history(context,cursor),
   consumeInvitation:async()=>{
     authStore.consumeInvitation(auth.invitationDigest!);
   },
@@ -47,5 +47,6 @@ const handler=createTeacherServerHandler({app,origin:'https://'+config.hostname,
     authStore.registerIdentity(identity);
   }});
 const server=Bun.serve({hostname:'127.0.0.1',port:8411,idleTimeout:255,fetch:handler,error:()=>new Response('Operation failed',{status:500,headers:{'Cache-Control':'no-store'}})});
-console.log(JSON.stringify({status:'teacher_application_running',listen:'127.0.0.1:'+server.port,origin:'https://'+config.hostname,authentication:'existing_teacher_login',academyAcquisition:'direct_http_authentication_not_qualified',academyEffect:'read_only',nativeSessionMirror:false}));
-for(const signal of ['SIGTERM','SIGINT'])process.on(signal,async()=>{server.stop();await db.close();process.exit(0);});
+console.log(JSON.stringify({status:'teacher_application_running',listen:'127.0.0.1:'+server.port,origin:'https://'+config.hostname,authentication:'existing_teacher_login',academyAcquisition:connection().acquisition,academyEffect:'read_only',nativeSessionMirror:false}));
+let stopping=false;
+for(const signal of ['SIGTERM','SIGINT'])process.on(signal,async()=>{if(stopping)return;stopping=true;const drained=server.stop();await closeSource();await drained;await db.close();process.exit(0);});

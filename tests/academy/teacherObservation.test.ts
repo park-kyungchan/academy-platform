@@ -22,7 +22,7 @@ test('valid maximal Korean observations cross HTTP byte ingress and oversized bo
   // Transport boundary only; persisted maximal text is exercised by the existing browser/HTTP/PostgreSQL suite.
   const app={ownerId,saveObservation:async(_context:unknown,input:{text:string})=>{calls++;return {retainedCharacters:input.text.length};}} as unknown as TeacherApplication;
   const handler=createTeacherServerHandler({app,origin,sessionKey,identity:{actorId,username:'fixture-only',passwordHash:'not-a-real-credential'},invitationDigest:null,saveIdentity:async()=>{throw Error('not_admitted');}});
-  const body=JSON.stringify({text:'가'.repeat(16000)}),headers={Cookie:'dc_teacher='+signTeacherSession(sessionKey,ownerId,actorId),Origin:origin,'Content-Type':'application/json'};
+  const body=JSON.stringify({text:'가'.repeat(16000)}),headers={Cookie:'dc_teacher='+signTeacherSession(sessionKey,ownerId,actorId),Origin:origin,'Content-Type':'application/json','X-Teacher-Owner':ownerId,'X-Teacher-Actor':actorId};
   const response=await handler(new Request(origin+'/api/teacher-observation',{method:'POST',headers:{...headers,'Content-Length':String(Buffer.byteLength(body))},body}));
   expect(response.status).toBe(200);expect((await response.json()).retainedCharacters).toBe(16000);expect(calls).toBe(1);
   const oversized=' '.repeat(128001);
@@ -69,7 +69,7 @@ describe.skipIf(!socket)('source-bound teacher observation through the actual HT
     const app=new TeacherApplication(store,owner),sessionKey=createAuthSecrets().sessionKey;
     const origin='https://synthetic.example.invalid';
     const handler=createTeacherServerHandler({app,origin,sessionKey,identity:{actorId,username:'fixture-only',passwordHash:'not-a-real-credential'},invitationDigest:null,saveIdentity:async()=>{throw Error('not_admitted');}});
-    const headers={Cookie:'dc_teacher='+signTeacherSession(sessionKey,owner,actorId),Origin:origin,'Content-Type':'application/json'};
+    const headers={Cookie:'dc_teacher='+signTeacherSession(sessionKey,owner,actorId),Origin:origin,'Content-Type':'application/json','X-Teacher-Owner':owner,'X-Teacher-Actor':actorId};
     const post=(value:unknown,requestHeaders:Record<string,string>=headers)=>handler(new Request(origin+'/api/teacher-observation',{method:'POST',headers:requestHeaders,body:JSON.stringify(value)}));
     const request={studentId,occurrence,basisRevisionId:basis.revisionId,expectedRevisionId:null,idempotencyKey:'fixture-note-original',reportedAt:'2025-01-02T01:00:00Z',text:'Invented teacher observation, not an approval.'};
     try{

@@ -1,28 +1,26 @@
 import type { SQL } from 'bun';
 import { assertExactKeys, assertInstant, assertRefs, canonicalJson, digest, requireText, stableId } from '../learning/model';
-import { validateHierarchy, validateSourceKey, type CatalogNode, type SourceKey } from './domain';
+import { traceHierarchy, validateHierarchy, validateSourceKey, type CatalogNode, type SourceKey } from './domain';
 import { createAcademySourceAudit } from '../lms/academySourceAudit';
 import { readInputRecord } from '../lms/academyReadProtocol';
 import { validateAcademyRecord, type AcademyRecord } from './records';
 import {assertPreparationDate} from './preparationHistory';
+import {sameClinicTarget} from './learningWork';
+import {classroomCyclePolicy} from './classroomCyclePolicy';
+import type {NormalizedCohort} from './sourceBridge';
+import {normalizeSourceArea,validateSourceAreaTask,type SourceAreaTask,type SourceAreaReceipt} from './sourceSynchronization';
+import type {StudentRegistration,StoredStudent,AppendCommand,WriteAcknowledgement,RecordVersion} from './contracts/storageRecords';
+import type {SourceRequestReceipt} from './contracts/sourceRequests';
+import type {TeacherStore,TeacherReadStore} from './ports/teacherStore';
+import type {SourceRefreshStore} from './ports/sourceRefreshStore';
+export type {StudentRegistration,StoredStudent,AppendCommand,WriteAcknowledgement,RecordVersion} from './contracts/storageRecords';
+export type {SourceRequestReceipt} from './contracts/sourceRequests';
+const sourceTransaction=Symbol('source_refresh_transaction');
 
-export interface StudentRegistration {
-  readonly ownerId: string; readonly id: string; readonly displayName: string;
-  readonly sourceKey: SourceKey; readonly proofRefs: readonly string[];
-}
-export interface StoredStudent extends StudentRegistration { readonly registeredAt: string }
+
+function sourceRequestId(value:string){if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value))throw Error('source_request_id_required');return 'source-request:'+value;}
 interface StudentRow { id: string; display_name: string; source_namespace: string; source_key: string; proof_refs: string[]; registered_at: Date | string }
-export interface AppendCommand {
-  readonly ownerId: string; readonly studentId: string; readonly entityId: string; readonly actorId: string;
-  readonly idempotencyKey: string; readonly expectedRevisionId: string | null; readonly sourceObservedAt: string; readonly payload: AcademyRecord;
-}
-export interface WriteAcknowledgement { readonly status: 'saved' | 'unchanged' | 'replay'; readonly revisionId: string; readonly sequence: number; readonly recordedAt: string; readonly contentDigest: string; readonly officialSaved: false; readonly parentSent: false }
-export interface RecordVersion {
-  ownerId: string; studentId: string; entityId: string; sequence: number; revisionId: string;
-  previousRevisionId: string | null; previousDigest: string | null; payload: AcademyRecord;
-  contentDigest: string; integrityDigest: string; sourceObservedAt: string; recordedAt: string;
-  actorId: string; idempotencyKey: string; commandDigest: string;
-}
+
 interface VersionRow { owner_id:string;student_id:string;entity_id:string;sequence:bigint|number;revision_id:string;previous_revision_id:string|null;previous_digest:string|null;payload:AcademyRecord;content_digest:string;integrity_digest:string;source_observed_at:Date|string;recorded_at:Date|string;actor_id:string;idempotency_key:string;command_digest:string }
 function versionFrom(row: VersionRow): RecordVersion {
   const value: RecordVersion = { ownerId:row.owner_id,studentId:row.student_id,entityId:row.entity_id,sequence:Number(row.sequence),revisionId:row.revision_id,
@@ -34,8 +32,31 @@ function versionFrom(row: VersionRow): RecordVersion {
   return value;
 }
 /** Trusted provider adapter; caller authentication and operation grants belong to application ingress. */
-export class PostgresAcademyStore {
-  constructor(readonly db: SQL) {}
+export class PostgresAcademyStore implements TeacherStore,SourceRefreshStore {
+  constructor(readonly db: SQL,private readonly transactionScope?:typeof sourceTransaction) {}
+  /** A whole teacher scene observes one PostgreSQL revision horizon and cannot write. */
+  async readSnapshot<T>(read:(store:TeacherReadStore)=>Promise<T>):Promise<T>{
+    if(this.transactionScope)throw Error('nested_teacher_read_snapshot');
+    return this.db.begin(async tx=>{
+      await tx`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`;
+      const scoped=new PostgresAcademyStore(tx as unknown as SQL,sourceTransaction);let active=true;
+      const query=<R>(operation:()=>Promise<R>):Promise<R>=>active?operation():Promise.reject(Error('read_snapshot_closed'));
+      const view:TeacherReadStore={
+        students:(...args)=>query(()=>scoped.students(...args)),
+        current:(...args)=>query(()=>scoped.current(...args)),
+        history:(...args)=>query(()=>scoped.history(...args)),
+        preparationRevisions:(...args)=>query(()=>scoped.preparationRevisions(...args)),
+        catalog:(...args)=>query(()=>scoped.catalog(...args)),
+        pinnedCatalog:(...args)=>query(()=>scoped.pinnedCatalog(...args)),
+        observationRequest:(...args)=>query(()=>scoped.observationRequest(...args)),
+        observationResult:(...args)=>query(()=>scoped.observationResult(...args)),
+        clinicRequest:(...args)=>query(()=>scoped.clinicRequest(...args)),
+        clinicResult:(...args)=>query(()=>scoped.clinicResult(...args)),
+      };
+      try{return await read(Object.freeze(view));}finally{active=false;}
+    }) as Promise<T>;
+  }
+  private transact<T>(operation:(tx:SQL)=>Promise<T>):Promise<T>{return this.transactionScope===sourceTransaction?operation(this.db):this.db.begin(operation) as Promise<T>;}
   /** Startup qualification only; never repairs or migrates a production store. */
   async assertRuntimeReady():Promise<void> {
     const [row]=await this.db`
@@ -144,7 +165,7 @@ export class PostgresAcademyStore {
     if(Date.parse(command.sourceObservedAt)>Date.parse(recordedAt))throw Error('future_source_observation');
     const commandDigest=digest(command);
     const contentDigest=command.payload.kind==='source_audit'?createAcademySourceAudit(command.payload.acquisition).contentDigest:digest(command.payload);
-    const acknowledgement=await this.db.begin(async tx=>{
+    const acknowledgement=await this.transact(async tx=>{
       // Serialize source replacement and source-bound teacher intake in the same student partition.
       await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson(['student-records',command.ownerId,command.studentId])},0))`;
       await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson([command.ownerId,command.actorId,command.idempotencyKey])},0))`;
@@ -153,6 +174,26 @@ export class PostgresAcademyStore {
       const [student]=await tx`SELECT source_key FROM academy.students WHERE owner_id=${command.ownerId} AND id=${command.studentId}`;
       if(!student)throw Error('unknown_student_partition');
       if('sourceStudent' in command.payload&&command.payload.sourceStudent.literalKey!==student.source_key)throw Error('source_student_binding_conflict');
+      if(command.payload.kind==='teacher_observation_request'&&command.payload.resolution==='pending'){
+        const occurrence=canonicalJson(command.payload.observation.occurrence);
+        const pending=await tx`SELECT v.* FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
+          WHERE h.owner_id=${command.ownerId} AND h.student_id=${command.studentId} AND v.actor_id=${command.actorId}
+            AND v.payload->>'kind'='teacher_observation_request' AND v.payload->>'resolution'='pending'
+            AND NOT EXISTS(SELECT 1 FROM academy.command_outcomes o JOIN academy.record_versions committed
+              ON committed.owner_id=o.owner_id AND committed.actor_id=o.actor_id AND committed.revision_id=o.acknowledgement->>'revisionId'
+              WHERE o.owner_id=v.owner_id AND o.actor_id=v.actor_id AND o.idempotency_key=v.payload->>'requestId' AND committed.payload->>'kind'='teacher_observation')`;
+        for(const row of pending){const original=versionFrom(row);if(original.payload.kind==='teacher_observation_request'&&canonicalJson(original.payload.observation.occurrence)===occurrence)throw Error('unresolved_observation_request');}
+      }
+      if(command.payload.kind==='teacher_clinic_request'&&command.payload.resolution==='pending'){
+        const target=command.payload.decision;
+        const pending=await tx`SELECT v.* FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
+          WHERE h.owner_id=${command.ownerId} AND h.student_id=${command.studentId} AND v.actor_id=${command.actorId}
+            AND v.payload->>'kind'='teacher_clinic_request' AND v.payload->>'resolution'='pending'
+            AND NOT EXISTS(SELECT 1 FROM academy.command_outcomes o JOIN academy.record_versions committed
+              ON committed.owner_id=o.owner_id AND committed.actor_id=o.actor_id AND committed.revision_id=o.acknowledgement->>'revisionId'
+              WHERE o.owner_id=v.owner_id AND o.actor_id=v.actor_id AND o.idempotency_key=v.payload->>'requestId' AND committed.payload->>'kind'='teacher_clinic_revision')`;
+        for(const row of pending){const original=versionFrom(row);if(original.payload.kind==='teacher_clinic_request'&&sameClinicTarget(original.payload.decision,target))throw Error('unresolved_clinic_request');}
+      }
       if(command.payload.kind==='teacher_observation'){
         const payload=command.payload;
         if(payload.reportedAt!==command.sourceObservedAt)throw Error('observation_clock_conflict');
@@ -166,12 +207,82 @@ export class PostgresAcademyStore {
           const row=readInputRecord(raw);return row.studentKey===student.source_key&&Object.entries(payload.occurrence).every(([key,value])=>row[key]===value);
         }))throw Error('observation_basis_conflict');
       }
-      if(command.payload.kind==='source_course_inventory'||command.payload.kind==='teacher_activity_revision'||command.payload.kind==='teacher_preparation_assignment'){
+      if(command.payload.kind==='source_course_inventory'||command.payload.kind==='teacher_activity_revision'||command.payload.kind==='teacher_preparation_assignment'||command.payload.kind==='learning_work_assignment'){
         const payload=command.payload;
         const registrations=await tx`SELECT v.payload FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
           WHERE h.owner_id=${command.ownerId} AND h.student_id=${command.studentId} AND v.payload->>'kind'='source_book_registration'`;
         const matches=registrations.filter((r:{payload:AcademyRecord})=>r.payload.kind==='source_book_registration'&&canonicalJson(r.payload.sourceCourse)===canonicalJson(payload.sourceCourse)&&canonicalJson(r.payload.sourceBook)===canonicalJson(payload.sourceBook)&&(!('sourceUserCourse' in payload)||canonicalJson(r.payload.sourceUserCourse)===canonicalJson(payload.sourceUserCourse)));
         if(matches.length!==1)throw Error('preparation_book_binding_conflict');
+      }
+      if(command.payload.kind==='learning_work_assignment'){
+        const payload=command.payload;
+        const [registration]=await tx`SELECT v.* FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
+          WHERE h.owner_id=${command.ownerId} AND h.student_id=${command.studentId} AND v.revision_id=${payload.registrationRevisionId}`;
+        const registered=registration?versionFrom(registration).payload:null;
+        if(registered?.kind!=='source_book_registration'||['sourceCourse','sourceUserCourse','sourceBook'].some(field=>canonicalJson(registered[field as 'sourceCourse'])!==canonicalJson(payload[field as 'sourceCourse'])))throw Error('work_registration_binding_conflict');
+        const assignments=await tx`SELECT * FROM academy.record_versions WHERE owner_id=${command.ownerId} AND student_id=${command.studentId} AND payload->>'kind'='learning_work_assignment'`;
+        for(const row of assignments){
+          const old=versionFrom(row);if(old.payload.kind!=='learning_work_assignment')throw Error('work_binding_conflict');
+          if(old.entityId!==command.entityId&&canonicalJson(old.payload.assignmentKey)===canonicalJson(payload.assignmentKey))throw Error('duplicate_work_identity');
+          if(old.payload.paper.state==='known'&&payload.paper.state==='known'&&canonicalJson(old.payload.paper.value.issuanceKey)===canonicalJson(payload.paper.value.issuanceKey)
+            &&canonicalJson({paper:old.payload.paper.value,items:old.payload.items})!==canonicalJson({paper:payload.paper.value,items:payload.items}))throw Error('paper_issuance_rebound');
+        }
+        if(payload.paper.state==='known'&&payload.paper.value.reissueOf!==null){
+          const predecessor=payload.paper.value.reissueOf;
+          if(!assignments.some((row:VersionRow)=>row.payload.kind==='learning_work_assignment'&&row.payload.paper.state==='known'
+            &&canonicalJson(row.payload.paper.value.issuanceKey)===canonicalJson(predecessor)&&canonicalJson(row.payload.sourceCourse)===canonicalJson(payload.sourceCourse)&&canonicalJson(row.payload.sourceBook)===canonicalJson(payload.sourceBook)))throw Error('paper_reissue_predecessor_missing');
+        }
+        await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson([command.ownerId,'catalog-write'])},0))`;
+        const nodes:CatalogNode[]=[];
+        for(const ref of payload.catalogRefs){
+          const [row]=await tx`SELECT payload,content_digest FROM academy.catalog_versions WHERE owner_id=${command.ownerId} AND node_id=${ref.nodeId} AND revision_id=${ref.revisionId}`;
+          if(!row||digest(row.payload)!==row.content_digest)throw Error('work_catalog_binding_conflict');
+          nodes.push(row.payload);
+        }
+        validateHierarchy(nodes);
+        const index=new Map(nodes.map(node=>[node.id,node]));
+        for(const section of payload.sectionNodeIds){
+          const path=traceHierarchy(nodes,section);
+          if(index.get(section)?.kind!=='learning_section'||path.state!=='known'||canonicalJson(path.path[0]!.sourceKey)!==canonicalJson(payload.sourceBook))throw Error('work_catalog_binding_conflict');
+        }
+        for(const item of payload.items){
+          const path=traceHierarchy(nodes,item.contentNodeId);
+          if(index.get(item.contentNodeId)?.kind!=='problem'||path.state!=='known'||!path.path.some(node=>node.id===item.sectionNodeId))throw Error('work_catalog_binding_conflict');
+          if(canonicalJson(index.get(item.contentNodeId)!.sourceKey)!==canonicalJson(item.itemKey))throw Error('work_source_item_binding_conflict');
+        }
+      }
+      if(command.payload.kind==='learning_work_attempt'){
+        const payload=command.payload;
+        const [row]=await tx`SELECT v.* FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
+          WHERE h.owner_id=${command.ownerId} AND h.student_id=${command.studentId} AND v.revision_id=${payload.assignmentRevisionId}`;
+        const assignment=row?versionFrom(row).payload:null;
+        if(assignment?.kind!=='learning_work_assignment'||assignment.status!=='assigned')throw Error('work_assignment_basis_conflict');
+        if(canonicalJson(payload.paperIssuanceKey)!==canonicalJson(assignment.paper.state==='known'?assignment.paper.value.issuanceKey:null))throw Error('work_paper_binding_conflict');
+        if(payload.itemResults.some(item=>!assignment.items.some(assigned=>assigned.assignedItemId===item.assignedItemId)))throw Error('work_item_binding_conflict');
+        if(payload.occurredAt.state==='known'&&Date.parse(payload.occurredAt.value)>Date.parse(command.sourceObservedAt))throw Error('future_attempt_occurrence');
+        const attempts=await tx`SELECT * FROM academy.record_versions WHERE owner_id=${command.ownerId} AND student_id=${command.studentId} AND payload->>'kind'='learning_work_attempt'`;
+        for(const row of attempts){const previous=versionFrom(row);if(previous.payload.kind==='learning_work_attempt'&&previous.entityId!==command.entityId&&canonicalJson(previous.payload.attemptKey)===canonicalJson(payload.attemptKey))throw Error('duplicate_work_identity');}
+        if(payload.previousAttemptRevisionId!==null){
+          const previous=attempts.find((row:VersionRow)=>row.revision_id===payload.previousAttemptRevisionId);
+          if(!previous||previous.entity_id===command.entityId||previous.payload.kind!=='learning_work_attempt'||previous.payload.assignmentRevisionId!==payload.assignmentRevisionId)throw Error('work_attempt_predecessor_conflict');
+        }
+      }
+      if(command.payload.kind==='teacher_clinic_revision'){
+        const payload=command.payload;
+        // Exact committed outcomes replay above. A retained pending original is not decision authority.
+        if(payload.policyRevision!==classroomCyclePolicy.operationalContextRevision)throw Error('stale_clinic_policy');
+        if(payload.reportedAt!==command.sourceObservedAt)throw Error('clinic_clock_conflict');
+        const [assignmentRow]=await tx`SELECT v.* FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
+          WHERE h.owner_id=${command.ownerId} AND h.student_id=${command.studentId} AND v.revision_id=${payload.assignmentRevisionId}`;
+        const assignment=assignmentRow?versionFrom(assignmentRow).payload:null;
+        if(assignment?.kind!=='learning_work_assignment'||assignment.status!=='assigned'||assignment.effectiveDate>payload.effectiveDate)throw Error('work_assignment_basis_conflict');
+        if(!assignment.items.some(item=>item.assignedItemId===payload.assignedItemId))throw Error('work_item_binding_conflict');
+        const [attemptRow]=await tx`SELECT v.* FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
+          WHERE h.owner_id=${command.ownerId} AND h.student_id=${command.studentId} AND h.entity_id=${payload.attemptEntityId} AND v.revision_id=${payload.attemptRevisionId}`;
+        const attempt=attemptRow?versionFrom(attemptRow).payload:null;
+        if(attempt?.kind!=='learning_work_attempt'||attempt.assignmentRevisionId!==payload.assignmentRevisionId)throw Error('work_attempt_basis_conflict');
+        const entityId='teacher-clinic-'+digest({assignmentRevisionId:payload.assignmentRevisionId,attemptEntityId:payload.attemptEntityId,assignedItemId:payload.assignedItemId});
+        if(command.entityId!==entityId)throw Error('clinic_target_identity_conflict');
       }
       let catalogRevisionId:string|null=null;
       if(command.payload.kind==='source_book_registration'){
@@ -198,6 +309,22 @@ export class PostgresAcademyStore {
       if(command.expectedRevisionId!==(prior?.revisionId??null))throw Error('stale_base');
       if(prior&&(prior.payload.kind!==command.payload.kind||Date.parse(prior.sourceObservedAt)>Date.parse(command.sourceObservedAt)||Date.parse(prior.recordedAt)>Date.parse(recordedAt)))throw Error('invalid_revision_transition');
       if(prior?.payload.kind==='teacher_observation'&&command.payload.kind==='teacher_observation'&&canonicalJson(prior.payload.occurrence)!==canonicalJson(command.payload.occurrence))throw Error('observation_identity_changed');
+      if(prior?.payload.kind==='teacher_observation_request'&&command.payload.kind==='teacher_observation_request'){
+        for(const field of ['sourceStudent','requestId','expectedRevisionId','observation'] as const)if(canonicalJson(prior.payload[field])!==canonicalJson(command.payload[field]))throw Error('observation_original_request_changed');
+        if(prior.payload.resolution!=='pending'||command.payload.resolution!=='rejected')throw Error('invalid_observation_request_transition');
+      }
+      if(prior?.payload.kind==='learning_work_assignment'&&command.payload.kind==='learning_work_assignment'){
+        for(const field of ['sourceStudent','sourceCourse','sourceUserCourse','sourceBook','assignmentKey','activity'] as const)
+          if(canonicalJson(prior.payload[field])!==canonicalJson(command.payload[field]))throw Error('work_identity_changed');
+      }
+      if(prior?.payload.kind==='learning_work_attempt'&&command.payload.kind==='learning_work_attempt'){
+        for(const field of ['sourceStudent','attemptKey','assignmentRevisionId','paperIssuanceKey','previousAttemptRevisionId'] as const)
+          if(canonicalJson(prior.payload[field])!==canonicalJson(command.payload[field]))throw Error('work_identity_changed');
+      }
+      if(prior?.payload.kind==='teacher_clinic_request'&&command.payload.kind==='teacher_clinic_request'){
+        for(const field of ['sourceStudent','requestId','expectedRevisionId','decision'] as const)if(canonicalJson(prior.payload[field])!==canonicalJson(command.payload[field]))throw Error('clinic_original_request_changed');
+        if(prior.payload.resolution!=='pending'||command.payload.resolution!=='rejected')throw Error('invalid_clinic_request_transition');
+      }
       if(prior){
         for(const field of ['sourceStudent','sourceCourse','sourceBook','sourceUserCourse','sourceMinorUnit','activity','scope','teacherKey'] as const){
           const previous=prior.payload as unknown as Record<string,unknown>,next=command.payload as unknown as Record<string,unknown>;
@@ -206,7 +333,7 @@ export class PostgresAcademyStore {
       }
       let result:WriteAcknowledgement;
       // A fresh teacher observation intent needs its own actor/request/predecessor even when text is identical.
-      if(command.payload.kind!=='teacher_observation'&&prior?.contentDigest===contentDigest){
+      if(command.payload.kind!=='teacher_observation'&&command.payload.kind!=='teacher_clinic_revision'&&prior?.contentDigest===contentDigest){
         await tx`UPDATE academy.record_heads SET last_verified_at=${command.sourceObservedAt} WHERE owner_id=${command.ownerId} AND student_id=${command.studentId} AND entity_id=${command.entityId}`;
         result={status:'unchanged',revisionId:prior.revisionId,sequence:prior.sequence,recordedAt:prior.recordedAt,contentDigest,officialSaved:false,parentSent:false};
       }else{
@@ -229,12 +356,32 @@ export class PostgresAcademyStore {
     if(!committed||versionFrom(committed).contentDigest!==acknowledgement.contentDigest)throw Error('committed_outcome_uncertain');
     return acknowledgement;
   }
+  async clinicRequest(ownerId:string,studentId:string,actorId:string,requestId:string):Promise<RecordVersion|null>{
+    const entityId='clinic-request-'+digest({actorId,idempotencyKey:requestId});
+    const rows=await this.db`SELECT v.* FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
+      WHERE h.owner_id=${ownerId} AND h.student_id=${studentId} AND h.entity_id=${entityId} AND v.actor_id=${actorId}`;
+    if(!rows.length)return null;const record=versionFrom(rows[0]);if(record.payload.kind!=='teacher_clinic_request'||record.payload.requestId!==requestId)throw Error('clinic_request_identity_conflict');return record;
+  }
+  async clinicResult(ownerId:string,studentId:string,actorId:string,requestId:string):Promise<RecordVersion|null>{
+    const rows=await this.db`SELECT v.* FROM academy.command_outcomes o JOIN academy.record_versions v
+      ON v.owner_id=o.owner_id AND v.actor_id=o.actor_id AND v.revision_id=o.acknowledgement->>'revisionId'
+        AND v.idempotency_key=o.idempotency_key AND v.command_digest=o.command_digest
+      WHERE o.owner_id=${ownerId} AND o.actor_id=${actorId} AND o.idempotency_key=${requestId} AND v.student_id=${studentId}`;
+    if(rows.length!==1)return null;const record=versionFrom(rows[0]);return record.payload.kind==='teacher_clinic_revision'?record:null;
+  }
   async observationResult(ownerId:string,studentId:string,actorId:string,requestId:string):Promise<RecordVersion|null>{
     const rows=await this.db`SELECT v.* FROM academy.command_outcomes o JOIN academy.record_versions v
       ON v.owner_id=o.owner_id AND v.actor_id=o.actor_id AND v.revision_id=o.acknowledgement->>'revisionId'
+        AND v.idempotency_key=o.idempotency_key AND v.command_digest=o.command_digest
       WHERE o.owner_id=${ownerId} AND o.actor_id=${actorId} AND o.idempotency_key=${requestId} AND v.student_id=${studentId}`;
     if(rows.length!==1)return null;
     const record=versionFrom(rows[0]);return record.payload.kind==='teacher_observation'?record:null;
+  }
+  async observationRequest(ownerId:string,studentId:string,actorId:string,requestId:string):Promise<RecordVersion|null>{
+    const entityId='observation-request-'+digest({actorId,idempotencyKey:requestId});
+    const rows=await this.db`SELECT v.* FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
+      WHERE h.owner_id=${ownerId} AND h.student_id=${studentId} AND h.entity_id=${entityId} AND v.actor_id=${actorId}`;
+    if(!rows.length)return null;const record=versionFrom(rows[0]);if(record.payload.kind!=='teacher_observation_request'||record.payload.requestId!==requestId)throw Error('observation_request_identity_conflict');return record;
   }
   async history(ownerId:string,studentId:string,entityId:string,afterSequence=0,limit=200):Promise<RecordVersion[]> {
     if(!Number.isSafeInteger(afterSequence)||afterSequence<0||!Number.isSafeInteger(limit)||limit<1||limit>1000)throw Error('invalid_history_range');
@@ -248,13 +395,174 @@ export class PostgresAcademyStore {
   async preparationRevisions(ownerId:string,studentId:string,date:string):Promise<RecordVersion[]> {
     requireText(ownerId,'owner');requireText(studentId,'student');assertPreparationDate(date);
     const rows=await this.db`SELECT * FROM academy.record_versions WHERE owner_id=${ownerId} AND student_id=${studentId}
-      AND payload->>'kind' IN ('teacher_activity_revision','teacher_preparation_assignment') AND payload->>'effectiveDate'<=${date}
-      ORDER BY entity_id,sequence`;
+      AND ((payload->>'kind' IN ('teacher_activity_revision','teacher_preparation_assignment') AND payload->>'effectiveDate'<=${date})
+        OR payload->>'kind' IN ('learning_work_assignment','learning_work_attempt','teacher_clinic_revision'))
+      ORDER BY entity_id,sequence LIMIT 10001`;
+    if(rows.length>10000)throw Error('preparation_history_scope_too_large');
     return rows.map((row:VersionRow)=>versionFrom(row));
+  }
+  async pinnedCatalog(ownerId:string,refs:readonly {nodeId:string;revisionId:string}[]){
+    if(refs.length>10000)throw Error('catalog_scope_too_large');
+    const selected=[...new Map(refs.map(ref=>[ref.revisionId,ref])).values()];
+    if(!selected.length)return [];
+    const rows=await this.db`SELECT node_id,revision_id,payload,content_digest FROM academy.catalog_versions WHERE owner_id=${ownerId} AND revision_id IN ${this.db(selected.map(ref=>ref.revisionId))}`;
+    return selected.map(ref=>{const row=rows.find((row:{node_id:string;revision_id:string})=>row.node_id===ref.nodeId&&row.revision_id===ref.revisionId);if(!row||digest(row.payload)!==row.content_digest)throw Error('work_catalog_binding_conflict');return {node:row.payload as CatalogNode,revisionId:row.revision_id as string};});
+  }
+  /** Commit the exact validated acquisition as one unit; never leave a partially replaced source. */
+  async applySourceRefresh(cohort:NormalizedCohort,actorId:string,requestId:string){
+    canonicalJson(cohort);requireText(actorId,'source actor');
+    const key=sourceRequestId(requestId);let callbackFailed=false;
+    try{await this.db.begin(async tx=>{try{
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson([cohort.ownerId,actorId,'source-request'])},0))`;
+      const [row]=await tx`SELECT acknowledgement FROM academy.command_outcomes WHERE owner_id=${cohort.ownerId} AND actor_id=${actorId} AND idempotency_key=${key}`;
+      const intent=row?.acknowledgement as SourceRequestReceipt|undefined;
+      if(!intent||intent.kind!=='source_refresh_request'||intent.requestId!==requestId||intent.ownerId!==cohort.ownerId||intent.actorId!==actorId||intent.status!=='pending'||intent.studentId!==null&&(cohort.students.length!==1||cohort.students[0]!.registration.id!==intent.studentId))throw Error('source_request_binding_conflict');
+      const scoped=new PostgresAcademyStore(tx as unknown as SQL,sourceTransaction);
+      for(const studentId of cohort.students.map(s=>s.registration.id).sort())await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson(['student-records',cohort.ownerId,studentId])},0))`;
+      for(const student of cohort.students){
+        const heads=await scoped.current(cohort.ownerId,student.registration.id);
+        if(heads.some(head=>student.books.some(book=>book.entityId===head.entityId)&&Date.parse(head.lastVerifiedAt)>Date.parse(student.observedAt)))throw Error('stale_source_capture');
+      }
+      // Shared catalog freshness is owner-wide, not the selected student's local clock.
+      // Take the same catalog lock as saveCatalog before observing any competing source head.
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson([cohort.ownerId,'catalog-write'])},0))`;
+      for(const node of cohort.catalog){
+        const clocks=cohort.students.filter(student=>student.books.some(book=>book.payload.catalogNodeId===node.id)).map(student=>Date.parse(student.observedAt));
+        if(clocks.length===0)throw Error('source_catalog_binding_conflict');
+        const [latest]=await tx`SELECT max(h.last_verified_at) AS observed_at FROM academy.record_heads h JOIN academy.record_versions v USING(owner_id,student_id,entity_id,sequence)
+          WHERE h.owner_id=${cohort.ownerId} AND v.payload->>'kind'='source_book_registration' AND v.payload->>'catalogNodeId'=${node.id}`;
+        if(latest?.observed_at&&new Date(latest.observed_at).getTime()>Math.min(...clocks))throw Error('stale_shared_catalog_capture');
+      }
+      for(const node of cohort.catalog)await scoped.saveCatalog(cohort.ownerId,node);
+      const commands:NonNullable<SourceRequestReceipt['commands']>=[];
+      for(const student of cohort.students){
+        const heads=await scoped.current(cohort.ownerId,student.registration.id);
+        for(const book of student.books){
+          const idempotencyKey=requestId+':'+book.entityId;
+          const outcome=await scoped.append({ownerId:cohort.ownerId,studentId:student.registration.id,entityId:book.entityId,actorId,
+            idempotencyKey,expectedRevisionId:heads.find(h=>h.entityId===book.entityId)?.revisionId??null,sourceObservedAt:student.observedAt,payload:book.payload});
+          commands.push({studentId:student.registration.id,entityId:book.entityId,idempotencyKey,outcome});
+        }
+      }
+      const receipt:SourceRequestReceipt={...intent,status:intent.areas?'pending':'observed',captureDigest:cohort.captureDigest,studentCount:cohort.students.length,bookCount:commands.length,
+        changedVersions:commands.filter(c=>c.outcome.status==='saved').length,unchangedVersions:commands.filter(c=>c.outcome.status==='unchanged').length,commands};
+      await tx`UPDATE academy.command_outcomes SET acknowledgement=${canonicalJson(receipt)}::text::jsonb WHERE owner_id=${cohort.ownerId} AND actor_id=${actorId} AND idempotency_key=${key}`;
+    }catch(error){callbackFailed=true;throw error;}});
+    return await this.sourceRequestResult(cohort.ownerId,actorId,requestId);
+    }catch(error){if(callbackFailed)throw error;return {status:'pending' as const,ownerId:cohort.ownerId,actorId,requestId,cacheRetained:true,replacementAcquisitionAllowed:false};}
+  }
+  async admitSourceRequest(ownerId:string,actorId:string,studentId:string|null,requestId:string,sync?:{date:string;tasks:SourceAreaTask[]}){
+    if(sync){assertPreparationDate(sync.date);if(!sync.tasks.length||sync.tasks.length>256||new Set(sync.tasks.map(task=>task.id)).size!==sync.tasks.length)throw Error('invalid_source_area_plan');sync.tasks.forEach(validateSourceAreaTask);}
+    const key=sourceRequestId(requestId),commandDigest=digest({ownerId,actorId,studentId,requestId,...(sync?{date:sync.date}:{})});
+    return this.db.begin(async tx=>{
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson([ownerId,actorId,'source-request'])},0))`;
+      const [existing]=await tx`SELECT command_digest,acknowledgement FROM academy.command_outcomes WHERE owner_id=${ownerId} AND actor_id=${actorId} AND idempotency_key=${key}`;
+      if(existing){if(existing.command_digest!==commandDigest)throw Error('source_request_reuse');return {created:false,receipt:existing.acknowledgement as SourceRequestReceipt};}
+      const [pending]=await tx`SELECT acknowledgement FROM academy.command_outcomes WHERE owner_id=${ownerId} AND actor_id=${actorId} AND acknowledgement->>'kind'='source_refresh_request' AND acknowledgement->>'status'='pending' ORDER BY idempotency_key LIMIT 1`;
+      if(pending)return {created:false,receipt:pending.acknowledgement as SourceRequestReceipt};
+      const receipt:SourceRequestReceipt={schemaVersion:1,kind:'source_refresh_request',ownerId,actorId,requestId,studentId,status:'pending',...(sync?{date:sync.date,areas:sync.tasks.map(task=>({...task,family:task.request.family,status:'pending' as const}))}:{})};
+      await tx`INSERT INTO academy.command_outcomes(owner_id,actor_id,idempotency_key,command_digest,acknowledgement) VALUES(${ownerId},${actorId},${key},${commandDigest},${canonicalJson(receipt)}::text::jsonb)`;
+      return {created:true,receipt};
+    });
+  }
+  async finishSourceRequest(ownerId:string,actorId:string,requestId:string,status:'blocked'|'failed',reason:string){
+    const key=sourceRequestId(requestId);if(!/^[a-z][a-z0-9_]{1,100}$/.test(reason))throw Error('source_reason_required');
+    await this.db.begin(async tx=>{
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson([ownerId,actorId,'source-request'])},0))`;
+      const [row]=await tx`SELECT acknowledgement FROM academy.command_outcomes WHERE owner_id=${ownerId} AND actor_id=${actorId} AND idempotency_key=${key}`;
+      if(!row||row.acknowledgement.kind!=='source_refresh_request'||row.acknowledgement.status!=='pending')throw Error('source_request_transition_conflict');
+      const receipt=row.acknowledgement as SourceRequestReceipt;
+      const areas=receipt.areas?.map(area=>area.status==='pending'?{...area,status:'blocked' as const,reason}:area);
+      await tx`UPDATE academy.command_outcomes SET acknowledgement=${canonicalJson({...receipt,status,reason,...(areas?{areas}:{})})}::text::jsonb WHERE owner_id=${ownerId} AND actor_id=${actorId} AND idempotency_key=${key}`;
+    });
+  }
+  async pendingSourceRequest(ownerId:string,actorId:string){
+    const [row]=await this.db`SELECT acknowledgement FROM academy.command_outcomes WHERE owner_id=${ownerId} AND actor_id=${actorId} AND acknowledgement->>'kind'='source_refresh_request' AND acknowledgement->>'status'='pending' ORDER BY idempotency_key LIMIT 1`;
+    return row?this.sourceRequestResult(ownerId,actorId,row.acknowledgement.requestId):null;
+  }
+  /** Bounded actor-owned discovery, request-key order (never falsely labelled newest-first). */
+  async sourceRequestHistory(ownerId:string,actorId:string,cursor:string|null=null){
+    requireText(ownerId,'source owner');requireText(actorId,'source actor');
+    const after=cursor===null?'':sourceRequestId(cursor);
+    const selected=await this.db`SELECT acknowledgement FROM academy.command_outcomes WHERE owner_id=${ownerId} AND actor_id=${actorId}
+      AND acknowledgement->>'kind'='source_refresh_request' AND idempotency_key>${after} ORDER BY idempotency_key LIMIT 21`;
+    const rows=[];
+    for(const row of selected.slice(0,20))rows.push(await this.sourceRequestResult(ownerId,actorId,row.acknowledgement.requestId));
+    return {schemaVersion:1 as const,kind:'source_refresh_history' as const,ownerId,actorId,order:'request_id_not_event_time' as const,rows,nextCursor:selected.length>20?rows.at(-1)!.requestId:null};
+  }
+  async sourceRequestResult(ownerId:string,actorId:string,requestId:string){
+    const key=sourceRequestId(requestId);
+    const [row]=await this.db`SELECT acknowledgement FROM academy.command_outcomes WHERE owner_id=${ownerId} AND actor_id=${actorId} AND idempotency_key=${key}`;
+    if(!row)return {status:'not_found' as const,ownerId,actorId,requestId,cacheRetained:true,replacementAcquisitionAllowed:false};
+    const receipt=row.acknowledgement as SourceRequestReceipt;
+    if(receipt.kind!=='source_refresh_request'||receipt.ownerId!==ownerId||receipt.actorId!==actorId||receipt.requestId!==requestId)throw Error('source_request_binding_conflict');
+    if(receipt.status==='observed'||receipt.status==='partial'||receipt.commands){
+      if(!Array.isArray(receipt.commands)||receipt.bookCount!==receipt.commands.length)throw Error('source_batch_readback_uncertain');
+      const commands=[...receipt.commands,...(receipt.areas??[]).flatMap(area=>area.commands??[])];
+      for(const command of commands){
+        const [stored]=await this.db`SELECT v.* FROM academy.command_outcomes o JOIN academy.record_versions v ON v.owner_id=o.owner_id AND v.revision_id=o.acknowledgement->>'revisionId' WHERE o.owner_id=${ownerId} AND o.actor_id=${actorId} AND o.idempotency_key=${command.idempotencyKey} AND v.student_id=${command.studentId} AND v.entity_id=${command.entityId}`;
+        if(!stored||versionFrom(stored).revisionId!==command.outcome.revisionId||versionFrom(stored).contentDigest!==command.outcome.contentDigest)throw Error('source_batch_readback_uncertain');
+      }
+    }
+    return {...receipt,cacheRetained:true,academyEffect:'read_only',officialSaved:false,parentSent:false,replacementAcquisitionAllowed:receipt.status!=='pending'};
+  }
+  /** An area's evidence and acknowledgement commit together; other areas and teacher records are untouched. */
+  async applySourceArea(ownerId:string,actorId:string,requestId:string,taskId:string,outcome:{status:'observed';data:unknown}|{status:'blocked'|'failed';reason:string}){
+    const key=sourceRequestId(requestId);let callbackFailed=false;
+    try{
+      await this.db.begin(async tx=>{try{
+        await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson([ownerId,actorId,'source-request'])},0))`;
+        const [row]=await tx`SELECT acknowledgement FROM academy.command_outcomes WHERE owner_id=${ownerId} AND actor_id=${actorId} AND idempotency_key=${key}`;
+        const receipt=row?.acknowledgement as SourceRequestReceipt|undefined,area=receipt?.areas?.find(task=>task.id===taskId);
+        if(!receipt||receipt.status!=='pending'||!area||area.status!=='pending'||!receipt.commands)throw Error('source_area_transition_conflict');
+        const scoped=new PostgresAcademyStore(tx as unknown as SQL,sourceTransaction);
+        let next:SourceAreaReceipt;
+        if(outcome.status==='observed'){
+          const {id,studentId,teacherKey,collegeKey,request}=area;
+          await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson(['student-records',ownerId,studentId])},0))`;
+          const heads=await scoped.current(ownerId,studentId),commands:NonNullable<SourceAreaReceipt['commands']>=[];
+          const normalized=normalizeSourceArea(ownerId,{id,studentId,teacherKey,collegeKey,request},await scoped.students(ownerId),outcome.data,heads);
+          // The student lock also serializes scope clocks across actors and changing source row identities.
+          const [newer]=await tx`SELECT 1 FROM academy.command_outcomes o
+            CROSS JOIN LATERAL jsonb_array_elements(COALESCE(o.acknowledgement->'areas','[]'::jsonb)) a
+            WHERE o.owner_id=${ownerId} AND o.acknowledgement->>'kind'='source_refresh_request'
+              AND a->>'id'=${id} AND a->>'studentId'=${studentId} AND a->>'status'='observed'
+              AND (a->>'observedAt')::timestamptz>${normalized.observedAt}::timestamptz LIMIT 1`;
+          if(newer)throw Error('stale_source_capture');
+          for(const record of normalized.records){
+            if(record.studentId!==studentId)throw Error('source_student_binding_conflict');
+            const before=heads.find(head=>head.entityId===record.entityId);
+            if(before&&Date.parse(before.lastVerifiedAt)>Date.parse(record.sourceObservedAt))throw Error('stale_source_capture');
+            const idempotencyKey=requestId+':'+taskId+':'+record.entityId;
+            const saved=await scoped.append({ownerId,actorId,studentId,entityId:record.entityId,idempotencyKey,expectedRevisionId:before?.revisionId??null,sourceObservedAt:record.sourceObservedAt,payload:record.payload});
+            commands.push({studentId,entityId:record.entityId,idempotencyKey,outcome:saved});
+          }
+          next={...area,status:'observed',transport:normalized.transport,observedAt:normalized.observedAt,captureDigest:normalized.captureDigest,commands};
+        }else{
+          if(!/^[a-z][a-z0-9_]{1,100}$/.test(outcome.reason))throw Error('source_reason_required');
+          next={...area,status:outcome.status,reason:outcome.reason};
+        }
+        const updated={...receipt,areas:receipt.areas!.map(task=>task.id===taskId?next:task)};
+        await tx`UPDATE academy.command_outcomes SET acknowledgement=${canonicalJson(updated)}::text::jsonb WHERE owner_id=${ownerId} AND actor_id=${actorId} AND idempotency_key=${key}`;
+      }catch(error){callbackFailed=true;throw error;}});
+      return {status:'applied' as const,result:await this.sourceRequestResult(ownerId,actorId,requestId)};
+    }catch(error){if(callbackFailed)throw error;return {status:'pending' as const};}
+  }
+  async finishSourceAreas(ownerId:string,actorId:string,requestId:string){
+    const key=sourceRequestId(requestId);
+    await this.db.begin(async tx=>{
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson([ownerId,actorId,'source-request'])},0))`;
+      const [row]=await tx`SELECT acknowledgement FROM academy.command_outcomes WHERE owner_id=${ownerId} AND actor_id=${actorId} AND idempotency_key=${key}`;
+      const receipt=row?.acknowledgement as SourceRequestReceipt|undefined;
+      if(!receipt||receipt.status!=='pending'||!receipt.areas?.length||receipt.areas.some(area=>area.status==='pending'))throw Error('source_area_transition_conflict');
+      const status=receipt.areas.every(area=>area.status==='observed')?'observed':'partial';
+      await tx`UPDATE academy.command_outcomes SET acknowledgement=${canonicalJson({...receipt,status})}::text::jsonb WHERE owner_id=${ownerId} AND actor_id=${actorId} AND idempotency_key=${key}`;
+    });
+    return this.sourceRequestResult(ownerId,actorId,requestId);
   }
   async saveCatalog(ownerId:string,node:CatalogNode):Promise<{revisionId:string;sequence:number;contentDigest:string}> {
     requireText(ownerId,'catalog owner');canonicalJson(node);
-    return this.db.begin(async tx=>{
+    return this.transact(async tx=>{
       await tx`SELECT pg_advisory_xact_lock(hashtextextended(${canonicalJson([ownerId,'catalog-write'])},0))`;
       const rows=await tx`SELECT DISTINCT ON(node_id) node_id,payload,sequence,revision_id,content_digest FROM academy.catalog_versions WHERE owner_id=${ownerId} ORDER BY node_id,sequence DESC`;
       const nodes=rows.map((row:{payload:CatalogNode})=>row.payload).filter((existing:CatalogNode)=>existing.id!==node.id);
