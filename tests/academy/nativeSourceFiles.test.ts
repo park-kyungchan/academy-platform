@@ -1,9 +1,19 @@
-import {expect,test} from 'bun:test';
+import {describe,expect,test} from 'bun:test';
 import {existsSync,renameSync,rmSync,writeFileSync} from 'node:fs';
 import {dirname} from 'node:path';
 import * as direct from '../../src/academy/nativeDirectSource';
 import {openOwnedPrivateJson,readPrivateJsonText} from '../../harness/academy_private_io';
 const input={username:'fixture-user',discover:{teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001',studentNames:['Invented Learner']}};
+const nativeProfile=process.env.HERMES_HOME==='/opt/data/profiles/dc-gang-a-dev';
+test.skipIf(nativeProfile)('outside the actual native profile, both entry points refuse before runner invocation',async()=>{
+ let calls=0;const runner=async()=>{calls++;return {exitCode:0,stdout:''};};
+ await expect(direct.runNativeDirectDiscovery(input,runner)).rejects.toThrow('active_profile_required');
+ await expect(direct.runNativeDirectRead({username:'fixture-user',read:{family:'student_course',teacherLabel:'Invented Teacher',studentKey:'91001',studentName:'Invented Learner'}},runner)).rejects.toThrow('active_profile_required');
+ expect(calls).toBe(0);
+});
+// These use the real profile-owned scratch directory, but only supplied fake runners: never source/auth requests.
+// A portable checkout must not impersonate that profile or create a native home just to make them run.
+describe.skipIf(!nativeProfile)('actual native profile filesystem exchange',()=>{
 test('scoped direct read uses the same protected native exchange and rejects malformed keys before spawn',async()=>{
  expect(typeof direct.runNativeDirectRead).toBe('function');let calls=0;
  const read={family:'student_course' as const,teacherLabel:'Invented Teacher',studentKey:'91001',studentName:'Invented Learner'};
@@ -59,4 +69,5 @@ for(const scenario of ['oversized','failure'] as const)test('owned exchange clea
   return {exitCode:scenario==='failure'?1:0,stdout:JSON.stringify({code:'synthetic_source_failure'})};
  })).rejects.toThrow(scenario==='oversized'?'private_json_input_too_large':'synthetic_source_failure');
  expect(existsSync(directory)).toBe(false);
+});
 });
