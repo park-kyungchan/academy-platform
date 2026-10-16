@@ -33,3 +33,9 @@ The semantic reference is `park-kyungchan/gang-a` at `7b5cf56dd6f19ffe56d180b61c
 Run `bun run harness/private-student-context/validate.ts` against the explicit package directory. For dependency-free inspection only, Node 24 TypeScript stripping can run the same validator; that is not the repository's Bun/native acceptance. Run its focused synthetic test file and inspect every publication path and full diff for credentials, unrelated private information and accidental source disclosure. Hash validation and pattern scanning are safeguards, not proof that all sensitive material is appropriate.
 
 Publish only reviewed explicit paths. Bind validation/review results to exact bytes and later the remote branch SHA. Confirm the PR's actual head and applicable CI. This source-data review is not teacher acceptance or application deployment. Never claim the full repository check passed if only these portable checks ran.
+
+## Bounded second-lesson addendum
+
+The owner requested in `Sentinel_47e3fe5ff48081919a8c69953168bd25` that the two second-lesson students’ post-19:28 context be published together after 21:30 KST on 2026-10-16. The separate `context/private-students/2026-10-16-part2-after-1928/` manifest preserves only the subsequent two user reports and unresolved results. It neither rewrites the earlier package nor authorizes ongoing unrelated publication. Validate this directory explicitly with the same portable validator.
+
+The addendum is a stacked draft PR based on PR32’s review branch, so its diff excludes the earlier 301-file package. PR32 must be reviewed separately. If PR32 is merged, this follow-up needs a separately considered base adjustment; this publication performs no auto-retarget, merge or auto-merge. Original snapshots and runtime state remain untouched.
