@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,rmSync,symlinkSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync,symlinkSync,unlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
@@ -47,4 +47,37 @@ test('known governance authorization is not an auth header; arbitrary auth mater
  replace({authorization:'runtime managed student read scope'});assert.equal(validatePrivateStudentPackage(root).artifactCount,1);
  replace({authorization:{evaluatedAtRuntime:true,allowedScopeRequired:true,explicitAuthorityForEffects:true,documentGrantsPermission:false}});assert.equal(validatePrivateStudentPackage(root).artifactCount,1);
  replace({authorization:'synthetic-unknown-credential'});assert.throws(()=>validatePrivateStudentPackage(root),/credential_authorization_field_rejected/);
+}));
+function replaceWithJsonl(root:string,m:any,body:string,path='today/fixture.jsonl'){
+ unlinkSync(join(root,'today','fixture.json'));
+ writeFileSync(join(root,path),body);
+ m.artifacts[0].path=path;m.artifacts[0].bytes=Buffer.byteLength(body);
+ m.artifacts[0].sha256=createHash('sha256').update(body).digest('hex');
+ writeFileSync(join(root,'manifest.json'),JSON.stringify(m));
+}
+test('multi-line JSONL verifies every record and permits blank CRLF lines',()=>fixture((root,m)=>{
+ replaceWithJsonl(root,m,'{"student":"Invented fixture","status":"unknown"}\r\n  \r\n{"authorization":"runtime managed student read scope"}\r\n');
+ assert.equal(validatePrivateStudentPackage(root).artifactCount,1);
+}));
+test('matching-hash JSONL rejects credential keys in later nested records',()=>{
+ for(const key of ['password','cookie','access_token','session_token'])fixture((root,m)=>{
+  replaceWithJsonl(root,m,JSON.stringify({status:'unknown'})+'\n'+JSON.stringify({events:[{[key]:'invented-test-value'}]})+'\n');
+  assert.throws(()=>validatePrivateStudentPackage(root),/credential_field_rejected/);
+ });
+});
+test('JSONL rejects arbitrary authorization even after allowed governance records',()=>fixture((root,m)=>{
+ replaceWithJsonl(root,m,'{"authorization":"runtime managed student read scope"}\n{"authorization":"invented-invalid-header"}\n');
+ assert.throws(()=>validatePrivateStudentPackage(root),/credential_authorization_field_rejected/);
+}));
+test('JSONL decoded keys and uppercase extension cannot bypass scanning',()=>fixture((root,m)=>{
+ replaceWithJsonl(root,m,'{"status":"unknown"}\n{"pass\\u0077ord":"invented-test-value"}\n','today/fixture.JSONL');
+ assert.throws(()=>validatePrivateStudentPackage(root),/credential_field_rejected/);
+}));
+test('JSONL rejects a malformed nonempty later record without echoing source content',()=>fixture((root,m)=>{
+ replaceWithJsonl(root,m,'{"status":"unknown"}\n\n{"fixture-secret-never-log":\n');
+ assert.throws(()=>validatePrivateStudentPackage(root),(error:Error)=>error.message==='today/fixture.jsonl:jsonl_record_invalid:3'&&!error.message.includes('fixture-secret-never-log'));
+}));
+test('a later valid JSONL record cannot hide an earlier prohibited key',()=>fixture((root,m)=>{
+ replaceWithJsonl(root,m,'{"cookie":"invented-test-value"}\n{"status":"unknown"}\n');
+ assert.throws(()=>validatePrivateStudentPackage(root),/credential_field_rejected/);
 }));

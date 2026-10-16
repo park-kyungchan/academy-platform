@@ -8,6 +8,12 @@ Approval source messages: `Sentinel_57bb695dc14881919c875a9ebba705ca`, `Sentinel
 
 Only the private repository, separate review branch and unmerged PR are authorized. No merge or auto-merge, public mirror, credential export, database overwrite, source record deletion, Space deletion, grading decision, official save, notification or parent-message delivery is performed by this package. Repository privacy and exact destination must be rechecked before publication. Other repository policies are unchanged. This is not standing authorization to publish unrelated future student data.
 
+### Subsequent repository closeout instruction
+
+The current user subsequently instructed the Lead to review, correct and explicitly merge the repositories' outstanding PRs, then prepare clean latest-main checkouts for a new Orchestrator. This supersedes the earlier Git-merge hold for the exact reviewed private PR32/PR33 source changes. It does not authorize production application, Academy writes, student decisions, transmission, public publication or future evidence imports. Original package manifests retain their historical `mergeAllowed:false` declarations and source hashes; those documents do not grant runtime authority. Exact-head independent review, current checks, repository privacy and merge readback remain required. Automatic merge is still prohibited.
+
+JSONL artifacts are parsed one nonempty line at a time. The existing recursive credential-field policy applies to every decoded record, including nested values and escaped keys. Malformed records fail with a line number and without echoing their content. Matching file hashes alone do not establish that an artifact passes these content checks.
+
 ## Ownership and types
 
 `context/private-students/2026-10-16/manifest.json` declares namespace `academy.private-student-context/1.0`, data class `real_student_evidence`, file hashes, provenance kinds and explicit source coverage. Portable schemas and validator live under `harness/private-student-context/`; they must never auto-discover or read `config/`, runtime databases, unrelated `data/`, or browser state.

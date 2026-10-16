@@ -66,7 +66,18 @@ export function validatePrivateStudentPackage(directory:string) {
     const bytes=readFileSync(path);assert(bytes.byteLength===a.bytes,'byte_count_mismatch');
     assert(createHash('sha256').update(bytes).digest('hex')===a.sha256,'hash_mismatch');
     const text=bytes.toString('utf8');
-    try{scan(text);if(a.path.endsWith('.json'))scan(JSON.parse(text));}
+    try{
+      scan(text);
+      if(a.path.toLowerCase().endsWith('.json'))scan(JSON.parse(text));
+      else if(a.path.toLowerCase().endsWith('.jsonl')){
+        for(const [index,line] of text.split(/\r?\n/).entries()){
+          if(!line.trim())continue;
+          let record:unknown;
+          try{record=JSON.parse(line);}catch{throw new Error(`jsonl_record_invalid:${index+1}`);}
+          scan(record);
+        }
+      }
+    }
     catch(error){throw new Error(`${a.path}:${error instanceof Error?error.message:'invalid_artifact'}`);}
     totalBytes+=bytes.byteLength;
   }
