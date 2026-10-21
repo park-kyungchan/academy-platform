@@ -181,8 +181,8 @@
     },
     {
       "path": "views/read-entry.json",
-      "sha256": "5ea8e09b12472decb862d82f9fcf28c457e87f983dcedb10e7decf630ea9e27a",
-      "bytes": 2707,
+      "sha256": "08ed32658cfad67f1a0e1cef4c5cc38e675cffa8a214dce73c7d9c1625c1480f",
+      "bytes": 2766,
       "provenanceKind": "derived_view",
       "sourceReferences": [
         "msg_01a15ebb-23a1-78d0-8214-2e49cce1b477",
