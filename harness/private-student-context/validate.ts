@@ -47,7 +47,10 @@ export function validatePrivateStudentPackage(directory:string) {
   keys(m.publication,['repository','visibility','mergeAllowed','productionMutation','syntheticReplacement','authorizationMessageIds'],'publication');
   assert(m.publication.repository==='park-kyungchan/dc-gang-a'&&m.publication.visibility==='private','private_target_required');
   assert(m.publication.mergeAllowed===false&&m.publication.productionMutation===false&&m.publication.syntheticReplacement===false,'effects_forbidden');
-  assert(Array.isArray(m.publication.authorizationMessageIds)&&m.publication.authorizationMessageIds.length>0&&m.publication.authorizationMessageIds.every(x=>typeof x==='string'&&x.startsWith('Sentinel_')),'authorization_sources_required');
+  // Source-message locators are provenance, not authentication or an effect grant.
+  // Preserve historical Sentinel locators and actual native Codex message UUIDs.
+  const messageRef=(x:unknown)=>typeof x==='string'&&(x.startsWith('Sentinel_')||/^msg_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(x));
+  assert(Array.isArray(m.publication.authorizationMessageIds)&&m.publication.authorizationMessageIds.length>0&&m.publication.authorizationMessageIds.every(messageRef),'authorization_sources_required');
   assert(Array.isArray(m.limitations)&&m.limitations.every(x=>typeof x==='string'&&x.length>0),'limitations_required');
   assert(Array.isArray(m.artifacts)&&m.artifacts.length>0,'artifacts_required');
   const seen=new Set<string>();let totalBytes=0;
