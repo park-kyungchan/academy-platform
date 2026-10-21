@@ -181,12 +181,49 @@
     },
     {
       "path": "views/read-entry.json",
-      "sha256": "08ed32658cfad67f1a0e1cef4c5cc38e675cffa8a214dce73c7d9c1625c1480f",
-      "bytes": 2766,
+      "sha256": "ef7d40040575656c548f927e12c496820ea08f689103eea8e528681b0054aeca",
+      "bytes": 3173,
       "provenanceKind": "derived_view",
       "sourceReferences": [
-        "msg_01a15ebb-23a1-78d0-8214-2e49cce1b477",
-        "archive-sha256:ba48d676cd7593131060b046ca9b4f6829589b2d29139df6c48358b39fff9620"
+        "history/academy-handoff-20261021/01-mapping-rules.md",
+        "history/academy-handoff-20261021/02-book-features-and-workflow.md",
+        "current scoped teacher interview"
+      ],
+      "coverage": "partial"
+    },
+    {
+      "path": "views/mapping-corrections.json",
+      "sha256": "7fb6b6531c2cfa7a3499865c4bf2f26eebdddc4cf4e688b5f6fb324026fef495",
+      "bytes": 1976,
+      "provenanceKind": "derived_view",
+      "sourceReferences": [
+        "history/academy-handoff-20261021/01-mapping-rules.md",
+        "history/academy-handoff-20261021/02-book-features-and-workflow.md",
+        "current scoped teacher interview"
+      ],
+      "coverage": "partial"
+    },
+    {
+      "path": "views/learning-catalog.json",
+      "sha256": "3c8ce8eea11fe97ba80cd484ff84c2a6c944e9c1f82f24ea4f3ef46cf9445e09",
+      "bytes": 323557,
+      "provenanceKind": "derived_view",
+      "sourceReferences": [
+        "history/academy-handoff-20261021/01-mapping-rules.md",
+        "history/academy-handoff-20261021/02-book-features-and-workflow.md",
+        "current scoped teacher interview"
+      ],
+      "coverage": "partial"
+    },
+    {
+      "path": "views/mapping-coverage.json",
+      "sha256": "e359c470bd3ee1af53048067085ed7f5f8d2484850b7ee8fe9c1a44299100c02",
+      "bytes": 9126,
+      "provenanceKind": "derived_view",
+      "sourceReferences": [
+        "history/academy-handoff-20261021/01-mapping-rules.md",
+        "history/academy-handoff-20261021/02-book-features-and-workflow.md",
+        "current scoped teacher interview"
       ],
       "coverage": "partial"
     }
