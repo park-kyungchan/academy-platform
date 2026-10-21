@@ -1,5 +1,13 @@
 # Private student context import, 2026-10-16
 
+## Current October21 handoff and Git closeout
+
+The current user explicitly supplied `academy-handoff-20261021(2).zip` and requested its Academy context, memory and materials be retained in the appropriate existing repository through commit, push, PR review, explicit merge and owned cleanup. This new instruction covers only the private `park-kyungchan/dc-gang-a` destination and the dated `context/private-students/2026-10-21/` package; it does not turn the historical October16 grant into standing publication authority. The actual native user-message locator and text digest are retained in `views/publication-admission.json`. Native `msg_<UUID>` and historical `Sentinel_...` values are provenance locators, never credentials or authenticated permission by themselves.
+
+Start from `context/private-students/2026-10-21/views/read-entry.json`. All twelve extracted originals remain byte-identical to the supplied archive and its manifest. The latest lesson-close sections override only the same students, lessons, editions and activities in older retained snapshots. Series identifiers and grade/term/major/minor unit codes remain separate. Derived review and actual source save/readback evidence have separate artifacts; the original archive's draft-only status remains historically true. Parent sending is still teacher-owned.
+
+The v1.0 manifest retains its inert `mergeAllowed:false` contract: importing a package cannot itself authorize a merge. The separately retrieved current user instruction supplies the Git closeout scope. Current repository privacy, exact-head validation/review, required checks, normal merge readback and preservation of unrelated work still apply. No global model memory, native session database or runtime approval policy is modified by this context publication. The user also clarified that business save admission must be runtime agnostic; an actual current user request may be qualified by its runtime owner, without inventing a Hermes `clarify` result.
+
 This is a reviewed, real-data evidence package, not a synthetic fixture, production database migration, or official DailyRecord save. The owner explicitly approved publishing these student records to the private `park-kyungchan/dc-gang-a` repository after being told that repository readers can see them and that Git history retains them. Subsequent scope includes all student Space records and historically verified Dots evidence. Unknown coverage stays unknown; retrieval does not establish truth or final teacher completion.
 
 ## Authorization and limits

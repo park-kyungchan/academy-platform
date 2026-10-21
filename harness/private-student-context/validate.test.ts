@@ -16,6 +16,20 @@ function fixture(run:(root:string,manifest:any)=>void){
 test('valid explicit package verifies bytes without claiming teacher acceptance',()=>fixture(root=>{
  const result=validatePrivateStudentPackage(root);assert.equal(result.artifactCount,1);assert.match(result.scope,/not_semantic_acceptance/);
 }));
+test('native Codex message locators preserve provenance without granting effects',()=>fixture((root,m)=>{
+ m.publication.authorizationMessageIds=['msg_00000000-0000-4000-8000-000000000001'];
+ writeFileSync(join(root,'manifest.json'),JSON.stringify(m));
+ assert.equal(validatePrivateStudentPackage(root).status,'passed');
+ for(const locator of ['msg_synthetic','msg_00000000-0000-4000-8000-000000000001extra','https://example.invalid/approval',true]){
+  m.publication.authorizationMessageIds=[locator];
+  writeFileSync(join(root,'manifest.json'),JSON.stringify(m));
+  assert.throws(()=>validatePrivateStudentPackage(root),/authorization_sources_required/);
+ }
+ m.publication.authorizationMessageIds=['msg_00000000-0000-4000-8000-000000000001'];
+ m.publication.productionMutation=true;
+ writeFileSync(join(root,'manifest.json'),JSON.stringify(m));
+ assert.throws(()=>validatePrivateStudentPackage(root),/effects_forbidden/);
+}));
 test('public destination and mutation flags fail closed',()=>fixture((root,m)=>{
  for(const change of [{visibility:'public'},{mergeAllowed:true},{productionMutation:true},{syntheticReplacement:true}]){
   writeFileSync(join(root,'manifest.json'),JSON.stringify({...m,publication:{...m.publication,...change}}));assert.throws(()=>validatePrivateStudentPackage(root));
