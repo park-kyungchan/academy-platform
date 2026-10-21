@@ -58,9 +58,16 @@
   "parentFormat": {
     "bullet": "- ",
     "separator": "\n",
-    "toneEvidence": "2026-10-19 same-student DailyRecord hyphen lines only; non-hyphen material ignored as a style exemplar. Prior content is not evidence of current-day work."
+    "toneEvidence": "2026-10-19 same-student DailyRecord hyphen lines only; non-hyphen material ignored as a style exemplar. Prior content is not evidence of current-day work.",
+    "sectionGrouping": "One line per exact student/book edition/unit/activity/deadline; show all selected sections."
   },
   "executionState": "October21 three-student DailyRecords saved and read back; parentSends:0. See today/dailyrecord-save-readback.json. Archive draft status remains its original historical state.",
   "contextCustody": "This is source-owned dated context, not an installed global model memory, context injector or native Work/Task registration.",
-  "mappingRulesLatestSelector": "## 2026-10-21 최종 정정·업무 피드백 적용"
+  "mappingRulesLatestSelector": "## 2026-10-21 최종 정정·업무 피드백 적용",
+  "currentMappingOverlay": [
+    "views/mapping-corrections.json",
+    "views/learning-catalog.json",
+    "views/mapping-coverage.json"
+  ],
+  "mappingAmbiguity": "Always interview; three parts are grade/term/series, four parts are grade/term/major/minor. Never infer series from major."
 }
