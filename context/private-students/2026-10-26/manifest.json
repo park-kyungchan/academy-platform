@@ -11,8 +11,8 @@
   "artifacts": [
     {
       "path": "events/teacher-events.jsonl",
-      "sha256": "a09a70f7b82a9c261b24e25ba1909e2a88d8c3c73a3b3588edfdda4cf6f8fb34",
-      "bytes": 8816,
+      "sha256": "2f5fb3cca40bb011aba8d51d1f889174bd5c3158f0acb80cd524eb5fbf45e75b",
+      "bytes": 9942,
       "provenanceKind": "user_report",
       "coverage": "complete_for_declared_scope"
     },
@@ -25,8 +25,8 @@
     },
     {
       "path": "students/박세은.json",
-      "sha256": "41d7e64d294c253fc636396625b3a852d07650d2ff4e08e0a7f9350fe517ae7b",
-      "bytes": 1819,
+      "sha256": "1edc20c5aeff9911b7ddf060ce8b138857ad4337550f5a0f3ca3ee702f1a4da1",
+      "bytes": 2128,
       "provenanceKind": "derived_view",
       "coverage": "partial"
     },
@@ -39,15 +39,15 @@
     },
     {
       "path": "students/신지우.json",
-      "sha256": "bcde9abb81e1daef20150c6ee5e931825b470005c119d7dea31d8107a85d8164",
-      "bytes": 3131,
+      "sha256": "7fbe1e2484ffd205dfd280743facfb4a7eeff8dea491c2e2e34bab4b2d1641e7",
+      "bytes": 3094,
       "provenanceKind": "derived_view",
       "coverage": "partial"
     },
     {
       "path": "today/dailyrecord-prepared.json",
-      "sha256": "4adac17049211187036967532792caf78ec83f994724be557fe40fb77c8fd794",
-      "bytes": 5094,
+      "sha256": "e635b63205d6ab2b020de9ce4afb6fe7b649c0e5433e09ad8af2ce1a4e05d18c",
+      "bytes": 5301,
       "provenanceKind": "derived_view",
       "coverage": "partial"
     },

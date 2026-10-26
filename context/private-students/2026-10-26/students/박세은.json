@@ -1,23 +1,66 @@
 {
   "schemaVersion": "academy.student-state/1",
-  "student": {"name": "박세은", "nativeId": "1293067", "opaqueId": "stu_c7c07d590b374817a8169633d2b625e7"},
+  "student": {
+    "name": "박세은",
+    "nativeId": "1293067",
+    "opaqueId": "stu_c7c07d590b374817a8169633d2b625e7"
+  },
   "businessDate": "2026-10-26",
-  "derivedFrom": ["events/teacher-events.jsonl#oct26-s1-e03", "events/teacher-events.jsonl#oct26-s1-e05", "events/teacher-events.jsonl#oct26-s1-e12", "events/teacher-events.jsonl#oct26-s1-e13"],
-  "attendance": {"state": "등원 확인", "source": "teacher_report"},
+  "derivedFrom": [
+    "events/teacher-events.jsonl#oct26-s1-e03",
+    "events/teacher-events.jsonl#oct26-s1-e05",
+    "events/teacher-events.jsonl#oct26-s1-e12",
+    "events/teacher-events.jsonl#oct26-s1-e13",
+    "events/teacher-events.jsonl#oct26-s1-e19"
+  ],
+  "attendance": {
+    "state": "등원 확인",
+    "source": "teacher_report"
+  },
   "books": [
     {
       "book": "가우스 초5-2 시리즈1",
       "units": [
-        {"unit": "2-4 여러 가지 분수의 곱셈", "activity": "교재 풀이 p.168~178", "stage": "검사 완료", "grade": "A+"},
-        {"unit": "3-3 선대칭도형과 그 성질", "activity": "개념백지테스트·예습영상 (2026-10-23)", "stage": "완료 기록", "note": "필수예제·유형다지기 수행 여부는 실물 대조 필요, 미수행으로 단정하지 않음"},
-        {"unit": "2단원 분수의 곱셈 대단원총괄평가", "activity": "16문항 오답·p.135·p.138 풀이 (2026-10-23)", "stage": "기록 완료", "note": "채점·수정 단계는 미확인"}
+        {
+          "unit": "2-4 여러 가지 분수의 곱셈",
+          "activity": "교재 풀이 p.168~178",
+          "stage": "검사 완료",
+          "grade": "A+"
+        },
+        {
+          "unit": "3-3 선대칭도형과 그 성질",
+          "activity": "개념백지테스트·예습영상 (2026-10-23)",
+          "stage": "완료 기록",
+          "note": "필수예제·유형다지기 수행 여부는 실물 대조 필요, 미수행으로 단정하지 않음"
+        },
+        {
+          "unit": "2단원 분수의 곱셈 대단원총괄평가",
+          "activity": "16문항 오답·p.135·p.138 풀이 (2026-10-23)",
+          "stage": "기록 완료",
+          "note": "채점·수정 단계는 미확인"
+        }
       ]
     }
   ],
-  "todayLesson": {"progress": "10월 월말평가(3학년) 시행 15:10~16:30. 결과는 학원측이 수요일 이후 전체 평균과 함께 송부.", "habruta": "월말평가로 미실시"},
+  "todayLesson": {
+    "progress": "10월 월말평가(3학년) 시행 15:10~16:30. 결과는 학원측이 수요일 이후 전체 평균과 함께 송부.",
+    "habruta": "월말평가로 미실시"
+  },
   "nextHomework": [
-    {"book": "가우스 초5-2 시리즈1", "scope": "3-3 오답클리닉+유사클리닉", "deadline": "2026-10-30"},
-    {"book": "가우스 초5-2 시리즈1", "scope": "실력쌓기·개념복습·듣기와쓰기 p.179~185", "deadline": "2026-10-30"}
+    {
+      "book": "가우스 초5-2 시리즈1",
+      "scope": "3-3 오답클리닉+유사클리닉",
+      "deadline": "2026-10-30"
+    },
+    {
+      "book": "가우스 초5-2 시리즈1",
+      "scope": "실력쌓기·개념복습·듣기와쓰기 p.179~185",
+      "deadline": "2026-10-30"
+    }
   ],
-  "unknowns": ["이전숙제평가 코드 4의 의미 (코드 매핑 테스트 전)", "3-3 필수예제·유형다지기 수행 여부", "2단원 총괄 채점·수정 완료 여부"]
+  "unknowns": [
+    "3-3 필수예제·유형다지기 수행 여부",
+    "2단원 총괄 채점·수정 완료 여부",
+    "오늘 DT·출결 숫자 코드 (저장 시점 확정)"
+  ]
 }
