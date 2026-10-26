@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "academy.private-student-context/1.0",
+  "dataClass": "real_student_evidence",
+  "asOf": "2026-10-26T17:00:00+09:00",
+  "timezone": "Asia/Seoul",
+  "scope": "2026-10-26 수업1부 (박세은·유지연·신지우)만. 수업2부는 포함하지 않는다.",
+  "publication": {
+    "repository": "park-kyungchan/dc-gang-a",
+    "visibility": "private"
+  },
+  "artifacts": [
+    {
+      "path": "events/teacher-events.jsonl",
+      "sha256": "a09a70f7b82a9c261b24e25ba1909e2a88d8c3c73a3b3588edfdda4cf6f8fb34",
+      "bytes": 8816,
+      "provenanceKind": "user_report",
+      "coverage": "complete_for_declared_scope"
+    },
+    {
+      "path": "sessions/2026-10-26-session1.md",
+      "sha256": "4a934489c57de386e4ee127d8996eeacca9e574d22571c5852f591443b4854df",
+      "bytes": 1409,
+      "provenanceKind": "derived_view",
+      "coverage": "partial"
+    },
+    {
+      "path": "students/박세은.json",
+      "sha256": "41d7e64d294c253fc636396625b3a852d07650d2ff4e08e0a7f9350fe517ae7b",
+      "bytes": 1819,
+      "provenanceKind": "derived_view",
+      "coverage": "partial"
+    },
+    {
+      "path": "students/유지연.json",
+      "sha256": "810e0cca2ab098cc34d89302e87bceed15a7ad9d704515a6e5b4ddd02996a42a",
+      "bytes": 2248,
+      "provenanceKind": "derived_view",
+      "coverage": "partial"
+    },
+    {
+      "path": "students/신지우.json",
+      "sha256": "bcde9abb81e1daef20150c6ee5e931825b470005c119d7dea31d8107a85d8164",
+      "bytes": 3131,
+      "provenanceKind": "derived_view",
+      "coverage": "partial"
+    },
+    {
+      "path": "today/dailyrecord-prepared.json",
+      "sha256": "4adac17049211187036967532792caf78ec83f994724be557fe40fb77c8fd794",
+      "bytes": 5094,
+      "provenanceKind": "derived_view",
+      "coverage": "partial"
+    },
+    {
+      "path": "views/handoff.md",
+      "sha256": "1858a507afa482b410c0401caf7b6677b3ab9d0a5bc1a3fcaa25428559b75fd2",
+      "bytes": 1543,
+      "provenanceKind": "derived_view",
+      "coverage": "partial"
+    }
+  ],
+  "limitations": [
+    "L0 이벤트만 원본이다. students/·views/·today/는 파생물이며 손으로 고치지 않는다.",
+    "DailyRecord 준비분은 저장·전송이 아니며, 저장은 수업 후 교사 최종 지시 때만 한다.",
+    "미확인 항목은 unknown으로 남겼다: 평가코드 매핑, 유지연 마감 2건·등급, 신지우 월말 응시·등급·보강 확정분, 100점 여부."
+  ]
+}

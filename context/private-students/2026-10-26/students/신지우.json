@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "academy.student-state/1",
+  "student": {
+    "name": "신지우",
+    "nativeId": "1293032",
+    "opaqueId": "stu_847fb7409d46466eb7193ba9e1b3a217"
+  },
+  "businessDate": "2026-10-26",
+  "derivedFrom": [
+    "events/teacher-events.jsonl#oct26-s1-e01",
+    "events/teacher-events.jsonl#oct26-s1-e04",
+    "events/teacher-events.jsonl#oct26-s1-e09",
+    "events/teacher-events.jsonl#oct26-s1-e10",
+    "events/teacher-events.jsonl#oct26-s1-e11",
+    "events/teacher-events.jsonl#oct26-s1-e18"
+  ],
+  "attendance": {
+    "state": "14:50 등원",
+    "source": "teacher_report"
+  },
+  "books": [
+    {
+      "book": "가우스 초5-1 2권",
+      "units": [
+        {
+          "unit": "4-1·4-2",
+          "activity": "개념백지·오답/유사클리닉, p.30-31 실력다지기 풀이·채점 입력",
+          "stage": "완료 (10-12 기록)"
+        },
+        {
+          "unit": "4-3 통분 p.34-39 · 4-4 분수의 크기 비교 p.40-51",
+          "activity": "풀이 + 4-1·4-2 필기노트",
+          "stage": "10/17 마감분 전부 완료 판정 (교사)"
+        },
+        {
+          "unit": "4-5 분수와 소수의 크기 비교",
+          "activity": "예습",
+          "stage": "예습까지만 검사 완료. 개념백지→오답/유사→DT 사이클은 월말평가로 미실시"
+        }
+      ]
+    },
+    {
+      "book": "다빈치 약수와배수(1)",
+      "units": [
+        {
+          "unit": "약수와배수(1)",
+          "activity": "실력다지기·올리기",
+          "stage": "검사 완료"
+        }
+      ]
+    }
+  ],
+  "todayLesson": {
+    "progress": "10월 월말평가(4학년) 시행. 가우스 4-5 예습까지 검사, 사이클은 월말평가로 미실시."
+  },
+  "nextHomework": [
+    {
+      "book": "가우스",
+      "scope": "유형다지기 4-1 크기가 같은 분수 알아보기",
+      "deadline": "2026-10-28"
+    },
+    {
+      "book": "가우스",
+      "scope": "필수예제 4-2 분수를 간단하게 나타내기",
+      "deadline": "2026-10-28"
+    },
+    {
+      "book": "가우스",
+      "scope": "실력쌓기 4-2 분수를 간단하게 나타내기",
+      "deadline": "2026-10-28"
+    },
+    {
+      "book": "가우스",
+      "scope": "유형다지기 4-2 분수를 간단하게 나타내기",
+      "deadline": "2026-10-28"
+    },
+    {
+      "book": "가우스",
+      "scope": "필수예제 4-3 통분",
+      "deadline": "2026-10-28"
+    },
+    {
+      "book": "가우스",
+      "scope": "유형다지기 4-3 통분",
+      "deadline": "2026-10-28"
+    },
+    {
+      "book": "가우스",
+      "scope": "필수예제 4-4 분수의 크기 비교",
+      "deadline": "2026-10-28"
+    },
+    {
+      "book": "가우스",
+      "scope": "실력쌓기 4-4 분수의 크기 비교",
+      "deadline": "2026-10-28"
+    }
+  ],
+  "unknowns": [
+    "숙제 12건 중 100점 항목 여부 (조회 실패로 미확인)",
+    "오늘 월말평가 응시 여부·시각·범위",
+    "다빈치 검사분 등급",
+    "10/31(토) 보강 시간·범위·준비물",
+    "숙제 교재 판본 (가우스 권 표기 확정 필요)"
+  ]
+}
