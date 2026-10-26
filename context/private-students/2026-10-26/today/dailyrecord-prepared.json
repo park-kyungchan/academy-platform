@@ -40,10 +40,10 @@
       "fields": {
         "progress": {"status": "ready", "lines": ["- 10월 월말평가(4학년)를 시행했습니다. 결과는 전체 평균과 함께 수요일 이후 안내드리겠습니다.", "- 가우스 4-5 분수와 소수의 크기 비교 예습을 확인했습니다."]},
         "homework": {"status": "ready", "lines": ["- 10월 28일(수)까지 가우스 유형다지기 4-1 크기가 같은 분수 알아보기", "- 10월 28일(수)까지 가우스 필수예제 4-2 분수를 간단하게 나타내기", "- 10월 28일(수)까지 가우스 실력쌓기 4-2 분수를 간단하게 나타내기", "- 10월 28일(수)까지 가우스 유형다지기 4-2 분수를 간단하게 나타내기", "- 10월 28일(수)까지 가우스 필수예제 4-3 통분", "- 10월 28일(수)까지 가우스 유형다지기 4-3 통분", "- 10월 28일(수)까지 가우스 필수예제 4-4 분수의 크기 비교", "- 10월 28일(수)까지 가우스 실력쌓기 4-4 분수의 크기 비교"], "basis": "12건 중 8건 확정(4-4 실력쌓기까지 확대). 교재 판본 표기는 확정 전이라 책 이름만 둠"},
-        "lessonMemo": {"status": "pending_interview", "lines": [], "basis": "10/31 보강 확정분 수령 전"},
+        "lessonMemo": {"status": "ready", "lines": ["- 10월 31일(토) 10:00~12:30 보강 예정입니다.", "- 10월 14일 운동회 결석에 대한 보강입니다."], "basis": "교사 확정: 시간만, 범위·준비물 제외. 사유는 10-21 history(12-신지우.md) 확인"},
         "attendance": {"status": "pending_code", "observed": "14:50 등원", "basis": "출결 코드는 임의로 정하지 않음"},
         "dailyTestAssessment": {"status": "pending_code", "observed": "개념백지→오답/유사→DT 사이클 미실시 (월말평가)", "basis": "미실시를 코드로 단정하지 않음"},
-        "previousHomeworkAssessment": {"status": "pending_interview", "observed": "다빈치 검사 완료, 등급 미수령", "basis": "인터뷰 대기 e16"}
+        "previousHomeworkAssessment": {"status": "pending_code", "observed": "다빈치 검사분 숙제등급 A+ (교사 판정, 문자 등급)", "basis": "숫자 코드로 변환하지 않음"}
       }
     }
   ]

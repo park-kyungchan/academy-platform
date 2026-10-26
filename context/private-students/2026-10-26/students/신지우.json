@@ -12,7 +12,8 @@
     "events/teacher-events.jsonl#oct26-s1-e09",
     "events/teacher-events.jsonl#oct26-s1-e10",
     "events/teacher-events.jsonl#oct26-s1-e11",
-    "events/teacher-events.jsonl#oct26-s1-e18"
+    "events/teacher-events.jsonl#oct26-s1-e18",
+    "events/teacher-events.jsonl#oct26-s1-e20"
   ],
   "attendance": {
     "state": "14:50 등원",
@@ -98,8 +99,6 @@
   "unknowns": [
     "숙제 12건 중 100점 항목 여부 (조회 실패로 미확인)",
     "오늘 월말평가 응시 여부·시각·범위",
-    "다빈치 검사분 등급",
-    "10/31(토) 보강 시간·범위·준비물",
     "숙제 교재 판본 (가우스 권 표기 확정 필요)"
   ]
 }
