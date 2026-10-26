@@ -8,6 +8,8 @@
 - 증거 형식(제안): `{runtime, runtimeSessionId, requestRef, requestTextSha256, currentUserEventRef, issuedAt}`. runtime 어댑터는 자기 세션 저장소에서 이 envelope만 만들고, 내용 판정과 소비는 owner 서비스가 한다.
 - 판정 규칙(제안): (1) requestRef가 실제 사용자 이벤트로 존재하고 텍스트 해시가 일치한다. (2) 저장 시점에 그 지시가 취소·변경되지 않았다(최신 이벤트 대조). (3) action digest 단위로 한 번만 소비한다. (4) 형식이 하나라도 다르면 거부하고 자동 재시도하지 않는다.
 - 수용 기준: 가짜 fixture로 세 runtime envelope를 각각 만들어 owner 판정을 통과·거부하는 테스트가 있다. 실제 학생 저장에는 쓰지 않는다.
+- 검토 반영(2026-10-26, platform-redesign Meta-Controller): (1) envelope에 만료(`expiresAt`)를 둔다. 만료된 envelope는 거부한다. (2) envelope는 `actionDigests`에 묶여 그 action들에만 쓰인다. 다른 action 재사용은 거부한다. (3) 취소·변경 대조는 어댑터 주장이 아니라 owner가 실제 이벤트를 조회한 결과여야 한다. (4) `requestTextSha256` 정규화 명세를 고정한다: 사용자 메시지 텍스트 블록을 순서대로 LF로 잇고, 앞뒤 공백은 그대로 두며, UTF-8로 해시한다. runtime마다 다른 정규화를 쓰면 해시가 달라져 거부된다.
+- 경계 확인: platform-redesign P4 epoch 소스는 봉인 집합이라 건드리지 않는다. 공용 서버 추출은 education-platform 별도 branch 병행 작업으로 두고, platform-redesign 연결은 P5 결정 이후 새 admission 계약 버전 채택 지점에서만 한다.
 
 ## P2. runtime별 도구 노출 불일치
 
