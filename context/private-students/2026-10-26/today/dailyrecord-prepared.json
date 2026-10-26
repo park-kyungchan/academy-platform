@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "academy.dailyrecord-prepared/1",
+  "businessDate": "2026-10-26",
+  "session": "1",
+  "review": {"metaReviewed": true, "reviewerRole": "meta-controller (wQ:p6)", "saveAllowed": false, "saveCondition": "수업 후 교사 최종 지시 때만 저장. 이 파일은 준비분이며 저장·전송이 아니다."},
+  "rulesApplied": [
+    "학부모 문구는 하이픈 줄만 사용하고 내부 판단·승인 표현을 쓰지 않는다 (daily-record-authoring-policy.md).",
+    "같은 학생·책 판본·단원·활동·마감이 같을 때만 한 줄로 묶고, 다르면 줄을 나눈다.",
+    "점수·문항 수로 평가 코드나 출결 코드를 만들지 않는다. 모르는 값은 pending으로 둔다.",
+    "오늘 진도는 월말평가 시행만 적는다 (교사 결정 e12)."
+  ],
+  "students": [
+    {
+      "name": "박세은",
+      "nativeId": "1293067",
+      "fields": {
+        "progress": {"status": "ready", "lines": ["- 10월 월말평가(3학년)를 시행했습니다. 결과는 전체 평균과 함께 수요일 이후 안내드리겠습니다."]},
+        "homework": {"status": "ready", "lines": ["- 10월 30일(금)까지 가우스5-2-1 3-3 선대칭도형과 그 성질 오답클리닉·유사클리닉", "- 10월 30일(금)까지 가우스5-2-1 실력쌓기·개념복습·듣기와쓰기 p.179~185"]},
+        "lessonMemo": {"status": "no_addition", "lines": [], "basis": "교사 결정 e13: 하브루타 결과·학부모 안내 없음"},
+        "attendance": {"status": "pending_code", "observed": "등원 확인", "basis": "출결 코드는 임의로 정하지 않음"},
+        "dailyTestAssessment": {"status": "pending_code", "observed": "월말평가 시행일, DT 별도 시행 여부 미확인", "basis": "코드 매핑 테스트 전"},
+        "previousHomeworkAssessment": {"status": "pending_code", "observed": "오늘 검사분 숙제등급 A+ (교사 판정, 문자 등급)", "basis": "숫자 코드로 변환하지 않음"}
+      }
+    },
+    {
+      "name": "유지연",
+      "nativeId": "1293138",
+      "fields": {
+        "progress": {"status": "ready", "lines": ["- 10월 월말평가(5학년)를 시행했습니다. 결과는 전체 평균과 함께 수요일 이후 안내드리겠습니다."]},
+        "homework": {"status": "ready", "lines": ["- 10월 30일(금)까지 가우스 중1-1 시리즈2 3-6·3-7 오답클리닉", "- 10월 30일(금)까지 가우스 중1-1 시리즈2 3-12 유형다지기 오답클리닉", "- 10월 30일(금)까지 가우스플러스 1-1 2-4 유형23~2-5 유형32 오답 5문항"], "basis": "교사 확정: 마감 둘 다 10월 30일(금), 등급 A+"},
+        "lessonMemo": {"status": "pending_interview", "lines": [], "basis": "부교재는 남기지 않음(e08). 그 외 메모 수령 전"},
+        "attendance": {"status": "pending_code", "observed": "14:55 등원", "basis": "출결 코드는 임의로 정하지 않음"},
+        "dailyTestAssessment": {"status": "pending_code", "observed": "월말평가 시행일", "basis": "코드 매핑 테스트 전"},
+        "previousHomeworkAssessment": {"status": "pending_code", "observed": "오늘 검사분 숙제등급 A+ (교사 판정, 문자 등급)", "basis": "숫자 코드로 변환하지 않음"}
+      }
+    },
+    {
+      "name": "신지우",
+      "nativeId": "1293032",
+      "fields": {
+        "progress": {"status": "ready", "lines": ["- 10월 월말평가(4학년)를 시행했습니다. 결과는 전체 평균과 함께 수요일 이후 안내드리겠습니다.", "- 가우스 4-5 분수와 소수의 크기 비교 예습을 확인했습니다."]},
+        "homework": {"status": "ready", "lines": ["- 10월 28일(수)까지 가우스 유형다지기 4-1 크기가 같은 분수 알아보기", "- 10월 28일(수)까지 가우스 필수예제 4-2 분수를 간단하게 나타내기", "- 10월 28일(수)까지 가우스 실력쌓기 4-2 분수를 간단하게 나타내기", "- 10월 28일(수)까지 가우스 유형다지기 4-2 분수를 간단하게 나타내기", "- 10월 28일(수)까지 가우스 필수예제 4-3 통분", "- 10월 28일(수)까지 가우스 유형다지기 4-3 통분", "- 10월 28일(수)까지 가우스 필수예제 4-4 분수의 크기 비교", "- 10월 28일(수)까지 가우스 실력쌓기 4-4 분수의 크기 비교"], "basis": "12건 중 8건 확정(4-4 실력쌓기까지 확대). 교재 판본 표기는 확정 전이라 책 이름만 둠"},
+        "lessonMemo": {"status": "pending_interview", "lines": [], "basis": "10/31 보강 확정분 수령 전"},
+        "attendance": {"status": "pending_code", "observed": "14:50 등원", "basis": "출결 코드는 임의로 정하지 않음"},
+        "dailyTestAssessment": {"status": "pending_code", "observed": "개념백지→오답/유사→DT 사이클 미실시 (월말평가)", "basis": "미실시를 코드로 단정하지 않음"},
+        "previousHomeworkAssessment": {"status": "pending_interview", "observed": "다빈치 검사 완료, 등급 미수령", "basis": "인터뷰 대기 e16"}
+      }
+    }
+  ]
+}

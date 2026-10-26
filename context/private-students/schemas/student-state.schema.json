@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "academy.student-state/1",
+  "type": "object",
+  "required": ["schemaVersion", "student", "businessDate", "derivedFrom", "attendance", "books", "nextHomework", "unknowns"],
+  "properties": {
+    "schemaVersion": {"const": "academy.student-state/1"},
+    "student": {
+      "type": "object",
+      "required": ["name", "nativeId", "opaqueId"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "nativeId": {"type": "string", "minLength": 1},
+        "opaqueId": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "businessDate": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+    "derivedFrom": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "attendance": {"type": "object"},
+    "books": {"type": "array", "items": {"type": "object"}},
+    "nextHomework": {"type": "array", "items": {"type": "object"}},
+    "unknowns": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}
