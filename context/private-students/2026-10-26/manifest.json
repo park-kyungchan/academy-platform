@@ -46,8 +46,8 @@
     },
     {
       "path": "today/dailyrecord-prepared.json",
-      "sha256": "e635b63205d6ab2b020de9ce4afb6fe7b649c0e5433e09ad8af2ce1a4e05d18c",
-      "bytes": 5301,
+      "sha256": "4e8180aaad69c90a31f3db4b37d9a93bae594bbe79ba04f0b39444b781830130",
+      "bytes": 6134,
       "provenanceKind": "derived_view",
       "coverage": "partial"
     },
@@ -55,6 +55,13 @@
       "path": "views/handoff.md",
       "sha256": "1858a507afa482b410c0401caf7b6677b3ab9d0a5bc1a3fcaa25428559b75fd2",
       "bytes": 1543,
+      "provenanceKind": "derived_view",
+      "coverage": "partial"
+    },
+    {
+      "path": "today/dailyrecord-save-readback.json",
+      "sha256": "d4e1d7f327e95e34604ec5fa09e77c003b3f32364f6ba4baec2af9cd1b310594",
+      "bytes": 4022,
       "provenanceKind": "derived_view",
       "coverage": "partial"
     }
