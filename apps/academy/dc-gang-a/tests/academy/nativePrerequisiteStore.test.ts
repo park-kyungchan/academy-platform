@@ -405,3 +405,11 @@ for(const baseline of [{tables_ready:true,history_triggers:2,accept:true},{table
   expect(queries).toHaveLength(1);expect(queries[0]).not.toMatch(/\b(?:CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|REVOKE|GRANT)\b/i);
  });
 }
+test('W18-STARTUP native composition independently demands all native readiness after compatible base readiness',async()=>{
+ const source=await Bun.file('harness/native_foundations_qualification.ts').text();
+ const composition=source.slice(source.indexOf('const store=new PostgresAcademyStore(ownerDb'),source.indexOf('const probed=new Set',source.indexOf('const store=new PostgresAcademyStore(ownerDb')));
+ expect(composition).toMatch(/await store\.assertRuntimeReady\(\);\s*await assertNativePrerequisitesReady\(ownerDb\);/);
+ const {assertNativePrerequisitesReady}=await import('../../src/academy/nativePrerequisiteStore');
+ const missing=(async()=>[{ready:false}]) as unknown as SQL;
+ await expect(assertNativePrerequisitesReady(missing)).rejects.toThrow('prerequisite_schema_required');
+});
