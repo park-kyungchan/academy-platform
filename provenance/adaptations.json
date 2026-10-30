@@ -106,9 +106,9 @@
     },
     {
       "path": "apps/academy/dc-gang-a/src/academy/nativeConnector.ts",
-      "reason": "Integration candidate reconciles inherited source changes; exact final review and synthetic checks remain required.",
+      "reason": "Integration candidate reconciles inherited source changes; exact final review and synthetic checks remain required.; R07 native source joined with current main c9ccd690 before gen90 class repair qualification",
       "sourceSha256": "c4509e9b9bab0266c1f7f4ec8f301fc124e676e6bd6d20b05a41fbbb9697d94d",
-      "integrationSha256": "2dcb6607a35ea5e8c005fadaedb95da86395417ea9b829c33232b73a0ffd3016",
+      "integrationSha256": "ed146683e2f06abc18e901fd8e4b84770b63ac63973f54f54067c4e91c948e15",
       "localImplementationScopeRefs": [
         "ACADEMY-REPOSITORY-INTEGRATION-20261023"
       ]
@@ -203,9 +203,9 @@
     },
     {
       "path": "apps/academy/dc-gang-a/src/academy/teacherWorkContext.ts",
-      "reason": "Integration candidate reconciles inherited source changes; exact final review and synthetic checks remain required.",
+      "reason": "Integration candidate reconciles inherited source changes; exact final review and synthetic checks remain required.; R07 native source joined with current main c9ccd690 before gen90 class repair qualification",
       "sourceSha256": "e91c53f1c64b29642e1218d0d92a40ffa82eb3511eb12ea95ae33ab990d1ca02",
-      "integrationSha256": "ea3c506162fbe17aba5590a8588d74137b6d4533e643b8341b9a849f05f1f23f",
+      "integrationSha256": "2cb3c14113b1048356f08c41515ed2005266d12581b1c419700b7af2a84b5e38",
       "localImplementationScopeRefs": [
         "ACADEMY-REPOSITORY-INTEGRATION-20261023"
       ]
@@ -567,6 +567,18 @@
       "reason": "R07 native source joined with current main c9ccd690 before gen90 class repair qualification",
       "sourceSha256": "72e1969820c62c867f0d334cb0376516901848b21e82c0e87ea87b185ba44aa3",
       "integrationSha256": "9603c0c5c8d30453bb8f60ecb79b7d0974619fb17807b76d969fc132015f8b9f"
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/academy/teacherAuthStore.ts",
+      "reason": "R07 native source joined with current main c9ccd690 before gen90 class repair qualification; P4 native qualification (platform-redesign gate P4, run e2e-p4-native-20261027-69, gen101)",
+      "sourceSha256": "02c14fbd758a0f9eef5cbba77c631419fa9662ab1094f788a938ad9c4efd8965",
+      "integrationSha256": "cf1b7a6b28e83a592df99b2263a19f9510ccda4b6b4fe3dd56f332717031890e"
+    },
+    {
+      "path": "apps/academy/dc-gang-a/tests/academy/teacherAuthStore.test.ts",
+      "reason": "R07 native source joined with current main c9ccd690 before gen90 class repair qualification",
+      "sourceSha256": "1d129b6185862c2ecddefe84fe876b73449b50cb510a2addcf1b7f655db91f85",
+      "integrationSha256": "63c4c868d054a8c93ec3c349b780eef176fbc648266386ffa30babc8f46e79f7"
     }
   ],
   "mathematicalMeaningChanged": false,
