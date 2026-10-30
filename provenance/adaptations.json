@@ -141,7 +141,7 @@
     {
       "path": "apps/academy/dc-gang-a/src/academy/postgresStore.ts",
       "sourceSha256": "66688bb706c057df85dcae229a34c7952484b369490c845e143c83c775ae7f20",
-      "integrationSha256": "069c92edfe0a4e84879245b40699008ec778d81cbd7e395cda18a3aecfcb1e45",
+      "integrationSha256": "9605f270472d94d460d0ddaaf500469f4ebcd1d78c847aede4297107c4f7a05f",
       "reason": "Integrate authenticated scoped activity, parent drafts, exact71-policy cases and exam drafts through additive workspace tables in the same provider; preserve legacy985 reader rollback; same-provider authenticated concept and retained certification integration with additive rollback-compatible ledger and exact source scopes Integration candidate reconciles inherited branch changes while preserving current October21 wire and policy contracts; final review pending.; R07 native source joined with current main c9ccd690 before gen90 class repair qualification; P4 native qualification (platform-redesign gate P4, run e2e-p4-native-20261027-68, gen100); P4 native qualification (platform-redesign gate P4, run e2e-p4-native-20261027-69, gen101)",
       "taskRef": "ACADEMY-TEACHER-WORKSPACE",
       "localImplementationScopeRefs": [
@@ -376,8 +376,8 @@
     {
       "path": "apps/academy/dc-gang-a/tests/academy/teacherReadSnapshot.test.ts",
       "sourceSha256": "e34ca1f9a327499e8c71e3a9a86a9a7eaf643889968f41df29e4bae5cad3c785",
-      "integrationSha256": "e14d6db543787003c291de2c2e73119b79464220dca7d237758f9013aa107be3",
-      "reason": "Extend existing frozen read-facade allowlist and verify the additive student workspace reader expires with the same read-only snapshot; retain prohibition of driver and mutation access",
+      "integrationSha256": "beeff8064f843d95915c71ad8efd2beb560691b9da8c6fa034c59dbe8f6b0349",
+      "reason": "Extend existing frozen read-facade allowlist and verify the additive student workspace reader expires with the same read-only snapshot; retain prohibition of driver and mutation access; R07 native source joined with current main c9ccd690 before gen90 class repair qualification",
       "taskRef": "ACADEMY-TEACHER-WORKSPACE"
     },
     {
