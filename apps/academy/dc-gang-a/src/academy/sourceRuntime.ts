@@ -8,7 +8,7 @@ export function createTeacherSourceRuntime(store:PostgresAcademyStore,config:Dir
  const source=createNativeDirectBookAcquirer(config,receiver);
  const areas=createNativeDirectReadAcquirer(config,readReceiver);
  const connection=():AcademySourceConnection=>{const base=source.connection();return {...base,acquisition:{...base.acquisition,scope:'registered_books_and_retained_exact_scopes',families:['student_course','day_record','textbook','daily_zero'],lastObservedAtScope:'book_registration'}};};
- const app=new TeacherApplication(store,config.ownerId,connection);
+ const app=new TeacherApplication(store,config.ownerId,connection,undefined,store);
  const coordinator=new SourceRefreshCoordinator(store,config,source.acquire,areas.acquire);
  return {app,coordinator,connection,close:async()=>{await Promise.all([source.close(),areas.close()]);}};
 }

@@ -44,7 +44,7 @@
     {
       "path": "apps/academy/dc-gang-a/src/academy/application.ts",
       "sourceSha256": "80173db42792cf5a1d80c0cbf0ce620792047b6b6523b5c3cc6dfc01be3ec469",
-      "integrationSha256": "20f8a75e264c1dc4626dd095cb9381e58a80815706f44edbdd63af9f2cbec0ce",
+      "integrationSha256": "de6660cc38d951273751333eba8b24e35575b47a2b03760271946ecb598b5b9c",
       "reason": "Integrate authenticated scoped teacher activity review, local parent draft, original71-policy operational cases and source-pinned exam drafts in the existing owner application and PostgreSQL ledger; same-provider authenticated concept and retained certification integration with additive rollback-compatible ledger and exact source scopes Integration candidate reconciles inherited branch changes while preserving current October21 wire and policy contracts; final review pending.; R07 native source joined with current main c9ccd690 before gen90 class repair qualification",
       "taskRef": "ACADEMY-TEACHER-WORKSPACE",
       "localImplementationScopeRefs": [
@@ -376,8 +376,8 @@
     {
       "path": "apps/academy/dc-gang-a/tests/academy/teacherReadSnapshot.test.ts",
       "sourceSha256": "e34ca1f9a327499e8c71e3a9a86a9a7eaf643889968f41df29e4bae5cad3c785",
-      "integrationSha256": "e14d6db543787003c291de2c2e73119b79464220dca7d237758f9013aa107be3",
-      "reason": "Extend existing frozen read-facade allowlist and verify the additive student workspace reader expires with the same read-only snapshot; retain prohibition of driver and mutation access",
+      "integrationSha256": "beeff8064f843d95915c71ad8efd2beb560691b9da8c6fa034c59dbe8f6b0349",
+      "reason": "Extend existing frozen read-facade allowlist and verify the additive student workspace reader expires with the same read-only snapshot; retain prohibition of driver and mutation access; R07 native source joined with current main c9ccd690 before gen90 class repair qualification",
       "taskRef": "ACADEMY-TEACHER-WORKSPACE"
     },
     {
@@ -567,6 +567,12 @@
       "reason": "R07 native source joined with current main c9ccd690 before gen90 class repair qualification",
       "sourceSha256": "72e1969820c62c867f0d334cb0376516901848b21e82c0e87ea87b185ba44aa3",
       "integrationSha256": "9603c0c5c8d30453bb8f60ecb79b7d0974619fb17807b76d969fc132015f8b9f"
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/academy/sourceRuntime.ts",
+      "sourceSha256": "9dd556f92238ffb49a6a8fcdc9adf50606c78bb0884b5d48e5b75040a06a810f",
+      "integrationSha256": "7d3bac5b582315ef5df317958084642c2ada7acc5614b3d65cd4994169614c3a",
+      "reason": "Pass the PostgresAcademyStore explicitly as the typed prerequisite store of TeacherApplication, so the prerequisite facade is composed by the runtime and never inferred from the store shape (finding of the R07 2a review, run 40981073605)."
     }
   ],
   "mathematicalMeaningChanged": false,
