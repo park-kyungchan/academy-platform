@@ -1,6 +1,8 @@
 # Education platform
 
-Use TypeScript/Bun for the integration harness and preserve module runtime contracts. Shared upper semantics use immutable @palantirkc/ontology 0.2.0; domain modules retain their meaning.
+The approved P6–P9 re-foundation moves retained owned implementation to Rust/Cargo across agent-platform, ontology-platform and education-platform. The former TypeScript integration harness and immutable @palantirkc/ontology 0.2.0 bindings describe legacy source compatibility, not current architecture authority. Preserve existing module behavior while maintaining it; do not extend or recreate retired context gates, custom merge receipts, failure ledgers or parallel harnesses. The Academy pilots remain live transition exceptions and migrate last, after the program's explicit acceptance and cutover gates. A necessary pilot fix does not start a general rewrite or activate a new runtime.
+
+On the managed VPS, the current design authority is `/home/palantirkc/operations/rust-replan-p6-p9-20261031/PLAN.md` and `plan/01` through `plan/06`. Use the approved workspace layout at `/home/palantirkc/work/ws-layout-standard/LAYOUT.md` when a work location is missing: new task state belongs under `work/<scope>-<topic>/STATE.md`, with its Git worktrees under `wt/<repo>`. Existing projects/, operations/ and worktrees/ paths are explicit transition locations. These host references do not need to exist in an external clone and are not build dependencies. Planned Rust tools or paths must not be reported as already installed.
 
 Read project.json, architecture/source-map.json and verification/integration.json before substantial work. Source pins and scoped verification do not grant runtime authority, mathematical acceptance or production completion. mathematics-core retains Node/npm as reference; Bun parity is deferred. Its R4 human semantic disposition remains pending and canonical application remains not performed.
 
