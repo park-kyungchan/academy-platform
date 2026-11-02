@@ -24,9 +24,9 @@ for(const c of cases){
   const r=spawnSync(binary,[],{input,encoding:'utf8',cwd:temp,env:{PATH:process.env.PATH,HOME:join(temp,'home'),TMPDIR:temp,TZ:'UTC'},timeout:10000,maxBuffer:4*1024*1024,killSignal:'SIGKILL'});
   const actual={command:[binary],cwd:temp,status:r.status,signal:r.signal,spawnError:r.error?{code:r.error.code,message:r.error.message}:null,stdout:r.stdout??'',stderr:r.stderr??''};
   const comparison=compare(expected[c.id],actual);if(comparison.accepted)report.matched++;
-  if(!/^[A-Za-z0-9_-]+$/.test(c.id))throw Error('s08_case_path_rejected');
-  writeFileSync(join(out,'cases',c.id+'.json'),JSON.stringify({id:c.id,input,actual,comparison},null,2)+'\n',{flag:'wx'});
-  report.comparisons.push({id:c.id,...comparison});
+  const artifact='case-'+report.comparisons.length+'-'+encodeURIComponent(c.id)+'.json';
+  writeFileSync(join(out,'cases',artifact),JSON.stringify({id:c.id,input,actual,comparison},null,2)+'\n',{flag:'wx'});
+  report.comparisons.push({id:c.id,artifact:'cases/'+artifact,...comparison});
 }
 writeFileSync(join(out,'report.json'),JSON.stringify(report,null,2)+'\n',{flag:'wx'});
 console.log(JSON.stringify({mode:report.mode,cases:report.cases,prepared:report.prepared,matched:report.matched,results:out}));
