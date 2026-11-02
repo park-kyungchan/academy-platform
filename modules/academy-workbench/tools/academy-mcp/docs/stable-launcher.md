@@ -19,7 +19,8 @@ lock. Its execution host must already be able to run the owner bridge and its
 existing endpoint transports. Container paths and identities are separate; a
 host path cannot be treated as a container path without a supported transport.
 For the existing Hermes container, the optional systemd socket units in
-`runtime/` spawn this same host launcher per connection. The UID 10000 socket
-is reached through the existing `/opt/data` bind mount; the container relay
+`runtime/` spawn this same host launcher per connection. A UID 10000-owned,
+mode 0700 socket directory is reached through the existing `/opt/data` bind
+mount; the host need not have a passwd entry for the container UID. The relay
 copies stdio bytes only. This adds neither a credential nor an Academy client.
 The existing owner bridge still opens the existing endpoint and account lock.
