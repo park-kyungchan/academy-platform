@@ -1,0 +1,13 @@
+[Unit]
+Description=Academy owner bridge socket for Hermes stdio
+
+[Socket]
+ListenStream=/docker/hermes-agent-2q3y/data/academy-mcp-relay/bridge.sock
+SocketUser=10000
+SocketGroup=10000
+SocketMode=0600
+Accept=yes
+MaxConnections=32
+
+[Install]
+WantedBy=sockets.target
