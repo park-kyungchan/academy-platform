@@ -65,19 +65,23 @@ export class AcademyHttpClient {
     const bytes=await boundedTextbookBody(response,2000000,'catalog');
     return parseCismReport(new TextDecoder().decode(bytes),sourceDomParser.parseFromString,input.date,this.#principal);
   }
-  async applyCismField(input:{teacherLabel:string;date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>){
+  async applyCismField(input:{teacherLabel:string;date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>,recordAcknowledgement?:(value:{contentType:string;raw:Uint8Array;sha256:string})=>Promise<void>){
     const current=await this.readCismReport({teacherLabel:input.teacherLabel,date:input.date}),field=current.fields.find(f=>f.fieldRef===input.fieldRef);
     if(!field||current.wireSha256!==input.wireSha256||field.value!==input.before)throw Error('cism_stale_before');
     if(field.value.trim()&&(field.kind!=='class_mode'||field.value!=='0')&&!(field.kind==='narrative'&&input.completeExistingNarrative===true))throw Error('cism_existing_value_preserved');
     const params=cismWriteParameters(current,field,input.after);if(!await authorize())throw Error('cism_review_required');
     const response=await this.#request(CISM_PATH,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:params.toString()},false,'cism_field_save');
-    const mime=response.headers.get('content-type')??'';if(!/^(application\/json|text\/(html|plain))(;|$)/i.test(mime))throw Error('cism_ack_unqualified');
-    const raw=await boundedTextbookBody(new Response(response.body,{status:response.status,headers:{'Content-Type':'text/html'}}),65536,'catalog');let ack:unknown;
-    try{ack=JSON.parse(new TextDecoder().decode(raw));}catch{throw Error('cism_ack_unqualified');}
-    if(!ack||typeof ack!=='object'||(ack as {result?:unknown}).result!=='OK')throw Error('cism_ack_unqualified');
+    const mime=response.headers.get('content-type')??'';
+    const raw=await boundedTextbookBody(new Response(response.body,{status:response.status,headers:{'Content-Type':'text/html'}}),65536,'catalog'),sha256=createHash('sha256').update(raw).digest('hex');
+    await recordAcknowledgement?.({contentType:mime,raw,sha256});
+    let ack:unknown;try{ack=JSON.parse(new TextDecoder().decode(raw));}catch{}
+    const result=ack&&typeof ack==='object'?(ack as {result?:unknown}).result:undefined;
+    // The native narrative handler only rejects FAIL; it does not require OK.
+    // Never infer persistence from an acknowledgement. Verify the exact source field.
     const readback=await this.readCismReport({teacherLabel:input.teacherLabel,date:input.date});
+    if(result==='FAIL')throw Error('cism_ack_rejected');
     if(readback.fields.find(f=>f.fieldRef===input.fieldRef)?.value!==input.after)throw Error('cism_readback_mismatch');
-    return {status:'persisted' as const,fieldRef:input.fieldRef,report:readback};
+    return {status:'persisted' as const,fieldRef:input.fieldRef,report:readback,acknowledgement:{sha256,byteLength:raw.length,jsonResult:result==='OK'?'OK':result==='FAIL'?'FAIL':ack===undefined?'not_json':'other',persistenceBasis:'exact_native_readback'}};
   }
   async readTextbookCatalog(input:{teacherLabel:string;schoolLevel?:TextbookSchoolLevel}):Promise<TextbookCatalogObservation>{
     if(!input||Object.keys(input).some(k=>!['teacherLabel','schoolLevel'].includes(k))||input.teacherLabel!==this.#principal.teacherLabel)throw Error('textbook_catalog_principal_rejected');
