@@ -507,46 +507,15 @@ fn hold_actions(scope: &Js, field: &Js, b: &[Js], entries: &Js) -> Js {
 fn check_lines(v: &Js) -> bool {
     test(r"^- [^\r\n]+(?:\n- [^\r\n]+)*$", v)
 }
-fn stale(v: &Js, now: &str) -> bool {
-    // Admitted UTC instants are fixed-width before comparison. Chronological
-    // subtraction is done as Gregorian days + milliseconds, never lexicographic age.
-    fn millis(s: &str) -> i64 {
-        let y = s[..4].parse::<i64>().expect("admitted instant");
-        let m = s[5..7].parse::<usize>().expect("admitted instant");
-        let d = s[8..10].parse::<i64>().expect("admitted instant");
-        let leap = |y: i64| y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-        let mut days = 0;
-        for yr in 0..y {
-            days += if leap(yr) { 366 } else { 365 };
-        }
-        let lengths = [
-            31,
-            if leap(y) { 29 } else { 28 },
-            31,
-            30,
-            31,
-            30,
-            31,
-            31,
-            30,
-            31,
-            30,
-            31,
-        ];
-        days += lengths[..m - 1].iter().sum::<i64>() + d - 1;
-        let h = s[11..13].parse::<i64>().expect("hour");
-        let min = s[14..16].parse::<i64>().expect("minute");
-        let sec = s[17..19].parse::<i64>().expect("second");
-        let ms = if s.len() == 24 {
-            s[20..23].parse::<i64>().expect("millisecond")
-        } else {
-            0
-        };
-        (((days * 24 + h) * 60 + min) * 60 + sec) * 1000 + ms
-    }
-    let age = millis(now) - millis(&v.code_units());
-    !(0..=300000).contains(&age)
+// Retain source comparisons: NaN is false for both, unlike negated contains.
+#[allow(clippy::manual_range_contains)]
+fn stale(v: &Js, now: f64) -> bool {
+    crate::instant::epoch_ms(v, crate::instant::Grammar::DailyRecord).is_some_and(|observed| {
+        let age = now - observed as f64;
+        age < 0.0 || age > 300000.0
+    })
 }
+
 fn counts(v: &Js) -> Vec<u64> {
     let s = v.code_units();
     let r = regex(r"([0-9]{1,6})\s*문항");
@@ -698,11 +667,62 @@ fn semantic_fact_blockers(p: &Js, facts: &[&Js], b: &mut Vec<Js>) -> Vec<Js> {
 /// One finite source-equivalent intake/review composition; no durable workflow.
 /// The clock/UUID provider is mandatory and used before constructing hash inputs.
 pub fn review(input: &Js, ports: &TestPorts, events: &mut Vec<Js>) -> Result<Js> {
-    let context = normalize_context(input.get("context"));
+    review_core(input, ports, events, None)
+}
+pub struct ReviewTrace {
+    pub calls: Vec<Js>,
+    pub uuids: Vec<Js>,
+}
+pub fn review_extended(
+    input: &Js,
+    ports: &TestPorts,
+    events: &mut Vec<Js>,
+    trace: &mut ReviewTrace,
+) -> Result<Js> {
+    review_core(input, ports, events, Some(trace))
+}
+fn review_core(
+    input: &Js,
+    ports: &TestPorts,
+    events: &mut Vec<Js>,
+    mut trace: Option<&mut ReviewTrace>,
+) -> Result<Js> {
+    let intake_input = if input.has("intake") {
+        input.get("intake").clone()
+    } else {
+        obj(&[("context", input.get("context").clone())])
+    };
+    let intake_input = if trace.is_some() {
+        crate::schema::validate("dailyRecordIntakeSchema", &intake_input)?
+    } else {
+        intake_input
+    };
+    let context = normalize_context(intake_input.get("context"));
+    let now_epoch = if trace.is_some() {
+        match input.get("ports").get("nowEpochMs") {
+            Js::Num(n) if n.is_finite() => *n,
+            _ => return Err(Fault::admission("explicit_test_ports_required")),
+        }
+    } else {
+        crate::instant::epoch_ms(
+            &ports.now.as_str().into(),
+            crate::instant::Grammar::DailyRecord,
+        )
+        .unwrap_or(0) as f64
+    };
+    let supplied = intake_input.get("suppliedValues").array();
+    let supplied_fields: Vec<_> = supplied.iter().map(|p| p.get("field").clone()).collect();
+    if unique(&supplied_fields).len() != supplied_fields.len() {
+        return Err(Fault::error("duplicate_proposal_field"));
+    }
     let proposals = normalize_proposals(input.get("proposals"));
     let scope = context.get("scope");
     let request = context.get("currentRequestRef");
-    let raw = input.get("observation");
+    let raw = if let Some(first) = input.get("observations").array().first() {
+        first
+    } else {
+        input.get("observation")
+    };
     events.push(obj(&[
         ("event", "recorded_read".into()),
         ("scope", scope.clone()),
@@ -716,7 +736,14 @@ pub fn review(input: &Js, ports: &TestPorts, events: &mut Vec<Js>) -> Result<Js>
     let failure = if observation.absent() {
         None
     } else {
-        qualify(&observation, scope)
+        if trace.is_some() {
+            match crate::schema::validate("dailyRecordObservationSchema", raw) {
+                Err(e) => Some(schema_failure(&e)),
+                Ok(_) => qualify(&observation, scope),
+            }
+        } else {
+            qualify(&observation, scope)
+        }
     };
     let source = if observation.absent() || failure.is_some() {
         Js::Null
@@ -729,7 +756,7 @@ pub fn review(input: &Js, ports: &TestPorts, events: &mut Vec<Js>) -> Result<Js>
         intake_blockers.push(f.get("code").clone());
     } else if !source_available {
         intake_blockers.push("source_read_unavailable".into());
-    } else if stale(source.get("observedAt"), &ports.now) {
+    } else if stale(source.get("observedAt"), now_epoch) {
         intake_blockers.push("stale_source".into());
     }
     let safeguard = !matches!(input.get("safeguard"), Js::Bool(false));
@@ -746,6 +773,8 @@ pub fn review(input: &Js, ports: &TestPorts, events: &mut Vec<Js>) -> Result<Js>
             && !unknown_assessment(field, current.get("value"))
             && (!matches!(field, "attendance" | "progress" | "homework")
                 || !trim(current.get("value").units()).is_empty());
+        let explicit = supplied.iter().find(|p| p.get("field").is(field));
+        let supplied = explicit.is_some_and(|p| proposal_blockers(p, &context).is_empty());
         let facts = context
             .get("facts")
             .array()
@@ -758,7 +787,7 @@ pub fn review(input: &Js, ports: &TestPorts, events: &mut Vec<Js>) -> Result<Js>
                     ("reasonCode", "today_student_specific_memo_required".into()),
                 ]));
             }
-        } else if !existing && (!matches!(field, "progress" | "homework") || !facts) {
+        } else if !existing && !supplied && (!matches!(field, "progress" | "homework") || !facts) {
             interviews.push(obj(&[
                 ("field", field.into()),
                 (
@@ -782,6 +811,8 @@ pub fn review(input: &Js, ports: &TestPorts, events: &mut Vec<Js>) -> Result<Js>
                 "disposition",
                 if existing {
                     "preserve_existing"
+                } else if supplied {
+                    "explicit_user_value"
                 } else if facts && matches!(field, "progress" | "homework") {
                     "user_facts_available"
                 } else {
@@ -801,7 +832,16 @@ pub fn review(input: &Js, ports: &TestPorts, events: &mut Vec<Js>) -> Result<Js>
             ),
         ]));
     }
+    for p in supplied {
+        for b in proposal_blockers(p, &context) {
+            intake_blockers
+                .push(format!("{}:{}", p.get("field").code_units(), b.code_units()).into());
+        }
+    }
     let handle = if source_available && intake_blockers.is_empty() {
+        if let Some(t) = trace.as_deref_mut() {
+            t.uuids.push(ports.uuid.clone().into());
+        }
         format!("dailyrecord-observation:{}", ports.uuid).into()
     } else {
         Js::Null
@@ -869,6 +909,43 @@ pub fn review(input: &Js, ports: &TestPorts, events: &mut Vec<Js>) -> Result<Js>
             ("execution", "not_supported".into()),
         ]),
     );
+    let mut review_input = if input.has("review") {
+        input.get("review").clone()
+    } else {
+        let mut r = obj(&[
+            ("context", input.get("context").clone()),
+            ("proposals", input.get("proposals").clone()),
+        ]);
+        if !handle.absent() {
+            r.set("observationHandle", handle.clone());
+        }
+        r
+    };
+    if let Some(t) = trace.as_deref_mut() {
+        t.calls.push("daily.DailyRecordService.review".into());
+        review_input = crate::schema::validate("dailyRecordReviewSchema", &review_input)?;
+    }
+    let context = if trace.is_some() {
+        normalize_context(review_input.get("context"))
+    } else {
+        context
+    };
+    let proposals = if trace.is_some() {
+        normalize_proposals(review_input.get("proposals"))
+    } else {
+        proposals
+    };
+    let scope = context.get("scope");
+    let request = context.get("currentRequestRef");
+    if trace.is_some()
+        && review_input.has("observationHandle")
+        && (handle.absent()
+            || review_input.get("observationHandle") != &handle
+            || source.get("scope") != scope
+            || intake_input.get("context").get("currentRequestRef") != request)
+    {
+        return Err(Fault::error("exact_backend_observation_handle_required"));
+    }
     if unique(
         &proposals
             .array()
@@ -881,18 +958,26 @@ pub fn review(input: &Js, ports: &TestPorts, events: &mut Vec<Js>) -> Result<Js>
     {
         return Err(Fault::error("duplicate_proposal_field"));
     }
+    let handle = if trace.is_some() {
+        review_input.get("observationHandle").clone()
+    } else {
+        handle
+    };
     let held = !handle.absent();
     let mut global = if held {
         vec![]
     } else {
         vec!["qualified_before_source_unavailable".into()]
     };
+    if trace.is_some() && review_input.has("cismObservationHandle") {
+        global.push("exact_fresh_cism_observation_handle_required".into());
+    }
     for fact in context.get("facts").array() {
         if fact.get("origin").is("cism_section") {
             global.push("cism_fact_not_bound_to_exact_observed_section".into());
         }
     }
-    if held && stale(source.get("observedAt"), &ports.now) {
+    if held && stale(source.get("observedAt"), now_epoch) {
         global.push("stale_source".into());
     }
     let fresh = held && global.is_empty();
@@ -902,6 +987,63 @@ pub fn review(input: &Js, ports: &TestPorts, events: &mut Vec<Js>) -> Result<Js>
             ("scope", scope.clone()),
             ("requestRef", request.clone()),
         ]));
+    }
+    let mut fresh_source = Js::Null;
+    if fresh {
+        let raw = input.get("observations").array().get(1).unwrap_or(raw);
+        if raw.absent() {
+            global.push("source_read_unavailable".into());
+        } else if trace.is_some() {
+            match crate::schema::validate("dailyRecordObservationSchema", raw) {
+                Err(_) => global.push("source_response_malformed".into()),
+                Ok(_) => {
+                    let observed = normalize_observation(raw);
+                    if let Some(failure) = qualify(&observed, scope) {
+                        global.push(failure.get("code").clone());
+                    } else {
+                        if stale(observed.get("observedAt"), now_epoch) {
+                            global.push("stale_source".into());
+                        }
+                        let field_values = |o: &Js| {
+                            Js::Obj(
+                                FIELDS
+                                    .iter()
+                                    .map(|f| {
+                                        (
+                                            text(f),
+                                            ordered(
+                                                o.get("fields").get(f),
+                                                if o.get("fields").get(f).get("state").is("known") {
+                                                    &["state", "value"]
+                                                } else {
+                                                    &["state", "reasonCode"]
+                                                },
+                                            ),
+                                        )
+                                    })
+                                    .collect(),
+                            )
+                        };
+                        if [
+                            "target",
+                            "previousTarget",
+                            "wireDigest",
+                            "sourceRevision",
+                            "transmissionState",
+                        ]
+                        .iter()
+                        .any(|k| observed.get(k) != source.get(k))
+                            || field_values(&observed) != field_values(&source)
+                        {
+                            global.push("source_before_or_contract_drift".into());
+                        }
+                        fresh_source = observed;
+                    }
+                }
+            }
+        } else {
+            fresh_source = source.clone();
+        }
     }
     let mut rows = vec![];
     for p in proposals.array() {
@@ -1120,7 +1262,14 @@ pub fn review(input: &Js, ports: &TestPorts, events: &mut Vec<Js>) -> Result<Js>
         &obj(&[
             ("context", context.clone()),
             ("proposals", proposals),
-            ("cismObservationHandle", Js::Null),
+            (
+                "cismObservationHandle",
+                if trace.is_some() && review_input.has("cismObservationHandle") {
+                    review_input.get("cismObservationHandle").clone()
+                } else {
+                    Js::Null
+                },
+            ),
         ]),
         Family::Admission,
     )?;
@@ -1169,7 +1318,9 @@ pub fn review(input: &Js, ports: &TestPorts, events: &mut Vec<Js>) -> Result<Js>
         ),
         (
             "transmissionState",
-            if held {
+            if !fresh_source.absent() {
+                fresh_source.get("transmissionState").clone()
+            } else if held {
                 source.get("transmissionState").clone()
             } else {
                 "unknown".into()
@@ -1373,4 +1524,18 @@ pub fn fake_http_action(input: &Js, events: &mut Vec<Js>) -> Result<Js> {
         ("parentSends", Js::Num(0.0)),
         ("automaticRetryAllowed", false.into()),
     ]))
+}
+
+fn schema_failure(e: &Fault) -> Js {
+    obj(&[
+        ("category", "malformed_response".into()),
+        ("code", "source_response_malformed".into()),
+        ("evidenceLocator", "academy-mcp:response-contract".into()),
+        ("automaticRetryAllowed", false.into()),
+        ("errorKind", "Error".into()),
+        (
+            "errorSha256",
+            sha(&("ZodError\0".to_owned() + &e.message)).into(),
+        ),
+    ])
 }

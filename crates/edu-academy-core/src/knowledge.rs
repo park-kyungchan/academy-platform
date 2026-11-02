@@ -41,6 +41,13 @@ pub fn weekday(s: &str) -> usize {
         as usize
 }
 pub fn assert_refs(v: &Js) -> Result<()> {
+    if let Js::Sparse(n) = v {
+        if *n > 1 {
+            return Err(Fault::error("duplicate evidence reference"));
+        } else if *n == 1 {
+            return Ok(());
+        }
+    }
     if !matches!(v, Js::Arr(_)) || v.array().is_empty() {
         return Err(Fault::error("known data needs evidence references"));
     }
@@ -59,6 +66,7 @@ pub fn assert_knowledge(v: &Js) -> Result<()> {
             Js::Obj(_)
                 | Js::Arr(_)
                 | Js::NullPrototype(_)
+                | Js::Inherited(_)
                 | Js::Accessor(_)
                 | Js::SymbolKeys(_)
                 | Js::Date(_)
@@ -89,8 +97,8 @@ pub fn known(value: &Js, refs: &Js) -> Result<Js> {
     assert_knowledge(&v)?;
     immutable_copy(&v)
 }
-/// Source JSON clone order and negative-zero conversion. Ownership replaces the
-/// copy boundary; no JS freeze/property-descriptor identity is asserted.
+/// Source JSON clone order and negative-zero conversion. This mutable data helper
+/// feeds FrozenValue for native observers. Existing JS callers keep their TS port.
 pub fn immutable_copy(v: &Js) -> Result<Js> {
     encode(v, Family::Learning, &mut vec![])?;
     fn copy(v: &Js) -> Js {

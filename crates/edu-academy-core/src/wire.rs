@@ -28,6 +28,9 @@ pub enum Node {
     Object {
         entries: Vec<(Text, usize)>,
     },
+    Inherited {
+        entries: Vec<(Text, usize)>,
+    },
     NullPrototype {
         entries: Vec<(Text, usize)>,
     },
@@ -54,48 +57,83 @@ pub enum Node {
 }
 impl Wire {
     pub fn decode(&self) -> std::result::Result<Js, &'static str> {
-        fn read(w: &Wire, id: usize, d: usize, budget: &mut usize) -> Option<Js> {
-            if d > 96 || *budget == 0 {
-                return None;
-            }
-            *budget -= 1;
-            let child = |i, b: &mut usize| read(w, i, d + 1, b);
-            let list = |a: &[usize], b: &mut usize| {
-                a.iter().map(|i| child(*i, b)).collect::<Option<Vec<_>>>()
+        if self.nodes.len() > 65536 {
+            return Err("s08_protocol_input_rejected");
+        }
+        let rejected = "s08_protocol_input_rejected";
+        let mut work = vec![(self.root, false)];
+        let mut values = Vec::new();
+        let mut active = std::collections::HashSet::new();
+        let mut budget = 65536usize;
+        while let Some((id, finish)) = work.pop() {
+            let n = self.nodes.get(id).ok_or(rejected)?;
+            let children: Vec<usize> = match n {
+                Node::Array { items } => items.clone(),
+                Node::Object { entries }
+                | Node::Inherited { entries }
+                | Node::NullPrototype { entries }
+                | Node::SymbolKeys { entries }
+                | Node::Accessor { entries } => entries.iter().map(|(_, id)| *id).collect(),
+                Node::Decorated { items, entries } => items
+                    .iter()
+                    .copied()
+                    .chain(entries.iter().map(|(_, id)| *id))
+                    .collect(),
+                _ => vec![],
             };
-            let props = |a: &[(Text, usize)], b: &mut usize| {
-                let mut out = Vec::new();
-                for (k, i) in a {
-                    if out.iter().any(|(old, _)| old == k) {
-                        return None;
-                    }
-                    out.push((k.clone(), child(*i, b)?));
+            if !finish {
+                if budget == 0 || !active.insert(id) {
+                    return Err(rejected);
                 }
-                Some(out)
+                budget -= 1;
+                work.push((id, true));
+                for child in children.iter().rev() {
+                    work.push((*child, false));
+                }
+                continue;
+            }
+            active.remove(&id);
+            let start = values.len().checked_sub(children.len()).ok_or(rejected)?;
+            let mut c = values.split_off(start).into_iter();
+            let props = |entries: &[(Text, usize)],
+                         c: &mut std::vec::IntoIter<Js>|
+             -> std::result::Result<Vec<(Text, Js)>, &'static str> {
+                let mut out = vec![];
+                for (key, _) in entries {
+                    if out.iter().any(|(k, _)| k == key) {
+                        return Err(rejected);
+                    }
+                    out.push((key.clone(), c.next().ok_or(rejected)?));
+                }
+                Ok(out)
             };
-            Some(match w.nodes.get(id)? {
+            let value = match n {
                 Node::Null => Js::Null,
                 Node::Undefined => Js::Undefined,
                 Node::Hole => Js::Hole,
                 Node::Bool { value } => Js::Bool(*value),
                 Node::Number { bits } => {
                     if bits.len() != 16 || !bits.bytes().all(|b| b.is_ascii_hexdigit()) {
-                        return None;
+                        return Err(rejected);
                     }
-                    Js::Num(f64::from_bits(u64::from_str_radix(bits, 16).ok()?))
+                    Js::Num(f64::from_bits(
+                        u64::from_str_radix(bits, 16).map_err(|_| rejected)?,
+                    ))
                 }
                 Node::String { units } => Js::Str(units.clone()),
-                Node::Array { items } => Js::Arr(list(items, budget)?),
-                Node::Object { entries } => Js::Obj(props(entries, budget)?),
-                Node::NullPrototype { entries } => Js::NullPrototype(props(entries, budget)?),
-                Node::SymbolKeys { entries } => Js::SymbolKeys(props(entries, budget)?),
-                Node::Accessor { entries } => Js::Accessor(props(entries, budget)?),
+                Node::Array { .. } => Js::Arr(c.collect()),
+                Node::Object { entries } => Js::Obj(props(entries, &mut c)?),
+                Node::Inherited { entries } => Js::Inherited(props(entries, &mut c)?),
+                Node::NullPrototype { entries } => Js::NullPrototype(props(entries, &mut c)?),
+                Node::SymbolKeys { entries } => Js::SymbolKeys(props(entries, &mut c)?),
+                Node::Accessor { entries } => Js::Accessor(props(entries, &mut c)?),
                 Node::Decorated { items, entries } => {
-                    Js::Decorated(list(items, budget)?, props(entries, budget)?)
+                    let a = c.by_ref().take(items.len()).collect();
+                    Js::Decorated(a, props(entries, &mut c)?)
                 }
                 Node::Sparse { length } => {
                     if *length > 65536 {
-                        return None;
+                        return Err(rejected);
                     }
                     Js::Sparse(*length)
                 }
@@ -104,12 +142,13 @@ impl Wire {
                 Node::Function => Js::Function,
                 Node::Symbol => Js::Symbol,
                 Node::Cycle => Js::Cycle,
-            })
+            };
+            values.push(value);
         }
-        if self.nodes.len() > 65536 {
-            return Err("s08_protocol_input_rejected");
+        if values.len() != 1 {
+            return Err(rejected);
         }
-        read(self, self.root, 0, &mut 65536).ok_or("s08_protocol_input_rejected")
+        values.pop().ok_or(rejected)
     }
 }
 /// A test provider must be supplied before intake/review/hash. No production default.

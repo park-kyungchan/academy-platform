@@ -4,10 +4,10 @@ use std::io::{Read, Write};
 fn main() {
     let mut bytes = Vec::new();
     if std::io::stdin()
-        .take(1_048_577)
+        .take(16_777_217)
         .read_to_end(&mut bytes)
         .is_err()
-        || bytes.len() > 1_048_576
+        || bytes.len() > 16_777_216
     {
         fail("s08_protocol_input_rejected", 64);
     }
@@ -17,6 +17,19 @@ fn main() {
     }
     let dispatch: Dispatch =
         serde_json::from_slice(&bytes).unwrap_or_else(|_| fail("s08_protocol_input_rejected", 64));
+    if dispatch.op == "semantic_v4" {
+        let request: edu_academy_core::extension::Request = serde_json::from_slice(&bytes)
+            .unwrap_or_else(|_| fail("s08_protocol_input_rejected", 64));
+        let frame = edu_academy_core::extension::execute(request)
+            .unwrap_or_else(|message| fail(message, 64));
+        if std::io::stdout().write_all(frame.as_bytes()).is_err() {
+            fail("s08_protocol_output_failed", 74);
+        }
+        return;
+    }
+    if bytes.len() > 1_048_576 {
+        fail("s08_protocol_input_rejected", 64);
+    }
     if dispatch.op == "semantic_v3" {
         let request: edu_academy_core::semantic::Request = serde_json::from_slice(&bytes)
             .unwrap_or_else(|_| fail("s08_protocol_input_rejected", 64));

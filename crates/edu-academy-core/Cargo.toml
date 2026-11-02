@@ -12,6 +12,8 @@ serde_json.workspace = true
 ryu-js.workspace = true
 sha2.workspace = true
 regex.workspace = true
+scraper.workspace = true
+chrono-tz.workspace = true
 
 [lints]
 workspace = true

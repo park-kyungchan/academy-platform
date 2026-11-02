@@ -101,7 +101,7 @@ fn holes_and_depth_have_family_specific_source_or_adapter_results() {
         encode(&Js::Cycle, Family::Admission, &mut vec![])
             .unwrap_err()
             .name,
-        "AdapterAdmission"
+        "RangeError"
     );
 }
 #[test]

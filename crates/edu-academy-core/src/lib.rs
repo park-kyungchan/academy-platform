@@ -1,9 +1,17 @@
 //! Retained source semantics. No source transport, durable store or runtime authority.
+pub mod admission;
+pub mod cism;
 pub mod decision;
+pub mod evidence;
+pub mod extension;
+pub mod frozen;
+pub mod instant;
 pub mod js;
 pub mod knowledge;
 pub mod leaf;
+pub mod learning;
 pub mod protocol;
+pub mod schema;
 pub mod semantic;
 pub mod templates;
 pub mod wire;
