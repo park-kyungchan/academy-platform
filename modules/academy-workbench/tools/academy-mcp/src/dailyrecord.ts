@@ -72,6 +72,26 @@ export const textbookSectionResultsSchema=z.object({displayName:z.string().trim(
 export type TextbookSectionResults=z.infer<typeof textbookSectionResultsSchema>;
 export type TextbookSectionObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;
   records:{sourceTitle:string;score:number;correctCount:number;itemCount:number;items:{ordinal:string;scoring:'O'|'X'}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
+/** Prestudy video read by exact student name. Upload (waiting list), completed
+ * list membership, AI score/star literals and teacher review are four
+ * distinct axes; teacherJudgment is never derived from a source OK/score. */
+export const prestudyGetSchema=z.object({displayName:z.string().trim().min(1).max(200),
+  purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema}).strict();
+export type PrestudyGet=z.infer<typeof prestudyGetSchema>;
+export type PrestudyObservation={student:{studentId:string;displayName:string};
+  waiting:{unitLabel:string;dateLiteral:string;statusLiteral:string;prestudyKey:string}[];
+  completed:{unitLabel:string;dateLiteral:string;statusLiteral:string;prestudyKey:string}[];
+  summary:{unitLabel:string;dateLiteral:string;aiScoreLiteral:string;ratingLiteral:string;reportAvailable:boolean;videoAvailable:boolean}[];
+  teacherJudgment:null;observedAt:string;coverage:string};
+/** Textbook section grading resolved by exact student name: the owner
+ * backend discovers the registered course/book binding from the live
+ * progress page. Without sourceTitles it returns the observed title index. */
+export const textbookSectionResultsGetSchema=z.object({displayName:z.string().trim().min(1).max(200),
+  purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema,
+  sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required').optional()}).strict();
+export type TextbookSectionResultsGet=z.infer<typeof textbookSectionResultsGetSchema>;
+export type TextbookSectionIndexObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bookLabel:string;
+  index:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string}}[];observedAt:string;coverage:string};
 /** Implemented by the native/source owner, never by MCP arguments. All methods are read-only. */
 export interface DailyRecordReadBackend {
   readRoutingAdmission?():DailyRecordReadAdmission;
@@ -83,6 +103,8 @@ export interface DailyRecordReadBackend {
   readCismSection?(scope:Readonly<DailyRecordScope>,selection:Readonly<z.infer<typeof cismSelectionSchema>>):Promise<ReadResult<CismObservation>>;
   searchStudentsByName?(exactName:Readonly<string>,requestRef:string,lessonDate?:string):Promise<unknown>;
   readTextbookSections?(input:Readonly<TextbookSectionResults>):Promise<TextbookSectionObservation>;
+  readPrestudyByName?(input:Readonly<PrestudyGet>):Promise<PrestudyObservation>;
+  readTextbookSectionsByName?(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionObservation|TextbookSectionIndexObservation>;
 }
 export const dailyRecordSaveSchema=z.object({context:dailyRecordContextSchema,observationHandle:dailyRecordIdSchema,
   cismObservationHandle:dailyRecordIdSchema.optional(),
@@ -293,6 +315,42 @@ export class DailyRecordService {
           ||observation.records.length!==input.sourceTitles.length
           ||new Set(observation.records.map(r=>r.sourceTitle)).size!==input.sourceTitles.length
           ||observation.records.some(r=>!input.sourceTitles.includes(r.sourceTitle)))throw Error('textbook_section_scope_conflict');
+        return {...base,status:'observed' as const,...observation};
+      });
+      if(toolResultBytes(result)>512*1024)throw Error('textbook_section_result_too_large');
+      return freezeLabelData(result);
+    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
+  }
+  async prestudyGet(value:unknown){
+    const input=prestudyGetSchema.parse(value);
+    const base={purpose:input.purpose,currentRequestRef:input.currentRequestRef,displayName:input.displayName,
+      academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only' as const};
+    if(!this.backend?.readPrestudyByName)return {...base,status:'unavailable' as const,reasonCode:'prestudy_backend_not_configured'};
+    try{
+      const result=await this.#serial(async()=>{
+        const observation=await this.backend!.readPrestudyByName!(freezeLabelData(structuredClone(input)));
+        if(observation.student.displayName!==input.displayName||observation.teacherJudgment!==null)throw Error('prestudy_scope_conflict');
+        return {...base,status:'observed' as const,...observation};
+      });
+      if(toolResultBytes(result)>512*1024)throw Error('prestudy_result_too_large');
+      return freezeLabelData(result);
+    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'prestudy_unqualified_no_automatic_retry')};}
+  }
+  async textbookSectionsByName(value:unknown){
+    const input=textbookSectionResultsGetSchema.parse(value);
+    const base={purpose:input.purpose,currentRequestRef:input.currentRequestRef,displayName:input.displayName,
+      academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only' as const};
+    if(!this.backend?.readTextbookSectionsByName)return {...base,status:'unavailable' as const,reasonCode:'textbook_section_backend_not_configured'};
+    try{
+      const result=await this.#serial(async()=>{
+        const observation=await this.backend!.readTextbookSectionsByName!(freezeLabelData(structuredClone(input)));
+        if(observation.student.displayName!==input.displayName)throw Error('textbook_section_scope_conflict');
+        if(input.sourceTitles){
+          const records=(observation as TextbookSectionObservation).records;
+          if(!Array.isArray(records)||records.length!==input.sourceTitles.length
+            ||new Set(records.map(r=>r.sourceTitle)).size!==input.sourceTitles.length
+            ||records.some(r=>!input.sourceTitles!.includes(r.sourceTitle)))throw Error('textbook_section_scope_conflict');
+        }else if(!Array.isArray((observation as TextbookSectionIndexObservation).index))throw Error('textbook_section_scope_conflict');
         return {...base,status:'observed' as const,...observation};
       });
       if(toolResultBytes(result)>512*1024)throw Error('textbook_section_result_too_large');

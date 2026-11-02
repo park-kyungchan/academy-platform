@@ -1,7 +1,7 @@
 import {academyRoutingDescription} from './routing-context.ts';
 import type {McpServer} from '@modelcontextprotocol/server';
 import {readOnlyAnnotations} from './contracts.ts';
-import {DailyRecordService,dailyRecordIntakeSchema,dailyRecordReviewSchema,dailyRecordSaveSchema,dailyRecordReconcileSchema,dailyRecordExecutionStatusSchema,textbookSectionResultsSchema,cismSectionSchema,studentMetadataBatchSchema,studentMetadataGetSchema,type DailyRecordParentSafeguard} from './dailyrecord.ts';
+import {DailyRecordService,dailyRecordIntakeSchema,dailyRecordReviewSchema,dailyRecordSaveSchema,dailyRecordReconcileSchema,dailyRecordExecutionStatusSchema,textbookSectionResultsSchema,prestudyGetSchema,textbookSectionResultsGetSchema,cismSectionSchema,studentMetadataBatchSchema,studentMetadataGetSchema,type DailyRecordParentSafeguard} from './dailyrecord.ts';
 import {dailyRecordSaveAdmissionSchema,type DailyRecordSaveAdmission} from './dailyrecord-save-admission.ts';
 import {studentResolveInputSchema} from './student-resolver.ts';
 import {readPinnedLocalBytes} from './item-label-store.ts';
@@ -63,6 +63,16 @@ export function registerDailyRecordTools(server:McpServer,service=new DailyRecor
     description:academyRoutingDescription('academy_textbook_section_results','Read exact existing textbook section grading for one admitted student, course and book by the source titles (for example a unit required-examples or type-drill title). Returns each title score with per-item O/X outcomes and correct/item counts. Titles must be the source exact titles; missing or ambiguous titles stop without guessing. This establishes observed section attempt scores only, not clinic solving, teacher acceptance, printing or whole-book completion. No writes, grading actions, printing, sending or automatic retry.'),
     inputSchema:textbookSectionResultsSchema,annotations,
   },async input=>result(await service.textbookSections(input)));
+  server.registerTool('academy_prestudy_get',{
+    title:'Read prestudy video upload and review lists by student name',
+    description:academyRoutingDescription('academy_prestudy_get','Read live prestudy video state for one exact admitted student name: waiting (uploaded, awaiting teacher review) rows, completed rows and one observed summary page with AI score/star literals. Upload, list membership, AI score and teacher review are distinct; teacherJudgment is always null here and video URLs are never returned. Missing rows do not prove nonperformance. No writes, printing, sending or automatic retry.'),
+    inputSchema:prestudyGetSchema,annotations,
+  },async input=>result(await service.prestudyGet(input)));
+  server.registerTool('academy_textbook_section_results_get',{
+    title:'Read textbook section grading by student name',
+    description:academyRoutingDescription('academy_textbook_section_results_get','Read textbook section answer input and grading for one exact admitted student name. The owner backend discovers the single registered course/book binding from the live progress page; caller-supplied native keys are not accepted. With exact sourceTitles returns score and per-item O/X per title; without titles returns the observed source-title index for explicit selection. Missing or ambiguous bindings/titles stop without guessing. This establishes observed answer input and grading only, not clinic solving, teacher acceptance, printing or whole-book completion. No writes, grading actions, printing, sending or automatic retry.'),
+    inputSchema:textbookSectionResultsGetSchema,annotations,
+  },async input=>result(await service.textbookSectionsByName(input)));
   server.registerTool('academy_dailyrecord_save',{
     title:'Save reviewed DailyRecord fields through the owner write backend',
     description:academyRoutingDescription('academy_dailyrecord_save','Save only an exact reviewed patch. With the owner workflow (default for native launches), any delegated session may save when it supplies request.instruction with the verbatim user instruction behind this save and a prior academy_dailyrecord_review for this reviewDigest exists in the owner store. The bridge records the observed caller attribution and the caller may declare actor {runtime, sessionRef, paneRef, model}; both are audit evidence, not credentials. Writers serialize on a shared owner lock, the review is recomputed against a fresh before-state, each exact request/field transition is recorded once before dispatch, written once and read back. Duplicates report the recorded outcome; an unresolved dispatch on the same record field under any request is held for academy_dailyrecord_reconcile and never retried. Parent transmission is never part of a save.'),

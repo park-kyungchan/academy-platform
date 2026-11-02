@@ -143,6 +143,16 @@
       "exposure": "open"
     },
     {
+      "name": "academy_prestudy_get",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_textbook_section_results_get",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
       "name": "academy_textbook_catalog",
       "class": "read",
       "exposure": "open"

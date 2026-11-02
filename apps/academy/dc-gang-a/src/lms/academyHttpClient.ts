@@ -1,5 +1,6 @@
 import {JSDOM} from 'jsdom';
 import {TEXTBOOK_CATALOG_PATH,MAX_TEXTBOOK_CATALOG_BYTES,MAX_TEXTBOOK_SAMPLE_BYTES,MAX_TEXTBOOK_REFERENCE_BYTES,parseTextbookCatalog,boundedTextbookBody,qualifiedTextbookPdfUrl,textbookPdfDigest,type TextbookCatalogObservation,type TextbookPdfObservation,type TextbookSchoolLevel} from './textbookCatalogRead';
+import {PRESTUDY_PATH,PRESTUDY_SUMMARY_PATH,TEXTBOOK_PROGRESS_PATH,parsePrestudySearchForm,parsePrestudyList,parsePrestudySummary,prestudyRowsForStudent,parseTextbookBindings,type PrestudyListRow,type PrestudySummaryRow,type TextbookBinding} from './prestudyRead';
 import {randomInt,createHash} from 'node:crypto';
 import {createAcademyReadPlan,executeAcademyRead,readLiteralKey,readLiteralName,sourceResponseKey,parseTextbookScopeBinding,type AcademyReadResult,type ScopedAcademyReadPlan} from './academyReadProtocol';
 import {readInputRecord} from '../contracts/readInputRecord';
@@ -76,6 +77,41 @@ export class AcademyHttpClient {
     const bytes=await boundedTextbookBody(response,entry.kind==='sample'?MAX_TEXTBOOK_SAMPLE_BYTES:MAX_TEXTBOOK_REFERENCE_BYTES,'pdf');
     return {schoolLevel:input.schoolLevel,kind:entry.kind,documentRef:entry.documentRef,filename:entry.filename,sourceUrl:entry.url,sourceLabels:entry.sourceLabels,catalogSha256:catalog.catalogSha256,
       observedAt:new Date().toISOString(),sha256:textbookPdfDigest(bytes),byteLength:bytes.byteLength,bytes,sourceRequests:2};
+  }
+  /** Prestudy video lists for one exact student. The waiting list proves an
+   * upload awaiting teacher review; the completed list and the summary page
+   * are separate source surfaces. AI score/star literals are reported as
+   * literals only; teacher review remains a separate, unobserved state. */
+  async readPrestudy(input:{teacherLabel:string;studentName:string}):Promise<{waiting:PrestudyListRow[];completed:PrestudyListRow[];summary:PrestudySummaryRow[];observedAt:string;coverage:string}>{
+    if(!input||Object.keys(input).sort().join(',')!=='studentName,teacherLabel'||input.teacherLabel!==this.#principal.teacherLabel)throw Error('prestudy_principal_rejected');
+    readLiteralName(input.studentName);
+    if(!this.#authenticated)throw Error('authentication_required');
+    const pageText=async(path:string,init:RequestInit,operation:string)=>{
+      const response=await this.#request(path,init,false,operation);
+      const text=await response.text();if(text.length>2000000)throw Error('prestudy_source_rejected');return text;
+    };
+    const search=async(cmd:'WebUnPreStudy'|'WebCtPreStudy')=>{
+      const shell=await pageText(PRESTUDY_PATH+'?reqCmd='+cmd,{method:'GET'},cmd);
+      const form=parsePrestudySearchForm(shell,sourceDomParser.parseFromString,cmd,this.#principal.teacherKey);
+      const body=new URLSearchParams({reqCmd:form.reqCmd,g_clg_no:form.collegeKey,g_mem_type:form.memberType,g_pri_no:form.teacherKey,student_name:input.studentName});
+      const result=await pageText(PRESTUDY_PATH,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:body.toString()},cmd);
+      return prestudyRowsForStudent(parsePrestudyList(result,sourceDomParser.parseFromString,cmd,this.#principal.teacherKey),input.studentName);
+    };
+    const waiting=await search('WebUnPreStudy');
+    const completed=await search('WebCtPreStudy');
+    const summaryHtml=await pageText(PRESTUDY_SUMMARY_PATH,{method:'GET'},'TeacherPrestudySummary');
+    const summary=prestudyRowsForStudent(parsePrestudySummary(summaryHtml,sourceDomParser.parseFromString),input.studentName);
+    return {waiting,completed,summary,observedAt:new Date().toISOString(),coverage:'exact_student_rows_on_waiting_completed_and_one_observed_summary_page_not_all_history'};
+  }
+  /** Registered textbook bindings for one exact student, from the live
+   * getTextBookProgress rows. Caller IDs are never accepted here. */
+  async readTextbookBindings(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<TextbookBinding[]>{
+    if(!input||Object.keys(input).sort().join(',')!=='studentKey,studentName,teacherLabel'||input.teacherLabel!==this.#principal.teacherLabel)throw Error('textbook_binding_principal_rejected');
+    readLiteralName(input.studentName);readLiteralKey(input.studentKey);
+    if(!this.#authenticated)throw Error('authentication_required');
+    const response=await this.#request(TEXTBOOK_PROGRESS_PATH,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams({student_name:input.studentName}).toString()},false,'getTextBookProgress');
+    const text=await response.text();if(text.length>2000000)throw Error('textbook_binding_source_rejected');
+    return parseTextbookBindings(text,sourceDomParser.parseFromString,input.studentKey);
   }
   close(){this.#cookies.clear();this.#authenticated=false;this.#testPoolProtocol=null;}
   /** Fixed original DayRecord Main document; selector/date metadata only, never roster rows or handlers. */

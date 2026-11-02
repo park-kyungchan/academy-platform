@@ -4,7 +4,7 @@ import {dirname,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {z} from 'zod';
 import {readPinnedLocalBytes} from './item-label-store.ts';
-import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation} from './dailyrecord.ts';
+import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation} from './dailyrecord.ts';
 import {createDailyRecordSaveAdmission,liveSaveRequestEvidence,type DailyRecordSaveAdmission,type DailyRecordSaveApproval} from './dailyrecord-save-admission.ts';
 import type {DailyRecordActionApproval} from './dailyrecord-workflow.ts';
 import type {DailyRecordField} from './dailyrecord-context.ts';
@@ -53,6 +53,9 @@ interface SourcePort {
    * send a student key. Key/name equality is verified by the projection layer, never as
    * request input. No sequential key probing, before or after. */
   searchStudentsByName?(input:{teacherLabel:string;studentName:string}):Promise<unknown>;
+  readPrestudy?(input:{teacherLabel:string;studentName:string}):Promise<{waiting:unknown[];completed:unknown[];summary:unknown[];observedAt:string;coverage:string}>;
+  readTextbookBindings?(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[]>;
+  inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string}}[]}>;
 }
 type Admission={teacherId:string;teacherLabel:string;date:string;students:{studentId:string;displayName:string}[];sourceBundleSha256:string};
 const fields=['progress','homework','lessonMemo','attendance','dailyTestAssessment','previousHomeworkAssessment'] as const;
@@ -180,6 +183,48 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     });
     return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:input.courseKey,bookNo:input.bookNo,
       records,observedAt:raw.observedAt,coverage:'exact_selected_existing_records_not_whole_book'};
+  }
+  /** Prestudy video read for one admitted student. Source waiting/completed
+   * list membership and summary AI literals are projected without video
+   * URLs, and teacher judgment is always reported separately as null. */
+  async readPrestudyByName(input:Readonly<PrestudyGet>):Promise<PrestudyObservation>{
+    const student=this.admission.students.find(s=>s.displayName===input.displayName);
+    if(!student||!this.managedNames.has(input.displayName))throw Error('prestudy_student_not_admitted');
+    if(!this.client.readPrestudy)throw Error('prestudy_source_port_unavailable');
+    await this.#authenticate();
+    const raw=await this.client.readPrestudy({teacherLabel:this.admission.teacherLabel,studentName:student.displayName});
+    const row=z.object({unitLabel:z.string().max(2000),dateLiteral:z.string().max(200),statusLiteral:z.string().max(2000),prestudyKey:key});
+    const summaryRow=z.object({unitLabel:z.string().max(2000),dateLiteral:z.string().max(200),aiScoreLiteral:z.string().max(200),ratingLiteral:z.string().max(200),
+      reportAvailable:z.boolean(),videoAvailable:z.boolean()});
+    const waiting=z.array(row).max(1000).parse(raw.waiting),completed=z.array(row).max(1000).parse(raw.completed),
+      summary=z.array(summaryRow).max(1000).parse(raw.summary);
+    return {student:{studentId:student.studentId,displayName:student.displayName},waiting,completed,summary,
+      teacherJudgment:null,observedAt:raw.observedAt,coverage:raw.coverage};
+  }
+  /** Section grading/index with the binding discovered owner-side from the
+   * live progress page. Exactly one registered binding is required; with no
+   * titles the observed title index is returned for caller selection. */
+  async readTextbookSectionsByName(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionObservation|TextbookSectionIndexObservation>{
+    const student=this.admission.students.find(s=>s.displayName===input.displayName);
+    if(!student||!this.managedNames.has(input.displayName))throw Error('textbook_student_not_admitted');
+    if(!this.client.readTextbookBindings)throw Error('textbook_binding_source_port_unavailable');
+    await this.#authenticate();
+    const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
+    if(bindings.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
+    const binding=bindings[0]!;
+    if(binding.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
+    if(input.sourceTitles){
+      return this.readTextbookSections({displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,
+        courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:[...input.sourceTitles]});
+    }
+    if(!this.client.inspectTextbookIndex)throw Error('textbook_index_source_port_unavailable');
+    const raw=await this.client.inspectTextbookIndex({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
+      studentName:student.displayName,courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:['index'],gradeViewAdmission:true});
+    const index=z.array(z.object({sourceTitle:z.string().min(1).max(2000),
+      sourceDate:z.object({literal:z.string().nullable(),meaning:z.string().max(200)}).passthrough()}).passthrough()).max(1000).parse(raw.rows)
+      .map(r=>({sourceTitle:r.sourceTitle,sourceDate:{literal:r.sourceDate.literal??null,meaning:String(r.sourceDate.meaning??'source_apply_date_not_exact_grade_time')}}));
+    return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:binding.courseKey,bookNo:binding.bookNo,
+      bookLabel:binding.bookLabel,index,observedAt:new Date().toISOString(),coverage:'observed_title_index_for_exact_student_course_book_not_section_grading'};
   }
   saveConfigured():boolean{return this.saveApproval!==null&&typeof this.client.applyJournalAction==='function';}
   /** The owner client can write; authority comes from the per-request approval the owner workflow supplies. */
