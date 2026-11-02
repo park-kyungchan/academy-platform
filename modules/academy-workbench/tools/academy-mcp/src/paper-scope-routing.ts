@@ -12,15 +12,27 @@ export const paperScopesSchema=z.array(z.object({
 export type PaperScopes=z.infer<typeof paperScopesSchema>;
 
 const routable=new Set(['academy_paper_headers','academy_paper_definition_lookup','academy_printed_paper_lookup','academy_daily_test_inventory','academy_source_read_contracts','academy_paper_read_contracts']);
+export interface PaperScopeDiagnostic{studentId:string;upstreamName:string;configuredEndpoints:string[];matchCount:number}
+export class PaperScopeUnresolvedError extends Error{
+  constructor(readonly diagnostic:PaperScopeDiagnostic){super('paper_scope_unresolved');}
+}
+/** Admission preflight: routing is owner-configured per student. A caller-supplied class, book or unit can never widen it. */
+export function inspectPaperScope(scopes:PaperScopes|undefined,studentId:string){
+  if(!scopes)return {status:'unconfigured' as const};
+  const matches=scopes.filter(s=>s.studentIds.includes(studentId));
+  return matches.length===1?{status:'resolved' as const,endpoint:matches[0]!.endpoint}
+    :{status:'unresolved' as const,configuredEndpoints:scopes.map(s=>s.endpoint),matchCount:matches.length};
+}
 export function selectPaperRoute(scopes:PaperScopes|undefined,registry:any[],entry:any,args:unknown){
   if(!scopes||!['paper1','paper2'].includes(entry.endpoint)||!routable.has(entry.upstreamName))return entry;
   const studentId=z.object({studentId:z.string().regex(/^[1-9][0-9]{0,15}$/)}).passthrough().parse(args).studentId;
   const matches=scopes.filter(s=>s.studentIds.includes(studentId));
-  if(matches.length!==1)throw Error('paper_scope_unresolved');
-  if(entry.endpoint==='paper2'&&matches[0]!.endpoint!=='paper2')throw Error('paper_scope_unresolved');
+  const unresolved=()=>new PaperScopeUnresolvedError({studentId,upstreamName:entry.upstreamName,configuredEndpoints:scopes.map(s=>s.endpoint),matchCount:matches.length});
+  if(matches.length!==1)throw unresolved();
+  if(entry.endpoint==='paper2'&&matches[0]!.endpoint!=='paper2')throw unresolved();
   // Several public aliases may describe the same endpoint and upstream tool.
   // They are one dispatch target; their presentation metadata is not routing.
   const candidate=registry.find(r=>r.endpoint===matches[0]!.endpoint&&r.upstreamName===entry.upstreamName);
-  if(!candidate)throw Error('paper_scope_unresolved');
+  if(!candidate)throw unresolved();
   return candidate;
 }

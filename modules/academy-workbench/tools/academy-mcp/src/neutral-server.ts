@@ -16,7 +16,7 @@ import {readOnlyAnnotations} from './contracts.ts';
 import {dailyRecordScopeSchema,type DailyRecordScope} from './dailyrecord-context.ts';
 import {dailyTestHeaderRouteSchema,dailyTestHeaderRouteDescription,readDailyTestHeaders} from './dailytest-header-route.ts';
 import {loadRuntimeRelease} from './runtime-release.ts';
-import {selectPaperRoute} from './paper-scope-routing.ts';
+import {PaperScopeUnresolvedError,selectPaperRoute} from './paper-scope-routing.ts';
 import {observeAttribution} from './dailyrecord-workflow.ts';
 import {dailyRecordWorkflowToolSchemas} from './dailyrecord.ts';
 const processStartedAt=new Date().toISOString();
@@ -234,7 +234,7 @@ async function call(req:any){
    try{writeFileSync(log+'/'+occurrence+'-failure.json',JSON.stringify({code,failure,observedAt:new Date().toISOString(),tool:receiptTool,automaticRetryAllowed:false,...effect,parentSends:0})+'\n',{mode:0o600,flag:'wx'});}
    catch{throw Object.assign(Error('receipt_write_unavailable_reconcile'),{data:{occurrence,automaticRetryAllowed:false,...(saveIssued?{effectStatus:'unknown'}:{})}});}
   }
-  const data={status:'blocked',code,failure,occurrence,...(error instanceof CompositeSourceUnavailable?{failedSource:error.source,reasonCode:error.failure.code,sourceRequests:error.sourceRequests}:{}),automaticRetryAllowed:false,...effect,parentSends:0};
+  const data={status:'blocked',code,failure,occurrence,...(error instanceof CompositeSourceUnavailable?{failedSource:error.source,reasonCode:error.failure.code,sourceRequests:error.sourceRequests}:{}),...(error instanceof PaperScopeUnresolvedError?{paperScope:error.diagnostic,interviewRequired:true,interviewReason:'paper_scope_admission_missing'}:{}),automaticRetryAllowed:false,...effect,parentSends:0};
   return {isError:true,content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
  }
 }

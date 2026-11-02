@@ -45,3 +45,7 @@ test('composite route error codes have safe finite public locators',async()=>{
  }
  expect(JSON.stringify(publicReadFailure(Error('PRIVATE_CANARY')))).not.toContain('PRIVATE_CANARY');
 });
+
+test('paper scope unresolved preserves denial before any header join',async()=>{
+  await expect(readDailyTestHeaders(request,{metadata:async()=>source(),headers:async()=>{throw Error('paper_scope_unresolved');}})).rejects.toThrow('paper_scope_unresolved');
+});
