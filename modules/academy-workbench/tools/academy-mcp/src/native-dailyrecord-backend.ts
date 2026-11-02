@@ -1,3 +1,4 @@
+import type {CismReport} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol';
 import {createHash,randomUUID} from 'node:crypto';
 import {readFileSync,lstatSync,realpathSync,closeSync,fsyncSync,mkdirSync,openSync,writeSync} from 'node:fs';
 import {dirname,resolve} from 'node:path';
@@ -31,6 +32,8 @@ export const nativeDailyRecordConfigSchema=z.object({schemaVersion:z.literal('ac
 type Target={studentName:string;date:string;groupId:string;teacherKey:string;studentKey:string;courseKey:string;recordKey:string;membershipKey:string};
 type Row=Target&{fields:Record<string,string>};
 interface SourcePort {
+  readCismReport?(input:{teacherLabel:string;date:string}):Promise<CismReport>;
+  applyCismField?(input:{teacherLabel:string;date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>):Promise<{status:'persisted';fieldRef:string;report:CismReport}>;
   readTextbookCatalog?(input:{teacherLabel:string;schoolLevel:TextbookSchoolLevel}):Promise<TextbookCatalogObservation>;
   readTextbookPdf?(input:{teacherLabel:string;schoolLevel:TextbookSchoolLevel;documentRef:string}):Promise<TextbookPdfObservation>;
   authenticate(credential:{username:string;password:string}):Promise<unknown>;
@@ -145,6 +148,14 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       ownerAdmissionSchema.parse(ownerAdmission);
       if(ownerAdmission.teacherId!==admission.teacherId||!isDateAdmitted(admission.date,ownerAdmission))throw Error('native_dailyrecord_owner_admission_mismatch');
     }
+  }
+  async readCismReport(date:string):Promise<CismReport>{
+    if(!this.client.readCismReport)throw Error('cism_source_port_unavailable');await this.#authenticate();
+    return this.client.readCismReport({teacherLabel:this.admission.teacherLabel,date});
+  }
+  async applyCismField(input:{date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>){
+    if(!this.client.applyCismField)throw Error('cism_source_port_unavailable');await this.#authenticate();
+    return this.client.applyCismField({...input,teacherLabel:this.admission.teacherLabel},authorize);
   }
   async readTextbookCatalog(schoolLevel:TextbookSchoolLevel='middle'):Promise<TextbookCatalogObservation>{
     if(!this.client.readTextbookCatalog)throw Error('textbook_catalog_source_port_unavailable');

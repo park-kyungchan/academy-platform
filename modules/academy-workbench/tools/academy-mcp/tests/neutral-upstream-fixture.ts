@@ -50,6 +50,12 @@ const service=new DailyRecordService({
 }}:null);
 const server=new McpServer({name:'fictional-neutral-upstream',version:'1.0.0'});
 registerDailyRecordTools(server,service);
+server.registerTool('academy_cism_weekly_save',{inputSchema:z.object({attribution:z.unknown().optional()}).strict()},input=>{
+  appendFileSync(events,'cism-attribution:'+JSON.stringify(input.attribution)+'\n');
+  if(existsSync(resolve(base,'inject-cism-transport-error')))throw Error('synthetic-cism-transport-error');
+  const data={status:'persisted',academyWrites:2,parentSends:0};
+  return {content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
+});
 server.registerTool('academy_source_status',{inputSchema:z.object({}).strict()},input=>{
   appendFileSync(events,'source_status:'+JSON.stringify(input)+'\n');
   const data={sourceMode:'saved_context',synthetic:true,receivedArguments:input};

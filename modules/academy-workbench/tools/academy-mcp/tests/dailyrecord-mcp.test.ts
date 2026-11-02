@@ -35,7 +35,7 @@ test('dedicated entrypoint discovers the read-only DailyRecord/metadata/resolver
   const {client,transport}=await connect('dailyrecord-server.ts');
   try{
     const tools=(await client.listTools()).tools;
-    expect(tools.map(t=>t.name).sort()).toEqual(['academy_textbook_catalog','academy_textbook_pdf','academy_endpoint_identity','academy_student_metadata_get','academy_cism_section','academy_dailyrecord_execution_status','academy_dailyrecord_get','academy_dailyrecord_intake','academy_dailyrecord_reconcile','academy_dailyrecord_review','academy_dailyrecord_save','academy_item_answer_lookup','academy_runtime_read_admission','academy_student_metadata','academy_student_resolve','academy_textbook_section_results'].sort());
+    expect(tools.map(t=>t.name).sort()).toEqual(['academy_cism_month','academy_cism_weekly_get','academy_cism_weekly_review','academy_cism_weekly_save','academy_textbook_catalog','academy_textbook_pdf','academy_endpoint_identity','academy_student_metadata_get','academy_cism_section','academy_dailyrecord_execution_status','academy_dailyrecord_get','academy_dailyrecord_intake','academy_dailyrecord_reconcile','academy_dailyrecord_review','academy_dailyrecord_save','academy_item_answer_lookup','academy_runtime_read_admission','academy_student_metadata','academy_student_resolve','academy_textbook_section_results'].sort());
     const catalog=await client.callTool({name:'academy_textbook_catalog',arguments:{limit:100}});
     expect(catalog.structuredContent).toMatchObject({status:'unavailable',code:'textbook_source_backend_not_configured',academyWrites:0});
     expect(tools.find(t=>t.name==='academy_student_metadata')?.annotations?.readOnlyHint).toBe(true);

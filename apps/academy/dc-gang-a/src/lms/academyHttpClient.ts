@@ -1,3 +1,4 @@
+import {CISM_PATH,parseCismReport,cismWriteParameters,cismWeek,type CismReport} from './cismWeeklyProtocol';
 import {JSDOM} from 'jsdom';
 import {TEXTBOOK_CATALOG_PATH,MAX_TEXTBOOK_CATALOG_BYTES,MAX_TEXTBOOK_SAMPLE_BYTES,MAX_TEXTBOOK_REFERENCE_BYTES,parseTextbookCatalog,boundedTextbookBody,qualifiedTextbookPdfUrl,textbookPdfDigest,type TextbookCatalogObservation,type TextbookPdfObservation,type TextbookSchoolLevel} from './textbookCatalogRead';
 import {randomInt,createHash} from 'node:crypto';
@@ -56,6 +57,28 @@ export class AcademyHttpClient {
     this.#transport=transport;
   }
   get authenticated(){return this.#authenticated;}
+  async readCismReport(input:{teacherLabel:string;date:string}):Promise<CismReport>{
+    if(Object.keys(input).sort().join(',')!=='date,teacherLabel'||input.teacherLabel!==this.#principal.teacherLabel)throw Error('cism_scope_conflict');
+    cismWeek(input.date);if(!this.#authenticated)throw Error('authentication_required');
+    const path=CISM_PATH+'?'+new URLSearchParams({reqCmd:'CismChartMain',tutor_pri_no:this.#principal.teacherKey,the_date:input.date});
+    const response=await this.#request(path,{method:'GET'},false,'cism_weekly_read');
+    const bytes=await boundedTextbookBody(response,2000000,'catalog');
+    return parseCismReport(new TextDecoder().decode(bytes),sourceDomParser.parseFromString,input.date,this.#principal);
+  }
+  async applyCismField(input:{teacherLabel:string;date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>){
+    const current=await this.readCismReport({teacherLabel:input.teacherLabel,date:input.date}),field=current.fields.find(f=>f.fieldRef===input.fieldRef);
+    if(!field||current.wireSha256!==input.wireSha256||field.value!==input.before)throw Error('cism_stale_before');
+    if(field.value.trim()&&(field.kind!=='class_mode'||field.value!=='0')&&!(field.kind==='narrative'&&input.completeExistingNarrative===true))throw Error('cism_existing_value_preserved');
+    const params=cismWriteParameters(current,field,input.after);if(!await authorize())throw Error('cism_review_required');
+    const response=await this.#request(CISM_PATH,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:params.toString()},false,'cism_field_save');
+    const mime=response.headers.get('content-type')??'';if(!/^(application\/json|text\/(html|plain))(;|$)/i.test(mime))throw Error('cism_ack_unqualified');
+    const raw=await boundedTextbookBody(new Response(response.body,{status:response.status,headers:{'Content-Type':'text/html'}}),65536,'catalog');let ack:unknown;
+    try{ack=JSON.parse(new TextDecoder().decode(raw));}catch{throw Error('cism_ack_unqualified');}
+    if(!ack||typeof ack!=='object'||(ack as {result?:unknown}).result!=='OK')throw Error('cism_ack_unqualified');
+    const readback=await this.readCismReport({teacherLabel:input.teacherLabel,date:input.date});
+    if(readback.fields.find(f=>f.fieldRef===input.fieldRef)?.value!==input.after)throw Error('cism_readback_mismatch');
+    return {status:'persisted' as const,fieldRef:input.fieldRef,report:readback};
+  }
   async readTextbookCatalog(input:{teacherLabel:string;schoolLevel?:TextbookSchoolLevel}):Promise<TextbookCatalogObservation>{
     if(!input||Object.keys(input).some(k=>!['teacherLabel','schoolLevel'].includes(k))||input.teacherLabel!==this.#principal.teacherLabel)throw Error('textbook_catalog_principal_rejected');
     if(!this.#authenticated)throw Error('authentication_required');

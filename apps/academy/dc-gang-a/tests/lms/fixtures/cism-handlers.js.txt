@@ -1,0 +1,78 @@
+function setCismData(field_name,id,stu_pri_no,cm_seq,grp_seq){
+	
+	 var param ="";   
+	 var the_date = document.getElementById("the_date").value;
+	 var field_value = "";
+	 var tutor_pri_no = document.getElementById("tutor_pri_no").value;
+	 
+	 if(field_name == "class_mode"){
+		 field_value = document.getElementById("class_mode_"+id).value;
+	 }else if(field_name == "think_note"){
+		 field_value = document.getElementById("think_note_"+id).value;
+	 }else{
+		 field_value = document.getElementById("week_test_"+id).value;
+	 }
+	 
+	 
+	 if(typeof Number(field_value) != "number" ||  field_value == "" || field_value == null){    
+		 return false;
+	 }else{
+		 
+		 param ="reqCmd=SetCismChartData&field_name="+field_name+"&field_value="+field_value+"&stu_pri_no="+stu_pri_no+"&cm_seq="+cm_seq+"&the_date="+the_date+"&grp_seq="+grp_seq+"&tutor_pri_no="+tutor_pri_no; 
+				 
+		 $.ajax({
+						type : "post",
+						url :"/servlet/controller.cct.common.CourseCommonServlet",
+						data:param,
+						success:function(data){ 
+																					 
+							 if(data.result == "OK"){
+								 setStatistics(field_name,grp_seq);
+							 }else{
+								 window.alert(""+data.fail_message);
+							 }
+						},
+						error:function(e){
+							window.alert(e); 
+			 
+						}                   
+			});      
+					 
+	 }
+		 
+	
+}
+function onTextareaFocusOut(obj,field_name)
+{ 
+	var param ="";    
+	var tutor_pri_no = document.getElementById("tutor_pri_no").value;
+	var the_date = document.getElementById("the_date").value;
+	var field_value = obj.value;
+	
+	//폼체크
+	if(formValueCheck(field_value)){
+		
+		if (g_objectValue != field_value)
+		{   
+			param ="reqCmd=SetCismContentData&tutor_pri_no="+tutor_pri_no+"&the_date="+the_date+"&field_name="+field_name+"&field_value="+field_value; 
+				
+			$.ajax({
+						 type : "post",
+						 url :"/servlet/controller.cct.common.CourseCommonServlet",
+						 data:param,
+						 success:function(data){ 
+																						
+								if(data.result == "FAIL"){
+										window.alert(""+data.fail_message); 
+								}
+						 },
+						 error:function(e){
+							 window.alert(e); 
+				
+						 }                   
+			 });      
+			
+		}
+		
+	}
+}

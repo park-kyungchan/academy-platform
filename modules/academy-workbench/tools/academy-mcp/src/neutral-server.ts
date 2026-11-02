@@ -20,10 +20,10 @@ import {selectPaperRoute} from './paper-scope-routing.ts';
 import {observeAttribution} from './dailyrecord-workflow.ts';
 import {dailyRecordWorkflowToolSchemas} from './dailyrecord.ts';
 const processStartedAt=new Date().toISOString();
-// Owner DailyRecord workflow attribution: what this bridge actually observes
+// Owner workflow attribution: what this bridge actually observes
 // about its caller (MCP client info, process, parent command, Herdr pane),
 // plus the caller's declared actor. A caller-typed attribution is discarded.
-const isWorkflowTool=(name:string)=>Object.hasOwn(dailyRecordWorkflowToolSchemas,name);
+const isWorkflowTool=(name:string)=>Object.hasOwn(dailyRecordWorkflowToolSchemas,name)||['academy_cism_weekly_review','academy_cism_weekly_save'].includes(name);
 function withAttribution(name:string,args:Record<string,unknown>):Record<string,unknown>{
  const {attribution:_ignored,...payload}=args;
  if(!isWorkflowTool(name))return payload;
@@ -66,7 +66,7 @@ if(process.argv.includes('--discover')){
    if(tool.name==='academy_dailyrecord_get'||tool.name==='academy_endpoint_identity'||tool.name==='academy_runtime_identity')continue;
    if(endpoint==='saved'&&/^academy_(dailyrecord_|cism_|item_answer_lookup|runtime_read_admission|student_metadata|student_resolve|endpoint_identity|runtime_identity)/.test(tool.name))continue;
    const scopeHint=endpoint==='dailyrecord'?` DailyRecord owner-admitted dates: ${readAdmission.allowedFrom??'unbounded'} through ${readAdmission.allowedThrough??'unbounded'}.`:'';
-   registry.push({endpoint,upstreamName:tool.name,tool:{...tool,name:endpoint==='paper2'?'class2_'+tool.name:tool.name,description:tool.description+' '+(endpoint==='saved'?'Preserved evidence only; coverage/freshness is explicit.':tool.name==='academy_dailyrecord_save'?'One serialized native write batch; releases the account lock after completion. Requires a prior recorded review and the verbatim user instruction; the bridge records the observed caller attribution for audit. No printing, sending, automatic retry or credentials in arguments.':'One serialized native read batch; releases the account lock after completion. No saving, printing, sending, automatic retry or credentials in arguments.'+scopeHint)}});
+   registry.push({endpoint,upstreamName:tool.name,tool:{...tool,name:endpoint==='paper2'?'class2_'+tool.name:tool.name,description:tool.description+' '+(endpoint==='saved'?'Preserved evidence only; coverage/freshness is explicit.':['academy_dailyrecord_save','academy_cism_weekly_save'].includes(tool.name)?'One serialized native write batch; releases the account lock after completion. Requires a prior recorded review and the verbatim user instruction; the bridge records the observed caller attribution for audit. No printing, sending, automatic retry or credentials in arguments.':'One serialized native read batch; releases the account lock after completion. No saving, printing, sending, automatic retry or credentials in arguments.'+scopeHint)}});
   }
  }
  registry.push({endpoint:'dailyrecord',upstreamName:'academy_dailyrecord_get',tool:{name:'academy_dailyrecord_get',
@@ -209,6 +209,7 @@ async function call(req:any){
     if(entry.upstreamName==='academy_dailyrecord_save')saveIssued=true;
     return client.callTool({name:entry.upstreamName,arguments:forwarded});
    }
+   if(entry.upstreamName==='academy_cism_weekly_save')saveIssued=true;
    return client.callTool({name:entry.upstreamName,arguments:withAttribution(entry.upstreamName,args)});
   },active.endpoints);
   if(result.isError)throw Error('dailyrecord_route_upstream_failed_no_retry');
@@ -221,7 +222,7 @@ async function call(req:any){
    if(handles.size>64)handles.delete(handles.keys().next().value!);
    data.observationHandle=ticket;result.content=[{type:'text',text:JSON.stringify(data)}];
   }
-  writeFileSync(log+'/'+occurrence+'-result.json',JSON.stringify({completedAt:new Date().toISOString(),tool:receiptTool,isError:!!result.isError,status:result.structuredContent?.status??null,sourceAvailability:result.structuredContent?.sourceAvailability??null,steps,resultSha256:sha(result),academyWrites:entry.upstreamName==='academy_dailyrecord_save'?(typeof result.structuredContent?.academyWrites==='number'?result.structuredContent.academyWrites:null):0,parentSends:0,automaticRetryAllowed:false})+'\n',{mode:0o600,flag:'wx'});
+  writeFileSync(log+'/'+occurrence+'-result.json',JSON.stringify({completedAt:new Date().toISOString(),tool:receiptTool,isError:!!result.isError,status:result.structuredContent?.status??null,sourceAvailability:result.structuredContent?.sourceAvailability??null,steps,resultSha256:sha(result),academyWrites:['academy_dailyrecord_save','academy_cism_weekly_save'].includes(entry.upstreamName)?(typeof result.structuredContent?.academyWrites==='number'?result.structuredContent.academyWrites:null):0,parentSends:0,automaticRetryAllowed:false})+'\n',{mode:0o600,flag:'wx'});
   return result;
  }catch(error){
   const failure=error instanceof CompositeSourceUnavailable?error.failure:publicReadFailure(error,'upstream_failure_reconcile_dispatch'),code=failure.code;

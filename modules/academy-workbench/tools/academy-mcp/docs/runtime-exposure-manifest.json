@@ -1,6 +1,6 @@
 {
   "schemaVersion": "academy.runtime-exposure/1",
-  "note": "Canonical academy MCP tool exposure. One declaration for all runtimes (P2). Reads open first. academy_dailyrecord_save is the single gated write: with the owner workflow (default for native launches, 2026-10-30) it requires a prior recorded review and the verbatim user instruction and records who saved; without it, a launch-pinned save admission (user instruction 2026-10-28) applies, and stays fail-closed without an owner write backend. academy_dailyrecord_reconcile and academy_dailyrecord_execution_status never write to the academy; they record owner-store audit metadata only.",
+  "note": "Canonical academy MCP tool exposure. One declaration for all runtimes (P2). Reads open first. academy_dailyrecord_save is the single gated write: with the owner workflow (default for native launches, 2026-10-30) it requires a prior recorded review and the verbatim user instruction and records who saved; without it, a launch-pinned save admission (user instruction 2026-10-28) applies, and stays fail-closed without an owner write backend. academy_dailyrecord_reconcile and academy_dailyrecord_execution_status never write to the academy; they record owner-store audit metadata only. CISM weekly review records local owner metadata; academy_cism_weekly_save is an additional exact-reviewed empty-field writer with durable dispatch, source readback and no PDF/send.",
   "tools": [
     {
       "name": "academy_capabilities",
@@ -151,6 +151,26 @@
       "name": "academy_textbook_pdf",
       "class": "read",
       "exposure": "open"
+    },
+    {
+      "name": "academy_cism_weekly_get",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_cism_month",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_cism_weekly_review",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_cism_weekly_save",
+      "class": "write",
+      "exposure": "gated_save_admission"
     }
   ],
   "closedUntilAttribution": [],
