@@ -1,0 +1,15 @@
+{
+  "command": [
+    "bun",
+    "--no-env-file",
+    "--no-install",
+    "test",
+    "/tmp/s08-pure-WuozGl/source/apps/academy/dc-gang-a/tests/lms/lessonJournalTemplates.test.ts"
+  ],
+  "cwd": "/tmp/s08-pure-WuozGl",
+  "status": 0,
+  "signal": null,
+  "spawnError": null,
+  "stdout": "bun test v1.4.3 (c6da4a4d3)\n",
+  "stderr": "\nsource/apps/academy/dc-gang-a/tests/lms/lessonJournalTemplates.test.ts:\n(pass) parent journal maps internal paper codes to attributable edition/unit names in three independent templates [13.35ms]\n(pass) unknown clinic header blocks homework only and memo respects lesson part [1.16ms]\n(pass) unattributed mappings and literal internal codes fail closed instead of reaching parent text [0.40ms]\n(pass) overlong fields are blocked without silent truncation or completing ungraded work [0.36ms]\n(pass) reviewer negatives reject coercible enums, blank source unit code and attached internal labels [1.01ms]\n(pass) multiple same-edition units share one book label without losing literal codes or names [0.23ms]\n(pass) activity wording does not repeat problem solving and excluded memo evidence is not rendered provenance [0.18ms]\n(pass) teacher-format revision gives each semantic entry one hyphen line, not each sentence [0.45ms]\n(pass) parent blockers preserve source wording and isolate independently valid fields [1.32ms]\n\n 9 pass\n 0 fail\n 39 expect() calls\nRan 9 tests across 1 file. [28.00ms]\n"
+}

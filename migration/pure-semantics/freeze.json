@@ -1,0 +1,17 @@
+{
+  "schema": "s08.independent-source-freeze/2",
+  "status": "author-frozen-pending-independent-Wonder-review",
+  "supersedes": "expected.json is invalid v1: UUID injection ineffective; preserved unchanged",
+  "sourceBase": "cc6e81f1be2fcb56f011041e3d606e21edf76da3",
+  "candidateSource": "absent; all three Rust leaf functions return Unimplemented",
+  "files": {
+    "migration/pure-semantics/pins.json": "8b066f448bbf1d9e7e7f075598edd05d6f3452b8b86bd40f4d5b493bb72dc097",
+    "migration/pure-semantics/corpus/cases.json": "8f25b3a3cd01f635bfbe6164a6c7a5ed97d36f8633dc5ef51d0abac1da27d1c8",
+    "migration/pure-semantics/expected-v2.json": "9073faa3c80aced0bcc01f77ed99e4d1984b218134bc1d11910e15933d202578",
+    "migration/pure-semantics/baseline.ts": "b84f55f7e683797514072aa00607563cdc7451aaf0bbfbd305f2802346585990",
+    "migration/pure-semantics/isolation.ts": "58a6aa2f6a4466332001b541e48e834ae199f1b10cf738e1f6d9a3f675b6f0ba",
+    "migration/pure-semantics/comparator.mjs": "ff468a999ceb30951427e80c1f46c2d7a5ec875df09e969b3f519fae2ea61519",
+    "migration/pure-semantics/verify.mjs": "72c5080452e18f07b976459e10b7f7d03da3c6ec599d8f4978b335c65de81c9d",
+    "migration/pure-semantics/compare-candidate.mjs": "711ee1cb4aaa0face8732af674dec896de0b30c9e21502db6eed1880ef835f6b"
+  }
+}

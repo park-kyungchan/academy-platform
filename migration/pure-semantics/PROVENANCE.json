@@ -1,0 +1,68 @@
+{
+  "schema": "s08.foundation-provenance/1",
+  "base": "049f7c3da0af6c320c818d2afdab3da34bccd37a",
+  "originalSource": "cc6e81f1be2fcb56f011041e3d606e21edf76da3",
+  "branch": "rust/s08-pure-semantics-20261102",
+  "zipSha256": "964845e260a25350823fb42d38a60e7cba973f8af607e10b505727d3bf78915c",
+  "contractRefs": [
+    "contracts/migration_slices.json#S08",
+    "contracts/acceptance_vectors.json#EDU-03/04/05/06/17/18/JUDGE-01"
+  ],
+  "authorityPaths": [
+    "/root/.agents/AGENTS.md",
+    "/home/palantirkc/work/ws-replan/STATE.md",
+    "/home/palantirkc/work/ws-replan/ORCHESTRATION.md",
+    "/home/palantirkc/work/ws-replan/CURRENT-PLAN.md"
+  ],
+  "sourceOrigin": "actual unchanged functions, invoked by a source-backed adapter; never a Rust candidate",
+  "fixtureOrigin": "new synthetic identities, dates, narrative text and disposable in-memory targets; no private student or runtime reads",
+  "dependencyMethod": "existing Zod4.4.3 byte pins, no install; offline Cargo lock only",
+  "memory": {
+    "page": "kp-51e18480515b4ba2b3674b1b8f124f7f",
+    "use": "historical S05 limited boundary corroborated with current STATE and source; never expectation generation",
+    "officialGuide": "/docker/hindsight/HINDSIGHT_OFFICIAL_PER_CALL.md",
+    "officialRevision": "a5a619b5ca59c5c39e0f96be6f7a31fabd136bd5",
+    "officialSourcesRead": [
+      "hindsight-docs/docs/developer/knowledge-pages.mdx",
+      "hindsight-integrations/coding-agents/src/core/knowledge-tools.test.ts"
+    ]
+  },
+  "instrumentation": {
+    "randomUUID": "Bun mock.module before source import; deterministic sequential test handles; full handle/digests retained",
+    "now": "DailyRecordService existing now port fixed at2040-01-16T09:00:00Z",
+    "transport": "invocation-local deny guards, not OS sandbox",
+    "policies": "explicit synthetic callback fakes, canonical policy acceptance unproved",
+    "workflowStore": null,
+    "writeBackend": null
+  },
+  "activeExpected": {
+    "path": "expected-v2.json",
+    "sha256": "9073faa3c80aced0bcc01f77ed99e4d1984b218134bc1d11910e15933d202578"
+  },
+  "invalidHistoricalExpected": {
+    "path": "expected.json",
+    "sha256": "e329bb0a3df26f024158f4bab0f3d902097a6b5a15bcb1afd685060adabf32bd",
+    "reason": "first UUID replacement did not affect Bun named imports; run01 literal-check failure preserved"
+  },
+  "checkedOriginalFiles": 30,
+  "independentSha256ByteChecks": 52,
+  "runtimeEffects": {
+    "liveRequests": 0,
+    "realLocksOrJournals": 0,
+    "productionWrites": 0,
+    "printOrSend": 0,
+    "pushMergeDeploy": 0,
+    "rustCompiles": 0,
+    "childAgents": 0
+  },
+  "nextAction": "Lead independent Wonder freeze review; no Terra or S09/S10 dispatch from author completion",
+  "selectedZipEntrySha256": {
+    "PROPOSAL.md": "9cc0361c1713aa0fe091347eab5f9da818f6a985832e4d8f3159d09a1d156999",
+    "LEAD_KICKOFF.md": "b04e3916dc497824dbc9d6bcc127e2c7b819b8bb640804e2596e560ebd0739e2",
+    "PORTING_GUIDE.md": "5dd503365041a1f1bfa1e5966d606bffde1b29cf87193258c77d5c342e8d854f",
+    "reviews/PLATFORM_PLAN_REVIEW.md": "8acb12e3828dc46de1097da581fd501b78c0896c2e81ed9553af30dfd2c748e2",
+    "reviews/EDUCATION_CODE_REVIEW.md": "2ec12f490d28d184602447d2c303b9513c95da95bf3505adaf3e8708462bfa34",
+    "contracts/migration_slices.json": "66692f79c882a2e06d5250a7d596bd7b06a50bc5675e3204932e10f3f2718226",
+    "contracts/acceptance_vectors.json": "82b2f48644cb44aa03532778da59db30aa94e67c852e576a7cc9b9d7f0025866"
+  }
+}

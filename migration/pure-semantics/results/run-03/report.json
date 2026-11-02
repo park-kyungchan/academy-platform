@@ -1,0 +1,1082 @@
+{
+  "schema": "s08.reference-result/1",
+  "foundationOnly": true,
+  "independentReview": "pending",
+  "rustSemanticLeaf": "unimplemented",
+  "rustCompilation": "not_run_no_build_slot",
+  "sourceRoot": "/tmp/s08-pure-X2FpMM/source",
+  "temp": "/tmp/s08-pure-X2FpMM",
+  "bunVersion": {
+    "command": [
+      "bun",
+      "--version"
+    ],
+    "cwd": "/tmp/s08-pure-X2FpMM",
+    "status": 0,
+    "signal": null,
+    "spawnError": null,
+    "stdout": "1.4.3\n",
+    "stderr": ""
+  },
+  "expectedPath": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/expected-v2.json",
+  "expectedSha256": "9073faa3c80aced0bcc01f77ed99e4d1984b218134bc1d11910e15933d202578",
+  "cases": 202,
+  "matched": 202,
+  "leafCases": 54,
+  "negativeControls": 17,
+  "rejected": 17,
+  "literalChecks": [
+    {
+      "name": "utf16-and-normalization",
+      "passed": true
+    },
+    {
+      "name": "calendar-intersection",
+      "passed": true
+    },
+    {
+      "name": "previous-physical-record",
+      "passed": true
+    },
+    {
+      "name": "independent-field-patch",
+      "passed": true
+    },
+    {
+      "name": "narrative-explicit-policy",
+      "passed": true
+    },
+    {
+      "name": "knowledge-missing-zero",
+      "passed": true
+    },
+    {
+      "name": "digest-families-not-collapsed",
+      "passed": true
+    },
+    {
+      "name": "actual-http-fake-target-selection",
+      "passed": true
+    },
+    {
+      "name": "deterministic-handle-retained",
+      "passed": true
+    }
+  ],
+  "comparisons": [
+    {
+      "id": "width-empty",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-ascii",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-hangul",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-emoji",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-bmp",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-composed",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-decomposed",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-crlf",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-controls",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-high",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-low",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-pair",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-width399",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-width400",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-width401",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "width-width404",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2026-10-18",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2026-10-19",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2026-10-24",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2026-10-25",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2026-01-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2026-12-31",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2027-01-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2024-02-28",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2024-02-29",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2024-03-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2000-01-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2000-02-29",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2099-12-31",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2026-02-29",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2026-02-30",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2100-01-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-1999-12-31",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2026-13-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2026-01-00",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2026-1-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week-2026-01-01T00:00:00Z",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "week- 2026-01-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2026-02",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2026-08",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2026-10",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2026-11",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2026-12",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2027-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2024-02",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2000-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2099-12",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2026-13",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2026-00",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2026-1",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-1999-12",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2100-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-2026-01-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "month-empty",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "learning-date-0000-01-01",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "learning-date-0099-12-31",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "learning-date-1900-02-29",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "learning-date-2000-02-29",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "learning-date-2100-02-29",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "learning-date-9999-12-31",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "learning-date-null",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-ordering",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-insertionA",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-insertionB",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-escapes",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-numbers",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-missing",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-null",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-blank",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-zero",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-unknown",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-not_performed",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-undefinedMember",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-undefinedArray",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-undefined",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-NaN",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-Infinity",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-bigint",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-function",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-symbol",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-sparse",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-decorated",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-date",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-null_prototype",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-symbol_key",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-accessor",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-cycle",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-depth_64",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-learning-depth_65",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-ordering",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-insertionA",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-insertionB",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-escapes",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-numbers",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-missing",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-null",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-blank",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-zero",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-unknown",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-not_performed",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-undefinedMember",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-undefinedArray",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-undefined",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-NaN",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-Infinity",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-bigint",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-function",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-symbol",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-sparse",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-decorated",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-date",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-null_prototype",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-symbol_key",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-admission-accessor",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-ordering",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-insertionA",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-insertionB",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-escapes",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-numbers",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-missing",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-null",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-blank",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-zero",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-unknown",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-not_performed",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-undefinedMember",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-undefinedArray",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-undefined",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-NaN",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-Infinity",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-bigint",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-function",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-symbol",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-sparse",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-decorated",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-date",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-null_prototype",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-symbol_key",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "json-cism-accessor",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "knowledge-missing",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "knowledge-null",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "knowledge-empty",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "knowledge-unknown",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "knowledge-blank",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "knowledge-zero",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "knowledge-not_performed",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "knowledge-null_value",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "knowledge-missing_value",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "knowledge-missing_refs",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "knowledge-duplicate_refs",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "knowledge-unknown_extra",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "known-zero-copy",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "known-null-refused",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "unknown-reason",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "unknown-blank-refused",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "constants",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-base",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-field-local-header-hold",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-ordered-deduplicated-content",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-due-first-only",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-part-filter",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-unresolved-topic",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-missing-evidence",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-duplicate-evidence",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-missing-key",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-unknown-key",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-invalid-date",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-due-before",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-internal-code",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-blank-unit",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-coercible-enum",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-overflow-not-truncated",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-empty",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "template-invalid-excluded-memo-still-checked",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-physical-current-and-previous",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-missing-previous-unknown-assessment",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-missing-previous-known-refusal",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-previous-conflict-studentId",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-previous-conflict-recordId",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-previous-conflict-lessonDate",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-previous-conflict-courseId",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-previous-conflict-membershipId",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-previous-conflict-sourceNamespace",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-learning-hold-independent-assessment",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-missing-learning-policy",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-narrative-set",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-narrative-replace",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-narrative-clear",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-narrative-noop-set",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-memo-no-addition-clear-hold",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-unsupported-completion",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-teacher-preserve-before",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-assessment-before--1",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-assessment-before-0",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-assessment-before-blank",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-assessment-unknown",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-assessment-missing",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "review-unavailable",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "http-dailyTestAssessment-true",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "http-dailyTestAssessment-false",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "http-previousHomeworkAssessment-true",
+      "accepted": true,
+      "reason": "exact_values"
+    },
+    {
+      "id": "http-previousHomeworkAssessment-false",
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  ],
+  "sourceTestStatus": 0,
+  "sourceTestSignal": null,
+  "sourceTestSpawnError": null,
+  "passed": true
+}
