@@ -432,3 +432,58 @@ fn unavailable_source_has_explicit_null_handle_before_review_hash() {
     );
     assert!(review.get("status").is("held"));
 }
+
+#[test]
+fn context_timezone_accepts_case_aliases_and_preserves_input() {
+    let cases = [
+        ("America/New_York", true),
+        ("america/new_york", true),
+        ("AMERICA/NEW_YORK", true),
+        ("Asia/Seoul", true),
+        ("asia/seoul", true),
+        ("Asia/seoul", true),
+        ("ASIA/SEOUL", true),
+        ("US/Eastern", true),
+        ("us/eastern", true),
+        ("Europe/London", true),
+        ("eUrOpE/lOnDoN", true),
+        ("+0900", true),
+        ("+09", true),
+        ("-05:00", true),
+        ("Factory", false),
+        ("Asia/Seol", false),
+        ("Asia/Seoul ", false),
+        (" Asia/Seoul", false),
+        ("posix/Asia/Seoul", false),
+        ("+24:00", false),
+    ];
+    for (zone, expected) in cases {
+        let context = obj(&[
+            ("studentId", "s:unseen".into()),
+            ("lessonDate", "2040-01-16".into()),
+            (
+                "occurrenceId",
+                obj(&[
+                    ("state", "known".into()),
+                    ("value", "o:1".into()),
+                    ("evidenceRefs", strings(&["r:1"])),
+                ]),
+            ),
+            (
+                "localStartTime",
+                obj(&[
+                    ("state", "known".into()),
+                    ("value", "18:30".into()),
+                    ("evidenceRefs", strings(&["r:1"])),
+                ]),
+            ),
+            ("timeZone", zone.into()),
+        ]);
+        assert_eq!(
+            learning::assert_context(&context).is_ok(),
+            expected,
+            "{zone:?}"
+        );
+        assert_eq!(context.get("timeZone"), &zone.into());
+    }
+}

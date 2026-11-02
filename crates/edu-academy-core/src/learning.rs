@@ -40,7 +40,7 @@ pub fn assert_context(v: &Js) -> Result<()> {
     check(v.get("occurrenceId"), |v| require_text(v, "occurrence id"))?;
     check(v.get("localStartTime"), time)?;
     require_text(v.get("timeZone"), "time zone")?;
-    // Explicit retained compatibility boundary for Intl: native callers can supply a validator.
+    // Native timezone validation retains the original input.
     let tz = v.get("timeZone").code_units();
     if !timezone(&tz) {
         return Err(Fault::error("invalid time zone"));
@@ -48,7 +48,7 @@ pub fn assert_context(v: &Js) -> Result<()> {
     Ok(())
 }
 fn timezone(tz: &str) -> bool {
-    tz.parse::<chrono_tz::Tz>().is_ok()
+    chrono_tz::Tz::from_str_insensitive(tz).is_ok()
         || regex(r"^[+-](?:[01][0-9]|2[0-3])(?::?[0-5][0-9])?$").is_match(tz)
 }
 pub fn validate_catalog(c: &Js) -> Result<()> {
