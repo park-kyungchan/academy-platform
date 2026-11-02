@@ -15,3 +15,4 @@ pub mod schema;
 pub mod semantic;
 pub mod templates;
 pub mod wire;
+pub mod workflow;
