@@ -1,0 +1,7 @@
+{"operation":"read_authoritative","scope":{"sourceNamespace":"academy.lms.dayrecord","teacherId":"99001","studentId":"77001","lessonDate":"2040-01-04"}}
+{"operation":"read_authoritative","scope":{"sourceNamespace":"academy.lms.dayrecord","teacherId":"99001","studentId":"77001","lessonDate":"2040-01-04"}}
+{"operation":"fake_authenticate","teacherId":"99001"}
+{"operation":"action","action":{"attemptId":"b28a26a8-9df2-483d-9228-b70ef99b9310","target":{"studentName":"Invented S10 Student","date":"2040-01-04","groupId":"3","teacherKey":"99001","studentKey":"77001","courseKey":"5","recordKey":"13","membershipKey":"8"},"field":"progress","effectRecordKey":"13","before":"- 기존 진도","after":"- 지정 문제 풀이 진행.","wireDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"canonicalDigest":"32a766c20a487d79157c8d161b90698c176b7400db039054cf601f81d8d67462","ownerDigest":"32a766c20a487d79157c8d161b90698c176b7400db039054cf601f81d8d67462"}
+{"operation":"consumed_approval","decision":{"status":"verified","actionDigest":"32a766c20a487d79157c8d161b90698c176b7400db039054cf601f81d8d67462"}}
+{"operation":"fake_dispatch","field":"progress","effectRecordKey":"13"}
+{"operation":"fake_acceptance","field":"progress","effectRecordKey":"13"}

@@ -1,0 +1,13 @@
+{
+  "fields": {
+    "progress": "- 지정 문제 풀이 진행.",
+    "homework": "- 기존 숙제",
+    "lessonMemo": "",
+    "attendance": "Y",
+    "dailyTestAssessment": "0",
+    "previousHomeworkAssessment": "3"
+  },
+  "previousRecordKey": "12",
+  "previousDate": "2040-01-02",
+  "mode": "timeout-old"
+}

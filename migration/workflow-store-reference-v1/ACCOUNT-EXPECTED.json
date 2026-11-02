@@ -1,0 +1,92 @@
+{
+  "accountPrefix": {
+    "command": "flock",
+    "flags": [
+      "--wait",
+      "45"
+    ],
+    "lock": "<disposable-root>/native-academy-account.lock"
+  },
+  "accountDeadlineSeconds": 45,
+  "waiterReturncode": 1,
+  "waiterStdout": "",
+  "waiterStderr": "",
+  "waiterTSNotStarted": true,
+  "accountBeforeWorkflow": true,
+  "pythonSameDescriptorContended": true,
+  "sameAccountKernelObjectAfterKill": true,
+  "sameWorkflowKernelObjectAfterKill": true,
+  "holderSignal": 9,
+  "holderAndDescendantsReaped": true,
+  "adoptedChildrenSignals": [
+    9
+  ],
+  "recovered": {
+    "label": "recovered-account-and-workflow",
+    "returncode": 0,
+    "signal": null,
+    "stderr": "",
+    "data": {
+      "op": "lock",
+      "result": {
+        "status": "acquired",
+        "elapsedMs": "<bounded-monotonic-ms>",
+        "lock": {
+          "dev": "<same-disposable-device>",
+          "ino": "<same-disposable-inode>",
+          "mode": 33152,
+          "nlink": 1,
+          "uid": 0,
+          "gid": 0,
+          "rdev": 0,
+          "size": 0,
+          "blksize": 4096,
+          "blocks": 0,
+          "atimeMs": "<fs-time>",
+          "mtimeMs": "<fs-time>",
+          "ctimeMs": "<fs-time>",
+          "birthtimeMs": "<fs-time>"
+        }
+      },
+      "snapshot": {
+        "files": [
+          {
+            "path": "locks/4fc097ce508d54a164017021ff8dc1b74f6cc380bc474c8884d24492ab558d6d.flock",
+            "bytes": ""
+          }
+        ],
+        "source": {
+          "fields": {
+            "progress": "- 기존 진도",
+            "homework": "- 기존 숙제",
+            "lessonMemo": "",
+            "attendance": "Y",
+            "dailyTestAssessment": "0",
+            "previousHomeworkAssessment": "3"
+          },
+          "previousRecordKey": "12",
+          "previousDate": "2040-01-02",
+          "mode": "normal"
+        },
+        "events": [
+          {
+            "operation": "workflow_acquired",
+            "dev": "<same-disposable-device>",
+            "ino": "<same-disposable-inode>"
+          },
+          {
+            "operation": "workflow_acquired",
+            "dev": "<same-disposable-device>",
+            "ino": "<same-disposable-inode>"
+          }
+        ],
+        "downstream": {
+          "pdf": 0,
+          "print": 0,
+          "parentSend": 0
+        }
+      }
+    }
+  },
+  "liveTransport": 0
+}
