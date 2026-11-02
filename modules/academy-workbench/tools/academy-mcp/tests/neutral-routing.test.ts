@@ -109,6 +109,17 @@ test('empty dated name resolution stays not found in native audit without intake
     expect(await readFile(events,'utf8')).not.toContain('intake');
   });
 },20000);
+test('direct resolver receipt retains native audit failure for an empty dated result',async()=>{
+  await withNeutralClient(async({base,client})=>{
+    await writeFile(resolve(base,'enable-resolve-audit'),'enabled');
+    const result:any=await client.callTool({name:'academy_student_resolve',arguments:{displayName:'Missing Invented Student',lessonDate:'2040-01-16',purpose:'Synthetic read',currentRequestRef:'synthetic-direct'}});
+    expect(result.structuredContent).toMatchObject({status:'unavailable',reasonCode:'student_name_not_found'});
+    const receipts=await readdir(resolve(base,'receipts'));
+    const receipt=JSON.parse(await readFile(resolve(base,'receipts',receipts.find(n=>n.endsWith('-result.json'))!),'utf8'));
+    expect(receipt.failure).toMatchObject({code:'student_name_not_found',category:'partial_coverage'});
+    expect(receipt.upstreamOccurrence).toMatch(/^[a-f0-9-]{36}$/);
+  });
+},20000);
 test('neutral save composes intake, review and save in one upstream lifetime',async()=>{
   await withNeutralClient(async({events,client})=>{
     const c=context();
