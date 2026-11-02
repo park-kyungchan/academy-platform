@@ -202,6 +202,7 @@ function proposalBlockers(p:Proposal,context:DailyRecordContext){
  * hold; it never supplies a mapping, option or teacher decision. */
 const holdActionTable:[RegExp,string,string][]=[
   [/_ask_teacher$|^interview_required$/,'teacher_interview','Ask the teacher for the exact edition/unit/section binding of this activity and record the answer as a scoped correction for this student, edition and activity only.'],
+  [/^count_rendering_must_preserve_count$/,'correct_fact','questionCounts accepts cardinal question counts such as 8문항. Put ordinal scope such as 유형 10 in requiredFragments; preserve the teacher fact and review again.'],
   [/^learning_entries_required$/,'supply_learning_entries','Supply learningEntries binding book, unit and sections through the owner catalog.'],
   [/^learning_(mapping_unqualified|evidence_required|book_invalid|unit_invalid|section_invalid|edition_invalid|grade_invalid|entry_invalid)$|^duplicate_learning_/,'owner_catalog_binding','The owner catalog has no qualified binding for this entry; record a teacher-confirmed binding in the private owner catalog. Never invent a mapping.'],
   [/^learning_render_mismatch$/,'teacher_review_rendering','Text differs from the canonical grouped rendering; the teacher reviews any format example for meaning before resubmitting.'],
@@ -471,12 +472,13 @@ export class DailyRecordService {
       const changed=before.state!=='known'||before.value!==p.value;
       if(changed&&before.state==='known'&&before.value!==''&&!unknownAssessment(p.field,before.value)&&p.decision.kind==='set')blockers.push('existing_value_requires_explicit_replace');
       const facts=context.facts.filter(f=>f.field===p.field),constraints=facts.flatMap(f=>[...f.requiredFragments,...f.questionCounts.map(c=>c.rendering),...f.deadlines.map(d=>d.rendering),...f.stageClaims.map(s=>s.rendering)]);
+      if(facts.some(f=>f.questionCounts.some(c=>!new RegExp('(?<!\\d)'+c.count+'\\s*문항(?!\\d)').test(c.rendering))))blockers.push('count_rendering_must_preserve_count');
       const missingFragments=constraints.filter(fragment=>!p.value.includes(fragment));
       if(missingFragments.length)blockers.push('supplied_fact_fragment_missing');
       if(['progress','homework','lessonMemo'].includes(p.field)){
         const factText=facts.map(f=>f.text).join('\n');
         const counts=(text:string)=>[...text.matchAll(/(?<!\d)(\d{1,6})\s*문항/g)].map(m=>Number(m[1]));
-        const supportedCounts=new Set([...counts(factText),...facts.flatMap(f=>f.questionCounts.map(c=>c.count))]);
+        const supportedCounts=new Set([...counts(factText),...facts.flatMap(f=>f.questionCounts.filter(c=>new RegExp('(?<!\\d)'+c.count+'\\s*문항(?!\\d)').test(c.rendering)).map(c=>c.count))]);
         if(counts(p.value).some(count=>!supportedCounts.has(count)))blockers.push('unsupported_question_count');
         const deadlines=(text:string)=>[...text.matchAll(/(?:(\d{4})[-./](\d{1,2})[-./](\d{1,2})|(\d{1,2})\s*월\s*(\d{1,2})\s*일)/g)].map(m=>m[1]?`${m[1]}-${Number(m[2])}-${Number(m[3])}`:`${Number(m[4])}-${Number(m[5])}`);
         const supportedDeadlines=new Set([...deadlines(factText),...facts.flatMap(f=>f.deadlines.flatMap(d=>[`${d.date.slice(0,4)}-${Number(d.date.slice(5,7))}-${Number(d.date.slice(8,10))}`,`${Number(d.date.slice(5,7))}-${Number(d.date.slice(8,10))}`,...deadlines(d.rendering)]))]);

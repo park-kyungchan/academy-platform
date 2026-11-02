@@ -45,3 +45,17 @@ test('dedicated entrypoint discovers the read-only DailyRecord/metadata/resolver
   }
   finally{await client.close();await transport.close();}
 },10000);
+
+test('MCP returns an actionable review hold for ordinal questionCounts without an upstream error',async()=>{
+  const {client,transport}=await connect('dailyrecord-server.ts');
+  try{
+    const c=context();c.facts[0].questionCounts=[{count:10,rendering:'유형 10'}];
+    const reviewed=await client.callTool({name:'academy_dailyrecord_review',arguments:{context:c,proposals:[{field:'progress',value:'- 유형 10까지 풀이 진행.',factRefs:[c.facts[0].ref],decision:{kind:'set',requestRef:c.currentRequestRef}}]}});
+    expect(reviewed.isError).not.toBe(true);
+    expect((reviewed.structuredContent as any).rows[0].blockers).toContain('count_rendering_must_preserve_count');
+    const tools=(await client.listTools()).tools;
+    expect(tools.find(t=>t.name==='academy_dailyrecord_save')?.description).toContain('request_instruction_conflict');
+    expect(tools.find(t=>t.name==='academy_dailyrecord_review')?.description).toContain('parent_internal_language_excluded');
+    expect(tools.find(t=>t.name==='academy_dailyrecord_intake')?.description).toContain('5 minutes');
+  }finally{await client.close();await transport.close();}
+},20000);

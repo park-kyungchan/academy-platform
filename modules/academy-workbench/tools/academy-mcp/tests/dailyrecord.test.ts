@@ -142,3 +142,18 @@ test('launch configuration reuses hash-pinned canonical regex bytes without impo
     await expect(dailyRecordToolConfiguration(['--dailyrecord-policy',policy,'0'.repeat(64),source,sha(sourceBytes)])).rejects.toThrow();
   }finally{await rm(dir,{recursive:true,force:true});}
 });
+
+// Ordinal scope is not a cardinal question count; invalid semantics must not become an upstream failure.
+test('non-question rendering is a field-local hold and cannot support an invented question count',async()=>{
+  const service=new DailyRecordService(backend(),safeguard,()=>clock,learningPolicy),c=context();
+  c.facts=[{...fact('progress','유형 10까지 풀이 진행.'),questionCounts:[{count:10,rendering:'유형 10'}]}];
+  const intake=await service.intake({context:c});
+  const result=await service.review({context:c,observationHandle:intake.observationHandle,proposals:[proposal('progress','유형 10까지 10문항 풀이 진행.')]});
+  expect(result.status).toBe('held');expect(result.patch).toEqual([]);
+  expect(result.rows[0].blockers).toContain('count_rendering_must_preserve_count');
+  expect(result.rows[0].blockers).toContain('unsupported_question_count');
+  expect(result.rows[0].holdActions.some(a=>a.action==='correct_fact')).toBe(true);
+  c.facts=[{...fact('progress','유형 10까지 풀이 진행.'),requiredFragments:['유형 10']}];
+  const corrected=await service.review({context:c,observationHandle:intake.observationHandle,proposals:[proposal('progress','유형 10까지 풀이 진행.')]});
+  expect(corrected.rows[0].blockers).not.toContain('count_rendering_must_preserve_count');
+});
