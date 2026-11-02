@@ -71,7 +71,7 @@ export const textbookSectionResultsSchema=z.object({displayName:z.string().trim(
   sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required')}).strict();
 export type TextbookSectionResults=z.infer<typeof textbookSectionResultsSchema>;
 export type TextbookSectionObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;
-  records:{sourceTitle:string;score:number;correctCount:number;itemCount:number;items:{ordinal:string;scoring:'O'|'X'}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
+  records:{sourceTitle:string;score:number;correctCount:number;itemCount:number;items:{ordinal:string;lectureKey:string|null;outerLectureKey:string|null;scoring:'O'|'X'}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
 /** Prestudy video read by exact student name. Upload (waiting list), completed
  * list membership, AI score/star literals and teacher review are four
  * distinct axes; teacherJudgment is never derived from a source OK/score. */
@@ -90,6 +90,21 @@ export const textbookSectionResultsGetSchema=z.object({displayName:z.string().tr
   purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema,
   sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required').optional()}).strict();
 export type TextbookSectionResultsGet=z.infer<typeof textbookSectionResultsGetSchema>;
+/** Reverse trace from numeric item labels to the original textbook sections
+ * (activity titles) whose observed items carry those labels. This proves
+ * original-attempt lineage only: a generated wrong-answer clinic paper's own
+ * version, membership and printed order remain unqualified. */
+export const itemSectionTraceSchema=z.object({displayName:z.string().trim().min(1).max(200),
+  purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema,
+  labels:z.array(z.string().regex(/^[1-9][0-9]{0,15}$/)).min(1).max(32).refine(v=>new Set(v).size===v.length,'unique_item_labels_required'),
+  bookLabel:z.string().trim().min(1).max(200).optional()}).strict();
+export type ItemSectionTrace=z.infer<typeof itemSectionTraceSchema>;
+export type ItemSectionTraceObservation=
+  |{kind:'interview_required';student:{studentId:string;displayName:string};bindings:{bookLabel:string}[];reason:'multiple_book_bindings_select_one';observedAt:string}
+  |{kind:'traced';student:{studentId:string;displayName:string};
+    books:{bookLabel:string;sectionsScanned:number;sectionsFailed:number}[];
+    items:{label:string;matches:{bookLabel:string;sourceTitle:string;ordinal:string;matchedBy:'lectureKey'|'outerLectureKey';originalScoring:'O'|'X'}[]}[];
+    unmatchedLabels:string[];ambiguousLabels:string[];sectionsScanned:number;sectionsFailed:number;observedAt:string;coverage:string};
 export type TextbookSectionIndexObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bookLabel:string;
   index:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string}}[];observedAt:string;coverage:string};
 /** Implemented by the native/source owner, never by MCP arguments. All methods are read-only. */
@@ -105,6 +120,7 @@ export interface DailyRecordReadBackend {
   readTextbookSections?(input:Readonly<TextbookSectionResults>):Promise<TextbookSectionObservation>;
   readPrestudyByName?(input:Readonly<PrestudyGet>):Promise<PrestudyObservation>;
   readTextbookSectionsByName?(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionObservation|TextbookSectionIndexObservation>;
+  readItemSectionTrace?(input:Readonly<ItemSectionTrace>):Promise<ItemSectionTraceObservation>;
 }
 export const dailyRecordSaveSchema=z.object({context:dailyRecordContextSchema,observationHandle:dailyRecordIdSchema,
   cismObservationHandle:dailyRecordIdSchema.optional(),
@@ -356,6 +372,25 @@ export class DailyRecordService {
       if(toolResultBytes(result)>512*1024)throw Error('textbook_section_result_too_large');
       return freezeLabelData(result);
     }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
+  }
+  async itemSectionTrace(value:unknown){
+    const input=itemSectionTraceSchema.parse(value);
+    const base={purpose:input.purpose,currentRequestRef:input.currentRequestRef,displayName:input.displayName,
+      academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only' as const};
+    if(!this.backend?.readItemSectionTrace)return {...base,status:'unavailable' as const,reasonCode:'item_section_trace_backend_not_configured'};
+    try{
+      const result=await this.#serial(async()=>{
+        const observation=await this.backend!.readItemSectionTrace!(freezeLabelData(structuredClone(input)));
+        if(observation.student.displayName!==input.displayName)throw Error('item_section_trace_scope_conflict');
+        if(observation.kind==='traced'){
+          if(observation.items.length!==input.labels.length||observation.items.some((row,i)=>row.label!==input.labels[i])
+            ||observation.items.some(row=>row.matches.some(m=>!m.sourceTitle||(m.matchedBy!=='lectureKey'&&m.matchedBy!=='outerLectureKey'))))throw Error('item_section_trace_scope_conflict');
+        }else if(observation.kind!=='interview_required'||!Array.isArray(observation.bindings)||observation.bindings.length<2)throw Error('item_section_trace_scope_conflict');
+        return {...base,status:observation.kind==='traced'?'observed' as const:'interview_required' as const,...observation};
+      });
+      if(toolResultBytes(result)>512*1024)throw Error('item_section_trace_result_too_large');
+      return freezeLabelData(result);
+    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'item_section_trace_unqualified_no_automatic_retry')};}
   }
   async get(value:unknown){
     return readDailyRecordByName(value,this,this.backend?.readRoutingAdmission?.()??null,this.now);

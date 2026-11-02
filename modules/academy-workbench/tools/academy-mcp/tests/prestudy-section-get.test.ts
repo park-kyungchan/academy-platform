@@ -21,7 +21,7 @@ test('section get by name without titles returns the owner-discovered index; wit
   const indexObs:TextbookSectionIndexObservation={student:{studentId:'77001',displayName:'Invented Student'},courseKey:'5',bookNo:'7',bookLabel:'Fictional Book',
     index:[{sourceTitle:'Unit A 필수예제',sourceDate:{literal:'10-23',meaning:'source_apply_date_not_exact_grade_time'}}],observedAt:'2040-01-16T09:00:00.000Z',coverage:'index'};
   const gradeObs:TextbookSectionObservation={student:{studentId:'77001',displayName:'Invented Student'},courseKey:'5',bookNo:'7',
-    records:[{sourceTitle:'Unit A 필수예제',score:80,correctCount:4,itemCount:5,items:[{ordinal:'5',scoring:'X'}],sourceDate:{literal:'10-23',precision:'month_day',meaning:'source_apply_date_not_exact_grade_time'}}],
+    records:[{sourceTitle:'Unit A 필수예제',score:80,correctCount:4,itemCount:5,items:[{ordinal:'5',lectureKey:null,outerLectureKey:null,scoring:'X'}],sourceDate:{literal:'10-23',precision:'month_day',meaning:'source_apply_date_not_exact_grade_time'}}],
     observedAt:'2040-01-16T09:00:00.000Z',coverage:'exact'};
   const backend:DailyRecordReadBackend={readDailyRecord:async()=>({status:'unavailable',reasonCode:'not_used'}),
     readTextbookSectionsByName:async input=>input.sourceTitles?gradeObs:indexObs};

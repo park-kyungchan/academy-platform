@@ -1,7 +1,7 @@
 import {academyRoutingDescription} from './routing-context.ts';
 import type {McpServer} from '@modelcontextprotocol/server';
 import {readOnlyAnnotations} from './contracts.ts';
-import {DailyRecordService,dailyRecordIntakeSchema,dailyRecordReviewSchema,dailyRecordSaveSchema,dailyRecordReconcileSchema,dailyRecordExecutionStatusSchema,textbookSectionResultsSchema,prestudyGetSchema,textbookSectionResultsGetSchema,cismSectionSchema,studentMetadataBatchSchema,studentMetadataGetSchema,type DailyRecordParentSafeguard} from './dailyrecord.ts';
+import {DailyRecordService,dailyRecordIntakeSchema,dailyRecordReviewSchema,dailyRecordSaveSchema,dailyRecordReconcileSchema,dailyRecordExecutionStatusSchema,textbookSectionResultsSchema,prestudyGetSchema,textbookSectionResultsGetSchema,itemSectionTraceSchema,cismSectionSchema,studentMetadataBatchSchema,studentMetadataGetSchema,type DailyRecordParentSafeguard} from './dailyrecord.ts';
 import {dailyRecordSaveAdmissionSchema,type DailyRecordSaveAdmission} from './dailyrecord-save-admission.ts';
 import {studentResolveInputSchema} from './student-resolver.ts';
 import {readPinnedLocalBytes} from './item-label-store.ts';
@@ -60,7 +60,7 @@ export function registerDailyRecordTools(server:McpServer,service=new DailyRecor
   },async input=>result(await service.review(input)));
   server.registerTool('academy_textbook_section_results',{
     title:'Read exact textbook section grading by source titles',
-    description:academyRoutingDescription('academy_textbook_section_results','Read exact existing textbook section grading for one admitted student, course and book by the source titles (for example a unit required-examples or type-drill title). Returns each title score with per-item O/X outcomes and correct/item counts. Titles must be the source exact titles; missing or ambiguous titles stop without guessing. This establishes observed section attempt scores only, not clinic solving, teacher acceptance, printing or whole-book completion. No writes, grading actions, printing, sending or automatic retry.'),
+    description:academyRoutingDescription('academy_textbook_section_results','Read exact existing textbook section grading for one admitted student, course and book by the source titles (for example a unit required-examples or type-drill title). Returns each title score with per-item O/X outcomes, item lectureKey/outerLectureKey when the source carries them, and correct/item counts. Titles must be the source exact titles; missing or ambiguous titles stop without guessing. This establishes observed section attempt scores only, not clinic solving, teacher acceptance, printing or whole-book completion. No writes, grading actions, printing, sending or automatic retry.'),
     inputSchema:textbookSectionResultsSchema,annotations,
   },async input=>result(await service.textbookSections(input)));
   server.registerTool('academy_prestudy_get',{
@@ -68,6 +68,11 @@ export function registerDailyRecordTools(server:McpServer,service=new DailyRecor
     description:academyRoutingDescription('academy_prestudy_get','Read live prestudy video state for one exact admitted student name: waiting (uploaded, awaiting teacher review) rows, completed rows and one observed summary page with AI score/star literals. Upload, list membership, AI score and teacher review are distinct; teacherJudgment is always null here and video URLs are never returned. Missing rows do not prove nonperformance. No writes, printing, sending or automatic retry.'),
     inputSchema:prestudyGetSchema,annotations,
   },async input=>result(await service.prestudyGet(input)));
+  server.registerTool('academy_item_section_trace',{
+    title:'Trace item labels to original textbook sections',
+    description:academyRoutingDescription('academy_item_section_trace','Trace exact numeric item labels to the original textbook sections (activity titles such as required-examples, type-drill, skill-building or unit evaluation) whose observed items carry those labels, with item ordinal and original O/X per match. Scans the student registered book bindings section indexes; when the scan would exceed the bounded section limit it returns interview_required with book candidates for teacher selection (or pass an exact bookLabel from those candidates). A label matching several sections is returned with every match and listed in ambiguousLabels for teacher confirmation. This proves original-attempt lineage only: a generated wrong-answer clinic paper version, membership and printed order are not provided by the source and remain unqualified, and original scoring does not prove clinic solving or teacher completion. No writes, grading actions, printing, sending or automatic retry.'),
+    inputSchema:itemSectionTraceSchema,annotations,
+  },async input=>result(await service.itemSectionTrace(input)));
   server.registerTool('academy_textbook_section_results_get',{
     title:'Read textbook section grading by student name',
     description:academyRoutingDescription('academy_textbook_section_results_get','Read textbook section answer input and grading for one exact admitted student name. The owner backend discovers the single registered course/book binding from the live progress page; caller-supplied native keys are not accepted. With exact sourceTitles returns score and per-item O/X per title; without titles returns the observed source-title index for explicit selection. Missing or ambiguous bindings/titles stop without guessing. This establishes observed answer input and grading only, not clinic solving, teacher acceptance, printing or whole-book completion. No writes, grading actions, printing, sending or automatic retry.'),

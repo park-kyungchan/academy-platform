@@ -4,7 +4,7 @@ import {dirname,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {z} from 'zod';
 import {readPinnedLocalBytes} from './item-label-store.ts';
-import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation} from './dailyrecord.ts';
+import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation,type ItemSectionTrace,type ItemSectionTraceObservation} from './dailyrecord.ts';
 import {createDailyRecordSaveAdmission,liveSaveRequestEvidence,type DailyRecordSaveAdmission,type DailyRecordSaveApproval} from './dailyrecord-save-admission.ts';
 import type {DailyRecordActionApproval} from './dailyrecord-workflow.ts';
 import type {DailyRecordField} from './dailyrecord-context.ts';
@@ -170,14 +170,14 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     const raw=await this.client.execute({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
       studentName:student.displayName,courseKey:input.courseKey,bookNo:input.bookNo,sourceTitles:[...input.sourceTitles],gradeViewAdmission:true}) as unknown as {
         family:string;status:string;records:{sourceTitle:string;studentKey:string;studentName:string;courseKey:string;bookNo:string;
-          score:number;items:{originalOrdinal:string;scoring:string}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
+          score:number;items:{originalOrdinal:string;lectureKey?:string|number|null;outerLectureKey?:string|number|null;scoring:string}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
     if(raw.family!=='textbook'||raw.status!=='observed'||!Array.isArray(raw.records)||raw.records.length!==input.sourceTitles.length)
       throw Error('textbook_section_result_unqualified');
     const records=raw.records.map(r=>{
       if(r.studentKey!==student.studentId||r.studentName!==student.displayName||r.courseKey!==input.courseKey||r.bookNo!==input.bookNo
         ||!input.sourceTitles.includes(r.sourceTitle)||typeof r.score!=='number'||!Array.isArray(r.items)
         ||r.items.some(i=>i.scoring!=='O'&&i.scoring!=='X'))throw Error('textbook_section_result_unqualified');
-      const items=r.items.map(i=>({ordinal:String(i.originalOrdinal),scoring:i.scoring as 'O'|'X'}));
+      const items=r.items.map(i=>({ordinal:String(i.originalOrdinal),lectureKey:i.lectureKey==null?null:String(i.lectureKey),outerLectureKey:i.outerLectureKey==null?null:String(i.outerLectureKey),scoring:i.scoring as 'O'|'X'}));
       return {sourceTitle:r.sourceTitle,score:r.score,correctCount:items.filter(i=>i.scoring==='O').length,itemCount:items.length,items,
         sourceDate:{literal:r.sourceDate?.literal??null,precision:String(r.sourceDate?.precision??'unknown'),meaning:String(r.sourceDate?.meaning??'source_apply_date_not_exact_grade_time')}};
     });
@@ -225,6 +225,67 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       .map(r=>({sourceTitle:r.sourceTitle,sourceDate:{literal:r.sourceDate.literal??null,meaning:String(r.sourceDate.meaning??'source_apply_date_not_exact_grade_time')}}));
     return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:binding.courseKey,bookNo:binding.bookNo,
       bookLabel:binding.bookLabel,index,observedAt:new Date().toISOString(),coverage:'observed_title_index_for_exact_student_course_book_not_section_grading'};
+  }
+  /** Reverse trace: scan the student's registered textbook section indexes and
+   * match item labels to original section items. Bindings are scanned in full
+   * unless an exact bookLabel selects one; a scan cap above 64 titles requires
+   * that selection instead of a partial guess. Generated clinic membership is
+   * never asserted. */
+  async readItemSectionTrace(input:Readonly<ItemSectionTrace>):Promise<ItemSectionTraceObservation>{
+    const student=this.admission.students.find(s=>s.displayName===input.displayName);
+    if(!student||!this.managedNames.has(input.displayName))throw Error('textbook_student_not_admitted');
+    if(!this.client.readTextbookBindings||!this.client.inspectTextbookIndex)throw Error('textbook_binding_source_port_unavailable');
+    await this.#authenticate();
+    const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
+    for(const b of bindings)if(b.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
+    const selected=input.bookLabel?bindings.filter(b=>b.bookLabel===input.bookLabel):bindings;
+    if(input.bookLabel&&selected.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
+    const indexes: {binding:(typeof bindings)[number];titles:string[]}[]=[];
+    let totalTitles=0;
+    for(const binding of selected){
+      const raw=await this.client.inspectTextbookIndex({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
+        studentName:student.displayName,courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:['index'],gradeViewAdmission:true});
+      const titles=z.array(z.object({sourceTitle:z.string().min(1).max(2000)}).passthrough()).max(1000).parse(raw.rows).map(r=>r.sourceTitle);
+      indexes.push({binding,titles});totalTitles+=titles.length;
+    }
+    if(totalTitles>64)return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
+      bindings:bindings.map(b=>({bookLabel:b.bookLabel})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
+    const wanted=new Set(input.labels);
+    const matches=new Map<string,ItemSectionTraceObservation extends never?never:any[]>();
+    const books:{bookLabel:string;sectionsScanned:number;sectionsFailed:number}[]=[];
+    let sectionsScanned=0,sectionsFailed=0;
+    for(const {binding,titles} of indexes){
+      let scanned=0,failed=0;
+      for(const title of titles){
+        scanned++;
+        try{
+          const raw=await this.client.execute({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
+            studentName:student.displayName,courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:[title],gradeViewAdmission:true}) as unknown as {
+              family:string;status:string;records:{sourceTitle:string;studentKey:string;studentName:string;courseKey:string;bookNo:string;
+                score:number;items:{originalOrdinal:string;lectureKey?:string|number|null;outerLectureKey?:string|number|null;scoring:string}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
+          if(raw.family!=='textbook'||raw.status!=='observed'||!Array.isArray(raw.records)||raw.records.length!==1)throw Error('textbook_section_result_unqualified');
+          const r=raw.records[0]!;
+          if(r.studentKey!==student.studentId||r.studentName!==student.displayName||r.courseKey!==binding.courseKey||r.bookNo!==binding.bookNo||r.sourceTitle!==title
+            ||!Array.isArray(r.items)||r.items.some(i=>i.scoring!=='O'&&i.scoring!=='X'))throw Error('textbook_section_result_unqualified');
+          for(const item of r.items){
+            const lk=item.lectureKey==null?null:String(item.lectureKey),ok=item.outerLectureKey==null?null:String(item.outerLectureKey);
+            for(const [label,by] of [[lk,'lectureKey'],[ok,'outerLectureKey']] as const){
+              if(label&&wanted.has(label)){
+                const list=matches.get(label)??[];list.push({bookLabel:binding.bookLabel,sourceTitle:title,ordinal:String(item.originalOrdinal),matchedBy:by,originalScoring:item.scoring});
+                matches.set(label,list);
+              }
+            }
+          }
+        }catch{failed++;}
+      }
+      books.push({bookLabel:binding.bookLabel,sectionsScanned:scanned,sectionsFailed:failed});sectionsScanned+=scanned;sectionsFailed+=failed;
+    }
+    const items=input.labels.map(label=>({label,matches:matches.get(label)??[]}));
+    return {kind:'traced',student:{studentId:student.studentId,displayName:student.displayName},books,items,
+      unmatchedLabels:items.filter(i=>!i.matches.length).map(i=>i.label),
+      ambiguousLabels:items.filter(i=>new Set(i.matches.map(m=>m.sourceTitle)).size>1).map(i=>i.label),
+      sectionsScanned,sectionsFailed,observedAt:new Date().toISOString(),
+      coverage:'live_section_scan_original_attempt_lineage_not_generated_clinic_membership'};
   }
   saveConfigured():boolean{return this.saveApproval!==null&&typeof this.client.applyJournalAction==='function';}
   /** The owner client can write; authority comes from the per-request approval the owner workflow supplies. */
