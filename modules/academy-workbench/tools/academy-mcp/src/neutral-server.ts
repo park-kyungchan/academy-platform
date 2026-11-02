@@ -193,10 +193,12 @@ async function call(req:any){
      const response=await client.callTool({name,arguments:withAttribution(name,input as Record<string,unknown>)});
      if(response.isError||!response.structuredContent)throw new UpstreamToolFailure(response);
      const data=response.structuredContent as Record<string,unknown>;
-     const upstreamOccurrence=(response._meta?.['academy/audit'] as {occurrence?:unknown}|undefined)?.occurrence;
+     const nativeAudit=response._meta?.['academy/audit'] as {occurrence?:unknown;failure?:unknown}|undefined;
+     const upstreamOccurrence=nativeAudit?.occurrence;
      const safeOccurrence=typeof upstreamOccurrence==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(upstreamOccurrence)?upstreamOccurrence:null;
      steps.push({tool:name,status:data.status??null,sourceAvailability:data.sourceAvailability??null,...(safeOccurrence?{upstreamOccurrence:safeOccurrence}:{})});
-     return {...data,...(safeOccurrence?{upstreamOccurrence:safeOccurrence}:{})};
+     return {...data,...(data.status==='unavailable'&&!data.failure&&nativeAudit?.failure?{failure:publicFailureFromData(nativeAudit.failure)}:{}),
+      ...(safeOccurrence?{upstreamOccurrence:safeOccurrence}:{})};
     };
     const data=await readDailyRecordByName(args,{resolveStudent:input=>invoke('academy_student_resolve',input),intake:input=>invoke('academy_dailyrecord_intake',input)},active.readAdmission);
     return {content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};

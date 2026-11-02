@@ -50,7 +50,7 @@ const service=new DailyRecordService({
   return patches.map(p=>({field:p.field,status:'persisted' as const,dispatched:true}));
 }}:null);
 const server=new McpServer({name:'fictional-neutral-upstream',version:'1.0.0'});
-if(existsSync(resolve(base,'inject-resolve-error')))installToolAudit(server,{endpoint:'dailyrecord'});
+if(existsSync(resolve(base,'inject-resolve-error'))||existsSync(resolve(base,'enable-resolve-audit')))installToolAudit(server,{endpoint:'dailyrecord'});
 registerDailyRecordTools(server,service);
 server.registerTool('academy_cism_weekly_save',{inputSchema:z.object({attribution:z.unknown().optional()}).strict()},input=>{
   appendFileSync(events,'cism-attribution:'+JSON.stringify(input.attribution)+'\n');

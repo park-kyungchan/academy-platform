@@ -98,6 +98,17 @@ test('name composite preserves resolver failure and native occurrence in reply a
     expect(await readFile(events,'utf8')).not.toContain('intake');expect(JSON.stringify(result)).not.toContain('synthetic_unknown_source_failure');
   });
 },20000);
+test('empty dated name resolution stays not found in native audit without intake',async()=>{
+  await withNeutralClient(async({base,events,client})=>{
+    await writeFile(resolve(base,'enable-resolve-audit'),'enabled');
+    const result:any=await client.callTool({name:'academy_dailyrecord_get',arguments:{displayName:'Missing Invented Student',lessonDate:'2040-01-16',purpose:'Synthetic read',currentRequestRef:'synthetic-empty'}});
+    expect(result.structuredContent).toMatchObject({status:'unavailable',reasonCode:'student_name_not_found',failure:{code:'student_name_not_found',category:'partial_coverage'},academyWrites:0});
+    const receipts=await readdir(resolve(base,'receipts'));
+    const receipt=JSON.parse(await readFile(resolve(base,'receipts',receipts.find(n=>n.endsWith('-result.json'))!),'utf8'));
+    expect(receipt.failure).toMatchObject({code:'student_name_not_found',category:'partial_coverage'});
+    expect(await readFile(events,'utf8')).not.toContain('intake');
+  });
+},20000);
 test('neutral save composes intake, review and save in one upstream lifetime',async()=>{
   await withNeutralClient(async({events,client})=>{
     const c=context();

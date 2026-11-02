@@ -4,13 +4,22 @@ import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
 import {Client} from '@modelcontextprotocol/client';
 import {StdioClientTransport} from '@modelcontextprotocol/client/stdio';
-import {publicReadFailure,AcademyReadFailure} from '../src/read-failure.ts';
+import {publicReadFailure,publicFailureFromData,AcademyReadFailure} from '../src/read-failure.ts';
 import {UpstreamToolFailure} from '../src/upstream-failure.ts';
 test('safe failure causes preserve HTTP stage without arbitrary upstream values',()=>{
  const cause=Object.assign(Error('source_http_failed'),{httpStatus:503,sourceOperation:'login_document',body:'PRIVATE_BODY'});
  expect(publicReadFailure(new AcademyReadFailure('authentication','source_authentication_failed','ignored',cause))).toMatchObject({category:'authentication',cause:{code:'source_http_failed',sourceHttpStatus:503,sourceOperation:'login_document'}});
  expect(new UpstreamToolFailure({isError:true,content:[{type:'text',text:'Input validation error: PRIVATE'}]}).failure.category).toBe('input_validation');
  expect(JSON.stringify(new UpstreamToolFailure({isError:true,structuredContent:{code:'PRIVATE_SECRET'},content:[]}).failure)).not.toContain('PRIVATE');
+});
+test('all finite name resolver reasons survive the audit projection',()=>{
+ for(const [code,category] of [
+  ['student_name_invalid','input_validation'],['student_resolve_backend_not_configured','endpoint_absence'],
+  ['student_name_not_admitted','policy_denial'],['student_name_scope_conflict','contract_drift'],
+  ['student_name_not_found','partial_coverage'],['student_name_ambiguous','identity_ambiguity'],
+  ['student_resolve_search_unqualified_no_automatic_retry','upstream_unavailable'],
+  ['student_resolve_unqualified_no_automatic_retry','upstream_unavailable'],
+ ] as const)expect(publicFailureFromData({code})).toMatchObject({code,category});
 });
 test('audited SDK validates before execution, preserves safe failures and uncertain writes, and stores no private payload',async()=>{
  const root=await mkdtemp(resolve(tmpdir(),'academy-audit-')),events=resolve(root,'events');
