@@ -34,7 +34,7 @@ registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,con
 if(native)process.once('exit',native.close);
 server.registerTool('academy_capabilities', {
   title: 'Academy operational hierarchy and source contracts',
-  description: academyRoutingDescription('academy_capabilities','Discover hierarchical academy workflows, page the complete pinned source inventory, or inspect one exact source contract. Source metadata is not an executable operation. No source requests.'),
+  description: academyRoutingDescription('academy_capabilities','Discover hierarchical academy workflows, page the complete pinned source inventory (limit 1–100, default 10), or inspect one exact source contract. Source metadata is not an executable operation. No source requests.'),
   inputSchema: capabilitiesInputSchema,
   annotations: readOnlyAnnotations,
 }, input => result(service.capabilities(input)));

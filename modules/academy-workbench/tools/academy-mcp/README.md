@@ -44,7 +44,7 @@ For a stdio MCP client, the executable is `bun` and its argument is the absolute
 
 | Tool | Purpose |
 | --- | --- |
-| `academy_capabilities` | Discover the business hierarchy, page source operations, inspect one exact source contract, or read preserved workflow rules. |
+| `academy_capabilities` | Discover the business hierarchy, page source operations (limit 1–100, default 10), inspect one exact source contract, or read preserved workflow rules. |
 | `academy_query` | Read the preserved roster, one student summary, one evidence facet, or dated lesson context. |
 | `academy_source_status` | Inspect saved coverage, teacher-population uncertainty and the reported visibility/access constraints. |
 
