@@ -33,7 +33,7 @@ type Target={studentName:string;date:string;groupId:string;teacherKey:string;stu
 type Row=Target&{fields:Record<string,string>};
 interface SourcePort {
   readCismReport?(input:{teacherLabel:string;date:string}):Promise<CismReport>;
-  applyCismField?(input:{teacherLabel:string;date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>):Promise<{status:'persisted';fieldRef:string;report:CismReport}>;
+  applyCismField?(input:{teacherLabel:string;date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>,recordAcknowledgement?:(value:{contentType:string;raw:Uint8Array;sha256:string})=>Promise<void>):Promise<{status:'persisted';fieldRef:string;report:CismReport}>;
   readTextbookCatalog?(input:{teacherLabel:string;schoolLevel:TextbookSchoolLevel}):Promise<TextbookCatalogObservation>;
   readTextbookPdf?(input:{teacherLabel:string;schoolLevel:TextbookSchoolLevel;documentRef:string}):Promise<TextbookPdfObservation>;
   authenticate(credential:{username:string;password:string}):Promise<unknown>;
@@ -158,7 +158,13 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
   }
   async applyCismField(input:{date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>){
     if(!this.client.applyCismField)throw Error('cism_source_port_unavailable');await this.#authenticate();
-    return this.client.applyCismField({...input,teacherLabel:this.admission.teacherLabel},authorize);
+    return this.client.applyCismField({...input,teacherLabel:this.admission.teacherLabel},authorize,async value=>{
+      const root=nativeOwnerArtifactsRoot+'cism-weekly/http-ack';mkdirSync(root,{recursive:true,mode:0o700});
+      const st=lstatSync(root);if(!st.isDirectory()||st.isSymbolicLink()||(st.mode&0o077)!==0||st.uid!==process.getuid?.()||realpathSync(root)!==root)throw Error('cism_store_unqualified');
+      const fd=openSync(resolve(root,input.date+'-'+input.fieldRef+'-'+randomUUID()+'.json'),'wx',0o600);
+      try{writeSync(fd,JSON.stringify({date:input.date,fieldRef:input.fieldRef,contentType:value.contentType,sha256:value.sha256,rawBodyBase64:Buffer.from(value.raw).toString('base64')})+'\n');fsyncSync(fd);}finally{closeSync(fd);}
+      const directory=openSync(root,'r');try{fsyncSync(directory);}finally{closeSync(directory);}
+    });
   }
   async readTextbookCatalog(schoolLevel:TextbookSchoolLevel='middle'):Promise<TextbookCatalogObservation>{
     if(!this.client.readTextbookCatalog)throw Error('textbook_catalog_source_port_unavailable');
