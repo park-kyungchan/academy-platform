@@ -1,4 +1,4 @@
-import {mkdir,readFile,writeFile,lstat,realpath,open} from 'node:fs/promises';
+import {mkdir,readFile,writeFile,lstat,realpath,open,readdir} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import {resolve,dirname} from 'node:path';
 import {attributionSchema,observeAttribution} from './dailyrecord-workflow.ts';
@@ -23,12 +23,25 @@ async function exclusive(path:string,value:unknown){try{const f=await open(path,
 export function registerCismWeeklyTools(server:McpServer,backend:CismBackend|null,root:string){
  const readAnnotations={readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:true};
  const register=(name:string,inputSchema:any,description:string,fn:(input:any)=>Promise<unknown>,write=false)=>server.registerTool(name,{description:academyRoutingDescription(name,description),inputSchema,annotations:write?{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:true}:readAnnotations},async (input:any)=>{if(!backend)return toolResult({status:'unavailable',code:'cism_source_backend_not_configured',academyWrites:0,pdfGenerated:false});try{return toolResult(await fn(input));}catch(e){return fail(e,write);}});
+ const fieldExecutions=async(report:CismReport,fieldRef:string)=>{
+  const key=cismHash([report.teacherKey,report.periodStart,fieldRef]);
+  // Retain the original field-wide receipt. Successors are separate immutable
+  // operations; changing request IDs never bypasses an unresolved predecessor.
+  const names=(await readdir(root)).filter(name=>name===key+'.dispatch.json'||new RegExp('^'+key+'\\.[a-f0-9]{64}\\.dispatch\\.json$').test(name));
+  return Promise.all(names.map(async name=>({record:await readSafe(resolve(root,name)),done:resolve(root,name.replace(/\.dispatch\.json$/,'.persisted.json'))})));
+ };
+ const settle=async(report:CismReport,field:CismReport['fields'][number],execution:{record:any;done:string})=>{
+  let receipt:any=null;try{receipt=await readSafe(execution.done);}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
+  if(receipt){if(receipt.fieldRef!==field.fieldRef||receipt.after!==execution.record.after)throw Error('cism_store_unqualified');return true;}
+  if(field.value!==execution.record.after)return false;
+  await exclusive(execution.done,{fieldRef:field.fieldRef,after:execution.record.after,observedAt:report.observedAt});return true;
+ };
  const executionReadback=async(report:CismReport)=>{
   const states:unknown[]=[];await directory(root);
-  for(const field of report.fields){const key=cismHash([report.teacherKey,report.periodStart,field.fieldRef]);let record:any;
-   try{record=await readSafe(resolve(root,key+'.dispatch.json'));}catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')continue;throw e;}
-   const persisted=field.value===record.after;if(persisted)await exclusive(resolve(root,key+'.persisted.json'),{fieldRef:field.fieldRef,after:record.after,observedAt:report.observedAt});
+  for(const field of report.fields){for(const execution of await fieldExecutions(report,field.fieldRef)){
+   const persisted=await settle(report,field,execution),record=execution.record;
    states.push({fieldRef:field.fieldRef,status:persisted?'persisted':'uncertain',requestRef:record.requestRef,reviewDigest:record.reviewDigest});
+   }
   }return states;
  };
  const verify=(input:z.infer<typeof cismReviewInput>,report:CismReport)=>{
@@ -46,10 +59,13 @@ export function registerCismWeeklyTools(server:McpServer,backend:CismBackend|nul
   const requestKey=cismHash([current.teacherKey,input.request.requestRef]),requestPath=resolve(root,requestKey+'.request.json');if(!await exclusive(requestPath,input.request)&&JSON.stringify(await readSafe(requestPath))!==JSON.stringify(input.request))throw Error('cism_request_rebound');
   const results:unknown[]=[];
   for(const change of input.changes){
-   const key=cismHash([current.teacherKey,current.periodStart,change.fieldRef]),dispatch=resolve(root,key+'.dispatch.json'),done=resolve(root,key+'.persisted.json');
-   // A recorded dispatch is never replayed. A readback finding the intended value may close it without another write.
-   let record:any=null;try{record=await readSafe(dispatch);}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
-   if(record){const fresh=await backend!.readCismReport(input.date),value=fresh.fields.find(f=>f.fieldRef===change.fieldRef)?.value;if(value===record.after){await exclusive(done,{fieldRef:change.fieldRef,after:record.after,observedAt:fresh.observedAt});throw Error('cism_existing_value_preserved');}throw Error('cism_uncertain_dispatch');}
+   const key=cismHash([current.teacherKey,current.periodStart,change.fieldRef]),operation=key+'.'+reviewDigest,dispatch=resolve(root,operation+'.dispatch.json'),done=resolve(root,operation+'.persisted.json');
+   const previous=await fieldExecutions(current,change.fieldRef);
+   for(const execution of previous){
+    const field=current.fields.find(f=>f.fieldRef===change.fieldRef)!;
+    if(!await settle(current,field,execution))throw Error('cism_uncertain_dispatch');
+    if(execution.record.requestRef===input.request.requestRef)throw Error('cism_request_rebound');
+   }
    let issued=false;
    const outcome=await backend!.applyCismField({date:input.date,fieldRef:change.fieldRef,before:change.before,after:change.after,wireSha256:current.wireSha256,completeExistingNarrative:change.edit==='complete_existing_narrative'},async()=>{
     if(issued)return false;issued=true;

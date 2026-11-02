@@ -53,3 +53,23 @@ test('native trace stops at the first source failure and reports its cause inste
  expect(out).toMatchObject({status:'unavailable',reasonCode:'textbook_section_result_unqualified',failure:{category:'contract_drift'}});
  expect(reads).toBe(1);expect(out).not.toHaveProperty('unmatchedLabels');
 });
+
+test('native trace refuses unqualified empty bindings before claiming unmatched labels',async()=>{
+ const admission={teacherId:'99001',teacherLabel:'Invented Teacher',date:'2040-01-04',students:[{studentId:'77001',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};
+ let reads=0;const port={authenticate:async()=>{},readTextbookBindings:async()=>[],inspectTextbookIndex:async()=>{reads++;return {rows:[]};},close:()=>{}};
+ const native=new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}));
+ const out=await new DailyRecordService(native).itemSectionTrace(request);
+ expect(out).toMatchObject({status:'unavailable',reasonCode:'textbook_binding_source_unqualified',failure:{category:'contract_drift'}});
+ expect(out).not.toHaveProperty('unmatchedLabels');expect(reads).toBe(0);
+});
+test('section ambiguity uses registered course and book identity even when book labels and titles coincide',async()=>{
+ const admission={teacherId:'99001',teacherLabel:'Invented Teacher',date:'2040-01-04',students:[{studentId:'77001',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};
+ for(const multiple of [false,true]){
+  const binding={courseKey:'5',bookNo:'7',studentKey:'77001',bookLabel:'Same displayed book label'};
+  const port={authenticate:async()=>{},readTextbookBindings:async()=>multiple?[binding,{...binding,courseKey:'6',bookNo:'8'}]:[binding],inspectTextbookIndex:async()=>({rows:[{sourceTitle:'Same unit title'}]}),
+   execute:async(i:any)=>({family:'textbook',status:'observed',records:[{studentKey:'77001',studentName:'Invented Student',courseKey:i.courseKey,bookNo:i.bookNo,sourceTitle:'Same unit title',score:80,items:[{originalOrdinal:'1',lectureKey:'8101',outerLectureKey:'8101',scoring:'O'}]}]}),close:()=>{}};
+  const native=new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}));
+  const out=await native.readItemSectionTrace!({...request,labels:['8101']});
+  expect(out).toMatchObject({kind:'traced',ambiguousLabels:multiple?['8101']:[]});
+ }
+});

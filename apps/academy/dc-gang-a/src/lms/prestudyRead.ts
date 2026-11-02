@@ -108,9 +108,13 @@ export function parseTextbookBindings(html: string, parse: (html: string, mime: 
     if (!call || call[3] !== studentKey) continue;
     const row = node.closest('tr');
     const cells = row ? [...row.querySelectorAll(':scope > td')].map(n => clean(n.textContent)) : [];
-    const bookLabel = cells[1] ?? cells.find(c => c && !/^\d+(\.\d+)?\s*%$/.test(c)) ?? '';
+    const bookLabel = cells[1];
+    if (!row || !bookLabel) throw Error('textbook_binding_source_unqualified');
     const binding = { courseKey: call[1]!, bookNo: call[2]!, studentKey, bookLabel };
     bindings.set(JSON.stringify([binding.courseKey, binding.bookNo]), binding);
   }
+  // No independently observed empty-progress contract is available. A generic
+  // error document or rows for another student cannot establish zero books.
+  if (!bindings.size) throw Error('textbook_binding_source_unqualified');
   return [...bindings.values()];
 }

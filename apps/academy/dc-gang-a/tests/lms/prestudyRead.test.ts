@@ -38,5 +38,11 @@ test('textbook bindings come only from the exact student row handler',()=>{
   <tr><td>Other Student</td><td><p>Other Book</p></td><td>10.0%</td><td><button onclick="createBookIncorrectPapers(673, 2199, 77002);">오답노트</button></td></tr></table>`;
   expect(parseTextbookBindings(progress,sourceDomParser.parseFromString,'77001'))
     .toEqual([{courseKey:'672',bookNo:'2198',studentKey:'77001',bookLabel:'22개정 Fictional Book'}]);
-  expect(parseTextbookBindings(progress,sourceDomParser.parseFromString,'77003')).toEqual([]);
+  expect(()=>parseTextbookBindings(progress,sourceDomParser.parseFromString,'77003')).toThrow('textbook_binding_source_unqualified');
+});
+
+test('unqualified progress responses cannot establish an empty registered-book result',()=>{
+  for(const html of ['<html><body>Temporarily unavailable</body></html>','<table></table>',
+    '<table><tr><td><button onclick="createBookIncorrectPapers(672,2198,77001)">wrong note</button></td></tr></table>'])
+    expect(()=>parseTextbookBindings(html,sourceDomParser.parseFromString,'77001')).toThrow('textbook_binding_source_unqualified');
 });

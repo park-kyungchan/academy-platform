@@ -227,6 +227,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     if(!this.client.readTextbookBindings)throw Error('textbook_binding_source_port_unavailable');
     await this.#authenticate();
     const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
+    if(!bindings.length)throw Error('textbook_binding_source_unqualified');
     if(bindings.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
     const binding=bindings[0]!;
     if(binding.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
@@ -254,6 +255,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     if(!this.client.readTextbookBindings||!this.client.inspectTextbookIndex)throw Error('textbook_binding_source_port_unavailable');
     await this.#authenticate();
     const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
+    if(!bindings.length)throw Error('textbook_binding_source_unqualified');
     for(const b of bindings)if(b.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
     const selected=input.bookLabel?bindings.filter(b=>b.bookLabel===input.bookLabel):bindings;
     if(input.bookLabel&&selected.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
@@ -269,6 +271,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       bindings:bindings.map(b=>({bookLabel:b.bookLabel})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
     const wanted=new Set(input.labels);
     const matches=new Map<string,ItemSectionTraceObservation extends never?never:any[]>();
+    const matchedSections=new Map<string,Set<string>>();
     const books:{bookLabel:string;sectionsScanned:number;sectionsFailed:number}[]=[];
     let sectionsScanned=0,sectionsFailed=0;
     for(const {binding,titles} of indexes){
@@ -290,6 +293,9 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
               if(label&&wanted.has(label)){
                 const list=matches.get(label)??[];list.push({bookLabel:binding.bookLabel,sourceTitle:title,ordinal:String(item.originalOrdinal),matchedBy:by,originalScoring:item.scoring});
                 matches.set(label,list);
+                const identities=matchedSections.get(label)??new Set<string>();
+                identities.add(JSON.stringify([binding.courseKey,binding.bookNo,title]));
+                matchedSections.set(label,identities);
               }
             }
           }
@@ -303,7 +309,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     const items=input.labels.map(label=>({label,matches:matches.get(label)??[]}));
     return {kind:'traced',student:{studentId:student.studentId,displayName:student.displayName},books,items,
       unmatchedLabels:items.filter(i=>!i.matches.length).map(i=>i.label),
-      ambiguousLabels:items.filter(i=>new Set(i.matches.map(m=>m.sourceTitle)).size>1).map(i=>i.label),
+      ambiguousLabels:items.filter(i=>(matchedSections.get(i.label)?.size??0)>1).map(i=>i.label),
       sectionsScanned,sectionsFailed,observedAt:new Date().toISOString(),
       coverage:'live_section_scan_original_attempt_lineage_not_generated_clinic_membership'};
   }

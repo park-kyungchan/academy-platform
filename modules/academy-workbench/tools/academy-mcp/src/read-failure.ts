@@ -81,6 +81,7 @@ const catalog={
   prestudy_scope_conflict:['contract_drift','source-owner:response-contract'],
   textbook_section_scope_conflict:['contract_drift','source-owner:response-contract'],
   textbook_binding_scope_conflict:['contract_drift','source-owner:response-contract'],
+  textbook_binding_source_unqualified:['contract_drift','source-owner:response-contract'],
   textbook_section_result_unqualified:['contract_drift','source-owner:response-contract'],
   native_metadata_history_scope_conflict:['contract_drift','source-owner:response-contract'],
   native_metadata_paper_conflict:['contract_drift','source-owner:response-contract'],
