@@ -53,7 +53,7 @@ test('dedicated pool server exposes five acquisition reads and four pure reviews
     for(const name of ['academy_prepare_paper_plan','academy_verify_paper_preparation','academy_verify_paper_output']){
       const tool=list.tools.find(value=>value.name===name)!;
       expect(tool.annotations).toMatchObject({readOnlyHint:true,destructiveHint:false,openWorldHint:false,idempotentHint:true});expect(tool.inputSchema.additionalProperties).toBe(false);
-      const reply=await connection.client.callTool({name,arguments:{...plan,nativeOwner:'PRIVATE_EXTRA_FIELD'}});expect(reply.isError).toBe(true);
+      const reply=await connection.client.callTool({name,arguments:{...plan,nativeOwner:'PRIVATE_EXTRA_FIELD'}});expect(reply.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',academyWrites:0});
     }
     expect(connection.stderr.join('')).not.toContain('verification_outbound_network_attempt_blocked');
   }finally{await connection.client.close();await connection.transport.close();}
@@ -64,10 +64,10 @@ test('pool-only MCP schemas reject arbitrary URLs, foreign purposes and undeclar
   try{
     const input={hierarchyId:'synthetic',labelId:'synthetic',lectureKey:'1001',variant:'sbj',purpose:'teacher_requested_review'};
     for(const args of [{...input,url:'https://example.invalid/private'},{...input,purpose:'print'},{...input,variant:'solution'},{...input,lectureKey:'01001'}]){
-      const reply=await connection.client.callTool({name:'academy_pool_question_content',arguments:args});expect(reply.isError).toBe(true);
+      const reply=await connection.client.callTool({name:'academy_pool_question_content',arguments:args});expect(reply.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',academyWrites:0});
     }
-    const reply=await connection.client.callTool({name:'academy_pool_source_contract',arguments:{studentId:'forbidden'}});expect(reply.isError).toBe(true);
-    const proposal=await connection.client.callTool({name:'academy_review_candidate_set',arguments:{schemaVersion:'academy.pool-candidate-set/1',researchContext:null,nativeContext:null,slots:[],accepted:true}});expect(proposal.isError).toBe(true);
+    const reply=await connection.client.callTool({name:'academy_pool_source_contract',arguments:{studentId:'forbidden'}});expect(reply.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',academyWrites:0});
+    const proposal=await connection.client.callTool({name:'academy_review_candidate_set',arguments:{schemaVersion:'academy.pool-candidate-set/1',researchContext:null,nativeContext:null,slots:[],accepted:true}});expect(proposal.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',academyWrites:0});
     expect(connection.stderr.join('')).not.toContain('verification_outbound_network_attempt_blocked');
   }finally{await connection.client.close();await connection.transport.close();}
 },15000);

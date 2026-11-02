@@ -2,7 +2,7 @@ import { readFile, lstat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { hierarchy, WORKFLOW_RELATIONS, WORKFLOW_IDS, SOURCE_DOMAIN_IDS } from './taxonomy.ts';
-import { loadCatalog, type OperationCatalog } from './catalog.ts';
+import { loadCatalog, MAX_CATALOG_PAGE_SIZE, type OperationCatalog } from './catalog.ts';
 import { loadSavedContext, type SavedContext } from './saved-context.ts';
 import { queryInputSchema, queryResultSchema } from './contracts.ts';
 import { digest } from './pagination.ts';
@@ -11,7 +11,7 @@ export const capabilitiesInputSchema = z.object({
   view: z.enum(['hierarchy', 'operations', 'source_contract', 'workflow_rules']).default('hierarchy'),
   workflow: z.enum(WORKFLOW_IDS).optional(), domain: z.enum(SOURCE_DOMAIN_IDS).optional(),
   operationId: z.string().min(1).max(256).optional(),
-  offset: z.number().int().nonnegative().default(0), limit: z.number().int().min(1).max(50).default(10),
+  offset: z.number().int().nonnegative().default(0), limit: z.number().int().min(1).max(MAX_CATALOG_PAGE_SIZE).default(10),
 }).strict().superRefine((input, context) => {
   if (input.view === 'source_contract' && (!input.operationId || input.workflow || input.domain)) context.addIssue({ code: 'custom', message: 'source_contract_requires_only_exact_operation_id' });
   if (input.view !== 'source_contract' && input.operationId) context.addIssue({ code: 'custom', message: 'operation_id_requires_source_contract_view' });
@@ -39,6 +39,12 @@ export class AcademyService {
     }
     return {
       schemaVersion: 1, sourceMode: 'saved_context', data, inventory,
+      nativeReadTools: {
+        textbook_answer_catalog:{tool:'academy_textbook_catalog',scope:'current observed elementary/middle/high textbook and workbook PDF catalog'},
+        textbook_sample_pdf:{tool:'academy_textbook_pdf',scope:'exact schoolLevel/documentRef from the current catalog; sample or other declared PDF kind'},
+        availability:'call_the_native_tool_to_establish_live_availability',
+        pinnedInventoryIsHistorical:true,
+      },
       source: this.catalog.source,
       implementation: {
         metadata: 'complete_for_pinned_95_operation_inventory',

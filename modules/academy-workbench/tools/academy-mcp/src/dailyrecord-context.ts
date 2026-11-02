@@ -11,7 +11,8 @@ export const dailyRecordScopeSchema=z.object({sourceNamespace:dailyRecordIdSchem
 export const dailyRecordFactSchema=z.object({ref:dailyRecordIdSchema,field:dailyRecordFieldSchema,text,origin:z.enum(['user_supplied','cism_section']).default('user_supplied'),
   explicitValue:z.string().max(8192).optional(),
   requiredFragments:z.array(text).max(32),
-  questionCounts:z.array(z.object({count:z.number().int().nonnegative().max(100000),rendering:text.max(256)}).strict().refine(v=>new RegExp('(?<!\\d)'+v.count+'\\s*문항(?!\\d)').test(v.rendering),'count_rendering_must_preserve_count')).max(32),
+  // Semantic count/rendering mismatches are field-local review holds, not MCP validation exceptions.
+  questionCounts:z.array(z.object({count:z.number().int().nonnegative().max(100000),rendering:text.max(256)}).strict()).max(32).describe('Cardinal question counts only, e.g. {count:8,rendering:"8문항"}. Type ordinals such as 유형 10 belong in requiredFragments, not questionCounts.'),
   deadlines:z.array(z.object({date:dailyRecordDateSchema,rendering:text.max(256)}).strict().refine(v=>{
     const [year,month,day]=v.date.split('-').map(Number);
     return [...v.rendering.matchAll(/(?:(\d{4})[-./](\d{1,2})[-./](\d{1,2})|(\d{1,2})\s*월\s*(\d{1,2})\s*일)/g)]

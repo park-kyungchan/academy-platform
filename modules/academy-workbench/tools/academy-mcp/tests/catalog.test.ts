@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { CATALOG_SOURCE_PATH, loadCatalog, parseCatalog } from "../src/catalog.ts";
+import { capabilitiesInputSchema } from "../src/service.ts";
 import { hierarchy, primaryWorkflow, SOURCE_DOMAIN_IDS, WORKFLOW_IDS, WORKFLOW_RELATIONS } from "../src/taxonomy.ts";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -49,6 +50,17 @@ describe("hierarchical business taxonomy", () => {
 });
 
 describe("full source inventory", () => {
+  test("capabilities accepts 100 and returns the complete inventory in one page", async () => {
+    const input = capabilitiesInputSchema.parse({ view: "operations", limit: 100 });
+    const catalog = await loadCatalog(repoRoot);
+    const page = catalog.list({ offset: input.offset, limit: input.limit });
+    expect(page.items.map(item => item.id)).toEqual(catalog.operations.map(item => item.id));
+    expect(page.items).toHaveLength(95);
+    expect(page.nextOffset).toBeNull();
+    expect(capabilitiesInputSchema.parse({}).limit).toBe(10);
+    expect(capabilitiesInputSchema.safeParse({ limit: 101 }).success).toBe(false);
+  });
+
   test("retains all 95 IDs, all domains and exact raw source metadata", async () => {
     const bytes = await readFile(`${repoRoot}/${CATALOG_SOURCE_PATH}`);
     const original = JSON.parse(bytes.toString("utf8"));
@@ -158,7 +170,7 @@ describe("fail-closed catalog parsing and queries", () => {
 
   test("rejects invalid pagination, unsupported filters and fuzzy identity", () => {
     const catalog = parseCatalog(synthetic());
-    for (const limit of [0, -1, 1.5, 51, NaN, Infinity]) expect(() => catalog.list({ limit })).toThrow("CATALOG_INVALID_LIMIT");
+    for (const limit of [0, -1, 1.5, 101, NaN, Infinity]) expect(() => catalog.list({ limit })).toThrow("CATALOG_INVALID_LIMIT");
     for (const offset of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) expect(() => catalog.list({ offset })).toThrow("CATALOG_INVALID_OFFSET");
     expect(() => catalog.list({ workflow: "invented" as never })).toThrow("CATALOG_UNKNOWN_WORKFLOW");
     expect(() => catalog.list({ domain: "invented" as never })).toThrow("CATALOG_UNKNOWN_DOMAIN");

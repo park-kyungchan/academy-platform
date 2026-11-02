@@ -69,6 +69,14 @@ test('unresolved, ambiguous and foreign names stop before intake without retry',
     expect(calls).toBe(1);expect(f.calls.intakes).toEqual([]);
   }
 });
+test('unavailable name resolution retains safe upstream failure and occurrence without intake',async()=>{
+  const f=fixture(),occurrence='6219a405-b016-4585-a929-2845d063f090';
+  f.port.resolveStudent=async()=>({status:'unavailable',reasonCode:'student_resolve_search_unqualified_no_automatic_retry',upstreamOccurrence:occurrence,
+    failure:{category:'upstream_unavailable',code:'student_resolve_search_unqualified_no_automatic_retry',evidenceLocator:'untrusted',secret:'do not copy'}});
+  const result=await readDailyRecordByName(request,f.port,admission,()=>clock);
+  expect(result).toMatchObject({status:'unavailable',upstreamOccurrence:occurrence,failure:{code:'student_resolve_search_unqualified_no_automatic_retry',evidenceLocator:'src/student-resolver.ts:resolveStudentByName'}});
+  expect(JSON.stringify(result)).not.toContain('do not copy');expect(f.calls.intakes).toEqual([]);
+});
 test('failed or malformed upstream intake cannot claim observed source or fall back to a snapshot',async()=>{
   for(const malformed of [null,{sourceAvailability:'observed',source:{},blockers:[],fields:[]}]){
     const f=fixture();let calls=0;f.port.intake=async()=>{calls++;return malformed;};

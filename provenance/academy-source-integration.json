@@ -12622,6 +12622,51 @@
       "path": "modules/math-research-module/package.json",
       "sourceSha256": "30a23f2cb73941cc01116d58dbd943810d801ab6e9d5df4e8ce4cb6cee9a00d3",
       "reason": "Lock compile-time Bun types (@types/bun, bun-types) at 1.4.3 to unify the repository on Bun 1.4.3 (user direction 2026-10-30)."
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/catalog.ts",
+      "sourceSha256": "3ac08e1e27c7f18b99a7d4ccd05669f3600796dd4c6ed09f6ffd2818bf1e6ad2",
+      "reason": "Forward source changes recorded in commits 44b53f0; original import hash retained."
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-context.ts",
+      "sourceSha256": "602077f4ac6088d411f946233bfb89e7a4424fb6bf4f8b0c01e99c546ef90b20",
+      "reason": "Forward source changes recorded in commits 1c9f01e; original import hash retained."
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/native-pool-backend.ts",
+      "sourceSha256": "b7c224293bcca3a74d8cab163fb573c9a0c9da8c3435c9c00d9c58ff303cdbb3",
+      "reason": "Forward source changes recorded in commits 4bf0a08; original import hash retained."
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/native-pool-socket.ts",
+      "sourceSha256": "95d3f80c3c56deb9dd77ef9bcc5967e539b0b7b021300b72bcdaf1af03a9813d",
+      "reason": "Forward source changes recorded in commits 4bf0a08; original import hash retained."
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/pool-server.ts",
+      "sourceSha256": "66c3dc1fe4e1723f07c1cc6b74722da3b5628aa9f8f9517c2bb6657be19dcf18",
+      "reason": "Forward source changes recorded in commits 4bf0a08; original import hash retained."
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/teacher-server.ts",
+      "sourceSha256": "6366f3772c5626ada8cf6ec5a051edc8c5469b3ac82329e039ca23aaaae321ef",
+      "reason": "Forward source changes recorded in commits 4bf0a08; original import hash retained."
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/tool-result.ts",
+      "sourceSha256": "68d1db6d259a5fed1591f47e03ac7f698991188ff9780281f4b57a18a9504582",
+      "reason": "Forward source changes recorded in commits 4bf0a08; original import hash retained."
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/tests/catalog.test.ts",
+      "sourceSha256": "9facc513a6c492839de612ef45ced6c21a79f0ba721b71de2561e7b19fa566af",
+      "reason": "Forward source changes recorded in commits 44b53f0; original import hash retained."
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/tests/pool-tools-mcp.test.ts",
+      "sourceSha256": "74aa4f6b313a537473ce54ed820d74493963b278aea282c1c17b7e7a26c86684",
+      "reason": "Forward source changes recorded in commits 4bf0a08; original import hash retained."
     }
   ]
 }

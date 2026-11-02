@@ -1,5 +1,9 @@
+import {withToolMeta} from './tool-result.ts';
+import {EndpointInventoryMismatch,verifyEndpointInventory} from './endpoint-inventory.ts';
+import {UpstreamToolFailure} from './upstream-failure.ts';
+import {AjvJsonSchemaValidator} from '@modelcontextprotocol/server/validators/ajv';
 import {installStdioDiagnostics,createAcademyStdioTransport} from './stdio-diagnostics.ts';
-import {publicReadFailure,type ReadFailureCategory} from './read-failure.ts';
+import {publicReadFailure,publicFailureFromData,type ReadFailureCategory} from './read-failure.ts';
 import {academyRoutingDescription} from './routing-context.ts';
 // Source-owned version of the installed neutral bridge. Failures close per
 // request; pinned launch admission supplies DailyRecord routing scope.
@@ -16,14 +20,14 @@ import {readOnlyAnnotations} from './contracts.ts';
 import {dailyRecordScopeSchema,type DailyRecordScope} from './dailyrecord-context.ts';
 import {dailyTestHeaderRouteSchema,dailyTestHeaderRouteDescription,readDailyTestHeaders} from './dailytest-header-route.ts';
 import {loadRuntimeRelease} from './runtime-release.ts';
-import {selectPaperRoute} from './paper-scope-routing.ts';
+import {PaperScopeUnresolvedError,selectPaperRoute} from './paper-scope-routing.ts';
 import {observeAttribution} from './dailyrecord-workflow.ts';
 import {dailyRecordWorkflowToolSchemas} from './dailyrecord.ts';
 const processStartedAt=new Date().toISOString();
-// Owner DailyRecord workflow attribution: what this bridge actually observes
+// Owner workflow attribution: what this bridge actually observes
 // about its caller (MCP client info, process, parent command, Herdr pane),
 // plus the caller's declared actor. A caller-typed attribution is discarded.
-const isWorkflowTool=(name:string)=>Object.hasOwn(dailyRecordWorkflowToolSchemas,name);
+const isWorkflowTool=(name:string)=>Object.hasOwn(dailyRecordWorkflowToolSchemas,name)||['academy_cism_weekly_review','academy_cism_weekly_save'].includes(name);
 function withAttribution(name:string,args:Record<string,unknown>):Record<string,unknown>{
  const {attribution:_ignored,...payload}=args;
  if(!isWorkflowTool(name))return payload;
@@ -50,12 +54,13 @@ const readAdmission={sourceNamespace:ownerAdmission.sourceNamespace,teacherId:ow
 const endpoints=initialRelease?.endpoints??JSON.parse(readFileSync(base+'/endpoints.json','utf8'));
 const log=base+'/receipts';mkdirSync(log,{recursive:true,mode:0o700});
 let tail:Promise<any>=Promise.resolve();
+const inputValidator=new AjvJsonSchemaValidator();
 const sha=(x:any)=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
-async function upstream<T>(endpoint:string,fn:(client:Client)=>Promise<T>,endpointConfig:any=endpoints):Promise<T>{
+async function upstream<T>(endpoint:string,fn:(client:Client)=>Promise<T>,endpointConfig:any=endpoints,expectedRegistry?:readonly {endpoint:string;upstreamName:string}[]):Promise<T>{
 
  const transport=new StdioClientTransport({...endpointConfig[endpoint],stderr:'pipe'});
  const client=new Client({name:'muse-academy-bounded-adapter',version:'1.0.0'});
- try{await client.connect(transport);return await fn(client);}finally{await client.close();await transport.close();}
+ try{await client.connect(transport);if(expectedRegistry)verifyEndpointInventory(endpoint,expectedRegistry,(await client.listTools()).tools);return await fn(client);}finally{await client.close();await transport.close();}
 }
 if(process.argv.includes('--discover')){
  const registry:any[]=[];
@@ -66,7 +71,7 @@ if(process.argv.includes('--discover')){
    if(tool.name==='academy_dailyrecord_get'||tool.name==='academy_endpoint_identity'||tool.name==='academy_runtime_identity')continue;
    if(endpoint==='saved'&&/^academy_(dailyrecord_|cism_|item_answer_lookup|runtime_read_admission|student_metadata|student_resolve|endpoint_identity|runtime_identity)/.test(tool.name))continue;
    const scopeHint=endpoint==='dailyrecord'?` DailyRecord owner-admitted dates: ${readAdmission.allowedFrom??'unbounded'} through ${readAdmission.allowedThrough??'unbounded'}.`:'';
-   registry.push({endpoint,upstreamName:tool.name,tool:{...tool,name:endpoint==='paper2'?'class2_'+tool.name:tool.name,description:tool.description+' '+(endpoint==='saved'?'Preserved evidence only; coverage/freshness is explicit.':tool.name==='academy_dailyrecord_save'?'One serialized native write batch; releases the account lock after completion. Requires a prior recorded review and the verbatim user instruction; the bridge records the observed caller attribution for audit. No printing, sending, automatic retry or credentials in arguments.':'One serialized native read batch; releases the account lock after completion. No saving, printing, sending, automatic retry or credentials in arguments.'+scopeHint)}});
+   registry.push({endpoint,upstreamName:tool.name,tool:{...tool,name:endpoint==='paper2'?'class2_'+tool.name:tool.name,description:tool.description+' '+(endpoint==='saved'?'Preserved evidence only; coverage/freshness is explicit.':['academy_dailyrecord_save','academy_cism_weekly_save'].includes(tool.name)?'One serialized native write batch; releases the account lock after completion. Requires a prior recorded review and the verbatim user instruction; the bridge records the observed caller attribution for audit. No printing, sending, automatic retry or credentials in arguments.':'One serialized native read batch; releases the account lock after completion. No saving, printing, sending, automatic retry or credentials in arguments.'+scopeHint)}});
   }
  }
  registry.push({endpoint:'dailyrecord',upstreamName:'academy_dailyrecord_get',tool:{name:'academy_dailyrecord_get',
@@ -113,6 +118,7 @@ async function call(req:any){
  const args=structuredClone(req.arguments??{});
  const occurrence=randomUUID();
  let receiptTool=req.name==='academy_runtime_identity'?req.name:'unrecognized_tool';
+ const startedAt=Date.now();let phase='release',endpoint:string|null=null,upstreamName:string|null=null;
  let dispatchIssued=false,saveIssued=false;
  const steps:{tool:string;status:unknown;sourceAvailability:unknown}[]=[];
  const dispatch=()=>{if(dispatchIssued)return;writeFileSync(log+'/'+occurrence+'-dispatch.json',JSON.stringify({issuedAt:new Date().toISOString(),tool:receiptTool,argumentsSha256:sha(args),automaticRetryAllowed:false,academyWrites:0,parentSends:0})+'\n',{mode:0o600,flag:'wx'});dispatchIssued=true;};
@@ -123,11 +129,15 @@ async function call(req:any){
   if(req.name==='academy_runtime_identity'){
    z.object({}).strict().parse(args);
    const data={...active.identity,processStartedAt,loadedBridgeSha256,qualification:'release_artifacts_only_live_source_and_existing_clients_unverified'};
-   writeFileSync(log+'/'+occurrence+'-result.json',JSON.stringify({completedAt:new Date().toISOString(),tool:receiptTool,status:'identity_observed',resultSha256:sha(data),automaticRetryAllowed:false})+'\n',{mode:0o600,flag:'wx'});
+   writeFileSync(log+'/'+occurrence+'-result.json',JSON.stringify({occurrence,phase,endpoint,upstreamName,generation:active.generation,pointerSha256:'pointerSha256' in active.identity?active.identity.pointerSha256:null,elapsedMs:Date.now()-startedAt,upstreamOccurrence:null,completedAt:new Date().toISOString(),tool:receiptTool,status:'identity_observed',resultSha256:sha(data),automaticRetryAllowed:false})+'\n',{mode:0o600,flag:'wx'});
    return {content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
   }
   const registered=active.registry.find((r:any)=>r.tool.name===req.name);if(!registered)throw Error('unknown_tool');
+  phase='input_validation';
+  if(!inputValidator.getValidator(registered.tool.inputSchema)(args).valid)throw Error('tool_input_invalid');
+  phase='routing';
   const entry=selectPaperRoute('paperScopes' in active?active.paperScopes:undefined,active.registry,registered,args);
+  endpoint=entry.endpoint;upstreamName=entry.upstreamName;phase='upstream';
   const result:any=entry.upstreamName==='academy_dailytest_history_with_headers'?await (async()=>{
    const metadataEntry=active.registry.find((r:any)=>r.tool.name==='academy_student_metadata_get'&&r.endpoint==='dailyrecord');
    const paperEntry=active.registry.find((r:any)=>r.upstreamName==='academy_paper_headers'&&r.endpoint==='paper1')
@@ -156,9 +166,9 @@ async function call(req:any){
       publicReadFailure(Error(typeof reason==='string'?reason:''),'student_metadata_unqualified_no_automatic_retry');
      throw new CompositeSourceUnavailable(source,typeof count==='number'&&Number.isSafeInteger(count)&&count>=0&&count<=100000?count:null,failure);
     }
-    if(response.isError||!data)throw Error('dailyrecord_route_upstream_failed_no_retry');
+    if(response.isError||!data)throw new UpstreamToolFailure(response);
     return data;
-   },active.endpoints);
+   },active.endpoints,active.registry);
    // Close the metadata upstream before opening the independently admitted
    // paper reader: both may serialize on the same native account lock.
    const data=await readDailyTestHeaders(args,{metadata:input=>invoke(metadataEntry,input,'metadata'),headers:input=>{
@@ -181,10 +191,14 @@ async function call(req:any){
    if(entry.upstreamName==='academy_dailyrecord_get'){
     const invoke=async(name:string,input:unknown)=>{
      const response=await client.callTool({name,arguments:withAttribution(name,input as Record<string,unknown>)});
-     if(response.isError||!response.structuredContent)throw Error('dailyrecord_route_upstream_failed_no_retry');
+     if(response.isError||!response.structuredContent)throw new UpstreamToolFailure(response);
      const data=response.structuredContent as Record<string,unknown>;
-     steps.push({tool:name,status:data.status??null,sourceAvailability:data.sourceAvailability??null});
-     return data;
+     const nativeAudit=response._meta?.['academy/audit'] as {occurrence?:unknown;failure?:unknown}|undefined;
+     const upstreamOccurrence=nativeAudit?.occurrence;
+     const safeOccurrence=typeof upstreamOccurrence==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(upstreamOccurrence)?upstreamOccurrence:null;
+     steps.push({tool:name,status:data.status??null,sourceAvailability:data.sourceAvailability??null,...(safeOccurrence?{upstreamOccurrence:safeOccurrence}:{})});
+     return {...data,...(data.status==='unavailable'&&!data.failure&&nativeAudit?.failure?{failure:publicFailureFromData(nativeAudit.failure)}:{}),
+      ...(safeOccurrence?{upstreamOccurrence:safeOccurrence}:{})};
     };
     const data=await readDailyRecordByName(args,{resolveStudent:input=>invoke('academy_student_resolve',input),intake:input=>invoke('academy_dailyrecord_intake',input)},active.readAdmission);
     return {content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
@@ -209,9 +223,11 @@ async function call(req:any){
     if(entry.upstreamName==='academy_dailyrecord_save')saveIssued=true;
     return client.callTool({name:entry.upstreamName,arguments:forwarded});
    }
+   if(entry.upstreamName==='academy_cism_weekly_save')saveIssued=true;
    return client.callTool({name:entry.upstreamName,arguments:withAttribution(entry.upstreamName,args)});
-  },active.endpoints);
-  if(result.isError)throw Error('dailyrecord_route_upstream_failed_no_retry');
+  },active.endpoints,active.registry);
+  if(result.isError)throw new UpstreamToolFailure(result);
+  phase='release_readback';
   const after=await activeRelease();
   if(sha(after.identity)!==sha(active.identity))throw Error('release_pointer_changed');
   // Owner-durable handles are already portable across processes; only process-local ones are ticketed.
@@ -221,20 +237,21 @@ async function call(req:any){
    if(handles.size>64)handles.delete(handles.keys().next().value!);
    data.observationHandle=ticket;result.content=[{type:'text',text:JSON.stringify(data)}];
   }
-  writeFileSync(log+'/'+occurrence+'-result.json',JSON.stringify({completedAt:new Date().toISOString(),tool:receiptTool,isError:!!result.isError,status:result.structuredContent?.status??null,sourceAvailability:result.structuredContent?.sourceAvailability??null,steps,resultSha256:sha(result),academyWrites:entry.upstreamName==='academy_dailyrecord_save'?(typeof result.structuredContent?.academyWrites==='number'?result.structuredContent.academyWrites:null):0,parentSends:0,automaticRetryAllowed:false})+'\n',{mode:0o600,flag:'wx'});
-  return result;
+  const resultFailure=result.structuredContent?.failure??result._meta?.['academy/audit']?.failure;
+  writeFileSync(log+'/'+occurrence+'-result.json',JSON.stringify({occurrence,phase,endpoint,upstreamName,generation:active.generation,pointerSha256:'pointerSha256' in active.identity?active.identity.pointerSha256:null,elapsedMs:Date.now()-startedAt,upstreamOccurrence:(entry.upstreamName==='academy_dailyrecord_get'?result.structuredContent?.upstreamOccurrence:undefined)??result._meta?.['academy/audit']?.occurrence??null,completedAt:new Date().toISOString(),tool:receiptTool,isError:!!result.isError,status:result.structuredContent?.status??null,sourceAvailability:result.structuredContent?.sourceAvailability??null,steps,failure:resultFailure?publicFailureFromData(resultFailure):null,resultSha256:sha(result),academyWrites:['academy_dailyrecord_save','academy_cism_weekly_save'].includes(entry.upstreamName)?(typeof result.structuredContent?.academyWrites==='number'?result.structuredContent.academyWrites:null):0,parentSends:0,automaticRetryAllowed:false})+'\n',{mode:0o600,flag:'wx'});
+  return withToolMeta(result,{'academy/bridgeAudit':{occurrence,endpoint,upstreamName,generation:active.generation,elapsedMs:Date.now()-startedAt}});
  }catch(error){
-  const failure=error instanceof CompositeSourceUnavailable?error.failure:publicReadFailure(error,'upstream_failure_reconcile_dispatch'),code=failure.code;
+  const failure=error instanceof CompositeSourceUnavailable||error instanceof UpstreamToolFailure?error.failure:publicReadFailure(error,'upstream_failure_reconcile_dispatch'),code=failure.code;
   // Before a durable dispatch receipt, no upstream operation has started and
   // the release base may not be a qualified or accessible receipt target.
   // Once the upstream save was invoked, neither a transport failure nor a
   // failed receipt proves whether the source write took effect.
   const effect=saveIssued?{academyWrites:null,effectStatus:'unknown'}:{academyWrites:0};
   if(dispatchIssued){
-   try{writeFileSync(log+'/'+occurrence+'-failure.json',JSON.stringify({code,failure,observedAt:new Date().toISOString(),tool:receiptTool,automaticRetryAllowed:false,...effect,parentSends:0})+'\n',{mode:0o600,flag:'wx'});}
+   try{writeFileSync(log+'/'+occurrence+'-failure.json',JSON.stringify({occurrence,phase,endpoint,upstreamName,elapsedMs:Date.now()-startedAt,upstreamOccurrence:error instanceof UpstreamToolFailure?error.upstreamOccurrence:null,code,failure,observedAt:new Date().toISOString(),tool:receiptTool,automaticRetryAllowed:false,...effect,parentSends:0})+'\n',{mode:0o600,flag:'wx'});}
    catch{throw Object.assign(Error('receipt_write_unavailable_reconcile'),{data:{occurrence,automaticRetryAllowed:false,...(saveIssued?{effectStatus:'unknown'}:{})}});}
   }
-  const data={status:'blocked',code,failure,occurrence,...(error instanceof CompositeSourceUnavailable?{failedSource:error.source,reasonCode:error.failure.code,sourceRequests:error.sourceRequests}:{}),automaticRetryAllowed:false,...effect,parentSends:0};
+  const data={status:'blocked',code,failure,occurrence,phase,endpoint,upstreamName,elapsedMs:Date.now()-startedAt,...(error instanceof UpstreamToolFailure?{upstreamOccurrence:error.upstreamOccurrence}:{}),...(error instanceof CompositeSourceUnavailable?{failedSource:error.source,reasonCode:error.failure.code,sourceRequests:error.sourceRequests}:{}),...(error instanceof EndpointInventoryMismatch?{inventory:{endpoint:error.endpoint,missingTools:error.missingTools}}:{}),...(error instanceof PaperScopeUnresolvedError?{paperScope:error.diagnostic,interviewRequired:true,interviewReason:'paper_scope_admission_missing'}:{}),automaticRetryAllowed:false,...effect,parentSends:0};
   return {isError:true,content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
  }
 }

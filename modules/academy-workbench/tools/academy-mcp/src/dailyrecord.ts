@@ -71,7 +71,42 @@ export const textbookSectionResultsSchema=z.object({displayName:z.string().trim(
   sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required')}).strict();
 export type TextbookSectionResults=z.infer<typeof textbookSectionResultsSchema>;
 export type TextbookSectionObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;
-  records:{sourceTitle:string;score:number;correctCount:number;itemCount:number;items:{ordinal:string;scoring:'O'|'X'}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
+  records:{sourceTitle:string;score:number;correctCount:number;itemCount:number;items:{ordinal:string;lectureKey:string|null;outerLectureKey:string|null;scoring:'O'|'X'}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
+/** Prestudy video read by exact student name. Upload (waiting list), completed
+ * list membership, AI score/star literals and teacher review are four
+ * distinct axes; teacherJudgment is never derived from a source OK/score. */
+export const prestudyGetSchema=z.object({displayName:z.string().trim().min(1).max(200),
+  purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema}).strict();
+export type PrestudyGet=z.infer<typeof prestudyGetSchema>;
+export type PrestudyObservation={student:{studentId:string;displayName:string};
+  waiting:{unitLabel:string;dateLiteral:string;statusLiteral:string;prestudyKey:string}[];
+  completed:{unitLabel:string;dateLiteral:string;statusLiteral:string;prestudyKey:string}[];
+  summary:{unitLabel:string;dateLiteral:string;aiScoreLiteral:string;ratingLiteral:string;reportAvailable:boolean;videoAvailable:boolean}[];
+  teacherJudgment:null;observedAt:string;coverage:string};
+/** Textbook section grading resolved by exact student name: the owner
+ * backend discovers the registered course/book binding from the live
+ * progress page. Without sourceTitles it returns the observed title index. */
+export const textbookSectionResultsGetSchema=z.object({displayName:z.string().trim().min(1).max(200),
+  purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema,
+  sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required').optional()}).strict();
+export type TextbookSectionResultsGet=z.infer<typeof textbookSectionResultsGetSchema>;
+/** Reverse trace from numeric item labels to the original textbook sections
+ * (activity titles) whose observed items carry those labels. This proves
+ * original-attempt lineage only: a generated wrong-answer clinic paper's own
+ * version, membership and printed order remain unqualified. */
+export const itemSectionTraceSchema=z.object({displayName:z.string().trim().min(1).max(200),
+  purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema,
+  labels:z.array(z.string().regex(/^[1-9][0-9]{0,15}$/)).min(1).max(32).refine(v=>new Set(v).size===v.length,'unique_item_labels_required'),
+  bookLabel:z.string().trim().min(1).max(200).optional()}).strict();
+export type ItemSectionTrace=z.infer<typeof itemSectionTraceSchema>;
+export type ItemSectionTraceObservation=
+  |{kind:'interview_required';student:{studentId:string;displayName:string};bindings:{bookLabel:string}[];reason:'multiple_book_bindings_select_one';observedAt:string}
+  |{kind:'traced';student:{studentId:string;displayName:string};
+    books:{bookLabel:string;sectionsScanned:number;sectionsFailed:number}[];
+    items:{label:string;matches:{bookLabel:string;sourceTitle:string;ordinal:string;matchedBy:'lectureKey'|'outerLectureKey';originalScoring:'O'|'X'}[]}[];
+    unmatchedLabels:string[];ambiguousLabels:string[];sectionsScanned:number;sectionsFailed:number;observedAt:string;coverage:string};
+export type TextbookSectionIndexObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bookLabel:string;
+  index:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string}}[];observedAt:string;coverage:string};
 /** Implemented by the native/source owner, never by MCP arguments. All methods are read-only. */
 export interface DailyRecordReadBackend {
   readRoutingAdmission?():DailyRecordReadAdmission;
@@ -83,6 +118,9 @@ export interface DailyRecordReadBackend {
   readCismSection?(scope:Readonly<DailyRecordScope>,selection:Readonly<z.infer<typeof cismSelectionSchema>>):Promise<ReadResult<CismObservation>>;
   searchStudentsByName?(exactName:Readonly<string>,requestRef:string,lessonDate?:string):Promise<unknown>;
   readTextbookSections?(input:Readonly<TextbookSectionResults>):Promise<TextbookSectionObservation>;
+  readPrestudyByName?(input:Readonly<PrestudyGet>):Promise<PrestudyObservation>;
+  readTextbookSectionsByName?(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionObservation|TextbookSectionIndexObservation>;
+  readItemSectionTrace?(input:Readonly<ItemSectionTrace>):Promise<ItemSectionTraceObservation>;
 }
 export const dailyRecordSaveSchema=z.object({context:dailyRecordContextSchema,observationHandle:dailyRecordIdSchema,
   cismObservationHandle:dailyRecordIdSchema.optional(),
@@ -164,6 +202,7 @@ function proposalBlockers(p:Proposal,context:DailyRecordContext){
  * hold; it never supplies a mapping, option or teacher decision. */
 const holdActionTable:[RegExp,string,string][]=[
   [/_ask_teacher$|^interview_required$/,'teacher_interview','Ask the teacher for the exact edition/unit/section binding of this activity and record the answer as a scoped correction for this student, edition and activity only.'],
+  [/^count_rendering_must_preserve_count$/,'correct_fact','questionCounts accepts cardinal question counts such as 8문항. Put ordinal scope such as 유형 10 in requiredFragments; preserve the teacher fact and review again.'],
   [/^learning_entries_required$/,'supply_learning_entries','Supply learningEntries binding book, unit and sections through the owner catalog.'],
   [/^learning_(mapping_unqualified|evidence_required|book_invalid|unit_invalid|section_invalid|edition_invalid|grade_invalid|entry_invalid)$|^duplicate_learning_/,'owner_catalog_binding','The owner catalog has no qualified binding for this entry; record a teacher-confirmed binding in the private owner catalog. Never invent a mapping.'],
   [/^learning_render_mismatch$/,'teacher_review_rendering','Text differs from the canonical grouped rendering; the teacher reviews any format example for meaning before resubmitting.'],
@@ -254,7 +293,14 @@ export class DailyRecordService {
         if(toolResultBytes(result)>512*1024)throw Error('metadata_result_too_large');
         return freezeLabelData(result);
       });
-    }catch(error){return {...failureBase,status:'unavailable' as const,...readFailureResult(error,'student_metadata_unqualified_no_automatic_retry')};}
+    }catch(error){
+      const result=readFailureResult(error,'student_metadata_unqualified_no_automatic_retry');
+      if(error instanceof Error && error.message==='metadata_result_too_large'){
+        const {origin:_origin,errorKind:_kind,errorSha256:_hash,...failure}=result.failure;
+        return {...failureBase,status:'unavailable' as const,reasonCode:result.reasonCode,failure};
+      }
+      return {...failureBase,status:'unavailable' as const,...result};
+    }
   }
   async metadataByName(value:unknown){
     const input=studentMetadataGetSchema.parse(value);
@@ -298,6 +344,61 @@ export class DailyRecordService {
       if(toolResultBytes(result)>512*1024)throw Error('textbook_section_result_too_large');
       return freezeLabelData(result);
     }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
+  }
+  async prestudyGet(value:unknown){
+    const input=prestudyGetSchema.parse(value);
+    const base={purpose:input.purpose,currentRequestRef:input.currentRequestRef,displayName:input.displayName,
+      academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only' as const};
+    if(!this.backend?.readPrestudyByName)return {...base,status:'unavailable' as const,reasonCode:'prestudy_backend_not_configured'};
+    try{
+      const result=await this.#serial(async()=>{
+        const observation=await this.backend!.readPrestudyByName!(freezeLabelData(structuredClone(input)));
+        if(observation.student.displayName!==input.displayName||observation.teacherJudgment!==null)throw Error('prestudy_scope_conflict');
+        return {...base,status:'observed' as const,...observation};
+      });
+      if(toolResultBytes(result)>512*1024)throw Error('prestudy_result_too_large');
+      return freezeLabelData(result);
+    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'prestudy_unqualified_no_automatic_retry')};}
+  }
+  async textbookSectionsByName(value:unknown){
+    const input=textbookSectionResultsGetSchema.parse(value);
+    const base={purpose:input.purpose,currentRequestRef:input.currentRequestRef,displayName:input.displayName,
+      academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only' as const};
+    if(!this.backend?.readTextbookSectionsByName)return {...base,status:'unavailable' as const,reasonCode:'textbook_section_backend_not_configured'};
+    try{
+      const result=await this.#serial(async()=>{
+        const observation=await this.backend!.readTextbookSectionsByName!(freezeLabelData(structuredClone(input)));
+        if(observation.student.displayName!==input.displayName)throw Error('textbook_section_scope_conflict');
+        if(input.sourceTitles){
+          const records=(observation as TextbookSectionObservation).records;
+          if(!Array.isArray(records)||records.length!==input.sourceTitles.length
+            ||new Set(records.map(r=>r.sourceTitle)).size!==input.sourceTitles.length
+            ||records.some(r=>!input.sourceTitles!.includes(r.sourceTitle)))throw Error('textbook_section_scope_conflict');
+        }else if(!Array.isArray((observation as TextbookSectionIndexObservation).index))throw Error('textbook_section_scope_conflict');
+        return {...base,status:'observed' as const,...observation};
+      });
+      if(toolResultBytes(result)>512*1024)throw Error('textbook_section_result_too_large');
+      return freezeLabelData(result);
+    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
+  }
+  async itemSectionTrace(value:unknown){
+    const input=itemSectionTraceSchema.parse(value);
+    const base={purpose:input.purpose,currentRequestRef:input.currentRequestRef,displayName:input.displayName,
+      academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only' as const};
+    if(!this.backend?.readItemSectionTrace)return {...base,status:'unavailable' as const,reasonCode:'item_section_trace_backend_not_configured'};
+    try{
+      const result=await this.#serial(async()=>{
+        const observation=await this.backend!.readItemSectionTrace!(freezeLabelData(structuredClone(input)));
+        if(observation.student.displayName!==input.displayName)throw Error('item_section_trace_scope_conflict');
+        if(observation.kind==='traced'){
+          if(observation.items.length!==input.labels.length||observation.items.some((row,i)=>row.label!==input.labels[i])
+            ||observation.items.some(row=>row.matches.some(m=>!m.sourceTitle||(m.matchedBy!=='lectureKey'&&m.matchedBy!=='outerLectureKey'))))throw Error('item_section_trace_scope_conflict');
+        }else if(observation.kind!=='interview_required'||!Array.isArray(observation.bindings)||observation.bindings.length<2)throw Error('item_section_trace_scope_conflict');
+        return {...base,status:observation.kind==='traced'?'observed' as const:'interview_required' as const,...observation};
+      });
+      if(toolResultBytes(result)>512*1024)throw Error('item_section_trace_result_too_large');
+      return freezeLabelData(result);
+    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'item_section_trace_unqualified_no_automatic_retry')};}
   }
   async get(value:unknown){
     return readDailyRecordByName(value,this,this.backend?.readRoutingAdmission?.()??null,this.now);
@@ -378,12 +479,13 @@ export class DailyRecordService {
       const changed=before.state!=='known'||before.value!==p.value;
       if(changed&&before.state==='known'&&before.value!==''&&!unknownAssessment(p.field,before.value)&&p.decision.kind==='set')blockers.push('existing_value_requires_explicit_replace');
       const facts=context.facts.filter(f=>f.field===p.field),constraints=facts.flatMap(f=>[...f.requiredFragments,...f.questionCounts.map(c=>c.rendering),...f.deadlines.map(d=>d.rendering),...f.stageClaims.map(s=>s.rendering)]);
+      if(facts.some(f=>f.questionCounts.some(c=>!new RegExp('(?<!\\d)'+c.count+'\\s*문항(?!\\d)').test(c.rendering))))blockers.push('count_rendering_must_preserve_count');
       const missingFragments=constraints.filter(fragment=>!p.value.includes(fragment));
       if(missingFragments.length)blockers.push('supplied_fact_fragment_missing');
       if(['progress','homework','lessonMemo'].includes(p.field)){
         const factText=facts.map(f=>f.text).join('\n');
         const counts=(text:string)=>[...text.matchAll(/(?<!\d)(\d{1,6})\s*문항/g)].map(m=>Number(m[1]));
-        const supportedCounts=new Set([...counts(factText),...facts.flatMap(f=>f.questionCounts.map(c=>c.count))]);
+        const supportedCounts=new Set([...counts(factText),...facts.flatMap(f=>f.questionCounts.filter(c=>new RegExp('(?<!\\d)'+c.count+'\\s*문항(?!\\d)').test(c.rendering)).map(c=>c.count))]);
         if(counts(p.value).some(count=>!supportedCounts.has(count)))blockers.push('unsupported_question_count');
         const deadlines=(text:string)=>[...text.matchAll(/(?:(\d{4})[-./](\d{1,2})[-./](\d{1,2})|(\d{1,2})\s*월\s*(\d{1,2})\s*일)/g)].map(m=>m[1]?`${m[1]}-${Number(m[2])}-${Number(m[3])}`:`${Number(m[4])}-${Number(m[5])}`);
         const supportedDeadlines=new Set([...deadlines(factText),...facts.flatMap(f=>f.deadlines.flatMap(d=>[`${d.date.slice(0,4)}-${Number(d.date.slice(5,7))}-${Number(d.date.slice(8,10))}`,`${Number(d.date.slice(5,7))}-${Number(d.date.slice(8,10))}`,...deadlines(d.rendering)]))]);

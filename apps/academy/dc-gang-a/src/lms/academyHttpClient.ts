@@ -1,4 +1,7 @@
+import {CISM_PATH,parseCismReport,cismWriteParameters,cismWeek,type CismReport} from './cismWeeklyProtocol';
 import {JSDOM} from 'jsdom';
+import {TEXTBOOK_CATALOG_PATH,MAX_TEXTBOOK_CATALOG_BYTES,MAX_TEXTBOOK_SAMPLE_BYTES,MAX_TEXTBOOK_REFERENCE_BYTES,parseTextbookCatalog,boundedTextbookBody,qualifiedTextbookPdfUrl,textbookPdfDigest,type TextbookCatalogObservation,type TextbookPdfObservation,type TextbookSchoolLevel} from './textbookCatalogRead';
+import {PRESTUDY_PATH,PRESTUDY_SUMMARY_PATH,TEXTBOOK_PROGRESS_PATH,parsePrestudySearchForm,parsePrestudyList,parsePrestudySummary,prestudyRowsForStudent,parseTextbookBindings,type PrestudyListRow,type PrestudySummaryRow,type TextbookBinding} from './prestudyRead';
 import {randomInt,createHash} from 'node:crypto';
 import {createAcademyReadPlan,executeAcademyRead,readLiteralKey,readLiteralName,sourceResponseKey,parseTextbookScopeBinding,type AcademyReadResult,type ScopedAcademyReadPlan} from './academyReadProtocol';
 import {readInputRecord} from '../contracts/readInputRecord';
@@ -55,6 +58,88 @@ export class AcademyHttpClient {
     this.#transport=transport;
   }
   get authenticated(){return this.#authenticated;}
+  async readCismReport(input:{teacherLabel:string;date:string}):Promise<CismReport>{
+    if(Object.keys(input).sort().join(',')!=='date,teacherLabel'||input.teacherLabel!==this.#principal.teacherLabel)throw Error('cism_scope_conflict');
+    cismWeek(input.date);if(!this.#authenticated)throw Error('authentication_required');
+    const path=CISM_PATH+'?'+new URLSearchParams({reqCmd:'CismChartMain',tutor_pri_no:this.#principal.teacherKey,the_date:input.date});
+    const response=await this.#request(path,{method:'GET'},false,'cism_weekly_read');
+    const bytes=await boundedTextbookBody(response,2000000,'catalog');
+    return parseCismReport(new TextDecoder().decode(bytes),sourceDomParser.parseFromString,input.date,this.#principal);
+  }
+  async applyCismField(input:{teacherLabel:string;date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>,recordAcknowledgement?:(value:{contentType:string;raw:Uint8Array;sha256:string})=>Promise<void>){
+    const current=await this.readCismReport({teacherLabel:input.teacherLabel,date:input.date}),field=current.fields.find(f=>f.fieldRef===input.fieldRef);
+    if(!field||current.wireSha256!==input.wireSha256||field.value!==input.before)throw Error('cism_stale_before');
+    if(field.value.trim()&&(field.kind!=='class_mode'||field.value!=='0')&&!(field.kind==='narrative'&&input.completeExistingNarrative===true))throw Error('cism_existing_value_preserved');
+    const params=cismWriteParameters(current,field,input.after);if(!await authorize())throw Error('cism_review_required');
+    const response=await this.#request(CISM_PATH,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:params.toString()},false,'cism_field_save');
+    const mime=response.headers.get('content-type')??'';
+    const raw=await boundedTextbookBody(new Response(response.body,{status:response.status,headers:{'Content-Type':'text/html'}}),65536,'catalog'),sha256=createHash('sha256').update(raw).digest('hex');
+    await recordAcknowledgement?.({contentType:mime,raw,sha256});
+    let ack:unknown;try{ack=JSON.parse(new TextDecoder().decode(raw));}catch{}
+    const result=ack&&typeof ack==='object'?(ack as {result?:unknown}).result:undefined;
+    // The native narrative handler only rejects FAIL; it does not require OK.
+    // Never infer persistence from an acknowledgement. Verify the exact source field.
+    const readback=await this.readCismReport({teacherLabel:input.teacherLabel,date:input.date});
+    if(result==='FAIL')throw Error('cism_ack_rejected');
+    if(readback.fields.find(f=>f.fieldRef===input.fieldRef)?.value!==input.after)throw Error('cism_readback_mismatch');
+    return {status:'persisted' as const,fieldRef:input.fieldRef,report:readback,acknowledgement:{sha256,byteLength:raw.length,jsonResult:result==='OK'?'OK':result==='FAIL'?'FAIL':ack===undefined?'not_json':'other',persistenceBasis:'exact_native_readback'}};
+  }
+  async readTextbookCatalog(input:{teacherLabel:string;schoolLevel?:TextbookSchoolLevel}):Promise<TextbookCatalogObservation>{
+    if(!input||Object.keys(input).some(k=>!['teacherLabel','schoolLevel'].includes(k))||input.teacherLabel!==this.#principal.teacherLabel)throw Error('textbook_catalog_principal_rejected');
+    if(!this.#authenticated)throw Error('authentication_required');
+    const schoolLevel=input.schoolLevel??'middle';if(!['elementary','middle','high'].includes(schoolLevel))throw Error('textbook_catalog_school_level_rejected');
+    const path=TEXTBOOK_CATALOG_PATH+(schoolLevel==='middle'?'':'&grade='+schoolLevel);
+    const response=await this.#request(path,{method:'GET'},false,'textbook_answer_catalog');
+    const bytes=await boundedTextbookBody(response,MAX_TEXTBOOK_CATALOG_BYTES,'catalog');
+    return parseTextbookCatalog(new TextDecoder().decode(bytes),sourceDomParser.parseFromString,schoolLevel);
+  }
+  async readTextbookPdf(input:{teacherLabel:string;documentRef:string;schoolLevel:TextbookSchoolLevel}):Promise<TextbookPdfObservation>{
+    if(!input||Object.keys(input).sort().join(',')!=='documentRef,schoolLevel,teacherLabel'||!/^[a-f0-9]{64}$/.test(input.documentRef))throw Error('textbook_pdf_input_rejected');
+    const catalog=await this.readTextbookCatalog({teacherLabel:input.teacherLabel,schoolLevel:input.schoolLevel});
+    const entry=catalog.entries.find(e=>e.documentRef===input.documentRef);if(!entry)throw Error('textbook_pdf_not_in_current_catalog');
+    const url=qualifiedTextbookPdfUrl(entry.url);let response:Response;
+    try{response=await this.#transport(url.href,{method:'GET',headers:{Accept:'application/pdf'},credentials:'omit',redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(20000)});}
+    catch{throw Error('textbook_pdf_transport_failed');}
+    if(response.url&&response.url!==url.href)throw Error('textbook_pdf_response_url_rejected');
+    const bytes=await boundedTextbookBody(response,entry.kind==='sample'?MAX_TEXTBOOK_SAMPLE_BYTES:MAX_TEXTBOOK_REFERENCE_BYTES,'pdf');
+    return {schoolLevel:input.schoolLevel,kind:entry.kind,documentRef:entry.documentRef,filename:entry.filename,sourceUrl:entry.url,sourceLabels:entry.sourceLabels,catalogSha256:catalog.catalogSha256,
+      observedAt:new Date().toISOString(),sha256:textbookPdfDigest(bytes),byteLength:bytes.byteLength,bytes,sourceRequests:2};
+  }
+  /** Prestudy video lists for one exact student. The waiting list proves an
+   * upload awaiting teacher review; the completed list and the summary page
+   * are separate source surfaces. AI score/star literals are reported as
+   * literals only; teacher review remains a separate, unobserved state. */
+  async readPrestudy(input:{teacherLabel:string;studentName:string}):Promise<{waiting:PrestudyListRow[];completed:PrestudyListRow[];summary:PrestudySummaryRow[];observedAt:string;coverage:string}>{
+    if(!input||Object.keys(input).sort().join(',')!=='studentName,teacherLabel'||input.teacherLabel!==this.#principal.teacherLabel)throw Error('prestudy_principal_rejected');
+    readLiteralName(input.studentName);
+    if(!this.#authenticated)throw Error('authentication_required');
+    const pageText=async(path:string,init:RequestInit,operation:string)=>{
+      const response=await this.#request(path,init,false,operation);
+      const text=await response.text();if(text.length>2000000)throw Error('prestudy_source_rejected');return text;
+    };
+    const search=async(cmd:'WebUnPreStudy'|'WebCtPreStudy')=>{
+      const shell=await pageText(PRESTUDY_PATH+'?reqCmd='+cmd,{method:'GET'},cmd);
+      const form=parsePrestudySearchForm(shell,sourceDomParser.parseFromString,cmd,this.#principal.teacherKey);
+      const body=new URLSearchParams({reqCmd:form.reqCmd,g_clg_no:form.collegeKey,g_mem_type:form.memberType,g_pri_no:form.teacherKey,student_name:input.studentName});
+      const result=await pageText(PRESTUDY_PATH,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:body.toString()},cmd);
+      return prestudyRowsForStudent(parsePrestudyList(result,sourceDomParser.parseFromString,cmd,this.#principal.teacherKey),input.studentName);
+    };
+    const waiting=await search('WebUnPreStudy');
+    const completed=await search('WebCtPreStudy');
+    const summaryHtml=await pageText(PRESTUDY_SUMMARY_PATH,{method:'GET'},'TeacherPrestudySummary');
+    const summary=prestudyRowsForStudent(parsePrestudySummary(summaryHtml,sourceDomParser.parseFromString),input.studentName);
+    return {waiting,completed,summary,observedAt:new Date().toISOString(),coverage:'exact_student_rows_on_waiting_completed_and_one_observed_summary_page_not_all_history'};
+  }
+  /** Registered textbook bindings for one exact student, from the live
+   * getTextBookProgress rows. Caller IDs are never accepted here. */
+  async readTextbookBindings(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<TextbookBinding[]>{
+    if(!input||Object.keys(input).sort().join(',')!=='studentKey,studentName,teacherLabel'||input.teacherLabel!==this.#principal.teacherLabel)throw Error('textbook_binding_principal_rejected');
+    readLiteralName(input.studentName);readLiteralKey(input.studentKey);
+    if(!this.#authenticated)throw Error('authentication_required');
+    const response=await this.#request(TEXTBOOK_PROGRESS_PATH,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams({student_name:input.studentName}).toString()},false,'getTextBookProgress');
+    const text=await response.text();if(text.length>2000000)throw Error('textbook_binding_source_rejected');
+    return parseTextbookBindings(text,sourceDomParser.parseFromString,input.studentKey);
+  }
   close(){this.#cookies.clear();this.#authenticated=false;this.#testPoolProtocol=null;}
   /** Fixed original DayRecord Main document; selector/date metadata only, never roster rows or handlers. */
   async inspectDayRecordGroupSelector(input:{teacherLabel:string;date:string}){

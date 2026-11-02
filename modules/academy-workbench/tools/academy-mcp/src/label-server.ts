@@ -1,3 +1,4 @@
+import {installToolAudit} from './tool-audit.ts';
 import {installStdioDiagnostics,createAcademyStdioTransport} from './stdio-diagnostics.ts';
 import {runtimeIdentityConfiguration,registerRuntimeIdentity} from './runtime-identity.ts';
 import {dailyRecordLearningConfiguration} from './dailyrecord-learning.ts';
@@ -15,6 +16,7 @@ const configuration=await dailyRecordToolConfiguration(learning.remainingArgs);
 const args=configuration.remainingArgs;
 const index=args[0]==='--native-bridge'?await loadNativePoolBackend(args):await loadItemLabelIndex(args);
 const server=new McpServer({name:'academy-item-labels',version:'0.1.0'});
+installToolAudit(server,{endpoint:'label'});
 registerItemLabelTools(server,index);
 registerRuntimeIdentity(server,runtimeIdentity.identity);
 registerDailyRecordTools(server,new DailyRecordService(null,configuration.parentSafeguard,Date.now,learning.learningPolicy));

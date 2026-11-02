@@ -30,6 +30,20 @@ async function withNeutralClient(run:(fixture:{base:string;events:string;client:
     await run({base,events,client});
   }finally{await client?.close();await transport?.close();await rm(base,{recursive:true,force:true});}
 }
+test('CISM bridge observes caller attribution and records actual or uncertain writes without content in receipts',async()=>{
+ await withNeutralClient(async({base,events,client})=>{
+  const first=await client.callTool({name:'academy_cism_weekly_save',arguments:{attribution:{observedBy:'FORGED_CANARY'}}});
+  expect(first.structuredContent).toMatchObject({status:'persisted',academyWrites:2});
+  const trace=await readFile(events,'utf8');expect(trace).toContain('fictional-neutral-client');expect(trace).toContain('neutral-bridge');expect(trace).not.toContain('FORGED_CANARY');
+  await writeFile(resolve(base,'inject-cism-transport-error'),'enabled');
+  const second=await client.callTool({name:'academy_cism_weekly_save',arguments:{}});
+  expect(second.structuredContent).toMatchObject({status:'blocked',academyWrites:null,effectStatus:'unknown',automaticRetryAllowed:false});
+  const receipts=await Promise.all((await readdir(resolve(base,'receipts'))).map(async n=>({name:n,value:JSON.parse(await readFile(resolve(base,'receipts',n),'utf8'))})));
+  expect(receipts.find(r=>r.name.endsWith('-result.json'))?.value.academyWrites).toBe(2);
+  expect(receipts.find(r=>r.name.endsWith('-failure.json'))?.value).toMatchObject({academyWrites:null,effectStatus:'unknown'});
+  expect(JSON.stringify(receipts)).not.toContain('FORGED_CANARY');
+ });
+},20000);
 test('neutral discovers and composes admitted DailyTest history with exact shared paper headers',async()=>{
   await withNeutralClient(async({base,events,client})=>{
     const discovered=(await client.listTools()).tools.filter(t=>t.name==='academy_dailytest_history_with_headers');expect(discovered).toHaveLength(1);
@@ -70,6 +84,40 @@ test('neutral MCP runs resolve and intake in one upstream lifetime and logs meta
     expect(JSON.parse(saved.find(s=>s.includes('completedAt'))!)).toMatchObject({sourceAvailability:'observed',steps:[{tool:'academy_student_resolve',status:'resolved'},{tool:'academy_dailyrecord_intake',sourceAvailability:'observed'}]});
     const denied=await client.callTool({name:tool.name,arguments:{...request,teacherId:'99002'}});expect(denied.isError).toBe(true);
     expect((await readFile(events,'utf8')).match(/intake/g)).toHaveLength(1);
+  });
+},20000);
+test('name composite preserves resolver failure and native occurrence in reply and receipt',async()=>{
+  await withNeutralClient(async({base,events,client})=>{
+    await writeFile(resolve(base,'inject-resolve-error'),'enabled');
+    const result:any=await client.callTool({name:'academy_dailyrecord_get',arguments:{displayName:'Invented Student',lessonDate:'2040-01-16',purpose:'Synthetic read',currentRequestRef:'synthetic-request'}});
+    expect(result.structuredContent).toMatchObject({status:'unavailable',failure:{code:'student_resolve_search_unqualified_no_automatic_retry'},academyWrites:0});
+    const occurrence=result.structuredContent.upstreamOccurrence;expect(occurrence).toMatch(/^[a-f0-9-]{36}$/);
+    const names=await readdir(resolve(base,'receipts'));
+    const receipt=JSON.parse(await readFile(resolve(base,'receipts',names.find(n=>n.endsWith('-result.json'))!),'utf8'));
+    expect(receipt).toMatchObject({upstreamOccurrence:occurrence,failure:{code:'student_resolve_search_unqualified_no_automatic_retry'},steps:[{tool:'academy_student_resolve',status:'unavailable',upstreamOccurrence:occurrence}]});
+    expect(await readFile(events,'utf8')).not.toContain('intake');expect(JSON.stringify(result)).not.toContain('synthetic_unknown_source_failure');
+  });
+},20000);
+test('empty dated name resolution stays not found in native audit without intake',async()=>{
+  await withNeutralClient(async({base,events,client})=>{
+    await writeFile(resolve(base,'enable-resolve-audit'),'enabled');
+    const result:any=await client.callTool({name:'academy_dailyrecord_get',arguments:{displayName:'Missing Invented Student',lessonDate:'2040-01-16',purpose:'Synthetic read',currentRequestRef:'synthetic-empty'}});
+    expect(result.structuredContent).toMatchObject({status:'unavailable',reasonCode:'student_name_not_found',failure:{code:'student_name_not_found',category:'partial_coverage'},academyWrites:0});
+    const receipts=await readdir(resolve(base,'receipts'));
+    const receipt=JSON.parse(await readFile(resolve(base,'receipts',receipts.find(n=>n.endsWith('-result.json'))!),'utf8'));
+    expect(receipt.failure).toMatchObject({code:'student_name_not_found',category:'partial_coverage'});
+    expect(await readFile(events,'utf8')).not.toContain('intake');
+  });
+},20000);
+test('direct resolver receipt retains native audit failure for an empty dated result',async()=>{
+  await withNeutralClient(async({base,client})=>{
+    await writeFile(resolve(base,'enable-resolve-audit'),'enabled');
+    const result:any=await client.callTool({name:'academy_student_resolve',arguments:{displayName:'Missing Invented Student',lessonDate:'2040-01-16',purpose:'Synthetic read',currentRequestRef:'synthetic-direct'}});
+    expect(result.structuredContent).toMatchObject({status:'unavailable',reasonCode:'student_name_not_found'});
+    const receipts=await readdir(resolve(base,'receipts'));
+    const receipt=JSON.parse(await readFile(resolve(base,'receipts',receipts.find(n=>n.endsWith('-result.json'))!),'utf8'));
+    expect(receipt.failure).toMatchObject({code:'student_name_not_found',category:'partial_coverage'});
+    expect(receipt.upstreamOccurrence).toMatch(/^[a-f0-9-]{36}$/);
   });
 },20000);
 test('neutral save composes intake, review and save in one upstream lifetime',async()=>{
@@ -259,4 +307,20 @@ test('neutral no-argument calls normalize omitted arguments before dispatch hash
     expect(dispatch.argumentsSha256).toBe(createHash('sha256').update('{}').digest('hex'));
     expect(receipts.some(n=>n.endsWith('-result.json'))).toBe(true);expect(receipts.some(n=>n.endsWith('-failure.json'))).toBe(false);
   });
+},20000);
+test('bridge validates before upstream launch and preserves safe SDK failure causes with trace receipts',async()=>{
+ await withNeutralClient(async({base,events,client})=>{
+  const before=await readFile(events,'utf8');
+  const invalid=await client.callTool({name:'academy_source_status',arguments:{PRIVATE_FIELD_CANARY:'PRIVATE_VALUE_CANARY'}});
+  expect(invalid.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',phase:'input_validation',academyWrites:0,failure:{category:'input_validation'}});
+  expect(await readFile(events,'utf8')).toBe(before);
+  for(const code of ['prestudy_search_form_drift','PRIVATE_SECRET_CANARY']){
+   await writeFile(resolve(base,'inject-source-status-error'),code);
+   const failed=await client.callTool({name:'academy_source_status',arguments:{}});
+   expect(failed.structuredContent).toMatchObject({status:'blocked',code:code==='prestudy_search_form_drift'?code:'upstream_tool_error',phase:'upstream',endpoint:'dailyrecord',upstreamName:'academy_source_status',academyWrites:0});
+   expect(JSON.stringify(failed)).not.toContain('PRIVATE_SECRET_CANARY');
+  }
+  const receipts=await Promise.all((await readdir(resolve(base,'receipts'))).map(n=>readFile(resolve(base,'receipts',n),'utf8')));
+  expect(receipts.join('')).not.toContain('PRIVATE_FIELD_CANARY');expect(receipts.join('')).not.toContain('PRIVATE_VALUE_CANARY');expect(receipts.join('')).not.toContain('PRIVATE_SECRET_CANARY');
+ });
 },20000);

@@ -1,7 +1,138 @@
+import {createHash} from 'node:crypto';
 import {z} from 'zod';
 
-export type ReadFailureCategory='authentication'|'policy_denial'|'identity_ambiguity'|'contract_drift'|'malformed_response'|'partial_coverage'|'endpoint_absence'|'upstream_unavailable';
+export type ReadFailureCategory='authentication'|'policy_denial'|'identity_ambiguity'|'contract_drift'|'malformed_response'|'partial_coverage'|'endpoint_absence'|'upstream_unavailable'|'input_validation';
 const catalog={
+  upstream_tool_inventory_mismatch:['contract_drift','src/endpoint-inventory.ts:verifyEndpointInventory'],
+  query_hierarchy_not_found:['policy_denial','src/native-pool-backend.ts:read'],
+  query_outside_declared_scope:['policy_denial','src/native-pool-backend.ts:read'],
+  exact_previously_returned_question_required:['policy_denial','src/native-pool-backend.ts:read'],
+  exact_previously_returned_hierarchy_id_required:['policy_denial','src/native-pool-backend.ts:read'],
+  exact_existing_level3_or4_scope_required:['policy_denial','src/native-pool-backend.ts:read'],
+  exact_previously_returned_type_label_required:['policy_denial','src/native-pool-backend.ts:read'],
+  read_scope_not_admitted:['policy_denial','src/native-pool-backend.ts:read'],
+  operator_socket_parent_not_private:['policy_denial','src/native-pool-backend.ts:read'],
+  operator_socket_not_private:['policy_denial','src/native-pool-backend.ts:read'],
+  active_profile_required:['policy_denial','src/native-pool-backend.ts:read'],
+  native_http_secret_required:['policy_denial','src/native-pool-backend.ts:read'],
+  operator_required:['policy_denial','src/native-pool-backend.ts:read'],
+  hierarchy_offset_out_of_range:['input_validation','src/native-pool-backend.ts:read'],
+  label_offset_out_of_range:['input_validation','src/native-pool-backend.ts:read'],
+  question_offset_out_of_range:['input_validation','src/native-pool-backend.ts:read'],
+  duplicate_query_hierarchy:['input_validation','src/native-pool-backend.ts:read'],
+  query_has_no_comparable_terms:['input_validation','src/native-pool-backend.ts:read'],
+  live_comparison_requires_one_exact_studied_scope:['input_validation','src/native-pool-backend.ts:read'],
+  operator_request_invalid:['input_validation','src/native-pool-backend.ts:read'],
+  operator_request_size_limit:['input_validation','src/native-pool-backend.ts:read'],
+  operator_socket_path_invalid:['input_validation','src/native-pool-backend.ts:read'],
+  operator_socket_arguments_invalid:['input_validation','src/native-pool-backend.ts:read'],
+  native_bridge_arguments_invalid:['input_validation','src/native-pool-backend.ts:read'],
+  native_pool_authentication_requires_new_input:['authentication','src/native-pool-backend.ts:read'],
+  test_pool_authentication_required:['authentication','src/native-pool-backend.ts:read'],
+  live_label_selector_source_changed:['contract_drift','src/native-pool-backend.ts:read'],
+  live_label_source_scope_conflict:['contract_drift','src/native-pool-backend.ts:read'],
+  live_label_category_scope_conflict:['contract_drift','src/native-pool-backend.ts:read'],
+  live_label_hierarchy_identity_conflict:['contract_drift','src/native-pool-backend.ts:read'],
+  live_label_hierarchy_parent_conflict:['contract_drift','src/native-pool-backend.ts:read'],
+  live_label_hierarchy_cycle:['contract_drift','src/native-pool-backend.ts:read'],
+  live_question_source_scope_conflict:['contract_drift','src/native-pool-backend.ts:read'],
+  source_type_id_not_qualified_for_question_read:['contract_drift','src/native-pool-backend.ts:read'],
+  live_direct_only_label_membership_not_qualified:['contract_drift','src/native-pool-backend.ts:read'],
+  operator_socket_identity_changed:['contract_drift','src/native-pool-backend.ts:read'],
+  operator_reader_identity_mismatch:['contract_drift','src/native-pool-backend.ts:read'],
+  operator_hello_invalid:['contract_drift','src/native-pool-backend.ts:read'],
+  native_pool_read_timeout:['upstream_unavailable','src/native-pool-backend.ts:read'],
+  native_pool_read_start_failed:['upstream_unavailable','src/native-pool-backend.ts:read'],
+  native_pool_result_size_limit:['upstream_unavailable','src/native-pool-backend.ts:read'],
+  native_pool_read_unqualified:['upstream_unavailable','src/native-pool-backend.ts:read'],
+  native_pool_result_invalid:['upstream_unavailable','src/native-pool-backend.ts:read'],
+  native_child_no_valid_result:['upstream_unavailable','src/native-pool-backend.ts:read'],
+  operator_transport_failed:['upstream_unavailable','src/native-pool-backend.ts:read'],
+  operator_socket_unavailable:['upstream_unavailable','src/native-pool-backend.ts:read'],
+  operator_socket_closed:['upstream_unavailable','src/native-pool-backend.ts:read'],
+  operator_reply_invalid:['upstream_unavailable','src/native-pool-backend.ts:read'],
+  source_failure_latched_no_retry:['upstream_unavailable','src/native-pool-backend.ts:read'],
+  tool_input_invalid:['input_validation','src/tool-audit.ts:inputIssues'],
+  duplicate_proposal_field:['input_validation','src/tool-audit.ts:inputIssues'],
+  exact_backend_observation_handle_required:['input_validation','src/tool-audit.ts:inputIssues'],
+  tool_not_registered:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  dailyrecord_read_backend_not_configured:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  dailyrecord_save_backend_not_configured:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  textbook_catalog_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  textbook_pdf_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  prestudy_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  textbook_binding_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  textbook_index_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  cism_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  textbook_student_not_admitted:['policy_denial','src/native-dailyrecord-backend.ts:scope'],
+  prestudy_student_not_admitted:['policy_denial','src/native-dailyrecord-backend.ts:scope'],
+  textbook_catalog_principal_rejected:['policy_denial','src/native-dailyrecord-backend.ts:scope'],
+  cism_scope_conflict:['policy_denial','src/native-dailyrecord-backend.ts:scope'],
+  cism_review_required:['policy_denial','src/native-dailyrecord-backend.ts:scope'],
+  cism_store_unqualified:['policy_denial','src/native-dailyrecord-backend.ts:scope'],
+  tool_audit_store_unqualified:['policy_denial','src/native-dailyrecord-backend.ts:scope'],
+  foreign_source_redirect_rejected:['policy_denial','src/native-dailyrecord-backend.ts:scope'],
+  source_principal_drift:['policy_denial','src/native-dailyrecord-backend.ts:scope'],
+  textbook_binding_missing_or_ambiguous:['identity_ambiguity','src/native-dailyrecord-backend.ts:textbookBinding'],
+  prestudy_authentication_required:['authentication','source-owner:authentication'],
+  textbook_catalog_authentication_required:['authentication','source-owner:authentication'],
+  source_login_challenge:['authentication','source-owner:authentication'],
+  fresh_authentication_attempt_required:['authentication','source-owner:authentication'],
+  prestudy_scope_conflict:['contract_drift','source-owner:response-contract'],
+  textbook_section_scope_conflict:['contract_drift','source-owner:response-contract'],
+  textbook_binding_scope_conflict:['contract_drift','source-owner:response-contract'],
+  textbook_binding_source_unqualified:['contract_drift','source-owner:response-contract'],
+  textbook_section_result_unqualified:['contract_drift','source-owner:response-contract'],
+  native_metadata_history_scope_conflict:['contract_drift','source-owner:response-contract'],
+  native_metadata_paper_conflict:['contract_drift','source-owner:response-contract'],
+  native_metadata_lookup_scope_conflict:['contract_drift','source-owner:response-contract'],
+  native_metadata_operation_conflict:['contract_drift','source-owner:response-contract'],
+  native_metadata_inventory_conflict:['contract_drift','source-owner:response-contract'],
+  native_dailyrecord_previous_conflict:['contract_drift','source-owner:response-contract'],
+  native_dailyrecord_owner_admission_mismatch:['contract_drift','source-owner:response-contract'],
+  prestudy_search_form_missing:['contract_drift','source-owner:response-contract'],
+  prestudy_search_form_drift:['contract_drift','source-owner:response-contract'],
+  cism_wire_drift:['contract_drift','source-owner:response-contract'],
+  cism_period_conflict:['contract_drift','source-owner:response-contract'],
+  cism_fields_unqualified:['contract_drift','source-owner:response-contract'],
+  cism_report_drift:['contract_drift','source-owner:response-contract'],
+  cism_stale_before:['contract_drift','source-owner:response-contract'],
+  cism_existing_value_preserved:['contract_drift','source-owner:response-contract'],
+  cism_prior_review_mismatch:['contract_drift','source-owner:response-contract'],
+  cism_duplicate_field:['contract_drift','source-owner:response-contract'],
+  cism_request_rebound:['contract_drift','source-owner:response-contract'],
+  source_redirect_contract_rejected:['contract_drift','source-owner:response-contract'],
+  source_redirect_rejected:['contract_drift','source-owner:response-contract'],
+  login_wire_contract_drift:['contract_drift','source-owner:response-contract'],
+  teacher_user_principal_conflict:['contract_drift','source-owner:response-contract'],
+  teacher_course_principal_conflict:['contract_drift','source-owner:response-contract'],
+  teacher_college_conflict:['contract_drift','source-owner:response-contract'],
+  teacher_member_type_missing:['contract_drift','source-owner:response-contract'],
+  teacher_logout_marker_drift:['contract_drift','source-owner:response-contract'],
+  native_dailyrecord_previous_unverified:['partial_coverage','source-owner:coverage'],
+  prestudy_result_too_large:['partial_coverage','source-owner:coverage'],
+  textbook_section_result_too_large:['partial_coverage','source-owner:coverage'],
+  textbook_section_scan_limit:['partial_coverage','source-owner:coverage'],
+  item_answer_result_too_large:['partial_coverage','source-owner:coverage'],
+  item_section_trace_result_too_large:['partial_coverage','source-owner:coverage'],
+  prestudy_source_rejected:['malformed_response','source-owner:response-contract'],
+  prestudy_row_unqualified:['malformed_response','source-owner:response-contract'],
+  prestudy_summary_row_unqualified:['malformed_response','source-owner:response-contract'],
+  cism_date_rejected:['malformed_response','source-owner:response-contract'],
+  cism_month_rejected:['malformed_response','source-owner:response-contract'],
+  cism_document_rejected:['malformed_response','source-owner:response-contract'],
+  cism_body_rejected:['malformed_response','source-owner:response-contract'],
+  cism_value_rejected:['malformed_response','source-owner:response-contract'],
+  cism_ack_unqualified:['malformed_response','source-owner:response-contract'],
+  cism_ack_rejected:['malformed_response','source-owner:response-contract'],
+  cism_readback_mismatch:['malformed_response','source-owner:response-contract'],
+  tool_handler_failed:['upstream_unavailable','academy-mcp:execution-boundary'],
+  upstream_tool_error:['upstream_unavailable','academy-mcp:execution-boundary'],
+  upstream_result_missing:['upstream_unavailable','academy-mcp:execution-boundary'],
+  source_http_failed:['upstream_unavailable','academy-mcp:execution-boundary'],
+  source_cause_unclassified:['upstream_unavailable','academy-mcp:execution-boundary'],
+  cism_uncertain_dispatch:['upstream_unavailable','academy-mcp:execution-boundary'],
+  cism_source_failed:['upstream_unavailable','academy-mcp:execution-boundary'],
   authentication_required:['authentication','source-owner:authentication-boundary'],
   daily_history_selector_drift:['contract_drift','source-owner:daily-history-selectors'],
   student_paper_search_wire_drift:['contract_drift','source-owner:student-paper-search'],
@@ -20,6 +151,14 @@ const catalog={
   native_dailyrecord_scope_refused:['policy_denial','src/native-dailyrecord-backend.ts:readDailyRecord'],
   native_dated_name_ambiguous:['identity_ambiguity','src/native-dailyrecord-backend.ts:searchStudentsByName'],
   native_dated_name_scope_conflict:['contract_drift','src/native-dailyrecord-backend.ts:searchStudentsByName'],
+  student_name_invalid:['input_validation','src/student-resolver.ts:resolveStudentByName'],
+  student_resolve_backend_not_configured:['endpoint_absence','src/student-resolver.ts:resolveStudentByName'],
+  student_name_not_admitted:['policy_denial','src/student-resolver.ts:resolveStudentByName'],
+  student_name_scope_conflict:['contract_drift','src/student-resolver.ts:resolveStudentByName'],
+  student_name_not_found:['partial_coverage','src/student-resolver.ts:resolveStudentByName'],
+  student_name_ambiguous:['identity_ambiguity','src/student-resolver.ts:resolveStudentByName'],
+  student_resolve_search_unqualified_no_automatic_retry:['upstream_unavailable','src/student-resolver.ts:resolveStudentByName'],
+  student_resolve_unqualified_no_automatic_retry:['upstream_unavailable','src/dailyrecord.ts:resolveStudent'],
   script_digest_drift:['contract_drift','source-owner:script-digest'],
   native_dailyrecord_identity_conflict:['contract_drift','src/native-dailyrecord-backend.ts:readDailyRecord'],
   native_dailyrecord_state_conflict:['contract_drift','src/native-dailyrecord-backend.ts:readDailyRecord'],
@@ -57,24 +196,43 @@ const catalog={
 
 } as const satisfies Record<string,readonly [ReadFailureCategory,string]>;
 export class AcademyReadFailure extends Error {
-  constructor(readonly category:ReadFailureCategory,readonly code:string,readonly evidenceLocator:string){super(code);}
+  constructor(readonly category:ReadFailureCategory,readonly code:string,readonly evidenceLocator:string,cause?:unknown){super(code,{cause});}
 }
 export type ReleaseBaseFailureReason='relative_path'|'noncanonical_path'|'not_directory'|'writable_by_others'|'owner_mismatch';
 export class ReleaseBaseUnqualified extends Error {
   constructor(readonly reason:ReleaseBaseFailureReason){super('release_base_unqualified');}
 }
 /** Public error text is a finite domain catalog, never an upstream message pattern. */
-export function publicReadFailure(error:unknown,fallback='source_read_unavailable'){
+export function publicReadFailure(error:unknown,fallback='source_read_unavailable',depth=0): {category:ReadFailureCategory;code:string;evidenceLocator:string;automaticRetryAllowed:false;reason?:ReleaseBaseFailureReason;sourceHttpStatus?:number;sourceOperation?:string;cause?:unknown;origin?:{module:string;line:number;column:number};errorKind?:string;errorSha256?:string}{
+  const frames=error instanceof Error?error.stack?.split('\n').slice(1).join('\n')??'':'';
+  const frame=/(?:\/|\()((?:academy-client|dailyrecord-server|server|neutral-server|native-dailyrecord-backend|dailyrecord|prestudyRead|textbookCatalogRead|cismWeeklyProtocol|academyHttpClient|native-pool-backend|native-pool-socket|tool-audit)\.(?:mjs|ts)):(\d{1,8}):(\d{1,6})/.exec(frames);
+  const origin=frame?{module:frame[1],line:Number(frame[2]),column:Number(frame[3])}:undefined;
+  const diagnostics={...(origin?{origin}:{}),...(error instanceof Error?{errorKind: error instanceof TypeError?'TypeError':error instanceof RangeError?'RangeError':error instanceof SyntaxError?'SyntaxError':'Error',errorSha256:createHash('sha256').update(error.name+'\0'+error.message).digest('hex')}:{})};
+  const detail=error as {httpStatus?:unknown;sourceOperation?:unknown}|null;
+  const http=typeof detail?.httpStatus==='number'&&Number.isInteger(detail.httpStatus)&&detail.httpStatus>=400&&detail.httpStatus<=599?{sourceHttpStatus:detail.httpStatus}:{};
+  const operations=new Set(['login_document','login_submission','owned_source_request','cism_weekly_read','cism_field_save','textbook_answer_catalog','getTextBookProgress','day_record_group_selector']);
+  const operation=typeof detail?.sourceOperation==='string'&&operations.has(detail.sourceOperation)?{sourceOperation:detail.sourceOperation}:{};
   if(error instanceof ReleaseBaseUnqualified)
-    return {category:'policy_denial' as const,code:'release_base_unqualified' as const,evidenceLocator:catalog.release_base_unqualified[1],automaticRetryAllowed:false as const,reason:error.reason};
+    return {category:'policy_denial' as const,code:'release_base_unqualified' as const,evidenceLocator:catalog.release_base_unqualified[1],automaticRetryAllowed:false as const,...diagnostics,reason:error.reason};
   if(error instanceof AcademyReadFailure && error.code==='source_authentication_failed')
-    return {category:'authentication' as const,code:error.code,evidenceLocator:catalog.source_authentication_failed[1],automaticRetryAllowed:false as const};
+    return {category:'authentication' as const,code:error.code,evidenceLocator:catalog.source_authentication_failed[1],automaticRetryAllowed:false as const,...diagnostics,...(error.cause&&depth<2?{cause:publicReadFailure(error.cause,'source_cause_unclassified',depth+1)}:{})};
   if(error instanceof z.ZodError || error instanceof SyntaxError)
-    return {category:'malformed_response' as const,code:'source_response_malformed',evidenceLocator:'academy-mcp:response-contract',automaticRetryAllowed:false as const};
+    return {category:'malformed_response' as const,code:'source_response_malformed',evidenceLocator:'academy-mcp:response-contract',automaticRetryAllowed:false as const,...diagnostics};
   const code=error instanceof Error&&Object.hasOwn(catalog,error.message)?error.message as keyof typeof catalog:null;
-  return code?{category:catalog[code][0],code,evidenceLocator:catalog[code][1],automaticRetryAllowed:false as const}:
-    {category:'upstream_unavailable' as const,code:fallback,evidenceLocator:'academy-mcp:owner-read-boundary',automaticRetryAllowed:false as const};
+  return code?{category:catalog[code][0],code,evidenceLocator:catalog[code][1],automaticRetryAllowed:false as const,...diagnostics,...http,...operation}:
+    {category:'upstream_unavailable' as const,code:fallback,evidenceLocator:'academy-mcp:owner-read-boundary',automaticRetryAllowed:false as const,...diagnostics};
 }
 export function readFailureResult(error:unknown,fallback:string){
   const failure=publicReadFailure(error,fallback);return {reasonCode:failure.code,failure};
+}
+/** Re-project a failure across process boundaries without trusting exception text, locators or arbitrary fields. */
+export function publicFailureFromData(value:unknown,depth=0):ReturnType<typeof publicReadFailure>{
+ const v=value as Record<string,unknown>|null;
+ const {origin:_origin,errorKind:_kind,errorSha256:_hash,...base}=publicReadFailure(Object.assign(Error(typeof v?.code==='string'?v.code:''),{httpStatus:v?.sourceHttpStatus,sourceOperation:v?.sourceOperation}),'upstream_tool_error');
+ const origin=v?.origin as {module?:unknown;line?:unknown;column?:unknown}|undefined;
+ const modules=new Set(['academy-client.mjs','dailyrecord-server.mjs','server.mjs','neutral-server.ts','native-dailyrecord-backend.ts','dailyrecord.ts','prestudyRead.ts','textbookCatalogRead.ts','cismWeeklyProtocol.ts','academyHttpClient.ts','native-pool-backend.ts','native-pool-socket.ts','tool-audit.ts']);
+ return {...base,...(origin&&typeof origin.module==='string'&&modules.has(origin.module)&&Number.isSafeInteger(origin.line)&&Number(origin.line)>0&&Number.isSafeInteger(origin.column)&&Number(origin.column)>0?{origin:origin as {module:string;line:number;column:number}}:{}),
+  ...(typeof v?.errorSha256==='string'&&/^[a-f0-9]{64}$/.test(v.errorSha256)?{errorSha256:v.errorSha256}:{}),
+  ...(typeof v?.errorKind==='string'&&['Error','TypeError','RangeError','SyntaxError'].includes(v.errorKind)?{errorKind:v.errorKind}:{}),
+  ...(v?.cause&&depth<2?{cause:publicFailureFromData(v.cause,depth+1)}:{})};
 }

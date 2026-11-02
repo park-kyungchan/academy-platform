@@ -7,7 +7,7 @@ import {
 } from "./taxonomy.ts";
 
 export const CATALOG_SOURCE_PATH = "architecture/function-relation-map.json";
-export const MAX_CATALOG_PAGE_SIZE = 50;
+export const MAX_CATALOG_PAGE_SIZE = 100;
 export const DECLARED_EFFECTS = ["read", "write", "unknown", "open_send_screen", "send"] as const;
 export type DeclaredEffect = (typeof DECLARED_EFFECTS)[number];
 export type SourceMethod = "GET" | "POST" | null;

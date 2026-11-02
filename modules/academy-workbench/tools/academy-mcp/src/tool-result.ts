@@ -9,3 +9,8 @@ export function recordTransportBytes(value: unknown) {
   const json = JSON.stringify(value);
   return Buffer.byteLength(json) + Buffer.byteLength(JSON.stringify(json)) - 2;
 }
+/** Metadata must not push a source-owned bounded reply over its existing byte cap. Audit stays in owner receipts. */
+export function withToolMeta<T extends {_meta?:Record<string,unknown>}>(result:T,metadata:Record<string,unknown>,maxBytes=512*1024):T{
+  const audited={...result,_meta:{...result._meta,...metadata}};
+  return Buffer.byteLength(JSON.stringify(audited))<=maxBytes?audited:result;
+}

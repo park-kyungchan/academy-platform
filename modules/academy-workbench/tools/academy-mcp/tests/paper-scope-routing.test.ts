@@ -1,5 +1,5 @@
 import {expect,test} from 'bun:test';
-import {paperScopesSchema,selectPaperRoute} from '../src/paper-scope-routing.ts';
+import {inspectPaperScope,PaperScopeUnresolvedError,paperScopesSchema,selectPaperRoute} from '../src/paper-scope-routing.ts';
 
 const primary={endpoint:'paper1',upstreamName:'academy_paper_headers',tool:{name:'academy_paper_headers'}};
 const secondary={endpoint:'paper2',upstreamName:'academy_paper_headers',tool:{name:'class2_academy_paper_headers'}};
@@ -29,4 +29,14 @@ test('missing, ambiguous or unsupported mappings refuse before any endpoint disp
   expect(paperScopesSchema.safeParse([{endpoint:'paper1',studentIds:['1001','1001']}]).success).toBe(false);
   expect(paperScopesSchema.safeParse([{endpoint:'paper3',studentIds:['1001']}]).success).toBe(false);
   expect(paperScopesSchema.safeParse([{endpoint:'paper1',studentIds:['1001']},{endpoint:'paper1',studentIds:['1002']}]).success).toBe(false);
+});
+
+test('unresolved scope carries a structured admission diagnostic, never caller-widening',()=>{
+  let caught:unknown;
+  try{selectPaperRoute(scopes,registry,primary,{studentId:'1003'});}catch(e){caught=e;}
+  expect(caught).toBeInstanceOf(PaperScopeUnresolvedError);
+  expect((caught as PaperScopeUnresolvedError).diagnostic).toEqual({studentId:'1003',upstreamName:'academy_paper_headers',configuredEndpoints:['paper1','paper2'],matchCount:0});
+  expect(inspectPaperScope(scopes,'1001')).toEqual({status:'resolved',endpoint:'paper1'});
+  expect(inspectPaperScope(scopes,'1003')).toEqual({status:'unresolved',configuredEndpoints:['paper1','paper2'],matchCount:0});
+  expect(inspectPaperScope(undefined,'1003')).toEqual({status:'unconfigured'});
 });

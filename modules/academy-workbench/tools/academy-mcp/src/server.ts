@@ -1,3 +1,4 @@
+import {installToolAudit} from './tool-audit.ts';
 import {academyRoutingDescription} from './routing-context.ts';
 import {runtimeIdentityConfiguration,registerRuntimeIdentity} from './runtime-identity.ts';
 import {installStdioDiagnostics,createAcademyStdioTransport} from './stdio-diagnostics.ts';
@@ -16,6 +17,7 @@ import {nativeDailyRecordConfiguration} from './native-dailyrecord-backend.ts';
 
 const service = await loadService(repoRoot);
 const server = new McpServer({ name: 'academy-operations', version: '0.1.0' });
+installToolAudit(server,{endpoint:'server'});
 const runtimeIdentity=await runtimeIdentityConfiguration(process.argv.slice(2));
 const learning=await dailyRecordLearningConfiguration(runtimeIdentity.remainingArgs);
 const configuration=await dailyRecordToolConfiguration(learning.remainingArgs);
@@ -34,7 +36,7 @@ registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,con
 if(native)process.once('exit',native.close);
 server.registerTool('academy_capabilities', {
   title: 'Academy operational hierarchy and source contracts',
-  description: academyRoutingDescription('academy_capabilities','Discover hierarchical academy workflows, page the complete pinned source inventory, or inspect one exact source contract. Source metadata is not an executable operation. No source requests.'),
+  description: academyRoutingDescription('academy_capabilities','Discover hierarchical academy workflows, page the complete pinned source inventory (limit 1–100, default 10), or inspect one exact source contract. Source metadata is not an executable operation. No source requests.'),
   inputSchema: capabilitiesInputSchema,
   annotations: readOnlyAnnotations,
 }, input => result(service.capabilities(input)));

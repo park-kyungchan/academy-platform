@@ -8,52 +8,12 @@
       "exposure": "open"
     },
     {
-      "name": "academy_source_status",
+      "name": "academy_cism_section",
       "class": "read",
       "exposure": "open"
     },
     {
-      "name": "academy_query",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_teacher_query",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_teacher_report",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_endpoint_identity",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_student_metadata_get",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_student_metadata",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_student_resolve",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_runtime_read_admission",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_item_answer_lookup",
+      "name": "academy_dailyrecord_execution_status",
       "class": "read",
       "exposure": "open"
     },
@@ -68,67 +28,12 @@
       "exposure": "open"
     },
     {
-      "name": "academy_dailyrecord_review",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
       "name": "academy_dailyrecord_reconcile",
       "class": "read",
       "exposure": "open"
     },
     {
-      "name": "academy_dailyrecord_execution_status",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_cism_section",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_item_label_scope",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_find_item_labels",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_review_type_questions",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_pool_source_contract",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_pool_question_content",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_review_candidate_set",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_prepare_paper_plan",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_verify_paper_preparation",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
-      "name": "academy_verify_paper_output",
+      "name": "academy_dailyrecord_review",
       "class": "read",
       "exposure": "open"
     },
@@ -138,9 +43,149 @@
       "exposure": "gated_save_admission"
     },
     {
+      "name": "academy_endpoint_identity",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_find_item_labels",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_item_answer_lookup",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_item_label_scope",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_item_section_trace",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_pool_question_content",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_pool_source_contract",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_prepare_paper_plan",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_prestudy_get",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_query",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_review_candidate_set",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_review_type_questions",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_runtime_read_admission",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_source_status",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_student_metadata",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_student_metadata_get",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_student_resolve",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_teacher_query",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_teacher_report",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_textbook_catalog",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_textbook_pdf",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
       "name": "academy_textbook_section_results",
       "class": "read",
       "exposure": "open"
+    },
+    {
+      "name": "academy_textbook_section_results_get",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_verify_paper_output",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_verify_paper_preparation",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_cism_weekly_get",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_cism_month",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_cism_weekly_review",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_cism_weekly_save",
+      "class": "write",
+      "exposure": "gated_save_admission"
     }
   ],
   "closedUntilAttribution": [],

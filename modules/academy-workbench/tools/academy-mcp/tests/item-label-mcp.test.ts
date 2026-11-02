@@ -21,13 +21,13 @@ test('actual stdio tool discovery and scoped label retrieval preserve task conte
   try{
     const path=resolve(directory,'labels.json'),bytes=JSON.stringify(labelFixture());await writeFile(path,bytes);
     const sha=createHash('sha256').update(bytes).digest('hex');connection=await connect(['--label-snapshot',path,'--label-sha256',sha]);
-    const tools=await connection.client.listTools();expect(tools.tools.map(tool=>tool.name).sort()).toEqual(['academy_endpoint_identity','academy_student_metadata_get','academy_cism_section','academy_dailyrecord_execution_status','academy_dailyrecord_get','academy_dailyrecord_intake','academy_dailyrecord_reconcile','academy_dailyrecord_review','academy_dailyrecord_save','academy_find_item_labels','academy_item_answer_lookup','academy_item_label_scope','academy_review_type_questions','academy_runtime_read_admission','academy_student_metadata','academy_student_resolve','academy_textbook_section_results'].sort());
+    const tools=await connection.client.listTools();expect(tools.tools.map(tool=>tool.name).sort()).toEqual(['academy_endpoint_identity','academy_student_metadata_get','academy_cism_section','academy_dailyrecord_execution_status','academy_dailyrecord_get','academy_dailyrecord_intake','academy_dailyrecord_reconcile','academy_dailyrecord_review','academy_dailyrecord_save','academy_find_item_labels','academy_item_answer_lookup','academy_item_section_trace','academy_item_label_scope','academy_review_type_questions','academy_runtime_read_admission','academy_student_metadata','academy_student_resolve','academy_prestudy_get','academy_textbook_section_results_get','academy_textbook_section_results'].sort());
     for(const tool of tools.tools){if(tool.name==='academy_dailyrecord_save'){expect(tool.annotations?.readOnlyHint).toBe(false);expect(tool.annotations?.destructiveHint).toBe(true);continue;}expect(tool.annotations?.readOnlyHint).toBe(true);expect(tool.annotations?.destructiveHint).toBe(false);}
     const result=await connection.client.callTool({name:'academy_find_item_labels',arguments:labelQuery});
     expect(result.isError).not.toBe(true);const value=result.structuredContent as any;
     expect(value.matches[0].id).toBe('label-002');expect(value.userContext.workflow[0]).toBe('study_detailed_types');expect(value.source.academyRequests).toBe(0);
     const denied=await connection.client.callTool({name:'academy_find_item_labels',arguments:{...labelQuery,hierarchyIds:['foreign']}});
-    expect(denied.isError).toBe(true);
+    expect(denied.structuredContent).toMatchObject({status:'blocked',code:'query_hierarchy_not_found',failure:{category:'policy_denial'},academyWrites:0});
     const held=await connection.client.callTool({name:'academy_find_item_labels',arguments:{...labelQuery,learningState:'in_progress'}});
     expect((held.structuredContent as any).status).toBe('held');
   }finally{await connection?.client.close();await connection?.transport.close();await rm(directory,{recursive:true,force:true});}

@@ -4,6 +4,7 @@ import {NativeDailyRecordBackend} from '../src/native-dailyrecord-backend.ts';
 
 const request={labels:['12345','12346'],purpose:'Read fictional item answers',currentRequestRef:'fictional-request'};
 const item=(key:string)=>({identity:{sourceNamespace:'academy_item',lectureKey:key,outerLectureKey:'100',sourceId:key},
+  sourceUnitName:'Invented unit 5-3',sourcePatternName:'Invented pattern',
   answerLiteral:'1|_|invented answer',answerAvailability:'literal_payload_not_rendered',
   answerMeaning:'source_official_item_answer_not_student_response',rendering:'not_qualified',paperMembership:'unqualified',
   secretLikeOtherField:'must not be projected'});
@@ -20,7 +21,7 @@ test('exact labels use authenticated owner read and project official literals wi
     students:[{studentId:'77001',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)},()=>({username:'fictional',password:'fictional'}));
   const result=await new DailyRecordService(backend).itemAnswers(request);
   expect(result).toMatchObject({status:'observed',academyWrites:0,parentSends:0,nativePrintInvoked:false,
-    answers:[{identity:{lectureKey:'12345'},answerLiteral:'1|_|invented answer',rendering:'not_qualified'},
+    answers:[{identity:{lectureKey:'12345'},answerLiteral:'1|_|invented answer',rendering:'not_qualified',sourceUnitName:'Invented unit 5-3',sourcePatternName:'Invented pattern'},
       {identity:{lectureKey:'12346'},answerMeaning:'source_official_item_answer_not_student_response'}]});
   expect(auth).toHaveLength(1);expect(seen).toEqual([{family:'item_answer',teacherLabel:'Invented Teacher',teacherKey:'99001',
     lectureKeys:request.labels,answerReadAdmission:true}]);

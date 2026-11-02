@@ -9,7 +9,7 @@ function registeredTools(): string[] {
   const names = new Set<string>();
   for (const f of readdirSync(join(root, 'src')).filter((x) => x.endsWith('.ts'))) {
     const text = readFileSync(join(root, 'src', f), 'utf8');
-    for (const m of text.matchAll(/registerTool\('([a-z0-9_]+)'/g)) names.add(m[1]);
+    for (const m of text.matchAll(/register(?:Tool)?\('([a-z0-9_]+)'/g)) names.add(m[1]);
   }
   return [...names].sort();
 }
@@ -30,9 +30,9 @@ describe('runtime exposure manifest (P2)', () => {
     const declared = manifest.tools.map((t: { name: string }) => t.name).sort();
     expect(declared).toEqual(registeredTools());
   });
-  test('reads are open and the single write stays gated behind save admission', () => {
+  test('reads are open and exact reviewed source writes stay gated', () => {
     for (const t of manifest.tools) {
-      if (t.name === 'academy_dailyrecord_save') {
+      if (['academy_dailyrecord_save','academy_cism_weekly_save'].includes(t.name)) {
         expect(t.class).toBe('write');
         expect(t.exposure).toBe('gated_save_admission');
         continue;

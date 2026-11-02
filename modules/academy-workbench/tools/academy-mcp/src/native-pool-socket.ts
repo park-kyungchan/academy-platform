@@ -1,3 +1,4 @@
+import {publicReadFailure} from './read-failure.ts';
 import {connect,createServer,type Socket} from 'node:net';
 import {lstat,realpath,chmod,unlink,link} from 'node:fs/promises';
 import {randomBytes} from 'node:crypto';
@@ -29,7 +30,7 @@ const wireRequest=z.discriminatedUnion('kind',[
   z.object({kind:z.literal('read'),readerSha256:operatorHash,request:operatorReadRequest}).strict(),
 ]);
 const observed=z.object({status:z.literal('observed'),page:z.unknown(),requests:integer,academyWrites:z.literal(0),passwordExported:z.literal(false),cookiesExported:z.literal(false)}).passthrough();
-const safeCode=(error:unknown)=>error instanceof Error&&/^[a-z_]{1,100}$/.test(error.message)?error.message:'operator_transport_failed';
+const safeCode=(error:unknown)=>publicReadFailure(error,'operator_transport_failed').code;
 const maxRequest=16*1024,maxReply=2*1024*1024;
 
 export function validateOperatorSocketPath(path:string){

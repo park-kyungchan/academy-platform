@@ -6,6 +6,7 @@ import {StdioServerTransport} from '@modelcontextprotocol/server/stdio';
 import {z} from 'zod';
 import {DailyRecordService} from '../src/dailyrecord.ts';
 import {registerDailyRecordTools} from '../src/dailyrecord-tools.ts';
+import {installToolAudit} from '../src/tool-audit.ts';
 import {observation,safeguard,learningPolicy} from './dailyrecord-fixture.ts';
 const events=process.argv[2]!;
 appendFileSync(events,'start\n');
@@ -21,7 +22,7 @@ const service=new DailyRecordService({
       answerLiteral:'invented answer',answerAvailability:'literal_payload_not_rendered',answerMeaning:'source_official_item_answer_not_student_response',
       rendering:'not_qualified',paperMembership:'unqualified'})),observedAt:new Date().toISOString(),
     coverage:'exact_requested_shared_answers_not_printed_versions',nativePrintInvoked:false,automaticRetryAllowed:false};},
-  searchStudentsByName:async name=>{appendFileSync(events,'resolve\n');return name==='Invented Student'?[{studentKey:'77001',studentName:name}]:[];},
+  searchStudentsByName:async name=>{appendFileSync(events,'resolve\n');if(existsSync(resolve(base,'inject-resolve-error')))throw Error('synthetic_unknown_source_failure');return name==='Invented Student'?[{studentKey:'77001',studentName:name}]:[];},
   readStudentMetadataByName:async input=>{
     appendFileSync(events,'metadata\n');
     const injected=resolve(base,'inject-metadata-error');if(existsSync(injected))throw Error(readFileSync(injected,'utf8'));
@@ -49,8 +50,16 @@ const service=new DailyRecordService({
   return patches.map(p=>({field:p.field,status:'persisted' as const,dispatched:true}));
 }}:null);
 const server=new McpServer({name:'fictional-neutral-upstream',version:'1.0.0'});
+if(existsSync(resolve(base,'inject-resolve-error'))||existsSync(resolve(base,'enable-resolve-audit')))installToolAudit(server,{endpoint:'dailyrecord'});
 registerDailyRecordTools(server,service);
+server.registerTool('academy_cism_weekly_save',{inputSchema:z.object({attribution:z.unknown().optional()}).strict()},input=>{
+  appendFileSync(events,'cism-attribution:'+JSON.stringify(input.attribution)+'\n');
+  if(existsSync(resolve(base,'inject-cism-transport-error')))throw Error('synthetic-cism-transport-error');
+  const data={status:'persisted',academyWrites:2,parentSends:0};
+  return {content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
+});
 server.registerTool('academy_source_status',{inputSchema:z.object({}).strict()},input=>{
+  if(existsSync(resolve(base,'inject-source-status-error')))throw Error(readFileSync(resolve(base,'inject-source-status-error'),'utf8'));
   appendFileSync(events,'source_status:'+JSON.stringify(input)+'\n');
   const data={sourceMode:'saved_context',synthetic:true,receivedArguments:input};
   return {content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};

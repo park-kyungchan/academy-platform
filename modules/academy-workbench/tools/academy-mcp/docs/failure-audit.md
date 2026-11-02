@@ -1,0 +1,17 @@
+# Academy MCP failure attribution and audit
+
+Every neutral route validates its pinned JSON Schema before opening an upstream process. Each upstream connection checks advertised native tool names against the pinned registry, excluding the two bridge compositions. Missing native tools fail with `upstream_tool_inventory_mismatch` and the exact missing names before any source read or possible write. A registry entry alone is not runtime availability.
+
+SDK input errors are returned as `status:blocked`, `code:tool_input_invalid`, `failure.category:input_validation`, with bounded issue kinds and declared-schema paths. Caller values, unknown property names and arbitrary validator messages are excluded. Domain failures are data results, allowing older bridges to preserve the cause. Callers must inspect status/code, not just transport `isError`.
+
+Source failures use a finite code/category catalog. Authentication, scope denial, identity ambiguity, contract drift, malformed response, coverage and transport failures remain distinct. Known HTTP status and operation, bounded code-file/line/column, error kind and an exception fingerprint survive where observed. Unknown exceptions retain an opaque fingerprint and location, never their message, stack text or source payload. They remain unclassified rather than acquiring an invented cause.
+
+`_meta["academy/audit"]` links an upstream occurrence; `_meta["academy/bridgeAudit"]` links its neutral occurrence, endpoint, upstream tool, generation and elapsed time. The existing neutral receipts link both occurrences and include generation/pointer identity, stage, safe failure, elapsed time and input/result hashes. Native DailyRecord tools write private accepted/completed metadata receipts under the existing owner artifacts root `mcp-tool-audit/`. No student fields, answer literals, credentials or private bodies are logged.
+
+Canonical teacher retained pages preserve their exact serialized-byte contract and fixed-size SDK refusal bytes: audit is emitted out of band. Metadata on other replies is omitted if it would push the original reply over its existing 512 KiB cap; owner receipts remain available. This does not impose a universal JSON-RPC frame cap.
+
+The first section-trace source failure stops dependent scans. It cannot become an unmatched item or proof of nonperformance. A write-side failure after invocation remains a possible effect (`academyWrites:null`, `effectStatus:unknown`) until native readback/reconciliation. No unchanged automatic retry, rollback, model swap or new authentication route is introduced.
+
+For DailyRecord authoring, observation handles remain request/student/date bound and fresh for at most five minutes, with source/contract drift checked again. Re-intake and recorded review are required after drift. A request reference binds its first instruction verbatim. Ordinal scope such as `유형 10` belongs in requiredFragments; invalid cardinal questionCounts returns a field hold. Parent internal-language safeguards and separately attributed teacherReported activity lines remain in force.
+
+Deployment must verify every registry/native tool inventory, actual runtime identity, an input failure with zero source work, and a harmless current owner read. Restore all independent source changes before rebuilding shared bundles: the CISM and textbook/prestudy/item-trace branches must coexist. Preserve prior immutable releases, source ownership, account locking and admissions.

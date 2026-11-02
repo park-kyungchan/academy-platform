@@ -1,10 +1,11 @@
+import type {CismReport} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol';
 import {createHash,randomUUID} from 'node:crypto';
 import {readFileSync,lstatSync,realpathSync,closeSync,fsyncSync,mkdirSync,openSync,writeSync} from 'node:fs';
 import {dirname,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {z} from 'zod';
 import {readPinnedLocalBytes} from './item-label-store.ts';
-import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation} from './dailyrecord.ts';
+import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation,type ItemSectionTrace,type ItemSectionTraceObservation} from './dailyrecord.ts';
 import {createDailyRecordSaveAdmission,liveSaveRequestEvidence,type DailyRecordSaveAdmission,type DailyRecordSaveApproval} from './dailyrecord-save-admission.ts';
 import type {DailyRecordActionApproval} from './dailyrecord-workflow.ts';
 import type {DailyRecordField} from './dailyrecord-context.ts';
@@ -13,6 +14,7 @@ import {ownerAdmissionSchema,isDateAdmitted,type OwnerAdmission} from './owner-a
 import {metadataAdmissionSchema,metadataDateAdmitted,type MetadataAdmission} from './metadata-admission.ts';
 import {AcademyReadFailure} from './read-failure.ts';
 import {StudentNameNotAdmitted} from './student-resolver.ts';
+import type {TextbookCatalogObservation,TextbookPdfObservation,TextbookSchoolLevel} from '../../../../../apps/academy/dc-gang-a/src/lms/textbookCatalogRead';
 import {itemAnswerLookupSchema} from './item-answer-lookup.ts';
 import type {DailyRecordReadAdmission} from './dailyrecord-read.ts';
 
@@ -30,6 +32,10 @@ export const nativeDailyRecordConfigSchema=z.object({schemaVersion:z.literal('ac
 type Target={studentName:string;date:string;groupId:string;teacherKey:string;studentKey:string;courseKey:string;recordKey:string;membershipKey:string};
 type Row=Target&{fields:Record<string,string>};
 interface SourcePort {
+  readCismReport?(input:{teacherLabel:string;date:string}):Promise<CismReport>;
+  applyCismField?(input:{teacherLabel:string;date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>,recordAcknowledgement?:(value:{contentType:string;raw:Uint8Array;sha256:string})=>Promise<void>):Promise<{status:'persisted';fieldRef:string;report:CismReport}>;
+  readTextbookCatalog?(input:{teacherLabel:string;schoolLevel:TextbookSchoolLevel}):Promise<TextbookCatalogObservation>;
+  readTextbookPdf?(input:{teacherLabel:string;schoolLevel:TextbookSchoolLevel;documentRef:string}):Promise<TextbookPdfObservation>;
   authenticate(credential:{username:string;password:string}):Promise<unknown>;
   discoverDayRecordGroups(input:{teacherLabel:string;date:string}):Promise<{groups:{groupId:string}[]}>;
   execute(input:unknown):Promise<{dayRecords:Row[]}>;
@@ -50,6 +56,9 @@ interface SourcePort {
    * send a student key. Key/name equality is verified by the projection layer, never as
    * request input. No sequential key probing, before or after. */
   searchStudentsByName?(input:{teacherLabel:string;studentName:string}):Promise<unknown>;
+  readPrestudy?(input:{teacherLabel:string;studentName:string}):Promise<{waiting:unknown[];completed:unknown[];summary:unknown[];observedAt:string;coverage:string}>;
+  readTextbookBindings?(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[]>;
+  inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string}}[]}>;
 }
 type Admission={teacherId:string;teacherLabel:string;date:string;students:{studentId:string;displayName:string}[];sourceBundleSha256:string};
 const fields=['progress','homework','lessonMemo','attendance','dailyTestAssessment','previousHomeworkAssessment'] as const;
@@ -143,6 +152,31 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       if(ownerAdmission.teacherId!==admission.teacherId||!isDateAdmitted(admission.date,ownerAdmission))throw Error('native_dailyrecord_owner_admission_mismatch');
     }
   }
+  async readCismReport(date:string):Promise<CismReport>{
+    if(!this.client.readCismReport)throw Error('cism_source_port_unavailable');await this.#authenticate();
+    return this.client.readCismReport({teacherLabel:this.admission.teacherLabel,date});
+  }
+  async applyCismField(input:{date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>){
+    if(!this.client.applyCismField)throw Error('cism_source_port_unavailable');await this.#authenticate();
+    return this.client.applyCismField({...input,teacherLabel:this.admission.teacherLabel},authorize,async value=>{
+      const root=nativeOwnerArtifactsRoot+'cism-weekly/http-ack';mkdirSync(root,{recursive:true,mode:0o700});
+      const st=lstatSync(root);if(!st.isDirectory()||st.isSymbolicLink()||(st.mode&0o077)!==0||st.uid!==process.getuid?.()||realpathSync(root)!==root)throw Error('cism_store_unqualified');
+      const fd=openSync(resolve(root,input.date+'-'+input.fieldRef+'-'+randomUUID()+'.json'),'wx',0o600);
+      try{writeSync(fd,JSON.stringify({date:input.date,fieldRef:input.fieldRef,contentType:value.contentType,sha256:value.sha256,rawBodyBase64:Buffer.from(value.raw).toString('base64')})+'\n');fsyncSync(fd);}finally{closeSync(fd);}
+      const directory=openSync(root,'r');try{fsyncSync(directory);}finally{closeSync(directory);}
+    });
+  }
+  async readTextbookCatalog(schoolLevel:TextbookSchoolLevel='middle'):Promise<TextbookCatalogObservation>{
+    if(!this.client.readTextbookCatalog)throw Error('textbook_catalog_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.readTextbookCatalog({teacherLabel:this.admission.teacherLabel,schoolLevel});
+  }
+  async readTextbookPdf(schoolLevel:TextbookSchoolLevel,documentRef:string):Promise<TextbookPdfObservation>{
+    if(!/^[a-f0-9]{64}$/.test(documentRef))throw Error('textbook_pdf_input_rejected');
+    if(!this.client.readTextbookPdf)throw Error('textbook_pdf_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.readTextbookPdf({teacherLabel:this.admission.teacherLabel,schoolLevel,documentRef});
+  }
   /** Exact textbook section grading through the owner client's textbook
    * family. Only configured admission students; titles are the source's
    * own names and every returned record is re-bound to the request. */
@@ -153,19 +187,134 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     const raw=await this.client.execute({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
       studentName:student.displayName,courseKey:input.courseKey,bookNo:input.bookNo,sourceTitles:[...input.sourceTitles],gradeViewAdmission:true}) as unknown as {
         family:string;status:string;records:{sourceTitle:string;studentKey:string;studentName:string;courseKey:string;bookNo:string;
-          score:number;items:{originalOrdinal:string;scoring:string}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
+          score:number;items:{originalOrdinal:string;lectureKey?:string|number|null;outerLectureKey?:string|number|null;scoring:string}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
     if(raw.family!=='textbook'||raw.status!=='observed'||!Array.isArray(raw.records)||raw.records.length!==input.sourceTitles.length)
       throw Error('textbook_section_result_unqualified');
     const records=raw.records.map(r=>{
       if(r.studentKey!==student.studentId||r.studentName!==student.displayName||r.courseKey!==input.courseKey||r.bookNo!==input.bookNo
         ||!input.sourceTitles.includes(r.sourceTitle)||typeof r.score!=='number'||!Array.isArray(r.items)
         ||r.items.some(i=>i.scoring!=='O'&&i.scoring!=='X'))throw Error('textbook_section_result_unqualified');
-      const items=r.items.map(i=>({ordinal:String(i.originalOrdinal),scoring:i.scoring as 'O'|'X'}));
+      const items=r.items.map(i=>({ordinal:String(i.originalOrdinal),lectureKey:i.lectureKey==null?null:String(i.lectureKey),outerLectureKey:i.outerLectureKey==null?null:String(i.outerLectureKey),scoring:i.scoring as 'O'|'X'}));
       return {sourceTitle:r.sourceTitle,score:r.score,correctCount:items.filter(i=>i.scoring==='O').length,itemCount:items.length,items,
         sourceDate:{literal:r.sourceDate?.literal??null,precision:String(r.sourceDate?.precision??'unknown'),meaning:String(r.sourceDate?.meaning??'source_apply_date_not_exact_grade_time')}};
     });
     return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:input.courseKey,bookNo:input.bookNo,
       records,observedAt:raw.observedAt,coverage:'exact_selected_existing_records_not_whole_book'};
+  }
+  /** Prestudy video read for one admitted student. Source waiting/completed
+   * list membership and summary AI literals are projected without video
+   * URLs, and teacher judgment is always reported separately as null. */
+  async readPrestudyByName(input:Readonly<PrestudyGet>):Promise<PrestudyObservation>{
+    const student=this.admission.students.find(s=>s.displayName===input.displayName);
+    if(!student||!this.managedNames.has(input.displayName))throw Error('prestudy_student_not_admitted');
+    if(!this.client.readPrestudy)throw Error('prestudy_source_port_unavailable');
+    await this.#authenticate();
+    const raw=await this.client.readPrestudy({teacherLabel:this.admission.teacherLabel,studentName:student.displayName});
+    const row=z.object({unitLabel:z.string().max(2000),dateLiteral:z.string().max(200),statusLiteral:z.string().max(2000),prestudyKey:key});
+    const summaryRow=z.object({unitLabel:z.string().max(2000),dateLiteral:z.string().max(200),aiScoreLiteral:z.string().max(200),ratingLiteral:z.string().max(200),
+      reportAvailable:z.boolean(),videoAvailable:z.boolean()});
+    const waiting=z.array(row).max(1000).parse(raw.waiting),completed=z.array(row).max(1000).parse(raw.completed),
+      summary=z.array(summaryRow).max(1000).parse(raw.summary);
+    return {student:{studentId:student.studentId,displayName:student.displayName},waiting,completed,summary,
+      teacherJudgment:null,observedAt:raw.observedAt,coverage:raw.coverage};
+  }
+  /** Section grading/index with the binding discovered owner-side from the
+   * live progress page. Exactly one registered binding is required; with no
+   * titles the observed title index is returned for caller selection. */
+  async readTextbookSectionsByName(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionObservation|TextbookSectionIndexObservation>{
+    const student=this.admission.students.find(s=>s.displayName===input.displayName);
+    if(!student||!this.managedNames.has(input.displayName))throw Error('textbook_student_not_admitted');
+    if(!this.client.readTextbookBindings)throw Error('textbook_binding_source_port_unavailable');
+    await this.#authenticate();
+    const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
+    if(!bindings.length)throw Error('textbook_binding_source_unqualified');
+    if(bindings.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
+    const binding=bindings[0]!;
+    if(binding.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
+    if(input.sourceTitles){
+      return this.readTextbookSections({displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,
+        courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:[...input.sourceTitles]});
+    }
+    if(!this.client.inspectTextbookIndex)throw Error('textbook_index_source_port_unavailable');
+    const raw=await this.client.inspectTextbookIndex({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
+      studentName:student.displayName,courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:['index'],gradeViewAdmission:true});
+    const index=z.array(z.object({sourceTitle:z.string().min(1).max(2000),
+      sourceDate:z.object({literal:z.string().nullable(),meaning:z.string().max(200)}).passthrough()}).passthrough()).max(1000).parse(raw.rows)
+      .map(r=>({sourceTitle:r.sourceTitle,sourceDate:{literal:r.sourceDate.literal??null,meaning:String(r.sourceDate.meaning??'source_apply_date_not_exact_grade_time')}}));
+    return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:binding.courseKey,bookNo:binding.bookNo,
+      bookLabel:binding.bookLabel,index,observedAt:new Date().toISOString(),coverage:'observed_title_index_for_exact_student_course_book_not_section_grading'};
+  }
+  /** Reverse trace: scan the student's registered textbook section indexes and
+   * match item labels to original section items. Bindings are scanned in full
+   * unless an exact bookLabel selects one; a scan cap above 64 titles requires
+   * that selection instead of a partial guess. Generated clinic membership is
+   * never asserted. */
+  async readItemSectionTrace(input:Readonly<ItemSectionTrace>):Promise<ItemSectionTraceObservation>{
+    const student=this.admission.students.find(s=>s.displayName===input.displayName);
+    if(!student||!this.managedNames.has(input.displayName))throw Error('textbook_student_not_admitted');
+    if(!this.client.readTextbookBindings||!this.client.inspectTextbookIndex)throw Error('textbook_binding_source_port_unavailable');
+    await this.#authenticate();
+    const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
+    if(!bindings.length)throw Error('textbook_binding_source_unqualified');
+    for(const b of bindings)if(b.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
+    const selected=input.bookLabel?bindings.filter(b=>b.bookLabel===input.bookLabel):bindings;
+    if(input.bookLabel&&selected.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
+    const indexes: {binding:(typeof bindings)[number];titles:string[]}[]=[];
+    let totalTitles=0;
+    for(const binding of selected){
+      const raw=await this.client.inspectTextbookIndex({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
+        studentName:student.displayName,courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:['index'],gradeViewAdmission:true});
+      const titles=z.array(z.object({sourceTitle:z.string().min(1).max(2000)}).passthrough()).max(1000).parse(raw.rows).map(r=>r.sourceTitle);
+      indexes.push({binding,titles});totalTitles+=titles.length;
+    }
+    if(totalTitles>64){
+      if(selected.length>1&&!input.bookLabel)return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
+        bindings:selected.map(b=>({bookLabel:b.bookLabel})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
+      throw Error('textbook_section_scan_limit');
+    }
+    const wanted=new Set(input.labels);
+    const matches=new Map<string,ItemSectionTraceObservation extends never?never:any[]>();
+    const matchedSections=new Map<string,Set<string>>();
+    const books:{bookLabel:string;sectionsScanned:number;sectionsFailed:number}[]=[];
+    let sectionsScanned=0,sectionsFailed=0;
+    for(const {binding,titles} of indexes){
+      let scanned=0,failed=0;
+      for(const title of titles){
+        scanned++;
+        try{
+          const raw=await this.client.execute({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
+            studentName:student.displayName,courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:[title],gradeViewAdmission:true}) as unknown as {
+              family:string;status:string;records:{sourceTitle:string;studentKey:string;studentName:string;courseKey:string;bookNo:string;
+                score:number;items:{originalOrdinal:string;lectureKey?:string|number|null;outerLectureKey?:string|number|null;scoring:string}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
+          if(raw.family!=='textbook'||raw.status!=='observed'||!Array.isArray(raw.records)||raw.records.length!==1)throw Error('textbook_section_result_unqualified');
+          const r=raw.records[0]!;
+          if(r.studentKey!==student.studentId||r.studentName!==student.displayName||r.courseKey!==binding.courseKey||r.bookNo!==binding.bookNo||r.sourceTitle!==title
+            ||!Array.isArray(r.items)||r.items.some(i=>i.scoring!=='O'&&i.scoring!=='X'))throw Error('textbook_section_result_unqualified');
+          for(const item of r.items){
+            const lk=item.lectureKey==null?null:String(item.lectureKey),ok=item.outerLectureKey==null?null:String(item.outerLectureKey);
+            for(const [label,by] of [[lk,'lectureKey'],[ok,'outerLectureKey']] as const){
+              if(label&&wanted.has(label)){
+                const list=matches.get(label)??[];list.push({bookLabel:binding.bookLabel,sourceTitle:title,ordinal:String(item.originalOrdinal),matchedBy:by,originalScoring:item.scoring});
+                matches.set(label,list);
+                const identities=matchedSections.get(label)??new Set<string>();
+                identities.add(JSON.stringify([binding.courseKey,binding.bookNo,title]));
+                matchedSections.set(label,identities);
+              }
+            }
+          }
+        }catch(error){
+          // A failed source read stops dependent scans; never conceal authentication/contract failure as an unmatched label.
+          throw error;
+        }
+      }
+      books.push({bookLabel:binding.bookLabel,sectionsScanned:scanned,sectionsFailed:failed});sectionsScanned+=scanned;sectionsFailed+=failed;
+    }
+    const items=input.labels.map(label=>({label,matches:matches.get(label)??[]}));
+    return {kind:'traced',student:{studentId:student.studentId,displayName:student.displayName},books,items,
+      unmatchedLabels:items.filter(i=>!i.matches.length).map(i=>i.label),
+      ambiguousLabels:items.filter(i=>(matchedSections.get(i.label)?.size??0)>1).map(i=>i.label),
+      sectionsScanned,sectionsFailed,observedAt:new Date().toISOString(),
+      coverage:'live_section_scan_original_attempt_lineage_not_generated_clinic_membership'};
   }
   saveConfigured():boolean{return this.saveApproval!==null&&typeof this.client.applyJournalAction==='function';}
   /** The owner client can write; authority comes from the per-request approval the owner workflow supplies. */
@@ -230,7 +379,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
   }
   #authenticate(){
     // One retained promise for every read family, including synchronous credential/auth failures.
-    return this.#ready??=Promise.resolve().then(()=>this.client.authenticate(this.credential())).catch(()=>{throw new AcademyReadFailure('authentication','source_authentication_failed','src/native-dailyrecord-backend.ts:#authenticate');});
+    return this.#ready??=Promise.resolve().then(()=>this.client.authenticate(this.credential())).catch(error=>{throw new AcademyReadFailure('authentication','source_authentication_failed','src/native-dailyrecord-backend.ts:#authenticate',error);});
   }
   async readItemAnswers(labels:readonly string[]):Promise<unknown>{
     const input=itemAnswerLookupSchema.parse({labels:[...labels],purpose:'Owner-scoped item answer read',currentRequestRef:'native-item-answer'});

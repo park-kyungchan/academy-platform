@@ -1,3 +1,4 @@
+import {installToolAudit} from './tool-audit.ts';
 import {McpServer} from '@modelcontextprotocol/server';
 import {StdioServerTransport} from '@modelcontextprotocol/server/stdio';
 import {loadItemLabelIndex} from './item-label-store.ts';
@@ -10,6 +11,7 @@ import {loadOperatorPoolBackend} from './native-pool-socket.ts';
 const args=process.argv.slice(2);
 const backend=args[0]==='--operator-socket'?await loadOperatorPoolBackend(args):args[0]==='--native-bridge'?await loadNativePoolBackend(args):await loadItemLabelIndex(args);
 const server=new McpServer({name:'academy-question-pool',version:'0.2.0'});
+installToolAudit(server,{endpoint:'pool'});
 registerItemLabelTools(server,backend);
 registerPoolEvidenceTools(server,backend);
 await server.connect(new StdioServerTransport());
