@@ -49,3 +49,13 @@ test('legacy field-wide dispatch receipts remain immutable and unresolved ones s
   expect(h.writes()).toBe(1);expect(JSON.parse(await readFile(path,'utf8'))).toEqual(record);
  }finally{await rm(h.root,{recursive:true,force:true});}
 });
+
+test('one persistent native endpoint serializes concurrent reviewed saves before their fresh before-state checks',async()=>{
+ const h=await harness();try{
+  const other={...input,request:{requestRef:'competing-request',instruction:'Use this other exact supported narrative.'},changes:[{...input.changes[0],after:'A competing supported narrative.'}]};
+  const first=await h.call('academy_cism_weekly_review',input),second=await h.call('academy_cism_weekly_review',other);
+  const outcomes=await Promise.all([h.call('academy_cism_weekly_save',{...input,reviewDigest:first.reviewDigest}),h.call('academy_cism_weekly_save',{...other,reviewDigest:second.reviewDigest})]);
+  expect(outcomes.filter(x=>x.status==='persisted')).toHaveLength(1);
+  expect(outcomes.filter(x=>x.code==='cism_report_drift')).toHaveLength(1);expect(h.writes()).toBe(1);
+ }finally{await rm(h.root,{recursive:true,force:true});}
+});

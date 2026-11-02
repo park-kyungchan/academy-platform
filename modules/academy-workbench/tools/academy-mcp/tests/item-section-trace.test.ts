@@ -73,3 +73,15 @@ test('section ambiguity uses registered course and book identity even when book 
   expect(out).toMatchObject({kind:'traced',ambiguousLabels:multiple?['8101']:[]});
  }
 });
+
+test('a single book above the scan cap returns an explicit coverage limit without an unresolvable interview',async()=>{
+ const admission={teacherId:'99001',teacherLabel:'Invented Teacher',date:'2040-01-04',students:[{studentId:'77001',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};
+ let details=0;const port={authenticate:async()=>{},readTextbookBindings:async()=>[{courseKey:'5',bookNo:'7',studentKey:'77001',bookLabel:'Invented Book'}],inspectTextbookIndex:async()=>({rows:Array.from({length:65},(_,i)=>({sourceTitle:'Fictional Unit '+i}))}),execute:async()=>{details++;throw Error('not_called');},close:()=>{}};
+ const native=new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}));
+ for(const bookLabel of [undefined,'Invented Book']){
+  const out=await new DailyRecordService(native).itemSectionTrace({...request,...(bookLabel?{bookLabel}:{})});
+  expect(out).toMatchObject({status:'unavailable',reasonCode:'textbook_section_scan_limit',failure:{category:'partial_coverage'}});
+  expect(out).not.toHaveProperty('unmatchedLabels');expect(out).not.toHaveProperty('bindings');
+ }
+ expect(details).toBe(0);
+});

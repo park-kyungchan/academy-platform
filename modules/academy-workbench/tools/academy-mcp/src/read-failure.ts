@@ -112,6 +112,7 @@ const catalog={
   native_dailyrecord_previous_unverified:['partial_coverage','source-owner:coverage'],
   prestudy_result_too_large:['partial_coverage','source-owner:coverage'],
   textbook_section_result_too_large:['partial_coverage','source-owner:coverage'],
+  textbook_section_scan_limit:['partial_coverage','source-owner:coverage'],
   item_answer_result_too_large:['partial_coverage','source-owner:coverage'],
   item_section_trace_result_too_large:['partial_coverage','source-owner:coverage'],
   prestudy_source_rejected:['malformed_response','source-owner:response-contract'],

@@ -22,7 +22,13 @@ async function readSafe(path:string){const f=await open(path,constants.O_RDONLY|
 async function exclusive(path:string,value:unknown){try{const f=await open(path,'wx',0o600);try{await f.writeFile(JSON.stringify(value)+'\n');await f.sync();}finally{await f.close();}const dir=await open(dirname(path),constants.O_RDONLY);try{await dir.sync();}finally{await dir.close();}return true;}catch(e){if((e as NodeJS.ErrnoException).code==='EEXIST')return false;throw e;}}
 export function registerCismWeeklyTools(server:McpServer,backend:CismBackend|null,root:string){
  const readAnnotations={readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:true};
- const register=(name:string,inputSchema:any,description:string,fn:(input:any)=>Promise<unknown>,write=false)=>server.registerTool(name,{description:academyRoutingDescription(name,description),inputSchema,annotations:write?{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:true}:readAnnotations},async (input:any)=>{if(!backend)return toolResult({status:'unavailable',code:'cism_source_backend_not_configured',academyWrites:0,pdfGenerated:false});try{return toolResult(await fn(input));}catch(e){return fail(e,write);}});
+ // The host account lock serializes processes; a persistent native endpoint
+ // must also serialize its own write requests before either fresh preflight.
+ let writeTail:Promise<unknown>=Promise.resolve();
+ const register=(name:string,inputSchema:any,description:string,fn:(input:any)=>Promise<unknown>,write=false)=>server.registerTool(name,{description:academyRoutingDescription(name,description),inputSchema,annotations:write?{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:true}:readAnnotations},async (input:any)=>{
+  const invoke=async()=>{if(!backend)return toolResult({status:'unavailable',code:'cism_source_backend_not_configured',academyWrites:0,pdfGenerated:false});try{return toolResult(await fn(input));}catch(e){return fail(e,write);}};
+  if(!write)return invoke();const result=writeTail.then(invoke,invoke);writeTail=result.then(()=>undefined,()=>undefined);return result;
+ });
  const fieldExecutions=async(report:CismReport,fieldRef:string)=>{
   const key=cismHash([report.teacherKey,report.periodStart,fieldRef]);
   // Retain the original field-wide receipt. Successors are separate immutable

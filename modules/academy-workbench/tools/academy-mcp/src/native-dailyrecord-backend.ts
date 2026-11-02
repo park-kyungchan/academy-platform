@@ -267,8 +267,11 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       const titles=z.array(z.object({sourceTitle:z.string().min(1).max(2000)}).passthrough()).max(1000).parse(raw.rows).map(r=>r.sourceTitle);
       indexes.push({binding,titles});totalTitles+=titles.length;
     }
-    if(totalTitles>64)return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
-      bindings:bindings.map(b=>({bookLabel:b.bookLabel})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
+    if(totalTitles>64){
+      if(selected.length>1&&!input.bookLabel)return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
+        bindings:selected.map(b=>({bookLabel:b.bookLabel})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
+      throw Error('textbook_section_scan_limit');
+    }
     const wanted=new Set(input.labels);
     const matches=new Map<string,ItemSectionTraceObservation extends never?never:any[]>();
     const matchedSections=new Map<string,Set<string>>();
