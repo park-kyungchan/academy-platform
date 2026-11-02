@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# LEAD ONLY, after a sole compiler-slot grant. The author did not run this file.
+# LEAD ONLY, after a sole compiler-slot grant. This is the reproducible command
+# specification; author-native invocations and statuses are separately preserved.
 set -euo pipefail
 repo=/home/palantirkc/work/ws-replan/wt/education-platform
 results=${1:?Supply a NEW absolute result directory outside the checkout}
@@ -8,7 +9,7 @@ case "$results" in "$repo"|"$repo"/*) echo results_must_be_outside_checkout >&2;
 mkdir "$results"
 cd "$repo"
 source /home/palantirkc/work/ws-replan/preparation/final-review/execution-env.sh
-export CARGO_TARGET_DIR="$results/cargo-target"
+export CARGO_TARGET_DIR=/home/palantirkc/work/ws-replan/preparation/build-targets/edu-01
 git rev-parse HEAD > "$results/revision.txt"
 git status --porcelain > "$results/git-status.txt"
 if [ -s "$results/git-status.txt" ]; then echo clean_committed_candidate_required >&2; exit 64; fi
@@ -23,9 +24,9 @@ run() {
   printf '%s\n' "$status" > "$results/$label.exit"
   if [ "$status" -ne 0 ]; then return "$status"; fi
 }
-run test cargo test --locked --offline -j1 -p edu-academy-core
-run clippy cargo clippy --locked --offline -j1 -p edu-academy-core --all-targets -- -D warnings
-run build cargo build --locked --offline -j1 -p edu-academy-core --bin edu-academy-core
+run test cargo +1.95.0 test --locked --offline -j1 -p edu-academy-core
+run clippy cargo +1.95.0 clippy --locked --offline -j1 -p edu-academy-core --all-targets -- -D warnings
+run build cargo +1.95.0 build --locked --offline -j1 -p edu-academy-core --bin edu-academy-core
 cp "$CARGO_TARGET_DIR/debug/edu-academy-core" "$results/edu-academy-core"
 sha256sum "$results/edu-academy-core" > "$results/binary.sha256"
 run all202 node migration/pure-semantics/candidate-v3/compare.mjs --candidate "$results/edu-academy-core" --results-root "$results/all202"

@@ -1,0 +1,268 @@
+{
+  "schema": "s08.native-author-result/3",
+  "independentReview": "pending_Lead_Wonder",
+  "overallS08Acceptance": "not_asserted",
+  "compilerProducerHead": "5b5fbef8fdfa1612279a491b3a11c907633efc92",
+  "driverHead": "6973f5ca5368165c7d2ffa06d26f66fb9a54efa9",
+  "rustInputsUnchangedBetweenHeads": true,
+  "binary": {
+    "sourceHead": "5b5fbef8fdfa1612279a491b3a11c907633efc92",
+    "sourcePath": "/home/palantirkc/work/ws-replan/preparation/build-targets/edu-01/debug/edu-academy-core",
+    "preservedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-05-build/edu-academy-core",
+    "sha256": "e3bf2bf73bffe6c6402bc95aae7cd19338278d6f91fa7fc0e586032aa89e8e08"
+  },
+  "referenceSha256": "9073faa3c80aced0bcc01f77ed99e4d1984b218134bc1d11910e15933d202578",
+  "all202": {
+    "matched": 202,
+    "cases": 202,
+    "actualChildStatusesAllZero": true,
+    "report": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-07-all202/comparison/report.json"
+  },
+  "backward54": {
+    "cases": 54,
+    "matched": 54,
+    "report": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-08-backward54/comparison/report.json"
+  },
+  "admission": {
+    "original": {
+      "cases": 15,
+      "passed": 15,
+      "report": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-09-original15/comparison/report.json"
+    },
+    "proposed": {
+      "cases": 13,
+      "passed": 13,
+      "report": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-10-proposed13/comparison/report.json",
+      "acceptance": "pending_independent_decision"
+    }
+  },
+  "nativeTestsPassed": 7,
+  "frozenFilesPreserved": 8,
+  "originalSourceFilesPreserved": 30,
+  "acceptedLeafSha256": "af3cd5b8b6424594f9b5e1535438f94c0363e31bbb2456233dc9551b947dd58d",
+  "rawEvidenceRoot": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01",
+  "rawFileManifest": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-11-evidence-inventory/manifest.json",
+  "runs": [
+    {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-01-test",
+      "sourceHead": "968fece621d9655b6d5f0e14283ecf2c2948448c",
+      "status": 0,
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "-j1",
+        "-p",
+        "edu-academy-core"
+      ],
+      "durationSeconds": 19.59656515798997,
+      "maximumRssKiB": 297572,
+      "rawStatus": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-01-test/result.json",
+      "rawStdout": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-01-test/stdout",
+      "rawStderr": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-01-test/stderr",
+      "rawResources": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-01-test/resources.txt"
+    },
+    {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-02-clippy",
+      "sourceHead": "968fece621d9655b6d5f0e14283ecf2c2948448c",
+      "status": 101,
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-j1",
+        "-p",
+        "edu-academy-core",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "durationSeconds": 6.97138627897948,
+      "maximumRssKiB": 257344,
+      "rawStatus": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-02-clippy/result.json",
+      "rawStdout": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-02-clippy/stdout",
+      "rawStderr": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-02-clippy/stderr",
+      "rawResources": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-02-clippy/resources.txt"
+    },
+    {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-03-test",
+      "sourceHead": "5b5fbef8fdfa1612279a491b3a11c907633efc92",
+      "status": 0,
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "--offline",
+        "-j1",
+        "-p",
+        "edu-academy-core"
+      ],
+      "durationSeconds": 2.3357395170023665,
+      "maximumRssKiB": 190168,
+      "rawStatus": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-03-test/result.json",
+      "rawStdout": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-03-test/stdout",
+      "rawStderr": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-03-test/stderr",
+      "rawResources": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-03-test/resources.txt"
+    },
+    {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-04-clippy",
+      "sourceHead": "5b5fbef8fdfa1612279a491b3a11c907633efc92",
+      "status": 0,
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-j1",
+        "-p",
+        "edu-academy-core",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "durationSeconds": 3.3175332529935986,
+      "maximumRssKiB": 194264,
+      "rawStatus": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-04-clippy/result.json",
+      "rawStdout": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-04-clippy/stdout",
+      "rawStderr": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-04-clippy/stderr",
+      "rawResources": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-04-clippy/resources.txt"
+    },
+    {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-05-build",
+      "sourceHead": "5b5fbef8fdfa1612279a491b3a11c907633efc92",
+      "status": 0,
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "build",
+        "--locked",
+        "--offline",
+        "-j1",
+        "-p",
+        "edu-academy-core",
+        "--bin",
+        "edu-academy-core"
+      ],
+      "durationSeconds": 0.11664840497542173,
+      "maximumRssKiB": 36264,
+      "rawStatus": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-05-build/result.json",
+      "rawStdout": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-05-build/stdout",
+      "rawStderr": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-05-build/stderr",
+      "rawResources": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-05-build/resources.txt"
+    },
+    {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-06-all202",
+      "sourceHead": "5b5fbef8fdfa1612279a491b3a11c907633efc92",
+      "status": 1,
+      "command": [
+        "node",
+        "migration/pure-semantics/candidate-v3/compare.mjs",
+        "--candidate",
+        "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-05-build/edu-academy-core",
+        "--results-root",
+        "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-06-all202/comparison"
+      ],
+      "durationSeconds": 0.34265466895885766,
+      "maximumRssKiB": 85160,
+      "rawStatus": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-06-all202/result.json",
+      "rawStdout": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-06-all202/stdout",
+      "rawStderr": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-06-all202/stderr",
+      "rawResources": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-06-all202/resources.txt"
+    },
+    {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-07-all202",
+      "sourceHead": "6973f5ca5368165c7d2ffa06d26f66fb9a54efa9",
+      "status": 0,
+      "command": [
+        "node",
+        "migration/pure-semantics/candidate-v3/compare.mjs",
+        "--candidate",
+        "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-05-build/edu-academy-core",
+        "--results-root",
+        "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-07-all202/comparison"
+      ],
+      "durationSeconds": 2.137685129069723,
+      "maximumRssKiB": 91436,
+      "rawStatus": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-07-all202/result.json",
+      "rawStdout": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-07-all202/stdout",
+      "rawStderr": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-07-all202/stderr",
+      "rawResources": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-07-all202/resources.txt"
+    },
+    {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-08-backward54",
+      "sourceHead": "6973f5ca5368165c7d2ffa06d26f66fb9a54efa9",
+      "status": 0,
+      "command": [
+        "node",
+        "migration/pure-semantics/compare-candidate.mjs",
+        "--candidate",
+        "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-05-build/edu-academy-core",
+        "--results-root",
+        "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-08-backward54/comparison"
+      ],
+      "durationSeconds": 0.3568832239834592,
+      "maximumRssKiB": 82768,
+      "rawStatus": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-08-backward54/result.json",
+      "rawStdout": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-08-backward54/stdout",
+      "rawStderr": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-08-backward54/stderr",
+      "rawResources": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-08-backward54/resources.txt"
+    },
+    {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-09-original15",
+      "sourceHead": "6973f5ca5368165c7d2ffa06d26f66fb9a54efa9",
+      "status": 0,
+      "command": [
+        "node",
+        "migration/pure-semantics/candidate-v3/admission.mjs",
+        "--candidate",
+        "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-05-build/edu-academy-core",
+        "--cases",
+        "/home/palantirkc/work/ws-replan/preparation/slices/S08/PROTOCOL-ADMISSION-CASES.json",
+        "--results-root",
+        "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-09-original15/comparison"
+      ],
+      "durationSeconds": 0.12752056308090687,
+      "maximumRssKiB": 52064,
+      "rawStatus": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-09-original15/result.json",
+      "rawStdout": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-09-original15/stdout",
+      "rawStderr": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-09-original15/stderr",
+      "rawResources": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-09-original15/resources.txt"
+    },
+    {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-10-proposed13",
+      "sourceHead": "6973f5ca5368165c7d2ffa06d26f66fb9a54efa9",
+      "status": 0,
+      "command": [
+        "node",
+        "migration/pure-semantics/candidate-v3/admission.mjs",
+        "--candidate",
+        "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-05-build/edu-academy-core",
+        "--cases",
+        "migration/pure-semantics/candidate-v3/admission-v3.json",
+        "--results-root",
+        "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-10-proposed13/comparison"
+      ],
+      "durationSeconds": 0.1557009619427845,
+      "maximumRssKiB": 50112,
+      "rawStatus": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-10-proposed13/result.json",
+      "rawStdout": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-10-proposed13/stdout",
+      "rawStderr": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-10-proposed13/stderr",
+      "rawResources": "/home/palantirkc/work/ws-replan/preparation/slices/S08/core-native-author-01/run-10-proposed13/resources.txt"
+    }
+  ],
+  "remainingGaps": [
+    "Independent Wonder semantic review and Lead acceptance",
+    "Explicit V3 admission proposal for unbounded/non-characterized source domains",
+    "Unported pure exports retain their own characterization obligations; not silently assigned to later parser/durable slices",
+    "S09/S10/S11 source/parser/durable-policy/native integration obligations remain unstarted"
+  ],
+  "children": []
+}
