@@ -39,6 +39,12 @@ export class AcademyService {
     }
     return {
       schemaVersion: 1, sourceMode: 'saved_context', data, inventory,
+      nativeReadTools: {
+        textbook_answer_catalog:{tool:'academy_textbook_catalog',scope:'current observed elementary/middle/high textbook and workbook PDF catalog'},
+        textbook_sample_pdf:{tool:'academy_textbook_pdf',scope:'exact schoolLevel/documentRef from the current catalog; sample or other declared PDF kind'},
+        availability:'call_the_native_tool_to_establish_live_availability',
+        pinnedInventoryIsHistorical:true,
+      },
       source: this.catalog.source,
       implementation: {
         metadata: 'complete_for_pinned_95_operation_inventory',

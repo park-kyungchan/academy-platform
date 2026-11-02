@@ -141,6 +141,16 @@
       "name": "academy_textbook_section_results",
       "class": "read",
       "exposure": "open"
+    },
+    {
+      "name": "academy_textbook_catalog",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_textbook_pdf",
+      "class": "read",
+      "exposure": "open"
     }
   ],
   "closedUntilAttribution": [],

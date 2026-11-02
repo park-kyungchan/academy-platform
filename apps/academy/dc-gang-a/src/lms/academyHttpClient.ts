@@ -1,4 +1,5 @@
 import {JSDOM} from 'jsdom';
+import {TEXTBOOK_CATALOG_PATH,MAX_TEXTBOOK_CATALOG_BYTES,MAX_TEXTBOOK_SAMPLE_BYTES,MAX_TEXTBOOK_REFERENCE_BYTES,parseTextbookCatalog,boundedTextbookBody,qualifiedTextbookPdfUrl,textbookPdfDigest,type TextbookCatalogObservation,type TextbookPdfObservation,type TextbookSchoolLevel} from './textbookCatalogRead';
 import {randomInt,createHash} from 'node:crypto';
 import {createAcademyReadPlan,executeAcademyRead,readLiteralKey,readLiteralName,sourceResponseKey,parseTextbookScopeBinding,type AcademyReadResult,type ScopedAcademyReadPlan} from './academyReadProtocol';
 import {readInputRecord} from '../contracts/readInputRecord';
@@ -55,6 +56,27 @@ export class AcademyHttpClient {
     this.#transport=transport;
   }
   get authenticated(){return this.#authenticated;}
+  async readTextbookCatalog(input:{teacherLabel:string;schoolLevel?:TextbookSchoolLevel}):Promise<TextbookCatalogObservation>{
+    if(!input||Object.keys(input).some(k=>!['teacherLabel','schoolLevel'].includes(k))||input.teacherLabel!==this.#principal.teacherLabel)throw Error('textbook_catalog_principal_rejected');
+    if(!this.#authenticated)throw Error('authentication_required');
+    const schoolLevel=input.schoolLevel??'middle';if(!['elementary','middle','high'].includes(schoolLevel))throw Error('textbook_catalog_school_level_rejected');
+    const path=TEXTBOOK_CATALOG_PATH+(schoolLevel==='middle'?'':'&grade='+schoolLevel);
+    const response=await this.#request(path,{method:'GET'},false,'textbook_answer_catalog');
+    const bytes=await boundedTextbookBody(response,MAX_TEXTBOOK_CATALOG_BYTES,'catalog');
+    return parseTextbookCatalog(new TextDecoder().decode(bytes),sourceDomParser.parseFromString,schoolLevel);
+  }
+  async readTextbookPdf(input:{teacherLabel:string;documentRef:string;schoolLevel:TextbookSchoolLevel}):Promise<TextbookPdfObservation>{
+    if(!input||Object.keys(input).sort().join(',')!=='documentRef,schoolLevel,teacherLabel'||!/^[a-f0-9]{64}$/.test(input.documentRef))throw Error('textbook_pdf_input_rejected');
+    const catalog=await this.readTextbookCatalog({teacherLabel:input.teacherLabel,schoolLevel:input.schoolLevel});
+    const entry=catalog.entries.find(e=>e.documentRef===input.documentRef);if(!entry)throw Error('textbook_pdf_not_in_current_catalog');
+    const url=qualifiedTextbookPdfUrl(entry.url);let response:Response;
+    try{response=await this.#transport(url.href,{method:'GET',headers:{Accept:'application/pdf'},credentials:'omit',redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(20000)});}
+    catch{throw Error('textbook_pdf_transport_failed');}
+    if(response.url&&response.url!==url.href)throw Error('textbook_pdf_response_url_rejected');
+    const bytes=await boundedTextbookBody(response,entry.kind==='sample'?MAX_TEXTBOOK_SAMPLE_BYTES:MAX_TEXTBOOK_REFERENCE_BYTES,'pdf');
+    return {schoolLevel:input.schoolLevel,kind:entry.kind,documentRef:entry.documentRef,filename:entry.filename,sourceUrl:entry.url,sourceLabels:entry.sourceLabels,catalogSha256:catalog.catalogSha256,
+      observedAt:new Date().toISOString(),sha256:textbookPdfDigest(bytes),byteLength:bytes.byteLength,bytes,sourceRequests:2};
+  }
   close(){this.#cookies.clear();this.#authenticated=false;this.#testPoolProtocol=null;}
   /** Fixed original DayRecord Main document; selector/date metadata only, never roster rows or handlers. */
   async inspectDayRecordGroupSelector(input:{teacherLabel:string;date:string}){

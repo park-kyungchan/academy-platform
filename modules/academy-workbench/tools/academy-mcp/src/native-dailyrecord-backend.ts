@@ -13,6 +13,7 @@ import {ownerAdmissionSchema,isDateAdmitted,type OwnerAdmission} from './owner-a
 import {metadataAdmissionSchema,metadataDateAdmitted,type MetadataAdmission} from './metadata-admission.ts';
 import {AcademyReadFailure} from './read-failure.ts';
 import {StudentNameNotAdmitted} from './student-resolver.ts';
+import type {TextbookCatalogObservation,TextbookPdfObservation,TextbookSchoolLevel} from '../../../../../apps/academy/dc-gang-a/src/lms/textbookCatalogRead';
 import {itemAnswerLookupSchema} from './item-answer-lookup.ts';
 import type {DailyRecordReadAdmission} from './dailyrecord-read.ts';
 
@@ -30,6 +31,8 @@ export const nativeDailyRecordConfigSchema=z.object({schemaVersion:z.literal('ac
 type Target={studentName:string;date:string;groupId:string;teacherKey:string;studentKey:string;courseKey:string;recordKey:string;membershipKey:string};
 type Row=Target&{fields:Record<string,string>};
 interface SourcePort {
+  readTextbookCatalog?(input:{teacherLabel:string;schoolLevel:TextbookSchoolLevel}):Promise<TextbookCatalogObservation>;
+  readTextbookPdf?(input:{teacherLabel:string;schoolLevel:TextbookSchoolLevel;documentRef:string}):Promise<TextbookPdfObservation>;
   authenticate(credential:{username:string;password:string}):Promise<unknown>;
   discoverDayRecordGroups(input:{teacherLabel:string;date:string}):Promise<{groups:{groupId:string}[]}>;
   execute(input:unknown):Promise<{dayRecords:Row[]}>;
@@ -142,6 +145,17 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       ownerAdmissionSchema.parse(ownerAdmission);
       if(ownerAdmission.teacherId!==admission.teacherId||!isDateAdmitted(admission.date,ownerAdmission))throw Error('native_dailyrecord_owner_admission_mismatch');
     }
+  }
+  async readTextbookCatalog(schoolLevel:TextbookSchoolLevel='middle'):Promise<TextbookCatalogObservation>{
+    if(!this.client.readTextbookCatalog)throw Error('textbook_catalog_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.readTextbookCatalog({teacherLabel:this.admission.teacherLabel,schoolLevel});
+  }
+  async readTextbookPdf(schoolLevel:TextbookSchoolLevel,documentRef:string):Promise<TextbookPdfObservation>{
+    if(!/^[a-f0-9]{64}$/.test(documentRef))throw Error('textbook_pdf_input_rejected');
+    if(!this.client.readTextbookPdf)throw Error('textbook_pdf_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.readTextbookPdf({teacherLabel:this.admission.teacherLabel,schoolLevel,documentRef});
   }
   /** Exact textbook section grading through the owner client's textbook
    * family. Only configured admission students; titles are the source's

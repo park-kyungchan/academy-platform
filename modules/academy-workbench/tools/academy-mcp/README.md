@@ -1,5 +1,15 @@
 # Academy Operations MCP
 
+## Native textbook PDF reads
+
+The owner-authenticated `dailyrecord-server.ts` also exposes `academy_textbook_catalog` and `academy_textbook_pdf`. These reuse the existing owner client, credential boundary and serialized account lock. The default preserved-context server has no new network transport; its capabilities response names the native routes separately from the unchanged historical95-operation inventory.
+
+Call `academy_textbook_catalog` with `schoolLevel` (`elementary`, `middle` or `high`), optional `query`, optional `documentKind` (`sample`, `answer`, `repair`, `daily`, `other` or default `all`), and `limit`1–100/default10 plus `offset`. It reads the fixed current catalog, checks the selected UI tab, retains rowspans in the source labels, and returns observed `documentRef` values. A workbook can expose an answer PDF without a sample; absence of a sample is not absence of a workbook. File kind is classified from the source filename and does not establish a physical edition or student binding.
+
+Pass that exact `schoolLevel` and `documentRef` to `academy_textbook_pdf`. It rechecks the current catalog and downloads only its observed fixed-storage PDF link, without forwarding academy cookies. The download is bounded to32MiB for samples and64MiB for other reference PDFs, checks PDF header/EOF and byte length, preserves original bytes in native owner custody, and reads back SHA256. Results contain `artifact.path`, byte count, source URL/labels and kind; binary PDF bytes are excluded from model text. Inspect the original front matter for printed structure; this tool does not manufacture TOC or physical-edition joins.
+
+Failures return explicit `status: failed`, a bounded code and `automaticRetryAllowed: false`; stop dependent work and diagnose before retrying. An unconfigured owner backend returns `status: unavailable`. No credentials, arbitrary URL, file destination, source write, paper generation, printing, grading or parent send is accepted by either tool. Read-only annotations describe Academy effects; successful downloads create a local preserved artifact.
+
 This first-stage MCP organizes the pinned academy source inventory and reads preserved local academic evidence. It targets all students managed by Park Kyungchan. The available snapshot contains five authorized students; their presence does not establish the complete current teacher roster.
 
 The default server has no academy HTTP transport, live refresh, credential input, source writer, print/generation/reset/grading action or parent-send action. It starts only a stdio MCP transport. The operating-system owner launching this private repository controls access to its preserved academic data; no public HTTP endpoint or remote deployment is configured. The separate, explicitly configured item-label entry point below can use a bounded native read adapter; it does not activate transport for the existing saved-student tools.

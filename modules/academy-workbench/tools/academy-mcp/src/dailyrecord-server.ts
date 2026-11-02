@@ -3,6 +3,7 @@ import {installStdioDiagnostics,createAcademyStdioTransport} from './stdio-diagn
 import {dailyRecordLearningConfiguration} from './dailyrecord-learning.ts';
 import {McpServer} from '@modelcontextprotocol/server';
 import {DailyRecordService} from './dailyrecord.ts';
+import {registerTextbookSourceTools} from './textbook-source-tools.ts';
 import {dailyRecordToolConfiguration,registerDailyRecordTools} from './dailyrecord-tools.ts';
 import {nativeDailyRecordConfiguration,nativeOwnerArtifactsRoot} from './native-dailyrecord-backend.ts';
 import {createDailyRecordWorkflow,dailyRecordWorkflowConfiguration} from './dailyrecord-workflow.ts';
@@ -20,6 +21,7 @@ const native=await nativeDailyRecordConfiguration(workflowArgs.remainingArgs,con
 const workflow=workflowArgs.storeDir?createDailyRecordWorkflow({storeDir:workflowArgs.storeDir,...(nativeLaunch?{requiredRoot:nativeOwnerArtifactsRoot}:{})}):null;
 const server=new McpServer({name:'academy-dailyrecord-review',version:'0.1.0'});
 registerRuntimeIdentity(server,runtimeIdentity.identity);
+registerTextbookSourceTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'textbook-samples');
 registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,config.parentSafeguard,Date.now,learning.learningPolicy,native?.backend??null,workflow));
 if(native)process.once('exit',native.close);
 installStdioDiagnostics(server.server);
