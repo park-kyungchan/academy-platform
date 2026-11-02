@@ -1,3 +1,4 @@
+import {publicReadFailure} from './read-failure.ts';
 import {spawn} from 'node:child_process';
 import {z} from 'zod';
 import {readPinnedLocalBytes} from './item-label-store.ts';
@@ -164,8 +165,8 @@ export async function loadNativePoolBackend(args:readonly string[]){
     child.stderr.on('data',()=>{});child.on('error',()=>{clearTimeout(deadline);reject(Error('native_pool_read_start_failed'));});
     child.on('close',code=>{clearTimeout(deadline);if(reason)return reject(Error(reason));
       try{const result=JSON.parse(output.trim());if(code!==0||result.status!=='observed'||result.academyWrites!==0||result.passwordExported!==false||result.cookiesExported!==false)
-        throw Error(typeof result.code==='string'&&/^[a-z_]{1,100}$/.test(result.code)?result.code:'native_pool_read_unqualified');resolve(result);}
-      catch(error){reject(error instanceof Error&&/^[a-z_]{1,100}$/.test(error.message)?error:Error('native_pool_result_invalid'));}});
+        throw Error(publicReadFailure(Error(typeof result.code==='string'?result.code:''),'native_pool_read_unqualified').code);resolve(result);}
+      catch(error){reject(Error(publicReadFailure(error,'native_pool_result_invalid').code));}});
     child.stdin.on('error',()=>{});child.stdin.end(JSON.stringify({source,request}));
   });
   return new NativePoolLabelBackend(serializePoolReadRunner(run));

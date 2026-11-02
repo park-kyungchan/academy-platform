@@ -1,3 +1,4 @@
+import {installToolAudit} from './tool-audit.ts';
 import {academyRoutingDescription} from './routing-context.ts';
 import {runtimeIdentityConfiguration,registerRuntimeIdentity} from './runtime-identity.ts';
 import {installStdioDiagnostics,createAcademyStdioTransport} from './stdio-diagnostics.ts';
@@ -16,6 +17,7 @@ import {nativeDailyRecordConfiguration} from './native-dailyrecord-backend.ts';
 
 const service = await loadService(repoRoot);
 const server = new McpServer({ name: 'academy-operations', version: '0.1.0' });
+installToolAudit(server,{endpoint:'server'});
 const runtimeIdentity=await runtimeIdentityConfiguration(process.argv.slice(2));
 const learning=await dailyRecordLearningConfiguration(runtimeIdentity.remainingArgs);
 const configuration=await dailyRecordToolConfiguration(learning.remainingArgs);

@@ -274,3 +274,19 @@ test('neutral no-argument calls normalize omitted arguments before dispatch hash
     expect(receipts.some(n=>n.endsWith('-result.json'))).toBe(true);expect(receipts.some(n=>n.endsWith('-failure.json'))).toBe(false);
   });
 },20000);
+test('bridge validates before upstream launch and preserves safe SDK failure causes with trace receipts',async()=>{
+ await withNeutralClient(async({base,events,client})=>{
+  const before=await readFile(events,'utf8');
+  const invalid=await client.callTool({name:'academy_source_status',arguments:{PRIVATE_FIELD_CANARY:'PRIVATE_VALUE_CANARY'}});
+  expect(invalid.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',phase:'input_validation',academyWrites:0,failure:{category:'input_validation'}});
+  expect(await readFile(events,'utf8')).toBe(before);
+  for(const code of ['prestudy_search_form_drift','PRIVATE_SECRET_CANARY']){
+   await writeFile(resolve(base,'inject-source-status-error'),code);
+   const failed=await client.callTool({name:'academy_source_status',arguments:{}});
+   expect(failed.structuredContent).toMatchObject({status:'blocked',code:code==='prestudy_search_form_drift'?code:'upstream_tool_error',phase:'upstream',endpoint:'dailyrecord',upstreamName:'academy_source_status',academyWrites:0});
+   expect(JSON.stringify(failed)).not.toContain('PRIVATE_SECRET_CANARY');
+  }
+  const receipts=await Promise.all((await readdir(resolve(base,'receipts'))).map(n=>readFile(resolve(base,'receipts',n),'utf8')));
+  expect(receipts.join('')).not.toContain('PRIVATE_FIELD_CANARY');expect(receipts.join('')).not.toContain('PRIVATE_VALUE_CANARY');expect(receipts.join('')).not.toContain('PRIVATE_SECRET_CANARY');
+ });
+},20000);

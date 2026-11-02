@@ -5,6 +5,7 @@ import {attributionSchema,observeAttribution} from './dailyrecord-workflow.ts';
 import {z} from 'zod';
 import type {McpServer} from '@modelcontextprotocol/server';
 import {cismHash,cismMonthDates,cismWeek,cismWriteParameters,type CismReport} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol';
+import {publicReadFailure} from './read-failure.ts';
 import {toolResult} from './tool-result.ts';
 import {academyRoutingDescription} from './routing-context.ts';
 const date=z.iso.date(),hash=z.string().regex(/^[a-f0-9]{64}$/);
@@ -15,7 +16,7 @@ export const cismSaveInput=cismReviewInput.extend({reviewDigest:hash}).strict();
 export interface CismBackend{readCismReport(date:string):Promise<CismReport>;applyCismField(input:{date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>):Promise<{status:'persisted';fieldRef:string;report:CismReport}>;}
 const policy={audience:'deputy_director',style:'mixed_by_field_concise_factual_bullets_and_polite_explanatory_prose',basis:'same_week_dailyrecord_and_student_records',unknowns:'do_not_infer_numeric_scores_class_atmosphere_absence_or_completion',pdfGeneration:'user_action_only'};
 const safeCodes=new Set(['cism_date_rejected','cism_month_rejected','cism_document_rejected','cism_scope_conflict','cism_wire_drift','cism_period_conflict','cism_fields_unqualified','cism_value_rejected','cism_stale_before','cism_existing_value_preserved','cism_review_required','cism_ack_unqualified','cism_ack_rejected','cism_readback_mismatch','cism_source_port_unavailable','cism_prior_review_mismatch','cism_duplicate_field','cism_request_rebound','cism_uncertain_dispatch','cism_store_unqualified','cism_report_drift']);
-const fail=(e:unknown,write=false)=>toolResult({academyWrites:write?null:0,status:'failed',code:e instanceof Error&&safeCodes.has(e.message)?e.message:'cism_source_failed',automaticRetryAllowed:false,dependentWork:'stop_and_diagnose',pdfGenerated:false,parentSends:0});
+const fail=(e:unknown,write=false)=>toolResult({failure:publicReadFailure(e,'cism_source_failed'),academyWrites:write?null:0,status:'failed',code:e instanceof Error&&safeCodes.has(e.message)?e.message:'cism_source_failed',automaticRetryAllowed:false,dependentWork:'stop_and_diagnose',pdfGenerated:false,parentSends:0});
 async function directory(root:string){await mkdir(root,{recursive:true,mode:0o700});const st=await lstat(root);if(!st.isDirectory()||st.isSymbolicLink()||await realpath(root)!==resolve(root)||(st.mode&0o077)!==0||st.uid!==process.getuid?.())throw Error('cism_store_unqualified');}
 async function readSafe(path:string){const f=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);try{const s=await f.stat();if(!s.isFile()||s.nlink!==1||s.size>1000000||(s.mode&0o077)!==0||s.uid!==process.getuid?.())throw Error('cism_store_unqualified');return JSON.parse(await f.readFile('utf8'));}finally{await f.close();}}
 async function exclusive(path:string,value:unknown){try{const f=await open(path,'wx',0o600);try{await f.writeFile(JSON.stringify(value)+'\n');await f.sync();}finally{await f.close();}const dir=await open(dirname(path),constants.O_RDONLY);try{await dir.sync();}finally{await dir.close();}return true;}catch(e){if((e as NodeJS.ErrnoException).code==='EEXIST')return false;throw e;}}

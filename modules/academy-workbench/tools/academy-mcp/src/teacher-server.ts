@@ -1,3 +1,4 @@
+import {installToolAudit} from './tool-audit.ts';
 import {McpServer} from '@modelcontextprotocol/server';
 import {StdioServerTransport} from '@modelcontextprotocol/server/stdio';
 import {loadTeacherSource,type AuthenticatedFetchPage} from './teacher-source-binding.ts';
@@ -10,6 +11,8 @@ export async function createTeacherServer(configuration:TeacherServerConfigurati
   if(typeof configuration?.authenticatedFetchPage!=='function')throw Error('teacher_source_authenticated_transport_required');
   const binding=await loadTeacherSource(configuration.sourceRoot);
   const server=new McpServer({name:'academy-teacher-consumer',version:'0.1.0'});
+  // Canonical retained pages bind exact serialized bytes and fixed-size invalid-input replies.
+  installToolAudit(server,{endpoint:'teacher',preserveResult:true});
   registerTeacherTools(server,new TeacherRetainedService(binding,configuration.authenticatedFetchPage));
   return server;
 }

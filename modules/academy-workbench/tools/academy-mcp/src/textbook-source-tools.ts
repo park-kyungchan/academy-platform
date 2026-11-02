@@ -4,6 +4,7 @@ import {resolve} from 'node:path';
 import {z} from 'zod';
 import type {McpServer} from '@modelcontextprotocol/server';
 import type {TextbookCatalogObservation,TextbookPdfObservation,TextbookSchoolLevel} from '../../../../../apps/academy/dc-gang-a/src/lms/textbookCatalogRead';
+import {publicReadFailure} from './read-failure.ts';
 import {toolResult} from './tool-result.ts';
 import {readOnlyAnnotations} from './contracts.ts';
 import {academyRoutingDescription} from './routing-context.ts';
@@ -42,7 +43,7 @@ function failure(error:unknown){
   const code=publicCodes.has(message)?message:['authentication_required','source_authentication_failed'].includes(message)?'textbook_authentication_failed':'textbook_source_read_failed';
   const status=(error as {httpStatus?:unknown}|null)?.httpStatus;
   const sourceHttpStatus=typeof status==='number'&&Number.isInteger(status)&&status>=400&&status<=599?status:null;
-  return toolResult({status:'failed',code,sourceHttpStatus,automaticRetryAllowed:false,...limits});
+  return toolResult({status:'failed',code,failure:publicReadFailure(error,'textbook_source_read_failed'),sourceHttpStatus,automaticRetryAllowed:false,...limits});
 }
 export function registerTextbookSourceTools(server:McpServer,backend:TextbookSourceBackend|null,artifactRoot:string){
   server.registerTool('academy_textbook_catalog',{

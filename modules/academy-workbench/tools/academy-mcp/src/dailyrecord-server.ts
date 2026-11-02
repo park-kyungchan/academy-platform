@@ -1,3 +1,4 @@
+import {installToolAudit} from './tool-audit.ts';
 import {registerCismWeeklyTools} from './cism-weekly-tools.ts';
 import {runtimeIdentityConfiguration,registerRuntimeIdentity} from './runtime-identity.ts';
 import {installStdioDiagnostics,createAcademyStdioTransport} from './stdio-diagnostics.ts';
@@ -21,6 +22,7 @@ const workflowArgs=dailyRecordWorkflowConfiguration(config.remainingArgs,ownerRo
 const native=await nativeDailyRecordConfiguration(workflowArgs.remainingArgs,config.ownerAdmission,config.metadataAdmission,config.saveAdmission,config.saveStoreDir,config.saveRequestPath);
 const workflow=workflowArgs.storeDir?createDailyRecordWorkflow({storeDir:workflowArgs.storeDir,...(nativeLaunch?{requiredRoot:nativeOwnerArtifactsRoot}:{})}):null;
 const server=new McpServer({name:'academy-dailyrecord-review',version:'0.1.0'});
+installToolAudit(server,{endpoint:'dailyrecord',...(nativeLaunch?{root:nativeOwnerArtifactsRoot+'mcp-tool-audit'}:{})});
 registerRuntimeIdentity(server,runtimeIdentity.identity);
 registerCismWeeklyTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'cism-weekly');
 registerTextbookSourceTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'textbook-samples');

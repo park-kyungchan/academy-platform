@@ -19,12 +19,12 @@ test('existing label MCP discovers context-required DailyRecord tools while pres
     expect(saveRefused.structuredContent).toMatchObject({status:'unavailable',reasonCode:'dailyrecord_save_backend_not_configured',academyWrites:0});
     for(const name of ['academy_dailyrecord_intake','academy_dailyrecord_review','academy_cism_section']){
       const tool=tools.find(t=>t.name===name)!;expect(tool.annotations?.readOnlyHint).toBe(true);expect(tool.annotations?.destructiveHint).toBe(false);
-      expect(tool.inputSchema.required).toContain('context');const refused=await client.callTool({name,arguments:{}});expect(refused.isError).toBe(true);
+      expect(tool.inputSchema.required).toContain('context');const refused=await client.callTool({name,arguments:{}});expect(refused.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',academyWrites:0});
     }
     const intake=await client.callTool({name:'academy_dailyrecord_intake',arguments:{context:context()}});
     expect(intake.isError).not.toBe(true);expect(intake.structuredContent).toMatchObject({status:'held',sourceAvailability:'unavailable',academyWrites:0,parentSends:0,observationHandle:null});
     expect((intake.structuredContent as any).userContext.currentRequestRef).toBe(context().currentRequestRef);
-    const forged=await client.callTool({name:'academy_dailyrecord_intake',arguments:{context:{...context(),approved:true}}});expect(forged.isError).toBe(true);
+    const forged=await client.callTool({name:'academy_dailyrecord_intake',arguments:{context:{...context(),approved:true}}});expect(forged.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',academyWrites:0});
     const review=await client.callTool({name:'academy_dailyrecord_review',arguments:{context:context(),proposals:[{field:'progress',value:'지정 문제 12문항 풀이 진행.',factRefs:['user-fact:progress'],decision:{kind:'replace',requestRef:context().currentRequestRef}}]}});
     expect(review.isError).not.toBe(true);expect(review.structuredContent).toMatchObject({status:'held',observationHandle:null,patch:[],execution:'not_supported'});
     const cism=await client.callTool({name:'academy_cism_section',arguments:{context:context(),selection:{reportId:'fictional-report',periodStart:'2040-01-08',periodEnd:'2040-01-14',section:'learning_support'}}});

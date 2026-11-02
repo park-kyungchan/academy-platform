@@ -293,7 +293,10 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
               }
             }
           }
-        }catch{failed++;}
+        }catch(error){
+          // A failed source read stops dependent scans; never conceal authentication/contract failure as an unmatched label.
+          throw error;
+        }
       }
       books.push({bookLabel:binding.bookLabel,sectionsScanned:scanned,sectionsFailed:failed});sectionsScanned+=scanned;sectionsFailed+=failed;
     }
@@ -367,7 +370,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
   }
   #authenticate(){
     // One retained promise for every read family, including synchronous credential/auth failures.
-    return this.#ready??=Promise.resolve().then(()=>this.client.authenticate(this.credential())).catch(()=>{throw new AcademyReadFailure('authentication','source_authentication_failed','src/native-dailyrecord-backend.ts:#authenticate');});
+    return this.#ready??=Promise.resolve().then(()=>this.client.authenticate(this.credential())).catch(error=>{throw new AcademyReadFailure('authentication','source_authentication_failed','src/native-dailyrecord-backend.ts:#authenticate',error);});
   }
   async readItemAnswers(labels:readonly string[]):Promise<unknown>{
     const input=itemAnswerLookupSchema.parse({labels:[...labels],purpose:'Owner-scoped item answer read',currentRequestRef:'native-item-answer'});

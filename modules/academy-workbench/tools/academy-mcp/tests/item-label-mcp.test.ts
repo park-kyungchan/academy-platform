@@ -27,7 +27,7 @@ test('actual stdio tool discovery and scoped label retrieval preserve task conte
     expect(result.isError).not.toBe(true);const value=result.structuredContent as any;
     expect(value.matches[0].id).toBe('label-002');expect(value.userContext.workflow[0]).toBe('study_detailed_types');expect(value.source.academyRequests).toBe(0);
     const denied=await connection.client.callTool({name:'academy_find_item_labels',arguments:{...labelQuery,hierarchyIds:['foreign']}});
-    expect(denied.isError).toBe(true);
+    expect(denied.structuredContent).toMatchObject({status:'blocked',code:'query_hierarchy_not_found',failure:{category:'policy_denial'},academyWrites:0});
     const held=await connection.client.callTool({name:'academy_find_item_labels',arguments:{...labelQuery,learningState:'in_progress'}});
     expect((held.structuredContent as any).status).toBe('held');
   }finally{await connection?.client.close();await connection?.transport.close();await rm(directory,{recursive:true,force:true});}

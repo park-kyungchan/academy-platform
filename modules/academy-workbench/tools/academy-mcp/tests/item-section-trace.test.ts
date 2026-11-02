@@ -44,3 +44,12 @@ test('native backend scans every binding, matches lecture and outer keys, and ke
   expect((result as any).items[2]).toMatchObject({label:'8301',matches:[{matchedBy:'outerLectureKey'}]});
   await expect(backend.readItemSectionTrace!({...request,displayName:'Foreign Student'})).rejects.toThrow('textbook_student_not_admitted');
 });
+test('native trace stops at the first source failure and reports its cause instead of unmatched labels',async()=>{
+ const admission={teacherId:'99001',teacherLabel:'Invented Teacher',date:'2040-01-04',students:[{studentId:'77001',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};
+ let reads=0;
+ const port={authenticate:async()=>{},readTextbookBindings:async()=>[{courseKey:'5',bookNo:'7',studentKey:'77001',bookLabel:'Invented Book'}],inspectTextbookIndex:async()=>({rows:[{sourceTitle:'A'},{sourceTitle:'B'}]}),execute:async()=>{reads++;throw Error('textbook_section_result_unqualified');},close:()=>{}};
+ const native=new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}));
+ const out=await new DailyRecordService(native).itemSectionTrace(request);
+ expect(out).toMatchObject({status:'unavailable',reasonCode:'textbook_section_result_unqualified',failure:{category:'contract_drift'}});
+ expect(reads).toBe(1);expect(out).not.toHaveProperty('unmatchedLabels');
+});
