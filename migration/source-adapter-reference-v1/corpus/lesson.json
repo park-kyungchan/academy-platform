@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "academy.lesson-overlay/1",
+  "lessonDate": "2040-01-04",
+  "preparedAt": "2040-01-04T09:00:00Z",
+  "students": [
+    {
+      "studentId": "s09://account-A/student/0001",
+      "teacherEvents": [
+        {
+          "id": "event-a",
+          "studentId": "s09://account-A/student/0001",
+          "sourceKind": "teacher_report",
+          "recordedAt": "2040-01-04T08:00:00Z",
+          "facts": [
+            {
+              "state": "teacher_reported_only",
+              "bookEditionId": "edition/A:01"
+            }
+          ]
+        },
+        {
+          "id": "event-b",
+          "studentId": "s09://account-A/student/0001",
+          "sourceKind": "user_supplied_message_context",
+          "recordedAt": "2040-01-04T08:01:00Z",
+          "facts": [
+            {
+              "state": "unknown"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        {
+          "kind": "dailyRecord",
+          "observedAt": "2040-01-04T08:02:00Z",
+          "progress": "",
+          "homework": null
+        }
+      ],
+      "dailyRecordDraft": {
+        "student": {
+          "studentId": "s09://account-A/student/0001"
+        },
+        "serverSaved": false,
+        "parentSent": false,
+        "status": "unsaved_draft"
+      }
+    }
+  ]
+}

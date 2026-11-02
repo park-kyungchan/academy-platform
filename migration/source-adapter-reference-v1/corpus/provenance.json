@@ -1,0 +1,18 @@
+{
+  "kind": "entirely_synthetic_recorded_local_bytes",
+  "source": "selected_original_TS_schemas_and_test_structure",
+  "nativePrincipal": {
+    "teacherLabel": "S09 Synthetic Teacher",
+    "teacherKey": "99001",
+    "collegeKey": "88001"
+  },
+  "accounts": [
+    "account-A",
+    "account-B"
+  ],
+  "savedFixtureStudent": "s09://account-A/student/0001",
+  "nativeFixtureStudent": "77001",
+  "sameStudentClaim": false,
+  "realRecordedS05AndP8Gap": "unchanged; no real textbook/progress/assessment-edition evidence manufactured",
+  "teacherLabelInSavedOutput": "source_constant_not_authenticated_by_saved_loader"
+}

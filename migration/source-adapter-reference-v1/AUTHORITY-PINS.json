@@ -1,0 +1,27 @@
+{
+  "sourceBase": "39441f5d205b8a67e5c911da747d213a322d20da",
+  "currentStateLocator": "/home/palantirkc/work/ws-replan/STATE.md",
+  "qualifiedS08OriginalReference": "1e1810d36a6bb76a2fa5bf434d5f0afd546d2f86",
+  "files": {
+    "/home/palantirkc/work/ws-replan/preparation/slices/S05/LEAD-ACCEPTANCE.json": {
+      "sha256": "253b81b8f94ca5b31cf7f88c57448e71a70ac13d9831c9e7068c0c7f77f058ed",
+      "bytes": 536
+    },
+    "/home/palantirkc/work/ws-replan/preparation/slices/S06/LEAD-ACCEPTANCE-2248648.json": {
+      "sha256": "a10ea5bf09c20e4b38eeabbb1bc63cb568296f72ec4f963766fbf206ea3c8ded",
+      "bytes": 1796
+    },
+    "/home/palantirkc/work/ws-replan/preparation/slices/S08/timezone-case-leaf-05/LEAD-ACCEPTANCE.json": {
+      "sha256": "4639ea3b9d6b2076c87380cb342ce7e22bea0e24c1d1ee7d9ff2a98f89c18eea",
+      "bytes": 1935
+    },
+    "/home/palantirkc/work/ws-replan/preparation/slices/S09/reference-v1/SOURCE-ALLOCATION.json": {
+      "sha256": "784d0c37bd32962b861509fac306a6cf2fac2a82966969ed314c7d46d9f9a96d",
+      "bytes": 984
+    },
+    "/home/palantirkc/work/ws-replan/preparation/slices/S09/reference-v1/SOL-TASK.txt": {
+      "sha256": "d475bb9c801a6704967772129cf854fba5b815ad44dd2f0f7ab9efd2ceb5385a",
+      "bytes": 9444
+    }
+  }
+}

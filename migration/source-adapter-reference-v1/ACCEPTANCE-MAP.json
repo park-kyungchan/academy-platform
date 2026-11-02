@@ -1,0 +1,96 @@
+{
+  "schema": "s09.acceptance-vector-characterization/1",
+  "status": "not_author_self_accepted; independent review/Lead decision pending",
+  "vectors": {
+    "EDU-01": {
+      "observed": [
+        "actual current/prior Main+XML parser rows",
+        "native backend source-port current/prior/six fields/tone/revision/refusals"
+      ],
+      "remaining": [
+        "qualified genuine HTTP journalState/backend join",
+        "real occurrence/production authority"
+      ]
+    },
+    "EDU-02": {
+      "observed": [
+        "duplicate row/key/selector refusals",
+        "native namespace/teacher/student/date/state/previous conflicts",
+        "resolver multi-key-name ambiguity refusal",
+        "saved duplicate ID refusal"
+      ],
+      "sourceExceptions": [
+        "saved duplicate display names accepted",
+        "resolver repeated identical key/name accepted",
+        "generic duplicate DOM IDs accepted",
+        "source account absent from projected target; actual two-account same-principal collision"
+      ],
+      "remaining": [
+        "Lead disposition of desired stronger identity/refusal policy, no redesign here"
+      ]
+    },
+    "EDU-03": {
+      "observed": [
+        "saved missing/null/blank/zero/unknown/not_performed preserved as distinct rows",
+        "source nonarray collections map to empty where specified",
+        "native string known vs nonstring unknown",
+        "synthetic linked student/edition/section/progress/assessment relation preserved"
+      ],
+      "remaining": [
+        "real recorded textbook/progress/assessment-edition gap and actual P8 user verdict unchanged"
+      ]
+    },
+    "EDU-19": {
+      "observed": [
+        "inert original JSDOM table repair/malformed HTML/select/option/textarea/entities",
+        "exact original UTF16 source spans including nonASCII/astral prefix",
+        "duplicate controls/labels/functions yield actual behavior/refusals/unknowns"
+      ],
+      "remaining": [
+        "all arbitrary malformed HTML/JS and real qualified wire fixture not universal"
+      ]
+    },
+    "EDU-20": {
+      "observed": [
+        "actual plan/field-contract operation+selector admission denies4 mutating GET+2 POST before fake dispatch",
+        "original injected transport authentication/cookie/redirect/encoding/status/refusal/20s signal semantics",
+        "default live fetch/socket/child denial with actual negative control"
+      ],
+      "remaining": [
+        "arbitrary private request injection not exposed",
+        "all unselected HTTP operation families",
+        "production source authorization/effects"
+      ]
+    },
+    "EDU-24": {
+      "observed": [
+        "source2MB response/32MiB saved leaf/4MiB pinned leaf/512KiB query budgets",
+        "malformed source parser throws",
+        "bounded stalled body and hung/flood/malformed/signal children",
+        "actual inherited disposable flock released after group kill/reap",
+        "possibly-dispatched local fake trace retained without retry"
+      ],
+      "remaining": [
+        "real account locks/writes and S10 durable uncertainty",
+        "escaped daemonization",
+        "universal parser complexity bounds"
+      ]
+    },
+    "EDU-25": {
+      "observed": [
+        "explicit root hashes/provenance stable after independent disposable source/driver moves and third cwd",
+        "missing/noncanonical root and owner-private scratch startup refusals",
+        "original nonowner native config refuses before private access"
+      ],
+      "sourceExceptions": [
+        "paths.ts module-relative",
+        "saved loader parent-symlink/world-writable leaf accepted",
+        "readPinnedLocalBytes no owner/mode check",
+        "same native target across accounts without external identity qualification"
+      ],
+      "remaining": [
+        "portable real native owner/source-root policy and race closure, no core redesign performed"
+      ]
+    }
+  }
+}

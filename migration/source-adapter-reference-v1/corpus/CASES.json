@@ -1,0 +1,1315 @@
+[
+  {
+    "id": "dom-values-and-exact-spans",
+    "kind": "dom"
+  },
+  {
+    "id": "presentation-values-and-spans",
+    "kind": "presentation"
+  },
+  {
+    "id": "presentation-duplicate-control",
+    "kind": "presentation",
+    "variant": "duplicate-control"
+  },
+  {
+    "id": "presentation-duplicate-label",
+    "kind": "presentation",
+    "variant": "duplicate-label"
+  },
+  {
+    "id": "presentation-malformed-script",
+    "kind": "presentation",
+    "variant": "malformed-script"
+  },
+  {
+    "id": "presentation-duplicate-function",
+    "kind": "presentation",
+    "variant": "duplicate-function"
+  },
+  {
+    "id": "presentation-invalid-range",
+    "kind": "presentation",
+    "variant": "invalid-range"
+  },
+  {
+    "id": "presentation-oversize",
+    "kind": "presentation",
+    "variant": "oversize"
+  },
+  {
+    "id": "presentation-too-many-options",
+    "kind": "presentation",
+    "variant": "too-many-options"
+  },
+  {
+    "id": "http-normal",
+    "kind": "http",
+    "variant": "normal"
+  },
+  {
+    "id": "http-duplicate-rows",
+    "kind": "http",
+    "variant": "duplicate-rows"
+  },
+  {
+    "id": "http-inconsistent-key",
+    "kind": "http",
+    "variant": "inconsistent-key"
+  },
+  {
+    "id": "http-duplicate-date-id",
+    "kind": "http",
+    "variant": "duplicate-date-id"
+  },
+  {
+    "id": "http-broken-table",
+    "kind": "http",
+    "variant": "broken-table"
+  },
+  {
+    "id": "http-leading-zero-key",
+    "kind": "http",
+    "variant": "leading-zero-key"
+  },
+  {
+    "id": "http-case-name",
+    "kind": "http",
+    "variant": "case-name"
+  },
+  {
+    "id": "http-space-name",
+    "kind": "http",
+    "variant": "space-name"
+  },
+  {
+    "id": "http-prior",
+    "kind": "http",
+    "variant": "prior"
+  },
+  {
+    "id": "http-malformed-xml",
+    "kind": "http",
+    "variant": "malformed-xml"
+  },
+  {
+    "id": "http-wrong-principal",
+    "kind": "http",
+    "variant": "wrong-principal"
+  },
+  {
+    "id": "http-oversize",
+    "kind": "http",
+    "variant": "oversize"
+  },
+  {
+    "id": "http-utf8-invalid",
+    "kind": "http",
+    "variant": "utf8-invalid"
+  },
+  {
+    "id": "http-login-challenge",
+    "kind": "http",
+    "variant": "login-challenge"
+  },
+  {
+    "id": "http-redirect",
+    "kind": "http",
+    "variant": "redirect"
+  },
+  {
+    "id": "http-http-error",
+    "kind": "http",
+    "variant": "http-error"
+  },
+  {
+    "id": "http-foreign-response-url",
+    "kind": "http",
+    "variant": "foreign-response-url"
+  },
+  {
+    "id": "http-transport-throw",
+    "kind": "http",
+    "variant": "transport-throw"
+  },
+  {
+    "id": "http-slow-abort",
+    "kind": "http",
+    "variant": "slow-abort"
+  },
+  {
+    "id": "http-stalled-body",
+    "kind": "http",
+    "variant": "stalled-body"
+  },
+  {
+    "id": "http-journal-unqualified",
+    "kind": "http",
+    "variant": "journal-unqualified"
+  },
+  {
+    "id": "http-wire-inspection",
+    "kind": "http",
+    "variant": "wire-inspection"
+  },
+  {
+    "id": "authentication-normal",
+    "kind": "auth",
+    "variant": "normal"
+  },
+  {
+    "id": "authentication-retry-login",
+    "kind": "auth",
+    "variant": "retry-login"
+  },
+  {
+    "id": "authentication-invalid-principal",
+    "kind": "auth",
+    "variant": "invalid-principal"
+  },
+  {
+    "id": "authentication-foreign-login-redirect",
+    "kind": "auth",
+    "variant": "foreign-login-redirect"
+  },
+  {
+    "id": "authentication-login-redirect",
+    "kind": "auth",
+    "variant": "login-redirect"
+  },
+  {
+    "id": "authentication-second-redirect",
+    "kind": "auth",
+    "variant": "second-redirect"
+  },
+  {
+    "id": "authentication-missing-location",
+    "kind": "auth",
+    "variant": "missing-location"
+  },
+  {
+    "id": "authentication-foreign-cookie",
+    "kind": "auth",
+    "variant": "foreign-cookie"
+  },
+  {
+    "id": "authentication-cookie-path",
+    "kind": "auth",
+    "variant": "cookie-path"
+  },
+  {
+    "id": "authentication-cookie-delete",
+    "kind": "auth",
+    "variant": "cookie-delete"
+  },
+  {
+    "id": "authentication-login-failure",
+    "kind": "auth",
+    "variant": "login-failure"
+  },
+  {
+    "id": "authentication-login-wire",
+    "kind": "auth",
+    "variant": "login-wire"
+  },
+  {
+    "id": "authentication-principal-key",
+    "kind": "auth",
+    "variant": "principal-key"
+  },
+  {
+    "id": "authentication-principal-college",
+    "kind": "auth",
+    "variant": "principal-college"
+  },
+  {
+    "id": "authentication-source-encoding",
+    "kind": "auth",
+    "variant": "source-encoding"
+  },
+  {
+    "id": "authentication-constructor-leading-zero",
+    "kind": "auth",
+    "variant": "constructor-leading-zero"
+  },
+  {
+    "id": "authentication-constructor-delimiter",
+    "kind": "auth",
+    "variant": "constructor-delimiter"
+  },
+  {
+    "id": "authentication-constructor-whitespace",
+    "kind": "auth",
+    "variant": "constructor-whitespace"
+  },
+  {
+    "id": "authentication-constructor-case-key",
+    "kind": "auth",
+    "variant": "constructor-case-key"
+  },
+  {
+    "id": "deny-mutation-progress",
+    "kind": "operation",
+    "field": "progress"
+  },
+  {
+    "id": "deny-mutation-homework",
+    "kind": "operation",
+    "field": "homework"
+  },
+  {
+    "id": "deny-mutation-lessonMemo",
+    "kind": "operation",
+    "field": "lessonMemo"
+  },
+  {
+    "id": "deny-mutation-attendance",
+    "kind": "operation",
+    "field": "attendance"
+  },
+  {
+    "id": "deny-mutation-dailyTestAssessment",
+    "kind": "operation",
+    "field": "dailyTestAssessment"
+  },
+  {
+    "id": "deny-mutation-previousHomeworkAssessment",
+    "kind": "operation",
+    "field": "previousHomeworkAssessment"
+  },
+  {
+    "id": "read-operation-unknown-selector",
+    "kind": "operation",
+    "variant": "unknown-selector"
+  },
+  {
+    "id": "read-operation-wrong-method",
+    "kind": "operation",
+    "variant": "wrong-method"
+  },
+  {
+    "id": "read-operation-foreign-origin",
+    "kind": "operation",
+    "variant": "foreign-origin"
+  },
+  {
+    "id": "read-operation-duplicate-selector",
+    "kind": "operation",
+    "variant": "duplicate-selector"
+  },
+  {
+    "id": "read-operation-valid-read",
+    "kind": "operation",
+    "variant": "valid-read"
+  },
+  {
+    "id": "native-normal",
+    "kind": "native",
+    "variant": "normal"
+  },
+  {
+    "id": "native-other-account",
+    "kind": "native",
+    "variant": "other-account"
+  },
+  {
+    "id": "native-duplicate-current",
+    "kind": "native",
+    "variant": "duplicate-current"
+  },
+  {
+    "id": "native-wrong-student",
+    "kind": "native",
+    "variant": "wrong-student"
+  },
+  {
+    "id": "native-wrong-teacher",
+    "kind": "native",
+    "variant": "wrong-teacher"
+  },
+  {
+    "id": "native-wrong-date",
+    "kind": "native",
+    "variant": "wrong-date"
+  },
+  {
+    "id": "native-state-target",
+    "kind": "native",
+    "variant": "state-target"
+  },
+  {
+    "id": "native-previous-missing",
+    "kind": "native",
+    "variant": "previous-missing"
+  },
+  {
+    "id": "native-previous-record",
+    "kind": "native",
+    "variant": "previous-record"
+  },
+  {
+    "id": "native-previous-student",
+    "kind": "native",
+    "variant": "previous-student"
+  },
+  {
+    "id": "native-previous-course",
+    "kind": "native",
+    "variant": "previous-course"
+  },
+  {
+    "id": "native-previous-member",
+    "kind": "native",
+    "variant": "previous-member"
+  },
+  {
+    "id": "native-previous-date",
+    "kind": "native",
+    "variant": "previous-date"
+  },
+  {
+    "id": "native-null-field",
+    "kind": "native",
+    "variant": "null-field"
+  },
+  {
+    "id": "native-zero-field",
+    "kind": "native",
+    "variant": "zero-field"
+  },
+  {
+    "id": "native-missing-field",
+    "kind": "native",
+    "variant": "missing-field"
+  },
+  {
+    "id": "native-blank-field",
+    "kind": "native",
+    "variant": "blank-field"
+  },
+  {
+    "id": "native-scope-namespace",
+    "kind": "native",
+    "variant": "scope-namespace"
+  },
+  {
+    "id": "native-scope-teacher",
+    "kind": "native",
+    "variant": "scope-teacher"
+  },
+  {
+    "id": "native-scope-student",
+    "kind": "native",
+    "variant": "scope-student"
+  },
+  {
+    "id": "native-scope-date",
+    "kind": "native",
+    "variant": "scope-date"
+  },
+  {
+    "id": "native-auth-failure-twice",
+    "kind": "native",
+    "variant": "auth-failure-twice"
+  },
+  {
+    "id": "resolve-exact",
+    "kind": "resolve",
+    "name": " S09 Name ",
+    "rows": [
+      {
+        "studentKey": "77001",
+        "studentName": "S09 Name"
+      }
+    ]
+  },
+  {
+    "id": "resolve-duplicate-identical",
+    "kind": "resolve",
+    "name": " S09 Name ",
+    "rows": [
+      {
+        "studentKey": "77001",
+        "studentName": "S09 Name"
+      },
+      {
+        "studentKey": "77001",
+        "studentName": "S09 Name"
+      }
+    ]
+  },
+  {
+    "id": "resolve-ambiguous",
+    "kind": "resolve",
+    "name": " S09 Name ",
+    "rows": [
+      {
+        "studentKey": "77001",
+        "studentName": "S09 Name"
+      },
+      {
+        "studentKey": "77002",
+        "studentName": "S09 Name"
+      }
+    ]
+  },
+  {
+    "id": "resolve-wrong-name",
+    "kind": "resolve",
+    "name": " S09 Name ",
+    "rows": [
+      {
+        "studentKey": "77001",
+        "studentName": "s09 Name"
+      }
+    ]
+  },
+  {
+    "id": "resolve-leading-zero",
+    "kind": "resolve",
+    "name": " S09 Name ",
+    "rows": [
+      {
+        "studentKey": "077001",
+        "studentName": "S09 Name"
+      }
+    ]
+  },
+  {
+    "id": "resolve-extra-field",
+    "kind": "resolve",
+    "name": " S09 Name ",
+    "rows": [
+      {
+        "studentKey": "77001",
+        "studentName": "S09 Name",
+        "extra": true
+      }
+    ]
+  },
+  {
+    "id": "resolve-empty",
+    "kind": "resolve",
+    "name": " S09 Name ",
+    "rows": []
+  },
+  {
+    "id": "native-key-'001'",
+    "kind": "literal-key",
+    "value": "001"
+  },
+  {
+    "id": "native-key-'1'",
+    "kind": "literal-key",
+    "value": "1"
+  },
+  {
+    "id": "native-key-'1:2'",
+    "kind": "literal-key",
+    "value": "1:2"
+  },
+  {
+    "id": "native-key-'A'",
+    "kind": "literal-key",
+    "value": "A"
+  },
+  {
+    "id": "native-key-'a'",
+    "kind": "literal-key",
+    "value": "a"
+  },
+  {
+    "id": "native-key-' 1'",
+    "kind": "literal-key",
+    "value": " 1"
+  },
+  {
+    "id": "native-key-'1 '",
+    "kind": "literal-key",
+    "value": "1 "
+  },
+  {
+    "id": "native-key-'9007199254740992'",
+    "kind": "literal-key",
+    "value": "9007199254740992"
+  },
+  {
+    "id": "saved-roster",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-summary",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_summary",
+        "studentId": "s09://account-A/student/0001"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-history-all",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_history",
+        "studentId": "s09://account-A/student/0001"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-history-ordered",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_history",
+        "studentId": "s09://account-A/student/0001",
+        "facets": [
+          "daily_records",
+          "sections",
+          "books",
+          "attempts"
+        ]
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-lesson-current",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "lesson_context",
+        "studentId": "s09://account-A/student/0001",
+        "date": "2040-01-04"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-lesson-prior",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "lesson_context",
+        "studentId": "s09://account-A/student/0001",
+        "date": "2040-01-02"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-books",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "books"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-books-edition",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "books",
+        "bookEditionId": "edition/A:01"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-sections",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "sections"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-sections-edition",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "sections",
+        "bookEditionId": "edition/A:01"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-attempts",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "attempts"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-attempts-edition",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "attempts",
+        "bookEditionId": "edition/A:01"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-assignments",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "assignments"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-assignments-edition",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "assignments",
+        "bookEditionId": "edition/A:01"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-videos",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "videos"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-videos-edition",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "videos",
+        "bookEditionId": "edition/A:01"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-daily_tests",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "daily_tests"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-daily_tests-edition",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "daily_tests",
+        "bookEditionId": "edition/A:01"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-daily_records",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "daily_records"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-daily_records-edition",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "daily_records",
+        "bookEditionId": "edition/A:01"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-teacher_events",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "teacher_events"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-teacher_events-edition",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "teacher_events",
+        "bookEditionId": "edition/A:01"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-daily_record_drafts",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "daily_record_drafts"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-daily_record_drafts-edition",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "daily_record_drafts",
+        "bookEditionId": "edition/A:01"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-limit-1",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "limit": 1
+    }
+  },
+  {
+    "id": "saved-limit-250",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "limit": 250
+    }
+  },
+  {
+    "id": "saved-limit-0",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "limit": 0
+    }
+  },
+  {
+    "id": "saved-limit-251",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "limit": 251
+    }
+  },
+  {
+    "id": "saved-limit--1",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "limit": -1
+    }
+  },
+  {
+    "id": "saved-limit-1.5",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "limit": 1.5
+    }
+  },
+  {
+    "id": "saved-limit-None",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "limit": null
+    }
+  },
+  {
+    "id": "saved-limit-2",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "limit": "2"
+    }
+  },
+  {
+    "id": "saved-identity-130",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_summary",
+        "studentId": "s09://account-A/student/0001"
+      }
+    }
+  },
+  {
+    "id": "saved-identity-131",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_summary",
+        "studentId": "s09://account-B/student/0001"
+      }
+    }
+  },
+  {
+    "id": "saved-identity-132",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_summary",
+        "studentId": "0001"
+      }
+    }
+  },
+  {
+    "id": "saved-identity-133",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_summary",
+        "studentId": "0001 "
+      }
+    }
+  },
+  {
+    "id": "saved-identity-134",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_summary",
+        "studentId": "0001:Ab"
+      }
+    }
+  },
+  {
+    "id": "saved-identity-135",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_summary",
+        "studentId": "0001:ab"
+      }
+    }
+  },
+  {
+    "id": "saved-identity-136",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_summary",
+        "studentId": " s09://account-A/student/0001"
+      }
+    }
+  },
+  {
+    "id": "saved-identity-137",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_summary",
+        "studentId": "S09 Duplicate Name"
+      }
+    }
+  },
+  {
+    "id": "saved-unknown-field",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "extra": true
+    }
+  },
+  {
+    "id": "saved-wrong-mode",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "sourceMode": "live"
+    }
+  },
+  {
+    "id": "saved-invalid-date",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "lesson_context",
+        "studentId": "s09://account-A/student/0001",
+        "date": "2040-02-31"
+      }
+    }
+  },
+  {
+    "id": "saved-duplicate-facet",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_history",
+        "studentId": "s09://account-A/student/0001",
+        "facets": [
+          "books",
+          "books"
+        ]
+      }
+    }
+  },
+  {
+    "id": "saved-empty-facets",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_history",
+        "studentId": "s09://account-A/student/0001",
+        "facets": []
+      }
+    }
+  },
+  {
+    "id": "saved-unknown-facet",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "progress"
+      }
+    }
+  },
+  {
+    "id": "saved-unknown-edition",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "student_records",
+        "studentId": "s09://account-A/student/0001",
+        "facet": "books",
+        "bookEditionId": "edition/unknown"
+      }
+    }
+  },
+  {
+    "id": "saved-null-cursor",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "cursor": null
+    }
+  },
+  {
+    "id": "saved-junk-cursor",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "cursor": "!!!"
+    }
+  },
+  {
+    "id": "saved-long-cursor",
+    "kind": "saved",
+    "input": {
+      "query": {
+        "kind": "roster"
+      },
+      "cursor": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    }
+  },
+  {
+    "id": "saved-pagination",
+    "kind": "saved-special",
+    "variant": "pagination"
+  },
+  {
+    "id": "saved-cursor-wrong-selection",
+    "kind": "saved-special",
+    "variant": "cursor-wrong-selection"
+  },
+  {
+    "id": "saved-cursor-wrong-snapshot",
+    "kind": "saved-special",
+    "variant": "cursor-wrong-snapshot"
+  },
+  {
+    "id": "saved-cursor-offset-equal",
+    "kind": "saved-special",
+    "variant": "cursor-offset-equal"
+  },
+  {
+    "id": "saved-cursor-offset-over",
+    "kind": "saved-special",
+    "variant": "cursor-offset-over"
+  },
+  {
+    "id": "saved-cursor-negative",
+    "kind": "saved-special",
+    "variant": "cursor-negative"
+  },
+  {
+    "id": "saved-cursor-extra",
+    "kind": "saved-special",
+    "variant": "cursor-extra"
+  },
+  {
+    "id": "saved-cursor-limit-change",
+    "kind": "saved-special",
+    "variant": "cursor-limit-change"
+  },
+  {
+    "id": "saved-cursor-query-key-order",
+    "kind": "saved-special",
+    "variant": "cursor-query-key-order"
+  },
+  {
+    "id": "saved-budget-partial",
+    "kind": "saved-special",
+    "variant": "budget-partial"
+  },
+  {
+    "id": "saved-budget-single",
+    "kind": "saved-special",
+    "variant": "budget-single"
+  },
+  {
+    "id": "saved-budget-fixed",
+    "kind": "saved-special",
+    "variant": "budget-fixed"
+  },
+  {
+    "id": "saved-loader-pin-missing",
+    "kind": "saved-special",
+    "variant": "loader-pin-missing"
+  },
+  {
+    "id": "saved-loader-hash-mismatch",
+    "kind": "saved-special",
+    "variant": "loader-hash-mismatch"
+  },
+  {
+    "id": "saved-loader-symlink",
+    "kind": "saved-special",
+    "variant": "loader-symlink"
+  },
+  {
+    "id": "saved-loader-parent-symlink",
+    "kind": "saved-special",
+    "variant": "loader-parent-symlink"
+  },
+  {
+    "id": "saved-loader-world-writable",
+    "kind": "saved-special",
+    "variant": "loader-world-writable"
+  },
+  {
+    "id": "saved-loader-malformed-json",
+    "kind": "saved-special",
+    "variant": "loader-malformed-json"
+  },
+  {
+    "id": "saved-loader-invalid-utf8",
+    "kind": "saved-special",
+    "variant": "loader-invalid-utf8"
+  },
+  {
+    "id": "saved-loader-duplicate-id",
+    "kind": "saved-special",
+    "variant": "loader-duplicate-id"
+  },
+  {
+    "id": "saved-loader-duplicate-name",
+    "kind": "saved-special",
+    "variant": "loader-duplicate-name"
+  },
+  {
+    "id": "saved-loader-lesson-foreign",
+    "kind": "saved-special",
+    "variant": "loader-lesson-foreign"
+  },
+  {
+    "id": "saved-loader-draft-foreign",
+    "kind": "saved-special",
+    "variant": "loader-draft-foreign"
+  },
+  {
+    "id": "saved-loader-event-duplicate",
+    "kind": "saved-special",
+    "variant": "loader-event-duplicate"
+  },
+  {
+    "id": "pinned-local-valid",
+    "kind": "pinned-local",
+    "variant": "valid"
+  },
+  {
+    "id": "pinned-local-bad-hash",
+    "kind": "pinned-local",
+    "variant": "bad-hash"
+  },
+  {
+    "id": "pinned-local-symlink",
+    "kind": "pinned-local",
+    "variant": "symlink"
+  },
+  {
+    "id": "pinned-local-ancestor-symlink",
+    "kind": "pinned-local",
+    "variant": "ancestor-symlink"
+  },
+  {
+    "id": "pinned-local-world-writable",
+    "kind": "pinned-local",
+    "variant": "world-writable"
+  },
+  {
+    "id": "pinned-local-oversize",
+    "kind": "pinned-local",
+    "variant": "oversize"
+  },
+  {
+    "id": "pinned-local-directory",
+    "kind": "pinned-local",
+    "variant": "directory"
+  },
+  {
+    "id": "pinned-local-relative",
+    "kind": "pinned-local",
+    "variant": "relative"
+  },
+  {
+    "id": "pagination-direct-limit-zero",
+    "kind": "paginate",
+    "variant": "limit-zero"
+  },
+  {
+    "id": "pagination-direct-limit-fraction",
+    "kind": "paginate",
+    "variant": "limit-fraction"
+  },
+  {
+    "id": "pagination-direct-limit-max",
+    "kind": "paginate",
+    "variant": "limit-max"
+  },
+  {
+    "id": "pagination-direct-bad-budget",
+    "kind": "paginate",
+    "variant": "bad-budget"
+  },
+  {
+    "id": "pagination-direct-empty",
+    "kind": "paginate",
+    "variant": "empty"
+  },
+  {
+    "id": "pagination-direct-byte-limited",
+    "kind": "paginate",
+    "variant": "byte-limited"
+  },
+  {
+    "id": "pagination-direct-single-too-big",
+    "kind": "paginate",
+    "variant": "single-too-big"
+  },
+  {
+    "id": "module-relative-paths",
+    "kind": "paths"
+  },
+  {
+    "id": "native-configuration-owner-refusal",
+    "kind": "native-config"
+  },
+  {
+    "id": "native-configuration-empty",
+    "kind": "native-config",
+    "variant": "empty"
+  },
+  {
+    "id": "native-configuration-duplicate-students",
+    "kind": "config-schema"
+  }
+]
