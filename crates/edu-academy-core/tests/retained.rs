@@ -363,3 +363,72 @@ fn iterative_clone_and_drop_do_not_turn_transport_depth_into_source_refusal() {
     drop(value);
     drop(detached);
 }
+#[test]
+fn unavailable_source_has_explicit_null_handle_before_review_hash() {
+    use edu_academy_core::{
+        decision::{ReviewTrace, review_extended},
+        wire::TestPorts,
+    };
+    let context = obj(&[
+        ("schemaVersion", "academy.dailyrecord-user-context/1".into()),
+        ("purpose", "Review missing source".into()),
+        ("currentRequestRef", "r".into()),
+        (
+            "scope",
+            obj(&[
+                ("sourceNamespace", "n".into()),
+                ("teacherId", "t".into()),
+                ("studentId", "s".into()),
+                ("lessonDate", "2040-01-16".into()),
+            ]),
+        ),
+        ("selectedFields", strings(&["attendance"])),
+        (
+            "memoAnswer",
+            obj(&[("kind", "no_addition".into()), ("requestRef", "r".into())]),
+        ),
+        ("facts", Js::Arr(vec![])),
+    ]);
+    let input = obj(&[
+        ("context", context),
+        ("observation", Js::Null),
+        ("ports", obj(&[("nowEpochMs", Js::Num(2210336400000.0))])),
+        (
+            "proposals",
+            Js::Arr(vec![obj(&[
+                ("field", "attendance".into()),
+                ("value", "N".into()),
+                ("factRefs", strings(&["f"])),
+                (
+                    "decision",
+                    obj(&[("kind", "set".into()), ("requestRef", "r".into())]),
+                ),
+            ])]),
+        ),
+    ]);
+    let mut trace = ReviewTrace {
+        calls: vec![],
+        uuids: vec![],
+    };
+    let mut events = vec![];
+    let result = review_extended(
+        &input,
+        &TestPorts {
+            uuid: "00000000-0000-4000-8000-000000000001".into(),
+            now: "explicit-epoch-ms-in-wire".into(),
+        },
+        &mut events,
+        &mut trace,
+    )
+    .unwrap();
+    let review = result.get("review");
+    assert!(review.has("observationHandle"));
+    assert_eq!(review.get("observationHandle"), &Js::Null);
+    assert!(trace.uuids.is_empty());
+    assert!(
+        stringify(review)
+            .unwrap()
+            .contains("\"observationHandle\":null")
+    );
+    assert!(review.get("status").is("held"));
+}

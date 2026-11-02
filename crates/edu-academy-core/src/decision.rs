@@ -938,7 +938,7 @@ fn review_core(
     let scope = context.get("scope");
     let request = context.get("currentRequestRef");
     if trace.is_some()
-        && review_input.has("observationHandle")
+        && review_input.get("observationHandle").truthy()
         && (handle.absent()
             || review_input.get("observationHandle") != &handle
             || source.get("scope") != scope
@@ -959,7 +959,11 @@ fn review_core(
         return Err(Fault::error("duplicate_proposal_field"));
     }
     let handle = if trace.is_some() {
-        review_input.get("observationHandle").clone()
+        if review_input.get("observationHandle").absent() {
+            Js::Null
+        } else {
+            review_input.get("observationHandle").clone()
+        }
     } else {
         handle
     };
@@ -969,7 +973,7 @@ fn review_core(
     } else {
         vec!["qualified_before_source_unavailable".into()]
     };
-    if trace.is_some() && review_input.has("cismObservationHandle") {
+    if trace.is_some() && review_input.get("cismObservationHandle").truthy() {
         global.push("exact_fresh_cism_observation_handle_required".into());
     }
     for fact in context.get("facts").array() {
@@ -1264,7 +1268,7 @@ fn review_core(
             ("proposals", proposals),
             (
                 "cismObservationHandle",
-                if trace.is_some() && review_input.has("cismObservationHandle") {
+                if trace.is_some() && review_input.get("cismObservationHandle").truthy() {
                     review_input.get("cismObservationHandle").clone()
                 } else {
                     Js::Null
