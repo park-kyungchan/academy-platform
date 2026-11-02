@@ -1,0 +1,114 @@
+{
+  "schema": "s05.delivery-evidence/1",
+  "sourceBase": "cc6e81f1be2fcb56f011041e3d606e21edf76da3",
+  "scope": "Additive migration/recorded-lookup only; local source characterization, independent review pending.",
+  "finalChecks": {
+    "referenceAccepted": 34,
+    "referenceTotal": 34,
+    "negativeControlsRejected": 18,
+    "negativeControlsTotal": 18,
+    "originalSyntheticTestsPassed": 10,
+    "originalAssertions": 43,
+    "actualSourceTestChildStatus": 0,
+    "rawResults": "migration/recorded-lookup/results/run-03",
+    "runningChildren": 0
+  },
+  "files": {
+    "migration/recorded-lookup/PROVENANCE.json": {
+      "bytes": 4877,
+      "sha256": "3e598c2d84c0150338f43ebc4f10210dacf806c3b324e371def4d1526e9b9085"
+    },
+    "migration/recorded-lookup/README.md": {
+      "bytes": 15760,
+      "sha256": "bad56cc9ab7d337ec354a9fef2c19151184d9109f9d7f946f8905801b556974d"
+    },
+    "migration/recorded-lookup/baseline.ts": {
+      "bytes": 2298,
+      "sha256": "432f0779fdd995532534039eaa0616ef3d25b6aafe0c3bf0340e08ea4412b6b2"
+    },
+    "migration/recorded-lookup/comparator.mjs": {
+      "bytes": 786,
+      "sha256": "78a7221d3b362697f0d75ad4d09e1e5c4ad5b932581d5664dc811482ff7ae1a0"
+    },
+    "migration/recorded-lookup/corpus/audit.json": {
+      "bytes": 7514,
+      "sha256": "4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e"
+    },
+    "migration/recorded-lookup/corpus/cases.json": {
+      "bytes": 8633,
+      "sha256": "44b284eb72c9ed782ed5e73eb713ff232fd31eb4c604f9ae41967720c533a186"
+    },
+    "migration/recorded-lookup/corpus/lesson.json": {
+      "bytes": 1276,
+      "sha256": "453ccba341027f52cd24cd145fc9984079070c5aa24d802878a9e3addd3a12ec"
+    },
+    "migration/recorded-lookup/corpus/source-pins.json": {
+      "bytes": 325,
+      "sha256": "1003737d97a349d2acc1d0a09e594675d53ee8ce8100d45d67d3a7a7383137e2"
+    },
+    "migration/recorded-lookup/deny-transport.ts": {
+      "bytes": 1064,
+      "sha256": "f2a36bdb4681b0401f3f809d3ac0c196f3630855cf00f76faf0fd60d5b3896fc"
+    },
+    "migration/recorded-lookup/expected.json": {
+      "bytes": 46398,
+      "sha256": "aae41a0f4d79752a0b14d2d4504d5112d4bc576ba6827412675f6789eb6ee234"
+    },
+    "migration/recorded-lookup/pins.json": {
+      "bytes": 15854,
+      "sha256": "3696f94265f899ef825cdbce3bfba4f1c78f625297fad75d5c434e3fffeff749"
+    },
+    "migration/recorded-lookup/results/run-01/qualification.json": {
+      "bytes": 43990,
+      "sha256": "76d941ea8ec12d023631d67744a74a87f90a62e529c73ab80ef19726052e4171"
+    },
+    "migration/recorded-lookup/results/run-01/reference.json": {
+      "bytes": 69051,
+      "sha256": "47f45ab40c0848e110ad16a7eedb8233c1abfb8a6d812f53c07bc722c823dca9"
+    },
+    "migration/recorded-lookup/results/run-01/report.json": {
+      "bytes": 1017,
+      "sha256": "0dcec3b42bbdb2178be1ba24ed3fd148498daf5ca705c14f2119c83724d0f874"
+    },
+    "migration/recorded-lookup/results/run-01/source-test.json": {
+      "bytes": 485,
+      "sha256": "91dea0e54ba68ddfc1b295f1661bcbc5b20dbecf6dbc5cd6f6c6bba3f88135d8"
+    },
+    "migration/recorded-lookup/results/run-02/qualification.json": {
+      "bytes": 43990,
+      "sha256": "6e7576c403a6e5c28df35eb84c7c3056e7145b9004a1a3f7a2a8ef6a54cb2490"
+    },
+    "migration/recorded-lookup/results/run-02/reference.json": {
+      "bytes": 69051,
+      "sha256": "be4a3dba3a71efd8fba8a39a036ef972436ccf2694bd1805799abc7dd9cf4628"
+    },
+    "migration/recorded-lookup/results/run-02/report.json": {
+      "bytes": 1017,
+      "sha256": "83459f5ae06efb27d32b887b68d2d5075df90dcb1e807dd06a33bb59f7fe7330"
+    },
+    "migration/recorded-lookup/results/run-02/source-test.json": {
+      "bytes": 941,
+      "sha256": "c6f24dab38061d7c705d7914a3b40ecca9bc0f7299249a1aa9d145096a11820f"
+    },
+    "migration/recorded-lookup/results/run-03/qualification.json": {
+      "bytes": 43990,
+      "sha256": "a0db28156e27be94e7a7924a29d4ad106c2d45bec9b393e3709ae92494a1a482"
+    },
+    "migration/recorded-lookup/results/run-03/reference.json": {
+      "bytes": 69051,
+      "sha256": "0881dda160c9be1c92a8b3b91ff8a11d937aca8540f96fe3331e036a93067326"
+    },
+    "migration/recorded-lookup/results/run-03/report.json": {
+      "bytes": 1017,
+      "sha256": "81f9959452bf6ebbf5daae4de50f2781bb666f3d59fed49885383ef23a5b7ac7"
+    },
+    "migration/recorded-lookup/results/run-03/source-test.json": {
+      "bytes": 1899,
+      "sha256": "8dba812bad2451dc19486c4c6b7321894e27d86d4b1776b3936b611f47270db7"
+    },
+    "migration/recorded-lookup/verify.mjs": {
+      "bytes": 10604,
+      "sha256": "392696d444e41943954cccc23f3845cb286b0b0ad30dee555eb3bb6c3c706331"
+    }
+  }
+}

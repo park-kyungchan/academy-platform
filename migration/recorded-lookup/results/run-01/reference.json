@@ -1,0 +1,1159 @@
+[
+  {
+    "id": "books-first",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/books-first",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        },
+        "limit": 1
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/books-first"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/books/0\"},\"value\":{\"sourceBookEditionId\":\"edition-a\",\"displayName\":\"Synthetic Book A\"}}],\"page\":{\"totalInSavedSelection\":2,\"returned\":1,\"exhausted\":false,\"nextCursor\":\"eyJ2ZXJzaW9uIjoxLCJzbmFwc2hvdCI6IjliNWEzYzU2NWY0YWE5Mjk2YmE5OGNkZDc0NjAxMzhhYTA2NDJmMzhkZWQzMTQ3MGU5YzgzMjdjZGExMmVlOWMiLCJzZWxlY3Rpb24iOiJlZWRmOGJhMmRmMzAyMGNkNjhmOWMwYmRjMTYwNGY1ZDUxMDQwYTg4OTQ1M2RmMDZkZTNlNTExYzZhYTY0MTUyIiwib2Zmc2V0IjoxfQ\"}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "books-next",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/books-next",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        },
+        "limit": 1,
+        "cursor": "eyJ2ZXJzaW9uIjoxLCJzbmFwc2hvdCI6IjliNWEzYzU2NWY0YWE5Mjk2YmE5OGNkZDc0NjAxMzhhYTA2NDJmMzhkZWQzMTQ3MGU5YzgzMjdjZGExMmVlOWMiLCJzZWxlY3Rpb24iOiJlZWRmOGJhMmRmMzAyMGNkNjhmOWMwYmRjMTYwNGY1ZDUxMDQwYTg4OTQ1M2RmMDZkZTNlNTExYzZhYTY0MTUyIiwib2Zmc2V0IjoxfQ"
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/books-next"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/books/1\"},\"value\":{\"sourceBookEditionId\":\"edition-b\",\"displayName\":\"Synthetic Book B\"}}],\"page\":{\"totalInSavedSelection\":2,\"returned\":1,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "sections-order",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/sections-order",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "sections"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/sections-order"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/sections/0\"},\"value\":{\"id\":\"section-a\",\"bookEditionId\":\"edition-a\",\"rowKind\":\"section\"}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/sections/1\"},\"value\":{\"id\":\"placeholder\",\"bookEditionId\":\"edition-a\",\"rowKind\":\"placeholder\"}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/sections/2\"},\"value\":{\"id\":\"section-b\",\"bookEditionId\":\"edition-b\",\"rowKind\":\"section\"}}],\"page\":{\"totalInSavedSelection\":3,\"returned\":3,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "sections-edition-a",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/sections-edition-a",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "sections",
+          "bookEditionId": "edition-a"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/sections-edition-a"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/sections/0\"},\"value\":{\"id\":\"section-a\",\"bookEditionId\":\"edition-a\",\"rowKind\":\"section\"}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/sections/1\"},\"value\":{\"id\":\"placeholder\",\"bookEditionId\":\"edition-a\",\"rowKind\":\"placeholder\"}}],\"page\":{\"totalInSavedSelection\":2,\"returned\":2,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "sections-edition-b",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/sections-edition-b",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "sections",
+          "bookEditionId": "edition-b"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/sections-edition-b"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/sections/2\"},\"value\":{\"id\":\"section-b\",\"bookEditionId\":\"edition-b\",\"rowKind\":\"section\"}}],\"page\":{\"totalInSavedSelection\":1,\"returned\":1,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "attempt-knowledge-states",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/attempt-knowledge-states",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "attempts"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/attempt-knowledge-states"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/attempts/0\"},\"value\":{\"id\":\"old-attempt\",\"score\":75,\"displayedAt\":\"2020-01-01 10:00\",\"teacherReview\":\"unknown\"}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/attempts/1\"},\"value\":{\"id\":\"missing-score\"}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/attempts/2\"},\"value\":{\"id\":\"null-score\",\"score\":null}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/attempts/3\"},\"value\":{\"id\":\"blank-score\",\"score\":\"\"}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/attempts/4\"},\"value\":{\"id\":\"zero-score\",\"score\":0}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/attempts/5\"},\"value\":{\"id\":\"unknown-score\",\"score\":\"unknown\"}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/attempts/6\"},\"value\":{\"id\":\"not-performed\",\"assessmentState\":\"not_performed\"}}],\"page\":{\"totalInSavedSelection\":7,\"returned\":7,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "empty-assignments",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/empty-assignments",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "assignments"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/empty-assignments"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\",\"No matching preserved records; activity, historical existence and server deletion remain unknown.\"],\"status\":\"partial\",\"records\":[],\"page\":{\"totalInSavedSelection\":0,\"returned\":0,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "videos-null",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/videos-null",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-4",
+          "facet": "videos"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/videos-null"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\",\"No matching preserved records; activity, historical existence and server deletion remain unknown.\"],\"status\":\"partial\",\"records\":[],\"page\":{\"totalInSavedSelection\":0,\"returned\":0,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "videos-missing",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/videos-missing",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-5",
+          "facet": "videos"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/videos-missing"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\",\"No matching preserved records; activity, historical existence and server deletion remain unknown.\"],\"status\":\"partial\",\"records\":[],\"page\":{\"totalInSavedSelection\":0,\"returned\":0,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "current-prior-records",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/current-prior-records",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "daily_records"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/current-prior-records"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"source_observation_snapshot\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/liveDailyRecords/0\"},\"value\":{\"date\":\"2026-10-14\",\"progress\":\"\",\"homework\":null,\"recordKey\":\"synthetic-current\"}},{\"classification\":\"source_observation_snapshot\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/liveDailyRecords/1\"},\"value\":{\"date\":\"2026-10-12\",\"progress\":null,\"recordKey\":\"synthetic-prior\"}}],\"page\":{\"totalInSavedSelection\":2,\"returned\":2,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "escaped-source-pointer",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/escaped-source-pointer",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "daily_tests"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/escaped-source-pointer"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/DTZT/current~1DT~01\"},\"value\":{\"score\":0,\"teacherFinal\":\"unknown\"}}],\"page\":{\"totalInSavedSelection\":1,\"returned\":1,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "dated-lesson",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/dated-lesson",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "lesson_context",
+          "studentId": "synthetic-student-1",
+          "date": "2026-10-14"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/dated-lesson"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"teacher_report\",\"source\":{\"path\":\"private/lesson-20261014/overlay.json\",\"sha256\":\"453ccba341027f52cd24cd145fc9984079070c5aa24d802878a9e3addd3a12ec\",\"jsonPointer\":\"/students/0/teacherEvents/0\"},\"value\":{\"id\":\"teacher-event\",\"studentId\":\"synthetic-student-1\",\"sourceKind\":\"teacher_report\",\"recordedAt\":\"2026-10-14T12:00:00Z\",\"facts\":[{\"kind\":\"homework_performance\",\"status\":\"explicitly_not_done\",\"activityLabel\":\"Synthetic scoped homework\"}]}},{\"classification\":\"user_supplied_context\",\"source\":{\"path\":\"private/lesson-20261014/overlay.json\",\"sha256\":\"453ccba341027f52cd24cd145fc9984079070c5aa24d802878a9e3addd3a12ec\",\"jsonPointer\":\"/students/0/teacherEvents/1\"},\"value\":{\"id\":\"context-event\",\"studentId\":\"synthetic-student-1\",\"sourceKind\":\"user_supplied_message_context\",\"recordedAt\":\"2026-10-14T12:01:00Z\",\"facts\":[{\"kind\":\"parent_reported_observation\"}]}},{\"classification\":\"source_observation_snapshot\",\"source\":{\"path\":\"private/lesson-20261014/overlay.json\",\"sha256\":\"453ccba341027f52cd24cd145fc9984079070c5aa24d802878a9e3addd3a12ec\",\"jsonPointer\":\"/students/0/observations/0\"},\"value\":{\"kind\":\"dailyRecord\",\"observedAt\":\"2026-10-14T11:00:00Z\",\"progress\":\"\",\"homework\":\"\"}}],\"page\":{\"totalInSavedSelection\":3,\"returned\":3,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "wrong-date-no-evidence",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/wrong-date-no-evidence",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "lesson_context",
+          "studentId": "synthetic-student-1",
+          "date": "2026-10-13"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/wrong-date-no-evidence"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\",\"No matching preserved records; activity, historical existence and server deletion remain unknown.\"],\"status\":\"partial\",\"records\":[],\"page\":{\"totalInSavedSelection\":0,\"returned\":0,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "unsaved-draft",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/unsaved-draft",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "daily_record_drafts"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/unsaved-draft"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"unsaved_draft\",\"source\":{\"path\":\"private/lesson-20261014/overlay.json\",\"sha256\":\"453ccba341027f52cd24cd145fc9984079070c5aa24d802878a9e3addd3a12ec\",\"jsonPointer\":\"/students/0/dailyRecordDraft\"},\"value\":{\"status\":\"local_draft_only_not_saved\",\"serverSaved\":false,\"parentSent\":false}}],\"page\":{\"totalInSavedSelection\":1,\"returned\":1,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "summary-bounded",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/summary-bounded",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_summary",
+          "studentId": "synthetic-student-1"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/summary-bounded"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"derived_saved_summary\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0\"},\"value\":{\"studentId\":\"synthetic-student-1\",\"name\":\"Synthetic Student 1\",\"observedCounts\":{\"books\":2,\"sectionRows\":3,\"historicalAttemptObservations\":7,\"historicalVideoObservations\":0},\"availableFacets\":[\"books\",\"sections\",\"attempts\",\"assignments\",\"videos\",\"daily_tests\",\"daily_records\",\"teacher_events\",\"daily_record_drafts\"],\"lessonSupplementPresent\":true,\"recordedHistoryCoverageClaim\":null,\"countsMeaning\":\"Preserved rows and observations; not unique assignments, current roster completeness or completion.\"}}],\"page\":{\"totalInSavedSelection\":1,\"returned\":1,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "roster-duplicate-name",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/roster-duplicate-name",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "roster"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/roster-duplicate-name"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0\"},\"value\":{\"studentId\":\"synthetic-student-1\",\"name\":\"Synthetic Student 1\",\"membershipBasis\":\"preserved_authorized_managed_roster\",\"completeTeacherRosterVerified\":false}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/1\"},\"value\":{\"studentId\":\"synthetic-student-2\",\"name\":\"Synthetic Student 2\",\"membershipBasis\":\"preserved_authorized_managed_roster\",\"completeTeacherRosterVerified\":false}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/2\"},\"value\":{\"studentId\":\"synthetic-student-3\",\"name\":\"Synthetic Student 3\",\"membershipBasis\":\"preserved_authorized_managed_roster\",\"completeTeacherRosterVerified\":false}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/3\"},\"value\":{\"studentId\":\"synthetic-student-4\",\"name\":\"Synthetic Student 4\",\"membershipBasis\":\"preserved_authorized_managed_roster\",\"completeTeacherRosterVerified\":false}},{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/4\"},\"value\":{\"studentId\":\"synthetic-student-5\",\"name\":\"Synthetic Student 4\",\"membershipBasis\":\"preserved_authorized_managed_roster\",\"completeTeacherRosterVerified\":false}}],\"page\":{\"totalInSavedSelection\":5,\"returned\":5,\"exhausted\":true,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "unknown-student",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/unknown-student",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_summary",
+          "studentId": "not-preserved"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/unknown-student"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"unavailable\",\"code\":\"student_not_in_preserved_roster\",\"records\":[],\"page\":{\"totalInSavedSelection\":null,\"returned\":0,\"exhausted\":false,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "student-id-not-trimmed",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/student-id-not-trimmed",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_summary",
+          "studentId": "synthetic-student-1 "
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/student-id-not-trimmed"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"unavailable\",\"code\":\"student_not_in_preserved_roster\",\"records\":[],\"page\":{\"totalInSavedSelection\":null,\"returned\":0,\"exhausted\":false,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "unknown-edition",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/unknown-edition",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "sections",
+          "bookEditionId": "guessed-edition"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/unknown-edition"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"unavailable\",\"code\":\"book_edition_not_in_preserved_student_scope\",\"records\":[],\"page\":{\"totalInSavedSelection\":null,\"returned\":0,\"exhausted\":false,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "unsupported-book-filter",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/unsupported-book-filter",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "attempts",
+          "bookEditionId": "edition-a"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/unsupported-book-filter"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"unavailable\",\"code\":\"book_filter_not_supported_for_facet\",\"records\":[],\"page\":{\"totalInSavedSelection\":null,\"returned\":0,\"exhausted\":false,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "cursor-cross-selection",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/cursor-cross-selection",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "sections"
+        },
+        "cursor": "eyJ2ZXJzaW9uIjoxLCJzbmFwc2hvdCI6IjliNWEzYzU2NWY0YWE5Mjk2YmE5OGNkZDc0NjAxMzhhYTA2NDJmMzhkZWQzMTQ3MGU5YzgzMjdjZGExMmVlOWMiLCJzZWxlY3Rpb24iOiJlZWRmOGJhMmRmMzAyMGNkNjhmOWMwYmRjMTYwNGY1ZDUxMDQwYTg4OTQ1M2RmMDZkZTNlNTExYzZhYTY0MTUyIiwib2Zmc2V0IjoxfQ"
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/cursor-cross-selection"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"unavailable\",\"code\":\"cursor_scope_or_snapshot_conflict\",\"records\":[],\"page\":{\"totalInSavedSelection\":null,\"returned\":0,\"exhausted\":false,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "cursor-malformed",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/cursor-malformed",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        },
+        "cursor": "broken!"
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/cursor-malformed"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"unavailable\",\"code\":\"cursor_scope_or_snapshot_conflict\",\"records\":[],\"page\":{\"totalInSavedSelection\":null,\"returned\":0,\"exhausted\":false,\"nextCursor\":null}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "changed-bytes",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/changed-bytes",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/changed-bytes"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"threw\",\"error\":{\"name\":\"Error\",\"message\":\"pinned_input_changed\"},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "missing-pin",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/missing-pin",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/missing-pin"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"threw\",\"error\":{\"name\":\"Error\",\"message\":\"input_pin_missing\"},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "symlink-input",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/symlink-input-link",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/symlink-input-link"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"threw\",\"error\":{\"name\":\"Error\",\"message\":\"pinned_input_file_invalid\"},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "duplicate-student-id",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/duplicate-student-id",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/duplicate-student-id"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"threw\",\"error\":{\"name\":\"Error\",\"message\":\"student_scope_invalid\"},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "foreign-lesson-student",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/foreign-lesson-student",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/foreign-lesson-student"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"threw\",\"error\":{\"name\":\"Error\",\"message\":\"lesson_student_scope_invalid\"},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "missing-evidence-root",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/missing-evidence-root",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"threw\",\"error\":{\"name\":\"Error\",\"message\":\"s05_explicit_evidence_root_required\"},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "missing-source-root",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/missing-source-root",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/missing-source-root"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"threw\",\"error\":{\"name\":\"Error\",\"message\":\"s05_explicit_source_root_required\"},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "live-mode",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/live-mode",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        },
+        "sourceMode": "live_read"
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/live-mode"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"threw\",\"error\":{\"name\":\"ZodError\",\"message\":\"[\\n  {\\n    \\\"code\\\": \\\"invalid_value\\\",\\n    \\\"values\\\": [\\n      \\\"saved_context\\\"\\n    ],\\n    \\\"path\\\": [\\n      \\\"sourceMode\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid input: expected \\\\\\\"saved_context\\\\\\\"\\\"\\n  }\\n]\",\"issues\":[{\"code\":\"invalid_value\",\"values\":[\"saved_context\"],\"path\":[\"sourceMode\"],\"message\":\"Invalid input: expected \\\"saved_context\\\"\"}]},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "mutating-get-query",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/mutating-get-query",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        },
+        "operation": {
+          "method": "GET",
+          "path": "/servlet/controller.cct.tutor.DayRecordServlet",
+          "reqCmd": "udtPrg"
+        }
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/mutating-get-query"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"threw\",\"error\":{\"name\":\"ZodError\",\"message\":\"[\\n  {\\n    \\\"code\\\": \\\"unrecognized_keys\\\",\\n    \\\"keys\\\": [\\n      \\\"operation\\\"\\n    ],\\n    \\\"path\\\": [],\\n    \\\"message\\\": \\\"Unrecognized key: \\\\\\\"operation\\\\\\\"\\\"\\n  }\\n]\",\"issues\":[{\"code\":\"unrecognized_keys\",\"keys\":[\"operation\"],\"path\":[],\"message\":\"Unrecognized key: \\\"operation\\\"\"}]},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "deny-get",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/deny-get",
+    "input": {
+      "probeTransport": {
+        "method": "GET",
+        "url": "https://dc.gang-a.kr/servlet/controller.cct.tutor.DayRecordServlet?reqCmd=udtPrg"
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/deny-get"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"threw\",\"error\":{\"name\":\"Error\",\"message\":\"s05_transport_denied\"},\"effects\":{\"deniedTransportAttempts\":1,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "deny-post",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/deny-post",
+    "input": {
+      "probeTransport": {
+        "method": "POST",
+        "url": "https://dc.gang-a.kr/servlet/controller.cct.tutor.DayRecordServlet?reqCmd=SetDailyTest"
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/deny-post"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"threw\",\"error\":{\"name\":\"Error\",\"message\":\"s05_transport_denied\"},\"effects\":{\"deniedTransportAttempts\":1,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  },
+  {
+    "id": "relocated-executable-and-evidence",
+    "evidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0/books-first-relocated",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        },
+        "limit": 1
+      }
+    },
+    "actual": {
+      "command": [
+        "bun",
+        "--no-install",
+        "/tmp/s05-recorded-lookup-JUhmM0/independent-executable/baseline.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform",
+        "--evidence-root",
+        "/tmp/s05-recorded-lookup-JUhmM0/books-first-relocated"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":\"returned\",\"value\":{\"schemaVersion\":1,\"sourceMode\":\"saved_context\",\"retrievedAt\":\"2026-11-02T00:00:00.000Z\",\"snapshot\":{\"sha256\":\"9b5a3c565f4aa9296ba98cdd7460138aa0642f38ded31470e9c8327cda12ee9c\",\"collectedAt\":\"2026-10-14T08:00:00Z\",\"lessonDate\":\"2026-10-14\",\"lessonPreparedAt\":\"2026-10-14T13:05:00Z\"},\"scope\":{\"teacherLabel\":\"박경찬\",\"intendedPopulation\":\"all_teacher_managed_students\",\"preservedStudentCount\":5,\"completeTeacherRosterVerified\":false,\"totalTeacherManagedStudents\":null},\"coverage\":\"bounded_preserved_evidence\",\"currentAcademyServerQueried\":false,\"absenceProvesNonperformance\":false,\"unknowns\":[\"The complete teacher-managed roster and complete current history are not established by this preserved subset.\"],\"status\":\"partial\",\"records\":[{\"classification\":\"saved_source_record\",\"source\":{\"path\":\"private/student-audit-20261014/audit.json\",\"sha256\":\"4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e\",\"jsonPointer\":\"/students/0/books/0\"},\"value\":{\"sourceBookEditionId\":\"edition-a\",\"displayName\":\"Synthetic Book A\"}}],\"page\":{\"totalInSavedSelection\":2,\"returned\":1,\"exhausted\":false,\"nextCursor\":\"eyJ2ZXJzaW9uIjoxLCJzbmFwc2hvdCI6IjliNWEzYzU2NWY0YWE5Mjk2YmE5OGNkZDc0NjAxMzhhYTA2NDJmMzhkZWQzMTQ3MGU5YzgzMjdjZGExMmVlOWMiLCJzZWxlY3Rpb24iOiJlZWRmOGJhMmRmMzAyMGNkNjhmOWMwYmRjMTYwNGY1ZDUxMDQwYTg4OTQ1M2RmMDZkZTNlNTExYzZhYTY0MTUyIiwib2Zmc2V0IjoxfQ\"}},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": true,
+      "reason": "exact_values"
+    }
+  }
+]

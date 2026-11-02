@@ -1,0 +1,409 @@
+[
+  {
+    "id": "books-first",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        },
+        "limit": 1
+      }
+    }
+  },
+  {
+    "id": "books-next",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        },
+        "limit": 1,
+        "cursor": "eyJ2ZXJzaW9uIjoxLCJzbmFwc2hvdCI6IjliNWEzYzU2NWY0YWE5Mjk2YmE5OGNkZDc0NjAxMzhhYTA2NDJmMzhkZWQzMTQ3MGU5YzgzMjdjZGExMmVlOWMiLCJzZWxlY3Rpb24iOiJlZWRmOGJhMmRmMzAyMGNkNjhmOWMwYmRjMTYwNGY1ZDUxMDQwYTg4OTQ1M2RmMDZkZTNlNTExYzZhYTY0MTUyIiwib2Zmc2V0IjoxfQ"
+      }
+    }
+  },
+  {
+    "id": "sections-order",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "sections"
+        }
+      }
+    }
+  },
+  {
+    "id": "sections-edition-a",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "sections",
+          "bookEditionId": "edition-a"
+        }
+      }
+    }
+  },
+  {
+    "id": "sections-edition-b",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "sections",
+          "bookEditionId": "edition-b"
+        }
+      }
+    }
+  },
+  {
+    "id": "attempt-knowledge-states",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "attempts"
+        }
+      }
+    }
+  },
+  {
+    "id": "empty-assignments",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "assignments"
+        }
+      }
+    }
+  },
+  {
+    "id": "videos-null",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-4",
+          "facet": "videos"
+        }
+      }
+    }
+  },
+  {
+    "id": "videos-missing",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-5",
+          "facet": "videos"
+        }
+      }
+    }
+  },
+  {
+    "id": "current-prior-records",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "daily_records"
+        }
+      }
+    }
+  },
+  {
+    "id": "escaped-source-pointer",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "daily_tests"
+        }
+      }
+    }
+  },
+  {
+    "id": "dated-lesson",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "lesson_context",
+          "studentId": "synthetic-student-1",
+          "date": "2026-10-14"
+        }
+      }
+    }
+  },
+  {
+    "id": "wrong-date-no-evidence",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "lesson_context",
+          "studentId": "synthetic-student-1",
+          "date": "2026-10-13"
+        }
+      }
+    }
+  },
+  {
+    "id": "unsaved-draft",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "daily_record_drafts"
+        }
+      }
+    }
+  },
+  {
+    "id": "summary-bounded",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_summary",
+          "studentId": "synthetic-student-1"
+        }
+      }
+    }
+  },
+  {
+    "id": "roster-duplicate-name",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "roster"
+        }
+      }
+    }
+  },
+  {
+    "id": "unknown-student",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_summary",
+          "studentId": "not-preserved"
+        }
+      }
+    }
+  },
+  {
+    "id": "student-id-not-trimmed",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_summary",
+          "studentId": "synthetic-student-1 "
+        }
+      }
+    }
+  },
+  {
+    "id": "unknown-edition",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "sections",
+          "bookEditionId": "guessed-edition"
+        }
+      }
+    }
+  },
+  {
+    "id": "unsupported-book-filter",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "attempts",
+          "bookEditionId": "edition-a"
+        }
+      }
+    }
+  },
+  {
+    "id": "cursor-cross-selection",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "sections"
+        },
+        "cursor": "eyJ2ZXJzaW9uIjoxLCJzbmFwc2hvdCI6IjliNWEzYzU2NWY0YWE5Mjk2YmE5OGNkZDc0NjAxMzhhYTA2NDJmMzhkZWQzMTQ3MGU5YzgzMjdjZGExMmVlOWMiLCJzZWxlY3Rpb24iOiJlZWRmOGJhMmRmMzAyMGNkNjhmOWMwYmRjMTYwNGY1ZDUxMDQwYTg4OTQ1M2RmMDZkZTNlNTExYzZhYTY0MTUyIiwib2Zmc2V0IjoxfQ"
+      }
+    }
+  },
+  {
+    "id": "cursor-malformed",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        },
+        "cursor": "broken!"
+      }
+    }
+  },
+  {
+    "id": "changed-bytes",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "variant": "changed-bytes"
+  },
+  {
+    "id": "missing-pin",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "variant": "missing-pin"
+  },
+  {
+    "id": "symlink-input",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "variant": "symlink-input"
+  },
+  {
+    "id": "duplicate-student-id",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "variant": "duplicate-student-id"
+  },
+  {
+    "id": "foreign-lesson-student",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "variant": "foreign-lesson-student"
+  },
+  {
+    "id": "missing-evidence-root",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "omitEvidenceRoot": true
+  },
+  {
+    "id": "missing-source-root",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        }
+      }
+    },
+    "omitSourceRoot": true
+  },
+  {
+    "id": "live-mode",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        },
+        "sourceMode": "live_read"
+      }
+    }
+  },
+  {
+    "id": "mutating-get-query",
+    "input": {
+      "queryInput": {
+        "query": {
+          "kind": "student_records",
+          "studentId": "synthetic-student-1",
+          "facet": "books"
+        },
+        "operation": {
+          "method": "GET",
+          "path": "/servlet/controller.cct.tutor.DayRecordServlet",
+          "reqCmd": "udtPrg"
+        }
+      }
+    }
+  },
+  {
+    "id": "deny-get",
+    "input": {
+      "probeTransport": {
+        "method": "GET",
+        "url": "https://dc.gang-a.kr/servlet/controller.cct.tutor.DayRecordServlet?reqCmd=udtPrg"
+      }
+    }
+  },
+  {
+    "id": "deny-post",
+    "input": {
+      "probeTransport": {
+        "method": "POST",
+        "url": "https://dc.gang-a.kr/servlet/controller.cct.tutor.DayRecordServlet?reqCmd=SetDailyTest"
+      }
+    }
+  }
+]

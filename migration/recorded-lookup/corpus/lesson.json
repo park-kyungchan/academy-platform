@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "academy.lesson-overlay/1",
+  "lessonDate": "2026-10-14",
+  "preparedAt": "2026-10-14T13:05:00Z",
+  "students": [
+    {
+      "studentId": "synthetic-student-1",
+      "teacherEvents": [
+        {
+          "id": "teacher-event",
+          "studentId": "synthetic-student-1",
+          "sourceKind": "teacher_report",
+          "recordedAt": "2026-10-14T12:00:00Z",
+          "facts": [
+            {
+              "kind": "homework_performance",
+              "status": "explicitly_not_done",
+              "activityLabel": "Synthetic scoped homework"
+            }
+          ]
+        },
+        {
+          "id": "context-event",
+          "studentId": "synthetic-student-1",
+          "sourceKind": "user_supplied_message_context",
+          "recordedAt": "2026-10-14T12:01:00Z",
+          "facts": [
+            {
+              "kind": "parent_reported_observation"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        {
+          "kind": "dailyRecord",
+          "observedAt": "2026-10-14T11:00:00Z",
+          "progress": "",
+          "homework": ""
+        }
+      ],
+      "dailyRecordDraft": {
+        "status": "local_draft_only_not_saved",
+        "serverSaved": false,
+        "parentSent": false
+      }
+    }
+  ]
+}

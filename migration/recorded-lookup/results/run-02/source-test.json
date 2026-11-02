@@ -1,0 +1,16 @@
+{
+  "command": [
+    "bun",
+    "test",
+    "--no-install",
+    "--preload",
+    "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/deny-transport.ts",
+    "/home/palantirkc/work/ws-replan/wt/education-platform/modules/academy-workbench/tools/academy-mcp/tests/saved-context.test.ts"
+  ],
+  "cwd": "/tmp/s05-recorded-lookup-31Oslc",
+  "status": 1,
+  "signal": null,
+  "spawnError": null,
+  "stdout": "bun test v1.4.3 (c6da4a4d3)\n",
+  "stderr": "\n../../home/palantirkc/work/ws-replan/wt/education-platform/modules/academy-workbench/tools/academy-mcp/tests/saved-context.test.ts:\n\n# Unhandled error between tests\n-------------------------------\nerror: Cannot find package 'zod' from '/home/palantirkc/work/ws-replan/wt/education-platform/modules/academy-workbench/tools/academy-mcp/src/contracts.ts'\n-------------------------------\n\n\n 0 pass\n 1 fail\n 1 error\nRan 1 test across 1 file. [55.00ms]\n"
+}

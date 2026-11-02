@@ -1,0 +1,105 @@
+{
+  "schema": "s05.source-provenance/1",
+  "initialObservation": {
+    "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform",
+    "commonGitDir": "/home/palantirkc/projects/education-platform/.git",
+    "head": "cc6e81f1be2fcb56f011041e3d606e21edf76da3",
+    "branch": "rust/s05-recorded-lookup-20261102",
+    "dirtyStateBeforeWrites": "clean (git status --short emitted no entries)"
+  },
+  "sourceVsBaseChecks": [
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/saved-context.ts",
+      "sha256": "2ffd3205ee675f510639135b85568fb9c40722fda07ad1c5e1ab764e067fc5ab",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/pagination.ts",
+      "sha256": "49f1b943240921714a9facd5f826225db3a1edc5a846b0671775d0dc67f3e657",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/contracts.ts",
+      "sha256": "ccceb4123e866d677d002f54ce29205248708a2241a438dc63e9a5290e49b8ff",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/tool-result.ts",
+      "sha256": "eece5a4c8d4fda38515a1939b31485f73c025b1d49491974a1337a8086905bd9",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/app/student-audit-viewer/model.ts",
+      "sha256": "88b81fada88650ae5f66ee6a510029568c6b0261444a71533c3d2155d36fb33b",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/app/student-audit-viewer/lesson.ts",
+      "sha256": "17fd94e2f11a4817ed83f35cc991d02bb918e38657831c0fff4426b4c4e9b42a",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/app/student-audit-viewer/rubric.ts",
+      "sha256": "f1f2ffb0995a69f39d2137bde6c9922a872b86c87dec24d8b3e71c617706e781",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/tests/saved-context.test.ts",
+      "sha256": "fa49db98ec45576602f06e74299c688ee50ac16eeb8f9fab45feb91453a74b00",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/tests/fixtures.ts",
+      "sha256": "3e55e18e86def42ad45faa87fb3b994d5889be401684c3cd52bbf6e5e50332af",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/tests/student-resolver.test.ts",
+      "sha256": "82d78f9e42ba20ebc8dea05f901b7dee98bd7fa0cad06cfabbb0e171bb52110e",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/tests/neutral-saved-fixture.ts",
+      "sha256": "b71d3d8e602d9ec8badec0d8dad62073c268c04bbb63160d3e45deeb0e16d41f",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/tests/teacher-transport-fixture.ts",
+      "sha256": "d268bed3366e4f488e38b6aa7eee437fae46557726836db5e867ae3cbf429a58",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/student-resolver.ts",
+      "sha256": "08542d706a92f77c6f0e20c998829f28bab33c28ba4cc1108ccd78d042e22acf",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/query-tool.ts",
+      "sha256": "cb73a9e21b110050c1086f07c3ade7f3ec92ddb91299a5bc8bd5a53a3b74f31d",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/service.ts",
+      "sha256": "e7f2cbcb1c913340cbecda9970c64691c9a15ce1f4583ea031f7b66b1d1ee667",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/academyHttpClient.ts",
+      "sha256": "1dfd2a2085596db5998b44fe79be481286ccfe3996808b2aab719d765993a7d3",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/lessonJournalHttp.ts",
+      "sha256": "3de2ac92bd7d086939373779af59b80acd069a2cc5631f465c92aae4dc3234a2",
+      "matchesWorkingBytesAndPin": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/tests/lms/academyHttpClient.test.ts",
+      "sha256": "a34f9d98c9c9cba327b797bcc83156bb785b6d2904051d2e9af1e84dbd1cca43",
+      "matchesWorkingBytesAndPin": true
+    }
+  ],
+  "fixtureOrigin": "Entirely synthetic; adapted from source tests fixtures.ts and saved-context.test.ts, with documented synthetic edge extensions. No live capture, no private student records.",
+  "expectationOrigin": "Literal full expected envelopes, refusal messages and cursor bytes authored before the first reference execution; no baseline output was copied into expected.json.",
+  "approvalStatus": "S05 author characterization only; independent Wonder review and Lead acceptance pending. No S06/S08 dependency release."
+}
