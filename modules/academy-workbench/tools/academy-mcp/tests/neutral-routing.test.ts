@@ -30,6 +30,20 @@ async function withNeutralClient(run:(fixture:{base:string;events:string;client:
     await run({base,events,client});
   }finally{await client?.close();await transport?.close();await rm(base,{recursive:true,force:true});}
 }
+test('CISM bridge observes caller attribution and records actual or uncertain writes without content in receipts',async()=>{
+ await withNeutralClient(async({base,events,client})=>{
+  const first=await client.callTool({name:'academy_cism_weekly_save',arguments:{attribution:{observedBy:'FORGED_CANARY'}}});
+  expect(first.structuredContent).toMatchObject({status:'persisted',academyWrites:2});
+  const trace=await readFile(events,'utf8');expect(trace).toContain('fictional-neutral-client');expect(trace).toContain('neutral-bridge');expect(trace).not.toContain('FORGED_CANARY');
+  await writeFile(resolve(base,'inject-cism-transport-error'),'enabled');
+  const second=await client.callTool({name:'academy_cism_weekly_save',arguments:{}});
+  expect(second.structuredContent).toMatchObject({status:'blocked',academyWrites:null,effectStatus:'unknown',automaticRetryAllowed:false});
+  const receipts=await Promise.all((await readdir(resolve(base,'receipts'))).map(async n=>({name:n,value:JSON.parse(await readFile(resolve(base,'receipts',n),'utf8'))})));
+  expect(receipts.find(r=>r.name.endsWith('-result.json'))?.value.academyWrites).toBe(2);
+  expect(receipts.find(r=>r.name.endsWith('-failure.json'))?.value).toMatchObject({academyWrites:null,effectStatus:'unknown'});
+  expect(JSON.stringify(receipts)).not.toContain('FORGED_CANARY');
+ });
+},20000);
 test('neutral discovers and composes admitted DailyTest history with exact shared paper headers',async()=>{
   await withNeutralClient(async({base,events,client})=>{
     const discovered=(await client.listTools()).tools.filter(t=>t.name==='academy_dailytest_history_with_headers');expect(discovered).toHaveLength(1);

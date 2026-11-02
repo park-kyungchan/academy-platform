@@ -1,3 +1,4 @@
+import {registerCismWeeklyTools} from './cism-weekly-tools.ts';
 import {runtimeIdentityConfiguration,registerRuntimeIdentity} from './runtime-identity.ts';
 import {installStdioDiagnostics,createAcademyStdioTransport} from './stdio-diagnostics.ts';
 import {dailyRecordLearningConfiguration} from './dailyrecord-learning.ts';
@@ -21,6 +22,7 @@ const native=await nativeDailyRecordConfiguration(workflowArgs.remainingArgs,con
 const workflow=workflowArgs.storeDir?createDailyRecordWorkflow({storeDir:workflowArgs.storeDir,...(nativeLaunch?{requiredRoot:nativeOwnerArtifactsRoot}:{})}):null;
 const server=new McpServer({name:'academy-dailyrecord-review',version:'0.1.0'});
 registerRuntimeIdentity(server,runtimeIdentity.identity);
+registerCismWeeklyTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'cism-weekly');
 registerTextbookSourceTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'textbook-samples');
 registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,config.parentSafeguard,Date.now,learning.learningPolicy,native?.backend??null,workflow));
 if(native)process.once('exit',native.close);

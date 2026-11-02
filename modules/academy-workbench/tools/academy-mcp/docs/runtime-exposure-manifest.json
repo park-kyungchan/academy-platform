@@ -166,6 +166,26 @@
       "name": "academy_verify_paper_preparation",
       "class": "read",
       "exposure": "open"
+    },
+    {
+      "name": "academy_cism_weekly_get",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_cism_month",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_cism_weekly_review",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_cism_weekly_save",
+      "class": "write",
+      "exposure": "gated_save_admission"
     }
   ],
   "closedUntilAttribution": [],
