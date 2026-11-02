@@ -632,10 +632,10 @@ fn semantic_fact_blockers(p: &Js, facts: &[&Js], b: &mut Vec<Js>) -> Vec<Js> {
             .collect();
         for f in facts {
             for c in f.get("questionCounts").array() {
-                if count_render(c) {
-                    if let Js::Num(n) = c.get("count") {
-                        supported.push(*n as u64);
-                    }
+                if count_render(c)
+                    && let Js::Num(n) = c.get("count")
+                {
+                    supported.push(*n as u64);
                 }
             }
             for d in f.get("deadlines").array() {
