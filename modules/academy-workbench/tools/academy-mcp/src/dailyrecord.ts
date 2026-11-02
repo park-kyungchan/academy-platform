@@ -293,7 +293,14 @@ export class DailyRecordService {
         if(toolResultBytes(result)>512*1024)throw Error('metadata_result_too_large');
         return freezeLabelData(result);
       });
-    }catch(error){return {...failureBase,status:'unavailable' as const,...readFailureResult(error,'student_metadata_unqualified_no_automatic_retry')};}
+    }catch(error){
+      const result=readFailureResult(error,'student_metadata_unqualified_no_automatic_retry');
+      if(error instanceof Error && error.message==='metadata_result_too_large'){
+        const {origin:_origin,errorKind:_kind,errorSha256:_hash,...failure}=result.failure;
+        return {...failureBase,status:'unavailable' as const,reasonCode:result.reasonCode,failure};
+      }
+      return {...failureBase,status:'unavailable' as const,...result};
+    }
   }
   async metadataByName(value:unknown){
     const input=studentMetadataGetSchema.parse(value);

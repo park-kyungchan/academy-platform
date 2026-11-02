@@ -62,7 +62,11 @@ export function installToolAudit(server:McpServer,options:{root?:string;endpoint
      }
     }
     const data=result.structuredContent??{},failure=data.failure?publicFailureFromData(data.failure):typeof (data.code??data.reasonCode)==='string'?publicFailureFromData({code:data.code??data.reasonCode}):null,audit={...base,phase,failure,elapsedMs:Date.now()-started,status:statuses.has(data.status)?data.status:null,resultSha256:digest(result),effectStatus:data.effectStatus??(data.academyWrites===0?'none':null)};
-    persist('completed',audit);if(options.preserveResult)return result;return withToolMeta(result,{'academy/audit':audit});
+    persist('completed',audit);if(options.preserveResult)return result;
+    // Oversize metadata refusals have a tighter established wire bound; the
+    // private receipt still retains the audit if public metadata cannot fit.
+    const cap=data.reasonCode==='student_metadata_unqualified_no_automatic_retry'?1023:512*1024;
+    return withToolMeta(result,{'academy/audit':audit},cap);
    }catch(error){
     const failure=publicReadFailure(error,'tool_handler_failed'),possibleWrite=invoked&&writes.has(name);
     const data={status:'blocked',code:failure.code,failure,occurrence,phase,academyWrites:possibleWrite?null:0,...(possibleWrite?{effectStatus:'unknown'}:{}),parentSends:0,automaticRetryAllowed:false};
