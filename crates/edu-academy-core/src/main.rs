@@ -11,6 +11,22 @@ fn main() {
     {
         fail("s08_protocol_input_rejected", 64);
     }
+    #[derive(serde::Deserialize)]
+    struct Dispatch {
+        op: String,
+    }
+    let dispatch: Dispatch =
+        serde_json::from_slice(&bytes).unwrap_or_else(|_| fail("s08_protocol_input_rejected", 64));
+    if dispatch.op == "semantic_v3" {
+        let request: edu_academy_core::semantic::Request = serde_json::from_slice(&bytes)
+            .unwrap_or_else(|_| fail("s08_protocol_input_rejected", 64));
+        let frame = edu_academy_core::semantic::execute(request)
+            .unwrap_or_else(|message| fail(message, 64));
+        if std::io::stdout().write_all(frame.as_bytes()).is_err() {
+            fail("s08_protocol_output_failed", 74);
+        }
+        return;
+    }
     let request: Request =
         serde_json::from_slice(&bytes).unwrap_or_else(|_| fail("s08_protocol_input_rejected", 64));
     let frame = execute(request).unwrap_or_else(|error| fail(error.message(), 78));

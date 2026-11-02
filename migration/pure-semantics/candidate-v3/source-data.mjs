@@ -1,0 +1,16 @@
+import {readFileSync,mkdtempSync,mkdirSync} from 'node:fs';import {spawnSync} from 'node:child_process';import {runInNewContext} from 'node:vm';import {createHash} from 'node:crypto';import {dirname,resolve,join} from 'node:path';import {fileURLToPath} from 'node:url';import {tmpdir} from 'node:os';import assert from 'node:assert/strict';
+const here=dirname(fileURLToPath(import.meta.url)),root=resolve(here,'../../..'),src=join(root,'crates/edu-academy-core/src'),base=join(root,'modules/academy-workbench/tools/academy-mcp/src');
+const json=p=>JSON.parse(readFileSync(p,'utf8')),sha=b=>createHash('sha256').update(b).digest('hex');
+const frozen=json(join(here,'../freeze.json')),pins=json(join(here,'../pins.json'));
+for(const [p,h] of Object.entries(frozen.files))assert.equal(sha(readFileSync(join(root,p))),h,p);
+for(const [p,h] of Object.entries(pins.sourceClosure))assert.equal(sha(readFileSync(join(root,p))),h,p);
+const leaf=spawnSync('git',['show','b8f1206b76f6a72b2381e134162059d6d53a8e90:crates/edu-academy-core/src/leaf.rs'],{cwd:root,encoding:'utf8'});assert.equal(leaf.status,0);assert.equal(leaf.signal,null);assert.equal(leaf.error,undefined);assert.equal(sha(leaf.stdout),sha(readFileSync(join(src,'leaf.rs'))));
+const temp=mkdtempSync(join(tmpdir(),'s08-source-constants-'));mkdirSync(join(temp,'home'));
+const command=`import {lessonJournalTemplates,journalActivities,journalOutcomes,homeworkActions} from ${JSON.stringify(join(root,'apps/academy/dc-gang-a/src/lms/lessonJournalTemplates.ts'))}; import {CISM_PATH,CISM_WIRE_SHA256,CISM_NARRATIVES} from ${JSON.stringify(join(root,'apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol.ts'))}; console.log(JSON.stringify({templates:lessonJournalTemplates,activities:journalActivities,outcomes:journalOutcomes,homeworkActions,cismPath:CISM_PATH,cismWireSha256:CISM_WIRE_SHA256,narratives:CISM_NARRATIVES}));`;
+const r=spawnSync('bun',['--no-env-file','--no-install','-e',command],{cwd:temp,env:{PATH:process.env.PATH,HOME:join(temp,'home'),TMPDIR:temp,TZ:'UTC',BUN_CONFIG_NO_AUTO_INSTALL:'1'},encoding:'utf8',timeout:10000,maxBuffer:1048576});
+assert.equal(r.status,0);assert.equal(r.signal,null);assert.equal(r.error,undefined);assert.equal(r.stderr,'');assert.deepEqual(JSON.parse(r.stdout),json(join(src,'constants.json')));
+const source=readFileSync(join(base,'dailyrecord-context.ts'),'utf8');const literal=source.slice(source.indexOf('freezeLabelData({')+'freezeLabelData('.length,source.lastIndexOf(');'));
+assert.deepEqual(JSON.parse(JSON.stringify(runInNewContext('('+literal+')'))),json(join(src,'workflow-context.json')));
+const review=readFileSync(join(base,'dailyrecord.ts'),'utf8'),start=review.indexOf('const holdActionTable:'),l=review.slice(review.indexOf('=[',start)+1,review.indexOf('\n];',start)+2);
+assert.deepEqual(JSON.parse(JSON.stringify(runInNewContext(l).map(([p,action,guidance])=>({pattern:p.source,action,guidance})))),json(join(src,'hold-actions.json')));
+console.log(JSON.stringify({frozenFiles:Object.keys(frozen.files).length,originalSourceFiles:Object.keys(pins.sourceClosure).length,acceptedLeafSha256:sha(leaf.stdout),sourceConstantGroups:3,allUnchanged:true,noRustExecution:true}));
