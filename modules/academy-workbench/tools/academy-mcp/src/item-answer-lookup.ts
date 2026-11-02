@@ -12,6 +12,10 @@ export type ItemAnswerLookup=z.infer<typeof itemAnswerLookupSchema>;
  * rendering or an answer to an independently identified printed version. */
 export const itemAnswerObservationSchema=z.object({
   identity:z.object({sourceNamespace:z.literal('academy_item'),lectureKey:label,outerLectureKey:label,sourceId:label}).strict(),
+  // Source unit/pattern names from the same item row: a reverse-mapping
+  // candidate toward a textbook subunit, never a section/paper title.
+  sourceUnitName:z.string().max(2000).optional(),
+  sourcePatternName:z.string().max(2000).optional(),
   answerLiteral:z.string().min(1).max(30000),
   answerAvailability:z.enum(['literal_payload_not_rendered','external_solution_reference']),
   answerMeaning:z.literal('source_official_item_answer_not_student_response'),
@@ -44,5 +48,6 @@ export function projectItemAnswerRead(raw:unknown,labels:string[]){
   if(Buffer.byteLength(JSON.stringify(value.itemAnswers),'utf8')>480*1024)throw Error('item_answer_result_too_large');
   const failure=value.answerBlockedReason===null?null:publicReadFailure(Error(value.answerBlockedReason),'item_answer_source_unqualified_no_automatic_retry');
   return {status:value.status,answers:value.itemAnswers.map(row=>({...row,...decodeItemAnswerLiteral(row.answerLiteral)})),pendingLabels:value.pendingAnswerLabels,reasonCode:failure?.code??null,...(failure?{failure}:{}),
+    unitMapping:'source_unit_and_pattern_names_only_not_section_or_paper_membership',
     observedAt:value.observedAt,coverage:value.coverage,academyWrites:0,parentSends:0,nativePrintInvoked:false,automaticRetryAllowed:false};
 }
