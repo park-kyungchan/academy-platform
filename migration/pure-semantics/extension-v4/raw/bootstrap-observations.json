@@ -1,0 +1,18 @@
+{
+  "goalLookup": null,
+  "newGoalCreated": false,
+  "branch": "rust/s08-extension-reference-20261102",
+  "base": "0551ea4893f71b458d0a33d03c3f8c763ed289d1",
+  "preservedOrientationFailures": [
+    {
+      "status": 1,
+      "cause": "zip_entry_prefix_missing",
+      "correction": "Read actual ZIP namelist; used rust_migration_reassessment_2026-11-02/contracts/* without extracting or changing ZIP."
+    },
+    {
+      "status": 1,
+      "cause": "root_node_modules_absent",
+      "correction": "Reused exact Zod path resolved from retained original run03 source/node_modules; no install."
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "cases": 8,
+  "matched": 8,
+  "sourceStatuses": {
+    "0": 8
+  },
+  "childControls": 4,
+  "rejectedChildControls": 4,
+  "checks": 5,
+  "checksPassed": 5,
+  "expectedSha256": "24612df666a4c9e64e7e7f4a35d0a8cccfd2c91a99ffb89454dba8de5cdb9055",
+  "candidateExecuted": false,
+  "passed": true
+}

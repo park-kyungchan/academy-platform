@@ -1,0 +1,106 @@
+{
+  "controls": [
+    {
+      "id": "wrong-source-error",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"throw\",\"error\":{\"name\":\"Error\",\"message\":\"JSON.stringify cannot serialize cyclic structures.\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"cism.cismHash\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "wrong-source-message",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"throw\",\"error\":{\"name\":\"RangeError\",\"message\":\"invalid_json_depth\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"admission.canonicalJson\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "wrong-source-hash",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"0000000000000000000000000000000000000000000000000000000000000000\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"cism.cismHash\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "missing-source-call",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"throw\",\"error\":{\"name\":\"TypeError\",\"message\":\"JSON.stringify cannot serialize cyclic structures.\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "direct-cismHash-cycle-original-TypeError",
+      "passed": true
+    },
+    {
+      "name": "direct-cismHash-cycle-export-was-invoked",
+      "passed": true
+    },
+    {
+      "name": "direct-admission-cycle-both-exports-RangeError",
+      "passed": true
+    },
+    {
+      "name": "direct-depth512-hashes-match-original-positive-composition",
+      "passed": true
+    },
+    {
+      "name": "direct-cismHash-undefined-native-data-TypeError",
+      "passed": true
+    }
+  ]
+}

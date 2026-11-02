@@ -1,0 +1,43 @@
+{
+  "schema": "s08.source-characterization-summary/4",
+  "cases": 603,
+  "mainCases": 550,
+  "supplementCases": 45,
+  "operations": {
+    "exports": 1,
+    "learning": 236,
+    "schema": 83,
+    "review": 73,
+    "json": 94,
+    "admission": 18,
+    "live_evidence": 2,
+    "cism_write": 64,
+    "cism_date": 6,
+    "parser": 18
+  },
+  "sourceReturns": 314,
+  "sourceThrows": 289,
+  "throwNames": {
+    "Error": 198,
+    "TypeError": 23,
+    "ZodError": 64,
+    "RangeError": 4
+  },
+  "expectedSha256": {
+    "expected.json": "eaa5af1ca3f6d938cc8d31f0fba1e091605fc7bfda5976562a04318bc9eb454b",
+    "supplement-expected.json": "4bfe0bd9fa9cdb670150a643bd4b5590781cc6f3899613195892b69d79bb806f",
+    "direct-expected-v2.json": "24612df666a4c9e64e7e7f4a35d0a8cccfd2c91a99ffb89454dba8de5cdb9055"
+  },
+  "sourceChildStatus0": 603,
+  "uncharacterized": 0,
+  "actualChildNegativeControls": 36,
+  "strictProtocolAndScopeControls": 8,
+  "sourceMeaningAssertions": 57,
+  "independentWonderReview": "REQUIRED_NOT_PERFORMED",
+  "candidateExecuted": false,
+  "rustCommands": 0,
+  "directExportCases": 8,
+  "supersedes": "SUMMARY.json totals only; no earlier artifact rewritten",
+  "scopeDeviation": "raw/scope-deviation-01.json",
+  "sourceCallAttributionRefinement": "CONTRACT-ADDENDUM-v2.md"
+}

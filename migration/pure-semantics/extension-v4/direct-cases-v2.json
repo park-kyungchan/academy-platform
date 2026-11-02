@@ -1,0 +1,66 @@
+[
+  {
+    "id": "direct-cismHash-cycle",
+    "input": {
+      "family": "cism",
+      "fn": "cismHash",
+      "tag": "cycle"
+    }
+  },
+  {
+    "id": "direct-cismHash-array_cycle",
+    "input": {
+      "family": "cism",
+      "fn": "cismHash",
+      "tag": "array_cycle"
+    }
+  },
+  {
+    "id": "direct-cismHash-undefined",
+    "input": {
+      "family": "cism",
+      "fn": "cismHash",
+      "tag": "undefined"
+    }
+  },
+  {
+    "id": "direct-cismHash-depth512",
+    "input": {
+      "family": "cism",
+      "fn": "cismHash",
+      "tag": "depth512"
+    }
+  },
+  {
+    "id": "direct-admission-canonicalJson-cycle",
+    "input": {
+      "family": "admission",
+      "fn": "canonicalJson",
+      "tag": "cycle"
+    }
+  },
+  {
+    "id": "direct-admission-canonicalJson-depth512",
+    "input": {
+      "family": "admission",
+      "fn": "canonicalJson",
+      "tag": "depth512"
+    }
+  },
+  {
+    "id": "direct-admission-canonicalActionDigest-cycle",
+    "input": {
+      "family": "admission",
+      "fn": "canonicalActionDigest",
+      "tag": "cycle"
+    }
+  },
+  {
+    "id": "direct-admission-canonicalActionDigest-depth512",
+    "input": {
+      "family": "admission",
+      "fn": "canonicalActionDigest",
+      "tag": "depth512"
+    }
+  }
+]

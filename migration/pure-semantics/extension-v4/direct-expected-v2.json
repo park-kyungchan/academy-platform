@@ -1,0 +1,153 @@
+{
+  "direct-cismHash-cycle": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "TypeError",
+        "message": "JSON.stringify cannot serialize cyclic structures."
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.cismHash"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-cismHash-array_cycle": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "TypeError",
+        "message": "JSON.stringify cannot serialize cyclic structures."
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.cismHash"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-cismHash-undefined": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "TypeError",
+        "message": "The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received undefined"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.cismHash"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-cismHash-depth512": {
+    "outcome": {
+      "kind": "return",
+      "value": "490bbd4aec5dc81c0049d7a1761368cb3eddc2911a51816fd51e3bb935c16ddd"
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.cismHash"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-admission-canonicalJson-cycle": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "RangeError",
+        "message": "Maximum call stack size exceeded."
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "admission.canonicalJson"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-admission-canonicalJson-depth512": {
+    "outcome": {
+      "kind": "return",
+      "value": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[null]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "admission.canonicalJson"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-admission-canonicalActionDigest-cycle": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "RangeError",
+        "message": "Maximum call stack size exceeded."
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "admission.canonicalActionDigest"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-admission-canonicalActionDigest-depth512": {
+    "outcome": {
+      "kind": "return",
+      "value": "490bbd4aec5dc81c0049d7a1761368cb3eddc2911a51816fd51e3bb935c16ddd"
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "admission.canonicalActionDigest"
+      ],
+      "uuidValues": []
+    }
+  }
+}

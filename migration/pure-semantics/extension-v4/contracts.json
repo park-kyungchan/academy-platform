@@ -1,0 +1,182 @@
+{
+  "zipSha256": "964845e260a25350823fb42d38a60e7cba973f8af607e10b505727d3bf78915c",
+  "entries": {
+    "rust_migration_reassessment_2026-11-02/contracts/migration_slices.json": {
+      "sha256": "66692f79c882a2e06d5250a7d596bd7b06a50bc5675e3204932e10f3f2718226",
+      "selected": [
+        {
+          "id": "S08",
+          "title": "Retained pure Education semantics",
+          "kind": "port",
+          "owner": "education-platform",
+          "depends_on": [
+            "S05"
+          ],
+          "source_paths": [
+            "apps/academy/dc-gang-a/src/lms/lessonJournalTemplates.ts",
+            "apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol.ts",
+            "apps/academy/dc-gang-a/src/learning/model.ts",
+            "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-save-admission.ts"
+          ],
+          "case_ids": [
+            "EDU-03",
+            "EDU-04",
+            "EDU-05",
+            "EDU-06",
+            "EDU-17",
+            "EDU-18",
+            "JUDGE-01"
+          ],
+          "exit_evidence": "Exact text/digest/calendar/refusal parity through a qualified independent judge.",
+          "boundary": "The included width function is illustrative and uncompiled in this review.",
+          "status": "proposed"
+        },
+        {
+          "id": "S09",
+          "title": "Recorded-response Rust source adapter and saved reads",
+          "kind": "port",
+          "owner": "education-platform",
+          "depends_on": [
+            "S08",
+            "S06"
+          ],
+          "source_paths": [
+            "apps/academy/dc-gang-a/src/lms/academyHttpClient.ts",
+            "modules/academy-workbench/tools/academy-mcp/src/native-dailyrecord-backend.ts",
+            "modules/academy-workbench/tools/academy-mcp/src/saved-context.ts",
+            "modules/academy-workbench/tools/academy-mcp/src/pagination.ts",
+            "modules/academy-workbench/tools/academy-mcp/src/paths.ts"
+          ],
+          "case_ids": [
+            "EDU-01",
+            "EDU-02",
+            "EDU-03",
+            "EDU-19",
+            "EDU-20",
+            "EDU-24",
+            "EDU-25"
+          ],
+          "exit_evidence": "Inert DOM/parser, bounded transport and explicit root behavior; no live effects.",
+          "boundary": "Any temporary TS oracle is migration-only.",
+          "status": "proposed"
+        },
+        {
+          "id": "S10",
+          "title": "Education workflow/store and mixed-language compatibility",
+          "kind": "port",
+          "owner": "education-platform",
+          "depends_on": [
+            "S08",
+            "S07"
+          ],
+          "source_paths": [
+            "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-workflow.ts",
+            "modules/academy-workbench/tools/academy-mcp/src/dailyrecord.ts",
+            "modules/academy-workbench/tools/academy-mcp/src/cism-weekly-tools.ts"
+          ],
+          "case_ids": [
+            "EDU-07",
+            "EDU-08",
+            "EDU-09",
+            "EDU-10",
+            "EDU-11",
+            "EDU-12",
+            "EDU-13",
+            "EDU-14",
+            "EDU-15",
+            "EDU-16",
+            "EDU-26"
+          ],
+          "exit_evidence": "Old journal read, same locks, exact physical-field fencing and crash/reconcile evidence.",
+          "boundary": "No new journal representation in the first compatibility transition.",
+          "status": "proposed"
+        }
+      ]
+    },
+    "rust_migration_reassessment_2026-11-02/contracts/acceptance_vectors.json": {
+      "sha256": "82b2f48644cb44aa03532778da59db30aa94e67c852e576a7cc9b9d7f0025866",
+      "selected": [
+        {
+          "id": "EDU-03",
+          "category": "knowledge",
+          "setup": "Missing, unknown, blank, zero and not-performed assessment",
+          "expected": "Preserve distinct knowledge states and source evidence; do not infer completion.",
+          "source_refs": [
+            "learning"
+          ],
+          "method": "pure source comparison",
+          "status": "proposed"
+        },
+        {
+          "id": "EDU-04",
+          "category": "physical_target",
+          "setup": "Current DT and previous-homework assessment target",
+          "expected": "Use the correct previous physical record where required, even if the request uses a current lesson date.",
+          "source_refs": [
+            "save_reconcile"
+          ],
+          "method": "recorded-response and fake-target comparison",
+          "status": "proposed"
+        },
+        {
+          "id": "EDU-05",
+          "category": "field_hold",
+          "setup": "One field has unresolved learning mapping; another is independently valid",
+          "expected": "Hold only the affected field and preserve the source contract for other decisions.",
+          "source_refs": [
+            "save_reconcile"
+          ],
+          "method": "pure workflow comparison",
+          "status": "proposed"
+        },
+        {
+          "id": "EDU-06",
+          "category": "narrative",
+          "setup": "Existing nonempty narrative with set versus explicit replacement/completion",
+          "expected": "Preserve content or require the existing explicit policy; do not silently overwrite.",
+          "source_refs": [
+            "save_reconcile"
+          ],
+          "method": "fake-target comparison",
+          "status": "proposed"
+        },
+        {
+          "id": "EDU-17",
+          "category": "text_digest",
+          "setup": "UTF-16 width, composed/decomposed strings, escaping, JSON key order and numeric serialization",
+          "expected": "Match exact retained bytes/digests or use a separately accepted versioned transition; reject unsupported inputs explicitly.",
+          "source_refs": [
+            "width",
+            "admission",
+            "learning",
+            "cism"
+          ],
+          "method": "pure comparison; partial reference evidence included",
+          "status": "proposed"
+        },
+        {
+          "id": "EDU-18",
+          "category": "calendar",
+          "setup": "CISM week/month selection across month, year and leap-day boundaries",
+          "expected": "Match the source Sunday-Saturday interval and selected month weeks.",
+          "source_refs": [
+            "cism"
+          ],
+          "method": "pure comparison; reference evidence included",
+          "status": "proposed"
+        },
+        {
+          "id": "JUDGE-01",
+          "category": "judge_validity",
+          "setup": "Candidate prints plausible output but exits nonzero, adds protocol junk or returns a wrong value",
+          "expected": "Reject all relevant mutants, preserve raw output and report the actual child status.",
+          "source_refs": [
+            "width"
+          ],
+          "method": "negative controls; width subset executed",
+          "status": "proposed"
+        }
+      ]
+    }
+  }
+}

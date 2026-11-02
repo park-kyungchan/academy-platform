@@ -1,0 +1,230 @@
+{
+  "accepted": true,
+  "comparisons": [
+    {
+      "id": "parser-valid",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-script-inert",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-date-rejected",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-body-bound",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-login",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-heading",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-date",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-teacherkey",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-teacherlabel",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-command",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-wire",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-period",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-narrative-handler",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-metric-handler",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-options",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-narrative-duplicate",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-metric-duplicate",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "parser-teacher-null",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-parseCalendarDate-18",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-parseCalendarDate-19",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-parseCalendarDate-20",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-parseCalendarDate-21",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-parseCalendarDate-22",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-parseCalendarDate-23",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-parseCalendarDate-24",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-assertDate-25",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-assertDate-26",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-assertDate-27",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-assertDate-28",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-assertDate-29",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-assertDate-30",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-assertDate-31",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-canonicalJson-32",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-canonicalJson-33",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-canonicalJson-34",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-digest-35",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-digest-36",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-digest-37",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "time-coercion-38",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "time-coercion-39",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "time-coercion-40",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "live-evidence-boundaries",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-valid-one-fraction",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-valid-two-fraction",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-valid-nine-fraction",
+      "accepted": true,
+      "reason": "full_frame"
+    }
+  ]
+}

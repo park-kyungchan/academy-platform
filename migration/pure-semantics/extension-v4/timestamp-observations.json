@@ -1,0 +1,316 @@
+{
+  "schema": "s08.timestamp-observations/4",
+  "derivedFrom": "expected.json from direct original calls, never candidate",
+  "rows": [
+    {
+      "input": "2040-01-16T09:00:00Z",
+      "case": "schema-instant-0",
+      "schemaKind": "return",
+      "dateParse": 2210317200000,
+      "learningKind": "return",
+      "intakeBlockers": []
+    },
+    {
+      "input": "2040-01-16T18:00:00+09:00",
+      "case": "schema-instant-1",
+      "schemaKind": "return",
+      "dateParse": 2210317200000,
+      "learningKind": "return",
+      "intakeBlockers": []
+    },
+    {
+      "input": "2040-01-16T03:30:00-05:30",
+      "case": "schema-instant-2",
+      "schemaKind": "return",
+      "dateParse": 2210317200000,
+      "learningKind": "return",
+      "intakeBlockers": []
+    },
+    {
+      "input": "2040-01-16T09:00Z",
+      "case": "schema-instant-3",
+      "schemaKind": "return",
+      "dateParse": 2210317200000,
+      "learningKind": "throw",
+      "intakeBlockers": []
+    },
+    {
+      "input": "2040-01-16T09:00:00.1Z",
+      "case": "schema-instant-4",
+      "schemaKind": "return",
+      "dateParse": 2210317200100,
+      "learningKind": "return",
+      "intakeBlockers": [
+        "stale_source"
+      ]
+    },
+    {
+      "input": "2040-01-16T09:00:00.12Z",
+      "case": "schema-instant-5",
+      "schemaKind": "return",
+      "dateParse": 2210317200120,
+      "learningKind": "return",
+      "intakeBlockers": [
+        "stale_source"
+      ]
+    },
+    {
+      "input": "2040-01-16T09:00:00.123Z",
+      "case": "schema-instant-6",
+      "schemaKind": "return",
+      "dateParse": 2210317200123,
+      "learningKind": "return",
+      "intakeBlockers": [
+        "stale_source"
+      ]
+    },
+    {
+      "input": "2040-01-16T09:00:00.1234Z",
+      "case": "schema-instant-7",
+      "schemaKind": "return",
+      "dateParse": 2210317200123,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "stale_source"
+      ]
+    },
+    {
+      "input": "2040-01-16T09:00:00.123456789Z",
+      "case": "schema-instant-8",
+      "schemaKind": "return",
+      "dateParse": 2210317200123,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "stale_source"
+      ]
+    },
+    {
+      "input": "2040-01-16T09:00:00.Z",
+      "case": "schema-instant-9",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2040-01-16T09:00:00+09",
+      "case": "schema-instant-10",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2040-01-16T09:00:00+0900",
+      "case": "schema-instant-11",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2040-01-16t09:00:00z",
+      "case": "schema-instant-12",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2040-01-16 09:00:00Z",
+      "case": "schema-instant-13",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2040-01-16T24:00:00Z",
+      "case": "schema-instant-14",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2040-01-16T23:59:60Z",
+      "case": "schema-instant-15",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2040-01-16T09:60:00Z",
+      "case": "schema-instant-16",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2040-01-16T09:00:00+24:00",
+      "case": "schema-instant-17",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2040-01-16T09:00:00+23:59",
+      "case": "schema-instant-18",
+      "schemaKind": "return",
+      "dateParse": 2210230860000,
+      "learningKind": "return",
+      "intakeBlockers": [
+        "stale_source"
+      ]
+    },
+    {
+      "input": "2040-01-16T09:00:00+99:99",
+      "case": "schema-instant-19",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2040-01-16T09:00:00-00:00",
+      "case": "schema-instant-20",
+      "schemaKind": "return",
+      "dateParse": 2210317200000,
+      "learningKind": "return",
+      "intakeBlockers": []
+    },
+    {
+      "input": "2040-01-16T09:00:00+00:60",
+      "case": "schema-instant-21",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2000-02-29T00:00:00Z",
+      "case": "schema-instant-22",
+      "schemaKind": "return",
+      "dateParse": 951782400000,
+      "learningKind": "return",
+      "intakeBlockers": [
+        "stale_source"
+      ]
+    },
+    {
+      "input": "1900-02-29T00:00:00Z",
+      "case": "schema-instant-23",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2100-02-29T00:00:00Z",
+      "case": "schema-instant-24",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2040-02-30T00:00:00Z",
+      "case": "schema-instant-25",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "2040-13-01T00:00:00Z",
+      "case": "schema-instant-26",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    },
+    {
+      "input": "0000-01-01T00:00:00Z",
+      "case": "schema-instant-27",
+      "schemaKind": "return",
+      "dateParse": -62167219200000,
+      "learningKind": "return",
+      "intakeBlockers": [
+        "stale_source"
+      ]
+    },
+    {
+      "input": "0001-01-01T00:00:00+09:00",
+      "case": "schema-instant-28",
+      "schemaKind": "return",
+      "dateParse": -62135629200000,
+      "learningKind": "return",
+      "intakeBlockers": [
+        "stale_source"
+      ]
+    },
+    {
+      "input": "0099-12-31T23:59:59-05:30",
+      "case": "schema-instant-29",
+      "schemaKind": "return",
+      "dateParse": -59011439401000,
+      "learningKind": "return",
+      "intakeBlockers": [
+        "stale_source"
+      ]
+    },
+    {
+      "input": "9999-12-31T23:59:59-05:30",
+      "case": "schema-instant-30",
+      "schemaKind": "return",
+      "dateParse": 253402320599000,
+      "learningKind": "return",
+      "intakeBlockers": [
+        "stale_source"
+      ]
+    },
+    {
+      "input": "10000-01-01T00:00:00Z",
+      "case": "schema-instant-31",
+      "schemaKind": "throw",
+      "dateParse": null,
+      "learningKind": "throw",
+      "intakeBlockers": [
+        "source_response_malformed"
+      ]
+    }
+  ]
+}

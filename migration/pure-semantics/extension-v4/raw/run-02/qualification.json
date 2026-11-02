@@ -1,0 +1,597 @@
+{
+  "children": [
+    {
+      "id": "network",
+      "actual": {
+        "command": [
+          "bun",
+          "--no-env-file",
+          "--no-install",
+          "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/baseline.ts",
+          "--source-root",
+          "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace/source"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":1,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "frame_or_effect_contract"
+      }
+    },
+    {
+      "id": "dispatch",
+      "actual": {
+        "command": [
+          "bun",
+          "--no-env-file",
+          "--no-install",
+          "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/baseline.ts",
+          "--source-root",
+          "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace/source"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":1},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "frame_or_effect_contract"
+      }
+    },
+    {
+      "id": "stderr",
+      "actual": {
+        "command": [
+          "bun",
+          "--no-env-file",
+          "--no-install",
+          "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/baseline.ts",
+          "--source-root",
+          "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace/source"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": "junk\n"
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "stream_type_or_stderr"
+      }
+    },
+    {
+      "id": "stdout",
+      "actual": {
+        "command": [
+          "bun",
+          "--no-env-file",
+          "--no-install",
+          "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/baseline.ts",
+          "--source-root",
+          "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace/source"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "junk\n{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "stdout_not_json"
+      }
+    },
+    {
+      "id": "nonzero",
+      "actual": {
+        "command": [
+          "bun",
+          "--no-env-file",
+          "--no-install",
+          "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/baseline.ts",
+          "--source-root",
+          "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace/source"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 7,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "child_status"
+      }
+    },
+    {
+      "id": "wrong-value",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"plausible-wrong-id\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "missing-outcome",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "frame_or_effect_contract"
+      }
+    },
+    {
+      "id": "missing-events",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "frame_or_effect_contract"
+      }
+    },
+    {
+      "id": "missing-presence",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "frame_or_effect_contract"
+      }
+    },
+    {
+      "id": "extra-field",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]},\"extra\":true}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "frame_or_effect_contract"
+      }
+    },
+    {
+      "id": "bool-number-effect",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":false,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "frame_or_effect_contract"
+      }
+    },
+    {
+      "id": "bool-number-value",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":true},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.studentOf\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "null-missing",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"intake\":{\"workflowContext\":{\"schemaVersion\":\"academy.dailyrecord-workflow-context/1\",\"purpose\":\"Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.\",\"policyOwner\":\"Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md\",\"workflow\":[\"exact_owned_scope\",\"qualified_before_state\",\"missing_only_interview\",\"field_local_review\",\"separate_trusted_save_and_readback\"],\"rules\":[\"Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.\",\"Ask for today's student-specific memo unless today's content or no-addition answer is supplied.\",\"No additional memo does not mean erase an existing memo.\",\"Counts, rates and narratives never establish assessment or attendance codes.\",\"Previous homework assessment belongs to an independently identified previous lesson record.\",\"Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.\",\"CISM requires exact teacher, student, reporting period, report and relevant section.\",\"User context explains meaning; caller approval flags and source pins do not grant effect authority.\"],\"boundaries\":{\"academyWrites\":0,\"parentSends\":0,\"automaticRewrite\":false,\"automaticRetry\":false,\"credentialInput\":false,\"sourceTruthFromCaller\":false}},\"userContext\":{\"schemaVersion\":\"academy.dailyrecord-user-context/1\",\"purpose\":\"Synthetic independent source extension\",\"currentRequestRef\":\"synthetic-request\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"selectedFields\":[\"progress\",\"homework\",\"lessonMemo\",\"attendance\",\"dailyTestAssessment\",\"previousHomeworkAssessment\"],\"memoAnswer\":{\"kind\":\"no_addition\",\"requestRef\":\"synthetic-request\"},\"facts\":[{\"ref\":\"fact:attendance\",\"field\":\"attendance\",\"text\":\"Synthetic explicit absence\",\"origin\":\"user_supplied\",\"explicitValue\":\"N\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]}]},\"academyWrites\":0,\"parentSends\":0,\"automaticRetryAllowed\":false,\"sourceContentIsUntrustedData\":true,\"status\":\"interview_required\",\"observationHandle\":\"dailyrecord-observation:00000000-0000-4000-8000-000000000001\",\"observationPersistence\":\"process_local\",\"attribution\":null,\"fields\":[{\"field\":\"progress\",\"before\":{\"state\":\"known\",\"value\":\"\",\"evidenceRefs\":[\"recorded:r\"]},\"selected\":true,\"disposition\":\"missing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course:1\",\"membershipId\":\"membership:1\",\"recordId\":\"current-record\"}},{\"field\":\"homework\",\"before\":{\"state\":\"known\",\"value\":\"\",\"evidenceRefs\":[\"recorded:r\"]},\"selected\":true,\"disposition\":\"missing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course:1\",\"membershipId\":\"membership:1\",\"recordId\":\"current-record\"}},{\"field\":\"lessonMemo\",\"before\":{\"state\":\"known\",\"value\":\"\",\"evidenceRefs\":[\"recorded:r\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course:1\",\"membershipId\":\"membership:1\",\"recordId\":\"current-record\"}},{\"field\":\"attendance\",\"before\":{\"state\":\"known\",\"value\":\"Y\",\"evidenceRefs\":[\"recorded:r\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course:1\",\"membershipId\":\"membership:1\",\"recordId\":\"current-record\"}},{\"field\":\"dailyTestAssessment\",\"before\":{\"state\":\"known\",\"value\":\"0\",\"evidenceRefs\":[\"recorded:r\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course:1\",\"membershipId\":\"membership:1\",\"recordId\":\"current-record\"}},{\"field\":\"previousHomeworkAssessment\",\"before\":{\"state\":\"known\",\"value\":\"0\",\"evidenceRefs\":[\"recorded:r\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-09\",\"courseId\":\"course:1\",\"membershipId\":\"membership:1\",\"recordId\":\"previous-record\"}}],\"interviews\":[{\"field\":\"progress\",\"reasonCode\":\"explicit_value_or_qualified_existing_value_required\"},{\"field\":\"homework\",\"reasonCode\":\"explicit_value_or_qualified_existing_value_required\"}],\"blockers\":[],\"source\":{\"observedAt\":\"2040-01-16T09:00:00Z\",\"sourceRevision\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"wireDigest\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"transmissionState\":\"not_sent\"},\"toneSamples\":[],\"toneSelection\":\"hyphen_lines_only_other_formats_ignored\",\"sourceAvailability\":\"observed\",\"failure\":null,\"execution\":\"not_supported\"},\"review\":{\"workflowContext\":{\"schemaVersion\":\"academy.dailyrecord-workflow-context/1\",\"purpose\":\"Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.\",\"policyOwner\":\"Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md\",\"workflow\":[\"exact_owned_scope\",\"qualified_before_state\",\"missing_only_interview\",\"field_local_review\",\"separate_trusted_save_and_readback\"],\"rules\":[\"Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.\",\"Ask for today's student-specific memo unless today's content or no-addition answer is supplied.\",\"No additional memo does not mean erase an existing memo.\",\"Counts, rates and narratives never establish assessment or attendance codes.\",\"Previous homework assessment belongs to an independently identified previous lesson record.\",\"Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.\",\"CISM requires exact teacher, student, reporting period, report and relevant section.\",\"User context explains meaning; caller approval flags and source pins do not grant effect authority.\"],\"boundaries\":{\"academyWrites\":0,\"parentSends\":0,\"automaticRewrite\":false,\"automaticRetry\":false,\"credentialInput\":false,\"sourceTruthFromCaller\":false}},\"userContext\":{\"schemaVersion\":\"academy.dailyrecord-user-context/1\",\"purpose\":\"Synthetic independent source extension\",\"currentRequestRef\":\"synthetic-request\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"selectedFields\":[\"progress\",\"homework\",\"lessonMemo\",\"attendance\",\"dailyTestAssessment\",\"previousHomeworkAssessment\"],\"memoAnswer\":{\"kind\":\"no_addition\",\"requestRef\":\"synthetic-request\"},\"facts\":[{\"ref\":\"fact:attendance\",\"field\":\"attendance\",\"text\":\"Synthetic explicit absence\",\"origin\":\"user_supplied\",\"explicitValue\":\"N\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]}]},\"academyWrites\":0,\"parentSends\":0,\"automaticRetryAllowed\":false,\"sourceContentIsUntrustedData\":true,\"observationHandle\":\"dailyrecord-observation:00000000-0000-4000-8000-000000000001\",\"inputDigest\":\"51ca266386a6913d69e9ec49a8dae74d451928a1b8aacc034001b3f3e02ea573\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"requestRef\":\"synthetic-request\",\"userContextDigest\":\"762be6500b390dd86b4b8941d29a18609fed187ab9cfe38bf4c8e15e45982b4e\",\"parentSafeguard\":{\"sourceRef\":\"synthetic-parent-policy\",\"policySha256\":\"3333333333333333333333333333333333333333333333333333333333333333\",\"safeguardSourceSha256\":\"4444444444444444444444444444444444444444444444444444444444444444\"},\"learningPolicy\":{\"bundleSha256\":\"5555555555555555555555555555555555555555555555555555555555555555\",\"configSha256\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"catalogSha256\":\"7777777777777777777777777777777777777777777777777777777777777777\"},\"sourceRevision\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"wireDigest\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"transmissionState\":\"not_sent\",\"rows\":[{\"field\":\"attendance\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course:1\",\"membershipId\":\"membership:1\",\"recordId\":\"current-record\"},\"before\":{\"state\":\"known\",\"value\":\"Y\",\"evidenceRefs\":[\"recorded:r\"]},\"after\":\"N\",\"factRefs\":[\"fact:attendance\"],\"learningEntries\":null,\"learningSuggestedRendering\":null,\"learningSuggestionMeaning\":null,\"disposition\":\"blocked\",\"blockers\":[\"existing_value_requires_explicit_replace\"],\"missingFactFragments\":[],\"holdActions\":[{\"field\":\"attendance\",\"code\":\"existing_value_requires_explicit_replace\",\"action\":\"explicit_teacher_decision\",\"guidance\":\"Obtain the explicit teacher decision for this exact field and request.\",\"correctionScope\":null}],\"semanticFactReview\":\"teacher_review_required_not_proven_by_fragment_checks\"}],\"patch\":[],\"status\":\"held\",\"interviews\":[],\"reviewDigest\":\"7ac344d800d200d57c158d71917dfdc8458e4658757a70bc18d7586a2510af4f\",\"reviewRecord\":null,\"execution\":\"not_supported\",\"saveAdmission\":\"separate_trusted_native_owner_required\"}}},\"events\":[{\"event\":\"recorded_read\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"requestRef\":\"synthetic-request\"},{\"event\":\"recorded_read\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"requestRef\":\"synthetic-request\"}],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"daily.DailyRecordService.intake\",\"daily.DailyRecordService.review\"],\"uuidValues\":[\"00000000-0000-4000-8000-000000000001\"]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "wrong-error-name",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"throw\",\"error\":{\"name\":\"Error\",\"message\":\"[\\n  {\\n    \\\"code\\\": \\\"unrecognized_keys\\\",\\n    \\\"keys\\\": [\\n      \\\"z\\\",\\n      \\\"a\\\"\\n    ],\\n    \\\"path\\\": [\\n      \\\"context\\\"\\n    ],\\n    \\\"message\\\": \\\"Unrecognized keys: \\\\\\\"z\\\\\\\", \\\\\\\"a\\\\\\\"\\\"\\n  }\\n]\",\"issues\":[{\"code\":\"unrecognized_keys\",\"keys\":[\"z\",\"a\"],\"path\":[\"context\"],\"message\":\"Unrecognized keys: \\\"z\\\", \\\"a\\\"\"}]}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"daily.DailyRecordService.intake\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "wrong-error-issues",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"throw\",\"error\":{\"name\":\"ZodError\",\"message\":\"[\\n  {\\n    \\\"code\\\": \\\"custom\\\",\\n    \\\"path\\\": [\\n      \\\"context\\\",\\n      \\\"purpose\\\"\\n    ],\\n    \\\"message\\\": \\\"nonempty_safe_text_required\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"custom\\\",\\n    \\\"path\\\": [\\n      \\\"context\\\",\\n      \\\"scope\\\",\\n      \\\"lessonDate\\\"\\n    ],\\n    \\\"message\\\": \\\"real_calendar_date_required\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"unrecognized_keys\\\",\\n    \\\"keys\\\": [\\n      \\\"extra\\\"\\n    ],\\n    \\\"path\\\": [\\n      \\\"context\\\",\\n      \\\"scope\\\"\\n    ],\\n    \\\"message\\\": \\\"Unrecognized key: \\\\\\\"extra\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_value\\\",\\n    \\\"values\\\": [\\n      \\\"progress\\\",\\n      \\\"homework\\\",\\n      \\\"lessonMemo\\\",\\n      \\\"attendance\\\",\\n      \\\"dailyTestAssessment\\\",\\n      \\\"previousHomeworkAssessment\\\"\\n    ],\\n    \\\"path\\\": [\\n      \\\"context\\\",\\n      \\\"selectedFields\\\",\\n      0\\n    ],\\n    \\\"message\\\": \\\"Invalid option: expected one of \\\\\\\"progress\\\\\\\"|\\\\\\\"homework\\\\\\\"|\\\\\\\"lessonMemo\\\\\\\"|\\\\\\\"attendance\\\\\\\"|\\\\\\\"dailyTestAssessment\\\\\\\"|\\\\\\\"previousHomeworkAssessment\\\\\\\"\\\"\\n  }\\n]\",\"issues\":[{\"code\":\"invalid_value\",\"values\":[\"progress\",\"homework\",\"lessonMemo\",\"attendance\",\"dailyTestAssessment\",\"previousHomeworkAssessment\"],\"path\":[\"context\",\"selectedFields\",0],\"message\":\"Invalid option: expected one of \\\"progress\\\"|\\\"homework\\\"|\\\"lessonMemo\\\"|\\\"attendance\\\"|\\\"dailyTestAssessment\\\"|\\\"previousHomeworkAssessment\\\"\"},{\"code\":\"unrecognized_keys\",\"keys\":[\"extra\"],\"path\":[\"context\",\"scope\"],\"message\":\"Unrecognized key: \\\"extra\\\"\"},{\"code\":\"custom\",\"path\":[\"context\",\"scope\",\"lessonDate\"],\"message\":\"real_calendar_date_required\"},{\"code\":\"custom\",\"path\":[\"context\",\"purpose\"],\"message\":\"nonempty_safe_text_required\"}]}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"daily.DailyRecordService.intake\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "wrong-error-message",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"throw\",\"error\":{\"name\":\"ZodError\",\"message\":\"generic\",\"issues\":[{\"code\":\"unrecognized_keys\",\"keys\":[\"z\",\"a\"],\"path\":[\"context\"],\"message\":\"Unrecognized keys: \\\"z\\\", \\\"a\\\"\"}]}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"daily.DailyRecordService.intake\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "digest-change",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"bytes\":\"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[null]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]\",\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"admission.canonicalJson/hash\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "bytes-change",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"bytes\":\"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[null]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]] \",\"sha256\":\"7c08cf6ec587ddae9d57898dd0f4ec518c2ae13a6328e97932bfd9f4f38e6fe0\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"admission.canonicalJson/hash\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "unintended-dispatch-event",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[{\"event\":\"http_dispatch\"}],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "event-order",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"admissionDigest\":\"b0fdb668cc6d657f413e2623d68b0a4281e2e51180194d9c9610129733064027\",\"results\":[{\"kind\":\"return\",\"value\":{\"status\":\"verified\",\"actionDigest\":\"81dcef7ce46ac7b0033031113594a62895ceffed26469e4e5b2fc08edaf6708d\"}},{\"kind\":\"return\",\"value\":{\"status\":\"rejected\"}},{\"kind\":\"return\",\"value\":{\"status\":\"rejected\"}}]}},\"events\":[{\"event\":\"local_consume_once\",\"key\":\"dailyrecord-save-a25642c9f69c81dc4c6167dbf45298a0ed878862b1b9d7641e3acc3903ef2d79\",\"record\":{\"request\":{\"runtime\":\"runtime:synthetic\",\"requestRef\":\"request:synthetic\",\"requestTextSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"currentUserEventRef\":\"event:synthetic\"},\"studentId\":\"student:synthetic\",\"lessonDate\":\"2040-01-16\",\"field\":\"previousHomeworkAssessment\",\"effectRecordKey\":\"previous-record\",\"after\":\"0\"},\"frozen\":true,\"requestFrozen\":false,\"sameRequest\":true},{\"event\":\"local_current_request\"}],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"admission.createDailyRecordSaveAdmission\",\"admission.consumeApproval\",\"admission.consumeApproval\",\"admission.consumeApproval\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "uuid-metadata-missing",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "frame_or_effect_contract"
+      }
+    },
+    {
+      "id": "duplicate-key",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "let x=require(\"node:fs\").readFileSync(0,\"utf8\");process.stdout.write(x);"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[1],\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "framing_or_duplicate_keys"
+      }
+    },
+    {
+      "id": "duplicate-nested-key",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "let x=require(\"node:fs\").readFileSync(0,\"utf8\");process.stdout.write(x);"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":1,\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "framing_or_duplicate_keys"
+      }
+    },
+    {
+      "id": "multi-frame",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "let x=require(\"node:fs\").readFileSync(0,\"utf8\");process.stdout.write(x);"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "stdout_not_json"
+      }
+    },
+    {
+      "id": "whitespace",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "let x=require(\"node:fs\").readFileSync(0,\"utf8\");process.stdout.write(x);"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": " {\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "framing_or_duplicate_keys"
+      }
+    },
+    {
+      "id": "nonzero-plausible",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "let x=require(\"node:fs\").readFileSync(0,\"utf8\");process.stdout.write(x);process.exitCode=9;"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/run-02/workspace",
+        "status": 9,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"student_9b161e28b606de4cf0cb9d5f82d17ac61532c3f2ae538ab00afcac408193741e\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"learning.stableId\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "child_status"
+      }
+    }
+  ],
+  "strictProtocolAndScope": [
+    {
+      "id": "missing-case",
+      "value": {
+        "accepted": false,
+        "reason": "incomplete_duplicate_or_reordered_scope"
+      }
+    },
+    {
+      "id": "duplicate-case",
+      "value": {
+        "accepted": false,
+        "reason": "incomplete_duplicate_or_reordered_scope"
+      }
+    },
+    {
+      "id": "reordered-case",
+      "value": {
+        "accepted": false,
+        "reason": "incomplete_duplicate_or_reordered_scope"
+      }
+    },
+    {
+      "id": "extra-expected",
+      "value": {
+        "accepted": false,
+        "reason": "incomplete_duplicate_or_reordered_scope"
+      }
+    },
+    {
+      "id": "missing-expected",
+      "value": {
+        "accepted": false,
+        "reason": "incomplete_duplicate_or_reordered_scope"
+      }
+    },
+    {
+      "id": "bool-status",
+      "value": {
+        "accepted": false,
+        "reason": "child_status"
+      }
+    },
+    {
+      "id": "string-status",
+      "value": {
+        "accepted": false,
+        "reason": "child_status"
+      }
+    },
+    {
+      "id": "missing-signal",
+      "value": {
+        "accepted": false,
+        "reason": "child_status"
+      }
+    }
+  ]
+}

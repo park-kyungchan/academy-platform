@@ -1,0 +1,14 @@
+{
+  "schema": "s08.retained-tree-readback/4",
+  "base": "0551ea4893f71b458d0a33d03c3f8c763ed289d1",
+  "diffOutsideExtension": "",
+  "oldExpectedV2Sha256": "9073faa3c80aced0bcc01f77ed99e4d1984b218134bc1d11910e15933d202578",
+  "retainedTrackedFilesHashed": 3472,
+  "method": "native Git diff against exact base + tracked-file byte readback; no source writes or candidate execution",
+  "freezeFilesVerified": 25,
+  "optionalParserDependencyResolution": {
+    "canvas": "MODULE_NOT_FOUND actual observation",
+    "punycode": "existing installed punycode/ package is pinned; no install"
+  },
+  "status": "pass"
+}

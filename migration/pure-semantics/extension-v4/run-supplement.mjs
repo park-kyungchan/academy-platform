@@ -1,0 +1,36 @@
+import {readFileSync,writeFileSync,mkdirSync,copyFileSync,symlinkSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {resolve,join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {judge,judgeSuite} from './judge.mjs';
+const here=dirname(fileURLToPath(import.meta.url)),root=resolve(here,'../../..'),a=process.argv.slice(2),out=resolve(a[a.indexOf('--results')+1]),freeze=a.includes('--freeze'),read=p=>JSON.parse(readFileSync(join(here,p),'utf8')),write=(p,v)=>writeFileSync(p,JSON.stringify(v,null,2)+'\n',{flag:'wx'}),sha=b=>createHash('sha256').update(b).digest('hex');
+if(!a.includes('--results')||!out.startsWith(here+'/raw/'))throw Error('explicit_new_results_required');
+const pins=read('pins.json'),sp=read('supplement-pins.json'),cases=read('supplement-cases.json');
+assert.equal(process.version,pins.node);assert.equal(sha(readFileSync(join(here,'supplement-cases.json'))),sp.casesSha256);
+for(const [p,h]of Object.entries({...pins.sourceClosure,...sp.sourceExtra})){const b=readFileSync(join(root,p));assert.equal(sha(b),h,p);const g=spawnSync('git',['show',pins.originalSource+':'+p],{cwd:root,maxBuffer:8*1024*1024});assert.equal(g.status,0);assert.ok(g.stdout.equals(b));}
+for(const [p,h]of Object.entries(sp.dependencyFiles))assert.equal(sha(readFileSync(p)),h,p);
+const zod='/home/palantirkc/projects/education-platform/modules/academy-workbench/tools/academy-mcp/node_modules/zod';for(const [p,h]of Object.entries(pins.zodFiles))assert.equal(sha(readFileSync(join(zod,p))),h,p);
+if(!freeze)for(const [p,h]of Object.entries(read('freeze.json').files))assert.equal(sha(readFileSync(join(here,p))),h,p);
+mkdirSync(out);const workspace=join(out,'workspace'),source=join(workspace,'source'),home=join(workspace,'home');mkdirSync(home,{recursive:true});
+for(const p of Object.keys({...pins.sourceClosure,...sp.sourceExtra})){mkdirSync(dirname(join(source,p)),{recursive:true});copyFileSync(join(root,p),join(source,p));}
+mkdirSync(join(source,'node_modules'));symlinkSync(zod,join(source,'node_modules/zod'));
+const env={PATH:process.env.PATH,HOME:home,TMPDIR:workspace,TZ:'UTC',LANG:'C.UTF-8',BUN_CONFIG_NO_AUTO_INSTALL:'1'};
+const run=(cmd,args,input='')=>{const r=spawnSync(cmd,args,{input,encoding:'utf8',cwd:workspace,env,timeout:5000,killSignal:'SIGKILL',maxBuffer:8*1024*1024});return {command:[cmd,...args],cwd:workspace,status:r.status,signal:r.signal,spawnError:r.error?{code:r.error.code,message:r.error.message}:null,stdout:r.stdout??'',stderr:r.stderr??''};};
+const version=run('bun',['--version']);assert.equal(version.stdout.trim(),pins.bun);
+const raw=cases.map(c=>({id:c.id,actual:run('bun',['--no-env-file','--no-install',join(here,c.script),'--source-root',source,'--dom-root',sp.domRoot],JSON.stringify(c.input))}));write(join(out,'reference.json'),raw);
+let e;if(freeze){e={};const unknown=[];for(const r of raw){let f;try{f=JSON.parse(r.actual.stdout);}catch{}if(!f||!judge(f,r.actual).accepted){unknown.push({...r,characterization:'UNCHARACTERIZED'});continue;}e[r.id]=f;}write(join(out,'uncharacterized.json'),unknown);if(unknown.length){write(join(out,'report.json'),{passed:false,uncharacterized:unknown.length});throw Error('supplement_uncharacterized_see_raw');}write(join(here,'supplement-expected.json'),e);}else e=read('supplement-expected.json');
+const suite=judgeSuite(cases,e,raw),controls=[];
+for(const [id,fn]of [['wrong-report-digest',f=>f.outcome.value.reportSha256='0'.repeat(64)],['missing-fields',f=>delete f.outcome.value.fields],['wrong-native-membership',f=>f.outcome.value.fields.at(-1).source.membershipKey='other'],['wrong-clock',f=>f.outcome.value.observedAt='2040-10-16T09:00:00.000Z'],['wrong-field-order',f=>f.outcome.value.fields.reverse()],['unintended-script-execution',f=>f.effects.deniedTransportAttempts=1]]){const expected=e['parser-valid'],f=structuredClone(expected);fn(f);const actual=run('node',['-e','process.stdout.write(require("node:fs").readFileSync(0,"utf8"))'],JSON.stringify(f)+'\n');controls.push({id,actual,judgment:judge(expected,actual)});}
+const checks=[];function check(n,f){try{f();checks.push({name:n,passed:true});}catch(x){checks.push({name:n,passed:false,cause:x.message});}}
+check('actual-inert-parser-success-11-fields-full-digest-and-clock',()=>{const v=e['parser-valid'].outcome.value;assert.equal(e['parser-valid'].outcome.kind,'return');assert.equal(v.fields.length,11);assert.equal(v.observedAt,'2040-10-15T09:00:00.000Z');assert.equal(v.fields[0].value,'Synthetic & note');assert.equal(v.fields.at(-1).source.membershipKey,'90003');assert.match(v.reportSha256,/^[a-f0-9]{64}$/);assert.equal(v.pdfGenerated,false);});
+check('inline-scripts-inert-no-execution',()=>assert.deepEqual(e['parser-script-inert'].outcome,e['parser-valid'].outcome));
+check('parser-refusal-order-body-before-DOM-invalid-date-first',()=>{assert.equal(e['parser-body-bound'].outcome.error.message,'cism_body_rejected');assert.deepEqual(e['parser-body-bound'].events,[]);assert.equal(e['parser-date-rejected'].outcome.error.message,'cism_date_rejected');});
+check('parser-document-scope-wire-period-field-refusals',()=>{for(const [id,msg]of [['login','cism_document_rejected'],['teacherkey','cism_scope_conflict'],['wire','cism_wire_drift'],['period','cism_period_conflict'],['metric-duplicate','cism_fields_unqualified']])assert.equal(e['parser-'+id].outcome.error.message,msg);});
+check('source-null-teacher-is-TypeError',()=>assert.equal(e['parser-teacher-null'].outcome.error.name,'TypeError'));
+check('valid-fractions-at-equal-explicit-clock-all-intake-not-stale',()=>{for(const id of ['one-fraction','two-fraction','nine-fraction'])assert.deepEqual(e['review-valid-'+id].outcome.value.intake.blockers,[]);});
+check('local-evidence-byte-limit-and-JSON-duplicate-member-source-last-wins',()=>{const x=e['live-evidence-boundaries'].outcome.value;assert.equal(x[0].kind,'return');assert.equal(x[1].error.message,'dailyrecord_save_current_request_unavailable');assert.equal(x[2].error.name,'SyntaxError');assert.equal(x[3].value.runtime,'runtime:synthetic');assert.equal(x[4].error.name,'ZodError');});
+write(join(out,'qualification.json'),{controls,checks});write(join(out,'comparison.json'),suite);
+const report={schema:'s08.extension-supplement-results/4',cases:cases.length,matched:suite.comparisons?.filter(x=>x.accepted).length??0,sourceStatuses:Object.fromEntries([...new Set(raw.map(x=>String(x.actual.status)))].map(s=>[s,raw.filter(x=>String(x.actual.status)===s).length])),childControls:controls.length,rejectedChildControls:controls.filter(x=>!x.judgment.accepted).length,meaningChecks:checks.length,meaningChecksPassed:checks.filter(x=>x.passed).length,uncharacterized:0,expectedSha256:sha(readFileSync(join(here,'supplement-expected.json'))),candidateExecuted:false,independentReview:'REQUIRED_NOT_PERFORMED',bunVersion:version,passed:suite.accepted&&controls.every(x=>!x.judgment.accepted)&&checks.every(x=>x.passed)};
+write(join(out,'report.json'),report);console.log(JSON.stringify({passed:report.passed,cases:report.cases,matched:report.matched,checks:checks.filter(x=>!x.passed),results:out}));if(!report.passed)process.exitCode=1;

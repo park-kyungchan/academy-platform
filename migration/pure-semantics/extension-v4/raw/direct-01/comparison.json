@@ -1,0 +1,45 @@
+{
+  "accepted": true,
+  "comparisons": [
+    {
+      "id": "direct-cismHash-cycle",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-cismHash-array_cycle",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-cismHash-undefined",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-cismHash-depth512",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-admission-canonicalJson-cycle",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-admission-canonicalJson-depth512",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-admission-canonicalActionDigest-cycle",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "direct-admission-canonicalActionDigest-depth512",
+      "accepted": true,
+      "reason": "full_frame"
+    }
+  ]
+}

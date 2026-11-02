@@ -1,0 +1,62 @@
+{
+  "source": "actual exec completions; forward-only supplement to author-command-observations.json",
+  "commands": [
+    {
+      "argv": [
+        "node",
+        "migration/pure-semantics/extension-v4/run.mjs",
+        "--deps-root",
+        "/home/palantirkc/projects/education-platform/modules/academy-workbench/tools/academy-mcp/node_modules",
+        "--results",
+        "migration/pure-semantics/extension-v4/raw/run-02"
+      ],
+      "actualStatus": 0,
+      "cases": 550,
+      "matched": 550
+    },
+    {
+      "argv": [
+        "node",
+        "migration/pure-semantics/extension-v4/run-supplement.mjs",
+        "--results",
+        "migration/pure-semantics/extension-v4/raw/supplement-02"
+      ],
+      "actualStatus": 0,
+      "cases": 45,
+      "matched": 45
+    },
+    {
+      "argv": [
+        "node",
+        "migration/pure-semantics/extension-v4/run-direct-v3.mjs",
+        "--results",
+        "migration/pure-semantics/extension-v4/raw/direct-01",
+        "--freeze"
+      ],
+      "actualStatus": 0,
+      "cases": 8,
+      "matched": 8
+    },
+    {
+      "argv": [
+        "node",
+        "migration/pure-semantics/extension-v4/run-direct-v3.mjs",
+        "--results",
+        "migration/pure-semantics/extension-v4/raw/direct-02"
+      ],
+      "actualStatus": 0,
+      "cases": 8,
+      "matched": 8
+    },
+    {
+      "argv": [
+        "node",
+        "migration/pure-semantics/extension-v4/check-source-meaning.mjs",
+        "migration/pure-semantics/extension-v4/raw/meaning-02.json"
+      ],
+      "actualStatus": 0,
+      "checks": 45,
+      "passed": 45
+    }
+  ]
+}

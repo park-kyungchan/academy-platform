@@ -1,0 +1,29 @@
+{
+  "schema": "s08.extension-supplement-results/4",
+  "cases": 45,
+  "matched": 45,
+  "sourceStatuses": {
+    "0": 45
+  },
+  "childControls": 6,
+  "rejectedChildControls": 6,
+  "meaningChecks": 7,
+  "meaningChecksPassed": 7,
+  "uncharacterized": 0,
+  "expectedSha256": "4bfe0bd9fa9cdb670150a643bd4b5590781cc6f3899613195892b69d79bb806f",
+  "candidateExecuted": false,
+  "independentReview": "REQUIRED_NOT_PERFORMED",
+  "bunVersion": {
+    "command": [
+      "bun",
+      "--version"
+    ],
+    "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/supplement-02/workspace",
+    "status": 0,
+    "signal": null,
+    "spawnError": null,
+    "stdout": "1.4.3\n",
+    "stderr": ""
+  },
+  "passed": true
+}

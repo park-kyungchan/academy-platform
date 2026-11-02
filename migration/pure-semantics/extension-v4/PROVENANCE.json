@@ -1,0 +1,75 @@
+{
+  "schema": "s08.extension-provenance/4",
+  "sourceBase": "cc6e81f1be2fcb56f011041e3d606e21edf76da3",
+  "readOnlyCandidate": "0551ea4893f71b458d0a33d03c3f8c763ed289d1",
+  "oldFoundation": "ff12a74",
+  "acceptedLeaf": "b8f1206b76f6a72b2381e134162059d6d53a8e90",
+  "authority": [
+    "current direct user",
+    "/root/.agents/AGENTS.md",
+    "/home/palantirkc/work/ws-replan/STATE.md",
+    "/home/palantirkc/work/ws-replan/ORCHESTRATION.md",
+    "/home/palantirkc/work/ws-replan/CURRENT-PLAN.md",
+    "immutable finalZIP contracts.json"
+  ],
+  "branch": "rust/s08-extension-reference-20261102",
+  "allowedChangedPrefix": "migration/pure-semantics/extension-v4/",
+  "originalClosureFiles": 30,
+  "supplementSourceFiles": 2,
+  "consultedCallerHashes": {
+    "apps/academy/dc-gang-a/src/lms/academyHttpClient.ts": "1dfd2a2085596db5998b44fe79be481286ccfe3996808b2aab719d765993a7d3",
+    "modules/academy-workbench/tools/academy-mcp/src/native-dailyrecord-backend.ts": "a77b2bac3fb1aad10dfbbe47af495a4d320683f6f1f8e1a87cd508deb26400ef",
+    "modules/academy-workbench/tools/academy-mcp/src/cism-weekly-tools.ts": "8c762fcbaef98566d57decb6c15d754fd8eb4e1ed7f68a7a5e50d25492f566f2",
+    "modules/academy-workbench/tools/academy-mcp/src/server.ts": "dab94dce4b342d6d0617259720c4d7c7e558d5c6cec4de3190a311d2e07e76a3"
+  },
+  "zodVersion": "4.4.3",
+  "zodPinnedFiles": 115,
+  "jsdomVersion": "30.1.2",
+  "parserDependencyPackages": 36,
+  "parserDependencyPinnedFiles": 1847,
+  "runtime": {
+    "bun": "1.4.3",
+    "node": "v24.22.1",
+    "bunBinarySha256": "7ce7d6b654eddeec20afddf2396317fba6dc19ab52788a27e894e1806bf8f24b",
+    "nodeBinarySha256": "e32e2d16081cf644f88392934288086e7662529d0d43277c34f7aad2207cfafb"
+  },
+  "ports": {
+    "UUID": "isolation.ts Bun mock.module node:crypto named import BEFORE unchanged source imports; createHash remains actual",
+    "reviewNow": "explicit finite nowEpochMs callback BEFORE DailyRecordService intake/review/digests",
+    "parserNow": "TestDate no-arg constructor and now fixed BEFORE original parser import; Date(string), UTC/parse remain native",
+    "policy": "explicit synthetic parent/learning callbacks only; no production policy acceptance",
+    "owner": "local readCurrentRequest/consumeOnce callbacks; no durable store or dispatch",
+    "evidenceFile": "only newly written raw/*/workspace/local-current-request.json",
+    "transport": "invocation-local deny guards; no OS isolation claim"
+  },
+  "execution": {
+    "childDeadlineMs": 5000,
+    "maxBufferBytes": 8388608,
+    "credentialsInEnvironment": false,
+    "sourceFunctionsMocked": false,
+    "expectedFromCandidate": false,
+    "posthashNormalization": false,
+    "nativeAcademyAccess": false,
+    "rustExecuted": false,
+    "pushMergeDeploy": false
+  },
+  "memory": {
+    "page": "kp-51e18480515b4ba2b3674b1b8f124f7f",
+    "use": "retained S08 scope/held status verified against current STATE; no expected outputs from memory",
+    "officialGuide": "/docker/hindsight/HINDSIGHT_OFFICIAL_PER_CALL.md",
+    "codingAgents": "0.8.2",
+    "hindsightVersion": "1.1.0",
+    "officialRevision": "a5a619b5ca59c5c39e0f96be6f7a31fabd136bd5",
+    "verifiedOfficialSources": [
+      "git show HEAD:hindsight-docs/docs/developer/knowledge-pages.mdx",
+      "git show HEAD:hindsight-integrations/coding-agents/src/core/knowledge-tools.test.ts"
+    ],
+    "detail": "Official checkout is sparse; read omitted tracked files with git show at actual verified HEAD. No memory mutation/new initiative/new goal."
+  },
+  "reviewLeads": [
+    "/home/palantirkc/work/ws-replan/preparation/implementation/reviews/wonder/S08-core/notes/REVIEW.md",
+    "/home/palantirkc/work/ws-replan/preparation/implementation/reviews/wonder/S08-core/raw/probe-results.json"
+  ],
+  "expectedOrigin": "ONLY direct invocation of unchanged source functions; synthetic declarations, actual versions and full raw streams committed",
+  "status": "AUTHOR_SOURCE_CHARACTERIZATION_ONLY; independent Wonder required before Root oracle acceptance"
+}
