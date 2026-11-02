@@ -193,8 +193,10 @@ async function call(req:any){
      const response=await client.callTool({name,arguments:withAttribution(name,input as Record<string,unknown>)});
      if(response.isError||!response.structuredContent)throw new UpstreamToolFailure(response);
      const data=response.structuredContent as Record<string,unknown>;
-     steps.push({tool:name,status:data.status??null,sourceAvailability:data.sourceAvailability??null});
-     return data;
+     const upstreamOccurrence=(response._meta?.['academy/audit'] as {occurrence?:unknown}|undefined)?.occurrence;
+     const safeOccurrence=typeof upstreamOccurrence==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(upstreamOccurrence)?upstreamOccurrence:null;
+     steps.push({tool:name,status:data.status??null,sourceAvailability:data.sourceAvailability??null,...(safeOccurrence?{upstreamOccurrence:safeOccurrence}:{})});
+     return {...data,...(safeOccurrence?{upstreamOccurrence:safeOccurrence}:{})};
     };
     const data=await readDailyRecordByName(args,{resolveStudent:input=>invoke('academy_student_resolve',input),intake:input=>invoke('academy_dailyrecord_intake',input)},active.readAdmission);
     return {content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
@@ -233,7 +235,7 @@ async function call(req:any){
    if(handles.size>64)handles.delete(handles.keys().next().value!);
    data.observationHandle=ticket;result.content=[{type:'text',text:JSON.stringify(data)}];
   }
-  writeFileSync(log+'/'+occurrence+'-result.json',JSON.stringify({occurrence,phase,endpoint,upstreamName,generation:active.generation,pointerSha256:'pointerSha256' in active.identity?active.identity.pointerSha256:null,elapsedMs:Date.now()-startedAt,upstreamOccurrence:result._meta?.['academy/audit']?.occurrence??null,completedAt:new Date().toISOString(),tool:receiptTool,isError:!!result.isError,status:result.structuredContent?.status??null,sourceAvailability:result.structuredContent?.sourceAvailability??null,steps,failure:result.structuredContent?.failure?publicFailureFromData(result.structuredContent.failure):null,resultSha256:sha(result),academyWrites:['academy_dailyrecord_save','academy_cism_weekly_save'].includes(entry.upstreamName)?(typeof result.structuredContent?.academyWrites==='number'?result.structuredContent.academyWrites:null):0,parentSends:0,automaticRetryAllowed:false})+'\n',{mode:0o600,flag:'wx'});
+  writeFileSync(log+'/'+occurrence+'-result.json',JSON.stringify({occurrence,phase,endpoint,upstreamName,generation:active.generation,pointerSha256:'pointerSha256' in active.identity?active.identity.pointerSha256:null,elapsedMs:Date.now()-startedAt,upstreamOccurrence:result.structuredContent?.upstreamOccurrence??result._meta?.['academy/audit']?.occurrence??null,completedAt:new Date().toISOString(),tool:receiptTool,isError:!!result.isError,status:result.structuredContent?.status??null,sourceAvailability:result.structuredContent?.sourceAvailability??null,steps,failure:result.structuredContent?.failure?publicFailureFromData(result.structuredContent.failure):null,resultSha256:sha(result),academyWrites:['academy_dailyrecord_save','academy_cism_weekly_save'].includes(entry.upstreamName)?(typeof result.structuredContent?.academyWrites==='number'?result.structuredContent.academyWrites:null):0,parentSends:0,automaticRetryAllowed:false})+'\n',{mode:0o600,flag:'wx'});
   return withToolMeta(result,{'academy/bridgeAudit':{occurrence,endpoint,upstreamName,generation:active.generation,elapsedMs:Date.now()-startedAt}});
  }catch(error){
   const failure=error instanceof CompositeSourceUnavailable||error instanceof UpstreamToolFailure?error.failure:publicReadFailure(error,'upstream_failure_reconcile_dispatch'),code=failure.code;

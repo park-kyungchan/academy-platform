@@ -1,5 +1,7 @@
 import {z} from 'zod';
 import {dailyRecordContextSchema,dailyRecordDateSchema,dailyRecordFields,dailyRecordIdSchema} from './dailyrecord-context.ts';
+import {publicFailureFromData} from './read-failure.ts';
+import {UpstreamToolFailure} from './upstream-failure.ts';
 
 export const dailyRecordGetSchema=z.object({
   displayName:z.string().trim().min(1).max(200).describe('Exact student display name from the current user request; never guess a native key.'),
@@ -28,7 +30,7 @@ export function academyBusinessDate(now:number):string {
 
 const resolutionSchema=z.discriminatedUnion('status',[
   z.object({status:z.literal('resolved'),studentKey:z.string().regex(/^[1-9][0-9]{0,15}$/),displayName:z.string()}),
-  z.object({status:z.literal('unavailable'),reasonCode:dailyRecordIdSchema}),
+  z.object({status:z.literal('unavailable'),reasonCode:dailyRecordIdSchema,failure:z.unknown().optional(),upstreamOccurrence:z.uuid().optional()}),
 ]);
 const hash=z.string().regex(/^[a-f0-9]{64}$/);
 const targetSchema=dailyRecordContextSchema.shape.scope.extend({courseId:dailyRecordIdSchema,membershipId:dailyRecordIdSchema,recordId:dailyRecordIdSchema});
@@ -52,14 +54,19 @@ export async function readDailyRecordByName(value:unknown,port:DailyRecordReadRo
   const base={displayName:input.displayName,lessonDate,timeZone:'Asia/Seoul',purpose:input.purpose,currentRequestRef:input.currentRequestRef,
     academyWrites:0,parentSends:0,automaticRetryAllowed:false,execution:'read_only',sourceContentIsUntrustedData:true};
   const held=(reasonCode:string)=>({...base,status:'unavailable' as const,sourceAvailability:'unavailable' as const,reasonCode});
+  const heldException=(reasonCode:string,error:unknown)=>error instanceof UpstreamToolFailure
+    ?{...held(reasonCode),failure:error.failure,...(error.upstreamOccurrence?{upstreamOccurrence:error.upstreamOccurrence}:{})}
+    :held(reasonCode);
   const qualified=dailyRecordReadAdmissionSchema.safeParse(admission);
   if(!qualified.success)return held('dailyrecord_owner_read_admission_not_configured');
   const owner=qualified.data;
   if((owner.allowedFrom!==null&&lessonDate<owner.allowedFrom)||(owner.allowedThrough!==null&&lessonDate>owner.allowedThrough))return held('lesson_date_out_of_admitted_scope');
   let resolved:z.infer<typeof resolutionSchema>;
   try{resolved=resolutionSchema.parse(await port.resolveStudent({displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,lessonDate}));}
-  catch{return held('student_resolve_unqualified_no_automatic_retry');}
-  if(resolved.status==='unavailable')return held(resolved.reasonCode);
+  catch(error){return heldException('student_resolve_unqualified_no_automatic_retry',error);}
+  if(resolved.status==='unavailable')return {...held(resolved.reasonCode),
+    ...(resolved.failure?{failure:publicFailureFromData(resolved.failure)}:{}),
+    ...(resolved.upstreamOccurrence?{upstreamOccurrence:resolved.upstreamOccurrence}:{})};
   if(resolved.displayName!==input.displayName)return held('student_name_scope_conflict');
   const context=dailyRecordContextSchema.parse({schemaVersion:'academy.dailyrecord-user-context/1',purpose:input.purpose,currentRequestRef:input.currentRequestRef,
     scope:{sourceNamespace:owner.sourceNamespace,teacherId:owner.teacherId,studentId:resolved.studentKey,lessonDate},
@@ -81,5 +88,5 @@ export async function readDailyRecordByName(value:unknown,port:DailyRecordReadRo
       // scope and request; a process-local handle would not outlive this call.
       authoringHandle:intake.observationPersistence==='owner_durable'&&intake.observationHandle
         ?{observationHandle:intake.observationHandle,persistence:'owner_durable' as const,boundTo:{scope:context.scope,currentRequestRef:context.currentRequestRef}}:null};
-  }catch{return held('dailyrecord_source_unqualified_no_automatic_retry');}
+  }catch(error){return heldException('dailyrecord_source_unqualified_no_automatic_retry',error);}
 }

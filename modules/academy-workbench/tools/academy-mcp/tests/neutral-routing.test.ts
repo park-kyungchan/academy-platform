@@ -86,6 +86,18 @@ test('neutral MCP runs resolve and intake in one upstream lifetime and logs meta
     expect((await readFile(events,'utf8')).match(/intake/g)).toHaveLength(1);
   });
 },20000);
+test('name composite preserves resolver failure and native occurrence in reply and receipt',async()=>{
+  await withNeutralClient(async({base,events,client})=>{
+    await writeFile(resolve(base,'inject-resolve-error'),'enabled');
+    const result:any=await client.callTool({name:'academy_dailyrecord_get',arguments:{displayName:'Invented Student',lessonDate:'2040-01-16',purpose:'Synthetic read',currentRequestRef:'synthetic-request'}});
+    expect(result.structuredContent).toMatchObject({status:'unavailable',failure:{code:'student_resolve_search_unqualified_no_automatic_retry'},academyWrites:0});
+    const occurrence=result.structuredContent.upstreamOccurrence;expect(occurrence).toMatch(/^[a-f0-9-]{36}$/);
+    const names=await readdir(resolve(base,'receipts'));
+    const receipt=JSON.parse(await readFile(resolve(base,'receipts',names.find(n=>n.endsWith('-result.json'))!),'utf8'));
+    expect(receipt).toMatchObject({upstreamOccurrence:occurrence,failure:{code:'student_resolve_search_unqualified_no_automatic_retry'},steps:[{tool:'academy_student_resolve',status:'unavailable',upstreamOccurrence:occurrence}]});
+    expect(await readFile(events,'utf8')).not.toContain('intake');expect(JSON.stringify(result)).not.toContain('synthetic_unknown_source_failure');
+  });
+},20000);
 test('neutral save composes intake, review and save in one upstream lifetime',async()=>{
   await withNeutralClient(async({events,client})=>{
     const c=context();

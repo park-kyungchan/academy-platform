@@ -149,6 +149,8 @@ const catalog={
   native_dailyrecord_scope_refused:['policy_denial','src/native-dailyrecord-backend.ts:readDailyRecord'],
   native_dated_name_ambiguous:['identity_ambiguity','src/native-dailyrecord-backend.ts:searchStudentsByName'],
   native_dated_name_scope_conflict:['contract_drift','src/native-dailyrecord-backend.ts:searchStudentsByName'],
+  student_resolve_search_unqualified_no_automatic_retry:['upstream_unavailable','src/student-resolver.ts:resolveStudentByName'],
+  student_resolve_unqualified_no_automatic_retry:['upstream_unavailable','src/dailyrecord.ts:resolveStudent'],
   script_digest_drift:['contract_drift','source-owner:script-digest'],
   native_dailyrecord_identity_conflict:['contract_drift','src/native-dailyrecord-backend.ts:readDailyRecord'],
   native_dailyrecord_state_conflict:['contract_drift','src/native-dailyrecord-backend.ts:readDailyRecord'],
