@@ -48,6 +48,7 @@ class Peer:
   if name=='parent_excluded':return False
   if name=='learning_scope_qualified':return True
   if name=='learning_review':return []
+  if name=='learning_suggest':return None
   if name=='authenticate':event(root,{'operation':'fake_authenticate','teacherId':SCOPE['teacherId']});return None
   if name=='discover_groups':return {'groups':[{'groupId':'3'}]}
   if name=='execute':return {'dayRecords':[{**TARGET,'date':v['date'],**({} if v['date']==TARGET['date'] else {'recordKey':s['previousRecordKey']}),'fields':s['fields']}]}

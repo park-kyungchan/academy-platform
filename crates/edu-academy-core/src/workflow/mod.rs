@@ -5,6 +5,7 @@ pub mod cism;
 pub mod codec;
 pub mod http;
 pub mod native;
+pub mod read_failure;
 pub mod review;
 pub mod schema;
 pub mod service;

@@ -96,15 +96,30 @@ pub fn qualified_observation(value: &Js, scope: &Js) -> Result<Js> {
     Ok(observation)
 }
 impl Service<'_> {
-    fn read_source(&mut self, scope: &Js, request: &Js, subject: &Js) -> Result<Js> {
-        let mut read = self.source.read(scope, request, subject)?;
-        if read.get("status").is("observed") {
-            read.set(
-                "observation",
-                qualified_observation(read.get("observation"), scope)?,
-            );
-        }
-        Ok(read)
+    fn read_source(&mut self, scope: &Js, request: &Js, subject: &Js) -> Js {
+        // Original #read projects an unavailable reason, or qualifies an observed
+        // shape, then catches every typed source/qualification failure once.
+        let read = (|| -> Result<Js> {
+            let read = self.source.read(scope, request, subject)?;
+            if read.get("status").is("unavailable") {
+                return Ok(obj(&[
+                    ("status", "unavailable".into()),
+                    (
+                        "reasonCode",
+                        super::read_failure::safe_reason(read.get("reasonCode")),
+                    ),
+                ]));
+            }
+            Ok(obj(&[
+                ("status", "observed".into()),
+                (
+                    "observation",
+                    qualified_observation(read.get("observation"), scope)?,
+                ),
+                ("subject", read.get("subject").clone()),
+            ]))
+        })();
+        read.unwrap_or_else(|error| super::read_failure::unavailable(&error))
     }
 
     fn pins(&self) -> Js {
@@ -143,27 +158,21 @@ impl Service<'_> {
         let c = input.get("context");
         let scope = c.get("scope");
         let request = c.get("currentRequestRef");
-        let held = self.observation(input.get("observationHandle"), scope, request)?;
-        // Preserve original lazy read: stale or unbound observations never start a source read.
-        let fresh = if crate::instant::epoch_ms(
-            held.get("observation").get("observedAt"),
-            crate::instant::Grammar::DailyRecord,
-        )
-        .zip(crate::instant::epoch_ms(
-            &self.runtime.now().into(),
-            crate::instant::Grammar::DailyRecord,
-        ))
-        .is_some_and(|(a, b)| b >= a && b - a <= 300000)
-        {
+        let held = if input.get("observationHandle").absent() {
+            Js::Null
+        } else {
+            self.observation(input.get("observationHandle"), scope, request)?
+        };
+        // Original #review reads only after every global precondition passes.
+        let fresh = if review::needs_fresh_read(&input, held.get("observation"), self.runtime)? {
             self.read_source(scope, request, held.get("subject"))
-                .unwrap_or(Js::Null)
         } else {
             Js::Null
         };
-        let mut result = review::review(
+        let mut result = review::review_read(
             &input,
             held.get("observation"),
-            fresh.get("observation"),
+            &fresh,
             self.policy,
             self.runtime,
         )?;
@@ -869,21 +878,11 @@ impl Service<'_> {
                     Kind::Observation,
                     &review.get("observationHandle").code_units(),
                 )?;
-                let read = self
-                    .read_source(
-                        r.get("scope"),
-                        c.get("currentRequestRef"),
-                        obs.get("subject"),
-                    )
-                    .unwrap_or_else(|_| {
-                        obj(&[
-                            ("status", "unavailable".into()),
-                            (
-                                "reasonCode",
-                                "dailyrecord_source_unqualified_no_automatic_retry".into(),
-                            ),
-                        ])
-                    });
+                let read = self.read_source(
+                    r.get("scope"),
+                    c.get("currentRequestRef"),
+                    obs.get("subject"),
+                );
                 reads.push((scope_key.clone(), read));
             }
             let read = &reads

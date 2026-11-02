@@ -206,6 +206,19 @@ impl review::Policy for Policy {
                 |v| v.array().to_vec(),
             )
     }
+    fn learning_suggest(&self, s: &Js, v: &Js, e: &Js) -> Js {
+        self.link
+            .borrow_mut()
+            .call(
+                "learning_suggest",
+                obj(&[
+                    ("scope", s.clone()),
+                    ("value", v.clone()),
+                    ("entries", edu_academy_core::workflow::nullable(e)),
+                ]),
+            )
+            .unwrap_or(Js::Null)
+    }
 }
 struct Native {
     link: Link,

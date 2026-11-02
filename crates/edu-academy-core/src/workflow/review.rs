@@ -672,6 +672,7 @@ fn semantic_fact_blockers(p: &Js, facts: &[&Js], b: &mut Vec<Js>) -> Vec<Js> {
 }
 /// One finite source-equivalent intake/review composition; no durable workflow.
 /// The clock/UUID provider is mandatory and used before constructing hash inputs.
+/// Original observation-based API retained for existing callers.
 pub fn review(
     input: &Js,
     held_observation: &Js,
@@ -679,24 +680,23 @@ pub fn review(
     policy: &dyn Policy,
     runtime: &dyn Runtime,
 ) -> Result<Js> {
-    let input = crate::schema::validate("dailyRecordReviewSchema", input)?;
-    let context = normalize_context(input.get("context"));
-    let proposals = normalize_proposals(input.get("proposals"));
-    let scope = context.get("scope");
-    let request = context.get("currentRequestRef");
-    let source = normalize_observation(&crate::schema::validate(
-        "dailyRecordObservationSchema",
-        held_observation,
-    )?);
-    if let Some(e) = qualify(&source, scope) {
-        return Err(Fault::error(e.get("code").code_units()));
-    }
-    let now_epoch =
-        crate::instant::epoch_ms(&runtime.now().into(), crate::instant::Grammar::DailyRecord)
-            .ok_or_else(|| Fault::error("workflow_clock_invalid"))? as f64;
-    let safeguard = !policy.parent_pins().absent();
-    let learning = !policy.learning_pins().absent();
-    let mut events = vec![];
+    let fresh_read = if fresh_observation.absent() {
+        obj(&[
+            ("status", "unavailable".into()),
+            ("reasonCode", "source_read_unavailable".into()),
+        ])
+    } else {
+        obj(&[
+            ("status", "observed".into()),
+            ("observation", fresh_observation.clone()),
+        ])
+    };
+    review_read(input, held_observation, &fresh_read, policy, runtime)
+}
+
+/// Shared pre-read checks keep held, stale, CISM-blocked and duplicate reviews lazy.
+fn global_blockers(input: &Js, source: &Js, now_epoch: f64) -> Result<Vec<Js>> {
+    let proposals = input.get("proposals");
     if unique(
         &proposals
             .array()
@@ -709,8 +709,7 @@ pub fn review(
     {
         return Err(Fault::error("duplicate_proposal_field"));
     }
-    let handle = super::nullable(input.get("observationHandle"));
-    let held = !handle.absent();
+    let held = !input.get("observationHandle").absent();
     let mut global = if held {
         vec![]
     } else {
@@ -719,7 +718,7 @@ pub fn review(
     if input.get("cismObservationHandle").truthy() {
         global.push("exact_fresh_cism_observation_handle_required".into());
     }
-    for fact in context.get("facts").array() {
+    for fact in input.get("context").get("facts").array() {
         if fact.get("origin").is("cism_section") {
             global.push("cism_fact_not_bound_to_exact_observed_section".into());
         }
@@ -727,6 +726,48 @@ pub fn review(
     if held && stale(source.get("observedAt"), now_epoch) {
         global.push("stale_source".into());
     }
+    Ok(global)
+}
+fn now_epoch(runtime: &dyn Runtime) -> Result<f64> {
+    crate::instant::epoch_ms(&runtime.now().into(), crate::instant::Grammar::DailyRecord)
+        .map(|v| v as f64)
+        .ok_or_else(|| Fault::error("workflow_clock_invalid"))
+}
+pub(crate) fn needs_fresh_read(input: &Js, source: &Js, runtime: &dyn Runtime) -> Result<bool> {
+    Ok(global_blockers(input, source, now_epoch(runtime)?)?.is_empty())
+}
+
+pub(crate) fn review_read(
+    input: &Js,
+    held_observation: &Js,
+    fresh_read: &Js,
+    policy: &dyn Policy,
+    runtime: &dyn Runtime,
+) -> Result<Js> {
+    let input = crate::schema::validate("dailyRecordReviewSchema", input)?;
+    let context = normalize_context(input.get("context"));
+    let proposals = normalize_proposals(input.get("proposals"));
+    let scope = context.get("scope");
+    let request = context.get("currentRequestRef");
+    let handle = super::nullable(input.get("observationHandle"));
+    let held = !handle.absent();
+    let source = if held {
+        let source = normalize_observation(&crate::schema::validate(
+            "dailyRecordObservationSchema",
+            held_observation,
+        )?);
+        if let Some(e) = qualify(&source, scope) {
+            return Err(Fault::error(e.get("code").code_units()));
+        }
+        source
+    } else {
+        Js::Null
+    };
+    let now_epoch = now_epoch(runtime)?;
+    let safeguard = !policy.parent_pins().absent();
+    let learning = !policy.learning_pins().absent();
+    let mut events = vec![];
+    let mut global = global_blockers(&input, &source, now_epoch)?;
     let fresh = held && global.is_empty();
     if fresh {
         events.push(obj(&[
@@ -737,9 +778,9 @@ pub fn review(
     }
     let mut fresh_source = Js::Null;
     if fresh {
-        let raw = fresh_observation;
-        if raw.absent() {
-            global.push("source_read_unavailable".into());
+        let raw = fresh_read.get("observation");
+        if fresh_read.get("status").is("unavailable") {
+            global.push(fresh_read.get("reasonCode").clone());
         } else {
             match crate::schema::validate("dailyRecordObservationSchema", raw) {
                 Err(_) => global.push("source_response_malformed".into()),
@@ -806,6 +847,7 @@ pub fn review(
         } else {
             source.get("target").clone()
         };
+        let mut suggestion = Js::Null;
         let mut b = global.clone();
         b.extend(proposal_blockers(p, &context));
         if !before.get("state").is("known") {
@@ -915,7 +957,20 @@ pub fn review(
                         } else {
                             p.get("learningEntries").clone()
                         };
-                        b.extend(policy.learning_review(scope, &reviewed, &entries));
+                        let learning_blockers = policy.learning_review(scope, &reviewed, &entries);
+                        if held
+                            && global.is_empty()
+                            && learning_blockers
+                                .iter()
+                                .any(|b| b.is("learning_render_mismatch"))
+                        {
+                            suggestion = super::nullable(&policy.learning_suggest(
+                                scope,
+                                value,
+                                p.get("learningEntries"),
+                            ));
+                        }
+                        b.extend(learning_blockers);
                     }
                 }
             }
@@ -939,8 +994,15 @@ pub fn review(
             ("after", value.clone()),
             ("factRefs", p.get("factRefs").clone()),
             ("learningEntries", entries),
-            ("learningSuggestedRendering", Js::Null),
-            ("learningSuggestionMeaning", Js::Null),
+            ("learningSuggestedRendering", suggestion.clone()),
+            (
+                "learningSuggestionMeaning",
+                if suggestion.absent() {
+                    Js::Null
+                } else {
+                    "format_example_only_teacher_must_review_meaning".into()
+                },
+            ),
             (
                 "disposition",
                 if !b.is_empty() {
