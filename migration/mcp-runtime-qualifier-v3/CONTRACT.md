@@ -288,3 +288,31 @@ registry/events, promises, or independent child OS capture. Old named-write guar
 coverage is still unproved; separate optionB <=2 disposable controls are REQUIRED
 before future fresh captures. Protected observer/stimulus/policy/pins and old raw
 remain immutable. This finite repair is not pair/all10/final Wonder acceptance.
+
+## Finite direct request sample enclosure
+
+Only request_receipts direct neutral-server input/response samples may resolve a
+whole wall-cell boundary ambiguity using captured native causal evidence. Generic
+NativeClock.contains/enclose_cell and upstream selection remain strict. The
+unchanged executed preload orders each stream-byte append, then sample, then
+event append. Exact source pin/preload bytes, PID/native exec/PGID/ancestry/clock
+owner, unique request/reply/frame/event/sample/sequence and complete native
+append bytes must bind to retained taps and the external recorder wire.
+
+The preceding same-stream append-close operation lower bound and following
+exact event-append-open completion upper bound enclose the sample. Intersect
+that independent envelope with its unchanged Bun wall cell; the intersection
+must be nonempty and entirely inside the unchanged recorder request/reply
+window and native lifetime. No sample is invented, no recorder boundary is
+replaced by logging completion, and no window/tolerance is enlarged. Missing,
+ambiguous, wrong-owner, reordered, truncated, byte-mismatched or disjoint proof
+fails closed; contradictory/out-of-window evidence still refuses. Same-owner
+monotonic/stable-wall, generation/freshness/duration, receipt/identity/digest
+and native/JS agreement guards remain. The observed A/request4/sequence11
+justifies this finite rule, not later requests, upstream attribution or parity.
+
+Root optionB1 separately confirmed static named writeFileSync bypasses the
+protected default observer wrapper and guard on pinned Bun1.4.3 within its
+owned disposable parent. This is an exact API observation, not a universal
+guard claim. Preload is unchanged; candidate B2 and any fresh captures remain
+separate Root work. Retained comparison requires NEW comparator custody.

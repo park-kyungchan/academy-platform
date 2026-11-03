@@ -1551,6 +1551,85 @@ def native_fault_events(capture, command, process, call, before, after):
     return found
 
 
+def direct_request_sample(capture, command, request, reply, sample, channel):
+    """Finite direct tap proof only; generic clock containment stays strict."""
+    process = command['direct']; clock = process['clock']
+    before = request['requestSendBracket']['before']
+    after = reply['responseReceiveBracket']['after'] if reply else command['result']['ended']
+    try:
+        clock.contains(sample, before, after)
+        return wall_cell(sample)
+    except Unqualified as error:
+        if str(error) != 'clock_window_boundary_ambiguous@clock:1':
+            raise
+    if channel not in ['stdin', 'stdout']:
+        uncertain('direct_clock_channel_unsupported', 'clock')
+    if sample.owner != clock.owner:
+        refuse('clock_owner_mismatch', 'clock')
+    trace = native_writer_trace(capture, command, process); start = process['start']
+    expected_owner = ClockDomain('bun', str(capture.root), start['pid'], command['start']['pid'], sha(js_bytes(start['nativeArgv'])))
+    if clock.owner != expected_owner or clock.recorder != capture.recorder:
+        refuse('clock_owner_mismatch', 'clock')
+    source = 'modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts'
+    require_same(str(capture.root / 'source' / source), process['entry'], 'direct-clock-source')
+    require_same(PINS['sources'][source]['sha256'], capture.entry_pin(process['entry']), 'direct-clock-source-pin')
+    require_same((HERE / 'preload.ts').read_bytes(), capture.raw('observer-source/preload.ts'), 'direct-clock-preload-order')
+    if sum(r is request for r in command['cap']['requests']) != 1:
+        uncertain('direct_clock_request_binding_missing', 'clock')
+    if reply is not None and (sum(r is reply for r in command['cap']['frames']) != 1 or
+                              not same(reply['value'].get('id'), request['request']['id'])):
+        uncertain('direct_clock_reply_binding_missing', 'clock')
+    frames = [f for f in stream_frames(process, channel) if f['sample'] is sample and
+              (same(f['value'], request['request']) if channel == 'stdin' else
+               isinstance(f['value'], dict) and same(f['value'].get('id'), request['request']['id']))]
+    if len(frames) != 1:
+        uncertain('direct_clock_frame_ambiguous', 'clock')
+    frame = frames[0]
+    if channel == 'stdout':
+        if reply is None:
+            uncertain('direct_clock_reply_binding_missing', 'clock')
+        require_same(bytes.fromhex(reply['bytes']), frame['raw'], 'direct-clock-response-frame')
+    elif command['raw']['stdin'].count(frame['raw']) != 1:
+        uncertain('direct_clock_input_frame_binding', 'clock')
+    kind = 'stdin_data' if channel == 'stdin' else 'stream_write'
+    events = [e for e in process['events'] if e['sample'] is sample and e['kind'] == kind and
+              (channel == 'stdin' or e.get('channel') == 'stdout')]
+    if len(events) != 1:
+        uncertain('direct_clock_event_ambiguous', 'clock')
+    event = events[0]; require_same(start['pid'], event['pid'], 'direct-clock-event-owner')
+    require_same(frame['raw'], event_bytes(event), 'direct-clock-event-frame')
+    logpath = f"processes/{start['pid']}/events.ndjson"
+    logs = native_file_chains(trace, str(capture.root / logpath), 'tap')
+    require_same(capture.raw(logpath), b''.join(x['raw'] for x in logs), 'direct-clock-event-append-bytes')
+    selected = [x for x in logs if parse(x['raw']).get('sequence') == event['sequence']]
+    if len(selected) != 1:
+        uncertain('direct_clock_sequence_ambiguous', 'clock')
+    logged = selected[0]
+    # Strip only the in-memory ownership subclass, never captured fields/bytes.
+    require_same({**event, 'sample': dict(sample)}, parse(logged['raw']), 'direct-clock-native-event')
+    path = f"processes/{start['pid']}/{channel}.bin"
+    copies = native_file_chains(trace, str(capture.root / path), 'tap')
+    require_same(capture.raw(path), b''.join(x['raw'] for x in copies), 'direct-clock-stream-append-bytes')
+    selected = [x for x in copies if x['raw'] == event_bytes(event)]
+    if len(selected) != 1:
+        uncertain('direct_clock_stream_append_ambiguous', 'clock')
+    copied = selected[0]
+    if copied['closeLine'] >= logged['openLine'] or any(
+            copied['closeLine'] < x['closeLine'] < logged['openLine'] for x in copies):
+        uncertain('direct_clock_append_order_ambiguous', 'clock')
+    lines = trace.splitlines()
+    lower = native_operation_cell(lines[copied['closeLine'] - 1])[0]
+    upper = native_operation_cell(lines[logged['openLine'] - 1])[1]
+    if lower > upper:
+        uncertain('direct_clock_native_envelope_reversed', 'clock')
+    cell = wall_cell(sample); narrowed = max(cell[0], lower), min(cell[1], upper)
+    if narrowed[0] > narrowed[1]:
+        uncertain('direct_clock_native_envelope_disjoint', 'clock')
+    enclose_cell(narrowed, clock.exec_cell[0], clock.terminal_cell[1])
+    enclose_cell(narrowed, *clock.recorder_window(before, after))
+    return narrowed
+
+
 def request_receipts(capture, command, request, reply):
     direct = command['direct']
     lo = request['requestSendBracket']['before']
@@ -1559,9 +1638,9 @@ def request_receipts(capture, command, request, reply):
     if len(calls) != 1:
         uncertain('receipt_request_owner_missing', 'clock')
     call = calls[0]
-    direct['clock'].contains(call['before'], lo, hi)
+    direct_request_sample(capture, command, request, reply, call['before'], 'stdin')
     if call['after'] is not None:
-        direct['clock'].contains(call['after'], lo, hi)
+        direct_request_sample(capture, command, request, reply, call['after'], 'stdout')
     found = {}
     for e in direct['events']:
         if e['kind'] != 'file_write' or not e.get('success'):

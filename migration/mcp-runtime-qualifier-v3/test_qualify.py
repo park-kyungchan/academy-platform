@@ -712,6 +712,105 @@ class PureTests(unittest.TestCase):
         command['traces'][101]=trace.replace(') = '+str(len(hung))+' ',') = '+str(len(hung)-1)+' ')
         self.rejected('native_write_partial_or_length',q.native_fault_events,capture,command,process,call,BEFORE,AFTER)
 
+    def direct_boundary_fixture(self):
+        capture = self.retained_capture('A'); command = capture.commands['neutral']
+        mutant, cmd = self.mutant_capture(capture, command)
+        cmd['direct'] = copy.copy(command['direct'])
+        # Copy the linked event/channel graph together; mutants never touch cache.
+        cmd['direct'].update(copy.deepcopy({k:command['direct'][k] for k in ['events','channels']}))
+        request = cmd['cap']['requests'][4]
+        reply = next(f for f in cmd['cap']['frames'] if f.get('value', {}).get('id') == 4)
+        call = next(c for c in q.source_calls(cmd['direct']) if c['request']['id'] == 4)
+        return mutant, cmd, request, reply, call['after']
+
+    def direct_boundary_check(self, fixture):
+        return q.direct_request_sample(*fixture, 'stdout')
+
+    def test_55_actual_direct_response_native_enclosure(self):
+        fixture = self.direct_boundary_fixture(); capture, cmd, request, reply, sample = fixture
+        self.rejected('clock_window_boundary_ambiguous', cmd['direct']['clock'].contains, sample,
+                      request['requestSendBracket']['before'], reply['responseReceiveBracket']['after'])
+        self.assertEqual(q.wall_cell(sample), (1793684704952000000,1793684704953000000))
+        self.assertEqual(self.direct_boundary_check(fixture), (1793684704952192000,1793684704952410000))
+        self.assertEqual(set(q.request_receipts(capture,cmd,request,reply)), {'dispatch','result'})
+        incoming = next(c for c in q.source_calls(cmd['direct']) if c['request']['id']==4)['before']
+        self.assertEqual(q.direct_request_sample(capture,cmd,request,reply,incoming,'stdin'), q.wall_cell(incoming))
+
+    def test_56_direct_native_owner_and_exec_controls(self):
+        for kind, code in [('pid','native_write_owner_unavailable'),('exec','native-write-exec-owner'),
+                           ('pgid','native-write-group-owner'),('parent','native-write-parent-owner'),
+                           ('domain','clock_owner_mismatch')]:
+            with self.subTest(kind=kind):
+                fixture=self.direct_boundary_fixture(); _,cmd,_,_,sample=fixture
+                cmd['direct']['start']=copy.deepcopy(cmd['direct']['start'])
+                start=cmd['direct']['start']
+                if kind=='pid': start['pid']=99999999
+                if kind=='exec': start['nativeArgv']=[*start['nativeArgv'],'wrong']
+                if kind=='pgid': start['pgid']+=1
+                if kind=='parent': start['ppid']+=1
+                if kind=='domain':
+                    sample.owner=q.ClockDomain('bun',sample.owner.capture,99999999,sample.owner.command,sample.owner.exec_sha256)
+                self.rejected(code,self.direct_boundary_check,fixture)
+
+    def test_57_direct_event_sequence_frame_and_native_byte_controls(self):
+        for kind,code in [('sequence','direct_clock_sequence_ambiguous'),('pid','direct-clock-event-owner'),
+                          ('frame','direct_clock_frame_ambiguous'),('native','direct-clock-event-append-bytes')]:
+            with self.subTest(kind=kind):
+                fixture=self.direct_boundary_fixture();_,cmd,_,_,sample=fixture
+                event=next(e for e in cmd['direct']['events'] if e['sample'] is sample)
+                if kind=='sequence': event['sequence']=999999
+                if kind=='pid': event['pid']+=1
+                if kind=='frame':
+                    raw=q.event_bytes(event).replace(b'"id":4',b'"id":9')
+                    import base64
+                    event.update(data=base64.b64encode(raw).decode(),bytes=len(raw),sha256=q.sha(raw))
+                if kind=='native':
+                    pid=cmd['direct']['start']['pid'];lines=cmd['traces'][pid].splitlines()
+                    lines[1268]=lines[1268].replace('3792357029','3792357028')
+                    cmd['traces'][pid]='\n'.join(lines)+'\n'
+                self.rejected(code,self.direct_boundary_check,fixture)
+
+    def test_58_direct_missing_partial_and_reordered_append_controls(self):
+        for kind,code in [('missing','direct-clock-stream-append-bytes'),('partial','native_write_partial_or_length'),
+                          ('order','direct_clock_append_order_ambiguous'),('trace','native_write_trace_missing')]:
+            with self.subTest(kind=kind):
+                fixture=self.direct_boundary_fixture();_,cmd,_,_,_=fixture
+                pid=cmd['direct']['start']['pid'];lines=cmd['traces'][pid].splitlines()
+                if kind=='missing': del lines[1264:1267]
+                if kind=='partial': lines[1265]=lines[1265].replace('= 428 ', '= 427 ')
+                if kind=='order': lines[1264:1270]=lines[1267:1270]+lines[1264:1267]
+                cmd['traces'][pid]='\n'.join(lines)+'\n'
+                if kind=='trace': del cmd['traces'][pid]
+                self.rejected(code,self.direct_boundary_check,fixture)
+
+    def test_59_direct_disjoint_and_outside_recorder_window_controls(self):
+        fixture=self.direct_boundary_fixture();_,cmd,_,_,_=fixture
+        pid=cmd['direct']['start']['pid'];lines=cmd['traces'][pid].splitlines()
+        for index in range(1264,1270):
+            stamp,rest=lines[index].split(' ',1);seconds,micros=stamp.split('.')
+            shifted=int(seconds)*1000000+int(micros)+10000
+            lines[index]=str(shifted//1000000)+'.'+str(shifted%1000000).zfill(6)+' '+rest
+        cmd['traces'][pid]='\n'.join(lines)+'\n'
+        self.rejected('direct_clock_native_envelope_disjoint',self.direct_boundary_check,fixture)
+        fixture=self.direct_boundary_fixture();_,_,_,reply,_=fixture
+        bracket=reply['responseReceiveBracket'];delta=1793684704952100000-bracket['after']['wallNs']
+        for edge in ['before','after']:
+            value=bracket[edge]
+            bracket[edge]=q.own_sample({k:(v+delta if k in ['wallNs','monoBeforeNs','monoAfterNs'] else v)
+                                       for k,v in value.items()},value.owner)
+        self.rejected('clock_sample_outside_window',self.direct_boundary_check,fixture)
+
+    def test_60_direct_boundary_without_pinned_proof_stays_closed(self):
+        fixture=self.direct_boundary_fixture();capture,cmd,request,reply,sample=fixture
+        self.rejected('clock_window_boundary_ambiguous',q.enclose_cell,q.wall_cell(sample),
+                      request['requestSendBracket']['before']['wallNs']-1,reply['responseReceiveBracket']['after']['wallNs']+1)
+        original=capture.raw
+        capture.raw=lambda path: b'changed preload' if path=='observer-source/preload.ts' else original(path)
+        self.rejected('direct-clock-preload-order',self.direct_boundary_check,fixture)
+        fixture=self.direct_boundary_fixture();_,_,request,_,_=fixture
+        request['request']['id']=99999
+        self.rejected('direct_clock_reply_binding_missing',self.direct_boundary_check,fixture)
+
     def test_31_frozen_framing_bytes_and_split_order(self):
         chunks = q.expected_stdin('framing', 'neutral')
         self.assertEqual(chunks[3], b'{not-json}\n')
