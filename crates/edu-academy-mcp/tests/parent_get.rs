@@ -630,8 +630,12 @@ impl Control for OwnedControl {
     }
 }
 fn receipts(scene: &Scene, suffix: &str) -> Vec<Js> {
-    fs::read_dir(scene.install.parent().unwrap().join("evidence"))
-        .unwrap()
+    let entries = match fs::read_dir(scene.install.parent().unwrap().join("evidence/receipts")) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return vec![],
+        Err(error) => panic!("receipt read failed: {error}"),
+    };
+    entries
         .map(|e| e.unwrap().path())
         .filter(|p| p.file_name().unwrap().to_str().unwrap().ends_with(suffix))
         .map(|p| parse(&fs::read(p).unwrap()).unwrap())
