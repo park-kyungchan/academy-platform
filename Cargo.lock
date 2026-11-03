@@ -244,6 +244,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "edu-academy-mcp"
+version = "0.0.0"
+dependencies = [
+ "edu-academy-core",
+ "regex",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "edu-academy-sources"
 version = "0.0.0"
 dependencies = [
