@@ -166,6 +166,35 @@ impl<T: Transport> Client<T> {
         self.cookies.clear();
         self.authenticated = false;
     }
+    /// Owner-qualified journal mutation over the existing injected transport.
+    /// `now` and `approval` are supplied by the runtime owner, not by caller flags.
+    pub fn apply_journal_action(
+        &mut self,
+        action: &Js,
+        approval: &mut dyn edu_academy_core::workflow::approval::Approval,
+        now: &str,
+    ) -> Result<Js> {
+        use edu_academy_core::workflow::http;
+        http::validate_action(action).map_err(journal_core_error)?;
+        if action.get("target").get("teacherKey") != self.principal.get("teacherKey") {
+            return Err(err("journal_principal_conflict"));
+        }
+        if !self.authenticated {
+            return Err(err("authentication_required"));
+        }
+        let mut port = JournalHttpPort {
+            client: self,
+            now,
+            read_error: None,
+        };
+        match http::apply(action, &mut port, approval) {
+            Ok(result) => Ok(result),
+            Err(fault) => Err(port
+                .read_error
+                .take()
+                .unwrap_or_else(|| journal_core_error(fault))),
+        }
+    }
     fn request(
         &mut self,
         method: &str,
@@ -1101,6 +1130,364 @@ impl<T: Transport> Client<T> {
             ("previousDate", values[1].into()),
             ("wireDigest", digest.into()),
         ]))
+    }
+}
+// Private bridge: only the qualified public entrypoint exposes mutation.
+// The core Fault type cannot carry arbitrary source HTTP properties, so retain
+// the original read error for a failing pre-dispatch apply. After-read failures
+// intentionally remain the core's unresolved outcome.
+struct JournalHttpPort<'a, T: Transport> {
+    client: &'a mut Client<T>,
+    now: &'a str,
+    read_error: Option<Error>,
+}
+fn journal_core_error(fault: edu_academy_core::js::Fault) -> Error {
+    let mut error = Error::new(fault.name, fault.message);
+    if let Some(issues) = fault.issues {
+        error.properties.set("issues", Js::Arr(issues));
+    }
+    error
+}
+impl<T: Transport> edu_academy_core::workflow::http::HttpPort for JournalHttpPort<'_, T> {
+    fn read(&mut self, target: &Js) -> edu_academy_core::js::Result<Js> {
+        self.client
+            .journal_state(target, self.now)
+            .map_err(|error| {
+                let fault = edu_academy_core::js::Fault::error(error.message.clone());
+                self.read_error = Some(error);
+                fault
+            })
+    }
+    fn write(&mut self, action: &Js) -> edu_academy_core::js::Result<()> {
+        let (method, path, selector, parameter) = match action.get("field").code_units().as_str() {
+            "progress" => ("GET", MAIN, "udtPrg", "prg_txt"),
+            "homework" => ("GET", MAIN, "udtHw", "hw_txt"),
+            "lessonMemo" => ("GET", MAIN, "udtMemo", "memo_txt"),
+            "attendance" => ("GET", MAIN, "udtAttn", "attn_yn"),
+            "dailyTestAssessment" => (
+                "POST",
+                "/servlet/controller.cct.common.CourseCommonServlet",
+                "SetDailyTest",
+                "daily_test_no",
+            ),
+            "previousHomeworkAssessment" => (
+                "POST",
+                "/servlet/controller.cct.common.CourseCommonServlet",
+                "SetHomeWorkRate",
+                "homework_rate_no",
+            ),
+            _ => {
+                return Err(edu_academy_core::js::Fault::error(
+                    "journal_http_action_rejected",
+                ));
+            }
+        };
+        let target = action.get("target");
+        let (query, body) = if method == "GET" {
+            (
+                vec![
+                    ("reqCmd".into(), selector.into()),
+                    (parameter.into(), string(action.get("after"))),
+                    ("course_seq".into(), string(target.get("courseKey"))),
+                    ("stu_pri_no".into(), string(target.get("studentKey"))),
+                    ("record_seq".into(), string(action.get("effectRecordKey"))),
+                    ("cm_seq".into(), string(target.get("membershipKey"))),
+                    ("dummy".into(), self.now.into()),
+                ],
+                vec![],
+            )
+        } else {
+            (
+                vec![],
+                vec![
+                    ("reqCmd".into(), selector.into()),
+                    ("cm_seq".into(), string(target.get("membershipKey"))),
+                    ("record_seq".into(), string(action.get("effectRecordKey"))),
+                    ("tutor_pri_no".into(), string(target.get("teacherKey"))),
+                    (parameter.into(), string(action.get("after"))),
+                ],
+            )
+        };
+        self.client
+            .request(method, path, query, body, false, None)
+            .map(|_| ())
+            .map_err(|error| edu_academy_core::js::Fault::error(error.message))
+    }
+}
+#[cfg(test)]
+mod owner_http_write_tests {
+    use super::*;
+    use edu_academy_core::{js::Fault, workflow::http::HttpPort};
+
+    const NOW: &str = "2040-01-04T09:00:00.000Z";
+    const COMMON: &str = "/servlet/controller.cct.common.CourseCommonServlet";
+    #[derive(Default)]
+    struct Fictional {
+        requests: Vec<Request>,
+        fail: bool,
+        status: Option<u16>,
+        redirect: Option<&'static str>,
+        cookie: Option<&'static str>,
+    }
+    impl Transport for Fictional {
+        fn dispatch(&mut self, request: &Request) -> Result<Response> {
+            self.requests.push(request.clone());
+            if self.fail {
+                return Err(Error::new("FictionalFailure", "fictional_lost_response"));
+            }
+            let mut headers = vec![];
+            if let Some(location) = self.redirect {
+                headers.push(("Location".into(), location.into()));
+            }
+            if let Some(cookie) = self.cookie {
+                headers.push(("Set-Cookie".into(), cookie.into()));
+            }
+            Ok(Response {
+                status: self.status.unwrap_or(200),
+                headers,
+                bytes: b"response body is not persistence evidence".to_vec(),
+                url: format!("{ORIGIN}{}", request.path),
+                stalled: false,
+            })
+        }
+    }
+    fn client() -> Client<Fictional> {
+        let mut client = Client::new(
+            obj(&[
+                ("teacherLabel", "Fictional Port Teacher".into()),
+                ("teacherKey", "99001".into()),
+                ("collegeKey", "88001".into()),
+            ]),
+            Fictional::default(),
+        )
+        .unwrap();
+        client.authenticated = true;
+        client
+    }
+    fn action(field: &str, after: &str) -> Js {
+        obj(&[
+            ("field", field.into()),
+            ("after", after.into()),
+            (
+                "effectRecordKey",
+                if field == "previousHomeworkAssessment" {
+                    "12"
+                } else {
+                    "13"
+                }
+                .into(),
+            ),
+            (
+                "target",
+                obj(&[
+                    ("teacherKey", "99001".into()),
+                    ("studentKey", "77001".into()),
+                    ("courseKey", "5".into()),
+                    ("recordKey", "13".into()),
+                    ("membershipKey", "8".into()),
+                ]),
+            ),
+        ])
+    }
+    fn write(client: &mut Client<Fictional>, action: &Js) -> edu_academy_core::js::Result<()> {
+        // Intentionally tests ONLY the private wire seam, never a qualified apply.
+        JournalHttpPort {
+            client,
+            now: NOW,
+            read_error: None,
+        }
+        .write(action)
+    }
+    fn encoded(pairs: &[(String, String)]) -> String {
+        url::form_urlencoded::Serializer::new(String::new())
+            .extend_pairs(pairs)
+            .finish()
+    }
+    #[test]
+    fn six_private_field_bindings_and_literal_form_encoding() {
+        for (field, after, method, path, expected) in [
+            (
+                "progress",
+                "A &+=?#/😀\n가",
+                "GET",
+                MAIN,
+                "reqCmd=udtPrg&prg_txt=A+%26%2B%3D%3F%23%2F%F0%9F%98%80%0A%EA%B0%80&course_seq=5&stu_pri_no=77001&record_seq=13&cm_seq=8&dummy=2040-01-04T09%3A00%3A00.000Z",
+            ),
+            (
+                "homework",
+                "After",
+                "GET",
+                MAIN,
+                "reqCmd=udtHw&hw_txt=After&course_seq=5&stu_pri_no=77001&record_seq=13&cm_seq=8&dummy=2040-01-04T09%3A00%3A00.000Z",
+            ),
+            (
+                "lessonMemo",
+                "After",
+                "GET",
+                MAIN,
+                "reqCmd=udtMemo&memo_txt=After&course_seq=5&stu_pri_no=77001&record_seq=13&cm_seq=8&dummy=2040-01-04T09%3A00%3A00.000Z",
+            ),
+            (
+                "attendance",
+                " ",
+                "GET",
+                MAIN,
+                "reqCmd=udtAttn&attn_yn=+&course_seq=5&stu_pri_no=77001&record_seq=13&cm_seq=8&dummy=2040-01-04T09%3A00%3A00.000Z",
+            ),
+            (
+                "dailyTestAssessment",
+                "10",
+                "POST",
+                COMMON,
+                "reqCmd=SetDailyTest&cm_seq=8&record_seq=13&tutor_pri_no=99001&daily_test_no=10",
+            ),
+            (
+                "previousHomeworkAssessment",
+                "-1",
+                "POST",
+                COMMON,
+                "reqCmd=SetHomeWorkRate&cm_seq=8&record_seq=12&tutor_pri_no=99001&homework_rate_no=-1",
+            ),
+        ] {
+            let mut c = client();
+            write(&mut c, &action(field, after)).unwrap();
+            assert_eq!(c.transport.requests.len(), 1);
+            let r = &c.transport.requests[0];
+            assert_eq!(r.method, method);
+            assert_eq!(r.path, path);
+            assert_eq!(r.timeout, Duration::from_secs(20));
+            assert_eq!(
+                encoded(if method == "GET" { &r.query } else { &r.body }),
+                expected
+            );
+            assert!(if method == "GET" {
+                r.body.is_empty()
+            } else {
+                r.query.is_empty()
+            });
+            assert!(r.headers.contains(&("Origin".into(), ORIGIN.into())));
+            assert!(
+                r.headers
+                    .contains(&("Referer".into(), format!("{ORIGIN}/c_login.jsp")))
+            );
+            assert_eq!(
+                r.headers
+                    .iter()
+                    .filter(|(k, _)| k == "Content-Type")
+                    .count(),
+                usize::from(method == "POST")
+            );
+            if method == "POST" {
+                assert!(r.headers.contains(&(
+                    "Content-Type".into(),
+                    "application/x-www-form-urlencoded; charset=UTF-8".into()
+                )));
+            }
+            assert!(admit_operation(ORIGIN, path, method, &r.query, &r.body).is_none());
+        }
+    }
+    #[test]
+    fn private_value_uses_usvstring_and_keeps_reserved_data_in_one_parameter() {
+        let mut c = client();
+        let mut a = action("progress", "");
+        a.set("after", Js::Str(vec![0xd800, 0x26, 0xdc00]));
+        write(&mut c, &a).unwrap();
+        let r = &c.transport.requests[0];
+        assert_eq!(r.query.len(), 7);
+        assert_eq!(r.query[1], ("prg_txt".into(), "�&�".into()));
+        assert_eq!(
+            encoded(&r.query),
+            "reqCmd=udtPrg&prg_txt=%EF%BF%BD%26%EF%BF%BD&course_seq=5&stu_pri_no=77001&record_seq=13&cm_seq=8&dummy=2040-01-04T09%3A00%3A00.000Z"
+        );
+    }
+    #[test]
+    fn private_request_failures_dispatch_once_and_never_follow_redirects() {
+        for variant in [
+            "transport",
+            "http",
+            "redirect",
+            "foreign_redirect",
+            "foreign_cookie",
+            "unknown_field",
+        ] {
+            let mut c = client();
+            let mut a = action("progress", "After");
+            let expected = match variant {
+                "transport" => {
+                    c.transport.fail = true;
+                    "academy_transport_failed"
+                }
+                "http" => {
+                    c.transport.status = Some(503);
+                    "source_http_failed"
+                }
+                "redirect" => {
+                    c.transport.status = Some(302);
+                    c.transport.redirect = Some("/fictional-next");
+                    "source_redirect_rejected"
+                }
+                "foreign_redirect" => {
+                    c.transport.status = Some(302);
+                    c.transport.redirect = Some("https://foreign.invalid/");
+                    "foreign_source_redirect_rejected"
+                }
+                "foreign_cookie" => {
+                    c.transport.cookie =
+                        Some("JSESSIONID=fictional; Domain=foreign.invalid; Path=/");
+                    "foreign_session_cookie_rejected"
+                }
+                _ => {
+                    a.set("field", "persistentMemo".into());
+                    "journal_http_action_rejected"
+                }
+            };
+            assert_eq!(write(&mut c, &a).unwrap_err().message, expected);
+            assert_eq!(
+                c.transport.requests.len(),
+                usize::from(variant != "unknown_field")
+            );
+        }
+    }
+    #[test]
+    fn private_request_reuses_cookie_scope_and_close_clears_it() {
+        let mut c = client();
+        c.transport.cookie = Some("JSESSIONID=fictional-port; Path=/servlet/; Secure");
+        c.request("GET", "/c_login.jsp", vec![], vec![], false, None)
+            .unwrap();
+        write(&mut c, &action("progress", "After")).unwrap();
+        assert!(
+            c.transport.requests[1]
+                .headers
+                .contains(&("Cookie".into(), "JSESSIONID=fictional-port".into()))
+        );
+        c.request("GET", "/outside", vec![], vec![], false, None)
+            .unwrap();
+        assert!(
+            !c.transport.requests[2]
+                .headers
+                .iter()
+                .any(|(k, _)| k == "Cookie")
+        );
+        c.close();
+        assert!(c.cookies.is_empty());
+        assert!(!c.authenticated);
+    }
+    #[test]
+    fn core_fault_conversion_preserves_name_message_and_issues() {
+        let e = journal_core_error(Fault {
+            name: "TypeError",
+            message: "fictional_approval_failed".into(),
+            issues: Some(vec![obj(&[("code", "fictional_issue".into())])]),
+        });
+        assert_eq!(e.name, "TypeError");
+        assert_eq!(e.message, "fictional_approval_failed");
+        assert_eq!(
+            e.properties,
+            obj(&[(
+                "issues",
+                Js::Arr(vec![obj(&[("code", "fictional_issue".into())])])
+            )])
+        );
     }
 }
 fn login_encode(literal: &str) -> Result<String> {
