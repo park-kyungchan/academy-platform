@@ -1,0 +1,665 @@
+{
+  "presentation": [
+    {
+      "id": "unicode-Script-Gara",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Gara}/u;}"
+    },
+    {
+      "id": "unicode-sc-Gara",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Gara}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Gara",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Gara}/u;}"
+    },
+    {
+      "id": "unicode-scx-Gara",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Gara}/u;}"
+    },
+    {
+      "id": "unicode-Script-Garay",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Garay}/u;}"
+    },
+    {
+      "id": "unicode-sc-Garay",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Garay}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Garay",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Garay}/u;}"
+    },
+    {
+      "id": "unicode-scx-Garay",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Garay}/u;}"
+    },
+    {
+      "id": "unicode-Script-Gukh",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Gukh}/u;}"
+    },
+    {
+      "id": "unicode-sc-Gukh",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Gukh}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Gukh",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Gukh}/u;}"
+    },
+    {
+      "id": "unicode-scx-Gukh",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Gukh}/u;}"
+    },
+    {
+      "id": "unicode-Script-Gurung_Khema",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Gurung_Khema}/u;}"
+    },
+    {
+      "id": "unicode-sc-Gurung_Khema",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Gurung_Khema}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Gurung_Khema",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Gurung_Khema}/u;}"
+    },
+    {
+      "id": "unicode-scx-Gurung_Khema",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Gurung_Khema}/u;}"
+    },
+    {
+      "id": "unicode-Script-Hrkt",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Hrkt}/u;}"
+    },
+    {
+      "id": "unicode-sc-Hrkt",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Hrkt}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Hrkt",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Hrkt}/u;}"
+    },
+    {
+      "id": "unicode-scx-Hrkt",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Hrkt}/u;}"
+    },
+    {
+      "id": "unicode-Script-Katakana_Or_Hiragana",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Katakana_Or_Hiragana}/u;}"
+    },
+    {
+      "id": "unicode-sc-Katakana_Or_Hiragana",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Katakana_Or_Hiragana}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Katakana_Or_Hiragana",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Katakana_Or_Hiragana}/u;}"
+    },
+    {
+      "id": "unicode-scx-Katakana_Or_Hiragana",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Katakana_Or_Hiragana}/u;}"
+    },
+    {
+      "id": "unicode-Script-Kawi",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Kawi}/u;}"
+    },
+    {
+      "id": "unicode-sc-Kawi",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Kawi}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Kawi",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Kawi}/u;}"
+    },
+    {
+      "id": "unicode-scx-Kawi",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Kawi}/u;}"
+    },
+    {
+      "id": "unicode-Script-Kirat_Rai",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Kirat_Rai}/u;}"
+    },
+    {
+      "id": "unicode-sc-Kirat_Rai",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Kirat_Rai}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Kirat_Rai",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Kirat_Rai}/u;}"
+    },
+    {
+      "id": "unicode-scx-Kirat_Rai",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Kirat_Rai}/u;}"
+    },
+    {
+      "id": "unicode-Script-Krai",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Krai}/u;}"
+    },
+    {
+      "id": "unicode-sc-Krai",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Krai}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Krai",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Krai}/u;}"
+    },
+    {
+      "id": "unicode-scx-Krai",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Krai}/u;}"
+    },
+    {
+      "id": "unicode-Script-Nag_Mundari",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Nag_Mundari}/u;}"
+    },
+    {
+      "id": "unicode-sc-Nag_Mundari",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Nag_Mundari}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Nag_Mundari",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Nag_Mundari}/u;}"
+    },
+    {
+      "id": "unicode-scx-Nag_Mundari",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Nag_Mundari}/u;}"
+    },
+    {
+      "id": "unicode-Script-Nagm",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Nagm}/u;}"
+    },
+    {
+      "id": "unicode-sc-Nagm",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Nagm}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Nagm",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Nagm}/u;}"
+    },
+    {
+      "id": "unicode-scx-Nagm",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Nagm}/u;}"
+    },
+    {
+      "id": "unicode-Script-Ol_Onal",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Ol_Onal}/u;}"
+    },
+    {
+      "id": "unicode-sc-Ol_Onal",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Ol_Onal}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Ol_Onal",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Ol_Onal}/u;}"
+    },
+    {
+      "id": "unicode-scx-Ol_Onal",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Ol_Onal}/u;}"
+    },
+    {
+      "id": "unicode-Script-Onao",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Onao}/u;}"
+    },
+    {
+      "id": "unicode-sc-Onao",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Onao}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Onao",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Onao}/u;}"
+    },
+    {
+      "id": "unicode-scx-Onao",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Onao}/u;}"
+    },
+    {
+      "id": "unicode-Script-Sunu",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Sunu}/u;}"
+    },
+    {
+      "id": "unicode-sc-Sunu",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Sunu}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Sunu",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Sunu}/u;}"
+    },
+    {
+      "id": "unicode-scx-Sunu",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Sunu}/u;}"
+    },
+    {
+      "id": "unicode-Script-Sunuwar",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Sunuwar}/u;}"
+    },
+    {
+      "id": "unicode-sc-Sunuwar",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Sunuwar}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Sunuwar",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Sunuwar}/u;}"
+    },
+    {
+      "id": "unicode-scx-Sunuwar",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Sunuwar}/u;}"
+    },
+    {
+      "id": "unicode-Script-Todhri",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Todhri}/u;}"
+    },
+    {
+      "id": "unicode-sc-Todhri",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Todhri}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Todhri",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Todhri}/u;}"
+    },
+    {
+      "id": "unicode-scx-Todhri",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Todhri}/u;}"
+    },
+    {
+      "id": "unicode-Script-Todr",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Todr}/u;}"
+    },
+    {
+      "id": "unicode-sc-Todr",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Todr}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Todr",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Todr}/u;}"
+    },
+    {
+      "id": "unicode-scx-Todr",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Todr}/u;}"
+    },
+    {
+      "id": "unicode-Script-Tulu_Tigalari",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Tulu_Tigalari}/u;}"
+    },
+    {
+      "id": "unicode-sc-Tulu_Tigalari",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Tulu_Tigalari}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Tulu_Tigalari",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Tulu_Tigalari}/u;}"
+    },
+    {
+      "id": "unicode-scx-Tulu_Tigalari",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Tulu_Tigalari}/u;}"
+    },
+    {
+      "id": "unicode-Script-Tutg",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Tutg}/u;}"
+    },
+    {
+      "id": "unicode-sc-Tutg",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Tutg}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Tutg",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Tutg}/u;}"
+    },
+    {
+      "id": "unicode-scx-Tutg",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Tutg}/u;}"
+    },
+    {
+      "id": "unicode-Script-Unknown",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Unknown}/u;}"
+    },
+    {
+      "id": "unicode-sc-Unknown",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Unknown}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Unknown",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Unknown}/u;}"
+    },
+    {
+      "id": "unicode-scx-Unknown",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Unknown}/u;}"
+    },
+    {
+      "id": "unicode-Script-Zzzz",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Zzzz}/u;}"
+    },
+    {
+      "id": "unicode-sc-Zzzz",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Zzzz}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Zzzz",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Zzzz}/u;}"
+    },
+    {
+      "id": "unicode-scx-Zzzz",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Zzzz}/u;}"
+    },
+    {
+      "id": "unicode-Script-Toto",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Toto}/u;}"
+    },
+    {
+      "id": "unicode-sc-Toto",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Toto}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Toto",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Toto}/u;}"
+    },
+    {
+      "id": "unicode-scx-Toto",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Toto}/u;}"
+    },
+    {
+      "id": "unicode-Script-Vithkuqi",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Vithkuqi}/u;}"
+    },
+    {
+      "id": "unicode-sc-Vithkuqi",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Vithkuqi}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Vithkuqi",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Vithkuqi}/u;}"
+    },
+    {
+      "id": "unicode-scx-Vithkuqi",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Vithkuqi}/u;}"
+    },
+    {
+      "id": "unicode-Script-Vith",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Vith}/u;}"
+    },
+    {
+      "id": "unicode-sc-Vith",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Vith}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Vith",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Vith}/u;}"
+    },
+    {
+      "id": "unicode-scx-Vith",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Vith}/u;}"
+    },
+    {
+      "id": "unicode-Script-Old_Uyghur",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Old_Uyghur}/u;}"
+    },
+    {
+      "id": "unicode-sc-Old_Uyghur",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Old_Uyghur}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Old_Uyghur",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Old_Uyghur}/u;}"
+    },
+    {
+      "id": "unicode-scx-Old_Uyghur",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Old_Uyghur}/u;}"
+    },
+    {
+      "id": "unicode-Script-Ougr",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script=Ougr}/u;}"
+    },
+    {
+      "id": "unicode-sc-Ougr",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{sc=Ougr}/u;}"
+    },
+    {
+      "id": "unicode-Script_Extensions-Ougr",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Script_Extensions=Ougr}/u;}"
+    },
+    {
+      "id": "unicode-scx-Ougr",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{scx=Ougr}/u;}"
+    },
+    {
+      "id": "unicode-lone-L",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{L}/u;}"
+    },
+    {
+      "id": "unicode-lone-Letter",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Letter}/u;}"
+    },
+    {
+      "id": "unicode-lone-ASCII",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{ASCII}/u;}"
+    },
+    {
+      "id": "unicode-lone-Extended_Pictographic",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{Extended_Pictographic}/u;}"
+    },
+    {
+      "id": "unicode-lone-ExtPict",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{ExtPict}/u;}"
+    },
+    {
+      "id": "unicode-lone-EBase",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /\\p{EBase}/u;}"
+    }
+  ],
+  "locations": []
+}

@@ -1,0 +1,10 @@
+{
+  "at": "2026-11-03T00:39:02.732468+00:00",
+  "origin": "actual unchanged original exports in native/original-ast-01; before Rust comparison",
+  "files": {
+    "original.ts": "5e9a2f3b78ba65dc8917d5c12b70810e477573b30e8d5aaad8bc2ba3c0a98338",
+    "AST-STIMULI.json": "f342b56bd9007d562f243186346456f0c0b67a5bd9e0580ae614e8c594715e26",
+    "AST-EXPECTED.json": "39a113de7563452838c0f025ffa78babcea5fedcfdfadcaa47b9f3a4d679572f"
+  },
+  "rawStdoutSha256": "39a113de7563452838c0f025ffa78babcea5fedcfdfadcaa47b9f3a4d679572f"
+}

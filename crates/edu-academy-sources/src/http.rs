@@ -130,6 +130,12 @@ pub fn admit_operation(
                     .filter(|(k, _)| op.get("selectorKey").is(k))
                     .count()
                     == 1
+                && query
+                    .iter()
+                    .chain(body)
+                    .filter(|(k, _)| op.get("selectorKey").is(k))
+                    .count()
+                    <= 2
                 && pairs
                     .iter()
                     .any(|(k, v)| op.get("selectorKey").is(k) && op.get("selector").is(v))
@@ -169,13 +175,23 @@ impl<T: Transport> Client<T> {
         follow: bool,
         operation: Option<&str>,
     ) -> Result<Response> {
-        if !path.starts_with('/')
-            || path.starts_with("//")
-            || path.contains('#')
-            || path.contains('@')
+        let mut request_url = url::Url::parse(ORIGIN)
+            .expect("fixed origin")
+            .join(path)
+            .map_err(|_| err("fixed_academy_origin_required"))?;
+        if request_url.origin().ascii_serialization() != ORIGIN
+            || !request_url.username().is_empty()
+            || request_url.password().is_some_and(|s| !s.is_empty())
+            || request_url.fragment().is_some_and(|s| !s.is_empty())
         {
             return Err(err("fixed_academy_origin_required"));
         }
+        if !query.is_empty() {
+            request_url
+                .query_pairs_mut()
+                .extend_pairs(query.iter().map(|(k, v)| (k, v)));
+        }
+        let path = request_url.path();
         let mut headers = vec![
             ("Origin".into(), ORIGIN.into()),
             ("Referer".into(), format!("{ORIGIN}/c_login.jsp")),
@@ -230,10 +246,10 @@ impl<T: Transport> Client<T> {
                         .map(|(_, v)| v.trim())
                 })
             };
-            if let Some(domain) = attr("domain") {
-                if domain.strip_prefix('.').unwrap_or(domain) != "dc.gang-a.kr" {
-                    return Err(err("foreign_session_cookie_rejected"));
-                }
+            if let Some(domain) = attr("domain")
+                && domain.strip_prefix('.').unwrap_or(domain) != "dc.gang-a.kr"
+            {
+                return Err(err("foreign_session_cookie_rejected"));
             }
             let path = attr("path").unwrap_or("/");
             if !path.starts_with('/') || value.contains(['\r', '\n', ';']) {
@@ -254,24 +270,30 @@ impl<T: Transport> Client<T> {
             let loc = response
                 .header("location")
                 .ok_or_else(|| err("source_redirect_contract_rejected"))?;
-            let local = if let Some(s) = loc.strip_prefix(ORIGIN) {
-                if !s.starts_with('/') {
-                    return Err(err("foreign_source_redirect_rejected"));
-                }
-                s
-            } else if loc.starts_with('/') && !loc.starts_with("//") {
-                loc
-            } else {
-                return Err(err("foreign_source_redirect_rejected"));
-            };
-            if local.contains('#') || local.contains('@') {
+            if loc.is_empty() {
+                return Err(err("source_redirect_contract_rejected"));
+            }
+            let next = request_url
+                .join(loc)
+                .map_err(|_| err("foreign_source_redirect_rejected"))?;
+            if next.origin().ascii_serialization() != ORIGIN
+                || !next.username().is_empty()
+                || next.password().is_some_and(|s| !s.is_empty())
+                || next.fragment().is_some_and(|s| !s.is_empty())
+            {
                 return Err(err("foreign_source_redirect_rejected"));
             }
             if !follow {
                 return Err(err("source_redirect_rejected"));
             }
-            let (p, q) = local.split_once('?').unwrap_or((local, ""));
-            return self.request("GET", p, parse_form(q), vec![], false, None);
+            return self.request(
+                "GET",
+                next.path(),
+                parse_form(next.query().unwrap_or("")),
+                vec![],
+                false,
+                None,
+            );
         }
         if !(200..300).contains(&response.status) {
             let mut e = Error::new("AcademyHttpFailure", "source_http_failed");
@@ -423,10 +445,6 @@ impl<T: Transport> Client<T> {
         }
         let operation = admit_operation(ORIGIN, path, method, &query, &body)
             .ok_or_else(|| err("reviewed_read_operation_required"))?;
-        let key = string(operation.get("selectorKey"));
-        if query.iter().chain(&body).filter(|(k, _)| k == &key).count() > 2 {
-            return Err(err("reviewed_read_operation_required"));
-        }
         let response = match self.request(
             method,
             path,
@@ -744,6 +762,7 @@ impl<T: Transport> Client<T> {
             return Err(err("day_record_wire_scope_required"));
         }
         let mut output = vec![];
+        let next_function = regex::Regex::new(r"\n\s*function\s+").unwrap();
         for group in request.get("groupIds").array() {
             let html = self.read_request(
                 "POST",
@@ -773,9 +792,7 @@ impl<T: Transport> Client<T> {
                 ] {
                     let re = regex::Regex::new(&format!(r"function\s+{name}\s*\(")).unwrap();
                     let Some(m) = re.find(&source) else { continue };
-                    let next = regex::Regex::new(r"\n\s*function\s+")
-                        .unwrap()
-                        .find(&source[m.end()..]);
+                    let next = next_function.find(&source[m.end()..]);
                     let end = next.map_or(source.len(), |m2| m.end() + m2.start());
                     let definition = source[m.start()..end].trim();
                     if definition.encode_utf16().count() > 20000 {
@@ -956,10 +973,134 @@ impl<T: Transport> Client<T> {
         if digest != "650813891d9428cb03eedb071f5c94bc369fd9641993de6d02ce4e07a5945bd1" {
             return Err(err("journal_mutation_wire_not_qualified"));
         }
-        // There is deliberately no fabricated genuine wire success: this selected reader
-        // reaches the preserved qualification boundary. A newly supplied qualified recording
-        // must carry the separately implemented assessment/previous-occurrence proof.
-        Err(err("qualified_journal_owner_join_required"))
+        self.journal_after_qualification(target, row, wire, &digest)
+    }
+    // Private structural seam; product callers must pass the immutable digest gate above.
+    fn journal_after_qualification(
+        &mut self,
+        target: &Js,
+        row: &Js,
+        wire: &Js,
+        digest: &str,
+    ) -> Result<Js> {
+        assert_assessment_options(wire.get("assessmentOptions"))?;
+        for (handler, selector) in [
+            ("onAttn", "udtAttn"),
+            ("onFoPrg", "udtPrg"),
+            ("onFoHw", "udtHw"),
+            ("onFoMm", "udtMemo"),
+            ("setDailyTest", "SetDailyTest"),
+            ("openHomeWorkRate", "SetHomeWorkRate"),
+        ] {
+            let source = wire.get("functions").get(handler);
+            if !source.truthy() || !string(source).contains(&format!("reqCmd={selector}")) {
+                return Err(err("journal_wire_drift"));
+            }
+        }
+        let controls = wire
+            .get("rows")
+            .array()
+            .iter()
+            .find(|r| r.get("studentName") == target.get("studentName"))
+            .ok_or_else(|| err("journal_wire_not_observed"))?
+            .get("controls")
+            .array();
+        let handlers = |prefix: &str| {
+            controls
+                .iter()
+                .map(|c| string(c.get("handler")))
+                .filter(|h| h.starts_with(prefix))
+                .collect::<Vec<_>>()
+        };
+        let daily = handlers("setDailyTest(");
+        let daily_re = regex::Regex::new(r"^setDailyTest\(([1-9][0-9]*),([1-9][0-9]*),[0-9]+\)$")
+            .expect("static regex");
+        let tuple = if daily.len() == 1 {
+            daily_re.captures(&daily[0])
+        } else {
+            None
+        };
+        if !tuple.as_ref().is_some_and(|m| {
+            target.get("recordKey").is(&m[1]) && target.get("membershipKey").is(&m[2])
+        }) {
+            return Err(err("journal_daily_tuple_conflict"));
+        }
+        let previous = handlers("openHomeWorkRate(");
+        if previous.len() != 1 {
+            return Err(err("journal_previous_tuple_ambiguous"));
+        }
+        let previous_re =
+            regex::Regex::new(r"^openHomeWorkRate\(([1-9][0-9]*),([1-9][0-9]*),[0-9]+\)$")
+                .expect("static regex");
+        let m = previous_re
+            .captures(&previous[0])
+            .ok_or_else(|| err("journal_previous_tuple_conflict"))?;
+        if !target.get("membershipKey").is(&m[2]) || target.get("recordKey").is(&m[1]) {
+            return Err(err("journal_previous_tuple_conflict"));
+        }
+        let previous_key = literal_key(&Js::from(&m[1]))?;
+        let query = vec![
+            ("reqCmd".into(), "SelSglRecord".into()),
+            ("course_seq".into(), string(target.get("courseKey"))),
+            ("stu_pri_no".into(), string(target.get("studentKey"))),
+            ("record_seq".into(), string(&previous_key)),
+            ("sel_grp_seq".into(), string(target.get("groupId"))),
+            ("tut_pri_no".into(), string(target.get("teacherKey"))),
+            ("cm_seq".into(), string(target.get("membershipKey"))),
+        ];
+        let source = self.read_request("GET", SELECTED, query, vec![])?;
+        if source.encode_utf16().count() > 2_000_000
+            || source.contains("webUserPass")
+            || source.contains("세션이 만료")
+        {
+            return Err(err("journal_previous_source_rejected"));
+        }
+        let (record, parsererror) = match xml_record_observation(&source) {
+            Ok(v) => v,
+            Err(e) if e.message == "independent_occurrence_contract_rejected" => {
+                return Err(err("journal_previous_occurrence_conflict"));
+            }
+            Err(e) => return Err(e),
+        };
+        if parsererror {
+            return Err(err("journal_previous_occurrence_conflict"));
+        }
+        let values = record.split('!').collect::<Vec<_>>();
+        if [
+            (2, "courseKey"),
+            (4, "studentName"),
+            (11, "studentKey"),
+            (12, "membershipKey"),
+        ]
+        .iter()
+        .any(|(i, k)| values.get(*i).is_none_or(|v| !target.get(k).is(v)))
+            || values.get(10).is_none_or(|v| !previous_key.is(v))
+            || values
+                .get(1)
+                .is_none_or(|v| v.is_empty() || *v >= string(target.get("date")).as_str())
+        {
+            return Err(err("journal_previous_occurrence_conflict"));
+        }
+        let assessment = |field: &str| -> Result<Js> {
+            let matches = controls
+                .iter()
+                .filter(|c| c.get("name").is(field))
+                .collect::<Vec<_>>();
+            if matches.len() != 1 || !matches[0].get("value").string() {
+                return Err(err("journal_assessment_not_observed"));
+            }
+            Ok(matches[0].get("value").clone())
+        };
+        let mut fields = row.get("fields").clone();
+        fields.set("dailyTestAssessment", assessment("h_daily_test")?);
+        fields.set("previousHomeworkAssessment", assessment("h_homework_rate")?);
+        Ok(obj(&[
+            ("target", target.clone()),
+            ("fields", fields),
+            ("previousRecordKey", previous_key),
+            ("previousDate", values[1].into()),
+            ("wireDigest", digest.into()),
+        ]))
     }
 }
 fn login_encode(literal: &str) -> Result<String> {
@@ -1305,26 +1446,30 @@ pub(crate) fn bind_row(doc: &Document, row: scraper::ElementRef<'_>) -> Result<(
             vec![("record_seq", "record_seq"), ("cm_seq", "cm_seq")],
         ),
     ] {
-        if let Some(b) = calls.get(h) {
-            if keys.iter().any(|(a, bkey)| b.get(a) != canonical.get(bkey)) {
-                return Err(err("requested_row_binding_unresolved"));
-            }
-        }
-    }
-    if let Some(p) = calls.get("openHomeWorkRate") {
-        if ["record_seq", "cm_seq"]
-            .iter()
-            .any(|k| !string(p.get(k)).bytes().any(|c| matches!(c, b'1'..=b'9')))
+        if let Some(b) = calls.get(h)
+            && keys.iter().any(|(a, bkey)| b.get(a) != canonical.get(bkey))
         {
             return Err(err("requested_row_binding_unresolved"));
         }
+    }
+    if let Some(p) = calls.get("openHomeWorkRate")
+        && ["record_seq", "cm_seq"]
+            .iter()
+            .any(|k| !string(p.get(k)).bytes().any(|c| matches!(c, b'1'..=b'9')))
+    {
+        return Err(err("requested_row_binding_unresolved"));
     }
     Ok((fields, canonical.clone()))
 }
 /// Strict recorded XML token parser; inert text only. Reports the original XML error shape.
 pub(crate) fn xml_record(s: &str) -> Result<String> {
+    xml_record_observation(s).map(|(record, _)| record)
+}
+fn xml_record_observation(s: &str) -> Result<(String, bool)> {
+    let mut parsererror = false;
     let mut stack: Vec<String> = vec![];
     let mut records = vec![];
+    let mut record_count = 0;
     let mut record = None::<String>;
     let mut i = 0;
     let mut roots = 0;
@@ -1404,12 +1549,15 @@ pub(crate) fn xml_record(s: &str) -> Result<String> {
                 return Err(syntax(end + 1, "unexpected close tag.".into()));
             }
             stack.pop();
-            if name == "record" {
-                if let Some(r) = record.take() {
-                    records.push(r)
-                }
+            if name == "record"
+                && let Some(r) = record.take()
+            {
+                records.push(r);
             }
         } else {
+            if name == "parsererror" {
+                parsererror = true;
+            }
             if stack.is_empty() {
                 roots += 1;
                 if roots > 1 {
@@ -1420,6 +1568,7 @@ pub(crate) fn xml_record(s: &str) -> Result<String> {
                 }
             }
             if name == "record" {
+                record_count += 1;
                 record = Some(String::new())
             }
             if !empty {
@@ -1434,10 +1583,10 @@ pub(crate) fn xml_record(s: &str) -> Result<String> {
     if let Some(name) = stack.last() {
         return Err(syntax(s.len(), format!("unclosed tag: {name}")));
     }
-    if records.len() != 1 {
+    if record_count != 1 || records.len() != 1 {
         return Err(err("independent_occurrence_contract_rejected"));
     }
-    Ok(records.remove(0))
+    Ok((records.remove(0), parsererror))
 }
 fn xml_entities(s: &str) -> Result<String> {
     let mut out = String::new();
@@ -1582,11 +1731,7 @@ impl Transport for RecordedTransport {
                         ("validSuffix", valid.into()),
                         (
                             "prefixMatchesFixture",
-                            expected
-                                .string()
-                                .then(|| expected.is(prefix))
-                                .unwrap_or(false)
-                                .into(),
+                            (expected.string() && expected.is(prefix)).into(),
                         ),
                     ])
                 })
@@ -1646,5 +1791,478 @@ impl Transport for RecordedTransport {
             url: string(record.get("url")),
             stalled: record.get("stalled").truthy(),
         })
+    }
+}
+
+fn assert_assessment_options(options: &Js) -> Result<()> {
+    let homework = [
+        "미확인",
+        "미실시",
+        "숙제 수행도 C",
+        "숙제 수행도 B",
+        "숙제 수행도 B⁺",
+        "숙제 수행도 A",
+        "숙제 수행도 A⁺",
+    ];
+    let mut expected = vec![];
+    for (i, label) in homework.iter().enumerate() {
+        expected.push(obj(&[
+            ("field", "homework_radio".into()),
+            ("value", (i as i32 - 1).to_string().into()),
+            ("label", (*label).into()),
+        ]));
+    }
+    for value in -1..=10 {
+        expected.push(obj(&[
+            ("field", "daily_test_radio".into()),
+            ("value", value.to_string().into()),
+            (
+                "label",
+                match value {
+                    -1 => "미확인".into(),
+                    0 => "미실시".into(),
+                    _ => format!("일일 테스트 {}점", value * 10).into(),
+                },
+            ),
+        ]));
+    }
+    // Exact multiset retains duplicate rows, extra properties and unnormalized labels.
+    let mut actual = options.array().iter().map(canonical).collect::<Vec<_>>();
+    let mut expected = expected.iter().map(canonical).collect::<Vec<_>>();
+    actual.sort();
+    expected.sort();
+    if actual != expected {
+        return Err(err("journal_assessment_options_drift"));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod review_fixes_fictional_journal {
+    use super::*;
+    // All values below are fictional structural proof, never a qualified recording.
+    struct Fake {
+        source: String,
+        calls: Vec<Request>,
+    }
+    impl Transport for Fake {
+        fn dispatch(&mut self, request: &Request) -> Result<Response> {
+            self.calls.push(request.clone());
+            Ok(Response {
+                status: 200,
+                headers: vec![],
+                bytes: self.source.as_bytes().to_vec(),
+                url: format!("{ORIGIN}{SELECTED}"),
+                stalled: false,
+            })
+        }
+    }
+    fn fixture() -> (Js, Js, Js, String) {
+        let target = parse(r#"{"studentName":"Fictional 😀 Learner","date":"2040-01-04","groupId":"3","teacherKey":"99001","studentKey":"77001","courseKey":"5","recordKey":"13","membershipKey":"8"}"#).unwrap();
+        let row = obj(&[("fields",parse(r#"{"progress":"Current","homework":"","lessonMemo":"Memo","attendance":"Y","persistentMemo":"preserved"}"#).unwrap())]);
+        let options = parse(include_str!(
+            "../../../migration/source-adapter-review-fixes-v2/ASSESSMENT-EXPECTED.json"
+        ))
+        .unwrap()
+        .get("options")
+        .clone();
+        let mut functions = obj(&[]);
+        for (name, selector) in [
+            ("onAttn", "udtAttn"),
+            ("onFoPrg", "udtPrg"),
+            ("onFoHw", "udtHw"),
+            ("onFoMm", "udtMemo"),
+            ("setDailyTest", "SetDailyTest"),
+            ("openHomeWorkRate", "SetHomeWorkRate"),
+        ] {
+            functions.set(
+                name,
+                format!("function {name}(){{ return 'reqCmd={selector}'; }}").into(),
+            );
+        }
+        let controls = parse(r#"[{"name":"h_daily_test","value":"0"},{"name":"h_homework_rate","value":"3"},{"handler":"setDailyTest(13,8,0)"},{"handler":"openHomeWorkRate(12,8,3)"}]"#).unwrap();
+        let wire = obj(&[
+            ("functions", functions),
+            ("assessmentOptions", options),
+            (
+                "rows",
+                Js::Arr(vec![obj(&[
+                    ("studentName", target.get("studentName").clone()),
+                    ("controls", controls),
+                ])]),
+            ),
+        ]);
+        (
+            target,
+            row,
+            wire,
+            "<root><record>!2040-01-02!5!!Fictional 😀 Learner!!!!!!12!77001!8</record></root>"
+                .into(),
+        )
+    }
+    fn controls(wire: &mut Js, change: impl FnOnce(&mut Vec<Js>)) {
+        let mut rows = wire.get("rows").array().to_vec();
+        let mut controls = rows[0].get("controls").array().to_vec();
+        change(&mut controls);
+        rows[0].set("controls", Js::Arr(controls));
+        wire.set("rows", Js::Arr(rows));
+    }
+    #[test]
+    fn rejected_requests_never_reach_transport() {
+        let principal = parse(
+            r#"{"teacherLabel":"Fictional Teacher","teacherKey":"99001","collegeKey":"88001"}"#,
+        )
+        .unwrap();
+        let mut client = Client::new(
+            principal,
+            Fake {
+                source: String::new(),
+                calls: vec![],
+            },
+        )
+        .unwrap();
+        client.authenticated = true;
+        let mut cases = vec![];
+        for selector in [
+            "udtPrg",
+            "udtHw",
+            "udtMemo",
+            "udtAttn",
+            "SetDailyTest",
+            "SetHomeWorkRate",
+        ] {
+            cases.push((
+                selector,
+                "GET",
+                MAIN,
+                vec![("reqCmd".into(), selector.into())],
+                vec![],
+            ));
+        }
+        let selected = ("reqCmd".into(), "SelSglRecord".into());
+        cases.push((
+            "total_three_get",
+            "GET",
+            SELECTED,
+            vec![selected.clone()],
+            vec![selected.clone(); 2],
+        ));
+        cases.push((
+            "duplicate_query",
+            "GET",
+            SELECTED,
+            vec![selected; 2],
+            vec![],
+        ));
+        let main = ("p_process".into(), "Main".into());
+        cases.push((
+            "total_three_post",
+            "POST",
+            MAIN,
+            vec![main.clone(); 2],
+            vec![main.clone()],
+        ));
+        cases.push(("duplicate_body", "POST", MAIN, vec![], vec![main; 2]));
+        let mut evidence = vec![];
+        for (name, method, path, query, body) in cases {
+            let result = client.read_request(method, path, query, body);
+            assert_eq!(
+                result.as_ref().unwrap_err().message,
+                "reviewed_read_operation_required",
+                "{name}"
+            );
+            assert!(client.transport.calls.is_empty(), "{name}");
+            evidence.push(obj(&[
+                ("case", name.into()),
+                ("result", observe(result.map(Js::from))),
+                ("dispatches", client.transport.calls.len().into()),
+            ]));
+        }
+        if let Ok(path) = std::env::var("S09_REVIEW_ADMISSION_EVIDENCE") {
+            std::fs::write(path, format!("{}\n", json(&Js::Arr(evidence)))).unwrap();
+        }
+    }
+    #[test]
+    fn fictional_post_qualification_join_and_refusal_order() {
+        let mut evidence = vec![];
+        for variant in [
+            "success",
+            "options_duplicate",
+            "options_missing",
+            "options_label",
+            "options_extra",
+            "handler_onAttn",
+            "handler_onFoPrg",
+            "handler_onFoHw",
+            "handler_onFoMm",
+            "handler_setDailyTest",
+            "handler_openHomeWorkRate",
+            "daily_missing",
+            "daily_duplicate",
+            "daily_record",
+            "daily_member",
+            "daily_zero",
+            "daily_space",
+            "previous_missing",
+            "previous_duplicate",
+            "previous_current",
+            "previous_member",
+            "previous_zero",
+            "previous_malformed",
+            "control_daily_missing",
+            "control_daily_duplicate",
+            "control_daily_nonstring",
+            "control_homework_missing",
+            "xml_course",
+            "xml_name",
+            "xml_record",
+            "xml_student",
+            "xml_member",
+            "xml_date",
+            "xml_empty_date",
+            "xml_missing_record",
+            "xml_duplicate_record",
+            "xml_parsererror",
+            "xml_malformed",
+            "source_challenge",
+            "assessment_and_xml",
+            "noncalendar_prior_date",
+        ] {
+            let (target, row, mut wire, mut source) = fixture();
+            let (expected, dispatches) = match variant {
+                "options_duplicate" | "options_missing" | "options_label" | "options_extra" => {
+                    let mut options = wire.get("assessmentOptions").array().to_vec();
+                    match variant {
+                        "options_duplicate" => options.push(options[0].clone()),
+                        "options_missing" => {
+                            options.remove(0);
+                        }
+                        "options_label" => {
+                            options[0].set("label", "drift".into());
+                        }
+                        _ => {
+                            options[0].set("extra", true.into());
+                        }
+                    }
+                    wire.set("assessmentOptions", Js::Arr(options));
+                    (Some("journal_assessment_options_drift"), 0)
+                }
+                v if v.starts_with("handler_") => {
+                    let mut f = wire.get("functions").clone();
+                    f.set(&v[8..], "reqCmd=wrong".into());
+                    wire.set("functions", f);
+                    (Some("journal_wire_drift"), 0)
+                }
+                v if v.starts_with("daily_") => {
+                    controls(&mut wire, |c| match v {
+                        "daily_missing" => {
+                            c.remove(2);
+                        }
+                        "daily_duplicate" => c.push(c[2].clone()),
+                        _ => {
+                            c[2].set(
+                                "handler",
+                                match v {
+                                    "daily_record" => "setDailyTest(14,8,0)",
+                                    "daily_member" => "setDailyTest(13,9,0)",
+                                    "daily_zero" => "setDailyTest(013,8,0)",
+                                    _ => "setDailyTest(13, 8,0)",
+                                }
+                                .into(),
+                            );
+                        }
+                    });
+                    (Some("journal_daily_tuple_conflict"), 0)
+                }
+                v if v.starts_with("previous_") => {
+                    controls(&mut wire, |c| match v {
+                        "previous_missing" => {
+                            c.remove(3);
+                        }
+                        "previous_duplicate" => c.push(c[3].clone()),
+                        _ => {
+                            c[3].set(
+                                "handler",
+                                match v {
+                                    "previous_current" => "openHomeWorkRate(13,8,3)",
+                                    "previous_member" => "openHomeWorkRate(12,9,3)",
+                                    "previous_zero" => "openHomeWorkRate(012,8,3)",
+                                    _ => "openHomeWorkRate(12,8,-1)",
+                                }
+                                .into(),
+                            );
+                        }
+                    });
+                    (
+                        Some(if matches!(v, "previous_missing" | "previous_duplicate") {
+                            "journal_previous_tuple_ambiguous"
+                        } else {
+                            "journal_previous_tuple_conflict"
+                        }),
+                        0,
+                    )
+                }
+                v if v.starts_with("control_") => {
+                    controls(&mut wire, |c| match v {
+                        "control_daily_missing" => {
+                            c.remove(0);
+                        }
+                        "control_daily_duplicate" => c.push(c[0].clone()),
+                        "control_daily_nonstring" => {
+                            c[0].set("value", Js::Num(0.));
+                        }
+                        _ => {
+                            c.remove(1);
+                        }
+                    });
+                    (Some("journal_assessment_not_observed"), 1)
+                }
+                "source_challenge" => {
+                    source = "webUserPass".into();
+                    (Some("authentication_required"), 1)
+                }
+                "xml_malformed" => {
+                    source = "<root><record>".into();
+                    (Some("about:blank:1:14: unclosed tag: record"), 1)
+                }
+                "xml_missing_record" => {
+                    source = "<root/>".into();
+                    (Some("journal_previous_occurrence_conflict"), 1)
+                }
+                "xml_duplicate_record" => {
+                    source = source.replace("</root>", "<record>x</record></root>");
+                    (Some("journal_previous_occurrence_conflict"), 1)
+                }
+                "xml_parsererror" => {
+                    source = source.replace("</root>", "<parsererror/></root>");
+                    (Some("journal_previous_occurrence_conflict"), 1)
+                }
+                "assessment_and_xml" => {
+                    controls(&mut wire, |c| {
+                        c.remove(0);
+                    });
+                    source = source.replace("!5!", "!6!");
+                    (Some("journal_previous_occurrence_conflict"), 1)
+                }
+                v if v.starts_with("xml_") => {
+                    let (from, to) = match v {
+                        "xml_course" => ("!5!", "!6!"),
+                        "xml_name" => ("Learner", "learner"),
+                        "xml_record" => ("!12!", "!11!"),
+                        "xml_student" => ("!77001!", "!77002!"),
+                        "xml_member" => ("!8</", "!9</"),
+                        "xml_date" => ("2040-01-02", "2040-01-04"),
+                        _ => ("2040-01-02", ""),
+                    };
+                    source = source.replace(from, to);
+                    (Some("journal_previous_occurrence_conflict"), 1)
+                }
+                "noncalendar_prior_date" => {
+                    source = source.replace("2040-01-02", "2040-00-00");
+                    (None, 1)
+                }
+                _ => (None, 1),
+            };
+            let principal = obj(&[
+                ("teacherLabel", "Fictional Teacher".into()),
+                ("teacherKey", "99001".into()),
+                ("collegeKey", "88001".into()),
+            ]);
+            let mut client = Client::new(
+                principal,
+                Fake {
+                    source,
+                    calls: vec![],
+                },
+            )
+            .unwrap();
+            client.authenticated = true;
+            let unchanged = (target.clone(), row.clone(), wire.clone());
+            let result = client.journal_after_qualification(
+                &target,
+                &row,
+                &wire,
+                "fictional-structural-only",
+            );
+            assert_eq!(client.transport.calls.len(), dispatches, "{variant}");
+            assert_eq!(
+                (&target, &row, &wire),
+                (&unchanged.0, &unchanged.1, &unchanged.2),
+                "{variant}"
+            );
+            let observed = observe(result.clone());
+            if let Some(expected) = expected {
+                assert_eq!(result.unwrap_err().message, expected, "{variant}");
+            } else {
+                let result = result.unwrap();
+                let mut fields = row.get("fields").clone();
+                fields.set("dailyTestAssessment", "0".into());
+                fields.set("previousHomeworkAssessment", "3".into());
+                assert_eq!(
+                    result,
+                    obj(&[
+                        ("target", target.clone()),
+                        ("fields", fields),
+                        ("previousRecordKey", "12".into()),
+                        (
+                            "previousDate",
+                            if variant == "success" {
+                                "2040-01-02"
+                            } else {
+                                "2040-00-00"
+                            }
+                            .into()
+                        ),
+                        ("wireDigest", "fictional-structural-only".into())
+                    ])
+                );
+            }
+            let requests = client
+                .transport
+                .calls
+                .iter()
+                .map(|r| {
+                    assert_eq!(r.method, "GET");
+                    assert_eq!(r.path, SELECTED);
+                    assert!(r.body.is_empty());
+                    assert_eq!(
+                        r.query,
+                        vec![
+                            ("reqCmd".into(), "SelSglRecord".into()),
+                            ("course_seq".into(), "5".into()),
+                            ("stu_pri_no".into(), "77001".into()),
+                            ("record_seq".into(), "12".into()),
+                            ("sel_grp_seq".into(), "3".into()),
+                            ("tut_pri_no".into(), "99001".into()),
+                            ("cm_seq".into(), "8".into())
+                        ]
+                    );
+                    obj(&[
+                        ("method", r.method.clone().into()),
+                        ("path", r.path.clone().into()),
+                        (
+                            "query",
+                            Js::Arr(
+                                r.query
+                                    .iter()
+                                    .map(|(k, v)| Js::Arr(vec![k.clone().into(), v.clone().into()]))
+                                    .collect(),
+                            ),
+                        ),
+                    ])
+                })
+                .collect();
+            evidence.push(obj(&[
+                ("variant", variant.into()),
+                ("fictionalStructuralOnly", true.into()),
+                ("target", target),
+                ("result", observed),
+                ("requests", Js::Arr(requests)),
+                ("sourceAndTargetUnchanged", true.into()),
+            ]));
+        }
+        if let Ok(path) = std::env::var("S09_REVIEW_UNIT_EVIDENCE") {
+            std::fs::write(path, format!("{}\n", json(&Js::Arr(evidence)))).unwrap();
+        }
     }
 }

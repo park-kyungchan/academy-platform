@@ -1,0 +1,6 @@
+{
+  "timestampPointers": [
+    "/selector/0/result/value/observedAt"
+  ],
+  "rule": "Use the unchanged original judge.normalize: validate exact UTC millisecond shape and calendar, then replace only this source-generated wall-clock leaf. Also require timestamp within its actual original native START/RESULT interval. No other field/order/span/digest/effect changes."
+}

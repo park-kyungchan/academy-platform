@@ -38,21 +38,37 @@ fn range(n: &Node, s: &Script) -> Range {
         end: s.offset + s.text[..n.end].encode_utf16().count(),
     }
 }
-fn source_string(n: Option<&Node>) -> Js {
-    n.and_then(Node::scalar)
-        .filter(Js::string)
-        .unwrap_or(Js::Null)
+fn scalar(n: Option<&Node>) -> Result<Option<Js>> {
+    n.map(Node::checked_scalar).transpose().map(Option::flatten)
+}
+fn reference(n: Option<&Node>) -> Result<Option<String>> {
+    n.map(Node::checked_reference)
+        .transpose()
+        .map(Option::flatten)
+}
+fn source_string(n: Option<&Node>) -> Result<Js> {
+    Ok(scalar(n)?.filter(Js::string).unwrap_or(Js::Null))
 }
 fn property<'a>(n: &'a Node, name: &str) -> Result<Option<&'a Node>> {
-    let p = n
-        .children
-        .iter()
-        .filter(|p| p.kind == "Property" && p.name == name)
-        .collect::<Vec<_>>();
-    if p.len() > 1 {
+    let mut matches = vec![];
+    for p in n.children.iter().filter(|p| p.kind == "Property") {
+        let key = p.children.first();
+        let value = if p.computed {
+            scalar(key)?
+        } else {
+            match reference(key)? {
+                Some(r) => Some(r.into()),
+                None => scalar(key)?,
+            }
+        };
+        if value.as_ref().is_some_and(|v| v.is(name)) {
+            matches.push(p);
+        }
+    }
+    if matches.len() > 1 {
         return Err(Error::error("test_pool_presentation_property_ambiguous"));
     }
-    Ok(p.first().and_then(|p| p.children.last()))
+    Ok(matches.first().and_then(|p| p.children.last()))
 }
 fn add_function(functions: &mut Vec<Js>, name: &str, n: &Node, s: &Script) -> Result<()> {
     if functions.len() >= 64 {
@@ -63,8 +79,8 @@ fn add_function(functions: &mut Vec<Js>, name: &str, n: &Node, s: &Script) -> Re
         return Err(Error::error("test_pool_presentation_function_size_limit"));
     }
     let mut literals = vec![];
-    for c in script::walk(n) {
-        if let Some(value) = c.scalar() {
+    for c in script::walk(n)? {
+        if let Some(value) = c.checked_scalar()? {
             if literals.len() >= 128 {
                 return Err(Error::error("test_pool_presentation_literal_limit"));
             }
@@ -132,20 +148,20 @@ pub fn inspect_with(
             unknowns.insert("nonclassic_selector_script_not_inspected".into());
             continue;
         }
-        if let Some((s, offset)) = doc.script(e) {
-            if !s.is_empty() {
-                node_range(e)?;
-                let tree = Parser::new(s).and_then(|mut p| p.program()).ok();
-                if tree.is_none() {
-                    unknowns.insert("selector_script_parse_unqualified".into());
-                }
-                scripts.push(Script {
-                    source: "selector",
-                    text: s.into(),
-                    offset,
-                    tree,
-                });
+        if let Some((s, offset)) = doc.script(e)
+            && !s.is_empty()
+        {
+            node_range(e)?;
+            let tree = Parser::new(s).and_then(|mut p| p.program()).ok();
+            if tree.is_none() {
+                unknowns.insert("selector_script_parse_unqualified".into());
             }
+            scripts.push(Script {
+                source: "selector",
+                text: s.into(),
+                offset,
+                tree,
+            });
         }
     }
     let tree = Parser::new(helpers).and_then(|mut p| p.program()).ok();
@@ -181,21 +197,21 @@ pub fn inspect_with(
                     .map(str::to_string)
             })
             .collect::<Vec<_>>();
-        if let Some(href) = c.value().attr("href") {
-            if href.to_ascii_lowercase().starts_with("javascript:") {
-                handlers.push(href[11..].into());
-            }
+        if let Some(href) = c.value().attr("href")
+            && href.to_ascii_lowercase().starts_with("javascript:")
+        {
+            handlers.push(href[11..].into());
         }
         let mut associated = id
             .and_then(|id| labels.get(id))
             .cloned()
             .unwrap_or_default();
-        if associated.is_empty() {
-            if let Some(w) = dom::closest(c, "label") {
-                let t = dom::content(w);
-                bounded(&t, 4096)?;
-                associated.push(t)
-            }
+        if associated.is_empty()
+            && let Some(w) = dom::closest(c, "label")
+        {
+            let t = dom::content(w);
+            bounded(&t, 4096)?;
+            associated.push(t);
         }
         let own = if matches!(c.value().name(), "button" | "a") {
             Some(dom::content(c))
@@ -226,13 +242,13 @@ pub fn inspect_with(
         let mut references = BTreeSet::new();
         for h in handlers {
             bounded(&h, 4096)?;
-            match Parser::new(&h).and_then(|mut p| p.program()) {
+            match Parser::handler(&h).and_then(|mut p| p.program()) {
                 Ok(tree) => {
-                    for n in script::walk(&tree) {
-                        if n.kind == "CallExpression" {
-                            if let Some(name) = n.children.first().and_then(Node::reference) {
-                                references.insert(name);
-                            }
+                    for n in script::walk(&tree)? {
+                        if n.kind == "CallExpression"
+                            && let Some(name) = reference(n.children.first())?
+                        {
+                            references.insert(name);
                         }
                     }
                 }
@@ -279,16 +295,15 @@ pub fn inspect_with(
     let mut referenced = BTreeSet::<String>::new();
     let mut inline = vec![];
     let mut grid_count = 0;
+    let grid_fallback =
+        regex::Regex::new(r##"(?:\$|jQuery)\(["']#dbExamListGrid["']\)\.jqGrid\s*\("##).unwrap();
     for (si, s) in scripts.iter().enumerate() {
         if s.source != "selector" {
             continue;
         }
         let mut fallback = vec![];
         if s.tree.is_none() {
-            let re =
-                regex::Regex::new(r##"(?:\$|jQuery)\(["']#dbExamListGrid["']\)\.jqGrid\s*\("##)
-                    .unwrap();
-            for m in re.find_iter(&s.text) {
+            for m in grid_fallback.find_iter(&s.text) {
                 match Parser::new(&s.text[m.start()..]).and_then(|mut p| p.expr(0)) {
                     Ok(mut n) => {
                         fn shift(n: &mut Node, b: usize) {
@@ -312,20 +327,19 @@ pub fn inspect_with(
             .as_ref()
             .map_or_else(|| fallback.iter().collect::<Vec<_>>(), |t| vec![t]);
         for tree in trees {
-            for n in script::walk(tree) {
-                if n.kind == "VariableDeclarator" {
-                    if let Some(name) = n.children.first().and_then(Node::reference) {
-                        if FILTERS.contains(&name.as_str()) {
-                            if let Some(value) = n.children.get(1).and_then(Node::scalar) {
-                                filters.push(obj(&[
-                                    ("name", name.into()),
-                                    ("valueRaw", value),
-                                    ("sourceRange", range(n, s).value()),
-                                ]));
-                            } else {
-                                unknowns.insert(format!("filter_declaration_not_literal:{name}"));
-                            }
-                        }
+            for n in script::walk(tree)? {
+                if n.kind == "VariableDeclarator"
+                    && let Some(name) = reference(n.children.first())?
+                    && FILTERS.contains(&name.as_str())
+                {
+                    if let Some(value) = scalar(n.children.get(1))? {
+                        filters.push(obj(&[
+                            ("name", name.into()),
+                            ("valueRaw", value),
+                            ("sourceRange", range(n, s).value()),
+                        ]));
+                    } else {
+                        unknowns.insert(format!("filter_declaration_not_literal:{name}"));
                     }
                 }
                 if n.kind != "CallExpression" {
@@ -340,12 +354,14 @@ pub fn inspect_with(
                 let Some(method) = callee.children.get(1) else {
                     continue;
                 };
-                if method
-                    .reference()
-                    .or_else(|| method.scalar().filter(Js::string).map(|v| string(&v)))
-                    .as_deref()
-                    != Some("jqGrid")
-                {
+                let method_name = match method.checked_reference()? {
+                    Some(r) => Some(r),
+                    None => method
+                        .checked_scalar()?
+                        .filter(Js::string)
+                        .map(|v| string(&v)),
+                };
+                if method_name.as_deref() != Some("jqGrid") {
                     continue;
                 }
                 let Some(object) = callee.children.first() else {
@@ -353,10 +369,10 @@ pub fn inspect_with(
                 };
                 if object.kind != "CallExpression"
                     || !matches!(
-                        object.children.first().and_then(Node::reference).as_deref(),
+                        reference(object.children.first())?.as_deref(),
                         Some("$" | "jQuery")
                     )
-                    || !source_string(object.children.get(1)).is("#dbExamListGrid")
+                    || !source_string(object.children.get(1))?.is("#dbExamListGrid")
                 {
                     continue;
                 }
@@ -384,19 +400,17 @@ pub fn inspect_with(
                         unknowns.insert("question_grid_column_dynamic".into());
                         continue;
                     }
-                    let name = source_string(property(column, "name")?);
-                    let index = source_string(property(column, "index")?);
-                    let mut label = source_string(property(column, "label")?);
+                    let name = source_string(property(column, "name")?)?;
+                    let index = source_string(property(column, "index")?)?;
+                    let mut label = source_string(property(column, "label")?)?;
                     if matches!(label, Js::Null) {
-                        label = source_string(names.and_then(|n| n.children.get(ordinal)))
+                        label = source_string(names.and_then(|n| n.children.get(ordinal)))?
                     }
                     let formatter = property(column, "formatter")?;
-                    let reference = formatter.and_then(Node::reference).or_else(|| {
-                        formatter
-                            .and_then(Node::scalar)
-                            .filter(Js::string)
-                            .map(|v| string(&v))
-                    });
+                    let reference = match reference(formatter)? {
+                        Some(r) => Some(r),
+                        None => scalar(formatter)?.filter(Js::string).map(|v| string(&v)),
+                    };
                     let kind = if formatter.is_none() {
                         "absent"
                     } else if reference.as_ref().is_some_and(|s| !s.is_empty()) {
@@ -459,23 +473,22 @@ pub fn inspect_with(
         regex::Regex::new(r"(?i)^dbFormatter.*(?:Difficulty|Types|Exam|Option|Answer)").unwrap();
     for s in &scripts {
         if let Some(tree) = &s.tree {
-            for n in script::walk(tree) {
+            for n in script::walk(tree)? {
                 let name = if n.kind == "FunctionDeclaration"
                     || (n.kind == "VariableDeclarator"
                         && n.children.get(1).is_some_and(|n| {
                             matches!(n.kind, "FunctionExpression" | "ArrowFunctionExpression")
                         })) {
-                    n.children.first().and_then(Node::reference)
+                    reference(n.children.first())?
                 } else {
                     None
                 };
-                if let Some(name) = name {
-                    if PREVIEW.contains(&name.as_str())
+                if let Some(name) = name
+                    && (PREVIEW.contains(&name.as_str())
                         || referenced.contains(&name)
-                        || formatter_name.is_match(&name)
-                    {
-                        add_function(&mut functions, &name, n, s)?;
-                    }
+                        || formatter_name.is_match(&name))
+                {
+                    add_function(&mut functions, &name, n, s)?;
                 }
             }
         }
