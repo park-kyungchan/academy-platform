@@ -333,6 +333,10 @@ pub fn record_bytes(v: &Js) -> usize {
     let j = json(v);
     j.len() + json(&j.into()).len() - 2
 }
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Preserve the existing selected pagination port signature"
+)]
 pub fn paginate(
     rows: &[Js],
     query: &Js,
@@ -349,8 +353,7 @@ pub fn paginate(
     if budget != f64::INFINITY
         && (!budget.is_finite()
             || budget.fract() != 0.
-            || budget < 1.
-            || budget > 9007199254740991.)
+            || !(1. ..=9007199254740991.).contains(&budget))
     {
         return Err(Error::refusal("invalid_byte_budget"));
     }
@@ -991,7 +994,8 @@ pub fn native_config(v: &Js) -> Result<Js> {
             "Invalid string: must start with \"/\"".into(),
         ));
     }
-    for key in ["sourceBundleSha256"] {
+    {
+        let key = "sourceBundleSha256";
         let p = vec![key.into()];
         if typed(v.get(key), "string", &p, &mut issues) && !sha_valid(v.get(key)) {
             issues.push(issue(

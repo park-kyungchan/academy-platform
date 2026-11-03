@@ -310,8 +310,8 @@ pub fn value(e: ElementRef<'_>) -> String {
                 selected.last().copied().or_else(|| {
                     options.iter().position(|e| {
                         e.value().attr("disabled").is_none()
-                            && !closest(*e, "optgroup")
-                                .is_some_and(|g| g.value().attr("disabled").is_some())
+                            && closest(*e, "optgroup")
+                                .is_none_or(|g| g.value().attr("disabled").is_none())
                     })
                 })
             };

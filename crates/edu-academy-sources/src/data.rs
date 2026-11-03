@@ -17,6 +17,10 @@ impl Error {
             properties: obj(&[]),
         }
     }
+    #[expect(
+        clippy::self_named_constructors,
+        reason = "Keep the selected Error constructor API unchanged"
+    )]
     pub fn error(message: impl Into<String>) -> Self {
         Self::new("Error", message)
     }

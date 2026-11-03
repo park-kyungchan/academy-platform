@@ -20,6 +20,10 @@ pub struct Identity {
     pub changed: (i64, i64),
 }
 impl Identity {
+    #[expect(
+        clippy::unnecessary_cast,
+        reason = "Retain explicit identity widths at the platform Stat boundary"
+    )]
     fn of(s: &Stat) -> Self {
         Self {
             device: s.st_dev as u64,
