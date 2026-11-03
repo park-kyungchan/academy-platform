@@ -9,6 +9,8 @@ publish.workspace = true
 [dependencies]
 edu-academy-core = { path = "../edu-academy-core" }
 edu-academy-sources = { path = "../edu-academy-sources" }
+chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
+chrono-tz.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

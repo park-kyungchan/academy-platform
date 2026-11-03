@@ -132,6 +132,10 @@ pub fn call(
     let mut upstream_name: Option<String> = None;
     let mut failure_metadata = None;
     let mut public_upstream_failure = None;
+    let mut parent_get = false;
+    let mut steps = Vec::new();
+    let mut intake_issued = false;
+    let mut observation_handle = Js::Null;
     let dispatch = obj(&[
         ("issuedAt", audit::wall_time().into()),
         ("tool", tool.into()),
@@ -165,12 +169,24 @@ pub fn call(
         endpoint_name = Some(entry.endpoint.clone());
         upstream_name = Some(entry.upstream_name.clone());
         phase = "upstream";
-        if matches!(
-            entry.upstream_name.as_str(),
-            "academy_dailyrecord_get" | "academy_dailytest_history_with_headers"
-        ) {
+        if entry.upstream_name == "academy_dailytest_history_with_headers" {
             return Err(Error::new("configured_rust_composition_unimplemented"));
         }
+        parent_get = entry.upstream_name == "academy_dailyrecord_get";
+        let prepared = if parent_get {
+            let prepared = crate::dailyrecord_read::prepare(
+                args,
+                &crate::upstream::read_admission(&graph.admission()?),
+                crate::dailyrecord_read::wall_epoch_ms(),
+            )?;
+            if let Some(held) = prepared.held() {
+                phase = "release_readback";
+                return audit::tool_result(held.clone());
+            }
+            Some(prepared)
+        } else {
+            None
+        };
         let plan = endpoint::plan(graph, &entry.endpoint)?;
         let mut context = Context::new(
             graph,
@@ -185,6 +201,82 @@ pub fn call(
             if let Err(error) = upstream.connect(child, context, &entry.endpoint) {
                 failure_metadata = upstream.failure_metadata;
                 return Err(error);
+            }
+            if let Some(prepared) = prepared {
+                let data = crate::dailyrecord_read::read(
+                    prepared,
+                    |step, input| {
+                        let response = upstream
+                            .call(
+                                child,
+                                context,
+                                step,
+                                forwarded(input, step, client, graph),
+                                || {
+                                    if step == "academy_dailyrecord_intake" {
+                                        intake_issued = true;
+                                    }
+                                },
+                            )
+                            .map_err(crate::dailyrecord_read::InvokeFailure::Transport)?;
+                        if response.get("isError").truthy()
+                            || !response.get("structuredContent").truthy()
+                        {
+                            return Err(crate::dailyrecord_read::tool_failure(&response));
+                        }
+                        let mut data = response.get("structuredContent").clone();
+                        let safe = crate::dailyrecord_read::safe_occurrence(
+                            response.get("_meta").get("academy/audit").get("occurrence"),
+                        );
+                        let mut evidence = obj(&[
+                            ("tool", step.into()),
+                            (
+                                "status",
+                                edu_academy_core::workflow::nullable(data.get("status")),
+                            ),
+                            (
+                                "sourceAvailability",
+                                edu_academy_core::workflow::nullable(
+                                    data.get("sourceAvailability"),
+                                ),
+                            ),
+                        ]);
+                        if safe.truthy() {
+                            evidence.set("upstreamOccurrence", safe.clone());
+                        }
+                        steps.push(evidence);
+                        if step == "academy_dailyrecord_intake"
+                            && data.get("observationPersistence").is("owner_durable")
+                        {
+                            observation_handle = data.get("observationHandle").clone();
+                        }
+                        if data.get("status").is("unavailable")
+                            && !data.get("failure").truthy()
+                            && response
+                                .get("_meta")
+                                .get("academy/audit")
+                                .get("failure")
+                                .truthy()
+                        {
+                            data.set(
+                                "failure",
+                                crate::dailyrecord_read::public_failure_from_data(
+                                    response.get("_meta").get("academy/audit").get("failure"),
+                                ),
+                            );
+                        }
+                        if safe.truthy() {
+                            data.set("upstreamOccurrence", safe);
+                        }
+                        Ok(data)
+                    },
+                    crate::dailyrecord_read::wall_epoch_ms,
+                )?;
+                // Caught business/transport failures cannot hide deadline,
+                // cancellation or frozen-graph failure. Cleanup still runs.
+                context.verify()?;
+                context.check()?;
+                return audit::tool_result(data);
             }
             upstream.call(child, context, &entry.upstream_name, payload, || {
                 if matches!(
@@ -227,7 +319,7 @@ pub fn call(
     let upstream = upstream_name.map_or(Js::Null, Into::into);
     match work {
         Ok(result) => {
-            let receipt = obj(&[
+            let mut receipt = obj(&[
                 ("occurrence", occurrence.clone().into()),
                 ("phase", phase.into()),
                 ("endpoint", endpoint.clone()),
@@ -266,6 +358,26 @@ pub fn call(
                 ("parentSends", Js::Num(0.0)),
                 ("automaticRetryAllowed", false.into()),
             ]);
+            if parent_get {
+                receipt.set("steps", Js::Arr(steps.clone()));
+                let data = result.get("structuredContent");
+                receipt.set(
+                    "upstreamOccurrence",
+                    crate::dailyrecord_read::safe_occurrence(data.get("upstreamOccurrence")),
+                );
+                receipt.set(
+                    "failure",
+                    if data.get("failure").truthy() {
+                        crate::dailyrecord_read::public_failure_from_data(data.get("failure"))
+                    } else {
+                        Js::Null
+                    },
+                );
+                receipt.set(
+                    "localWorkflowEffects",
+                    local_observation(intake_issued, &observation_handle),
+                );
+            }
             if graph
                 .receipt(&format!("{occurrence}-result.json"), &receipt)
                 .is_err()
@@ -315,6 +427,13 @@ pub fn call(
             for (key, value) in effect.failure_evidence().props() {
                 data.set(&String::from_utf16_lossy(key), value.clone());
             }
+            if parent_get {
+                data.set("steps", Js::Arr(steps));
+                data.set(
+                    "localWorkflowEffects",
+                    local_observation(intake_issued, &observation_handle),
+                );
+            }
             let mut receipt = data.clone();
             receipt.set("observedAt", audit::wall_time().into());
             receipt.set("tool", tool.into());
@@ -329,4 +448,29 @@ pub fn call(
             Ok(Reply::Tool(result))
         }
     }
+}
+
+// Intake is read-only at Academy but may publish a durable local observation
+// before a transport/audit/output failure. Never retry or erase that evidence.
+fn local_observation(issued: bool, handle: &Js) -> Js {
+    obj(&[
+        ("intakeIssued", issued.into()),
+        (
+            "observationHandle",
+            if handle.string() {
+                handle.clone()
+            } else {
+                Js::Null
+            },
+        ),
+        (
+            "reconciliation",
+            if issued {
+                "inspect_owner_store_no_automatic_retry"
+            } else {
+                "not_issued"
+            }
+            .into(),
+        ),
+    ])
 }

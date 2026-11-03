@@ -247,6 +247,8 @@ dependencies = [
 name = "edu-academy-mcp"
 version = "0.0.0"
 dependencies = [
+ "chrono",
+ "chrono-tz",
  "edu-academy-core",
  "edu-academy-sources",
  "regex",
