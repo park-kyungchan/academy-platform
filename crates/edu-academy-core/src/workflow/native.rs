@@ -1,12 +1,12 @@
 //! Selected native backend algorithm over an explicitly supplied owner source port.
-use super::{Runtime, approval::Approval, http, service::Backend};
+use super::{Runtime, approval::Approval, service::Backend};
 use crate::js::{Fault, Js, Result, obj, stringify};
-pub trait SourcePort: http::HttpPort {
+pub trait SourcePort {
     fn authenticate(&mut self) -> Result<()>;
     fn discover_groups(&mut self, input: &Js) -> Result<Js>;
     fn execute(&mut self, input: &Js) -> Result<Js>;
     fn journal_state(&mut self, target: &Js) -> Result<Js>;
-    /// Owner client application; default is the actual action/readback algorithm.
+    /// Mandatory approved owner application; the owner client owns action/readback.
     fn apply(&mut self, action: &Js, approval: &mut dyn Approval) -> Result<Js>;
 }
 fn target_of(v: &Js) -> Js {
