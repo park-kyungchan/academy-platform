@@ -26,6 +26,7 @@ swc_ecma_visit = "=30.0.0"
 swc_ecma_regexp = "=0.16.0"
 swc_ecma_regexp_visit = "=0.16.0"
 url = "=2.5.8"
+signal-hook = { version = "=0.4.4", default-features = false, features = ["iterator"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

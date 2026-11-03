@@ -13,6 +13,12 @@ serde_json.workspace = true
 sha2.workspace = true
 regex.workspace = true
 rustix.workspace = true
+signal-hook.workspace = true
+
+[[test]]
+name = "s11-stdio-peer"
+path = "tests/fixtures/stdio_peer.rs"
+harness = false
 
 [lints]
 workspace = true

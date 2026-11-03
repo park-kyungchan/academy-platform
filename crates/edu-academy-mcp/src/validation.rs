@@ -168,7 +168,44 @@ fn pattern(source: &str) -> Result<regex::Regex> {
     {
         return Err(UNSUPPORTED);
     }
-    regex::Regex::new(&source.replace("\\d", "[0-9]")).map_err(|_| UNSUPPORTED)
+    let mut translated = String::new();
+    let mut chars = source.chars();
+    let mut class = false;
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            let escaped = chars.next().ok_or(UNSUPPORTED)?;
+            if escaped == 'd' {
+                translated.push_str(if class { "0-9" } else { "[0-9]" });
+            } else if "\\.^$|?*+()[]{}/".contains(escaped) || (escaped == '-' && class) {
+                // Consume the pair atomically: a literal backslash followed by
+                // d must not become a digit class. JS unicode identity escapes
+                // outside this proven subset stay explicit qualification gaps.
+                if escaped == '/' {
+                    translated.push('/');
+                } else {
+                    translated.push('\\');
+                    translated.push(escaped);
+                }
+            } else {
+                return Err(UNSUPPORTED);
+            }
+        } else {
+            if c == '[' {
+                if class {
+                    return Err(UNSUPPORTED);
+                }
+                class = true;
+            }
+            if c == ']' {
+                class = false;
+            }
+            if class && c == '&' {
+                return Err(UNSUPPORTED);
+            }
+            translated.push(c);
+        }
+    }
+    regex::Regex::new(&translated).map_err(|_| UNSUPPORTED)
 }
 fn limit(s: &Js, key: &str, size: usize, minimum: bool) -> bool {
     match s.get(key) {
@@ -330,7 +367,11 @@ fn valid_format(kind: &str, value: &str) -> bool {
     }
     // Port of the pinned ajv-formats full date-time validator, including leap seconds.
     let parts = value
-        .split(|c: char| c == 't' || c == 'T' || c.is_whitespace())
+        .split(|c: char| {
+            c == 't'
+                || c == 'T'
+                || (u32::from(c) <= 0xffff && edu_academy_core::js::js_space(c as u16))
+        })
         .collect::<Vec<_>>();
     if parts.len() != 2 || !date(parts[0]) {
         return false;

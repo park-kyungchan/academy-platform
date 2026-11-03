@@ -1,4 +1,4 @@
-//! First increment admits launch metadata only; it cannot dispatch a source operation.
+//! Pinned native launch planning; domain routes retain explicit qualification gaps.
 use crate::{
     Error, Js, Result,
     audit::{Effect, qualification_gap},
@@ -37,4 +37,24 @@ pub fn plan(graph: &ReleaseGraph, endpoint: &str) -> Result<LaunchPlan> {
 }
 pub fn call_unimplemented(_entry: &Entry, _arguments: &Js) -> Result<Js> {
     qualification_gap("configured_rust_route_unimplemented", Effect::NotDispatched)
+}
+
+pub fn call_unimplemented_for(
+    graph: &ReleaseGraph,
+    endpoint: &str,
+    name: &str,
+    arguments: &Js,
+) -> Result<Js> {
+    let entry = graph
+        .registry
+        .entries()
+        .iter()
+        .find(|entry| entry.endpoint == endpoint && entry.upstream_name == name);
+    let Some(entry) = entry else {
+        return qualification_gap("unknown_tool", Effect::NotDispatched);
+    };
+    if let Err(error) = crate::validation::validate(entry.tool.get("inputSchema"), arguments) {
+        return qualification_gap(error.code, Effect::NotDispatched);
+    }
+    call_unimplemented(entry, arguments)
 }

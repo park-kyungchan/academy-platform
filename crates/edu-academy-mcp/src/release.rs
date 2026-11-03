@@ -261,6 +261,27 @@ impl ReleaseGraph {
     pub fn endpoint_names(&self) -> BTreeSet<&str> {
         self.endpoints.keys().map(String::as_str).collect()
     }
+    pub fn endpoint_identity(&self, endpoint: &str) -> Result<Js> {
+        let entry = self
+            .endpoints
+            .get(endpoint)
+            .ok_or_else(|| Error::new("release_endpoint_absent"))?;
+        crate::parse(&self.read_pin(&entry.identity, MANIFEST_BYTES)?)
+    }
+    pub fn admission(&self) -> Result<Js> {
+        crate::parse(&self.read_pin(
+            &Pin {
+                path: PathBuf::from(crate::string(self.routing.get("admissionPath"))?),
+                sha256: crate::string(self.routing.get("admissionSha256"))?,
+            },
+            MANIFEST_BYTES,
+        )?)
+    }
+    pub fn receipt(&self, name: &str, value: &Js) -> Result<()> {
+        let mut bytes = crate::encode(value)?;
+        bytes.push(b'\n');
+        self.evidence.write_receipt(name, &bytes)
+    }
 }
 
 /// Any observed mismatch permanently refuses this connection, even after restoration.

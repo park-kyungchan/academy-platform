@@ -83,6 +83,64 @@ impl OwnerDirectory {
         }
         Ok(())
     }
+    /// Ordinary product receipts, exclusively created below the admitted FD.
+    /// No caller payload/path, replacement workflow journal or symlink traversal.
+    pub fn write_receipt(&self, name: &str, bytes: &[u8]) -> Result<()> {
+        if name.is_empty()
+            || name.len() > 100
+            || !name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'.')
+            || !name.ends_with(".json")
+        {
+            return Err(Error::new("receipt_name_unqualified"));
+        }
+        self.revalidate()?;
+        match fs::mkdirat(&self.fd, "receipts", Mode::from_raw_mode(0o700)) {
+            Ok(()) => (),
+            Err(rustix::io::Errno::EXIST) => (),
+            Err(_) => return Err(Error::new("receipt_write_unavailable_reconcile")),
+        }
+        let dir = fs::openat(&self.fd, "receipts", flags(), Mode::empty())
+            .map_err(|_| Error::new("receipt_write_unavailable_reconcile"))?;
+        directory(&refusal(fs::fstat(&dir))?, self.uid, true)?;
+        let fd = fs::openat(
+            &dir,
+            name,
+            OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::from_raw_mode(0o600),
+        )
+        .map_err(|_| Error::new("receipt_write_unavailable_reconcile"))?;
+        let mut offset = 0;
+        while offset < bytes.len() {
+            let n = rustix::io::write(&fd, &bytes[offset..])
+                .map_err(|_| Error::new("receipt_write_unavailable_reconcile"))?;
+            if n == 0 {
+                return Err(Error::new("receipt_write_unavailable_reconcile"));
+            }
+            offset += n;
+        }
+        fs::fsync(&fd)
+            .and_then(|()| fs::fsync(&dir))
+            .and_then(|()| fs::fsync(&self.fd))
+            .map_err(|_| Error::new("receipt_write_unavailable_reconcile"))?;
+        let stat = refusal(fs::fstat(&fd))?;
+        if stat.st_uid != self.uid
+            || stat.st_nlink != 1
+            || stat.st_mode & 0o077 != 0
+            || stat.st_size < 0
+            || stat.st_size as usize != bytes.len()
+        {
+            return Err(Error::new("receipt_identity_unqualified"));
+        }
+        let current = refusal(fs::openat(&self.fd, "receipts", flags(), Mode::empty()))?;
+        let before = refusal(fs::fstat(&dir))?;
+        let after = refusal(fs::fstat(&current))?;
+        if before.st_dev != after.st_dev || before.st_ino != after.st_ino {
+            return Err(Error::new("receipt_identity_unqualified"));
+        }
+        self.revalidate()
+    }
     pub fn read(&self, absolute: &Path, cap: usize) -> Result<CapturedFile> {
         if cap == 0 || !canonical_absolute(absolute) {
             return Err(Error::new("release_artifact_path_unqualified"));

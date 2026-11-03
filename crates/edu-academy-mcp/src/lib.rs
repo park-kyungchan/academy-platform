@@ -1,8 +1,8 @@
-//! Source-only first increment: MCP metadata and immutable graph admission.
-//! Business adapters and supervised child execution are explicit qualification gaps.
+//! Immutable MCP sessions and owned native transport. Domain ports remain unqualified.
 #![forbid(unsafe_code)]
 
 pub mod audit;
+pub mod dispatch;
 pub mod endpoint;
 pub mod framing;
 pub mod identity;
@@ -12,6 +12,7 @@ pub mod registry;
 pub mod release;
 pub mod roots;
 pub mod routing;
+pub mod upstream;
 pub mod validation;
 
 pub use edu_academy_core::js::{Js, obj, stringify, text};
