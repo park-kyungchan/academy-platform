@@ -19,6 +19,8 @@ import stat
 import sys
 
 HERE = Path(__file__).resolve().parent
+# Finite native byte observability; runtime policy budgets are unchanged.
+NATIVE_STRING_BYTES = 2097152
 FILE_LIMIT = 64 * 1024**2
 RAW_LIMIT = 12 * 1024**2
 UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\Z')
@@ -909,7 +911,7 @@ class Capture:
                     clock_interval(start['prelaunch'], item[key]); clock_interval(item[key], result['ended'])
         require_same(expected_command_argv(self, role), start['originalArgv'], 'declared-command-argv')
         require_same(expected_environment(self, role), start['environment'], 'minimal-environment')
-        expected_trace = ['/usr/bin/strace', '-ff', '-ttt', '-T', '-v', '-s', '1048576',
+        expected_trace = ['/usr/bin/strace', '-ff', '-ttt', '-T', '-v', '-s', str(NATIVE_STRING_BYTES),
                           '-e', 'trace=process,file,network,desc', '-o', str(self.root / prefix / 'syscalls'), *start['originalArgv']]
         require_same(expected_trace, start['argv'], 'tracer-complete-argv')
         require_same(str(self.root), start['cwd'], 'command-cwd')

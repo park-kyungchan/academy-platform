@@ -161,9 +161,9 @@ class Child:
         self.raw = {}
         self.sel = selectors.DefaultSelector()
         self.started = stamp()
-        # -v and a 1MiB string limit retain complete selected exec argv; native
+        # -v and a finite 2MiB string limit retain selected argv/tap writes; native
         # read/write tracing is not used as an invented independent inner pipe.
-        self.argv = ['/usr/bin/strace', '-ff', '-ttt', '-T', '-v', '-s', '1048576',
+        self.argv = ['/usr/bin/strace', '-ff', '-ttt', '-T', '-v', '-s', str(q.NATIVE_STRING_BYTES),
                      '-e', 'trace=process,file,network,desc', '-o', str(self.dir / 'syscalls'), *argv]
         def limits():
             resource.setrlimit(resource.RLIMIT_CPU, (90, 90))

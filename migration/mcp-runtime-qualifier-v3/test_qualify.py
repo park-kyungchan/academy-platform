@@ -68,18 +68,55 @@ def normal_fixture(large=False, identity=False):
     return req, original, wire, receipts
 
 
+def historical_capture_inputs(root):
+    # Only these independently retained fixtures, never a production allowlist.
+    mode = next((m for m in ['protocol','composition','graph','bounds'] if root in [NOTES/f'{m}-A-01',NOTES/f'{m}-B-01']),None)
+    if mode is None:
+        raise AssertionError('historical_fixture_root_unsupported')
+    number='03' if mode=='protocol' else '01'
+    custody=q.parse((NOTES.parent/f'LEAD-{mode.upper()}-CUSTODY-{number}.json').read_bytes())
+    manifest_raw=(root/'MANIFEST.json').read_bytes()
+    if q.sha(manifest_raw)!=custody['captures'][str(root)]:
+        raise AssertionError('historical_fixture_manifest_pin_mismatch')
+    manifest=q.parse(manifest_raw);historical=root/'observer-source'
+    expected={'record.py':'8c3f77851ac2e51a9c40ab8030fdb92e84533e7200b73fcd5a9453bc0511f61d',
+              'preload.ts':('85799fe454c284d84460d092cc466526fe3620137eb1026d25c0114b16edc3a2' if mode=='protocol' else
+                            '763e3d173c5031224b9b0023b29c4aff5474793418e94c902e487978b8033460')}
+    for name,digest in expected.items():
+        raw=(historical/name).read_bytes()
+        if q.sha(raw)!=digest or digest!=custody['qualifierFiles'][name] or manifest['observer-source/'+name]!={'sha256':digest,'bytes':len(raw)}:
+            raise AssertionError('historical_fixture_source_pin_mismatch')
+    start_raw=(root/'commands/version-bun/START.json').read_bytes()
+    if manifest['commands/version-bun/START.json']!={'sha256':q.sha(start_raw),'bytes':len(start_raw)}:
+        raise AssertionError('historical_fixture_argv_pin_mismatch')
+    argv=q.parse(start_raw)['argv']
+    if argv[:7]!=['/usr/bin/strace','-ff','-ttt','-T','-v','-s','1048576']:
+        raise AssertionError('historical_fixture_native_string_argv_mismatch')
+    return historical
+
+
 @contextmanager
 def historical_observer_source(root):
-    """Test-only source context for immutable old857 pure fixtures, never admission."""
-    if root not in [NOTES/'protocol-A-01', NOTES/'protocol-B-01']:
-        raise AssertionError('historical_fixture_root_unsupported')
-    custody = q.parse((NOTES.parent/'LEAD-PROTOCOL-CUSTODY-03.json').read_bytes())
-    historical = root/'observer-source'
-    digest = q.sha((historical/'preload.ts').read_bytes())
-    if digest != '85799fe454c284d84460d092cc466526fe3620137eb1026d25c0114b16edc3a2' or digest != custody['qualifierFiles']['preload.ts']:
-        raise AssertionError('historical_fixture_observer_pin_mismatch')
-    with patch.object(q, 'HERE', historical):
+    with patch.object(q,'HERE',historical_capture_inputs(root)):
         yield
+
+
+@contextmanager
+def historical_native_argv(root):
+    historical_capture_inputs(root)
+    with patch.object(q,'NATIVE_STRING_BYTES',1048576):
+        yield
+
+
+class HistoricalFixtureCapture(q.Capture):
+    def check_source_mirror(self):
+        # SourceRoot/STIMULUS constructor checks retain the real repository HERE.
+        with historical_observer_source(self.root):
+            super().check_source_mirror()
+
+    def command(self,role):
+        with historical_native_argv(self.root):
+            super().command(role)
 
 
 class PureTests(unittest.TestCase):
@@ -556,12 +593,6 @@ class PureTests(unittest.TestCase):
             custody = q.parse((NOTES.parent/'LEAD-PROTOCOL-CUSTODY-03.json').read_bytes())
             # Old custody supplies raw anchors and the historical observer source pin,
             # never admission of old bytes as current763 runtime/pair evidence.
-            class HistoricalFixtureCapture(q.Capture):
-                def check_source_mirror(self):
-                    # Only this pure helper reads historical observer files. Constructor
-                    # sourceRoot/STIMULUS checks retain the real repository HERE.
-                    with historical_observer_source(self.root):
-                        super().check_source_mirror()
             with patch('subprocess.Popen', side_effect=AssertionError('forbidden subprocess')):
                 cls.native_captures[label] = HistoricalFixtureCapture(root, custody['captures'][str(root)], custody['supervisors'][str(root)])
         return cls.native_captures[label]
@@ -866,7 +897,7 @@ class PureTests(unittest.TestCase):
             root=NOTES/f'{mode}-{label}-01'
             custody=q.parse((NOTES.parent/f'LEAD-{mode.upper()}-CUSTODY-01.json').read_bytes())
             with patch('subprocess.Popen',side_effect=AssertionError('forbidden subprocess')):
-                cls.measured_captures[key]=q.Capture(root,custody['captures'][str(root)],custody['supervisors'][str(root)])
+                cls.measured_captures[key]=HistoricalFixtureCapture(root,custody['captures'][str(root)],custody['supervisors'][str(root)])
         return cls.measured_captures[key]
 
     def receipt_clock_fixture(self):
@@ -1010,6 +1041,54 @@ class PureTests(unittest.TestCase):
                 if kind=='childrebind':
                     lines=cmd['traces'][child].splitlines();lines.insert(1,'1793699067.759900 close(1) = 0 <0.000001>');cmd['traces'][child]='\n'.join(lines)+'\n'
                 self.rejected(code,q.declared_flock_stdio,capture,cmd,start,snapshots)
+
+    def test_70_current_record_and_native_argv_refuse_historical_capture(self):
+        root=NOTES/'composition-B-01';custody=q.parse((NOTES.parent/'LEAD-COMPOSITION-CUSTODY-01.json').read_bytes())
+        real_here=q.HERE;current=q.NATIVE_STRING_BYTES
+        self.assertEqual(current,2097152)
+        self.assertNotEqual((real_here/'record.py').read_bytes(),(root/'observer-source/record.py').read_bytes())
+        self.assertEqual((real_here/'preload.ts').read_bytes(),(root/'observer-source/preload.ts').read_bytes())
+        with patch('subprocess.Popen',side_effect=AssertionError('forbidden subprocess')):
+            self.rejected('observer-executed-bytes',q.Capture,root,custody['captures'][str(root)],custody['supervisors'][str(root)])
+            class HistoricalSourceOnly(q.Capture):
+                def check_source_mirror(self):
+                    with historical_observer_source(self.root):
+                        super().check_source_mirror()
+            self.rejected('tracer-complete-argv',HistoricalSourceOnly,root,custody['captures'][str(root)],custody['supervisors'][str(root)])
+        try:
+            with historical_observer_source(root),historical_native_argv(root):
+                self.assertEqual(q.HERE,root/'observer-source');self.assertEqual(q.NATIVE_STRING_BYTES,1048576)
+                raise RuntimeError('restore_historical_inputs')
+        except RuntimeError:
+            pass
+        self.assertEqual(q.HERE,real_here);self.assertEqual(q.NATIVE_STRING_BYTES,current)
+
+    def test_71_full_1600555_native_string_and_truncation_partial_negatives(self):
+        payload=b'x'*1600555;path=str(self.dir/'fictional-large-tap')
+        opening='1.000000 openat(AT_FDCWD, '+json.dumps(path)+', O_WRONLY|O_CREAT|O_APPEND|O_LARGEFILE|O_CLOEXEC, 0600) = 7 <0.000001>\n'
+        ending='1.000003 close(7) = 0 <0.000001>\n'
+        full='1.000002 write(7, '+json.dumps(payload.decode())+', 1600555) = 1600555 <0.000001>\n'
+        result=q.native_file_chains(opening+full+ending,path,'tap')
+        self.assertEqual(result[0]['raw'],payload)
+        truncated='1.000002 write(7, '+json.dumps(payload[:1048576].decode())+'..., 1600555) = 1600555 <0.000001>\n'
+        self.rejected('native_write_truncated_or_unsupported',q.native_file_chains,opening+truncated+ending,path,'tap')
+        self.rejected('native_write_partial_or_length',q.native_file_chains,opening+full.replace('= 1600555 ','= 1600554 ')+ending,path,'tap')
+        self.assertLess(len(payload),q.NATIVE_STRING_BYTES)
+
+    def test_72_actual_four_elided_native_event_writes_still_refuse(self):
+        proof=q.parse((NOTES/'bounds-native-write-diagnosis-01/WRITE-SHAPES.json').read_bytes());count=0
+        custody=q.parse((NOTES.parent/'LEAD-BOUNDS-CUSTODY-02.json').read_bytes())
+        for label,records in proof.items():
+            root=NOTES/f'bounds-{label}-01';manifest_raw=(root/'MANIFEST.json').read_bytes()
+            self.assertEqual(q.sha(manifest_raw),custody['captures'][str(root)]);manifest=q.parse(manifest_raw)
+            for record in records:
+                if not record['target'].endswith('/events.ndjson'):continue
+                raw=(root/record['trace']).read_bytes();self.assertEqual({'sha256':q.sha(raw),'bytes':len(raw)},manifest[record['trace']])
+                lines=raw.decode().splitlines();index=record['openLine']-1;excerpt='\n'.join(lines[index:index+3])+'\n'
+                self.assertEqual(record['decodedPrintedStringBytes'],1048576)
+                self.assertEqual(record['nativeSuffix'][0],record['nativeSuffix'][1])
+                self.rejected('native_write_truncated_or_unsupported',q.native_file_chains,excerpt,record['target'],'tap');count+=1
+        self.assertEqual(count,4)
 
     def test_31_frozen_framing_bytes_and_split_order(self):
         chunks = q.expected_stdin('framing', 'neutral')

@@ -382,3 +382,32 @@ change or recapture is justified by these three boundaries alone. Pure helper
 regressions do not establish the unresolved mode comparisons or all-ten gate.
 Root must create new custody and compare only composition/graph/bounds; the
 seven already measured mode results are retained at their exact source context.
+
+## Native string observability forward repair
+
+Bounds02 at79788 failed because record.py's strace-s1048576 elided complete
+1200175-byte tap payloads and1600551/1600555-byte event writes. Native requested
+and returned lengths matched; the observed strings ended at1048576 plusellipsis.
+Old native evidence cannot prove omitted bytes and remains UNQUALIFIED.
+
+Recorder and exact comparator argv now share finite NATIVE_STRING_BYTES2097152,
+covering the measured1.6M event writes. This changes observability only; all
+wall/CPU/file/output/entry/deadline/confinement/clock/native-byte guards and
+policy limits stay unchanged. No truncated prefix, JS claim or regenerated
+expected payload can replace missing native bytes. Complete native strings
+remain mandatory; partial/unsupported writes still refuse. File/resource
+overruns remain fail-closed, never successful because a string bound increased.
+
+Production current recorder/preload source identity and complete strace argv
+strictly reject old captures. Test-only historical fixture contexts independently
+verify frozen old recorder/preload/custody/manifest/old1048576argv and restore
+HERE/native-string context on exceptions. Constructor assigned-root/STIMULUS
+checks remain real. This is historical source input for pure helper tests,
+not a production compatibility allowlist or admission of old captures. New
+current-context regressions require old recorder and old argv refusal; complete
+large synthetic strings and actual four truncated event writes test the parser.
+
+Recorder identity changed: Root must separately release fresh all-ten A/B at
+one exact current observer/new roots/new custody. Old nine matches cannot be
+relabeled as current-recorder evidence. No runtime or recapture is granted by
+this source/pure change; qualifier-only handoff remains pending Root proof.
