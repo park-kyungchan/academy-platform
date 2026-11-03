@@ -141,6 +141,11 @@ pub fn unbase64(s: &str) -> Result<Vec<u8>> {
 }
 /// Parse JSON text without serde scalar conversion. The input decoder is selected by its owner.
 pub fn parse(s: &str) -> Result<Js> {
+    #[derive(Clone, Copy)]
+    enum ObjectKeyState {
+        Initial,
+        AfterComma,
+    }
     struct P<'a> {
         s: &'a [u8],
         i: usize,
@@ -158,12 +163,21 @@ pub fn parse(s: &str) -> Result<Js> {
         fn err(&self) -> Error {
             Error::new(
                 "SyntaxError",
-                if self.s == b"{" {
-                    "JSON Parse error: Expected '}'"
-                } else {
-                    "JSON Parse error: Unexpected identifier \"undefined\""
-                },
+                "JSON Parse error: Unexpected identifier \"undefined\"",
             )
+        }
+        fn object_key_error(&self, state: ObjectKeyState) -> Error {
+            let message = if self.s.get(self.i) == Some(&b'\'') {
+                "JSON Parse error: Single quotes (') are not allowed in JSON"
+            } else {
+                match state {
+                    ObjectKeyState::Initial => "JSON Parse error: Expected '}'",
+                    ObjectKeyState::AfterComma => {
+                        "JSON Parse error: Property name must be a string literal"
+                    }
+                }
+            };
+            Error::new("SyntaxError", message)
         }
         fn string(&mut self) -> Result<Text> {
             self.i += 1;
@@ -225,10 +239,11 @@ pub fn parse(s: &str) -> Result<Js> {
                         self.i += 1;
                         return Ok(Js::Obj(p));
                     }
+                    let mut key_state = ObjectKeyState::Initial;
                     loop {
                         self.ws();
                         if self.s.get(self.i) != Some(&b'"') {
-                            return Err(self.err());
+                            return Err(self.object_key_error(key_state));
                         }
                         let k = self.string()?;
                         self.ws();
@@ -248,7 +263,10 @@ pub fn parse(s: &str) -> Result<Js> {
                                 self.i += 1;
                                 return Ok(Js::Obj(p));
                             }
-                            Some(b',') => self.i += 1,
+                            Some(b',') => {
+                                self.i += 1;
+                                key_state = ObjectKeyState::AfterComma;
+                            }
                             _ => return Err(self.err()),
                         }
                     }
