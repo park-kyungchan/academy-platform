@@ -240,3 +240,25 @@ clocks for every producer, all ten modes, or final bounded acceptance. Root
 must bind the new comparator Git blobs to retained original captures before
 separately authorizing another comparison. Executed recorder/preload/stimulus
 must remain byte-identical to those captures; their old pins are not rewritten.
+
+## Declared local socketpair stdio correction
+
+Original protocol observation showed that pinned Bun1.4.3 implements the pinned
+neutral-server.ts:61 / @modelcontextprotocol/client2.3.1 dist/stdio.mjs pipe,
+pipe,pipe declaration with three AF_UNIX SOCK_STREAM|SOCK_CLOEXEC socketpairs.
+A socket:[inode] string alone grants no stdio role. Only that bounded declared
+spawn is supported: pinned source/dependency bytes, declared endpoint exec argv,
+actual parent/child ancestry and group, three separate successful socketpairs,
+vfork child identity, child dup2 source/end/destination mapping, native post-exec
+readlink inode bytes and matching independent Python/proc FD snapshots must join.
+Missing, unsupported, rebound, shared-as-fresh or contradictory bindings remain
+UNQUALIFIED. No arbitrary socket/network endpoint is admitted.
+
+This is native IPC topology evidence, not independent child OS channel capture.
+Top aggregate OS pipes and truly inherited shared command pipes keep that scope;
+inner socketpair channels remain JS tap/no-event/unavailable as actually observed.
+No top channel is copied into a child. The parser supports only this finite native
+pattern; it is not an FD interpreter. Pure diagnostic Capture reads on immutable
+A/B may locate the next gate but are not pair qualification. Original recorder,
+preload, stimulus, pins, raw and Root custody are unchanged. New Root comparator
+custody/pair comparison and all10modes/NEW independent Wonder still remain.

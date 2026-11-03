@@ -460,6 +460,77 @@ class PureTests(unittest.TestCase):
         capture.processes[102]['clock'].exec_cell = (11, 12)
         self.rejected('native_exec_order_ambiguous', q.native_process_order, capture, 'neutral')
 
+    def actual_fd_fixture(self):
+        root = NOTES/'protocol-A-01'
+        parent_pid, child_pid = 3437440, 3437449
+        parent = q.parse((root/f'processes/{parent_pid}/START.json').read_bytes())
+        child = q.parse((root/f'processes/{child_pid}/START.json').read_bytes())
+        prefix = root/'commands/discover'
+        parent_trace = (prefix/f'syscalls.{parent_pid}').read_text()
+        child_trace = (prefix/f'syscalls.{child_pid}').read_text()
+        snapshots = q.parse((prefix/'CAPTURE.json').read_bytes())['processSnapshots']
+        graph = q.native_trace({parent_pid:parent_trace, child_pid:child_trace})
+        command = {'native':graph, 'start':{'pgid':parent['pgid']},
+                   'traces':{parent_pid:parent_trace, child_pid:child_trace}}
+        class C: pass
+        capture = C(); capture.root = root
+        capture.raw = lambda relative: (root/relative).read_bytes()
+        capture.json = lambda relative: q.parse(capture.raw(relative))
+        return capture, command, parent, child, snapshots, parent_trace, child_trace
+
+    def test_45_actual_declared_bun_socket_stdio_is_local_ipc(self):
+        capture, command, parent, child, snapshots, pt, ct = self.actual_fd_fixture()
+        roles = q.declared_socket_stdio(capture, command, child, snapshots)
+        self.assertEqual(child['fds'], {'0':'socket:[105528427]', '1':'socket:[105528430]', '2':'socket:[105528432]'})
+        self.assertEqual(roles, {'0':'declared_local_ipc_input', '1':'declared_local_ipc_output',
+                                 '2':'declared_local_ipc_diagnostic'})
+        self.assertEqual(q.stdio_scope(child['fds'], parent['fds']),
+                         {'stdout':'js_emit_or_write_tap', 'stderr':'js_emit_or_write_tap'})
+        self.assertEqual(q.stdio_scope(parent['fds'], parent['fds']),
+                         {'stdout':'inherited_shared_command_pipe', 'stderr':'inherited_shared_command_pipe'})
+
+    def test_46_wrong_socket_family_dup_and_missing_native_bindings_refuse(self):
+        _, _, parent, child, snapshots, pt, ct = self.actual_fd_fixture()
+        self.rejected('native_stdio_socketpair_family_unsupported', q.socket_stdio_binding,
+                      pt.replace('socketpair(AF_UNIX,', 'socketpair(AF_INET,'), ct, parent, child, snapshots)
+        self.rejected('native_stdio_dup_binding_wrong', q.socket_stdio_binding,
+                      pt, ct.replace('dup2(7, 0)', 'dup2(8, 0)'), parent, child, snapshots)
+        lines = ct.splitlines()
+        lines[0], lines[1] = lines[1], lines[0]
+        self.rejected('native_stdio_child_fd_sequence_unsupported', q.socket_stdio_binding,
+                      pt, '\n'.join(lines), parent, child, snapshots)
+        self.rejected('native_stdio_vfork_binding_missing', q.socket_stdio_binding,
+                      pt.replace('vfork()', 'unsupported_fork()'), ct, parent, child, snapshots)
+        self.rejected('native_stdio_independent_readback_missing', q.socket_stdio_binding,
+                      pt, ct, parent, child, [])
+        self.rejected('native_stdio_socketpair_binding_missing', q.socket_stdio_binding,
+                      pt.replace('socketpair(', 'unsupported_pair('), ct, parent, child, snapshots)
+        self.rejected('native_stdio_inode_binding_missing', q.socket_stdio_binding,
+                      pt, ct.replace('/proc/self/fd/1', '/proc/self/fd/9'), parent, child, snapshots)
+
+    def test_47_consistent_inode_mutant_and_shared_role_cannot_bypass_native_anchor(self):
+        capture, command, parent, child, snapshots, pt, ct = self.actual_fd_fixture()
+        mutant = copy.deepcopy(child); mutant['fds']['1'] = 'socket:[999999999]'
+        changed = copy.deepcopy(snapshots)
+        for x in changed:
+            if x['pid'] == child['pid']: x['fds'] = copy.deepcopy(mutant['fds'])
+        # START and independent snapshot agree locally; unchanged native readlink
+        # remains the separate anchor and must exercise the FD semantic refusal.
+        self.rejected('native_stdio_inode_binding_wrong', q.socket_stdio_binding,
+                      pt, ct, parent, mutant, changed)
+        mutant = copy.deepcopy(parent); mutant['fds'] = copy.deepcopy(child['fds'])
+        self.rejected('native_stdio_fresh_pipe_role_missing', q.socket_stdio_binding,
+                      pt, ct, mutant, child, snapshots)
+        missing = copy.deepcopy(command); missing['traces'].pop(child['pid'])
+        self.rejected('native_stdio_trace_binding_missing', q.declared_socket_stdio,
+                      capture, missing, child, snapshots)
+        unsupported = copy.deepcopy(command)
+        unsupported['native']['execHistory'] = []
+        self.rejected('native_stdio_endpoint_role_missing', q.declared_socket_stdio,
+                      capture, unsupported, child, snapshots)
+        # FD provenance does not manufacture an observed stream channel/file.
+        self.assertEqual(q.stdio_scope(child['fds'], parent['fds'])['stderr'], 'js_emit_or_write_tap')
+
     def test_31_frozen_framing_bytes_and_split_order(self):
         chunks = q.expected_stdin('framing', 'neutral')
         self.assertEqual(chunks[3], b'{not-json}\n')

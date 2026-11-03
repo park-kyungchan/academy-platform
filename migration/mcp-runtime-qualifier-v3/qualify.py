@@ -971,7 +971,7 @@ class Capture:
             require_same({'before': send['before'], 'after': send['after']}, req['requestSendBracket'], 'send-before-first-byte')
         if len(cap['requests']) != len(request_sends):
             refuse('request_send_count', role)
-        self.commands[role] = {'start': start, 'result': result, 'cap': cap, 'raw': raw, 'native': graph}
+        self.commands[role] = {'start': start, 'result': result, 'cap': cap, 'raw': raw, 'native': graph, 'traces': trace}
 
     def bind_processes(self):
         for path in self.manifest:
@@ -990,9 +990,11 @@ class Capture:
             require_same(str(self.root), start['cwd'], 'process-cwd')
             parent = native['parents'].get(pid, command['start']['pid'])
             require_same(parent, start['ppid'], 'native-ancestry')
-            if set(start['fds']) != {'0', '1', '2'} or not all(re.fullmatch(r'pipe:\[[0-9]+\]', v) for v in start['fds'].values()):
+            if set(start['fds']) != {'0', '1', '2'}:
                 uncertain('native_stdio_fd_role_unavailable', path)
             snapshots = [s for s in command['cap']['processSnapshots'] if s['pid'] == pid and s.get('nativeArgv') == start['nativeArgv']]
+            if not all(re.fullmatch(r'pipe:\[[0-9]+\]', v) for v in start['fds'].values()):
+                declared_socket_stdio(self, command, start, snapshots)
             for snapshot in snapshots:
                 require_same(start['fds'], snapshot['fds'], 'independent-native-fd-readback')
                 require_same(start['pgid'], snapshot['pgid'], 'independent-native-pgid-readback')
@@ -1060,8 +1062,7 @@ class Capture:
             top = direct[0]['start']['fds']
             for p in self.processes.values():
                 if p['role'] == role:
-                    p['osScope'] = {n: ('inherited_shared_command_pipe' if p['start']['fds'][str(i)] == top[str(i)]
-                                        else 'js_emit_or_write_tap') for i, n in [(1, 'stdout'), (2, 'stderr')]}
+                    p['osScope'] = stdio_scope(p['start']['fds'], top)
 
     def entry_pin(self, path):
         root = str(self.root) + '/'
@@ -1078,6 +1079,123 @@ class Capture:
         if not relative.startswith('source/') or relative[7:] not in PINS['sources']:
             refuse('entry_not_original_pin', 'entry')
         return PINS['sources'][relative[7:]]['sha256']
+
+
+def stdio_scope(fds, top):
+    # Native topology is role evidence, never an independent child OS capture.
+    return {name: ('inherited_shared_command_pipe' if fds[str(fd)] == top[str(fd)]
+                   else 'js_emit_or_write_tap') for fd, name in [(1, 'stdout'), (2, 'stderr')]}
+
+
+def declared_socket_stdio(capture, command, start, snapshots):
+    parent = capture.json('processes/' + str(start['ppid']) + '/START.json')
+    source = 'modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts'
+    # This exact source declares StdioClientTransport(..., stderr:'pipe').
+    # Pinned client2.3.1 dist/stdio.mjs declares stdio:[pipe,pipe,stderr].
+    if parent['pid'] != start['ppid'] or parent['argv'][1] != str(capture.root / 'source' / source):
+        uncertain('native_stdio_source_role_unsupported', 'stdio')
+    require_same(command['native']['execs'][parent['pid']]['argv'], parent['nativeArgv'], 'stdio-parent-exec')
+    require_same(command['start']['pgid'], parent['pgid'], 'stdio-parent-pgid')
+    require_same(PINS['sources'][source]['sha256'], sha(capture.raw('source/' + source)), 'stdio-source-pin')
+    package = PINS['dependencyRoot'] + '/node_modules/@modelcontextprotocol/client'
+    dependency = Path(package) / 'dist/stdio.mjs'
+    data = dependency.read_bytes()
+    require_same(PINS['packages'][package]['files']['dist/stdio.mjs'],
+                 {'bytes': len(data), 'sha256': sha(data)}, 'stdio-client-pin')
+    # The initial spawn argv (flock -> Bun can retain a PID) must be one of the
+    # already validated frozen endpoint declarations; no arbitrary child role.
+    endpoints = capture.json('endpoints.json')
+    declared = [[e['command'], *e.get('args', [])] for e in endpoints.values()]
+    if not any(e['pid'] == start['pid'] and e['argv'] in declared for e in command['native']['execHistory']):
+        uncertain('native_stdio_endpoint_role_missing', 'stdio')
+    traces = command.get('traces', {})
+    if start['ppid'] not in traces or start['pid'] not in traces:
+        uncertain('native_stdio_trace_binding_missing', 'stdio')
+    return socket_stdio_binding(traces[start['ppid']], traces[start['pid']], parent, start, snapshots)
+
+
+def socket_stdio_binding(parent_trace, child_trace, parent, child, snapshots):
+    """Finite Bun1.4.3 three-pipe AF_UNIX/vfork/dup2 pattern, not an FD emulator."""
+    if child['ppid'] != parent['pid'] or child['pgid'] != parent['pgid']:
+        uncertain('native_stdio_ancestry_missing', 'stdio')
+    fds = child['fds']
+    if set(fds) != {'0', '1', '2'} or not all(re.fullmatch(r'socket:\[[0-9]+\]', v) for v in fds.values()):
+        uncertain('native_stdio_socket_role_unsupported', 'stdio')
+    if len(set(fds.values())) != 3 or set(fds.values()) & set(parent['fds'].values()):
+        uncertain('native_stdio_fresh_pipe_role_missing', 'stdio')
+    matches = [s for s in snapshots if s['pid'] == child['pid'] and s.get('nativeArgv') == child['nativeArgv']]
+    if not matches:
+        uncertain('native_stdio_independent_readback_missing', 'stdio')
+    for snapshot in matches:
+        for key in ['ppid', 'pgid', 'fds']:
+            require_same(child[key], snapshot[key], 'stdio-independent-' + key)
+    parent_lines = parent_trace.splitlines()
+    forks = [i for i, line in enumerate(parent_lines)
+             if re.search(r'vfork\(\)\s*= ' + str(child['pid']) + r'(?:\s|$)', line)]
+    if len(forks) != 1:
+        uncertain('native_stdio_vfork_binding_missing', 'stdio')
+    fork = forks[0]
+    pairs = [(i, re.search(r'socketpair\(([^,]+), ([^,]+), ([^,]+), \[([0-9]+), ([0-9]+)\]\)\s*= 0(?:\s|$)', line))
+             for i, line in enumerate(parent_lines[:fork]) if 'socketpair(' in line]
+    pairs = [(i, m) for i, m in pairs if m is not None][-3:]
+    if len(pairs) != 3:
+        uncertain('native_stdio_socketpair_binding_missing', 'stdio')
+    selected = []
+    for i, match in pairs:
+        family, kind, protocol, first, second = match.groups()
+        if family != 'AF_UNIX' or set(kind.split('|')) != {'SOCK_STREAM', 'SOCK_CLOEXEC'} or protocol != '0':
+            uncertain('native_stdio_socketpair_family_unsupported', 'stdio')
+        selected.append((int(first), int(second)))
+    if len({fd for pair in selected for fd in pair}) != 6 or min(fd for pair in selected for fd in pair) < 3:
+        uncertain('native_stdio_socketpair_alias', 'stdio')
+    # From the first selected creation through vfork, only the observed pair
+    # construction and non-destructive fcntl operations are supported. Reuse,
+    # close/dup/open/unparsed interrupted creation cannot silently keep a role.
+    for line in parent_lines[pairs[0][0]:fork]:
+        if re.search(r'socketpair\(.*\)\s*= 0(?:\s|$)', line):
+            continue
+        if re.search(r'fcntl\([0-9]+, F_(?:GETFL|SETFL),?.*\)\s*= (?:0x[0-9a-f]+|[0-9]+)(?:\s|$)', line):
+            continue
+        uncertain('native_stdio_parent_fd_sequence_unsupported', 'stdio')
+    expected = {0: selected[0][0], 1: selected[1][1], 2: selected[2][1]}
+    child_lines = child_trace.splitlines()
+    execs = [i for i, line in enumerate(child_lines) if 'execve(' in line and re.search(r'\)\s*= 0(?:\s|$)', line)]
+    if not execs:
+        uncertain('native_stdio_child_exec_missing', 'stdio')
+    prefix = child_lines[:execs[0]]
+    observed, operations = {}, []
+    for line in prefix:
+        dup = re.search(r'dup2\(([0-9]+), ([012])\)\s*= ([012])(?:\s|$)', line)
+        if dup:
+            source, target, returned = map(int, dup.groups())
+            if target in observed or target != returned or expected.get(target) != source:
+                uncertain('native_stdio_dup_binding_wrong', 'stdio')
+            observed[target] = source
+            operations.append(('dup2', source, target))
+        elif not re.search(r'close\((?:' + '|'.join(map(str, expected.values())) + r')\)\s*= 0(?:\s|$)', line):
+            uncertain('native_stdio_child_fd_sequence_unsupported', 'stdio')
+        else:
+            operations.append(('close', int(re.search(r'close\(([0-9]+)\)', line)[1])))
+    if observed != expected:
+        uncertain('native_stdio_dup_binding_missing', 'stdio')
+    expected_operations = [op for fd, source in expected.items() for op in [('dup2', source, fd), ('close', source)]]
+    if operations != expected_operations:
+        uncertain('native_stdio_child_fd_sequence_unsupported', 'stdio')
+    # Native readlink bytes tie each dup destination to the recorded socket
+    # inode; Python /proc readback above independently corroborates that inode.
+    for fd in range(3):
+        links = [(i, re.search(r'readlink\("/proc/self/fd/' + str(fd) + r'", "(socket:\[[0-9]+\])", [0-9]+\)\s*= ([0-9]+)(?:\s|$)', line))
+                 for i, line in enumerate(child_lines) if i > execs[-1]]
+        links = [(i, m) for i, m in links if m is not None]
+        if not links:
+            uncertain('native_stdio_inode_binding_missing', 'stdio')
+        index, match = links[0]
+        if match[1] != fds[str(fd)] or int(match[2]) != len(match[1]):
+            uncertain('native_stdio_inode_binding_wrong', 'stdio')
+        for line in child_lines[execs[0] + 1:index]:
+            if re.search(r'(?:dup2|dup3)\([^,]+, ' + str(fd) + r'(?:,|\))|close\(' + str(fd) + r'\)|close_range\(', line):
+                uncertain('native_stdio_child_fd_rebound', 'stdio')
+    return {'0': 'declared_local_ipc_input', '1': 'declared_local_ipc_output', '2': 'declared_local_ipc_diagnostic'}
 
 
 def event_bytes(event):
