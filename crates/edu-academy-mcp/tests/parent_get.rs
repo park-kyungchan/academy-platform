@@ -965,3 +965,94 @@ fn v2_routing_summary_keeps_student_scope_in_upstream_probe() {
     retain(&root, "v1-does-not-gain-scope", &v1);
     assert_eq!(encode(&v1).unwrap(), encode(&routing_admission()).unwrap());
 }
+
+#[test]
+fn unavailable_resolution_uuid_preserves_original_zod_nil_max_contract() {
+    let root = case_root("resolution-uuid");
+    // Exact no-version z.uuid() contract from pinned original Zod4.4.3:
+    // RFC versions1..8/variant plus nil and lowercase-only max alternatives.
+    let mut results = Vec::new();
+    for (label, occurrence, accepted) in [
+        ("nil", "00000000-0000-0000-0000-000000000000", true),
+        ("max", "ffffffff-ffff-ffff-ffff-ffffffffffff", true),
+        ("v4", "01234567-89ab-4def-8abc-0123456789ab", true),
+        ("v4-upper", "01234567-89AB-4DEF-8ABC-0123456789AB", true),
+        ("max-upper", "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF", false),
+        (
+            "version-zero",
+            "00000000-0000-0000-8000-000000000001",
+            false,
+        ),
+        (
+            "version-nine",
+            "00000000-0000-9000-8000-000000000001",
+            false,
+        ),
+        (
+            "wrong-variant",
+            "00000000-0000-4000-0000-000000000001",
+            false,
+        ),
+    ] {
+        let mut calls = 0;
+        let out = read::read(
+            read::prepare(&input(), &routing_admission(), now()).unwrap(),
+            |name, _| {
+                calls += 1;
+                assert_eq!(name, "academy_student_resolve");
+                Ok(obj(&[
+                    ("status", "unavailable".into()),
+                    ("reasonCode", "student_name_ambiguous".into()),
+                    (
+                        "failure",
+                        obj(&[
+                            ("code", "student_name_ambiguous".into()),
+                            ("category", "forged".into()),
+                            ("evidenceLocator", "forged".into()),
+                            ("automaticRetryAllowed", true.into()),
+                        ]),
+                    ),
+                    ("upstreamOccurrence", occurrence.into()),
+                ]))
+            },
+            now,
+        )
+        .unwrap();
+        // Retain both counterexamples and all controls even when the first
+        // assertion exposes the original rejection on the unfixed candidate.
+        retain(&root, label, &out);
+        results.push((label, occurrence, accepted, calls, out));
+    }
+    for (label, occurrence, accepted, calls, out) in results {
+        assert_eq!(calls, 1, "{label}: intake must not be called");
+        if accepted {
+            assert!(
+                out.get("reasonCode").is("student_name_ambiguous"),
+                "{label}"
+            );
+            assert!(
+                out.get("failure").get("code").is("student_name_ambiguous"),
+                "{label}"
+            );
+            assert!(!out.get("failure").get("automaticRetryAllowed").truthy());
+            assert_eq!(
+                out.get("upstreamOccurrence"),
+                &Js::from(occurrence),
+                "{label}"
+            );
+            assert!(!encode(&out).unwrap().windows(6).any(|x| x == b"forged"));
+        } else {
+            assert!(
+                out.get("reasonCode")
+                    .is("student_resolve_unqualified_no_automatic_retry"),
+                "{label}"
+            );
+            assert!(!out.has("upstreamOccurrence"), "{label}");
+        }
+    }
+    // The audit filter is a distinct lowercase-only policy, unchanged by this fix.
+    assert_eq!(
+        read::safe_occurrence(&"01234567-89AB-4DEF-8ABC-0123456789AB".into()),
+        Js::Null
+    );
+}
