@@ -19,6 +19,11 @@ chrono-tz = { version = "=0.10.4", default-features = false, features = ["case-i
 
 html5ever = "=0.40.1"
 rustix = { version = "=1.1.2", features = ["fs", "process"] }
+swc_ecma_parser = { version = "=47.0.0", default-features = false }
+swc_ecma_ast = "=30.0.0"
+swc_common = { version = "=27.0.0", default-features = false }
+swc_ecma_visit = "=30.0.0"
+url = "=2.5.8"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

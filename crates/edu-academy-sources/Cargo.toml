@@ -15,6 +15,11 @@ regex.workspace = true
 scraper.workspace = true
 html5ever.workspace = true
 rustix.workspace = true
+swc_ecma_parser.workspace = true
+swc_ecma_ast.workspace = true
+swc_common.workspace = true
+swc_ecma_visit.workspace = true
+url.workspace = true
 
 [lints]
 workspace = true
