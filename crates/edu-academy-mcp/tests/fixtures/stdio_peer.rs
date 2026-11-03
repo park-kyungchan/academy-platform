@@ -478,7 +478,7 @@ pub mod setup {
         pub fn term(&mut self) {
             rustix::process::kill_process(
                 rustix::process::Pid::from_raw(self.child.id() as i32).unwrap(),
-                rustix::process::Signal::Term,
+                rustix::process::Signal::TERM,
             )
             .unwrap();
         }
@@ -505,7 +505,7 @@ pub mod setup {
             }
             let _ = rustix::process::kill_process(
                 rustix::process::Pid::from_raw(self.child.id() as i32).unwrap(),
-                rustix::process::Signal::Term,
+                rustix::process::Signal::TERM,
             );
             let deadline = Instant::now() + Duration::from_secs(3);
             while Instant::now() < deadline {

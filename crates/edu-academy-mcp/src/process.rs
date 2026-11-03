@@ -188,7 +188,7 @@ pub fn child_parent_guard() -> Result<()> {
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
         .ok_or_else(|| Error::new("owned_parent_identity_required"))?;
-    rustix::process::set_parent_process_death_signal(Some(Signal::Kill))
+    rustix::process::set_parent_process_death_signal(Some(Signal::KILL))
         .map_err(|_| Error::new("owned_parent_guard_unavailable"))?;
     let me = Identity::read(std::process::id())
         .ok_or_else(|| Error::new("owned_parent_identity_required"))?;
@@ -512,9 +512,9 @@ impl OwnedChild {
             let elapsed = start.elapsed();
             if elapsed >= limits.graceful {
                 let signal = if elapsed >= limits.graceful + limits.term {
-                    Signal::Kill
+                    Signal::KILL
                 } else {
-                    Signal::Term
+                    Signal::TERM
                 };
                 // The retained direct child anchors its PGID until reaping.
                 if !root_done && let Some(pid) = Pid::from_raw(self.root as i32) {
