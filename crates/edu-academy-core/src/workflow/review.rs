@@ -752,14 +752,10 @@ pub(crate) fn review_read(
     let handle = super::nullable(input.get("observationHandle"));
     let held = !handle.absent();
     let source = if held {
-        let source = normalize_observation(&crate::schema::validate(
+        normalize_observation(&crate::schema::validate(
             "dailyRecordObservationSchema",
             held_observation,
-        )?);
-        if let Some(e) = qualify(&source, scope) {
-            return Err(Fault::error(e.get("code").code_units()));
-        }
-        source
+        )?)
     } else {
         Js::Null
     };
