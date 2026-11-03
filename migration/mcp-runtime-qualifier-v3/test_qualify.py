@@ -24,8 +24,17 @@ T = '2026-11-03T00:00:00.000Z'
 W = q.utc_ms(T) * 1_000_000
 
 
+FIXTURE_CLOCK = q.ClockDomain('recorder', 'fictional-only', 99, 99, '')
+
+
 def stamp(wall, mono):
-    return {'wallNs': wall, 'monoBeforeNs': mono, 'monoAfterNs': mono + 100}
+    return q.own_sample({'wallNs': wall, 'monoBeforeNs': mono, 'monoAfterNs': mono + 100}, FIXTURE_CLOCK)
+
+
+def bun_raw(wall, mono):
+    return {'wallNs': str(wall), 'monoNs': str(mono + 100), 'monoBeforeNs': str(mono),
+            'monoAfterNs': str(mono + 100), 'wallResolutionNs': 1000000}
+
 
 
 BEFORE = stamp(W - 1_000_000, 10_000_000)
@@ -315,21 +324,24 @@ class PureTests(unittest.TestCase):
     def test_30_native_boundary_proofs_do_not_invent_js_exit_pid(self):
         capture = q.Capture.__new__(q.Capture)
         capture.root = self.dir/'binding'; capture.run = {'uid': os.getuid()}
+        capture.recorder = q.ClockDomain('recorder', str(capture.root), 99, 99, '')
         entry = str(capture.root/'source/original.ts')
         argv = ['/usr/local/bin/bun', '--no-install', '--no-env-file', '--preload', str(capture.root/'observer-source/preload.ts'), entry]
         start = {'pid': 101, 'ppid': 100, 'pgid': 100, 'uid': os.getuid(), 'cwd': str(capture.root),
                  'nativeArgv': argv, 'argv': ['/usr/local/bin/bun', entry], 'execPath': '/usr/local/bin/bun',
-                 'fds': {'0': 'pipe:[1]', '1': 'pipe:[2]', '2': 'pipe:[3]'}, 'sample': stamp(W, 11000000)}
-        event = {'pid': 101, 'sequence': 1, 'kind': 'entry', 'sample': stamp(W,11000000), 'path': entry, 'sha256': 'f'*64}
+                 'fds': {'0': 'pipe:[1]', '1': 'pipe:[2]', '2': 'pipe:[3]'}, 'sample': bun_raw(W, 11000000)}
+        event = {'pid': 101, 'sequence': 1, 'kind': 'entry', 'sample': bun_raw(W,11000000), 'path': entry, 'sha256': 'f'*64}
         raw = {'processes/101/START.json': json.dumps(start).encode(), 'processes/101/events.ndjson': json.dumps(event).encode()+b'\n'}
         capture.manifest = {p: {} for p in raw}
         capture.processes = {}
         capture.raw = lambda p: raw[p]
         capture.json = lambda p: q.parse(raw[p])
         capture.entry_pin = lambda p: 'f'*64
-        command = {'start': {'pid': 100, 'pgid': 100, 'originalArgv': argv, 'prelaunch': BEFORE},
-                   'result': {'ended': AFTER}, 'cap': {'processSnapshots': []},
-                   'native': {'execs': {101: {'argv': argv}}, 'parents': {101: 100}, 'terminals': {101: -15}}}
+        command = {'start': {'pid': 100, 'pgid': 100, 'originalArgv': argv, 'prelaunch': q.own_sample(dict(BEFORE), capture.recorder)},
+                   'result': {'ended': q.own_sample(dict(AFTER), capture.recorder)}, 'cap': {'processSnapshots': []},
+                   'native': {'execs': {101: {'argv': argv, 'wallCell': (W-500000, W-499000)}},
+                              'parents': {101: 100}, 'terminals': {101: -15},
+                              'terminalClocks': {101: (W+900000000, W+900001000)}}}
         capture.commands = {'neutral': command}
         capture.bind_processes()
         self.assertEqual(capture.processes[101]['channels']['stderr']['scope'], 'js_no_event')
@@ -343,6 +355,110 @@ class PureTests(unittest.TestCase):
         raw['processes/101/START.json'] = json.dumps(start).encode()
         raw['processes/101/stderr.bin'] = b''; capture.manifest['processes/101/stderr.bin'] = {}
         self.rejected('manufactured_empty_tap', capture.bind_processes)
+
+    def actual_clock_fixture(self):
+        # Exact first failed observation, read-only from immutable original A.
+        # This is a focused clock-unit regression, not Capture/qualify_pair.
+        root = NOTES/'protocol-A-01'
+        prefix = root/'commands/discover'
+        start = q.parse((prefix/'START.json').read_bytes())
+        end = q.parse((prefix/'RESULT.json').read_bytes())
+        pid = 3437440
+        source = q.parse((root/f'processes/{pid}/START.json').read_bytes())
+        event = q.parse((root/f'processes/{pid}/events.ndjson').read_bytes().splitlines()[0])
+        exit_ = q.parse((root/f'processes/{pid}/EXIT.json').read_bytes())
+        graph = q.native_trace({pid: (prefix/f'syscalls.{pid}').read_text()})
+        recorder_pid = q.parse((root/'SUPERVISOR.json').read_bytes())['pid']
+        recorder = q.ClockDomain('recorder', str(root), recorder_pid, recorder_pid, '')
+        start['prelaunch'] = q.own_sample(start['prelaunch'], recorder)
+        end['ended'] = q.own_sample(end['ended'], recorder)
+        command = {'start': start, 'result': end, 'native': graph}
+        native = q.NativeClock(str(root), recorder, command, source)
+        return native, source, event, exit_, command
+
+    def test_40_real_python_and_bun_epochs_are_distinct(self):
+        native, source, event, exit_, command = self.actual_clock_fixture()
+        lo, hi = command['start']['prelaunch'], command['result']['ended']
+        source_sample = q.own_sample(source['sample'], native.owner)
+        sample = q.own_sample(event['sample'], native.owner)
+        terminal = q.own_sample(exit_['sample'], native.owner)
+        self.assertEqual(lo['monoBeforeNs'], 837261896152681)
+        self.assertEqual(sample['monoBeforeNs'], '97290474')
+        self.assertLess(int(sample['monoAfterNs']), lo['monoBeforeNs'])
+        self.assertTrue(native.contains(sample, lo, hi))
+        q.clock_interval(source_sample, sample); q.clock_interval(sample, terminal)
+        q.freshness(exit_['at'], lo, hi, True)
+        # Explicit causal bound may cross owners; the generic API may not.
+        q.clock_interval(lo, sample, native)
+        self.rejected('clock_owner_mismatch', q.clock_interval, lo, sample)
+        q.freshness('2026-11-03T05:44:58.970Z', lo, sample, True, native=native)
+
+    def test_41_missing_wrong_owner_and_native_domain_refused(self):
+        native, source, event, _, command = self.actual_clock_fixture()
+        lo, hi = command['start']['prelaunch'], command['result']['ended']
+        self.rejected('clock_domain_missing', q.clock_interval, dict(lo), dict(hi))
+        self.rejected('clock_domain_missing', native.contains, event['sample'], lo, hi)
+        other = q.ClockDomain('bun', native.owner.capture, native.owner.pid + 1,
+                              native.owner.command, native.owner.exec_sha256)
+        wrong = q.own_sample(event['sample'], other)
+        self.rejected('clock_owner_mismatch', native.contains, wrong, lo, hi)
+        self.rejected('clock_owner_mismatch', q.own_sample, wrong, native.owner)
+        missing = copy.deepcopy(command); missing['native']['terminalClocks'] = {}
+        self.rejected('clock_native_domain_missing', q.NativeClock,
+                      native.owner.capture, native.recorder, missing, source)
+        wrong = copy.deepcopy(command); wrong['native']['execs'][source['pid']]['argv'] = ['wrong']
+        self.rejected('clock-native-exec', q.NativeClock,
+                      native.owner.capture, native.recorder, wrong, source)
+
+    def test_42_outside_and_ambiguous_cross_domain_windows_refuse(self):
+        native, _, event, _, command = self.actual_clock_fixture()
+        lo, hi = command['start']['prelaunch'], command['result']['ended']
+        sample = q.own_sample(event['sample'], native.owner)
+        # A well-formed recorder window, wholly after the source observation.
+        delta = 500000000
+        later = q.own_sample({k: (v + delta if k != 'wallResolutionNs' else v)
+                              for k, v in dict(lo).items()}, native.recorder)
+        self.rejected('clock_sample_outside_window', native.contains, sample, later, hi)
+        self.assertFalse(native.contains(sample, later, hi, selection=True))
+        # The original Date sample's 1ms cell overlaps a precise outer edge.
+        delta = int(sample['wallNs']) - lo['wallNs'] + 500000
+        edge = q.own_sample({k: (v + delta if k != 'wallResolutionNs' else v)
+                             for k, v in dict(lo).items()}, native.recorder)
+        self.rejected('clock_window_boundary_ambiguous', native.contains, sample, edge, hi)
+        late = dict(event['sample']); late['wallNs'] = str(hi['wallNs'] + 1000000000)
+        self.rejected('clock_sample_outside_window', native.contains,
+                      q.own_sample(late, native.owner), lo, hi)
+
+    def test_43_same_owner_reversal_step_and_wrong_shape_still_refuse(self):
+        native, source, event, _, _ = self.actual_clock_fixture()
+        first = q.own_sample(source['sample'], native.owner)
+        last = q.own_sample(event['sample'], native.owner)
+        self.rejected('clock_observation_unstable', q.clock_interval, last, first)
+        stepped = dict(event['sample']); stepped['wallNs'] = str(int(stepped['wallNs']) + 1000000000)
+        self.rejected('clock_observation_unstable', q.clock_interval,
+                      first, q.own_sample(stepped, native.owner))
+        self.rejected('clock_domain_sample_shape', q.own_sample, dict(BEFORE), native.owner)
+        # Native trace timestamp precision is observed, not an invented tolerance.
+        self.assertEqual(q.native_wall_cell('1793684698.857369 execve('),
+                         (1793684698857369000, 1793684698857370000))
+
+    def test_44_cross_process_order_uses_wall_and_native_exec(self):
+        a = q.ClockDomain('bun', 'fictional-only', 101, 100, 'a'*64)
+        b = q.ClockDomain('bun', 'fictional-only', 102, 100, 'b'*64)
+        first = q.own_sample(bun_raw(W, 900000000), a)
+        second = q.own_sample(bun_raw(W+10000000, 1), b)
+        self.assertEqual(q.clock_order(first, second), -1)
+        self.rejected('clock_cross_process_order_ambiguous', q.clock_order,
+                      first, q.own_sample(bun_raw(W, 1), b))
+        # Process pairing uses native exec order, not incomparable local epochs.
+        class C: pass
+        capture = C()
+        capture.processes = {101: {'role':'neutral', 'clock': C()}, 102: {'role':'neutral', 'clock': C()}}
+        capture.processes[101]['clock'].exec_cell = (10, 11)
+        capture.processes[102]['clock'].exec_cell = (20, 21)
+        self.assertEqual(q.native_process_order(capture, 'neutral'), list(capture.processes.values()))
+        capture.processes[102]['clock'].exec_cell = (11, 12)
+        self.rejected('native_exec_order_ambiguous', q.native_process_order, capture, 'neutral')
 
     def test_31_frozen_framing_bytes_and_split_order(self):
         chunks = q.expected_stdin('framing', 'neutral')

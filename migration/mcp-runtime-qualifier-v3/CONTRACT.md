@@ -212,3 +212,31 @@ ambiguous proof exits2. All results retain `fullS11:false`, `fullParity:false`,
 `graphAdmission:false`, `rustCandidateEvaluated:false`; a pair has
 `allTenModes:false`. Actual completion cannot be inferred from this contract,
 unit tests, design or implementation status.
+
+## Clock ownership correction after original protocol observation
+
+Every recorder sample belongs to the externally bound recorder PID in its run
+root. Every Bun hrtime sample belongs to one actual PID/native exec in one
+command. These are separate domains even on the same host. In-memory ownership
+is assigned only to known metadata locations after native PID/argv/PGID/parent
+and terminal binding; captured JSON and wire bytes stay unchanged.
+
+Same-owner monotonic order and wall/monotonic stability remain required. Never
+subtract local hrtime from recorder OS monotonic, nor sort different PIDs by
+local hrtime. Cross-domain bounds use the existing command request/reply wall
+enclosures, recorded resolution cells, and native exec/terminal observations.
+A source sample must fit its native lifetime and the applicable outward wall
+enclosure; disjoint windows are excluded, overlapping uncertain boundaries are
+UNQUALIFIED. Native exec timestamps order process generations; cross-process
+call order needs disjoint wall cells. Missing domains, wrong owners or missing
+native clocks refuse qualification. No clock offset or arbitrary tolerance is
+introduced. Source freshness (including both checks), actual elapsed bounds,
+generation and independent original byte/preimage anchors remain required.
+
+The first protocol comparison at source42bf927 failed because its comparator
+mixed recorder absolute monotonic with process-local Bun hrtime. The forward
+fix and focused real-sample/pure tests do not establish protocol MATCH, stable
+clocks for every producer, all ten modes, or final bounded acceptance. Root
+must bind the new comparator Git blobs to retained original captures before
+separately authorizing another comparison. Executed recorder/preload/stimulus
+must remain byte-identical to those captures; their old pins are not rewritten.

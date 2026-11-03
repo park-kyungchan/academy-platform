@@ -7,6 +7,8 @@ Root supplies independent custody; a recorder manifest is not attestation.
 import argparse
 import base64
 import datetime
+from dataclasses import dataclass
+from functools import cmp_to_key
 import hashlib
 import json
 import math
@@ -275,7 +277,141 @@ def utc_ms(value):
         refuse('timestamp_invalid', 'roles')
 
 
+@dataclass(frozen=True)
+class ClockDomain:
+    kind: str
+    capture: str
+    pid: int
+    command: int
+    exec_sha256: str
+
+
+class ClockSample(dict):
+    # In-memory provenance only. Never add owner fields to captured/wire JSON.
+    def __init__(self, raw, owner):
+        super().__init__(raw)
+        self.owner = owner
+
+
+def own_sample(raw, owner):
+    if not isinstance(owner, ClockDomain) or owner.kind not in ['recorder', 'bun']:
+        uncertain('clock_domain_missing', 'clock')
+    if isinstance(raw, ClockSample) and raw.owner != owner:
+        refuse('clock_owner_mismatch', 'clock')
+    sample = ClockSample(raw, owner)
+    if ('monoNs' in sample) != (owner.kind == 'bun'):
+        refuse('clock_domain_sample_shape', 'clock')
+    sample_bounds(sample)
+    return sample
+
+
+def same_clock(before, after):
+    sample_bounds(before); sample_bounds(after)
+    if before.owner != after.owner:
+        uncertain('clock_owner_mismatch', 'clock')
+
+
+def wall_cell(sample):
+    wall, _, _ = sample_bounds(sample)
+    resolution = sample.get('wallResolutionNs', 1000000 if 'monoNs' in sample else 1)
+    if type(resolution) is not int or resolution < 1:
+        uncertain('clock_resolution_unavailable', 'clock')
+    # Date.now truncates to milliseconds. Python's precision is recorded.
+    return (wall if 'monoNs' in sample else wall - resolution), wall + resolution
+
+
+def enclose_cell(cell, lower, upper, selection=False):
+    lo, hi = cell
+    if hi < lower or lo > upper:
+        if selection:
+            return False
+        refuse('clock_sample_outside_window', 'clock')
+    if lo < lower or hi > upper:
+        uncertain('clock_window_boundary_ambiguous', 'clock')
+    return True
+
+
+class NativeClock:
+    """One verified native exec owns one Bun hrtime domain, within one command."""
+    def __init__(self, capture, recorder, command, start):
+        pid = start['pid']; native = command['native']
+        require_same(native['execs'][pid]['argv'], start['nativeArgv'], 'clock-native-exec')
+        require_same(command['start']['pgid'], start['pgid'], 'clock-native-pgid')
+        require_same(native['parents'].get(pid, command['start']['pid']), start['ppid'], 'clock-native-parent')
+        if pid not in native['terminals']:
+            uncertain('clock_native_terminal_missing', 'clock')
+        self.recorder, self.command = recorder, command
+        self.owner = ClockDomain('bun', capture, pid, command['start']['pid'], sha(js_bytes(start['nativeArgv'])))
+        self.exec_cell = native['execs'][pid].get('wallCell')
+        self.terminal_cell = native.get('terminalClocks', {}).get(pid)
+        if self.exec_cell is None or self.terminal_cell is None:
+            uncertain('clock_native_domain_missing', 'clock')
+        before, after = command['start']['prelaunch'], command['result']['ended']
+        same_clock(before, after)
+        if before.owner != recorder or recorder.kind != 'recorder' or recorder.capture != capture:
+            refuse('clock_owner_mismatch', 'clock')
+        clock_interval(before, after)
+        low, high = wall_cell(before)[0], wall_cell(after)[1]
+        enclose_cell(self.exec_cell, low, high)
+        enclose_cell(self.terminal_cell, low, high)
+        if self.exec_cell[1] > self.terminal_cell[0]:
+            uncertain('clock_native_lifetime_ambiguous', 'clock')
+
+    def recorder_window(self, before, after):
+        same_clock(before, after)
+        if before.owner != self.recorder:
+            refuse('clock_owner_mismatch', 'clock')
+        clock_interval(before, after)
+        start, end = self.command['start']['prelaunch'], self.command['result']['ended']
+        if sample_bounds(before)[1] < sample_bounds(start)[1] or sample_bounds(after)[2] > sample_bounds(end)[2]:
+            refuse('clock_request_outside_command', 'clock')
+        return wall_cell(before)[0], wall_cell(after)[1]
+
+    def contains(self, sample, before, after, selection=False):
+        sample_bounds(sample)
+        if sample.owner != self.owner:
+            refuse('clock_owner_mismatch', 'clock')
+        cell = wall_cell(sample)
+        enclose_cell(cell, self.exec_cell[0], self.terminal_cell[1])
+        low, high = self.recorder_window(before, after)
+        return enclose_cell(cell, low, high, selection)
+
+    def causal_interval(self, before, after):
+        # Explicit recorder -> this native producer bound; never subtract hrtime
+        # from Python's OS monotonic clock or another producer's local clock.
+        if before.owner != self.recorder or after.owner != self.owner:
+            refuse('clock_owner_mismatch', 'clock')
+        self.contains(after, self.command['start']['prelaunch'], self.command['result']['ended'])
+        self.recorder_window(before, self.command['result']['ended'])
+        lo, end = wall_cell(before), wall_cell(after)
+        if lo[1] > end[0]:
+            uncertain('clock_window_boundary_ambiguous', 'clock')
+        return lo[0] // 1000000, (end[1] + 999999) // 1000000
+
+
+def clock_order(left, right):
+    sample_bounds(left); sample_bounds(right)
+    if left.owner == right.owner:
+        if sample_bounds(left) == sample_bounds(right):
+            return 0  # Stable source-call ordinal for one sampled input chunk.
+        if sample_bounds(left)[1] <= sample_bounds(right)[1]:
+            clock_interval(left, right)
+            return -1
+        clock_interval(right, left)
+        return 1
+    if left.owner.capture != right.owner.capture or left.owner.command != right.owner.command:
+        refuse('clock_owner_mismatch', 'clock')
+    a, b = wall_cell(left), wall_cell(right)
+    if a[1] < b[0]:
+        return -1
+    if b[1] < a[0]:
+        return 1
+    uncertain('clock_cross_process_order_ambiguous', 'clock')
+
+
 def sample_bounds(sample):
+    if not isinstance(sample, ClockSample) or not isinstance(sample.owner, ClockDomain):
+        uncertain('clock_domain_missing', 'clock')
     if 'monoNs' in sample:
         if not all(type(sample.get(k)) is str and re.fullmatch(r'[0-9]+', sample[k]) for k in ['wallNs', 'monoNs', 'monoBeforeNs', 'monoAfterNs']):
             refuse('source_clock_sample_type', 'clock')
@@ -290,7 +426,12 @@ def sample_bounds(sample):
     return int(sample['wallNs']), int(sample['monoBeforeNs']), int(sample['monoAfterNs'])
 
 
-def clock_interval(before, after):
+def clock_interval(before, after, native=None):
+    sample_bounds(before); sample_bounds(after)
+    if before.owner != after.owner:
+        if native is None:
+            uncertain('clock_owner_mismatch', 'clock')
+        return native.causal_interval(before, after)
     w0, m0, m1 = sample_bounds(before)
     w1, n0, n1 = sample_bounds(after)
     # Preload's Date samples have 1ms resolution; Python time resolution is
@@ -313,9 +454,9 @@ def age_predicate(age):
     return 0 <= age <= 300000
 
 
-def freshness(observed, before, after, fresh_generation=False):
+def freshness(observed, before, after, fresh_generation=False, native=None):
     source = utc_ms(observed)
-    lower, upper = clock_interval(before, after)
+    lower, upper = clock_interval(before, after, native)
     if upper < source or lower - source > 300000:
         refuse('source_time_outside_original_window', 'clock')
     if fresh_generation:
@@ -560,6 +701,9 @@ class Capture:
         self.supervisor = parse(supervisor_raw)
         self.check_tree()
         self.complete = self.json('COMPLETE.json')
+        self.recorder = ClockDomain('recorder', str(self.root), self.supervisor['pid'], self.supervisor['pid'], '')
+        self.run['started'] = own_sample(self.run['started'], self.recorder)
+        self.complete['ended'] = own_sample(self.complete['ended'], self.recorder)
         require_same(str(self.root), self.run['root'], 'run-root')
         require_same(str(HERE.parents[1]), self.run['sourceRoot'], 'assigned-source-root')
         require_same(PINS['dependencyRoot'], self.run['dependencyRoot'], 'assigned-dependency-root')
@@ -748,6 +892,21 @@ class Capture:
         safe_relative(role)
         prefix = 'commands/' + role + '/'
         start, result, cap = (self.json(prefix + n) for n in ['START.json', 'RESULT.json', 'CAPTURE.json'])
+        for record, keys in [(start, ['prelaunch', 'spawnReturned']), (result, ['ended'])]:
+            for key in keys:
+                record[key] = own_sample(record[key], self.recorder)
+        for group, bracket in [('requests', 'requestSendBracket'), ('frames', 'responseReceiveBracket')]:
+            for item in cap[group]:
+                for edge in ['before', 'after']:
+                    item[bracket][edge] = own_sample(item[bracket][edge], self.recorder)
+                    clock_interval(start['prelaunch'], item[bracket][edge])
+                    clock_interval(item[bracket][edge], result['ended'])
+                clock_interval(item[bracket]['before'], item[bracket]['after'])
+        for item in cap['actions'] + cap['processSnapshots'] + cap['lifecycle']:
+            for key in ['before', 'after', 'sample']:
+                if key in item:
+                    item[key] = own_sample(item[key], self.recorder)
+                    clock_interval(start['prelaunch'], item[key]); clock_interval(item[key], result['ended'])
         require_same(expected_command_argv(self, role), start['originalArgv'], 'declared-command-argv')
         require_same(expected_environment(self, role), start['environment'], 'minimal-environment')
         expected_trace = ['/usr/bin/strace', '-ff', '-ttt', '-T', '-v', '-s', '1048576',
@@ -845,22 +1004,33 @@ class Capture:
             allowed_entry = self.entry_pin(entry)
             eventpath = f'processes/{pid}/events.ndjson'
             events = [parse(line) for line in self.raw(eventpath).splitlines()]
+            native_clock = NativeClock(str(self.root), self.recorder, command, start)
+            start['sample'] = own_sample(start['sample'], native_clock.owner)
+            native_clock.contains(start['sample'], command['start']['prelaunch'], command['result']['ended'])
+            previous = start['sample']
             for i, e in enumerate(events, 1):
                 require_same(pid, e['pid'], 'event-pid'); require_same(i, e['sequence'], 'event-sequence')
-                clock_interval(command['start']['prelaunch'], e['sample'])
-                clock_interval(e['sample'], command['result']['ended'])
+                e['sample'] = own_sample(e['sample'], native_clock.owner)
+                clock_interval(start['sample'], e['sample'])
+                clock_interval(previous, e['sample'])
+                previous = e['sample']
+                if 'before' in e:
+                    e['before'] = own_sample(e['before'], native_clock.owner)
+                    clock_interval(start['sample'], e['before']); clock_interval(e['before'], e['sample'])
+                native_clock.contains(e['sample'], command['start']['prelaunch'], command['result']['ended'])
             first = [e for e in events if e['kind'] == 'entry']
             if len(first) != 1:
                 refuse('process_entry_observation_missing', path)
             require_same(entry, first[0]['path'], 'entry-path')
             require_same(allowed_entry, first[0]['sha256'], 'entry-source-pin')
             lifetime_before, lifetime_after = command['start']['prelaunch'], command['result']['ended']
-            clock_interval(lifetime_before, start['sample']); clock_interval(start['sample'], lifetime_after)
             exits = f'processes/{pid}/EXIT.json'
             if exits in self.manifest:
                 ex = self.json(exits)
+                ex['sample'] = own_sample(ex['sample'], native_clock.owner)
                 clock_interval(start['sample'], ex['sample'])
-                clock_interval(ex['sample'], command['result']['ended'])
+                clock_interval(previous, ex['sample'])
+                native_clock.contains(ex['sample'], lifetime_before, lifetime_after)
                 freshness(ex['at'], command['start']['prelaunch'], command['result']['ended'], True)
                 if native['terminals'][pid] == 0:
                     require_same(0, ex['code'], 'js-native-exit')
@@ -878,7 +1048,7 @@ class Capture:
                         refuse('manufactured_empty_tap', p)
                     channels[name] = {'scope': 'js_no_event', 'raw': None, 'events': []}
             self.processes[pid] = {'start': start, 'role': role, 'events': events, 'channels': channels, 'entry': entry,
-                                   'before': lifetime_before, 'after': lifetime_after}
+                                   'before': lifetime_before, 'after': lifetime_after, 'clock': native_clock}
         for role, command in self.commands.items():
             if role in ['version-bun', 'lock-release-readback']:
                 continue
@@ -920,8 +1090,17 @@ def event_bytes(event):
     return b
 
 
+def native_wall_cell(line):
+    match = re.match(r'([0-9]+)\.([0-9]{1,9})\s', line)
+    if match is None:
+        return None
+    seconds, fraction = match.groups()
+    lower = int(seconds) * 1000000000 + int(fraction.ljust(9, '0'))
+    return (lower, lower + 10 ** (9 - len(fraction)))
+
+
 def native_trace(traces):
-    execs, parents, terminals, history, threads = {}, {}, {}, [], {}
+    execs, parents, terminals, history, threads, terminal_clocks = {}, {}, {}, [], {}, {}
     for pid, trace in traces.items():
         pending_thread = False
         for line in trace.splitlines():
@@ -933,7 +1112,7 @@ def native_trace(traces):
                     argv = parse(m.group(2)); executable = parse(m.group(1))
                 except Refusal:
                     uncertain('unsupported_native_exec_encoding', 'trace')
-                execs[pid] = {'argv': argv, 'executable': executable}
+                execs[pid] = {'argv': argv, 'executable': executable, 'wallCell': native_wall_cell(line)}
                 history.append({'pid': pid, **execs[pid]})
             if any(n in line for n in ['clone(', 'clone3(', 'fork(', 'vfork(', '<... clone resumed>', '<... clone3 resumed>', '<... vfork resumed>']):
                 if 'CLONE_THREAD' in line:
@@ -949,8 +1128,10 @@ def native_trace(traces):
                 elif '<unfinished ...>' not in line:
                     pending_thread = False
             if '+++ exited with ' in line:
+                terminal_clocks[pid] = native_wall_cell(line)
                 terminals[pid] = int(re.search(r'\+\+\+ exited with ([0-9]+)', line).group(1))
             if '+++ killed by ' in line:
+                terminal_clocks[pid] = native_wall_cell(line)
                 name = re.search(r'\+\+\+ killed by (SIG[A-Z0-9]+)', line).group(1)
                 import signal
                 terminals[pid] = -int(getattr(signal, name))
@@ -963,7 +1144,7 @@ def native_trace(traces):
                 refuse('native_thread_parent_cycle', 'trace')
             seen.add(parent); parent = threads[parent]
         parents[child] = parent
-    return {'execs': execs, 'execHistory': history, 'parents': parents, 'terminals': terminals}
+    return {'execs': execs, 'execHistory': history, 'parents': parents, 'terminals': terminals, 'terminalClocks': terminal_clocks}
 
 
 def stream_frames(process, channel):
@@ -998,6 +1179,7 @@ def source_calls(process):
             calls.append({'request': req, 'before': f['sample'], 'after': None, 'result': None, 'raw': None})
         else:
             reply = replies[0]
+            clock_interval(f['sample'], reply['sample'])
             calls.append({'request': req, 'before': f['sample'], 'after': reply['sample'], 'result': reply['value'].get('result'), 'raw': reply['raw']})
     return calls
 
@@ -1006,14 +1188,26 @@ def request_receipts(capture, command, request, reply):
     direct = command['direct']
     lo = request['requestSendBracket']['before']
     hi = reply['responseReceiveBracket']['after'] if reply else command['result']['ended']
-    lo_m, hi_m = sample_bounds(lo)[1], sample_bounds(hi)[2]
+    calls = [c for c in source_calls(direct) if same(c['request'], request['request'])]
+    if len(calls) != 1:
+        uncertain('receipt_request_owner_missing', 'clock')
+    call = calls[0]
+    direct['clock'].contains(call['before'], lo, hi)
+    if call['after'] is not None:
+        direct['clock'].contains(call['after'], lo, hi)
     found = {}
     for e in direct['events']:
         if e['kind'] != 'file_write' or not e.get('success'):
             continue
         m = re.fullmatch(re.escape(str(capture.root)) + r'/receipts/(' + UUID.pattern[:-2] + r')-(dispatch|result|failure)\.json', e['path'])
-        if not m or not (lo_m <= sample_bounds(e['sample'])[1] <= hi_m):
+        if not m:
             continue
+        same_clock(call['before'], e['sample'])
+        if sample_bounds(e['sample'])[1] < sample_bounds(call['before'])[1]:
+            continue
+        if call['after'] is not None and sample_bounds(e['sample'])[2] > sample_bounds(call['after'])[2]:
+            continue
+        direct['clock'].contains(e['sample'], lo, hi)
         occurrence, phase = m.groups()
         if phase in found:
             refuse('serial_receipt_window_collision', command['direct']['role'])
@@ -1024,16 +1218,16 @@ def request_receipts(capture, command, request, reply):
 
 
 def upstream_in_window(capture, command, before, after):
-    lower, upper = sample_bounds(before)[1], sample_bounds(after)[2]
     result = []
     for pid, process in capture.processes.items():
         if process['role'] != command['direct']['role'] or process is command['direct']:
             continue
         for ordinal, call in enumerate(source_calls(process)):
-            lo = sample_bounds(call['before'])[1]
-            if lower <= lo <= upper:
+            if process['clock'].contains(call['before'], before, after, selection=True):
+                if call['after'] is not None:
+                    process['clock'].contains(call['after'], before, after)
                 result.append((pid, ordinal, process, call))
-    result.sort(key=lambda x: sample_bounds(x[3]['before'])[1])
+    result.sort(key=cmp_to_key(lambda a, b: clock_order(a[3]['before'], b[3]['before'])))
     return result
 
 
@@ -1103,6 +1297,7 @@ def relation_result(capture, command, req, reply, ordinal):
                     if e['kind'] == 'file_write' and e['path'] == str(capture.root / 'fault-events.ndjson'):
                         event = parse(event_bytes(e))
                         require_same(process['start']['pid'], event['pid'], 'hung-handler-pid')
+                        same_clock(e['sample'], call['before'])
                         if event.get('event') == 'hung' and sample_bounds(e['sample'])[1] >= sample_bounds(call['before'])[1]:
                             hung.append(event)
             if len(hung) != 1:
@@ -1346,7 +1541,7 @@ def upstream_semantics(capture, command, process, call, label):
                 request_roles[p + ('process', key)] = label + ':bridge-' + key
         require_same('strace', attribution['process']['parentCommand'], 'attribution-parent-command')
         require_same(capture.entry_pin(command['direct']['entry']), attribution['process']['bridgeSha256'], 'attribution-source-sha')
-        freshness(attribution['observedAt'], command['start']['prelaunch'], call['before'], True)
+        freshness(attribution['observedAt'], command['start']['prelaunch'], call['before'], True, native=process['clock'])
         request_roles[p + ('observedAt',)] = label + ':attribution-time'
     input_tree = LexicalJSON(js_bytes(request), request_roles).tree()
     result = call['result']
@@ -1446,10 +1641,19 @@ def argv_roles(capture, values):
     return [declared.get(v, v) for v in values]
 
 
+def native_process_order(capture, role):
+    processes = [p for p in capture.processes.values() if p['role'] == role]
+    processes.sort(key=lambda p: p['clock'].exec_cell[0])
+    for left, right in zip(processes, processes[1:]):
+        if left['clock'].exec_cell[1] >= right['clock'].exec_cell[0]:
+            uncertain('native_exec_order_ambiguous', 'clock')
+    return processes
+
+
 def compare_process_material(a, b):
     for role in a.commands:
-        left = sorted([p for p in a.processes.values() if p['role'] == role], key=lambda p: sample_bounds(p['start']['sample'])[1])
-        right = sorted([p for p in b.processes.values() if p['role'] == role], key=lambda p: sample_bounds(p['start']['sample'])[1])
+        left = native_process_order(a, role)
+        right = native_process_order(b, role)
         if len(left) != len(right):
             refuse('process_generation_count', role)
         for n, (pa, pb) in enumerate(zip(left, right)):
