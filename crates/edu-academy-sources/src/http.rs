@@ -1,4 +1,7 @@
 //! Recorded HTTP compatibility. Injected transport only; no network implementation.
+#[path = "name_search.rs"]
+mod name_search;
+
 use crate::{
     data::*,
     dom::{self, Document},
@@ -166,6 +169,43 @@ impl<T: Transport> Client<T> {
         self.cookies.clear();
         self.authenticated = false;
     }
+    /// Exact-name identities from one fixed, read-qualified DT/ZT page.
+    pub fn search_students_by_name(&mut self, input: &Js) -> Result<Js> {
+        edu_academy_core::js::exact(input, &["teacherLabel", "studentName"])
+            .map_err(error_from_fault)?;
+        literal_name(input.get("studentName"))?;
+        if input.get("teacherLabel") != self.principal.get("teacherLabel") {
+            return Err(err("daily_search_principal_conflict"));
+        }
+        if !self.authenticated {
+            return Err(err("authentication_required"));
+        }
+        let html = self
+            .request_with_name_headers(
+                "POST",
+                "/servlet/controller.dailyzerotest.DailyZeroTestServlet",
+                vec![("reqCmd".into(), "DtResultSearch".into())],
+                vec![
+                    ("sort_date".into(), "1".into()),
+                    ("stu_name".into(), string(input.get("studentName"))),
+                ],
+                false,
+                None,
+                true,
+            )?
+            .text();
+        if html.encode_utf16().count() > 2_000_000 {
+            return Err(err("daily_search_response_rejected"));
+        }
+        if html.contains("webUserPass")
+            || html.contains("세션이 만료")
+            || name_search::password_input(&html)
+        {
+            self.close();
+            return Err(err("authentication_required"));
+        }
+        name_search::inspect(&html, input.get("studentName"))
+    }
     /// Owner-qualified journal mutation over the existing injected transport.
     /// `now` and `approval` are supplied by the runtime owner, not by caller flags.
     pub fn apply_journal_action(
@@ -204,6 +244,22 @@ impl<T: Transport> Client<T> {
         follow: bool,
         operation: Option<&str>,
     ) -> Result<Response> {
+        self.request_with_name_headers(method, path, query, body, follow, operation, false)
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Mechanical opt-in header extraction"
+    )]
+    fn request_with_name_headers(
+        &mut self,
+        method: &str,
+        path: &str,
+        query: Vec<(String, String)>,
+        body: Vec<(String, String)>,
+        follow: bool,
+        operation: Option<&str>,
+        name_headers: bool,
+    ) -> Result<Response> {
         let mut request_url = url::Url::parse(ORIGIN)
             .expect("fixed origin")
             .join(path)
@@ -240,6 +296,9 @@ impl<T: Transport> Client<T> {
                 "Content-Type".into(),
                 "application/x-www-form-urlencoded; charset=UTF-8".into(),
             ))
+        }
+        if name_headers {
+            headers.push(("X-Requested-With".into(), "XMLHttpRequest".into()));
         }
         let request = Request {
             method: method.into(),
