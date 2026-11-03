@@ -262,3 +262,29 @@ pattern; it is not an FD interpreter. Pure diagnostic Capture reads on immutable
 A/B may locate the next gate but are not pair qualification. Original recorder,
 preload, stimulus, pins, raw and Root custody are unchanged. New Root comparator
 custody/pair comparison and all10modes/NEW independent Wonder still remain.
+
+## Finite native receipt and explicit hung append proof
+
+Root may bind a new comparator to immutable old captures using NEW custody.
+Receipts require the direct pinned neutral writer's exact exclusive0600 openat,
+one full C-decoded write, ftruncate(length) and close, contiguous success, retained
+byte identity, native PID/exec/source/group/terminal and unique serial request
+ownership. Native wall cells (including -T completion precision) must lie inside
+the recorder request/reply enclosure. Same-PID native input event append ->
+receipt -> response byte append -> response event append order is also required.
+No JS event, Bun sample, monotonic offset, wall tolerance or durability proof is
+manufactured. Existing clock/freshness/generation/body/occurrence/preimage and
+wire guards remain. A real JS successful-write event must agree with native
+proof. Complete genuine absence retains dispatch_receipt_missing MISMATCH;
+unsupported/partial/truncated/ambiguous evidence is UNQUALIFIED. Duplicate phases
+retain the serial collision refusal. A wrong/second occurrence writer refuses.
+
+Only the source-declared fictional hung fixture additionally supports one finite
+fault-events.ndjson append/full-line-write/close anchor: exact retained segment,
+actual PID==payload.pid, declared endpoint, native order after the actual source
+request and before native SIGTERM terminal, and recorder wall enclosure. Other
+variants remain UNQUALIFIED. This does not cover arbitrary observeFile paths,
+registry/events, promises, or independent child OS capture. Old named-write guard
+coverage is still unproved; separate optionB <=2 disposable controls are REQUIRED
+before future fresh captures. Protected observer/stimulus/policy/pins and old raw
+remain immutable. This finite repair is not pair/all10/final Wonder acceptance.

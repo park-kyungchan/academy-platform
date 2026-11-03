@@ -1302,6 +1302,255 @@ def source_calls(process):
     return calls
 
 
+NATIVE_STRING = r'"(?:\\.|[^"\\])*"'
+NATIVE_OPEN = re.compile(r'^[0-9]+\.[0-9]+\s+openat\(AT_FDCWD, (' + NATIVE_STRING + r')')
+
+
+def native_bytes(token):
+    """Strict C byte string, not JSON/Unicode normalization or an FD interpreter."""
+    if not re.fullmatch(NATIVE_STRING, token) or not token.isascii():
+        uncertain('native_string_encoding_unsupported', 'native-write')
+    output = bytearray(); i = 1
+    escapes = {'n': 10, 'r': 13, 't': 9, 'a': 7, 'b': 8, 'f': 12, 'v': 11, '\\': 92, '"': 34}
+    while i < len(token) - 1:
+        c = token[i]; i += 1
+        if c != '\\':
+            if ord(c) < 32:
+                uncertain('native_string_encoding_unsupported', 'native-write')
+            output.append(ord(c)); continue
+        c = token[i]; i += 1
+        if c in escapes:
+            output.append(escapes[c])
+        elif c in '01234567':
+            digits = c
+            while len(digits) < 3 and i < len(token) - 1 and token[i] in '01234567':
+                digits += token[i]; i += 1
+            value = int(digits, 8)
+            if value > 255:
+                uncertain('native_string_encoding_unsupported', 'native-write')
+            output.append(value)
+        else:
+            uncertain('native_string_encoding_unsupported', 'native-write')
+    return bytes(output)
+
+
+def native_operation_cell(line):
+    start = native_wall_cell(line)
+    duration = re.search(r'<([0-9]+\.[0-9]{1,9})>$', line)
+    if start is None or duration is None:
+        uncertain('native_write_clock_unavailable', 'native-write')
+    span = native_wall_cell(duration[1] + ' ')
+    if span[1] > POLICY['limits']['recorderHardNs']:
+        uncertain('native_write_duration_unqualified', 'native-write')
+    # -ttt and -T each have their own recorded decimal precision. No Bun clock
+    # sample is invented; completion uses both outward resolution cells.
+    return start[0], start[1] + span[1]
+
+
+def native_open_paths(trace):
+    for i, line in enumerate(trace.splitlines()):
+        match = NATIVE_OPEN.match(line)
+        if match:
+            try:
+                path = native_bytes(match[1]).decode('utf8')
+            except UnicodeError:
+                uncertain('native_path_encoding_unsupported', 'native-write')
+            yield i, path, line
+
+
+def native_file_chains(trace, path, kind):
+    """Only contiguous exclusive/write/truncate/close or append/write/close."""
+    if kind not in ['receipt', 'tap', 'fault']:
+        uncertain('native_write_role_unsupported', 'native-write')
+    lines = trace.splitlines(); records = []
+    exclusive = kind == 'receipt'
+    flags = 'O_WRONLY|O_CREAT|' + ('O_EXCL' if exclusive else 'O_APPEND') + '|O_LARGEFILE|O_CLOEXEC'
+    mode = '0666' if kind == 'fault' else '0600'
+    for i, selected, line in native_open_paths(trace):
+        if selected != path:
+            continue
+        opening = re.fullmatch(r'[0-9]+\.[0-9]+\s+openat\(AT_FDCWD, (' + NATIVE_STRING +
+                              r'), ([A-Z0-9_|]+), (0[0-7]+)\)\s*= ([0-9]+)\s+<[0-9.]+>', line)
+        if opening is None or opening[2] != flags or opening[3] != mode:
+            uncertain('native_write_open_unsupported', 'native-write')
+        fd = opening[4]; count = 4 if exclusive else 3
+        if i + count > len(lines):
+            uncertain('native_write_chain_incomplete', 'native-write')
+        write = re.fullmatch(r'[0-9]+\.[0-9]+\s+write\(' + fd + r', (' + NATIVE_STRING +
+                             r'), ([0-9]+)\)\s*= ([0-9]+)\s+<[0-9.]+>', lines[i+1])
+        if write is None:
+            uncertain('native_write_truncated_or_unsupported', 'native-write')
+        raw = native_bytes(write[1])
+        if len(raw) != int(write[2]) or len(raw) != int(write[3]):
+            uncertain('native_write_partial_or_length', 'native-write')
+        if exclusive and not re.fullmatch(r'[0-9]+\.[0-9]+\s+ftruncate\(' + fd + ', ' + str(len(raw)) +
+                                         r'\)\s*= 0\s+<[0-9.]+>', lines[i+2]):
+            uncertain('native_write_truncate_missing', 'native-write')
+        if not re.fullmatch(r'[0-9]+\.[0-9]+\s+close\(' + fd + r'\)\s*= 0\s+<[0-9.]+>', lines[i+count-1]):
+            uncertain('native_write_close_missing', 'native-write')
+        cells = [native_operation_cell(op) for op in lines[i:i+count]]
+        if any(b[0] < a[0] for a, b in zip(cells, cells[1:])):
+            uncertain('native_write_clock_unstable', 'native-write')
+        records.append({'raw': raw, 'path': path, 'openLine': i+1, 'closeLine': i+count,
+                        'wallCell': (cells[0][0], cells[-1][1]), 'scope': 'native_successful_' + kind + '_chain'})
+    return records
+
+
+def native_writer_trace(capture, command, process):
+    start = process['start']; pid = start['pid']; native = command['native']
+    if pid not in native['execs'] or pid not in native['terminals']:
+        uncertain('native_write_owner_unavailable', 'native-write')
+    require_same(native['execs'][pid]['argv'], start['nativeArgv'], 'native-write-exec-owner')
+    require_same(command['start']['pgid'], start['pgid'], 'native-write-group-owner')
+    require_same(native['parents'].get(pid, command['start']['pid']), start['ppid'], 'native-write-parent-owner')
+    require_same(capture.entry_pin(process['entry']), capture.entry_pin(start['argv'][1]), 'native-write-source-owner')
+    if process['clock'].owner.pid != pid or process['clock'].owner.command != command['start']['pid']:
+        uncertain('native_write_clock_owner_wrong', 'native-write')
+    trace = command.get('traces', {}).get(pid)
+    if trace is None:
+        uncertain('native_write_trace_missing', 'native-write')
+    return trace
+
+
+def native_tap_bounds(capture, command, process, request, reply=None):
+    trace = native_writer_trace(capture, command, process); pid = process['start']['pid']
+    logpath = f'processes/{pid}/events.ndjson'
+    logs = native_file_chains(trace, str(capture.root / logpath), 'tap')
+    require_same(capture.raw(logpath), b''.join(x['raw'] for x in logs), 'native-event-append-bytes')
+    by_sequence = {}
+    for item in logs:
+        if not item['raw'].endswith(b'\n') or len(item['raw'].splitlines()) != 1:
+            uncertain('native_event_line_unsupported', 'native-write')
+        event = parse(item['raw']); require_same(pid, event['pid'], 'native-event-owner')
+        if event['sequence'] in by_sequence:
+            uncertain('native_event_sequence_ambiguous', 'native-write')
+        by_sequence[event['sequence']] = item
+    inputs = [f for f in stream_frames(process, 'stdin') if same(f['value'], request)]
+    if len(inputs) != 1:
+        uncertain('native_request_tap_ambiguous', 'native-write')
+    def event_for(frame, kind):
+        selected = [e for e in process['events'] if e['kind'] == kind and e['sample'] is frame['sample']]
+        if len(selected) != 1 or selected[0]['sequence'] not in by_sequence:
+            uncertain('native_tap_event_binding_missing', 'native-write')
+        return selected[0], by_sequence[selected[0]['sequence']]
+    _, incoming = event_for(inputs[0], 'stdin_data')
+    outputs = [f for f in stream_frames(process, 'stdout') if isinstance(f['value'], dict) and same(f['value'].get('id'), request['id'])]
+    if not outputs:
+        if reply is not None:
+            uncertain('native_response_tap_missing', 'native-write')
+        # Only an explicitly hung request may use the observed terminal as upper
+        # boundary. Existing native -15/group/unknown/no-retry checks still apply.
+        if capture.mode != 'bounds' or request['params']['name'] != 'academy_cism_weekly_save':
+            uncertain('native_missing_reply_unsupported', 'native-write')
+        terminals = [i+1 for i, line in enumerate(trace.splitlines()) if '+++ killed by SIGTERM +++' in line]
+        if len(terminals) != 1:
+            uncertain('native_hung_terminal_missing', 'native-write')
+        return incoming['closeLine'], terminals[0]
+    if len(outputs) != 1:
+        uncertain('native_response_tap_ambiguous', 'native-write')
+    if reply is not None:
+        require_same(outputs[0]['raw'], bytes.fromhex(reply['bytes']), 'native-response-os-frame')
+    event, outgoing = event_for(outputs[0], 'stream_write')
+    stdout = native_file_chains(trace, str(capture.root / f'processes/{pid}/stdout.bin'), 'tap')
+    require_same(capture.raw(f'processes/{pid}/stdout.bin'), b''.join(x['raw'] for x in stdout), 'native-stdout-append-bytes')
+    copies = [x for x in stdout if x['raw'] == event_bytes(event)]
+    if len(copies) != 1 or copies[0]['closeLine'] >= outgoing['openLine']:
+        uncertain('native_response_byte_append_ambiguous', 'native-write')
+    return incoming['closeLine'], copies[0]['openLine']
+
+
+def receipt_path(root, path):
+    return re.fullmatch(re.escape(str(root)) + r'/receipts/(' + UUID.pattern[:-2] + r')-(dispatch|result|failure)\.json', path)
+
+
+def native_receipt_records(capture, command):
+    direct = command['direct']; trace = native_writer_trace(capture, command, direct)
+    source = 'modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts'
+    if direct['entry'] != str(capture.root / 'source' / source):
+        uncertain('native_receipt_source_unsupported', 'native-write')
+    require_same(PINS['sources'][source]['sha256'], capture.entry_pin(direct['entry']), 'native-receipt-source-pin')
+    paths = {path for _, path, _ in native_open_paths(trace) if receipt_path(capture.root, path)}
+    records = []
+    for path in sorted(paths):
+        match = receipt_path(capture.root, path); occurrence, phase = match.groups()
+        chains = native_file_chains(trace, path, 'receipt')
+        if len(chains) != 1:
+            uncertain('native_receipt_repeated_write', 'native-write')
+        record = chains[0]; raw = capture.raw('receipts/' + Path(path).name)
+        require_same(raw, record['raw'], 'native-receipt-retained-bytes')
+        records.append({'occurrence': occurrence, 'phase': phase, 'raw': raw, 'body': parse(raw), 'nativeProof': record})
+    occurrences = {r['occurrence'] for r in records}
+    for other in capture.commands.values():
+        for pid, text in other.get('traces', {}).items():
+            for _, path, line in native_open_paths(text):
+                match = receipt_path(capture.root, path)
+                if match and (other is command or match[1] in occurrences) and (other is not command or pid != direct['start']['pid']):
+                    uncertain('native_receipt_second_or_wrong_writer', 'native-write')
+    windows = []
+    for ordinal, request in enumerate(command['cap']['requests']):
+        req = request['request']
+        if req['method'] != 'tools/call':
+            continue
+        replies = [f for f in command['cap']['frames'] if isinstance(f.get('value'), dict) and same(f['value'].get('id'), req['id'])]
+        if len(replies) > 1:
+            uncertain('native_receipt_reply_ambiguous', 'native-write')
+        reply = replies[0] if replies else None
+        before = request['requestSendBracket']['before']; after = reply['responseReceiveBracket']['after'] if reply else command['result']['ended']
+        wall = direct['clock'].recorder_window(before, after)
+        incoming, outgoing = native_tap_bounds(capture, command, direct, req, reply)
+        windows.append((ordinal, req, wall, incoming, outgoing))
+    for record in records:
+        proof = record['nativeProof']; low, high = proof['wallCell']
+        selected = []
+        for ordinal, req, (before, after), incoming, outgoing in windows:
+            if enclose_cell((low, high), before, after, selection=True):
+                selected.append((ordinal, req, incoming, outgoing))
+        if len(selected) != 1:
+            uncertain('native_receipt_request_window_collision', 'native-write')
+        ordinal, req, incoming, outgoing = selected[0]
+        if not incoming < proof['openLine'] <= proof['closeLine'] < outgoing:
+            uncertain('native_receipt_causal_order_missing', 'native-write')
+        record['requestOrdinal'] = ordinal
+    return records
+
+
+def native_fault_events(capture, command, process, call, before, after):
+    source = 'source/fictional-fault-fixture.ts'
+    if capture.mode != 'bounds' or process['entry'] != str(capture.root / source) or call['request']['params']['name'] != 'academy_cism_weekly_save' or call['result'] is not None:
+        uncertain('native_fault_role_unsupported', 'native-write')
+    require_same(PINS['sources'][STIMULUS['fixture']]['sha256'], sha(capture.raw(source)), 'native-fault-source-pin')
+    trace = native_writer_trace(capture, command, process)
+    incoming, outgoing = native_tap_bounds(capture, command, process, call['request'])
+    path = str(capture.root / 'fault-events.ndjson')
+    chains = native_file_chains(trace, path, 'fault'); retained = capture.raw('fault-events.ndjson').splitlines(keepends=True)
+    wall = process['clock'].recorder_window(before, after); found = []
+    for item in chains:
+        raw = item['raw']
+        if not raw.endswith(b'\n') or len(raw.splitlines()) != 1 or retained.count(raw) != 1:
+            uncertain('native_fault_segment_ambiguous', 'native-write')
+        body = parse(raw); require_same(process['start']['pid'], body.get('pid'), 'native-fault-payload-pid')
+        if body.get('event') != 'hung':
+            continue
+        if set(body) != {'pid', 'endpoint', 'event'} or body['endpoint'] != process['start']['argv'][2]:
+            uncertain('native_fault_payload_unsupported', 'native-write')
+        if not incoming < item['openLine'] <= item['closeLine'] < outgoing:
+            uncertain('native_fault_request_order_missing', 'native-write')
+        enclose_cell(item['wallCell'], *wall)
+        found.append(body)
+    for e in process['events']:
+        if e['kind'] == 'file_write' and e.get('success') and e['path'] == path:
+            if event_bytes(e) not in [x['raw'] for x in chains]:
+                uncertain('native_js_fault_disagreement', 'native-write')
+            body = parse(event_bytes(e))
+            if body.get('event') == 'hung':
+                same_clock(e['sample'], call['before'])
+                clock_interval(call['before'], e['sample'])
+                process['clock'].contains(e['sample'], before, after)
+    if not found:
+        uncertain('native_fault_anchor_missing', 'native-write')
+    return found
+
+
 def request_receipts(capture, command, request, reply):
     direct = command['direct']
     lo = request['requestSendBracket']['before']
@@ -1332,7 +1581,23 @@ def request_receipts(capture, command, request, reply):
         data = event_bytes(e)
         require_same(data, capture.raw('receipts/' + occurrence + '-' + phase + '.json'), 'successful-write-raw')
         found[phase] = {'occurrence': occurrence, 'body': parse(data), 'raw': data, 'event': e}
-    return found
+    native = native_receipt_records(capture, command)
+    matches = [i for i, r in enumerate(command['cap']['requests']) if r is request]
+    if len(matches) != 1:
+        uncertain('native_receipt_request_ordinal_missing', 'native-write')
+    selected = {}
+    for item in native:
+        if item['requestOrdinal'] != matches[0]:
+            continue
+        phase = item['phase']
+        if phase in selected:
+            refuse('serial_receipt_window_collision', command['direct']['role'])
+        selected[phase] = {k: v for k, v in item.items() if k not in ['phase', 'requestOrdinal']}
+    for phase, js in found.items():
+        if phase not in selected or js['occurrence'] != selected[phase]['occurrence'] or js['raw'] != selected[phase]['raw']:
+            uncertain('native_js_receipt_disagreement', 'native-write')
+        selected[phase]['event'] = js['event']  # Actual event only, never synthesized.
+    return selected
 
 
 def upstream_in_window(capture, command, before, after):
@@ -1411,13 +1676,7 @@ def relation_result(capture, command, req, reply, ordinal):
             for _, _, process, call in upstream:
                 if call['request']['params']['name'] != 'academy_cism_weekly_save':
                     continue
-                for e in process['events']:
-                    if e['kind'] == 'file_write' and e['path'] == str(capture.root / 'fault-events.ndjson'):
-                        event = parse(event_bytes(e))
-                        require_same(process['start']['pid'], event['pid'], 'hung-handler-pid')
-                        same_clock(e['sample'], call['before'])
-                        if event.get('event') == 'hung' and sample_bounds(e['sample'])[1] >= sample_bounds(call['before'])[1]:
-                            hung.append(event)
+                hung.extend(native_fault_events(capture, command, process, call, before, after))
             if len(hung) != 1:
                 refuse('hung_actual_handler_event_missing', label)
         return atoms

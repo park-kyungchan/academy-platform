@@ -531,6 +531,187 @@ class PureTests(unittest.TestCase):
         # FD provenance does not manufacture an observed stream channel/file.
         self.assertEqual(q.stdio_scope(child['fds'], parent['fds'])['stderr'], 'js_emit_or_write_tap')
 
+    @classmethod
+    def retained_capture(cls, label):
+        if not hasattr(cls, 'native_captures'):
+            cls.native_captures = {}
+        if label not in cls.native_captures:
+            root = NOTES/f'protocol-{label}-01'
+            custody = q.parse((NOTES.parent/'LEAD-PROTOCOL-CUSTODY-03.json').read_bytes())
+            # Diagnostic raw hashes only, NOT old qualifierFiles/pair custody.
+            with patch('subprocess.Popen', side_effect=AssertionError('forbidden subprocess')):
+                cls.native_captures[label] = q.Capture(root, custody['captures'][str(root)], custody['supervisors'][str(root)])
+        return cls.native_captures[label]
+
+    def receipt_excerpt(self):
+        capture = self.retained_capture('A');command=capture.commands['neutral']
+        pid=command['direct']['start']['pid'];trace=command['traces'][pid]
+        proof=q.parse((NOTES/'receipt-diagnosis-proof-01/PROOF.json').read_bytes())['captures']['A']['records'][0]
+        lines=trace.splitlines()[proof['openLine']-1:proof['closeLine']]
+        return capture,command,proof,'\n'.join(lines)+'\n'
+
+    def test_48_actual_all56_native_receipt_positives(self):
+        count=0
+        for label in ['A','B']:
+            capture=self.retained_capture(label);command=capture.commands['neutral']
+            records=q.native_receipt_records(capture,command)
+            self.assertEqual(len(records),28)
+            self.assertEqual({r['requestOrdinal'] for r in records},set(range(2,13))|{14,15,16})
+            for record in records:
+                with self.subTest(run=label,phase=record['phase'],ordinal=record['requestOrdinal']):
+                    proof=record['nativeProof'];self.assertEqual(proof['scope'],'native_successful_receipt_chain')
+                    self.assertNotIn('sample',proof);self.assertNotIn('event',record)
+                    self.assertEqual(record['raw'],capture.raw('receipts/'+Path(proof['path']).name))
+                    self.assertEqual(q.sha(record['raw']),q.sha(proof['raw']))
+                    count+=1
+            request=command['cap']['requests'][2]
+            reply=next(f for f in command['cap']['frames'] if f.get('value',{}).get('id')==2)
+            result=q.request_receipts(capture,command,request,reply)
+            self.assertEqual(set(result),{'dispatch','result'})
+            self.assertFalse(any(e['kind']=='file_write' for e in command['direct']['events']))
+        self.assertEqual(count,56)
+
+    def test_49_native_receipt_truncation_partial_flags_fd_and_bytes(self):
+        _,_,proof,trace=self.receipt_excerpt();path=str(NOTES/'protocol-A-01'/proof['file'])
+        records=q.native_file_chains(trace,path,'receipt');self.assertEqual(len(records),1)
+        mutations=[('native_write_truncated_or_unsupported',trace.replace('write(7, ','write(7, ...',1)),
+                   ('native_write_partial_or_length',trace.replace(') = 223 ',') = 222 ',1)),
+                   ('native_write_open_unsupported',trace.replace('|O_EXCL','',1)),
+                   ('native_write_truncate_missing',trace.replace('ftruncate(7,','ftruncate(8,',1)),
+                   ('native_write_close_missing',trace.replace('close(7)','close(8)',1)),
+                   ('native_write_chain_incomplete','\n'.join(trace.splitlines()[:2]))]
+        for code,mutant in mutations:
+            with self.subTest(code=code):self.rejected(code,q.native_file_chains,mutant,path,'receipt')
+        # A same-length payload change is a valid native chain but must not match
+        # the unchanged independent retained bytes. This exercises semantic proof.
+        changed=trace.replace('academy_runtime_identity','academy_runtime_identitx')
+        raw=q.native_file_chains(changed,path,'receipt')[0]['raw']
+        self.assertEqual(len(raw),proof['bytes'])
+        capture=self.retained_capture('A');command=capture.commands['neutral']
+        mutant,cmd=self.mutant_capture(capture,command);pid=cmd['direct']['start']['pid']
+        cmd['traces'][pid]=cmd['traces'][pid].replace(trace,changed,1)
+        self.rejected('native-receipt-retained-bytes',q.native_receipt_records,mutant,cmd)
+
+    def mutant_capture(self, capture, command):
+        mutant=copy.copy(capture);cmd=copy.copy(command)
+        cmd['cap']=copy.deepcopy(command['cap']);cmd['traces']=dict(command['traces'])
+        mutant.commands={**capture.commands,'neutral':cmd}
+        return mutant,cmd
+
+    def test_50_native_wrong_owner_second_writer_and_window_collision(self):
+        capture,command,proof,trace=self.receipt_excerpt()
+        wrong=copy.copy(command['direct']);wrong['start']={**wrong['start'],'pid':999999}
+        self.rejected('native_write_owner_unavailable',q.native_writer_trace,capture,command,wrong)
+        mutant,cmd=self.mutant_capture(capture,command);cmd['traces'][999999]=trace
+        self.rejected('native_receipt_second_or_wrong_writer',q.native_receipt_records,mutant,cmd)
+        mutant,cmd=self.mutant_capture(capture,command)
+        cmd['cap']['requests'].append(copy.deepcopy(cmd['cap']['requests'][2]))
+        self.rejected('native_receipt_request_window_collision',q.native_receipt_records,mutant,cmd)
+
+    def test_51_native_js_agreement_and_complete_absence(self):
+        capture=self.retained_capture('A');command=capture.commands['neutral']
+        request=command['cap']['requests'][2];reply=next(f for f in command['cap']['frames'] if f.get('value',{}).get('id')==2)
+        # Keep the actual native chains/bytes as anchors; a fabricated successful
+        # JS record cannot replace a different native occurrence/phase.
+        direct=command['direct'];before=q.source_calls(direct)[0]['before']
+        dispatch=q.native_receipt_records(capture,command)
+        dispatch=next(r for r in dispatch if r['requestOrdinal']==2 and r['phase']=='dispatch')
+        import base64
+        event={'kind':'file_write','success':True,'pid':direct['start']['pid'],
+               'sample':before,'path':dispatch['nativeProof']['path'],'data':base64.b64encode(dispatch['raw']).decode(),
+               'bytes':len(dispatch['raw']),'sha256':q.sha(dispatch['raw'])}
+        direct['events'].append(event)
+        try:
+            agreed=q.request_receipts(capture,command,request,reply)
+            self.assertIs(agreed['dispatch']['event'],event)
+            with patch.object(q,'native_receipt_records',return_value=[]):
+                self.rejected('native_js_receipt_disagreement',q.request_receipts,capture,command,request,reply)
+        finally:direct['events'].pop()
+        with patch.object(q,'native_receipt_records',return_value=[]):
+            self.assertEqual(q.request_receipts(capture,command,request,reply),{})
+        fixture=normal_fixture(identity=True)
+        self.rejected('dispatch_receipt_missing',q.bridge_roles,fixture[0],fixture[2],{},BEFORE,AFTER,q.Atoms('missing'),'missing',fixture[1])
+
+    def fictional_fault(self):
+        import base64
+        root=self.dir/'native-fault';pid=101;parent=100
+        entry=str(root/'source/fictional-fault-fixture.ts')
+        req={'jsonrpc':'2.0','id':6,'method':'tools/call','params':{'name':'academy_cism_weekly_save','arguments':{}}}
+        raw=q.js_bytes(req)+b'\n';owner=q.ClockDomain('bun',str(root),pid,parent,'f'*64)
+        event={'pid':pid,'sequence':1,'kind':'stdin_data','sample':q.own_sample(bun_raw(W,10),owner),
+               'data':base64.b64encode(raw).decode(),'bytes':len(raw),'sha256':q.sha(raw)}
+        eventraw=json.dumps(event,separators=(',',':')).encode()+b'\n'
+        tool=q.js_bytes({'pid':pid,'endpoint':'dailyrecord','tool':'academy_cism_weekly_save','input':{}})+b'\n'
+        hung=q.js_bytes({'pid':pid,'endpoint':'dailyrecord','event':'hung'})+b'\n'
+        def chain(path,data,index,mode):
+            sec=W//1000000000
+            return [f'{sec}.{index:06d} openat(AT_FDCWD, {json.dumps(path)}, O_WRONLY|O_CREAT|O_APPEND|O_LARGEFILE|O_CLOEXEC, {mode}) = 7 <0.000001>',
+                    f'{sec}.{index+2:06d} write(7, {json.dumps(data.decode())}, {len(data)}) = {len(data)} <0.000001>',
+                    f'{sec}.{index+4:06d} close(7) = 0 <0.000001>']
+        trace='\n'.join([f'{W//1000000000}.000001 execve("bun", ["bun"], []) = 0 <0.000001>',
+            *chain(str(root/'processes/101/events.ndjson'),eventraw,100,'0600'),
+            *chain(str(root/'fault-events.ndjson'),tool,200,'0666'),
+            *chain(str(root/'fault-events.ndjson'),hung,300,'0666'),
+            f'{W//1000000000}.001000 +++ killed by SIGTERM +++'])+'\n'
+        class C:pass
+        capture=C();capture.root=root;capture.mode='bounds'
+        originals={'source/fictional-fault-fixture.ts':(q.HERE.parents[1]/q.STIMULUS['fixture']).read_bytes(),
+                   'processes/101/events.ndjson':eventraw,'fault-events.ndjson':tool+hung}
+        capture.raw=lambda path:originals[path]
+        capture.entry_pin=lambda path:q.PINS['sources'][q.STIMULUS['fixture']]['sha256']
+        clock=C();clock.owner=owner;clock.recorder_window=lambda a,b:(W-1000000,W+1000000000)
+        start={'pid':pid,'ppid':parent,'pgid':parent,'nativeArgv':['bun',entry],
+               'argv':['bun',entry,'dailyrecord']}
+        process={'start':start,'entry':entry,'role':'neutral','clock':clock,'events':[event],
+                 'channels':{'stdin':{'raw':raw,'events':[event]},'stdout':{'raw':None,'events':[]}}}
+        command={'start':{'pid':parent,'pgid':parent},'native':{'execs':{pid:{'argv':start['nativeArgv']}},'terminals':{pid:-15},'parents':{pid:parent}},'traces':{pid:trace}}
+        call={'request':req,'before':event['sample'],'after':None,'result':None}
+        return capture,command,process,call,originals,tool,hung
+
+    def test_52_declared_fault_append_and_pid_segment_order_negatives(self):
+        capture,command,process,call,raw,tool,hung=self.fictional_fault()
+        self.assertEqual(q.native_fault_events(capture,command,process,call,BEFORE,AFTER),
+                         [{'pid':101,'endpoint':'dailyrecord','event':'hung'}])
+        trace=command['traces'][101]
+        command['traces'][101]=trace.replace('O_APPEND','O_EXCL')
+        self.rejected('native_write_open_unsupported',q.native_fault_events,capture,command,process,call,BEFORE,AFTER)
+        command['traces'][101]=trace
+        raw['fault-events.ndjson']=tool+hung+hung
+        self.rejected('native_fault_segment_ambiguous',q.native_fault_events,capture,command,process,call,BEFORE,AFTER)
+        raw['fault-events.ndjson']=tool+hung
+        # Locally consistent native+retained payload mutation keeps independent
+        # process/source/request ownership unchanged and reaches the PID rule.
+        new=hung.replace(b'101',b'999');raw['fault-events.ndjson']=tool+new
+        command['traces'][101]=trace.replace(json.dumps(hung.decode()),json.dumps(new.decode()))
+        self.rejected('native-fault-payload-pid',q.native_fault_events,capture,command,process,call,BEFORE,AFTER)
+        raw['fault-events.ndjson']=tool+hung;command['traces'][101]=trace
+        capture.mode='protocol'
+        self.rejected('native_fault_role_unsupported',q.native_fault_events,capture,command,process,call,BEFORE,AFTER)
+
+    def test_53_native_wall_boundary_and_outside_window_stay_unqualified(self):
+        capture,command,proof,_=self.receipt_excerpt()
+        for boundary,code in [(proof['nativeBeginNs']+500,'clock_window_boundary_ambiguous'),
+                              (proof['nativeCloseCompleteUpperNs']+1000000,'native_receipt_request_window_collision')]:
+            mutant,cmd=self.mutant_capture(capture,command)
+            bracket=cmd['cap']['requests'][2]['requestSendBracket']
+            delta=boundary-bracket['before']['wallNs']
+            for edge in ['before','after']:
+                sample=bracket[edge]
+                bracket[edge]=q.own_sample({k:(v+delta if k in ['wallNs','monoBeforeNs','monoAfterNs'] else v)
+                                           for k,v in sample.items()},sample.owner)
+            self.rejected(code,q.native_receipt_records,mutant,cmd)
+
+    def test_54_fault_before_request_missing_or_partial_append_refused(self):
+        capture,command,process,call,raw,tool,hung=self.fictional_fault()
+        trace=command['traces'][101];lines=trace.splitlines()
+        command['traces'][101]='\n'.join([lines[0],*lines[7:10],*lines[1:7],lines[10]])+'\n'
+        self.rejected('native_fault_request_order_missing',q.native_fault_events,capture,command,process,call,BEFORE,AFTER)
+        command['traces'][101]='\n'.join([*lines[:7],lines[10]])+'\n';raw['fault-events.ndjson']=tool
+        self.rejected('native_fault_anchor_missing',q.native_fault_events,capture,command,process,call,BEFORE,AFTER)
+        raw['fault-events.ndjson']=tool+hung
+        command['traces'][101]=trace.replace(') = '+str(len(hung))+' ',') = '+str(len(hung)-1)+' ')
+        self.rejected('native_write_partial_or_length',q.native_fault_events,capture,command,process,call,BEFORE,AFTER)
+
     def test_31_frozen_framing_bytes_and_split_order(self):
         chunks = q.expected_stdin('framing', 'neutral')
         self.assertEqual(chunks[3], b'{not-json}\n')
