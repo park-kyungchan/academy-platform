@@ -1446,20 +1446,46 @@ def native_open_paths(trace):
             yield i, path, line
 
 
-def native_file_chains(trace, path, kind):
+def native_file_chains(trace, path, kind, *, fault_probe=False):
     """Only contiguous exclusive/write/truncate/close or append/write/close."""
     if kind not in ['receipt', 'tap', 'fault']:
         uncertain('native_write_role_unsupported', 'native-write')
+    if fault_probe and kind != 'fault':
+        uncertain('native_fault_probe_role_unsupported', 'native-write')
     lines = trace.splitlines(); records = []
     exclusive = kind == 'receipt'
     flags = 'O_WRONLY|O_CREAT|' + ('O_EXCL' if exclusive else 'O_APPEND') + '|O_LARGEFILE|O_CLOEXEC'
     mode = '0666' if kind == 'fault' else '0600'
+    write_open = (r'[0-9]+\.[0-9]+\s+openat\(AT_FDCWD, (' + NATIVE_STRING +
+                  r'), ([A-Z0-9_|]+), (0[0-7]+)\)\s*= ([0-9]+)\s+<[0-9.]+>')
     for i, selected, line in native_open_paths(trace):
         if selected != path:
             continue
-        opening = re.fullmatch(r'[0-9]+\.[0-9]+\s+openat\(AT_FDCWD, (' + NATIVE_STRING +
-                              r'), ([A-Z0-9_|]+), (0[0-7]+)\)\s*= ([0-9]+)\s+<[0-9.]+>', line)
+        opening = re.fullmatch(write_open, line)
         if opening is None or opening[2] != flags or opening[3] != mode:
+            probe = re.fullmatch(r'[0-9]+\.[0-9]+\s+openat\(AT_FDCWD, (' + NATIVE_STRING +
+                                r'), O_RDONLY\|O_LARGEFILE\|O_CLOEXEC\|O_PATH\)\s*= ([0-9]+)\s+<[0-9.]+>', line) if fault_probe else None
+            if probe is not None:
+                fd = probe[2]
+                if i + 3 >= len(lines):
+                    uncertain('native_fault_probe_incomplete', 'native-write')
+                link = re.fullmatch(r'[0-9]+\.[0-9]+\s+readlink\("/proc/self/fd/' + fd +
+                                    r'", (' + NATIVE_STRING + r'), 4096\)\s*= ([0-9]+)\s+<[0-9.]+>', lines[i+1])
+                if (link is None or native_bytes(link[1]) != path.encode('utf8') or
+                        not 0 < int(link[2]) < 4096 or int(link[2]) != len(path.encode('utf8'))):
+                    uncertain('native_fault_probe_readlink_unsupported', 'native-write')
+                if not re.fullmatch(r'[0-9]+\.[0-9]+\s+close\(' + fd + r'\)\s*= 0\s+<[0-9.]+>', lines[i+2]):
+                    uncertain('native_fault_probe_close_missing', 'native-write')
+                following = re.fullmatch(write_open, lines[i+3])
+                if (following is None or native_bytes(following[1]) != path.encode('utf8') or
+                        following[2] != flags or following[3] != mode):
+                    uncertain('native_fault_probe_append_missing', 'native-write')
+                cells = [native_operation_cell(op) for op in lines[i:i+4]]
+                if any(b[0] < a[1] for a, b in zip(cells, cells[1:])):
+                    uncertain('native_fault_probe_clock_unstable', 'native-write')
+                # Source-bound lookup only. The next iteration must still prove
+                # the complete append; neither its bytes nor window starts here.
+                continue
             uncertain('native_write_open_unsupported', 'native-write')
         fd = opening[4]; count = 4 if exclusive else 3
         if i + count > len(lines):
@@ -1610,7 +1636,13 @@ def native_fault_events(capture, command, process, call, before, after):
     trace = native_writer_trace(capture, command, process)
     incoming, outgoing = native_tap_bounds(capture, command, process, call['request'])
     path = str(capture.root / 'fault-events.ndjson')
-    chains = native_file_chains(trace, path, 'fault'); retained = capture.raw('fault-events.ndjson').splitlines(keepends=True)
+    fault_probe = any(selected == path and 'O_PATH' in line for _, selected, line in native_open_paths(trace))
+    if fault_probe:
+        # Only this pinned bounds fixture's guarded append may explain the
+        # observed realpath lookup. Other native open roles stay strict.
+        require_same((HERE / 'preload.ts').read_bytes(), capture.raw('observer-source/preload.ts'), 'native-fault-probe-preload')
+    chains = native_file_chains(trace, path, 'fault', fault_probe=fault_probe)
+    retained = capture.raw('fault-events.ndjson').splitlines(keepends=True)
     wall = process['clock'].recorder_window(before, after); found = []
     for item in chains:
         raw = item['raw']

@@ -383,6 +383,23 @@ regressions do not establish the unresolved mode comparisons or all-ten gate.
 Root must create new custody and compare only composition/graph/bounds; the
 seven already measured mode results are retained at their exact source context.
 
+## Finite bounds fault path-resolution probe
+
+The protected preload's existing-target realpath guard can issue a native
+O_RDONLY|O_LARGEFILE|O_CLOEXEC|O_PATH open before the actual fault-log append.
+Only the pinned bounds fault-fixture role, with current captured preload bytes
+and existing native writer ownership, enables this rule. The exact successful
+open/readlink(`/proc/self/fd/<opened fd>`, exact fault path,4096)/close triplet
+must be contiguous. The native readlink length must equal the decoded UTF-8
+path byte length and be below4096; FD/path substitutions, unsupported flags,
+failed close and intervening operations refuse qualification. Native completion
+cells must precede the next operation without clock tolerance. Immediately
+following must be the same-path ordinary0666 append open, whose existing full
+write/length/close checks still apply. The lookup supplies no write record,
+bytes, request/hung anchor or extension of the append's wall enclosure. All
+other receipt/tap/fault open shapes and source/owner/clock guards remain strict.
+Existing capture bytes are not changed or repinned by this comparator repair.
+
 ## Native string observability forward repair
 
 Bounds02 at79788 failed because record.py's strace-s1048576 elided complete

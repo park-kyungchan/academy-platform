@@ -1090,6 +1090,122 @@ class PureTests(unittest.TestCase):
                 self.rejected('native_write_truncated_or_unsupported',q.native_file_chains,excerpt,record['target'],'tap');count+=1
         self.assertEqual(count,4)
 
+    @classmethod
+    def actual_fault_probes(cls):
+        if not hasattr(cls, 'fault_probes'):
+            custody_raw=(NOTES.parent/'LEAD-BOUNDS-CUSTODY-COMPLETE-01.json').read_bytes()
+            if q.sha(custody_raw)!='e09d3ddd8deba6da3b88be09b0896da479b9a0d2fbffead2a8611c6918c0c432':
+                raise AssertionError('actual_fault_probe_custody_pin')
+            custody=q.parse(custody_raw)
+            proof=q.parse((NOTES.parent.parent/'complete-native-captures-v1/LEAD-BOUNDS-OPEN-DIAGNOSIS-READBACK.json').read_bytes())
+            cls.fault_probes=[];loaded={}
+            for item in proof['actual']['unsupportedOpens']:
+                root=NOTES/f"bounds-{item['run']}-02"
+                if root not in loaded:
+                    manifest_raw=(root/'MANIFEST.json').read_bytes()
+                    if q.sha(manifest_raw)!=custody['captures'][str(root)]:raise AssertionError('actual_fault_probe_manifest_pin')
+                    manifest=q.parse(manifest_raw)
+                    def pinned(path):
+                        raw=(root/path).read_bytes()
+                        if manifest[path]!={'sha256':q.sha(raw),'bytes':len(raw)}:raise AssertionError('actual_fault_probe_raw_pin')
+                        return raw
+                    for name in ['record.py','preload.ts']:
+                        raw=pinned('observer-source/'+name)
+                        if raw!=(q.HERE/name).read_bytes():raise AssertionError('actual_fault_probe_observer_pin')
+                    if q.sha(pinned('source/fictional-fault-fixture.ts'))!=q.PINS['sources'][q.STIMULUS['fixture']]['sha256']:
+                        raise AssertionError('actual_fault_probe_fixture_pin')
+                    log=pinned('fault-events.ndjson').splitlines(keepends=True)
+                    traces={}
+                    for selected in proof['actual']['unsupportedOpens']:
+                        if selected['run']!=item['run'] or selected['trace'] in traces:continue
+                        raw=pinned(selected['trace'])
+                        if q.sha(raw)!=selected['traceSha256']:raise AssertionError('actual_fault_probe_trace_pin')
+                        traces[selected['trace']]=raw.decode().splitlines()
+                    loaded[root]=(log,traces)
+                log,traces=loaded[root];index=item['line']-1
+                lines=traces[item['trace']][index:index+6]
+                if lines[0]!=item['open'] or lines[1:4]!=item['nextOpsMetadata']:
+                    raise AssertionError('actual_fault_probe_order_pin')
+                cls.fault_probes.append((item,lines,log))
+        return cls.fault_probes
+
+    def probe_fault_fixture(self):
+        fixture=self.fictional_fault();capture,command,process,call,raw,tool,hung=fixture
+        path=str(capture.root/'fault-events.ndjson');sec=W//1000000000
+        probe=[f'{sec}.000280 openat(AT_FDCWD, {json.dumps(path)}, O_RDONLY|O_LARGEFILE|O_CLOEXEC|O_PATH) = 8 <0.000001>',
+               f'{sec}.000284 readlink("/proc/self/fd/8", {json.dumps(path)}, 4096) = {len(path.encode())} <0.000001>',
+               f'{sec}.000288 close(8) = 0 <0.000001>']
+        lines=command['traces'][101].splitlines();lines[7:7]=probe
+        command['traces'][101]='\n'.join(lines)+'\n'
+        raw['observer-source/preload.ts']=(q.HERE/'preload.ts').read_bytes()
+        return fixture
+
+    def test_73_actual_six_fault_probes_preserve_only_append_bytes(self):
+        probes=self.actual_fault_probes();self.assertEqual(len(probes),6)
+        for item,lines,retained in probes:
+            with self.subTest(run=item['run'],line=item['line']):
+                trace='\n'.join(lines)+'\n'
+                result=q.native_file_chains(trace,item['path'],'fault',fault_probe=True)
+                unchanged=q.native_file_chains('\n'.join(lines[3:])+'\n',item['path'],'fault')
+                self.assertEqual(len(result),1);self.assertEqual(result[0]['raw'],unchanged[0]['raw'])
+                self.assertEqual(result[0]['wallCell'],unchanged[0]['wallCell'])
+                self.assertEqual((result[0]['openLine'],result[0]['closeLine']),(4,6))
+                self.assertEqual(retained.count(result[0]['raw']),1)
+                self.rejected('native_write_open_unsupported',q.native_file_chains,trace,item['path'],'fault')
+
+    def test_74_probe_source_role_preload_and_owner_controls(self):
+        fixture=self.probe_fault_fixture();capture,command,process,call,raw,tool,hung=fixture
+        self.assertEqual(q.native_fault_events(capture,command,process,call,BEFORE,AFTER),[{'pid':101,'endpoint':'dailyrecord','event':'hung'}])
+        for kind,code in [('mode','native_fault_role_unsupported'),('source','native-fault-source-pin'),
+                          ('preload','native-fault-probe-preload'),('owner','native_write_owner_unavailable')]:
+            with self.subTest(kind=kind):
+                capture,command,process,call,raw,tool,hung=self.probe_fault_fixture()
+                if kind=='mode':capture.mode='protocol'
+                if kind=='source':raw['source/fictional-fault-fixture.ts']+=b'\n'
+                if kind=='preload':raw['observer-source/preload.ts']+=b'\n'
+                if kind=='owner':del command['native']['execs'][101]
+                self.rejected(code,q.native_fault_events,capture,command,process,call,BEFORE,AFTER)
+        item,lines,_=self.actual_fault_probes()[0]
+        for kind in ['tap','receipt']:
+            self.rejected('native_fault_probe_role_unsupported',q.native_file_chains,'\n'.join(lines)+'\n',item['path'],kind,fault_probe=True)
+
+    def test_75_actual_probe_fd_path_length_close_and_intervening_negatives(self):
+        item,original,_=self.actual_fault_probes()[0];path=item['path']
+        changes=[('readfd',1,lambda s:s.replace('/proc/self/fd/8','/proc/self/fd/9'),'native_fault_probe_readlink_unsupported'),
+                 ('path',1,lambda s:s.replace(path,path+'-other'),'native_fault_probe_readlink_unsupported'),
+                 ('length',1,lambda s:s.replace('= 106 ','= 105 '),'native_fault_probe_readlink_unsupported'),
+                 ('buffer',1,lambda s:s.replace(', 4096)',', 8192)'),'native_fault_probe_readlink_unsupported'),
+                 ('closefd',2,lambda s:s.replace('close(8)','close(9)'),'native_fault_probe_close_missing'),
+                 ('closefail',2,lambda s:s.replace('= 0 ','= -1 '),'native_fault_probe_close_missing'),
+                 ('flags',0,lambda s:s.replace('O_RDONLY','O_RDWR'),'native_write_open_unsupported'),
+                 ('createmode',0,lambda s:s.replace('O_PATH)','O_PATH, 0666)'),'native_write_open_unsupported'),
+                 ('appendpath',3,lambda s:s.replace(path,path+'-other'),'native_fault_probe_append_missing'),
+                 ('order',1,lambda s:s.replace('1793701366.307098','1793701366.307061'),'native_fault_probe_clock_unstable')]
+        for name,index,change,code in changes:
+            with self.subTest(kind=name):
+                lines=original.copy();lines[index]=change(lines[index]);self.assertNotEqual(lines,original)
+                self.rejected(code,q.native_file_chains,'\n'.join(lines)+'\n',path,'fault',fault_probe=True)
+        for index in [1,2,3]:
+            lines=original.copy();lines.insert(index,'1793701366.307090 getpid() = 3690094 <0.000001>')
+            code={1:'native_fault_probe_readlink_unsupported',2:'native_fault_probe_close_missing',3:'native_fault_probe_append_missing'}[index]
+            self.rejected(code,q.native_file_chains,'\n'.join(lines)+'\n',path,'fault',fault_probe=True)
+
+    def test_76_probe_never_supplies_missing_or_partial_append_anchor(self):
+        item,original,_=self.actual_fault_probes()[0];path=item['path']
+        self.rejected('native_fault_probe_incomplete',q.native_file_chains,'\n'.join(original[:3])+'\n',path,'fault',fault_probe=True)
+        for index,change,code in [(3,lambda s:s.replace('O_APPEND','O_EXCL'),'native_fault_probe_append_missing'),
+                                  (4,lambda s:s.replace('= 83 ','= 82 '),'native_write_partial_or_length'),
+                                  (4,lambda s:s.replace('", 83)','"..., 83)'),'native_write_truncated_or_unsupported'),
+                                  (5,lambda s:s.replace('= 0 ','= -1 '),'native_write_close_missing')]:
+            lines=original.copy();lines[index]=change(lines[index]);self.assertNotEqual(lines,original)
+            self.rejected(code,q.native_file_chains,'\n'.join(lines)+'\n',path,'fault',fault_probe=True)
+        capture,command,process,call,raw,tool,hung=self.probe_fault_fixture()
+        raw['fault-events.ndjson']=tool
+        self.rejected('native_fault_segment_ambiguous',q.native_fault_events,capture,command,process,call,BEFORE,AFTER)
+        capture,command,process,call,raw,tool,hung=self.probe_fault_fixture()
+        process['clock'].recorder_window=lambda a,b:(W+500000,W+1000000000)
+        self.rejected('clock_sample_outside_window',q.native_fault_events,capture,command,process,call,BEFORE,AFTER)
+
     def test_31_frozen_framing_bytes_and_split_order(self):
         chunks = q.expected_stdin('framing', 'neutral')
         self.assertEqual(chunks[3], b'{not-json}\n')
