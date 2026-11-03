@@ -248,6 +248,7 @@ name = "edu-academy-mcp"
 version = "0.0.0"
 dependencies = [
  "edu-academy-core",
+ "edu-academy-sources",
  "regex",
  "rustix",
  "serde",

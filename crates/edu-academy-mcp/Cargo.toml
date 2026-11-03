@@ -8,6 +8,7 @@ publish.workspace = true
 
 [dependencies]
 edu-academy-core = { path = "../edu-academy-core" }
+edu-academy-sources = { path = "../edu-academy-sources" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
