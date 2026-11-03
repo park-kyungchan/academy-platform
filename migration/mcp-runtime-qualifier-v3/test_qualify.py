@@ -4,6 +4,7 @@ Fixtures are fictional and retained in a unique author-notes directory. Original
 frozen public bytes are read only as independent anchors, never regenerated.
 """
 import copy
+import ast
 import importlib.util
 import json
 import os
@@ -373,6 +374,111 @@ class PureTests(unittest.TestCase):
                  102: '1.001 clone3({flags=CLONE_VM|CLONE_VFORK}, 88) = 103\n',
                  103: '1.002 execve("bun", ["bun", "original.ts"], []) = 0\n1.003 +++ exited with 0 +++\n'}
         self.assertEqual(q.native_trace(trace)['parents'][103], 100)
+
+    def supervisor_functions(self):
+        # Compile only pure function definitions from the notes supervisor.
+        # Its command-launching top-level body is never evaluated by tests.
+        path = NOTES/'command.py'
+        tree = ast.parse(path.read_text())
+        chosen = {'recorder_root', 'reconcile_children', 'budget_qualified'}
+        body = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in chosen]
+        namespace = {'Path': Path, 'BASE': NOTES, 'OUTER_NS': 90000000000, 'json': json}
+        exec(compile(ast.Module(body=body, type_ignores=[]), str(path), 'exec'), namespace)
+        return namespace
+
+    def supervisor_record(self):
+        return {'startMonoNs': 0, 'endMonoNs': 89_000_000_000, 'elapsedNs': 89_000_000_000,
+                'outerCapNs': 90_000_000_000, 'childExitObservedMonoNs': 84_000_000_000,
+                'recorderInternalDeadlineNs': 86_000_000_000, 'exit': 0, 'failure': None,
+                'qualified': True, 'pipeDrainComplete': True, 'sourceSnapshotComplete': True,
+                'sourceUnchanged': True, 'pidGone': True, 'groupGone': True,
+                'recorderWithinInternalDeadline': True, 'currentRecorderRun': True,
+                'childPGIDReadbacks': [{'role': 'neutral', 'pgid': 101, 'groupGone': True}]}
+
+    def test_35_internal_work80_hard85_alarm_is_absolute(self):
+        spec = importlib.util.spec_from_file_location('s11_record_deadline_test', q.HERE/'record.py')
+        module = importlib.util.module_from_spec(spec)
+        with patch('subprocess.Popen', side_effect=AssertionError('forbidden subprocess')):
+            spec.loader.exec_module(module)
+        self.assertEqual(module.recorder_deadlines(7), (80_000_000_007, 85_000_000_007))
+        with patch.object(module.time, 'monotonic_ns', return_value=79_000_000_000), patch.object(module.signal, 'setitimer') as timer:
+            module.arm_deadline(80_000_000_000)
+            timer.assert_called_once_with(module.signal.ITIMER_REAL, 1.0)
+        with patch.object(module.time, 'monotonic_ns', return_value=85_000_000_001), patch.object(module.signal, 'setitimer') as timer:
+            with self.assertRaisesRegex(q.Unqualified, 'recorder_internal_deadline'):
+                module.arm_deadline(85_000_000_000)
+            timer.assert_not_called()
+
+    def test_36_late_snapshot_or_pipe_drain_cannot_accept_outer_zero(self):
+        supervisor = self.supervisor_functions()
+        valid = self.supervisor_record()
+        self.assertTrue(supervisor['budget_qualified'](valid))
+        q.validate_supervisor(valid, 1_000_000_000)
+        for key in ['pipeDrainComplete', 'sourceSnapshotComplete', 'recorderWithinInternalDeadline']:
+            late = copy.deepcopy(valid); late[key] = False
+            self.assertFalse(supervisor['budget_qualified'](late))
+            with self.assertRaises(q.Unqualified): q.validate_supervisor(late, 1_000_000_000)
+        late = copy.deepcopy(valid)
+        late['endMonoNs'] = late['elapsedNs'] = 90_000_000_001
+        self.assertEqual(late['exit'], 0)
+        self.assertFalse(supervisor['budget_qualified'](late))
+        with self.assertRaisesRegex(q.Unqualified, 'outer_actual_overrun'):
+            q.validate_supervisor(late, 1_000_000_000)
+
+    def test_37_failure_reconciles_every_separate_recorded_session(self):
+        supervisor = self.supervisor_functions()
+        root = self.dir/'separate-sessions'
+        for role, pid in [('first', 101), ('second', 202)]:
+            folder = root/'commands'/role; folder.mkdir(parents=True)
+            (folder/'START.json').write_text(json.dumps({'pid': pid, 'pgid': pid}))
+        visited = []
+        def inspect(pgid):
+            visited.append(pgid)
+            return {'pgid': pgid, 'groupGone': pgid != 101, 'members': [{'pid': 101}] if pgid == 101 else []}
+        readings = supervisor['reconcile_children'](root, inspect)
+        self.assertEqual(visited, [101, 202])
+        record = self.supervisor_record(); record['childPGIDReadbacks'] = readings
+        self.assertFalse(supervisor['budget_qualified'](record))
+        with self.assertRaisesRegex(q.Unqualified, 'child_pgid_unreconciled'):
+            q.validate_supervisor(record, 1_000_000_000)
+        (root/'commands'/'missing-start').mkdir()
+        readings = supervisor['reconcile_children'](root, inspect)
+        self.assertTrue(any(r.get('error') == 'child_group_readback_unavailable' for r in readings))
+
+    def test_38_old85_outer_or90_internal_proof_is_unqualified(self):
+        proof = self.supervisor_record(); proof['outerCapNs'] = 85_000_000_000
+        with self.assertRaisesRegex(q.Unqualified, 'outer_cap_changed'):
+            q.validate_supervisor(proof, 1_000_000_000)
+        proof = self.supervisor_record(); proof['recorderInternalDeadlineNs'] = 91_000_000_000
+        with self.assertRaisesRegex(q.Unqualified, 'recorder_deadline_mismatch'):
+            q.validate_supervisor(proof, 1_000_000_000)
+        self.assertEqual(q.POLICY['limits']['workNs']+q.POLICY['limits']['cleanupReserveNs'], q.POLICY['limits']['recorderHardNs'])
+        self.assertEqual(q.POLICY['limits']['wallNs'], 90_000_000_000)
+
+    def test_39_manifest_overrun_cannot_return_preflight_zero(self):
+        spec = importlib.util.spec_from_file_location('s11_record_finalization_test', q.HERE/'record.py')
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        now = [0]
+        target = self.dir/'late-manifest'
+        argv = ['record.py', '--source-root', str(q.HERE.parents[1]), '--mode', 'protocol',
+                '--run', 'A', '--output', str(target), '--preflight']
+        save = module.save
+        def delayed_manifest(path, value):
+            save(path, value)
+            if path.name == 'MANIFEST.json':
+                now[0] = 85_000_000_001
+        with patch.object(module.sys, 'argv', argv), patch.object(module.resource, 'setrlimit'), \
+             patch.object(module.signal, 'signal'), patch.object(module.signal, 'setitimer'), \
+             patch.object(module.time, 'monotonic_ns', side_effect=lambda: now[0]), \
+             patch.object(module, 'stamp', side_effect=lambda: stamp(W+now[0], now[0])), \
+             patch.object(module, 'preflight', return_value={'sources': {}, 'packages': {}, 'tools': {}}), \
+             patch.object(module, 'save', side_effect=delayed_manifest), \
+             patch('subprocess.Popen', side_effect=AssertionError('forbidden subprocess')):
+            with self.assertRaisesRegex(q.Unqualified, 'recorder_internal_deadline'):
+                module.main()
+        self.assertTrue((target/'PREFLIGHT.json').exists())
+        self.assertTrue((target/'MANIFEST.json').exists())
+        # Earlier success-shaped files do not turn late finalization into exit0.
 
 
 if __name__ == '__main__':

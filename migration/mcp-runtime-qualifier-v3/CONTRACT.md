@@ -85,7 +85,8 @@ requires a separately Root-created custody JSON, with this shape:
 ```json
 {
   "qualifierFiles": {"CONTRACT.md": "SHA256 of exact externally read Git blob", "...all eight names...": "SHA256"},
-  "captures": {"/absolute/R-A": "SHA256 of Root-read MANIFEST.json", "/absolute/R-B": "SHA256"}
+  "captures": {"/absolute/R-A": "SHA256 of Root-read MANIFEST.json", "/absolute/R-B": "SHA256"},
+  "supervisors": {"/absolute/R-A": "SHA256 of Root-read SUPERVISOR.json", "/absolute/R-B": "SHA256"}
 }
 ```
 
@@ -146,12 +147,21 @@ integer role and enclosing span; equality is allowed, reverse source order is
 refused under the stated clock assumption. Elapsed values are never replaced by
 old minimum constants. Process lifetime and per-request windows are distinct.
 
-Recorder deadlines include setup, controlled waiting, cleanup, reap and drain.
-The 85s cleanup reserve precedes the 90s mode ceiling. CPU90 is inherited
+Recorder deadlines include setup, controlled waiting, cleanup, reap, drain and
+manifest finalization. Work stops at80s; cleanup/finalization has an internal
+hard deadline85s. The separate outer supervisor retains the accepted90s cap,
+including its pipe drain, source snapshots and child-PGID readbacks. Its actual
+elapsed duration is retained even on failure. CPU90 is inherited
 **per process**, not a tree-aggregate CPU quota. Files <=64MiB, each raw channel
 and combined top output <=12MiB. No expensive build slot is used. SIGTERM goes
 only to the owned recorded process group; actual readbacks must show it gone.
-Failed/late cleanup is retained and unqualified, never rewritten as within budget.
+Failed/late cleanup or outer finalization is retained and unqualified, even if
+the recorder exits0. SUPERVISOR.json is written after recorder exit and is bound
+separately by Root, not by the recorder's earlier manifest. The comparator
+requires that proof and readback coverage of every recorded command PGID.
+The supervisor never infers child cleanup from the outer group; survivors or
+unavailable readbacks stop qualification and require Root reconciliation before
+any retry. It does not send a signal to a PGID taken from a capture file.
 
 Bounds requires actual hung source handler proof, unknown/no-retry, native -15
 and empty group readback, then separately recorded fictional nonblocking flock
@@ -189,8 +199,8 @@ locator. They never execute the original. A failed attempt is retained with a
 After Root releases protocol execution, the planned individual commands are:
 
 ```text
-python3 -B migration/mcp-runtime-qualifier-v3/record.py --source-root /home/palantirkc/work/ws-replan/wt/education-platform-s11-fresh-qualifier-v3 --dependency-root /home/palantirkc/projects/education-platform/modules/academy-workbench/tools/academy-mcp --mode protocol --run A --output /home/palantirkc/work/ws-replan/preparation/slices/S11/qualifier-v3/native/protocol-A-01
-python3 -B migration/mcp-runtime-qualifier-v3/record.py --source-root /home/palantirkc/work/ws-replan/wt/education-platform-s11-fresh-qualifier-v3 --dependency-root /home/palantirkc/projects/education-platform/modules/academy-workbench/tools/academy-mcp --mode protocol --run B --output /home/palantirkc/work/ws-replan/preparation/slices/S11/qualifier-v3/native/protocol-B-01
+python3 -B /home/palantirkc/work/ws-replan/preparation/slices/S11/qualifier-v3/native/command.py protocol-A-command-01 python3 -B migration/mcp-runtime-qualifier-v3/record.py --source-root /home/palantirkc/work/ws-replan/wt/education-platform-s11-fresh-qualifier-v3 --dependency-root /home/palantirkc/projects/education-platform/modules/academy-workbench/tools/academy-mcp --mode protocol --run A --output /home/palantirkc/work/ws-replan/preparation/slices/S11/qualifier-v3/native/protocol-A-01
+python3 -B /home/palantirkc/work/ws-replan/preparation/slices/S11/qualifier-v3/native/command.py protocol-B-command-01 python3 -B migration/mcp-runtime-qualifier-v3/record.py --source-root /home/palantirkc/work/ws-replan/wt/education-platform-s11-fresh-qualifier-v3 --dependency-root /home/palantirkc/projects/education-platform/modules/academy-workbench/tools/academy-mcp --mode protocol --run B --output /home/palantirkc/work/ws-replan/preparation/slices/S11/qualifier-v3/native/protocol-B-01
 python3 -B migration/mcp-runtime-qualifier-v3/qualify.py --original-a /home/palantirkc/work/ws-replan/preparation/slices/S11/qualifier-v3/native/protocol-A-01 --original-b /home/palantirkc/work/ws-replan/preparation/slices/S11/qualifier-v3/native/protocol-B-01 --mode protocol --custody <Root-created independent custody JSON>
 ```
 

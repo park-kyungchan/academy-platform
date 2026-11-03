@@ -34,6 +34,18 @@ def stamp():
             'wallResolutionNs': math.ceil(time.get_clock_info('time').resolution * 1e9)}
 
 
+def recorder_deadlines(start_ns):
+    return (start_ns + q.POLICY['limits']['workNs'],
+            start_ns + q.POLICY['limits']['recorderHardNs'])
+
+
+def arm_deadline(deadline_ns):
+    remaining = deadline_ns - time.monotonic_ns()
+    if remaining <= 0:
+        q.uncertain('recorder_internal_deadline', 'record.py')
+    signal.setitimer(signal.ITIMER_REAL, remaining / 1e9)
+
+
 def save(path, value):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     with path.open('x', encoding='utf8') as f:
@@ -140,7 +152,7 @@ class Child:
         self.root, self.role = root, role
         self.dir = root / 'commands' / role
         self.dir.mkdir(parents=True, mode=0o700)
-        self.deadline = mode_deadline - 5_000_000_000
+        self.deadline = mode_deadline - q.POLICY['limits']['cleanupReserveNs']
         self.hard_deadline = mode_deadline
         self.frames, self.requests, self.actions, self.lifecycle, self.proc = [], [], [], [], {}
         self.buf = b''
@@ -360,7 +372,7 @@ def main():
     resource.setrlimit(resource.RLIMIT_FSIZE, (q.FILE_LIMIT, q.FILE_LIMIT))
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     started = stamp()
-    deadline = started['monoBeforeNs'] + q.POLICY['limits']['wallNs']
+    work_deadline, deadline = recorder_deadlines(started['monoBeforeNs'])
     source = x.source_root
     if source != source.resolve() or source != HERE.parents[1]:
         q.refuse('assigned_source_root', 'record')
@@ -372,7 +384,7 @@ def main():
     def timeout(_signum, _frame):
         raise TimeoutError('mode_cleanup_reserve')
     old_alarm = signal.signal(signal.SIGALRM, timeout)
-    signal.setitimer(signal.ITIMER_REAL, 85)
+    arm_deadline(work_deadline)
     try:
         before = preflight(source, x.dependency_root)
         save(root / 'PINS-before.json', before)
@@ -565,24 +577,39 @@ def main():
         raise
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, old_alarm)
-        cleanup_errors = []
-        for c in children:
-            if not c.closed:
-                try:
-                    c.finish(True)
-                except BaseException as e:
-                    cleanup_errors.append(q.safe_error(e, 'record.py'))
-        if cleanup_errors:
-            save(root / 'CLEANUP-FAILED.json', cleanup_errors)
-        # Bind retained bytes, not self-attestation. External Root custody required.
-        manifest = {}
-        for p in sorted(root.rglob('*')):
-            if p.is_file() and not p.is_symlink():
-                relative = p.relative_to(root).as_posix()
-                if '/node_modules/' not in relative:
-                    manifest[relative] = identity(p)
-        save(root / 'MANIFEST.json', manifest)
+        def hard_timeout(_signum, _frame):
+            q.uncertain('recorder_internal_deadline', 'record.py')
+        signal.signal(signal.SIGALRM, hard_timeout)
+        try:
+            # The 85s deadline remains armed through reap, drain and manifest.
+            # The outer 90s supervisor independently reads every child PGID.
+            arm_deadline(deadline)
+            cleanup_errors = []
+            for c in children:
+                if not c.closed:
+                    try:
+                        c.finish(True)
+                    except BaseException as e:
+                        cleanup_errors.append(q.safe_error(e, 'record.py'))
+            if cleanup_errors:
+                save(root / 'CLEANUP-FAILED.json', cleanup_errors)
+            # Bind retained bytes, not self-attestation. Root custody required.
+            manifest = {}
+            for p in sorted(root.rglob('*')):
+                if time.monotonic_ns() >= deadline:
+                    q.uncertain('recorder_internal_deadline', 'record.py')
+                if p.is_file() and not p.is_symlink():
+                    relative = p.relative_to(root).as_posix()
+                    if '/node_modules/' not in relative:
+                        manifest[relative] = identity(p)
+            save(root / 'MANIFEST.json', manifest)
+            if time.monotonic_ns() >= deadline:
+                q.uncertain('recorder_internal_deadline', 'record.py')
+            if cleanup_errors:
+                q.uncertain('recorder_cleanup_failed', 'record.py')
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, old_alarm)
     return 0
 
 

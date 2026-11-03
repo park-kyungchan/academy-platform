@@ -515,8 +515,31 @@ def check_propagated_source(original, candidate, before, after, fresh=True):
     freshness(original['observedAt'], before, after, fresh_generation=fresh)
 
 
+def validate_supervisor(record, recorder_start_ns):
+    """Outer0 cannot erase late finalization, a failed drain or another session."""
+    limits = POLICY['limits']
+    for key in ['startMonoNs', 'endMonoNs', 'elapsedNs', 'outerCapNs', 'childExitObservedMonoNs', 'recorderInternalDeadlineNs']:
+        if type(record.get(key)) is not int:
+            uncertain('supervisor_measurement_missing', 'SUPERVISOR.json')
+    duration = record['endMonoNs'] - record['startMonoNs']
+    if duration != record['elapsedNs'] or duration < 0 or duration > limits['wallNs']:
+        uncertain('outer_actual_overrun_or_duration', 'SUPERVISOR.json')
+    if record['outerCapNs'] != limits['wallNs']:
+        uncertain('outer_cap_changed', 'SUPERVISOR.json')
+    if record['recorderInternalDeadlineNs'] != recorder_start_ns + limits['recorderHardNs']:
+        uncertain('recorder_deadline_mismatch', 'SUPERVISOR.json')
+    if not (record['startMonoNs'] <= recorder_start_ns <= record['childExitObservedMonoNs'] <= record['recorderInternalDeadlineNs']):
+        uncertain('recorder_actual_overrun', 'SUPERVISOR.json')
+    if record['exit'] != 0 or record['failure'] is not None:
+        uncertain('outer_command_failed', 'SUPERVISOR.json')
+    if not all(record.get(key) is True for key in ['qualified', 'pipeDrainComplete', 'sourceSnapshotComplete', 'sourceUnchanged', 'pidGone', 'groupGone', 'recorderWithinInternalDeadline', 'currentRecorderRun']):
+        uncertain('outer_finalization_incomplete', 'SUPERVISOR.json')
+    if not isinstance(record.get('childPGIDReadbacks'), list) or any(c.get('groupGone') is not True for c in record['childPGIDReadbacks']):
+        uncertain('child_pgid_unreconciled', 'SUPERVISOR.json')
+
+
 class Capture:
-    def __init__(self, root, external_manifest=None):
+    def __init__(self, root, external_manifest=None, external_supervisor=None):
         self.root = Path(root)
         manifest_raw = read(self.root, 'MANIFEST.json')
         if external_manifest is None:
@@ -528,8 +551,14 @@ class Capture:
         for relative, expected in self.manifest.items():
             data = read(self.root, relative)
             require_same(expected, {'sha256': sha(data), 'bytes': len(data)}, relative)
-        self.check_tree()
         self.run = self.json('RUN.json')
+        if external_supervisor is None:
+            uncertain('external_supervisor_custody_missing', 'SUPERVISOR.json')
+        supervisor_raw = read(self.root, 'SUPERVISOR.json')
+        require_same(external_supervisor, sha(supervisor_raw), 'external-supervisor')
+        validate_supervisor(parse(supervisor_raw), self.run['started']['monoBeforeNs'])
+        self.supervisor = parse(supervisor_raw)
+        self.check_tree()
         self.complete = self.json('COMPLETE.json')
         require_same(str(self.root), self.run['root'], 'run-root')
         require_same(str(HERE.parents[1]), self.run['sourceRoot'], 'assigned-source-root')
@@ -553,11 +582,16 @@ class Capture:
         clock_interval(self.run['started'], self.complete['ended'])
         duration = self.complete['ended']['monoAfterNs'] - self.run['started']['monoBeforeNs']
         require_same(duration, self.complete['elapsedNs'], 'mode-duration')
-        if duration > POLICY['limits']['wallNs']:
+        if duration > POLICY['limits']['recorderHardNs']:
             uncertain('mode_budget_overrun', 'COMPLETE.json')
         self.commands, self.processes, self.uuid_values = {}, {}, set()
         for role in self.complete['commands']:
             self.command(role)
+        readbacks = self.supervisor['childPGIDReadbacks']
+        if len(readbacks) != len(self.commands) or {c.get('role') for c in readbacks} != set(self.commands):
+            uncertain('child_pgid_readback_coverage', 'SUPERVISOR.json')
+        for child in readbacks:
+            require_same(self.commands[child['role']]['start']['pgid'], child.get('pgid'), 'supervisor-child-pgid')
         self.bind_processes()
 
     def check_tree(self):
@@ -579,7 +613,7 @@ class Capture:
                     found.add(relative)
                 else:
                     refuse('capture_special_file', relative)
-        require_same(set(self.manifest) | {'MANIFEST.json'}, found, 'manifest-file-coverage')
+        require_same(set(self.manifest) | {'MANIFEST.json', 'SUPERVISOR.json'}, found, 'manifest-file-coverage')
 
     def check_source_mirror(self):
         mirror = self.json('SOURCE-MIRROR.json')
@@ -724,7 +758,7 @@ class Capture:
         clock_interval(start['prelaunch'], result['ended'])
         duration = result['ended']['monoAfterNs'] - start['prelaunch']['monoBeforeNs']
         require_same(duration, result['elapsedNs'], 'command-duration')
-        if duration < 0 or duration > POLICY['limits']['wallNs'] or not result['withinModeDeadline'] or result['cleanupFailures']:
+        if duration < 0 or duration > POLICY['limits']['recorderHardNs'] or not result['withinModeDeadline'] or result['cleanupFailures']:
             uncertain('command_lifetime_unqualified', role)
         require_same(POLICY['limits'], start['limits'], 'command-limits')
         raw = {n: self.raw(prefix + n + '.bin') for n in ['stdin', 'stdout', 'stderr']}
@@ -1453,8 +1487,8 @@ def qualify_pair(root_a, root_b, mode, custody):
     require_same(set(names), set(custody['qualifierFiles']), 'external-qualifier-file-list')
     for n in names:
         require_same(custody['qualifierFiles'][n], sha((HERE / n).read_bytes()), 'external-qualifier-blob-' + n)
-    a = Capture(root_a, custody['captures'].get(str(root_a)))
-    b = Capture(root_b, custody['captures'].get(str(root_b)))
+    a = Capture(root_a, custody['captures'].get(str(root_a)), custody.get('supervisors', {}).get(str(root_a)))
+    b = Capture(root_b, custody['captures'].get(str(root_b)), custody.get('supervisors', {}).get(str(root_b)))
     require_same('A', a.run['run'], 'run-A'); require_same('B', b.run['run'], 'run-B')
     require_same(mode, a.mode, 'mode-A'); require_same(mode, b.mode, 'mode-B')
     if a.root == b.root:
