@@ -716,9 +716,13 @@ fn seven_wire_routes_persist_exact_review_and_reconcile_unknown_dispatch_after_r
     ));
     assert_eq!(
         admission,
-        js(
-            json!({"status":"configured","admissionSha256":digest(&encode(&routing_admission()).unwrap())})
-        )
+        obj(&[
+            ("status", "configured".into()),
+            (
+                "admissionSha256",
+                digest(&encode(&routing_admission()).unwrap()).into(),
+            ),
+        ])
     );
     assert!(
         http.borrow().is_empty(),
@@ -1622,7 +1626,10 @@ fn explicitly_absent_read_owner_returns_original_unavailable_probe_without_sourc
     ));
     assert_eq!(
         absent,
-        js(json!({"status":"unavailable","admissionSha256":null}))
+        obj(&[
+            ("status", "unavailable".into()),
+            ("admissionSha256", Js::Null),
+        ])
     );
     let resolve = data(&invoke(
         &mut session,
