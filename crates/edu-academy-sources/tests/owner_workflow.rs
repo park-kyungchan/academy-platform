@@ -1203,8 +1203,15 @@ fn owner_actual_client_authenticated_apply_preserves_6508_refusal_and_no_approva
         ("lessonMemo", "Memo".into()),
     ]));
     let mut replies = login();
-    // journal_state executes the one target and then independently inspects its wire.
+    // journal_state executes Main, independently binds the current occurrence via
+    // SelSglRecord, then reads Main again to inspect the immutable wire digest.
+    let selected = edu_academy_sources::http::SELECTED;
     replies.push((MAIN.into(), 200, html.clone()));
+    replies.push((
+        selected.into(),
+        200,
+        "<root><record>!2040-01-04!5!!Fictional Learner!!!!!3!13!77001!8</record></root>".into(),
+    ));
     replies.push((MAIN.into(), 200, html));
     let (client, seen) = client(replies);
     let owner = Owner::new(client, admission(), None, vec![], credentials, &Clock).unwrap();
@@ -1215,10 +1222,50 @@ fn owner_actual_client_authenticated_apply_preserves_6508_refusal_and_no_approva
     assert!(error.trusted_context.is_none());
     assert_eq!(approval.calls, 0);
     let requests = seen.try_borrow().unwrap();
-    assert_eq!(requests.len(), 5);
-    assert!(requests.iter().skip(3).all(|r| r.method == "POST"
-        && r.path == MAIN
-        && r.body.first() == Some(&("p_process".into(), "Main".into()))));
+    assert_eq!(
+        requests.len(),
+        6,
+        "one login and three reads, no write/retry"
+    );
+    assert_eq!(
+        requests
+            .iter()
+            .map(|r| (r.method.as_str(), r.path.as_str()))
+            .collect::<Vec<_>>(),
+        vec![
+            ("GET", "/c_login.jsp"),
+            ("POST", "/servlet/controller.login.LoginServlet"),
+            (
+                "GET",
+                "/servlet/controller.coursemanage.CourseManageServlet"
+            ),
+            ("POST", MAIN),
+            ("GET", selected),
+            ("POST", MAIN),
+        ],
+    );
+    let main_body: Vec<(String, String)> = vec![
+        ("p_process".into(), "Main".into()),
+        ("std_ymd".into(), "20400104".into()),
+        ("grp_seq".into(), "3".into()),
+    ];
+    for index in [3, 5] {
+        assert!(requests[index].query.is_empty());
+        assert_eq!(requests[index].body, main_body);
+    }
+    assert!(requests[4].body.is_empty());
+    assert_eq!(
+        requests[4].query,
+        vec![
+            ("reqCmd".into(), "SelSglRecord".into()),
+            ("course_seq".into(), "5".into()),
+            ("stu_pri_no".into(), "77001".into()),
+            ("record_seq".into(), "13".into()),
+            ("sel_grp_seq".into(), "3".into()),
+            ("tut_pri_no".into(), "99001".into()),
+            ("cm_seq".into(), "8".into()),
+        ]
+    );
     // No mutation or fabricated approval-success path is supplied by this fixture.
 }
 
