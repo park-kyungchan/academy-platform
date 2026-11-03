@@ -6,37 +6,56 @@ use crate::{
     process::{Context, OwnedChild},
     protocol::SUPPORTED_VERSIONS,
 };
+use std::collections::VecDeque;
 pub struct Client {
-    pending: Vec<u8>,
+    pending: VecDeque<u8>,
+    scanned: usize,
     next: u32,
     pub failure_metadata: Option<Js>,
 }
 impl Default for Client {
     fn default() -> Self {
         Self {
-            pending: vec![],
+            pending: VecDeque::new(),
+            scanned: 0,
             next: 0,
             failure_metadata: None,
         }
     }
 }
 impl Client {
+    fn buffered_frame(&mut self) -> Option<Js> {
+        loop {
+            // A partial line's old prefix contains no LF. Search new bytes only;
+            // draining the deque's front also avoids shifting retained frames.
+            let Some(offset) = self.pending.range(self.scanned..).position(|b| *b == b'\n') else {
+                self.scanned = self.pending.len();
+                return None;
+            };
+            let end = self.scanned + offset;
+            let line = self.pending.drain(..=end).collect::<Vec<_>>();
+            self.scanned = 0;
+            // The original child SDK ReadBuffer discards SyntaxError lines.
+            if let Ok(message) = parse(String::from_utf8_lossy(&line).as_bytes()) {
+                return Some(message);
+            }
+        }
+    }
+    fn append_chunk(&mut self, bytes: &[u8]) -> Result<()> {
+        if bytes.len() > SDK_CHILD_RECEIVE_BUFFER_BYTES.saturating_sub(self.pending.len()) {
+            return Err(Error::new("upstream_receive_buffer_exceeded"));
+        }
+        self.pending.extend(bytes.iter().copied());
+        Ok(())
+    }
     fn frame(&mut self, child: &mut OwnedChild, context: &mut Context<'_>) -> Result<Js> {
         loop {
-            if let Some(end) = self.pending.iter().position(|b| *b == b'\n') {
-                let line = self.pending.drain(..=end).collect::<Vec<_>>();
-                // The original child SDK ReadBuffer discards SyntaxError lines.
-                if let Ok(message) = parse(String::from_utf8_lossy(&line).as_bytes()) {
-                    return Ok(message);
-                }
-                continue;
+            if let Some(message) = self.buffered_frame() {
+                return Ok(message);
             }
             let mut chunk = [0u8; 65536];
             if let Some(n) = child.read(&mut chunk, context)? {
-                if n > SDK_CHILD_RECEIVE_BUFFER_BYTES.saturating_sub(self.pending.len()) {
-                    return Err(Error::new("upstream_receive_buffer_exceeded"));
-                }
-                self.pending.extend_from_slice(&chunk[..n]);
+                self.append_chunk(&chunk[..n])?;
             } else {
                 context.pause()?;
             }
@@ -252,4 +271,45 @@ pub fn read_admission(owner: &Js) -> Js {
         );
     }
     value
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fragmented_and_malformed_lines_preserve_sdk_behavior() {
+        let mut client = Client::default();
+        client
+            .append_chunk(b"not-json\n{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"text\":\"caf\xc3")
+            .unwrap();
+        assert!(client.buffered_frame().is_none());
+        client.append_chunk(b"\xa9\"}}\r").unwrap();
+        assert!(client.buffered_frame().is_none());
+        client.append_chunk(b"\n{bad}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{}}\n{\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"text\":\"").unwrap();
+        assert_eq!(
+            client.buffered_frame(),
+            Some(parse(r#"{"jsonrpc":"2.0","id":1,"result":{"text":"café"}}"#.as_bytes()).unwrap())
+        );
+        assert_eq!(
+            client.buffered_frame(),
+            Some(parse(br#"{"jsonrpc":"2.0","id":2,"result":{}}"#).unwrap())
+        );
+        assert!(client.buffered_frame().is_none());
+        client
+            .append_chunk(b"\xff\"}}\n\nmalformed\n{\"jsonrpc\":\"2.0\",\"id\":4,\"result\":{}}")
+            .unwrap();
+        assert_eq!(
+            client.buffered_frame(),
+            Some(parse(r#"{"jsonrpc":"2.0","id":3,"result":{"text":"�"}}"#.as_bytes()).unwrap())
+        );
+        // A complete JSON value without LF is still a retained partial frame.
+        assert!(client.buffered_frame().is_none());
+        client.append_chunk(b"\n").unwrap();
+        assert_eq!(
+            client.buffered_frame(),
+            Some(parse(br#"{"jsonrpc":"2.0","id":4,"result":{}}"#).unwrap())
+        );
+        assert!(client.buffered_frame().is_none());
+    }
 }
