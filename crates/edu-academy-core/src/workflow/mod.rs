@@ -4,6 +4,7 @@ pub mod approval;
 pub mod cism;
 pub mod codec;
 pub mod http;
+mod intake;
 pub mod native;
 pub mod read_failure;
 pub mod review;

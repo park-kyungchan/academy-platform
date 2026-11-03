@@ -23,7 +23,7 @@ pub const FIELDS: [&str; 6] = [
 fn narrative(f: &str) -> bool {
     matches!(f, "progress" | "homework" | "lessonMemo")
 }
-fn unknown_assessment(f: &str, v: &Js) -> bool {
+pub(super) fn unknown_assessment(f: &str, v: &Js) -> bool {
     matches!(f, "dailyTestAssessment" | "previousHomeworkAssessment") && v.is("-1")
 }
 pub fn valid_value(f: &str, v: &Js) -> bool {
@@ -403,7 +403,7 @@ fn qualify(observation: &Js, scope: &Js) -> Option<Js> {
     }
     None
 }
-fn proposal_blockers(p: &Js, c: &Js) -> Vec<Js> {
+pub(super) fn proposal_blockers(p: &Js, c: &Js) -> Vec<Js> {
     let mut b = vec![];
     let field = p.get("field").code_units();
     let value = p.get("value");
@@ -515,7 +515,7 @@ fn hold_actions(scope: &Js, field: &Js, b: &[Js], entries: &Js) -> Js {
             .collect(),
     )
 }
-fn stale(v: &Js, now: f64) -> bool {
+pub(super) fn stale(v: &Js, now: f64) -> bool {
     crate::instant::epoch_ms(v, crate::instant::Grammar::DailyRecord).is_some_and(|observed| {
         let age = now - observed as f64;
         !(0.0..=300000.0).contains(&age)
@@ -728,7 +728,7 @@ fn global_blockers(input: &Js, source: &Js, now_epoch: f64) -> Result<Vec<Js>> {
     }
     Ok(global)
 }
-fn now_epoch(runtime: &dyn Runtime) -> Result<f64> {
+pub(super) fn now_epoch(runtime: &dyn Runtime) -> Result<f64> {
     crate::instant::epoch_ms(&runtime.now().into(), crate::instant::Grammar::DailyRecord)
         .map(|v| v as f64)
         .ok_or_else(|| Fault::error("workflow_clock_invalid"))

@@ -96,7 +96,7 @@ pub fn qualified_observation(value: &Js, scope: &Js) -> Result<Js> {
     Ok(observation)
 }
 impl Service<'_> {
-    fn read_source(&mut self, scope: &Js, request: &Js, subject: &Js) -> Js {
+    pub(super) fn read_source(&mut self, scope: &Js, request: &Js, subject: &Js) -> Js {
         // Original #read projects an unavailable reason, or qualifies an observed
         // shape, then catches every typed source/qualification failure once.
         let read = (|| -> Result<Js> {
