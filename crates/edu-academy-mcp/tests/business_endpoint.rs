@@ -171,7 +171,7 @@ impl Scene {
         // The six actual pinned endpoint schemas, unchanged; the admission probe
         // is endpoint-local, just as in existing RpcSession inventory.
         let original: Value = serde_json::from_slice(include_bytes!(
-            "../../../../migration/mcp-runtime-reference-v1/frozen/inventory/registry.json"
+            "../../../migration/mcp-runtime-reference-v1/frozen/inventory/registry.json"
         ))
         .unwrap();
         let names = [
