@@ -260,7 +260,12 @@ pub fn read_admission(owner: &Js) -> Js {
         "allowedThrough",
     ]
     .map(|key| (key, owner.get(key).clone())));
-    if owner.get("schemaVersion").is("academy.owner-admission/2") {
+    // The actual Owner's read_routing_admission result is already projected:
+    // it carries studentScope for V2 without retaining schemaVersion. This
+    // projection binds the probe digest; it does not confer owner authority.
+    if owner.get("schemaVersion").is("academy.owner-admission/2")
+        || (!owner.has("schemaVersion") && owner.has("studentScope"))
+    {
         value.set(
             "studentScope",
             if owner.get("studentScope").absent() {

@@ -563,11 +563,7 @@ fn resolution_and_intake_contract_failures_stop_without_retry() {
             }
         );
         if mode == "intake_tool" {
-            assert!(
-                out.get("failure")
-                    .get("category")
-                    .is("upstream_unavailable")
-            );
+            assert!(out.get("failure").get("category").is("authentication"));
             assert!(!encode(&out).unwrap().windows(6).any(|x| x == b"forged"));
         }
         retain(&root, mode, &out);
@@ -945,4 +941,23 @@ fn v2_routing_summary_keeps_student_scope_in_upstream_probe() {
         encode(&summary).unwrap(),
         "actual OwnerV2 read summary has no schemaVersion; preserve its admission digest"
     );
+    let mut full_v2 = summary.clone();
+    full_v2.set("schemaVersion", "academy.owner-admission/2".into());
+    assert_eq!(
+        encode(&edu_academy_mcp::upstream::read_admission(&full_v2)).unwrap(),
+        encode(&summary).unwrap(),
+        "full V2 owner and its routing summary must bind the same bytes"
+    );
+    let mut full_v2 = routing_admission();
+    full_v2.set("schemaVersion", "academy.owner-admission/2".into());
+    let mut configured = routing_admission();
+    configured.set("studentScope", "configured".into());
+    let defaulted = edu_academy_mcp::upstream::read_admission(&full_v2);
+    retain(&root, "v2-defaulted-scope", &defaulted);
+    assert_eq!(encode(&defaulted).unwrap(), encode(&configured).unwrap());
+    let mut full_v1 = summary;
+    full_v1.set("schemaVersion", "academy.owner-admission/1".into());
+    let v1 = edu_academy_mcp::upstream::read_admission(&full_v1);
+    retain(&root, "v1-does-not-gain-scope", &v1);
+    assert_eq!(encode(&v1).unwrap(), encode(&routing_admission()).unwrap());
 }

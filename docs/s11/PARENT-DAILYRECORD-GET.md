@@ -1,6 +1,6 @@
-# Parent DailyRecord get: source freeze
+# Parent DailyRecord get: measured repair
 
-This increment ports `dailyrecord-read.ts` and the parent branch of `neutral-server.ts` into Rust. It is source-only until Root records native compiler and runtime evidence. All new tests and the Cargo-native example are currently UNEXECUTED. It does not complete S11, native ownership, real HTTP, or P9 activation.
+This increment ports `dailyrecord-read.ts` and the parent branch of `neutral-server.ts` into Rust. Source383908e0 compiled with zero diagnostics. The first seven new test functions produced four passes and three failures; this forward repair is unverified until Root records its current native compiler/runtime evidence and independent review. It does not complete S11, native ownership, real HTTP, or P9 activation.
 
 The facade validates the original strict name/purpose/request/date inputs and owner-supplied read admission. It trims names using existing JS UTF16 semantics, supplies all six fields with `not_supplied` memo and no invented facts, and preserves named missing-admission/date/resolve/intake/scope/freshness holds. An authoring interview remains compatible with an observed read. Durable authoring handles are returned only for owner-durable observations.
 
@@ -12,7 +12,11 @@ Current wall-clock dates use the already-locked chrono0.4.45/chrono-tz0.10.4 IAN
 
 Preserved original protocol id8 provides an immutable positive consumer body and id9 rejects an extra teacherId. The new pure comparison derives intermediate port values from that original final body and labels them accordingly; it is not a fresh unchanged-original intake or public-Client execution. Original raw channels and hashes remain immutable. Additional source cases cover strict holds, malformed scopes/fields/freshness, current-date boundaries and actual same-child/Store/deadline/EOF behavior.
 
-Root identified a separate existing upstream projection concern: an actual OwnerV2 read summary can contain studentScope without schemaVersion, while the current helper preserves it only for a full V2 owner object. One new regression case measures the exact summary/digest boundary; it remains UNEXECUTED and the protected upstream helper is unchanged at this freeze. No V2 parent wire success is claimed.
+The measured V2 regression showed that the actual OwnerV2 read summary carries studentScope without schemaVersion and the upstream helper dropped it. Root's bounded helper repair preserves that summary field, retains full-V2 configured defaults and does not add studentScope to a full V1 owner. This binds the admission probe digest and grants no native authority. No V2 parent wire success is claimed.
+
+The failure-contract test expected upstream_unavailable for the allowlisted source_authentication_failed code. The original publicFailureFromData catalog and production Rust projection correctly classify that serialized code as authentication; Root corrected the test expectation without trusting arbitrary locators or claiming native JavaScript exception identity.
+
+The normal same-child case reached the identity response but timed out before admission, resolve or intake. The actual cleanup was qualified and the child exited; no observation was issued. A finite read-only diagnostic on the exact retained 15,784,096-byte child graph measured open2211ms and one full verify546ms with the unoptimized SHA2 dependency. Root will verify a new native Cargo target with only sha2 optimized via per-invocation dev/test profile settings. Complete graph hashing, output caps, normal10s/stall500ms work budgets and all production algorithms remain unchanged; the changed compilation setting and before/after measurements must be recorded, without claiming default-debug or release-profile timing qualification. Later EOF/stall cases were not reached in the failed first run.
 
 The source worker stopped at a provider model-capacity error before commit or handoff. Root preserved its five partial source files and native session identity, revoked its write grant, and completed this same source increment as the existing native Sol/xhigh Lead. No failing provider request was retried and no replacement model was launched.
 
