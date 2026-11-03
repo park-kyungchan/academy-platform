@@ -773,7 +773,16 @@ fn audit_failure_preserves_publication_and_publish_failure_never_audits() {
             &input(),
         )
         .unwrap_err();
-        assert_eq!(error.message, "workflow_filesystem_failed");
+        // Audit mkdir at an existing file maps AlreadyExists to EEXIST; the
+        // publication open beneath a regular-file parent maps the distinct error.
+        assert_eq!(
+            error.message,
+            if fail_audit {
+                "EEXIST"
+            } else {
+                "workflow_filesystem_failed"
+            }
+        );
         if fail_audit {
             let bytes = fs::read_dir(store.root().join("observation"))
                 .unwrap()
