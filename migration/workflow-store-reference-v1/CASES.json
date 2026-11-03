@@ -1,0 +1,190 @@
+{
+  "sourceBase": "39441f5d205b8a67e5c911da747d213a322d20da",
+  "vectors": [
+    {
+      "id": "EDU-07",
+      "category": "idempotence",
+      "setup": "Replay the exact reviewed request in another process",
+      "expected": "No second dispatch; read the existing durable decision.",
+      "source_refs": [
+        "workflow",
+        "save_reconcile"
+      ],
+      "method": "isolated mixed-process test",
+      "status": "proposed",
+      "referenceStatus": "characterized_original_TS_local_fake_only",
+      "referenceCases": "duplicate/save-second-process",
+      "qualification": "actual original TS cross-process; Rust pending",
+      "rustExecuted": false,
+      "productionExecuted": false
+    },
+    {
+      "id": "EDU-08",
+      "category": "uncertainty",
+      "setup": "New request ID or different lesson date targets a physical field with an unresolved predecessor",
+      "expected": "Still block the conflicting dispatch.",
+      "source_refs": [
+        "workflow",
+        "save_reconcile"
+      ],
+      "method": "isolated journal and fake-target test",
+      "status": "proposed",
+      "referenceStatus": "characterized_original_TS_local_fake_only",
+      "referenceCases": "uncertain-old/new-request-blocked + new-date-blocked; status otherField/otherRecord controls",
+      "qualification": "actual original service dispatch fence",
+      "rustExecuted": false,
+      "productionExecuted": false
+    },
+    {
+      "id": "EDU-09",
+      "category": "uncertainty",
+      "setup": "Old-value readback after timeout with no returned transport evidence",
+      "expected": "Remain uncertain where the source contract cannot establish no effect; elapsed time alone is insufficient.",
+      "source_refs": [
+        "save_reconcile"
+      ],
+      "method": "fake-target fault injection",
+      "status": "proposed",
+      "referenceStatus": "characterized_original_TS_local_fake_only",
+      "referenceCases": "uncertain-old/save-timeout + reconcile-old + reconcile-years-later",
+      "qualification": "actual uncertain transport/old value/time alone",
+      "rustExecuted": false,
+      "productionExecuted": false
+    },
+    {
+      "id": "EDU-10",
+      "category": "readback",
+      "setup": "Authoritative readback sees the desired value",
+      "expected": "Record observed persisted according to the source contract; do not replay or claim stronger causation.",
+      "source_refs": [
+        "save_reconcile"
+      ],
+      "method": "fake-target fault injection",
+      "status": "proposed",
+      "referenceStatus": "characterized_original_TS_local_fake_only",
+      "referenceCases": "uncertain-old/observe-desired; crash-after-acceptance/reconcile; crash-before-readback/reconcile",
+      "qualification": "source readback_new_value, no causal claim",
+      "rustExecuted": false,
+      "productionExecuted": false
+    },
+    {
+      "id": "EDU-11",
+      "category": "target_change",
+      "setup": "Backfill changes the previous-record binding after dispatch",
+      "expected": "Keep the affected old target unresolved/unobserved; do not reconcile a different record.",
+      "source_refs": [
+        "save_reconcile"
+      ],
+      "method": "recorded-response comparison",
+      "status": "proposed",
+      "referenceStatus": "characterized_original_TS_local_fake_only",
+      "referenceCases": "backfill/reconcile-different-record",
+      "qualification": "original reader retains old previous-record fence",
+      "rustExecuted": false,
+      "productionExecuted": false
+    },
+    {
+      "id": "EDU-12",
+      "category": "locking",
+      "setup": "TypeScript holds the account or workflow lock while Rust requests it",
+      "expected": "Wait or refuse within the stated deadline; no simultaneous owner mutation.",
+      "source_refs": [
+        "workflow"
+      ],
+      "method": "isolated mixed-language process test",
+      "status": "proposed",
+      "referenceStatus": "characterized_original_TS_local_fake_only",
+      "referenceCases": "workflow-lock/second-process-deadline; account_lock.py",
+      "qualification": "TS/TS + native OS/Python; source account45-second prefix and account-before-workflow; Rust pending",
+      "rustExecuted": false,
+      "productionExecuted": false
+    },
+    {
+      "id": "EDU-13",
+      "category": "locking",
+      "setup": "Kill a process holding the lock",
+      "expected": "A new participant acquires the same kernel lock object; no unlink/recreate or PID heuristic.",
+      "source_refs": [
+        "workflow"
+      ],
+      "method": "isolated mixed-language process test",
+      "status": "proposed",
+      "referenceStatus": "characterized_original_TS_local_fake_only",
+      "referenceCases": "workflow-lock/killed-holder + acquire-after-kill; account_lock.py",
+      "qualification": "same account/workflow objects and descriptor; all descendants reaped; Rust pending",
+      "rustExecuted": false,
+      "productionExecuted": false
+    },
+    {
+      "id": "EDU-14",
+      "category": "durability",
+      "setup": "Crash after ledger index but before durable execution record",
+      "expected": "No dispatch occurred; an index-only entry is not a completed action.",
+      "source_refs": [
+        "workflow"
+      ],
+      "method": "isolated fault injection",
+      "status": "proposed",
+      "referenceStatus": "characterized_original_TS_local_fake_only",
+      "referenceCases": "crash-index-only/status-after-crash + second-process-save",
+      "qualification": "index not completed, no original dispatch",
+      "rustExecuted": false,
+      "productionExecuted": false
+    },
+    {
+      "id": "EDU-15",
+      "category": "durability",
+      "setup": "Crash after durable fence, before dispatch, after fake remote acceptance and before readback",
+      "expected": "Retain conservative uncertainty and fence conflicts until allowed reconciliation; no automatic replay.",
+      "source_refs": [
+        "workflow",
+        "save_reconcile"
+      ],
+      "method": "isolated fault injection at each boundary",
+      "status": "proposed",
+      "referenceStatus": "characterized_original_TS_local_fake_only",
+      "referenceCases": "crash-durable-fence, crash-before-dispatch, crash-after-acceptance, crash-before-readback",
+      "qualification": "real source children exits71,72,73,74 and conservative fencing/no replay",
+      "rustExecuted": false,
+      "productionExecuted": false
+    },
+    {
+      "id": "EDU-16",
+      "category": "legacy_state",
+      "setup": "Read CISM legacy field-wide and new operation-specific receipts",
+      "expected": "An unresolved legacy operation still fences; a settled one permits separately reviewed completion.",
+      "source_refs": [
+        "cism"
+      ],
+      "method": "old-state compatibility and fake-target test",
+      "status": "proposed",
+      "referenceStatus": "characterized_original_TS_local_fake_only",
+      "referenceCases": "cism-legacy + cism-operation + cism-operation-uncertain; OLD-STATES.json",
+      "qualification": "original registered handlers, literal old field-wide bytes, actual new operation bytes",
+      "rustExecuted": false,
+      "productionExecuted": false
+    },
+    {
+      "id": "EDU-26",
+      "category": "scope",
+      "setup": "Successful save with PDF/print/parent-send facilities present",
+      "expected": "No implicit downstream print, PDF or parent transmission.",
+      "source_refs": [
+        "save_reconcile"
+      ],
+      "method": "fake-target operation transcript",
+      "status": "proposed",
+      "referenceStatus": "characterized_original_TS_local_fake_only",
+      "referenceCases": "duplicate/save-first and all saved cases/downstream counters; CISM saved responses",
+      "qualification": "fake facilities present, actual counts0; no real downstream delivery",
+      "rustExecuted": false,
+      "productionExecuted": false
+    }
+  ],
+  "supplement": [
+    "explicit scoped user-instruction resolution and consumed/no-replay",
+    "unknown before-state held",
+    "request/action/native target binding refusals and noop",
+    "launch-pinned current-user-evidence and durable consumed state"
+  ]
+}

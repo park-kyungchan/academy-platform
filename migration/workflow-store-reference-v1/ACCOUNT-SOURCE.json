@@ -1,0 +1,42 @@
+{
+  "kind": "selected_original_endpoint_launch_metadata",
+  "pointer": {
+    "path": "/root/.local/share/academy-mcp-scoped-20261030/release.json",
+    "sha256": "b5159c1bd815b87d67a4488dd4e978c051b777686856dd542b9a5452ad9aad3b",
+    "schema": "academy.mcp-release/1",
+    "generation": "main-20261102-cc6e81f"
+  },
+  "endpoints": {
+    "path": "/root/.local/share/academy-mcp-scoped-20261030/releases/main-20261102-cc6e81f/endpoints.json",
+    "sha256": "85447ebc1f18657c7725ebecbdba9e81f4942ea610f1ede1d864b1484bfafade"
+  },
+  "selectedPrefixes": {
+    "dailyrecord": {
+      "command": "flock",
+      "prefix": [
+        "--wait",
+        "45",
+        "/home/palantirkc/work/edu-class-operations/native-academy-account.lock"
+      ]
+    },
+    "paper1": {
+      "command": "flock",
+      "prefix": [
+        "--wait",
+        "45",
+        "/home/palantirkc/work/edu-class-operations/native-academy-account.lock"
+      ]
+    },
+    "paper2": {
+      "command": "flock",
+      "prefix": [
+        "--wait",
+        "45",
+        "/home/palantirkc/work/edu-class-operations/native-academy-account.lock"
+      ]
+    }
+  },
+  "fakeSubstitution": "Only account lock pathname replaced with NEW task-root/native-academy-account.lock. The native docker/Python helper tail is never executed. Local fake original-TS child used instead.",
+  "flockExecutable": "/usr/bin/flock",
+  "flockExecutableSha256": "e619344dc3eec4023498465679262f9ca27d1e8cef9cfc4c1ae72b428577b806"
+}
