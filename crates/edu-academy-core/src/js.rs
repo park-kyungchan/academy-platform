@@ -110,39 +110,96 @@ impl Drop for Js {
 }
 #[derive(Clone, Debug)]
 pub struct Fault {
-    pub name: &'static str,
+    pub name: String,
     pub message: String,
     pub issues: Option<Vec<Js>>,
+    /// Ordered semantic source parts, including explicit null/undefined issues.
+    pub properties: Js,
+    /// Native caller authority; never inferred from, or encoded into, Js data.
+    pub trusted_context: Option<TrustedContext>,
+}
+#[derive(Clone, Debug)]
+pub enum TrustedContext {
+    Authentication { cause: Option<Box<Fault>> },
 }
 impl Fault {
+    pub fn from_parts(name: impl Into<String>, message: impl Into<String>, properties: Js) -> Self {
+        let issues = match properties.get("issues") {
+            Js::Arr(values) => Some(values.clone()),
+            _ => None,
+        };
+        Self {
+            name: name.into(),
+            message: message.into(),
+            issues,
+            properties,
+            trusted_context: None,
+        }
+    }
+    /// Use only after a known native authentication stage, never for parsed metadata.
+    /// This expresses the selected AcademyReadFailure authentication context, not
+    /// the original JavaScript object's opaque class identity.
+    pub fn trusted_authentication(cause: Option<Fault>) -> Self {
+        let mut fault = Self::from_parts(
+            "Error",
+            "source_authentication_failed",
+            obj(&[
+                ("code", "source_authentication_failed".into()),
+                ("category", "authentication".into()),
+                (
+                    "evidenceLocator",
+                    "src/native-dailyrecord-backend.ts:#authenticate".into(),
+                ),
+                ("cause", cause.as_ref().map_or(Js::Undefined, Fault::value)),
+            ]),
+        );
+        fault.trusted_context = Some(TrustedContext::Authentication {
+            cause: cause.map(Box::new),
+        });
+        fault
+    }
+
     pub fn error(message: impl Into<String>) -> Self {
         Self {
-            name: "Error",
+            name: "Error".into(),
             message: message.into(),
             issues: None,
+            properties: obj(&[]),
+            trusted_context: None,
         }
     }
     pub fn type_error(message: impl Into<String>) -> Self {
         Self {
-            name: "TypeError",
+            name: "TypeError".into(),
             message: message.into(),
             issues: None,
+            properties: obj(&[]),
+            trusted_context: None,
         }
     }
     pub fn admission(message: impl Into<String>) -> Self {
         Self {
-            name: "AdapterAdmission",
+            name: "AdapterAdmission".into(),
             message: message.into(),
             issues: None,
+            properties: obj(&[]),
+            trusted_context: None,
         }
     }
     pub fn value(&self) -> Js {
         let mut v = obj(&[
-            ("name", self.name.into()),
+            ("name", self.name.clone().into()),
             ("message", self.message.clone().into()),
         ]);
-        if let Some(issues) = &self.issues {
-            v.set("issues", Js::Arr(issues.clone()));
+        for (key, value) in self.properties.props() {
+            if let Js::Obj(parts) = &mut v {
+                parts.push((key.clone(), value.clone()));
+            }
+        }
+        if !self.properties.has("issues") {
+            if let Some(issues) = &self.issues {
+                v.set("issues", Js::Arr(issues.clone()));
+            }
         }
         v
     }
@@ -419,9 +476,10 @@ pub fn encode(value: &Js, family: Family, events: &mut Vec<Js>) -> Result<Option
                         Fault::type_error("JSON.stringify cannot serialize cyclic structures.")
                     }
                     Family::Admission => Fault {
-                        name: "RangeError",
+                        name: "RangeError".into(),
                         issues: None,
                         message: "Maximum call stack size exceeded.".into(),
+                        ..Fault::error("")
                     },
                 });
             }

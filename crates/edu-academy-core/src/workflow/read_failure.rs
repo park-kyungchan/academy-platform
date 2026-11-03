@@ -441,45 +441,98 @@ pub fn safe_reason(value: &Js) -> Js {
     }
 }
 
-/// The owner port's Fault preserves error name/message (and schema issues).
-/// Unknown messages contribute only a digest; they never become blocker text.
-pub fn unavailable(error: &Fault) -> Js {
+/// Finite original publicReadFailure projection. Native errors have no observed
+/// TypeScript stack; retained properties cannot supply origin or class authority.
+pub fn public_read_failure(error: &Fault, fallback: &str) -> Js {
+    project(error, fallback, 0)
+}
+fn project(error: &Fault, fallback: &str, depth: usize) -> Js {
+    use crate::js::TrustedContext;
+    let authentication = matches!(
+        error.trusted_context,
+        Some(TrustedContext::Authentication { .. })
+    );
     let malformed = error.name == "ZodError" || error.name == "SyntaxError";
-    let (code, category, locator) = if malformed {
+    let known = catalog(&error.message);
+    let (code, category, locator) = if authentication {
+        (
+            "source_authentication_failed",
+            "authentication",
+            "src/native-dailyrecord-backend.ts:#authenticate",
+        )
+    } else if malformed {
         (
             "source_response_malformed",
             "malformed_response",
             "academy-mcp:response-contract",
         )
-    } else if let Some((category, locator)) = catalog(&error.message) {
+    } else if let Some((category, locator)) = known {
         (error.message.as_str(), category, locator)
     } else {
         (
-            "dailyrecord_source_unqualified_no_automatic_retry",
+            fallback,
             "upstream_unavailable",
             "academy-mcp:owner-read-boundary",
         )
     };
-    let kind = match error.name {
-        "TypeError" | "RangeError" | "SyntaxError" => error.name,
+    let kind = match error.name.as_str() {
+        "TypeError" | "RangeError" | "SyntaxError" => error.name.as_str(),
         _ => "Error",
     };
+    let mut failure = obj(&[
+        ("category", category.into()),
+        ("code", code.into()),
+        ("evidenceLocator", locator.into()),
+        ("automaticRetryAllowed", false.into()),
+        ("errorKind", kind.into()),
+        (
+            "errorSha256",
+            sha(&format!("{}\0{}", error.name, error.message)).into(),
+        ),
+    ]);
+    if authentication {
+        if depth < 2 {
+            if let Some(TrustedContext::Authentication { cause: Some(cause) }) =
+                &error.trusted_context
+            {
+                failure.set(
+                    "cause",
+                    project(cause, "source_cause_unclassified", depth + 1),
+                );
+            }
+        }
+    } else if !malformed && known.is_some() {
+        if let Js::Num(status) = error.properties.get("httpStatus") {
+            if status.is_finite() && status.fract() == 0.0 && (400.0..=599.0).contains(status) {
+                failure.set("sourceHttpStatus", Js::Num(*status));
+            }
+        }
+        let operation = error.properties.get("sourceOperation");
+        if operation.string()
+            && [
+                "login_document",
+                "login_submission",
+                "owned_source_request",
+                "cism_weekly_read",
+                "cism_field_save",
+                "textbook_answer_catalog",
+                "getTextBookProgress",
+                "day_record_group_selector",
+            ]
+            .iter()
+            .any(|allowed| operation.is(allowed))
+        {
+            failure.set("sourceOperation", operation.clone());
+        }
+    }
+    failure
+}
+/// Existing read boundary keeps its original default fallback and envelope.
+pub fn unavailable(error: &Fault) -> Js {
+    let failure = public_read_failure(error, "dailyrecord_source_unqualified_no_automatic_retry");
     obj(&[
         ("status", "unavailable".into()),
-        ("reasonCode", code.into()),
-        (
-            "failure",
-            obj(&[
-                ("category", category.into()),
-                ("code", code.into()),
-                ("evidenceLocator", locator.into()),
-                ("automaticRetryAllowed", false.into()),
-                ("errorKind", kind.into()),
-                (
-                    "errorSha256",
-                    sha(&format!("{}\0{}", error.name, error.message)).into(),
-                ),
-            ]),
-        ),
+        ("reasonCode", failure.get("code").clone()),
+        ("failure", failure),
     ])
 }

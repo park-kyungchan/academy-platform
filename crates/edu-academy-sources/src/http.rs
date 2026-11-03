@@ -1133,8 +1133,8 @@ impl<T: Transport> Client<T> {
     }
 }
 // Private bridge: only the qualified public entrypoint exposes mutation.
-// The core Fault type cannot carry arbitrary source HTTP properties, so retain
-// the original read error for a failing pre-dispatch apply. After-read failures
+// Retain the original read error for a failing pre-dispatch apply; core now also
+// preserves its semantic parts losslessly. After-read failures
 // intentionally remain the core's unresolved outcome.
 struct JournalHttpPort<'a, T: Transport> {
     client: &'a mut Client<T>,
@@ -1142,18 +1142,14 @@ struct JournalHttpPort<'a, T: Transport> {
     read_error: Option<Error>,
 }
 fn journal_core_error(fault: edu_academy_core::js::Fault) -> Error {
-    let mut error = Error::new(fault.name, fault.message);
-    if let Some(issues) = fault.issues {
-        error.properties.set("issues", Js::Arr(issues));
-    }
-    error
+    crate::data::error_from_fault(fault)
 }
 impl<T: Transport> edu_academy_core::workflow::http::HttpPort for JournalHttpPort<'_, T> {
     fn read(&mut self, target: &Js) -> edu_academy_core::js::Result<Js> {
         self.client
             .journal_state(target, self.now)
             .map_err(|error| {
-                let fault = edu_academy_core::js::Fault::error(error.message.clone());
+                let fault = crate::data::fault_from_error(error.clone());
                 self.read_error = Some(error);
                 fault
             })
@@ -1475,9 +1471,10 @@ mod owner_http_write_tests {
     #[test]
     fn core_fault_conversion_preserves_name_message_and_issues() {
         let e = journal_core_error(Fault {
-            name: "TypeError",
+            name: "TypeError".into(),
             message: "fictional_approval_failed".into(),
             issues: Some(vec![obj(&[("code", "fictional_issue".into())])]),
+            ..Fault::error("")
         });
         assert_eq!(e.name, "TypeError");
         assert_eq!(e.message, "fictional_approval_failed");
