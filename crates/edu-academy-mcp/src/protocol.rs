@@ -52,7 +52,7 @@ impl RpcSession {
     }
     /// Metadata-only library entry: installing global process ownership is never implicit.
     pub fn handle(&mut self, request: &Js) -> Result<Option<Js>> {
-        self.handle_inner(request, None, Limits::default())
+        self.handle_inner(request, None, Limits::default(), None)
     }
     pub fn handle_supervised(
         &mut self,
@@ -60,13 +60,26 @@ impl RpcSession {
         control: &mut dyn Control,
         limits: Limits,
     ) -> Result<Option<Js>> {
-        self.handle_inner(request, Some(control), limits)
+        self.handle_inner(request, Some(control), limits, None)
+    }
+    /// Explicit owner loan for this call only. The default CLI remains unconfigured.
+    pub fn handle_business<T, C>(
+        &mut self,
+        request: &Js,
+        business: &mut crate::business::DailyRecord<'_, '_, T, C>,
+    ) -> Result<Option<Js>>
+    where
+        T: edu_academy_sources::http::Transport,
+        C: edu_academy_sources::owner_workflow::CredentialProvider,
+    {
+        self.handle_inner(request, None, Limits::default(), Some(business))
     }
     fn handle_inner(
         &mut self,
         request: &Js,
         control: Option<&mut dyn Control>,
         limits: Limits,
+        business: Option<&mut dyn crate::business::Business>,
     ) -> Result<Option<Js>> {
         if !valid_envelope(request) {
             return Err(Error::new("mcp_stdio_input_or_transport_invalid"));
@@ -88,6 +101,15 @@ impl RpcSession {
             return Ok(None);
         }
         let id = request.get("id");
+        if method == "tools/call"
+            && let Some(business) = business
+        {
+            return Ok(Some(self.call_business(
+                request.get("params"),
+                id,
+                business,
+            )));
+        }
         let mut dispatched = false;
         let outcome = match method.as_str() {
             "initialize" => self.initialize(request.get("params")).map(Reply::Tool),
@@ -141,6 +163,103 @@ impl RpcSession {
                 error.code,
             ),
         }))
+    }
+    fn call_business(
+        &mut self,
+        params: &Js,
+        id: &Js,
+        business: &mut dyn crate::business::Business,
+    ) -> Js {
+        let mut effect = Effect::NotDispatched;
+        let mut entered = false;
+        let mut unknown_name = None;
+        let outcome = (|| -> Result<Js> {
+            if !matches!(params, Js::Obj(_))
+                || !params.get("name").string()
+                || (params.has("arguments") && !matches!(params.get("arguments"), Js::Obj(_)))
+            {
+                return Err(Error::new("tool_input_invalid"));
+            }
+            let name = string(params.get("name"))?;
+            let args = if params.has("arguments") {
+                params.get("arguments").clone()
+            } else {
+                obj(&[])
+            };
+            let Some(endpoint) = self.endpoint.as_deref() else {
+                return Err(Error::new("business_endpoint_mismatch"));
+            };
+            if endpoint != "dailyrecord" {
+                return Err(Error::new("business_endpoint_mismatch"));
+            }
+            if name == "academy_endpoint_identity" {
+                if !args.props().is_empty() {
+                    return Ok(crate::business::tool_error("tool_input_invalid"));
+                }
+                return tool_result(self.graph.endpoint_identity(endpoint)?);
+            }
+            let entry = crate::endpoint::business_entry(&self.graph, endpoint, &name)?;
+            if entry.is_none() && name != "academy_runtime_read_admission" {
+                unknown_name = Some(name);
+                return Err(Error::new("business_tool_not_found"));
+            }
+            if let Some(entry) = entry {
+                if let Err(error) =
+                    crate::validation::validate(entry.tool.get("inputSchema"), &args)
+                {
+                    return Ok(crate::business::tool_error(error.code));
+                }
+            } else if !args.props().is_empty() {
+                return Ok(crate::business::tool_error("tool_input_invalid"));
+            }
+            // A retained but unimplemented registered tool never falls through
+            // to the driver or masquerades as one of its seven business routes.
+            if !crate::business::TOOLS.contains(&name.as_str()) {
+                return crate::endpoint::call_unimplemented(
+                    entry.expect("registered route"),
+                    &args,
+                );
+            }
+            business.check_binding(&self.graph)?;
+            let input = match business.validate(&name, &args) {
+                Ok(input) => input,
+                Err(error) => return Ok(crate::business::tool_error(&error.message)),
+            };
+            self.check_graph()?;
+            entered = true;
+            effect = crate::business::effect(&name);
+            let result = business.call(&name, &input);
+            // Readback happens even after a Fault, without an automatic retry.
+            self.check_graph()?;
+            match result {
+                Ok(value) => tool_result(value),
+                Err(error) => {
+                    let mut result = crate::business::tool_error(&error.message);
+                    let mut evidence = effect.failure_evidence();
+                    evidence.set("automaticRetryAllowed", false.into());
+                    evidence.set(
+                        "localWorkflowEffects",
+                        "unknown_reconcile_owner_store".into(),
+                    );
+                    result.set("_meta", obj(&[("academy/businessEffect", evidence)]));
+                    Ok(result)
+                }
+            }
+        })();
+        // Cover schema/unknown/binding/identity failures as well as business I/O.
+        if let Err(error) = self.check_graph() {
+            return business_rpc_error(id, error.code, effect, entered);
+        }
+        match outcome {
+            Ok(result) => rpc_result(id, result),
+            Err(error) if error.code == "business_tool_not_found" => rpc_error(
+                id,
+                -32602,
+                &format!("Tool {} not found", unknown_name.as_deref().unwrap_or("")),
+            ),
+            Err(error) if error.code == "tool_input_invalid" => rpc_error(id, -32602, error.code),
+            Err(error) => business_rpc_error(id, error.code, effect, entered),
+        }
     }
     fn list(&self) -> Result<Vec<Js>> {
         let Some(endpoint) = &self.endpoint else {
@@ -397,4 +516,32 @@ pub fn rpc_error(id: &Js, code: i32, message: &str) -> Js {
             ]),
         ),
     ])
+}
+
+// SDK output failures are RPC InternalError, with effect evidence retained by
+// this Rust boundary. In particular a failed save output is never zero effects.
+fn business_rpc_error(id: &Js, code: &str, effect: Effect, entered: bool) -> Js {
+    let mut response = rpc_error(
+        id,
+        -32603,
+        if code == "mcp_result_serialization_failed" {
+            "Internal error"
+        } else {
+            code
+        },
+    );
+    let mut error = response.get("error").clone();
+    let mut data = effect.failure_evidence();
+    data.set("reasonCode", code.into());
+    data.set("automaticRetryAllowed", false.into());
+    data.set("businessDispatched", entered.into());
+    if entered {
+        data.set(
+            "localWorkflowEffects",
+            "unknown_reconcile_owner_store".into(),
+        );
+    }
+    error.set("data", data);
+    response.set("error", error);
+    response
 }

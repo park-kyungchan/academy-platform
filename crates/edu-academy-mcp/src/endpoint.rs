@@ -58,3 +58,26 @@ pub fn call_unimplemented_for(
     }
     call_unimplemented(entry, arguments)
 }
+
+/// Exact endpoint/upstream binding for an explicit borrowed business driver.
+/// The admission probe is a fixed endpoint-local tool, as in RpcSession::list;
+/// it does not widen the release registry or any parent inventory.
+pub(crate) fn business_entry<'a>(
+    graph: &'a ReleaseGraph,
+    endpoint: &str,
+    name: &str,
+) -> Result<Option<&'a Entry>> {
+    if endpoint != "dailyrecord" {
+        return Err(Error::new("business_endpoint_mismatch"));
+    }
+    let mut entries = graph
+        .registry
+        .entries()
+        .iter()
+        .filter(|entry| entry.endpoint == endpoint && entry.upstream_name == name);
+    let first = entries.next();
+    if entries.next().is_some() {
+        return Err(Error::new("business_tool_binding_ambiguous"));
+    }
+    Ok(first)
+}
