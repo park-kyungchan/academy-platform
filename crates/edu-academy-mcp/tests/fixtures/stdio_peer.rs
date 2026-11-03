@@ -29,12 +29,12 @@ fn identity_value() -> Js {
         ("group", Js::Num(f64::from(p.group))),
     ])
 }
-fn descendant(root: &Path) {
+fn descendant(state: &Path) {
     process::child_parent_guard().unwrap();
     rustix::process::setsid().unwrap();
     let _signals = signal_hook::iterator::Signals::new([signal_hook::consts::SIGTERM]).unwrap();
     put_new(
-        &root.join("state/descendant.json"),
+        &state.join("descendant.json"),
         &edu_academy_mcp::encode(&identity_value()).unwrap(),
     );
     loop {
@@ -44,6 +44,7 @@ fn descendant(root: &Path) {
 fn peer(root: &Path, endpoint: &str) {
     process::child_parent_guard().unwrap();
     let graph = ReleaseGraph::open(root).unwrap();
+    let state = &graph.owner.state_root;
     let entry = graph.endpoints.get(endpoint).unwrap();
     edu_academy_mcp::identity::verify_executable(
         &entry.executable,
@@ -84,7 +85,7 @@ fn peer(root: &Path, endpoint: &str) {
         } else if method.is("tools/list") {
             if mode == "before_call" {
                 put_new(
-                    &root.join("state/before-call.json"),
+                    &state.join("before-call.json"),
                     &edu_academy_mcp::encode(&identity_value()).unwrap(),
                 );
                 loop {
@@ -123,7 +124,7 @@ fn peer(root: &Path, endpoint: &str) {
                 .create(true)
                 .truncate(false)
                 .mode(0o600)
-                .open(root.join("state/fixture.lock"))
+                .open(state.join("fixture.lock"))
                 .unwrap();
             rustix::fs::flock(&file, rustix::fs::FlockOperation::LockExclusive).unwrap();
             lock = Some(file);
@@ -132,7 +133,7 @@ fn peer(root: &Path, endpoint: &str) {
                 descendant_child = Some(
                     std::process::Command::new(std::env::current_exe().unwrap())
                         .arg("--fixture-descendant")
-                        .arg(root)
+                        .arg(state)
                         .env_clear()
                         .env("ACADEMY_MCP_PARENT_PID", parent.pid.to_string())
                         .env("ACADEMY_MCP_PARENT_START", parent.start.to_string())
@@ -142,14 +143,14 @@ fn peer(root: &Path, endpoint: &str) {
                         .spawn()
                         .unwrap(),
                 );
-                setup::wait_file(&root.join("state/descendant.json"), Duration::from_secs(3));
+                setup::wait_file(&state.join("descendant.json"), Duration::from_secs(3));
             }
             let mut called = identity_value();
             let metadata = lock.as_ref().unwrap().metadata().unwrap();
             called.set("lockDevice", metadata.dev().to_string().into());
             called.set("lockInode", metadata.ino().to_string().into());
             put_new(
-                &root.join("state/called.json"),
+                &state.join("called.json"),
                 &edu_academy_mcp::encode(&called).unwrap(),
             );
             if matches!(mode.as_str(), "hold" | "ignore_term") {

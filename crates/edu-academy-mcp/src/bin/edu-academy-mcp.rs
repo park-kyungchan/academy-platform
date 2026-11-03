@@ -193,11 +193,7 @@ fn bridge(root: &PathBuf) -> Exit {
                     || control.signals_only(),
                 )?;
             }
-            match idle {
-                Ok(()) => (),
-                Err(_) if control.eof && control.failure.is_none() => return Ok(()),
-                Err(e) => return Err(e),
-            }
+            idle?;
             let Some(request) = control.pending.pop_front() else {
                 std::thread::sleep(process::TICK);
                 continue;
@@ -206,8 +202,12 @@ fn bridge(root: &PathBuf) -> Exit {
             if control.signal.is_some() {
                 return Err(Error::new("parent_signal_cancelled"));
             }
+            if let Some(error) = control.failure {
+                return Err(error);
+            }
             if control.eof {
-                return Ok(());
+                response?;
+                return Err(Error::new("mcp_client_eof"));
             }
             if control.cancelled.as_ref() == Some(request.get("id")) {
                 control.cancelled = None;
@@ -244,6 +244,23 @@ fn bridge(root: &PathBuf) -> Exit {
     for received in control.signals.pending() {
         signal.get_or_insert(received);
     }
+    let result = match result {
+        // EOF may arrive while acknowledging a response already read by the
+        // client. Normalize only this exact close after I/O actually joined;
+        // blocked writers and unrelated errors retain their failure outcome.
+        Err(error)
+            if error.code == "mcp_client_eof"
+                && control.eof
+                && control.failure.is_none()
+                && signal.is_none()
+                && input_joined
+                && output_joined
+                && errors_joined =>
+        {
+            Ok(())
+        }
+        other => other,
+    };
     // Explicit observation rather than claiming that dropping a future joined I/O.
     let io = session.io_receipt(&obj(&[
         ("completedAt", audit::wall_time().into()),
