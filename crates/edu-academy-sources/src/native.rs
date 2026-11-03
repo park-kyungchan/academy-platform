@@ -252,11 +252,7 @@ impl<P: SourcePort> Backend<P> {
         ]);
         let observation =
             edu_academy_core::schema::validate("dailyRecordObservationSchema", &observation)
-                .map_err(|f| Error {
-                    name: f.name.into(),
-                    message: f.message,
-                    properties: obj(&[("issues", Js::Arr(f.issues.unwrap_or_default()))]),
-                })?;
+                .map_err(error_from_fault)?;
         Ok(obj(&[
             ("status", "observed".into()),
             ("observation", observation),

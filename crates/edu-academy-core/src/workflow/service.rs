@@ -624,7 +624,7 @@ impl Service<'_> {
         };
         let results = match self.backend.save(s, &patches, &mut approval, &subject) {
             Ok(r) => r,
-            Err(_) => {
+            Err(error) => {
                 for p in prior.get("patch").array() {
                     outcome(
                         p,
@@ -638,7 +638,12 @@ impl Service<'_> {
                         ("by", by.clone()),
                         (
                             "reasonCode",
-                            "dailyrecord_save_unqualified_no_automatic_retry".into(),
+                            super::read_failure::public_read_failure(
+                                &error,
+                                "dailyrecord_save_unqualified_no_automatic_retry",
+                            )
+                            .get("code")
+                            .clone(),
                         ),
                     ]),
                     self.runtime,

@@ -50,6 +50,23 @@ impl Error {
         }
     }
 }
+/// Lossless semantic parts only. Arbitrary properties never grant native class authority.
+pub fn fault_from_error(error: Error) -> edu_academy_core::js::Fault {
+    edu_academy_core::js::Fault::from_parts(error.name, error.message, error.properties)
+}
+pub fn error_from_fault(fault: edu_academy_core::js::Fault) -> Error {
+    let mut properties = fault.properties;
+    if !properties.has("issues") {
+        if let Some(issues) = fault.issues {
+            properties.set("issues", Js::Arr(issues));
+        }
+    }
+    Error {
+        name: fault.name,
+        message: fault.message,
+        properties,
+    }
+}
 pub fn observe(result: Result<Js>) -> Js {
     match result {
         Ok(v) => obj(&[("outcome", "returned".into()), ("value", v)]),

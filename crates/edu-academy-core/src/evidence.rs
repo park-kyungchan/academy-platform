@@ -17,7 +17,7 @@ pub fn parse_bytes(bytes: &str) -> Result<Js> {
     let value = serde_json::from_str::<serde_json::Value>(bytes)
         .map(convert)
         .map_err(|_| Fault {
-            name: "SyntaxError",
+            name: "SyntaxError".into(),
             issues: None,
             message: if bytes.starts_with('\u{feff}') {
                 "JSON Parse error: Unrecognized token '﻿'"
@@ -25,6 +25,7 @@ pub fn parse_bytes(bytes: &str) -> Result<Js> {
                 "JSON Parse error: Expected '}'"
             }
             .into(),
+            ..Fault::error("")
         })?;
     schema::validate("dailyRecordSaveRequestEvidenceSchema", &value)
 }

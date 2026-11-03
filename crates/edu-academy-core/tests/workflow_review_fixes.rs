@@ -296,9 +296,10 @@ fn typed_failure_classification_uses_original_catalog_and_safe_fallback() {
             .contains("fictional_private_exception_payload")
     );
     let malformed = read_failure::unavailable(&Fault {
-        name: "SyntaxError",
+        name: "SyntaxError".into(),
         message: "fictional bad JSON".into(),
         issues: None,
+        ..Fault::error("")
     });
     assert!(malformed.get("reasonCode").is("source_response_malformed"));
     assert!(

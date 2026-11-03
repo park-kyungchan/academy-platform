@@ -868,9 +868,10 @@ pub fn validate(name: &str, v: &Js) -> Result<Js> {
         Ok(result)
     } else {
         Err(Fault {
-            name: "ZodError",
+            name: "ZodError".into(),
             message: pretty(&Js::Arr(issues.clone()), 0),
             issues: Some(issues),
+            ..Fault::error("")
         })
     }
 }
