@@ -1,0 +1,18 @@
+[package]
+name = "edu-academy-mcp"
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+edu-academy-core = { path = "../edu-academy-core" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+regex.workspace = true
+rustix.workspace = true
+
+[lints]
+workspace = true
