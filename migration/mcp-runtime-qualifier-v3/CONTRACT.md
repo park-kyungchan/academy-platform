@@ -316,3 +316,30 @@ protected default observer wrapper and guard on pinned Bun1.4.3 within its
 owned disposable parent. This is an exact API observation, not a universal
 guard claim. Preload is unchanged; candidate B2 and any fresh captures remain
 separate Root work. Retained comparison requires NEW comparator custody.
+
+## Exact measured observer promotion
+
+Preload now copies Root's second/final B2 control candidate byte-for-byte:
+7757bytes, SHA256763e3d173c5031224b9b0023b29c4aff5474793418e94c902e487978b8033460.
+It materializes the existing24 wrapped exports/default objects/aliases via
+Bun mock.module, preserving captured untouched exports and original wrapper
+bodies/order, clocks and UUID. Root LEAD-OBSERVER-B1-READBACK confirmed the old
+857observer's selected named writeFileSync observation AND guard bypass. Root
+LEAD-OBSERVER-B2-READBACK measured9checks,8allowed/8denied,4same original
+Promises and selected sync observation/exception/alias/untouched-export checks.
+These bounded controls are not universal OS sandbox/no-effect/durability proof;
+promise confinement is not successful-write observation. No third control ran.
+
+The old857 A/B pair05 MATCH at636b is retained-reference protocol consistency
+only. It is not evidence for the new763 observer, all ten modes or Rust. All
+new original measurements require separately released fresh A/B/new roots and
+new custody; immutable old captures/manifests/preimages are never repinned.
+
+Historical pure fixture helpers verify the actual captured857 preload against
+its old external source pin, then narrowly patch HERE to that captured observer
+source only while validating its source mirror or exercising its historical
+direct-request helper cases. Assigned-root/STIMULUS and all original checks
+remain; the context always restores, including exceptions. These are fixture
+semantics, not production admission. An unpatched-current763 regression must
+refuse the old857 direct proof and Capture observer-byte binding. Production
+qualify.py is unchanged and retains its strict current/captured preload join.

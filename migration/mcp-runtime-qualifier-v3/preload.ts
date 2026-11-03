@@ -2,9 +2,12 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import {resolve, isAbsolute, dirname} from 'node:path';
-import {syncBuiltinESMExports} from 'node:module';
+import {mock} from 'bun:test';
+import * as fsNamed from 'node:fs';
+import * as fspNamed from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 
+const savedFsNamed = {...fsNamed}, savedFspNamed = {...fspNamed};
 const root = process.env.S11_SOURCE_ROOT!, out = process.env.S11_MODE_ROOT!;
 const deps = process.env.S11_DEPENDENCY_ROOT!;
 if (![root, out, deps].every(p => p && isAbsolute(p) && resolve(p) === p)) throw Error('s11_explicit_canonical_roots_required');
@@ -107,7 +110,14 @@ for (const key of ['writeFile', 'appendFile', 'mkdir', 'rm', 'unlink', 'chmod', 
     return fn(p, ...args);
   };
 }
-syncBuiltinESMExports();
+const syncKeys = ['writeFileSync', 'appendFileSync', 'mkdirSync', 'rmSync', 'unlinkSync', 'chmodSync', 'rmdirSync', 'truncateSync', 'renameSync', 'copyFileSync', 'linkSync', 'symlinkSync'];
+const promiseKeys = ['writeFile', 'appendFile', 'mkdir', 'rm', 'unlink', 'chmod', 'rmdir', 'truncate', 'rename', 'copyFile', 'link', 'symlink'];
+const syncExports = {...savedFsNamed, default: fs} as any;
+const promiseExports = {...savedFspNamed, default: fsp} as any;
+for (const key of syncKeys) syncExports[key] = (fs as any)[key];
+for (const key of promiseKeys) promiseExports[key] = (fsp as any)[key];
+for (const name of ['node:fs', 'fs']) mock.module(name, () => syncExports);
+for (const name of ['node:fs/promises', 'fs/promises']) mock.module(name, () => promiseExports);
 await import(root + '/modules/academy-workbench/tools/academy-mcp/tests/network-deny.ts');
 const deny = () => { throw Error('s11_network_forbidden'); };
 Bun.connect = deny as any; Bun.listen = deny as any; Bun.serve = deny as any;

@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from contextlib import contextmanager
 from unittest.mock import patch
 
 import qualify as q
@@ -65,6 +66,20 @@ def normal_fixture(large=False, identity=False):
         wire['_meta'] = {'academy/bridgeAudit': {'occurrence': U1, 'endpoint': 'dailyrecord', 'upstreamName': 'academy_source_status',
                                                'generation': None, 'elapsedMs': 2}}
     return req, original, wire, receipts
+
+
+@contextmanager
+def historical_observer_source(root):
+    """Test-only source context for immutable old857 pure fixtures, never admission."""
+    if root not in [NOTES/'protocol-A-01', NOTES/'protocol-B-01']:
+        raise AssertionError('historical_fixture_root_unsupported')
+    custody = q.parse((NOTES.parent/'LEAD-PROTOCOL-CUSTODY-03.json').read_bytes())
+    historical = root/'observer-source'
+    digest = q.sha((historical/'preload.ts').read_bytes())
+    if digest != '85799fe454c284d84460d092cc466526fe3620137eb1026d25c0114b16edc3a2' or digest != custody['qualifierFiles']['preload.ts']:
+        raise AssertionError('historical_fixture_observer_pin_mismatch')
+    with patch.object(q, 'HERE', historical):
+        yield
 
 
 class PureTests(unittest.TestCase):
@@ -538,9 +553,16 @@ class PureTests(unittest.TestCase):
         if label not in cls.native_captures:
             root = NOTES/f'protocol-{label}-01'
             custody = q.parse((NOTES.parent/'LEAD-PROTOCOL-CUSTODY-03.json').read_bytes())
-            # Diagnostic raw hashes only, NOT old qualifierFiles/pair custody.
+            # Old custody supplies raw anchors and the historical observer source pin,
+            # never admission of old bytes as current763 runtime/pair evidence.
+            class HistoricalFixtureCapture(q.Capture):
+                def check_source_mirror(self):
+                    # Only this pure helper reads historical observer files. Constructor
+                    # sourceRoot/STIMULUS checks retain the real repository HERE.
+                    with historical_observer_source(self.root):
+                        super().check_source_mirror()
             with patch('subprocess.Popen', side_effect=AssertionError('forbidden subprocess')):
-                cls.native_captures[label] = q.Capture(root, custody['captures'][str(root)], custody['supervisors'][str(root)])
+                cls.native_captures[label] = HistoricalFixtureCapture(root, custody['captures'][str(root)], custody['supervisors'][str(root)])
         return cls.native_captures[label]
 
     def receipt_excerpt(self):
@@ -724,7 +746,8 @@ class PureTests(unittest.TestCase):
         return mutant, cmd, request, reply, call['after']
 
     def direct_boundary_check(self, fixture):
-        return q.direct_request_sample(*fixture, 'stdout')
+        with historical_observer_source(fixture[0].root):
+            return q.direct_request_sample(*fixture, 'stdout')
 
     def test_55_actual_direct_response_native_enclosure(self):
         fixture = self.direct_boundary_fixture(); capture, cmd, request, reply, sample = fixture
@@ -732,9 +755,10 @@ class PureTests(unittest.TestCase):
                       request['requestSendBracket']['before'], reply['responseReceiveBracket']['after'])
         self.assertEqual(q.wall_cell(sample), (1793684704952000000,1793684704953000000))
         self.assertEqual(self.direct_boundary_check(fixture), (1793684704952192000,1793684704952410000))
-        self.assertEqual(set(q.request_receipts(capture,cmd,request,reply)), {'dispatch','result'})
-        incoming = next(c for c in q.source_calls(cmd['direct']) if c['request']['id']==4)['before']
-        self.assertEqual(q.direct_request_sample(capture,cmd,request,reply,incoming,'stdin'), q.wall_cell(incoming))
+        with historical_observer_source(capture.root):
+            self.assertEqual(set(q.request_receipts(capture,cmd,request,reply)), {'dispatch','result'})
+            incoming = next(c for c in q.source_calls(cmd['direct']) if c['request']['id']==4)['before']
+            self.assertEqual(q.direct_request_sample(capture,cmd,request,reply,incoming,'stdin'), q.wall_cell(incoming))
 
     def test_56_direct_native_owner_and_exec_controls(self):
         for kind, code in [('pid','native_write_owner_unavailable'),('exec','native-write-exec-owner'),
@@ -810,6 +834,27 @@ class PureTests(unittest.TestCase):
         fixture=self.direct_boundary_fixture();_,_,request,_,_=fixture
         request['request']['id']=99999
         self.rejected('direct_clock_reply_binding_missing',self.direct_boundary_check,fixture)
+
+    def test_61_current763_refuses_old857_observer_evidence(self):
+        actual_here = Path(q.__file__).resolve().parent
+        self.assertEqual(q.HERE, actual_here)
+        self.assertEqual(q.sha((q.HERE/'preload.ts').read_bytes()),
+                         '763e3d173c5031224b9b0023b29c4aff5474793418e94c902e487978b8033460')
+        fixture=self.direct_boundary_fixture();capture,cmd,request,reply,sample=fixture
+        self.assertEqual(q.HERE, actual_here)  # Historical constructor restored it.
+        self.rejected('direct-clock-preload-order',q.direct_request_sample,*fixture,'stdout')
+        self.rejected('direct-clock-preload-order',q.request_receipts,capture,cmd,request,reply)
+        custody=q.parse((NOTES.parent/'LEAD-PROTOCOL-CUSTODY-03.json').read_bytes())
+        with patch('subprocess.Popen',side_effect=AssertionError('forbidden subprocess')):
+            self.rejected('observer-executed-bytes',q.Capture,capture.root,
+                          custody['captures'][str(capture.root)],custody['supervisors'][str(capture.root)])
+        try:
+            with historical_observer_source(capture.root):
+                self.assertEqual(q.HERE,capture.root/'observer-source')
+                raise RuntimeError('historical_context_exception')
+        except RuntimeError:
+            pass
+        self.assertEqual(q.HERE,actual_here)  # Also restored on exceptions.
 
     def test_31_frozen_framing_bytes_and_split_order(self):
         chunks = q.expected_stdin('framing', 'neutral')
