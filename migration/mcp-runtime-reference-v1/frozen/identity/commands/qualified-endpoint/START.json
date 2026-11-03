@@ -1,0 +1,56 @@
+{
+  "argv": [
+    "/usr/bin/strace",
+    "-ff",
+    "-ttt",
+    "-T",
+    "-s",
+    "4096",
+    "-e",
+    "trace=process,file,network",
+    "-o",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-identity/commands/qualified-endpoint/syscalls",
+    "/usr/local/bin/bun",
+    "--no-install",
+    "--no-env-file",
+    "--preload",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-identity/observer-source/preload.ts",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-identity/source/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-server.ts",
+    "--runtime-identity",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-identity/endpoint-identity.json",
+    "1922b2ab3ca97645c5acf19ee8dc886227abbb923c5e58a6c9eb33ca918c88d8"
+  ],
+  "originalArgv": [
+    "/usr/local/bin/bun",
+    "--no-install",
+    "--no-env-file",
+    "--preload",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-identity/observer-source/preload.ts",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-identity/source/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-server.ts",
+    "--runtime-identity",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-identity/endpoint-identity.json",
+    "1922b2ab3ca97645c5acf19ee8dc886227abbb923c5e58a6c9eb33ca918c88d8"
+  ],
+  "pid": 3295626,
+  "pgid": 3295626,
+  "cwd": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-identity",
+  "startedAt": "2026-11-03T02:31:36.547278+00:00",
+  "limits": {
+    "cpuSeconds": 90,
+    "wallSeconds": 90,
+    "fileBytes": 67108864,
+    "outputBytes": 12582912
+  },
+  "environmentKeys": [
+    "ACADEMY_MCP_INSTALL_DIR",
+    "BUN_RUNTIME_TRANSPILER_CACHE_PATH",
+    "LANG",
+    "NODE_PATH",
+    "PATH",
+    "S11_DEPENDENCY_ROOT",
+    "S11_MODE_ROOT",
+    "S11_SOURCE_ROOT",
+    "TMPDIR",
+    "TZ"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "returncode": 1,
+  "elapsedSeconds": 0.13963139697443694,
+  "cleanupRequested": false,
+  "membersBeforeCleanup": [],
+  "membersAfterCleanup": [],
+  "channels": {
+    "stdin": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-relocation/commands/tampered-bridge/stdin.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-relocation/commands/tampered-bridge/stdout.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stderr": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-relocation/commands/tampered-bridge/stderr.bin",
+      "sha256": "3505aae91f5407f3370d430f1ba3d9c0a8e268b1f78df399de4ae64946da6077"
+    }
+  }
+}

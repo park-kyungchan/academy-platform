@@ -1,0 +1,60 @@
+{
+  "hostTools": {
+    "bun": {
+      "path": "/usr/local/bin/bun",
+      "realpath": "/usr/local/bin/bun",
+      "sha256": "7ce7d6b654eddeec20afddf2396317fba6dc19ab52788a27e894e1806bf8f24b",
+      "uid": 0,
+      "mode": "0o755",
+      "qualification": "host_metadata_current_not_container_binary_proof"
+    },
+    "python3": {
+      "path": "/usr/bin/python3",
+      "realpath": "/usr/bin/python3.12",
+      "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f",
+      "uid": 0,
+      "mode": "0o755",
+      "qualification": "host_metadata_current_not_container_binary_proof"
+    },
+    "strace": {
+      "path": "/usr/bin/strace",
+      "realpath": "/usr/bin/strace",
+      "sha256": "28f957c227012de0b18d1bd7fff2d396cb693ea60ed8013be68de071e84b5001",
+      "uid": 0,
+      "mode": "0o755",
+      "qualification": "host_metadata_current_not_container_binary_proof"
+    },
+    "flock": {
+      "path": "/usr/bin/flock",
+      "realpath": "/usr/bin/flock",
+      "sha256": "e619344dc3eec4023498465679262f9ca27d1e8cef9cfc4c1ae72b428577b806",
+      "uid": 0,
+      "mode": "0o755",
+      "qualification": "host_metadata_current_not_container_binary_proof"
+    },
+    "true": {
+      "path": "/usr/bin/true",
+      "realpath": "/usr/bin/true",
+      "sha256": "8a63c98320173f79e263115e10cefc170155e47d1fd4b5a70e4429d2699cae28",
+      "uid": 0,
+      "mode": "0o755",
+      "qualification": "host_metadata_current_not_container_binary_proof"
+    },
+    "docker": {
+      "path": "/usr/bin/docker",
+      "realpath": "/usr/bin/docker",
+      "sha256": "b6f5521ba1c355ea6f8943241435f494963b0840388543b2fca1a4062913da8f",
+      "uid": 0,
+      "mode": "0o755",
+      "qualification": "host_metadata_current_not_container_binary_proof"
+    }
+  },
+  "rustInvoked": false,
+  "rustMetadata": {
+    "RUSTUP_TOOLCHAIN": "1.95.0",
+    "CARGO_BUILD_JOBS": "1",
+    "metadataFile": "/home/palantirkc/work/ws-replan/preparation/final-review/execution-env.sh",
+    "sha256": "aeac50154f69c308612946ee18b216c037504a7cfde32f98191cd3be713d866c"
+  },
+  "rustBuildSlot": "none"
+}

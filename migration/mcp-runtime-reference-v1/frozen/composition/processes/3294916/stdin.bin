@@ -1,0 +1,4 @@
+{"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"muse-academy-bounded-adapter","version":"1.0.0"}},"jsonrpc":"2.0","id":0}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"method":"tools/list","jsonrpc":"2.0","id":1}
+{"method":"tools/call","params":{"name":"academy_paper_headers","arguments":{"studentId":"77001","paperCodes":["7001"]}},"jsonrpc":"2.0","id":2}

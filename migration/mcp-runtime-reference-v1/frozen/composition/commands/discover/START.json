@@ -1,0 +1,52 @@
+{
+  "argv": [
+    "/usr/bin/strace",
+    "-ff",
+    "-ttt",
+    "-T",
+    "-s",
+    "4096",
+    "-e",
+    "trace=process,file,network",
+    "-o",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/commands/discover/syscalls",
+    "/usr/local/bin/bun",
+    "--no-install",
+    "--no-env-file",
+    "--preload",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/observer-source/preload.ts",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts",
+    "--discover"
+  ],
+  "originalArgv": [
+    "/usr/local/bin/bun",
+    "--no-install",
+    "--no-env-file",
+    "--preload",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/observer-source/preload.ts",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts",
+    "--discover"
+  ],
+  "pid": 3294602,
+  "pgid": 3294602,
+  "cwd": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition",
+  "startedAt": "2026-11-03T02:31:00.502215+00:00",
+  "limits": {
+    "cpuSeconds": 90,
+    "wallSeconds": 90,
+    "fileBytes": 67108864,
+    "outputBytes": 12582912
+  },
+  "environmentKeys": [
+    "ACADEMY_MCP_INSTALL_DIR",
+    "BUN_RUNTIME_TRANSPILER_CACHE_PATH",
+    "LANG",
+    "NODE_PATH",
+    "PATH",
+    "S11_DEPENDENCY_ROOT",
+    "S11_MODE_ROOT",
+    "S11_SOURCE_ROOT",
+    "TMPDIR",
+    "TZ"
+  ]
+}

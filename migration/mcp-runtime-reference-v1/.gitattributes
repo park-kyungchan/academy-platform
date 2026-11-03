@@ -1,0 +1,2 @@
+# Preserve exact stdio bytes, including intentional CRLF framing stimuli.
+frozen/**/*.bin -text -diff

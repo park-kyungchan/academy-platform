@@ -1,0 +1,1 @@
+{"endpoints":["dailyrecord"],"tools":["academy_runtime_read_admission","academy_source_status","academy_cism_weekly_save","academy_bounded_probe","academy_dailyrecord_get"]}

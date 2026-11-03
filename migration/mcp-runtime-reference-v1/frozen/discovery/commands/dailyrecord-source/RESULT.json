@@ -1,0 +1,21 @@
+{
+  "returncode": 0,
+  "elapsedSeconds": 0.4571985370712355,
+  "cleanupRequested": false,
+  "membersBeforeCleanup": [],
+  "membersAfterCleanup": [],
+  "channels": {
+    "stdin": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-discovery/commands/dailyrecord-source/stdin.bin",
+      "sha256": "3be64de28cd931bc74a3aa376fce043453b5191724c64fd59ed67de2f9a225e5"
+    },
+    "stdout": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-discovery/commands/dailyrecord-source/stdout.bin",
+      "sha256": "ec17cd95871fdff714cedb7aed972b39ebd37d03fa62fe4860f99f518a0d58dc"
+    },
+    "stderr": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-discovery/commands/dailyrecord-source/stderr.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "stdin.bin": "inner_original_stream_emit_or_write_tap",
+  "stdout.bin": "inner_original_stream_emit_or_write_tap",
+  "stderr.bin": "no_stream_data_or_write_observed"
+}

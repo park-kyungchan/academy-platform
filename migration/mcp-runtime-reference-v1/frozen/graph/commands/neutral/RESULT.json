@@ -1,0 +1,21 @@
+{
+  "returncode": 0,
+  "elapsedSeconds": 2.868446654989384,
+  "cleanupRequested": false,
+  "membersBeforeCleanup": [],
+  "membersAfterCleanup": [],
+  "channels": {
+    "stdin": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-graph/commands/neutral/stdin.bin",
+      "sha256": "f6e884284632a7e0018bb931c995a5d6feaf3ef21792d7a8f84999d3a3179bdb"
+    },
+    "stdout": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-graph/commands/neutral/stdout.bin",
+      "sha256": "800d3a74c30fe3b770199fc26c98fd776a6fe4e9bbc95c6936452870af6747c2"
+    },
+    "stderr": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-graph/commands/neutral/stderr.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

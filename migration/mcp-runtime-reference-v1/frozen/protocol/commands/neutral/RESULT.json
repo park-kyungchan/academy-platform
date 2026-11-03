@@ -1,0 +1,21 @@
+{
+  "returncode": 0,
+  "elapsedSeconds": 6.347025675000623,
+  "cleanupRequested": false,
+  "membersBeforeCleanup": [],
+  "membersAfterCleanup": [],
+  "channels": {
+    "stdin": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-protocol/commands/neutral/stdin.bin",
+      "sha256": "31969c2844a5b02118f6f60fdd9984202bcb587f2705629ecb2ec3817e8299d7"
+    },
+    "stdout": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-protocol/commands/neutral/stdout.bin",
+      "sha256": "8998846f023154baf767f5d88748e0f86cee17268b4da98f1ebe026bc69813ec"
+    },
+    "stderr": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-protocol/commands/neutral/stderr.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

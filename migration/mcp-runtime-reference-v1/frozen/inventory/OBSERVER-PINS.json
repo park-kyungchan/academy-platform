@@ -1,0 +1,18 @@
+{
+  "fixture.ts": {
+    "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-inventory/observer-source/fixture.ts",
+    "sha256": "360dd3331b98f464451d8f666c5379c78cb4d3220204068b2c1e3d7747d9f274"
+  },
+  "preload.ts": {
+    "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-inventory/observer-source/preload.ts",
+    "sha256": "c9a871fc99dcd2f2c747270399ecf8951a416fb36371ce99978c09123341bdb4"
+  },
+  "observe.py": {
+    "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-inventory/observer-source/observe.py",
+    "sha256": "638321f2a1774bd9ce00fa85233677ceae7f5d1a73815f97ac110fd41e34a173"
+  },
+  "pins.py": {
+    "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-inventory/observer-source/pins.py",
+    "sha256": "1bdfa24da508174fb3425b39709146ad8c75b6bef6103214044b87b2ddf02842"
+  }
+}

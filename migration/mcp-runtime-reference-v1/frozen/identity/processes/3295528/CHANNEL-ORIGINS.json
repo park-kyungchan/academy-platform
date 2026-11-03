@@ -1,0 +1,5 @@
+{
+  "stdin.bin": "direct_original_child_pipe:commands/qualified-endpoint",
+  "stdout.bin": "direct_original_child_pipe:commands/qualified-endpoint",
+  "stderr.bin": "direct_original_child_pipe:commands/qualified-endpoint"
+}

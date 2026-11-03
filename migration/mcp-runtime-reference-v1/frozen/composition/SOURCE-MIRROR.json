@@ -1,0 +1,308 @@
+{
+  "modules/academy-workbench/tools/academy-mcp/tests/network-deny.ts": {
+    "sha256": "41f984698a7c3375308109f5d04b1c07770f1f460562a40ea9a769af7d93cfef",
+    "bytes": 803,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/tests/network-deny.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/tests/network-deny.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/tests/neutral-saved-fixture.ts": {
+    "sha256": "b71d3d8e602d9ec8badec0d8dad62073c268c04bbb63160d3e45deeb0e16d41f",
+    "bytes": 494,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/tests/neutral-saved-fixture.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/tests/neutral-saved-fixture.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-tools.ts": {
+    "sha256": "fe1cd2d9046e55fdcfca56b86ad1c07455027d53c8bc6622bfe27ce505c7c893",
+    "bytes": 21412,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-tools.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-tools.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/item-answer-lookup.ts": {
+    "sha256": "27000c623e2677f506b20c0d31b43a7494420ac0515f3fcba86e191802c67e48",
+    "bytes": 4181,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/item-answer-lookup.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/item-answer-lookup.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/read-failure.ts": {
+    "sha256": "2f25a7c02a5f2380424dc137181c908c479a114103be6af6d6ff1051f994f843",
+    "bytes": 22863,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/read-failure.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/read-failure.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/owner-admission.ts": {
+    "sha256": "f3b795b2dcfbf4e341e37ceaa80bc89e4a14bf4f1b4640c8c5cf6507e17ffb7b",
+    "bytes": 2019,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/owner-admission.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/owner-admission.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-context.ts": {
+    "sha256": "85ca8effd2c6b0c9eed83ed76ab3f778c494dbd816917a692977caa4e46dc7d6",
+    "bytes": 5256,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-context.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-context.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/item-label-context.ts": {
+    "sha256": "ceeecf0c8e808c529e2db0e784d5d7293d3fa16c3d3f51993f8813897929b3be",
+    "bytes": 2434,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/item-label-context.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/item-label-context.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/metadata-admission.ts": {
+    "sha256": "df70f29d118b2686cb7e6cd5de28b9bb8c68be3f64eb5301b751633a0a6716df",
+    "bytes": 1489,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/metadata-admission.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/metadata-admission.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-read.ts": {
+    "sha256": "cfb466e431d10ac069f9a3d2c408db9b0f13736306f17d19ab8ccd2bf497db9f",
+    "bytes": 8260,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-read.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-read.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/upstream-failure.ts": {
+    "sha256": "8a49ecf13782e1a638a968c26143409710b9e80480b14e534b92193766da43ee",
+    "bytes": 1193,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/upstream-failure.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/upstream-failure.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/item-label-store.ts": {
+    "sha256": "3ba13151cd0c36548870c832fddab1519c04335bc9e7aedd59b11c901a295d34",
+    "bytes": 2090,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/item-label-store.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/item-label-store.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/item-labels.ts": {
+    "sha256": "af6780c9bf2bd503e3581706a2fef975e368e0b6bc8348a145e36476da571d76",
+    "bytes": 8873,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/item-labels.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/item-labels.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/assessment-binding.ts": {
+    "sha256": "fe9154ff7d2217226c0b28ae56be70f7249a6fcb20b38b7affa6153416c45abd",
+    "bytes": 3998,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/assessment-binding.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/assessment-binding.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/student-resolver.ts": {
+    "sha256": "08542d706a92f77c6f0e20c998829f28bab33c28ba4cc1108ccd78d042e22acf",
+    "bytes": 2794,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/student-resolver.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/student-resolver.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-save-admission.ts": {
+    "sha256": "0e208e3f36a042fe3e2c33fe27067051830f4e90b6de720e820223983b524360",
+    "bytes": 6215,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-save-admission.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-save-admission.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/dailyrecord.ts": {
+    "sha256": "fa5d9db70e5f022697ebfdeff3b7623c68e3457105f480d05d5fc291fc1e61bb",
+    "bytes": 75155,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/dailyrecord.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/dailyrecord.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-workflow.ts": {
+    "sha256": "e928666b9b46b2eafd6f7146a3985ade2c048ea1f28519f51c0f03935f601180",
+    "bytes": 17147,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-workflow.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-workflow.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/tool-result.ts": {
+    "sha256": "eece5a4c8d4fda38515a1939b31485f73c025b1d49491974a1337a8086905bd9",
+    "bytes": 1060,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/tool-result.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/tool-result.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/contracts.ts": {
+    "sha256": "ccceb4123e866d677d002f54ce29205248708a2241a438dc63e9a5290e49b8ff",
+    "bytes": 4454,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/contracts.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/contracts.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/routing-context.ts": {
+    "sha256": "332ff3f2f63fc30af7eab936b987c8ed7be507a57678528f6f8ebd459e721c29",
+    "bytes": 15905,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/routing-context.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/routing-context.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/item-label-tools.ts": {
+    "sha256": "e17684affdb24026f9fe246ba3047e5f459ca939d510dbde5d6b87486576da54",
+    "bytes": 3741,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/item-label-tools.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/item-label-tools.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/type-questions.ts": {
+    "sha256": "60d57355e7e8407f35ec6471b17e79338dc10003c0b252852db264b42685727f",
+    "bytes": 2490,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/type-questions.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/type-questions.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/tests/neutral-paper-header-fixture.ts": {
+    "sha256": "876544f742e8de9ddec3f0d7730419a5c83d505f26ed927ef24af79d0ec70656",
+    "bytes": 1223,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/tests/neutral-paper-header-fixture.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/tests/neutral-paper-header-fixture.ts"
+  },
+  "apps/academy/dc-gang-a/src/lms/printedPaperCode.ts": {
+    "sha256": "e753d51df93843921b6c481df4e9a9da5776c799eed1d0328b5eac2494409e22",
+    "bytes": 1017,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/apps/academy/dc-gang-a/src/lms/printedPaperCode.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/apps/academy/dc-gang-a/src/lms/printedPaperCode.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/tests/neutral-upstream-fixture.ts": {
+    "sha256": "d7574c656a18c202666f91ce1bb4c67d33ca9366357e53fefbb5ef5801d471d1",
+    "bytes": 5549,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/tests/neutral-upstream-fixture.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/tests/neutral-upstream-fixture.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/tests/dailyrecord-fixture.ts": {
+    "sha256": "9eaee97caaf4e5e389cef8fea62191fd6b9628fb37b0f8ab038b5bff48b2cfaf",
+    "bytes": 3189,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/tests/dailyrecord-fixture.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/tests/dailyrecord-fixture.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/tool-audit.ts": {
+    "sha256": "7579588586305de6e676941a69c5ecc235f0d350f144bf00834c49904f926c8c",
+    "bytes": 6716,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/tool-audit.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/tool-audit.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/stable-launcher.ts": {
+    "sha256": "b46a467904be04620ca880e2b826306fa22a465ca9e6017fad7610937422b379",
+    "bytes": 3204,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/stable-launcher.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/stable-launcher.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/runtime-release.ts": {
+    "sha256": "efa753ce535c25b04958117902e7cec7702e26669c04245c93ada350855d27b2",
+    "bytes": 6359,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/runtime-release.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/runtime-release.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/paper-scope-routing.ts": {
+    "sha256": "0826ef447eaef1003b9070ba5f4c13e268e2dc4053a115c97e4f7486e35ab710",
+    "bytes": 2683,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/paper-scope-routing.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/paper-scope-routing.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/runtime-identity.ts": {
+    "sha256": "21bfe6f4a771db0218186af7769fa4772664e671d2058ac2e2e42e0f62373316",
+    "bytes": 4033,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/runtime-identity.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/runtime-identity.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-server.ts": {
+    "sha256": "61b12b21cef9c3b4e543df27400863f886e2eeec3a60c83feb90fc5de64872a6",
+    "bytes": 2749,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-server.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-server.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/native-dailyrecord-backend.ts": {
+    "sha256": "a77b2bac3fb1aad10dfbbe47af495a4d320683f6f1f8e1a87cd508deb26400ef",
+    "bytes": 51754,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/native-dailyrecord-backend.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/native-dailyrecord-backend.ts"
+  },
+  "apps/academy/dc-gang-a/src/lms/textbookCatalogRead.ts": {
+    "sha256": "55aca2e21f68d3deb4bf19a194cfcf8a71be5de0833d3e148312eb12d087b930",
+    "bytes": 7046,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/apps/academy/dc-gang-a/src/lms/textbookCatalogRead.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/apps/academy/dc-gang-a/src/lms/textbookCatalogRead.ts"
+  },
+  "apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol.ts": {
+    "sha256": "3db052875ef4f8039c007cf5f5a1ec1bde2d30f837a49e8abf467493c2c4b965",
+    "bytes": 6868,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol.ts"
+  },
+  "apps/academy/dc-gang-a/src/lms/sourceFunctionText.ts": {
+    "sha256": "6c371f6c2ea7e36d99bb5bbe14df650049b0151bbea18c7ddb32f5d6cc7aa9e9",
+    "bytes": 1512,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/apps/academy/dc-gang-a/src/lms/sourceFunctionText.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/apps/academy/dc-gang-a/src/lms/sourceFunctionText.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/textbook-source-tools.ts": {
+    "sha256": "74880dff3d730e8ce6a5c990759c821d1772b7804aae8c428095da0eb903a94d",
+    "bytes": 7019,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/textbook-source-tools.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/textbook-source-tools.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-learning.ts": {
+    "sha256": "4df9c75ec311612b88f77f315695cb5ecf137faa81fa323fb9b9e9e0539f7af5",
+    "bytes": 3820,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-learning.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/dailyrecord-learning.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/stdio-diagnostics.ts": {
+    "sha256": "cc6cd7a27993709d45b7f8ca1c5d396b8e11fe78fa78c641191748dd5b4bd30b",
+    "bytes": 1877,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/stdio-diagnostics.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/stdio-diagnostics.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/cism-weekly-tools.ts": {
+    "sha256": "8c762fcbaef98566d57decb6c15d754fd8eb4e1ed7f68a7a5e50d25492f566f2",
+    "bytes": 12780,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/cism-weekly-tools.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/cism-weekly-tools.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts": {
+    "sha256": "36394d985e2bc142e7ba423a915b998507c898f80676e5d44f212feb75406e14",
+    "bytes": 25549,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/dailytest-header-route.ts": {
+    "sha256": "2df80f285e7e73c1e785b69fc23a6db93598c7493ce057fb63d4b2e3da5bd7b1",
+    "bytes": 9511,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/dailytest-header-route.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/dailytest-header-route.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/src/endpoint-inventory.ts": {
+    "sha256": "2abd1b74bff8b2be99122388f4487190a6f90cd3a32486feb2df75a100d51311",
+    "bytes": 939,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/src/endpoint-inventory.ts",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/src/endpoint-inventory.ts"
+  },
+  "modules/academy-workbench/tools/academy-mcp/runtime/hermes-stdio-relay.py": {
+    "sha256": "94afb5f8abbeb5bceb51eff9b38e1cbe73b63d68f2b9ab662ea352af68b9e5f2",
+    "bytes": 742,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/runtime/hermes-stdio-relay.py",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/runtime/hermes-stdio-relay.py"
+  },
+  "modules/academy-workbench/tools/academy-mcp/runtime/academy-mcp-bridge.socket": {
+    "sha256": "0289638b21b1d4481960e9a6d4b813efbba5212c69f4a5b512e5c445a0d50b62",
+    "bytes": 378,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/runtime/academy-mcp-bridge.socket",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/runtime/academy-mcp-bridge.socket"
+  },
+  "modules/academy-workbench/tools/academy-mcp/runtime/academy-mcp-bridge@.service": {
+    "sha256": "51daef65832d52515a04b7c59fc272d67a5afbf88d465f7d2aeb6d136af0c213",
+    "bytes": 342,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/runtime/academy-mcp-bridge@.service",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/runtime/academy-mcp-bridge@.service"
+  },
+  "bun.lock": {
+    "sha256": "93ec13370c7e17db01706ff87c5b0b738f723a1cc284588f4707c45b09a715aa",
+    "bytes": 8142,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/bun.lock",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/bun.lock"
+  },
+  "modules/academy-workbench/tools/academy-mcp/package.json": {
+    "sha256": "7cc89c147fdbf6dde32e9845d8aa1aeeebc8626d6c0270aa078613bce4512008",
+    "bytes": 1478,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/modules/academy-workbench/tools/academy-mcp/package.json",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/modules/academy-workbench/tools/academy-mcp/package.json"
+  },
+  "Cargo.toml": {
+    "sha256": "281b41651a645637d2ce81a57ce3296e2f6980f6a36c8c778ea4d6289d005e10",
+    "bytes": 939,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/Cargo.toml",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/Cargo.toml"
+  },
+  "Cargo.lock": {
+    "sha256": "960e0b328e8860ce71a5923bde2560dd754d2e52ff4039edc9801419fe60bc8e",
+    "bytes": 37907,
+    "originalPath": "/home/palantirkc/work/ws-replan/wt/education-platform-s11/Cargo.lock",
+    "executedPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition/source/Cargo.lock"
+  }
+}

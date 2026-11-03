@@ -1,0 +1,21 @@
+{
+  "returncode": 0,
+  "elapsedSeconds": 0.6687706370139495,
+  "cleanupRequested": false,
+  "membersBeforeCleanup": [],
+  "membersAfterCleanup": [],
+  "channels": {
+    "stdin": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-relocation/commands/valid-launch/stdin.bin",
+      "sha256": "76f8e71a714e36ec6b63dd4e04c16e7ae51821abf89698a52cd6429b108abab9"
+    },
+    "stdout": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-relocation/commands/valid-launch/stdout.bin",
+      "sha256": "2073576b0cbd9228022cb91a8cd6d19e9602a80e4e807d43aa01787694392ddb"
+    },
+    "stderr": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-relocation/commands/valid-launch/stderr.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}
