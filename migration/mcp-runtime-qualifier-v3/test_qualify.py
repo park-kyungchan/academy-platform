@@ -489,6 +489,7 @@ class PureTests(unittest.TestCase):
                    'traces':{parent_pid:parent_trace, child_pid:child_trace}}
         class C: pass
         capture = C(); capture.root = root
+        capture.manifest = q.parse((root/'MANIFEST.json').read_bytes())
         capture.raw = lambda relative: (root/relative).read_bytes()
         capture.json = lambda relative: q.parse(capture.raw(relative))
         return capture, command, parent, child, snapshots, parent_trace, child_trace
@@ -855,6 +856,160 @@ class PureTests(unittest.TestCase):
         except RuntimeError:
             pass
         self.assertEqual(q.HERE,actual_here)  # Also restored on exceptions.
+
+    @classmethod
+    def measured_capture(cls, mode, label):
+        if not hasattr(cls,'measured_captures'):
+            cls.measured_captures={}
+        key=(mode,label)
+        if key not in cls.measured_captures:
+            root=NOTES/f'{mode}-{label}-01'
+            custody=q.parse((NOTES.parent/f'LEAD-{mode.upper()}-CUSTODY-01.json').read_bytes())
+            with patch('subprocess.Popen',side_effect=AssertionError('forbidden subprocess')):
+                cls.measured_captures[key]=q.Capture(root,custody['captures'][str(root)],custody['supervisors'][str(root)])
+        return cls.measured_captures[key]
+
+    def receipt_clock_fixture(self):
+        capture=self.measured_capture('composition','B');command=capture.commands['neutral']
+        mutant,cmd=self.mutant_capture(capture,command);cmd['direct']=copy.copy(command['direct'])
+        cmd['direct'].update(copy.deepcopy({k:command['direct'][k] for k in ['events','channels']}))
+        event=next(e for e in cmd['direct']['events'] if e['sequence']==28)
+        return mutant,cmd,cmd['cap']['requests'][7],next(f for f in cmd['cap']['frames'] if f.get('value',{}).get('id')==7),event
+
+    def test_62_actual_composition_receipt_sample_enclosure(self):
+        fixture=self.receipt_clock_fixture();capture,cmd,request,reply,event=fixture
+        self.rejected('clock_window_boundary_ambiguous',cmd['direct']['clock'].contains,event['sample'],
+                      request['requestSendBracket']['before'],reply['responseReceiveBracket']['after'])
+        self.assertEqual(q.receipt_write_sample(*fixture),(1793698951178020000,1793698951178150000))
+        self.assertEqual(set(q.request_receipts(capture,cmd,request,reply)),{'dispatch','failure'})
+
+    def test_63_receipt_clock_source_owner_sequence_and_bytes_negatives(self):
+        for kind,code in [('owner','clock_owner_mismatch'),('sequence','receipt_clock_sequence_ambiguous'),
+                          ('native','receipt-clock-native-write-bytes'),('missing','native_write_trace_missing'),
+                          ('api','receipt_clock_write_role_unsupported'),('preload','receipt-clock-preload-order')]:
+            with self.subTest(kind=kind):
+                fixture=self.receipt_clock_fixture();capture,cmd,request,reply,event=fixture;pid=event['pid']
+                if kind=='owner':
+                    owner=event['sample'].owner;event['sample'].owner=q.ClockDomain('bun',owner.capture,pid+1,owner.command,owner.exec_sha256)
+                if kind=='sequence':event['sequence']=99999
+                if kind=='native':cmd['traces'][pid]=cmd['traces'][pid].replace('automaticRetryAllowed','automaticRetryAlloweD')
+                if kind=='missing':del cmd['traces'][pid]
+                if kind=='api':event['api']='appendFileSync'
+                if kind=='preload':
+                    original=capture.raw;capture.raw=lambda p: b'wrong' if p=='observer-source/preload.ts' else original(p)
+                self.rejected(code,q.receipt_write_sample,*fixture)
+
+    def test_64_receipt_clock_partial_order_disjoint_and_outside_negatives(self):
+        for kind,code in [('partial','native_write_partial_or_length'),('order','receipt_clock_native_order_ambiguous'),
+                          ('disjoint','receipt_clock_native_envelope_disjoint'),('outside','clock_sample_outside_window')]:
+            with self.subTest(kind=kind):
+                fixture=self.receipt_clock_fixture();_,cmd,_,reply,event=fixture;pid=event['pid'];lines=cmd['traces'][pid].splitlines()
+                if kind=='partial':
+                    import re
+                    lines[1907]=re.sub(r'= ([0-9]+) ',lambda m:'= '+str(int(m[1])-1)+' ',lines[1907])
+                if kind=='order':lines[1906:1913]=lines[1910:1913]+lines[1906:1910]
+                if kind=='disjoint':
+                    for i in range(1906,1913):
+                        stamp,rest=lines[i].split(' ',1);sec,micro=stamp.split('.');t=int(sec)*1000000+int(micro)+10000
+                        lines[i]=str(t//1000000)+'.'+str(t%1000000).zfill(6)+' '+rest
+                cmd['traces'][pid]='\n'.join(lines)+'\n'
+                if kind=='outside':
+                    bracket=reply['responseReceiveBracket'];delta=1793698951177900000-bracket['after']['wallNs']
+                    for edge in ['before','after']:
+                        v=bracket[edge];bracket[edge]=q.own_sample({k:(x+delta if k in ['wallNs','monoBeforeNs','monoAfterNs'] else x) for k,x in v.items()},v.owner)
+                self.rejected(code,q.receipt_write_sample,*fixture)
+
+    def graph_echo_fixture(self,label):
+        capture=self.measured_capture('graph',label);command=capture.commands['neutral']
+        process=next(p for p in capture.processes.values() if p['role']=='neutral' and p['entry'].endswith('/fictional-fault-fixture.ts') and any(c['request']['params']['name']=='academy_cism_weekly_save' for c in q.source_calls(p)))
+        call=next(c for c in q.source_calls(process) if c['request']['params']['name']=='academy_cism_weekly_save')
+        return capture,command,process,call
+
+    def test_65_actual_graph_echo_uses_only_three_validated_roles(self):
+        left=self.graph_echo_fixture('A');right=self.graph_echo_fixture('B');label='neutral:5:upstream:1'
+        self.assertNotEqual(left[3]['raw'],right[3]['raw'])
+        self.assertEqual(q.upstream_semantics(*left,label),q.upstream_semantics(*right,label))
+        atoms=q.Atoms(label);q.fixture_echo_roles(*left,atoms,label)
+        expected={('structuredContent','receivedArguments','attribution','observedAt'),
+                  ('structuredContent','receivedArguments','attribution','process','pid'),
+                  ('structuredContent','receivedArguments','attribution','process','ppid')}
+        self.assertEqual(set(atoms.roles),expected)
+        roles,texts=atoms.result_wire(q.parse(left[3]['raw']))
+        original=q.LexicalJSON(left[3]['raw'],roles,texts).tree()
+        # An unmarked literal changed in both representations must remain different.
+        mutant=copy.deepcopy(left[3]['result']);mutant['structuredContent']['receivedArguments']['attribution']['client']['name']='literal-mutant'
+        mutant['content'][0]['text']=q.js_bytes(mutant['structuredContent']).decode()
+        wire=q.js_bytes({'result':mutant,'jsonrpc':'2.0','id':left[3]['request']['id']})+b'\n'
+        self.assertNotEqual(original,q.LexicalJSON(wire,roles,texts).tree())
+
+    def test_66_graph_echo_input_dual_literal_source_and_pid_controls(self):
+        for kind,code in [('echo','fixture-echo-input-equality'),('text','fixture-echo-dual-bytes'),
+                          ('uid','fixture-echo-native-uid'),('pid','fixture-echo-native-pid'),
+                          ('input','fixture-echo-original-input'),('source','fixture-echo-source-bytes')]:
+            with self.subTest(kind=kind):
+                capture,command,process,call=self.graph_echo_fixture('A');capture=copy.copy(capture);command=copy.copy(command)
+                call={**call,'request':copy.deepcopy(call['request']),'result':copy.deepcopy(call['result'])}
+                if kind=='echo':call['result']['structuredContent']['receivedArguments']['attribution']['observedAt']='2000-01-01T00:00:00.000Z'
+                if kind=='text':call['result']['content'][0]['text']='{}'
+                if kind in ['uid','pid']:
+                    command['direct']=copy.copy(command['direct']);command['direct']['start']=dict(command['direct']['start']);command['direct']['start'][kind]+=1
+                if kind=='input':call['request']['params']['arguments']['attribution']['declared']={'unexpected':True}
+                if kind=='source':
+                    original=capture.raw;capture.raw=lambda p: b'wrong' if p=='source/fictional-fault-fixture.ts' else original(p)
+                self.rejected(code,q.fixture_echo_roles,capture,command,process,call,q.Atoms('echo'),'echo')
+        fixture=self.graph_echo_fixture('A');process=copy.copy(fixture[2]);process['entry']=str(fixture[0].root/'source/other.ts');atoms=q.Atoms('literal')
+        q.fixture_echo_roles(fixture[0],fixture[1],process,fixture[3],atoms,'literal');self.assertFalse(atoms.roles)
+
+    def flock_fixture(self,label='A',role='discover'):
+        capture=self.measured_capture('bounds',label);command=capture.commands[role]
+        process=next(p for p in capture.processes.values() if p['role']==role and p['entry'].endswith('fictional-fault-fixture.ts'))
+        start=copy.deepcopy(process['start']);mutant=copy.copy(capture);cmd=copy.copy(command)
+        cmd['native']=copy.deepcopy(command['native']);cmd['traces']=dict(command['traces']);cmd['cap']=copy.deepcopy(command['cap'])
+        snapshots=[s for s in cmd['cap']['processSnapshots'] if s['pid']==start['pid'] and s.get('nativeArgv')==start['nativeArgv']]
+        return mutant,cmd,start,snapshots
+
+    def test_67_actual_all8_bounds_flock_bindings(self):
+        count=0
+        for label in ['A','B']:
+            capture=self.measured_capture('bounds',label)
+            for process in capture.processes.values():
+                if not process['entry'].endswith('fictional-fault-fixture.ts'):continue
+                cmd=capture.commands[process['role']];start=process['start']
+                self.assertNotIn(f"processes/{start['ppid']}/START.json",capture.manifest)
+                snapshots=[s for s in cmd['cap']['processSnapshots'] if s['pid']==start['pid']]
+                q.declared_flock_stdio(capture,cmd,start,snapshots);count+=1
+        self.assertEqual(count,8)
+
+    def test_68_flock_exact_owner_argv_snapshot_and_clone_negatives(self):
+        for kind,code in [('mode','native_flock_mode_unsupported'),('argv','flock-wrapper-exec'),
+                          ('parent','native_flock_ancestry_missing'),('snapshot','native_flock_independent_binding_missing'),
+                          ('fd','flock-wrapper-fd-inheritance'),('clone','native_flock_clone_binding_missing'),
+                          ('terminal','native_flock_terminal_missing')]:
+            with self.subTest(kind=kind):
+                capture,cmd,start,snapshots=self.flock_fixture();wrapper=start['ppid']
+                if kind=='mode':capture.mode='protocol'
+                if kind=='argv':cmd['native']['execs'][wrapper]['argv'][3]=str(capture.root/'other.lock')
+                if kind=='parent':cmd['native']['parents'][start['pid']]+=1
+                if kind=='snapshot':snapshots=[]
+                if kind=='fd':start['fds']['1']='socket:[9999999]'
+                if kind=='clone':cmd['traces'][wrapper]=cmd['traces'][wrapper].replace('CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD','CLONE_FILES|SIGCHLD')
+                if kind=='terminal':del cmd['native']['terminals'][wrapper]
+                self.rejected(code,q.declared_flock_stdio,capture,cmd,start,snapshots)
+
+    def test_69_flock_family_dup_rebind_and_missing_inode_negatives(self):
+        for kind,code in [('family','native_stdio_socketpair_family_unsupported'),('dup','native_stdio_dup_binding_wrong'),
+                          ('rebind','native_flock_stdio_rebound'),('inode','native_flock_child_inode_missing'),
+                          ('childrebind','native_flock_child_stdio_rebound')]:
+            with self.subTest(kind=kind):
+                capture,cmd,start,snapshots=self.flock_fixture();wrapper=start['ppid'];origin=cmd['native']['parents'][wrapper];child=start['pid']
+                if kind=='family':cmd['traces'][origin]=cmd['traces'][origin].replace('socketpair(AF_UNIX,','socketpair(AF_INET,')
+                if kind=='dup':cmd['traces'][wrapper]=cmd['traces'][wrapper].replace('dup2(7, 0)','dup2(8, 0)')
+                if kind=='rebind':cmd['traces'][wrapper]+='1793699068.000000 close(1) = 0 <0.000001>\n'
+                if kind=='inode':
+                    cmd['traces'][child]='\n'.join(l for l in cmd['traces'][child].splitlines() if 'readlink("/proc/self/fd/1"' not in l)+'\n'
+                if kind=='childrebind':
+                    lines=cmd['traces'][child].splitlines();lines.insert(1,'1793699067.759900 close(1) = 0 <0.000001>');cmd['traces'][child]='\n'.join(lines)+'\n'
+                self.rejected(code,q.declared_flock_stdio,capture,cmd,start,snapshots)
 
     def test_31_frozen_framing_bytes_and_split_order(self):
         chunks = q.expected_stdin('framing', 'neutral')

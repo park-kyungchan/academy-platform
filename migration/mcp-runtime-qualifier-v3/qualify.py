@@ -1088,7 +1088,10 @@ def stdio_scope(fds, top):
 
 
 def declared_socket_stdio(capture, command, start, snapshots):
-    parent = capture.json('processes/' + str(start['ppid']) + '/START.json')
+    parent_path = 'processes/' + str(start['ppid']) + '/START.json'
+    if parent_path not in capture.manifest:
+        return declared_flock_stdio(capture, command, start, snapshots)
+    parent = capture.json(parent_path)
     source = 'modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts'
     # This exact source declares StdioClientTransport(..., stderr:'pipe').
     # Pinned client2.3.1 dist/stdio.mjs declares stdio:[pipe,pipe,stderr].
@@ -1114,7 +1117,84 @@ def declared_socket_stdio(capture, command, start, snapshots):
     return socket_stdio_binding(traces[start['ppid']], traces[start['pid']], parent, start, snapshots)
 
 
-def socket_stdio_binding(parent_trace, child_trace, parent, child, snapshots):
+def declared_flock_stdio(capture, command, start, snapshots):
+    """Only bounds' declared native flock intermediary, with actual FD readbacks."""
+    if capture.mode != 'bounds':
+        uncertain('native_flock_mode_unsupported', 'stdio')
+    wrapper_pid = start['ppid']; native = command['native']; traces = command['traces']
+    entry = str(capture.root / 'source/fictional-fault-fixture.ts')
+    bun = ['/usr/local/bin/bun', '--no-install', '--no-env-file', '--preload',
+           str(capture.root / 'observer-source/preload.ts'), entry, 'dailyrecord']
+    expected = ['/usr/bin/flock', '--wait', '1', str(capture.root / 'fictional-account.lock'), *bun]
+    if wrapper_pid not in native['execs'] or start['pid'] not in native['execs']:
+        uncertain('native_flock_exec_missing', 'stdio')
+    require_same(bun, start['nativeArgv'], 'flock-child-argv')
+    require_same(bun, native['execs'][start['pid']]['argv'], 'flock-child-exec')
+    require_same(expected, native['execs'][wrapper_pid]['argv'], 'flock-wrapper-exec')
+    declared = [[e['command'], *e.get('args', [])] for e in capture.json('endpoints.json').values()]
+    if expected not in declared:
+        uncertain('native_flock_endpoint_undeclared', 'stdio')
+    if native['parents'].get(start['pid']) != wrapper_pid or wrapper_pid not in native['parents']:
+        uncertain('native_flock_ancestry_missing', 'stdio')
+    origin_pid = native['parents'][wrapper_pid]
+    origin = capture.json(f'processes/{origin_pid}/START.json')
+    source = 'modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts'
+    require_same(str(capture.root / 'source' / source), origin['argv'][1], 'flock-origin-source')
+    require_same(native['execs'][origin_pid]['argv'], origin['nativeArgv'], 'flock-origin-exec')
+    require_same(command['start']['pgid'], origin['pgid'], 'flock-origin-pgid')
+    require_same(origin['pgid'], start['pgid'], 'flock-child-pgid')
+    require_same(PINS['sources'][source], {'bytes': len(capture.raw('source/' + source)), 'sha256': sha(capture.raw('source/' + source))}, 'flock-origin-source-pin')
+    package = PINS['dependencyRoot'] + '/node_modules/@modelcontextprotocol/client'
+    data = (Path(package) / 'dist/stdio.mjs').read_bytes()
+    require_same(PINS['packages'][package]['files']['dist/stdio.mjs'], {'bytes': len(data), 'sha256': sha(data)}, 'flock-client-pin')
+    require_same(PINS['sources'][STIMULUS['fixture']], {'bytes': len(capture.raw('source/fictional-fault-fixture.ts')), 'sha256': sha(capture.raw('source/fictional-fault-fixture.ts'))}, 'flock-fixture-pin')
+    wrappers = [x for x in command['cap']['processSnapshots'] if x['pid'] == wrapper_pid and x.get('nativeArgv') == expected]
+    children = [x for x in snapshots if x['pid'] == start['pid'] and x.get('nativeArgv') == bun]
+    if not wrappers or not children or any(pid not in traces for pid in [origin_pid, wrapper_pid, start['pid']]):
+        uncertain('native_flock_independent_binding_missing', 'stdio')
+    wrapper = wrappers[0]
+    for snapshot in wrappers:
+        require_same(origin_pid, snapshot['ppid'], 'flock-wrapper-parent')
+        require_same(start['pgid'], snapshot['pgid'], 'flock-wrapper-pgid')
+        require_same(start['fds'], snapshot['fds'], 'flock-wrapper-fd-inheritance')
+    for snapshot in children:
+        for key in ['ppid', 'pgid', 'fds']:
+            require_same(start[key], snapshot[key], 'flock-child-independent-' + key)
+    # Reuse only the existing finite Bun three-socketpair/vfork/dup2 prefix.
+    # Wrapper is an actual Python /proc snapshot, never a fabricated JS START.
+    wrapper_lines, wrapper_execs = socket_spawn_prefix(traces[origin_pid], traces[wrapper_pid], origin, wrapper, wrappers)
+    if len(wrapper_execs) != 1:
+        uncertain('native_flock_exec_sequence_unsupported', 'stdio')
+    clones = [i for i, line in enumerate(wrapper_lines) if re.search(
+        r'clone\(child_stack=NULL, flags=CLONE_CHILD_CLEARTID\|CLONE_CHILD_SETTID\|SIGCHLD, child_tidptr=0x[0-9a-f]+\)\s*= ' + str(start['pid']) + r'(?:\s|$)', line)]
+    if len(clones) != 1:
+        uncertain('native_flock_clone_binding_missing', 'stdio')
+    # Native flock is selected explicitly; only its known lock call may precede clone.
+    if not any(re.search(r'flock\([0-9]+, LOCK_EX\)\s*= 0(?:\s|$)', line) for line in wrapper_lines[wrapper_execs[0]:clones[0]]):
+        uncertain('native_flock_lock_binding_missing', 'stdio')
+    rebound = r'(?:dup2|dup3)\([^,]+, [012](?:,|\))|close\([012]\)|close_range\('
+    if any(re.search(rebound, line) for line in wrapper_lines[wrapper_execs[0] + 1:]):
+        uncertain('native_flock_stdio_rebound', 'stdio')
+    child_lines = traces[start['pid']].splitlines()
+    child_execs = [i for i, line in enumerate(child_lines) if 'execve(' in line and re.search(r'\)\s*= 0(?:\s|$)', line)]
+    if child_execs != [0]:
+        uncertain('native_flock_child_exec_sequence_unsupported', 'stdio')
+    for fd in range(3):
+        links = [(i, re.search(r'readlink\("/proc/self/fd/' + str(fd) + r'", "(socket:\[[0-9]+\])", [0-9]+\)\s*= ([0-9]+)(?:\s|$)', line)) for i, line in enumerate(child_lines)]
+        links = [(i, match) for i, match in links if match]
+        if not links:
+            uncertain('native_flock_child_inode_missing', 'stdio')
+        index, link = links[0]
+        require_same(start['fds'][str(fd)], link[1], 'flock-child-inode')
+        require_same(len(link[1]), int(link[2]), 'flock-child-readlink-length')
+        if any(re.search(rebound, line) for line in child_lines[1:index]):
+            uncertain('native_flock_child_stdio_rebound', 'stdio')
+    for pid in [wrapper_pid, start['pid']]:
+        if pid not in native['terminals']:
+            uncertain('native_flock_terminal_missing', 'stdio')
+
+
+def socket_spawn_prefix(parent_trace, child_trace, parent, child, snapshots):
     """Finite Bun1.4.3 three-pipe AF_UNIX/vfork/dup2 pattern, not an FD emulator."""
     if child['ppid'] != parent['pid'] or child['pgid'] != parent['pgid']:
         uncertain('native_stdio_ancestry_missing', 'stdio')
@@ -1181,6 +1261,12 @@ def socket_stdio_binding(parent_trace, child_trace, parent, child, snapshots):
     expected_operations = [op for fd, source in expected.items() for op in [('dup2', source, fd), ('close', source)]]
     if operations != expected_operations:
         uncertain('native_stdio_child_fd_sequence_unsupported', 'stdio')
+    return child_lines, execs
+
+
+def socket_stdio_binding(parent_trace, child_trace, parent, child, snapshots):
+    child_lines, execs = socket_spawn_prefix(parent_trace, child_trace, parent, child, snapshots)
+    fds = child['fds']
     # Native readlink bytes tie each dup destination to the recorded socket
     # inode; Python /proc readback above independently corroborates that inode.
     for fd in range(3):
@@ -1630,6 +1716,71 @@ def direct_request_sample(capture, command, request, reply, sample, channel):
     return narrowed
 
 
+def receipt_write_sample(capture, command, request, reply, event):
+    """Only an actual successful receipt write may narrow its logging sample."""
+    process = command['direct']; clock = process['clock']; sample = event['sample']
+    before = request['requestSendBracket']['before']
+    after = reply['responseReceiveBracket']['after'] if reply else command['result']['ended']
+    try:
+        clock.contains(sample, before, after)
+        return wall_cell(sample)
+    except Unqualified as error:
+        if str(error) != 'clock_window_boundary_ambiguous@clock:1':
+            raise
+    trace = native_writer_trace(capture, command, process); start = process['start']
+    owner = ClockDomain('bun', str(capture.root), start['pid'], command['start']['pid'], sha(js_bytes(start['nativeArgv'])))
+    if sample.owner != owner or clock.owner != owner or clock.recorder != capture.recorder:
+        refuse('clock_owner_mismatch', 'receipt-clock')
+    source = 'modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts'
+    require_same(str(capture.root / 'source' / source), process['entry'], 'receipt-clock-source')
+    require_same(PINS['sources'][source]['sha256'], capture.entry_pin(process['entry']), 'receipt-clock-source-pin')
+    require_same((HERE / 'preload.ts').read_bytes(), capture.raw('observer-source/preload.ts'), 'receipt-clock-preload-order')
+    if event['kind'] != 'file_write' or event.get('success') is not True or event.get('api') != 'writeFileSync':
+        uncertain('receipt_clock_write_role_unsupported', 'receipt-clock')
+    if sum(e is event for e in process['events']) != 1 or sum(r is request for r in command['cap']['requests']) != 1:
+        uncertain('receipt_clock_event_request_ambiguous', 'receipt-clock')
+    require_same(start['pid'], event['pid'], 'receipt-clock-event-owner')
+    calls = [c for c in source_calls(process) if same(c['request'], request['request'])]
+    if len(calls) != 1:
+        uncertain('receipt_clock_request_owner_missing', 'receipt-clock')
+    call = calls[0]; same_clock(call['before'], sample)
+    clock_interval(call['before'], event['before']); clock_interval(event['before'], sample)
+    if call['after'] is not None:
+        clock_interval(sample, call['after'])
+    if reply is not None:
+        require_same(call['raw'], bytes.fromhex(reply['bytes']), 'receipt-clock-response-frame')
+        if sum(f is reply for f in command['cap']['frames']) != 1:
+            uncertain('receipt_clock_reply_ambiguous', 'receipt-clock')
+    path = event['path']
+    if not receipt_path(capture.root, path):
+        uncertain('receipt_clock_path_unsupported', 'receipt-clock')
+    chains = native_file_chains(trace, path, 'receipt')
+    if len(chains) != 1:
+        uncertain('receipt_clock_native_write_ambiguous', 'receipt-clock')
+    written = chains[0]
+    require_same(event_bytes(event), written['raw'], 'receipt-clock-native-write-bytes')
+    require_same(written['raw'], capture.raw('receipts/' + Path(path).name), 'receipt-clock-retained-bytes')
+    logpath = f"processes/{start['pid']}/events.ndjson"
+    logs = native_file_chains(trace, str(capture.root / logpath), 'tap')
+    require_same(capture.raw(logpath), b''.join(x['raw'] for x in logs), 'receipt-clock-event-append-bytes')
+    selected = [x for x in logs if parse(x['raw']).get('sequence') == event['sequence']]
+    if len(selected) != 1:
+        uncertain('receipt_clock_sequence_ambiguous', 'receipt-clock')
+    logged = selected[0]
+    require_same({**event, 'sample': dict(sample), 'before': dict(event['before'])}, parse(logged['raw']), 'receipt-clock-native-event')
+    if written['closeLine'] >= logged['openLine']:
+        uncertain('receipt_clock_native_order_ambiguous', 'receipt-clock')
+    lines = trace.splitlines()
+    lower = native_operation_cell(lines[written['closeLine'] - 1])[0]
+    upper = native_operation_cell(lines[logged['openLine'] - 1])[1]
+    cell = wall_cell(sample); narrowed = max(cell[0], lower), min(cell[1], upper)
+    if lower > upper or narrowed[0] > narrowed[1]:
+        uncertain('receipt_clock_native_envelope_disjoint', 'receipt-clock')
+    enclose_cell(narrowed, clock.exec_cell[0], clock.terminal_cell[1])
+    enclose_cell(narrowed, *clock.recorder_window(before, after))
+    return narrowed
+
+
 def request_receipts(capture, command, request, reply):
     direct = command['direct']
     lo = request['requestSendBracket']['before']
@@ -1653,7 +1804,7 @@ def request_receipts(capture, command, request, reply):
             continue
         if call['after'] is not None and sample_bounds(e['sample'])[2] > sample_bounds(call['after'])[2]:
             continue
-        direct['clock'].contains(e['sample'], lo, hi)
+        receipt_write_sample(capture, command, request, reply, e)
         occurrence, phase = m.groups()
         if phase in found:
             refuse('serial_receipt_window_collision', command['direct']['role'])
@@ -1982,6 +2133,43 @@ def receipt_semantics(capture, receipts, before, after, label, upstream):
     return output
 
 
+def fixture_echo_roles(capture, command, process, call, atoms, label):
+    """Only the pinned fictional save fixture echoes the validated attribution."""
+    entry = str(capture.root / 'source/fictional-fault-fixture.ts')
+    if process['entry'] != entry or call['request']['params']['name'] != 'academy_cism_weekly_save':
+        return
+    result = call['result']; data = result.get('structuredContent', {})
+    if 'receivedArguments' not in data:
+        return  # Error/hung fixture results retain their existing literal meaning.
+    require_same(PINS['sources'][STIMULUS['fixture']]['sha256'], capture.entry_pin(entry), 'fixture-echo-source-pin')
+    require_same(PINS['sources'][STIMULUS['fixture']],
+                 {'sha256': sha(capture.raw('source/fictional-fault-fixture.ts')), 'bytes': len(capture.raw('source/fictional-fault-fixture.ts'))}, 'fixture-echo-source-bytes')
+    require_same(command['native']['execs'][process['start']['pid']]['argv'], process['start']['nativeArgv'], 'fixture-echo-native-owner')
+    require_same(['/usr/local/bin/bun', entry, 'dailyrecord'], process['start']['argv'], 'fixture-echo-source-argv')
+    inputs = [f for f in stream_frames(process, 'stdin') if isinstance(f['value'], dict) and same(f['value'].get('id'), call['request']['id'])]
+    if len(inputs) != 1:
+        uncertain('fixture_echo_input_anchor_ambiguous', label)
+    require_same(js_bytes(inputs[0]['value']), js_bytes(call['request']), 'fixture-echo-original-input')
+    args = call['request']['params'].get('arguments', {}); attribution = args.get('attribution')
+    if attribution is None:
+        uncertain('fixture_echo_attribution_missing', label)
+    original = command['direct']['start']
+    require_same('neutral-bridge', attribution['observedBy'], 'fixture-echo-attribution-owner')
+    for key in ['pid', 'ppid', 'uid']:
+        require_same(original[key], attribution['process'][key], 'fixture-echo-native-' + key)
+    require_same('strace', attribution['process']['parentCommand'], 'fixture-echo-parent-command')
+    require_same(capture.entry_pin(command['direct']['entry']), attribution['process']['bridgeSha256'], 'fixture-echo-bridge-source')
+    freshness(attribution['observedAt'], command['start']['prelaunch'], call['before'], True, native=process['clock'])
+    expected = {'status': 'observed', 'fictional': True, 'endpoint': 'dailyrecord', 'receivedArguments': args}
+    require_same(expected, data, 'fixture-echo-input-equality')
+    require_same(js_bytes(args), js_bytes(data['receivedArguments']), 'fixture-echo-input-serialization')
+    require_same({'content': [{'type': 'text', 'text': js_bytes(data).decode()}], 'structuredContent': data}, result, 'fixture-echo-dual-bytes')
+    path = ('structuredContent', 'receivedArguments', 'attribution')
+    atoms.add(path + ('observedAt',), attribution['observedAt'], label + ':attribution-time')
+    for key in ['pid', 'ppid']:
+        atoms.add(path + ('process', key), attribution['process'][key], label + ':bridge-' + key)
+
+
 def upstream_semantics(capture, command, process, call, label):
     request = call['request']
     request_roles = {}
@@ -2006,6 +2194,7 @@ def upstream_semantics(capture, command, process, call, label):
     atoms = Atoms(label)
     tool = request['params']['name']
     audit_roles(result, request, call['before'], call['after'], atoms, label)
+    fixture_echo_roles(capture, command, process, call, atoms, label)
     data = result.get('structuredContent', {})
     if tool == 'academy_dailyrecord_intake' and data.get('source') is not None:
         value = data['source']['observedAt']

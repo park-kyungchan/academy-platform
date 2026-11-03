@@ -343,3 +343,42 @@ remain; the context always restores, including exceptions. These are fixture
 semantics, not production admission. An unpatched-current763 regression must
 refuse the old857 direct proof and Capture observer-byte binding. Production
 qualify.py is unchanged and retains its strict current/captured preload join.
+
+## Three observed boundary corrections at964
+
+Composition B/request7/PID3646514 successful receipt file_write sequence28 has
+a1ms cell extending81831ns beyond its Python reply window. Its actual exclusive
+0600/full-write/ftruncate/close native receipt chain and exact event append
+constrain the logging sample to1793698951178020000..1793698951178150000ns, inside
+the unchanged recorder window. Only successful writeFileSync receipt samples
+may use this finite ambiguity-only owner/source/request/sequence/bytes/order
+proof. Intersect the native enclosure with the original wall cell and require
+nonempty containment in original recorder/lifetime bounds. Generic clock,
+upstream selection and tolerance remain unchanged; partial/missing/disjoint
+proof fails closed. Other native receipt/body/hash/freshness guards remain.
+
+Graph outer save request5's pinned fictional fixture echoes actual input
+attribution in structuredContent.receivedArguments and exact JSON.stringify
+content.text. Only after exact original input serialization/native producer,
+source pin, bridge PID/PPID/UID/SHA and freshness validation may the three
+already validated roles observedAt,pid,ppid propagate to those exact output
+pointers and dual text spans. UID/client/declared/sourceSHA and every other
+literal remain literal. This is fictional fixture semantics, not save authority,
+regex normalization or a role for arbitrary receivedArguments/unknown sources.
+
+Bounds selected endpoint is exactly /usr/bin/flock --wait1 <owned fictional
+lock> <pinned Bun/preload/fixture dailyrecord>. Its native intermediary has no
+JS START by design. Bind only actual origin Bun -> flock -> fixture Bun execs,
+parents/PGID/terminals, declared argv and lock call, exact existing three
+AF_UNIX socketpair/vfork/dup2 prefix, non-CLONE_FILES clone inheritance, absence
+of stdio rebind, native child inode readlinks and independent wrapper+child
+/proc snapshots. No synthetic START or arbitrary native ancestor is admitted;
+missing/wrong-family/dup/snapshot/argv/clone/inode proof refuses. This topology
+remains a local IPC role, never an independent child OS channel. Hung -15,
+unknown possible effects/no retry and actual group/flock-release checks stay.
+
+These fixes reuse immutable observed bytes; no recorder/preload/stimulus/pins
+change or recapture is justified by these three boundaries alone. Pure helper
+regressions do not establish the unresolved mode comparisons or all-ten gate.
+Root must create new custody and compare only composition/graph/bounds; the
+seven already measured mode results are retained at their exact source context.
