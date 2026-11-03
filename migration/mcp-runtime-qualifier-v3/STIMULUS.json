@@ -1,0 +1,739 @@
+{
+  "schema": "s11.original-stimulus/3",
+  "source": "migration/mcp-runtime-reference-v1/observe.py:127-252; accepted DESIGN protocol20-22 extension",
+  "serialization": "UTF-8 compact JSON ensure_ascii=False insertion-order + LF; setup JSON indent2 + LF",
+  "initialize": {
+    "jsonrpc": "2.0",
+    "id": 0,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2025-11-25",
+      "capabilities": {},
+      "clientInfo": {
+        "name": "s11-fictional-observer",
+        "version": "1"
+      }
+    }
+  },
+  "initialized": {
+    "jsonrpc": "2.0",
+    "method": "notifications/initialized"
+  },
+  "toolsList": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list",
+    "params": {}
+  },
+  "admission": {
+    "schemaVersion": "academy.owner-admission/1",
+    "decider": "user",
+    "decidedAt": "2040-01-16",
+    "sourceNamespace": "academy.lms.dayrecord",
+    "teacherId": "99001",
+    "allowedFrom": "2040-01-15",
+    "allowedThrough": "2040-01-17",
+    "failClosedDefault": "2026-10-23"
+  },
+  "modes": {
+    "inventory": [],
+    "discovery": [
+      {
+        "op": "rpc",
+        "id": 10,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_endpoint_identity",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 11,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_runtime_read_admission",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 12,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_textbook_catalog",
+          "arguments": {
+            "schoolLevel": "middle"
+          }
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 13,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_cism_weekly_get",
+          "arguments": {
+            "date": "2040-01-16"
+          }
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 14,
+        "method": "tools/call",
+        "params": {
+          "name": "unknown_fictional_tool",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 15,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_runtime_read_admission",
+          "arguments": {
+            "extra": 1
+          }
+        }
+      }
+    ],
+    "protocol": [
+      {
+        "op": "rpc",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_runtime_identity",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+          "name": "unknown_fictional_tool",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 4,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_source_status"
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 5,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_source_status",
+          "arguments": {
+            "fictionalExtra": 1
+          }
+        }
+      },
+      {
+        "op": "write",
+        "path": "inject-source-status-error",
+        "text": "prestudy_search_form_drift"
+      },
+      {
+        "op": "rpc",
+        "id": 6,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_source_status",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "write",
+        "path": "inject-source-status-error",
+        "text": "S11_FICTIONAL_PRIVATE_ERROR"
+      },
+      {
+        "op": "rpc",
+        "id": 7,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_source_status",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "unlink",
+        "path": "inject-source-status-error"
+      },
+      {
+        "op": "rpc",
+        "id": 8,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_dailyrecord_get",
+          "arguments": {
+            "displayName": "Invented Student",
+            "purpose": "S11 fictional read",
+            "currentRequestRef": "s11-fictional-request",
+            "lessonDate": "2040-01-16"
+          }
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 9,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_dailyrecord_get",
+          "arguments": {
+            "displayName": "Invented Student",
+            "purpose": "S11 fictional read",
+            "currentRequestRef": "s11-fictional-request",
+            "lessonDate": "2040-01-16",
+            "teacherId": "99002"
+          }
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 10,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_item_answer_lookup",
+          "arguments": {
+            "labels": [
+              "12345"
+            ],
+            "purpose": "fictional",
+            "currentRequestRef": "s11-fictional"
+          }
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 11,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_item_answer_lookup",
+          "arguments": {
+            "labels": [
+              "12345",
+              "12346",
+              "12347",
+              "12348",
+              "12349",
+              "12350",
+              "12351",
+              "12352",
+              "12353",
+              "12354",
+              "12355",
+              "12356",
+              "12357",
+              "12358",
+              "12359",
+              "12360",
+              "12361",
+              "12362",
+              "12363",
+              "12364",
+              "12365",
+              "12366",
+              "12367",
+              "12368",
+              "12369",
+              "12370",
+              "12371",
+              "12372",
+              "12373",
+              "12374",
+              "12375",
+              "12376",
+              "12377"
+            ],
+            "purpose": "fictional",
+            "currentRequestRef": "s11-fictional"
+          }
+        }
+      },
+      {
+        "op": "write",
+        "path": "inject-cism-transport-error",
+        "text": "fictional"
+      },
+      {
+        "op": "rpc",
+        "id": 12,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_cism_weekly_save",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 13,
+        "method": "fictional/method",
+        "params": {}
+      },
+      {
+        "op": "write",
+        "path": "enable-resolve-audit",
+        "text": "enabled\n"
+      },
+      {
+        "op": "rpc",
+        "id": 20,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_dailyrecord_get",
+          "arguments": {
+            "displayName": "Invented Student",
+            "purpose": "S11 fictional read",
+            "currentRequestRef": "s11-v3-correlation-a",
+            "lessonDate": "2040-01-16"
+          }
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 21,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_dailyrecord_get",
+          "arguments": {
+            "displayName": "Invented Student",
+            "purpose": "S11 fictional read",
+            "currentRequestRef": "s11-v3-correlation-b",
+            "lessonDate": "2040-01-16"
+          }
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 22,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_dailyrecord_get",
+          "arguments": {
+            "displayName": "Invented Student",
+            "purpose": "S11 fictional read",
+            "currentRequestRef": "s11-v3-correlation-a",
+            "lessonDate": "2040-01-16"
+          }
+        }
+      }
+    ],
+    "composition": [
+      {
+        "op": "rpc",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_dailytest_history_with_headers",
+          "arguments": {
+            "displayName": "Invented Student",
+            "lessonDate": "2040-01-16",
+            "purpose": "S11 fictional composition",
+            "currentRequestRef": "s11-fictional",
+            "periods": [
+              "11"
+            ]
+          }
+        }
+      },
+      {
+        "op": "write",
+        "path": "inject-metadata-error",
+        "text": "source_authentication_failed"
+      },
+      {
+        "op": "rpc",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_dailytest_history_with_headers",
+          "arguments": {
+            "displayName": "Invented Student",
+            "lessonDate": "2040-01-16",
+            "purpose": "S11 fictional composition",
+            "currentRequestRef": "s11-fictional",
+            "periods": [
+              "11"
+            ]
+          }
+        }
+      },
+      {
+        "op": "write",
+        "path": "inject-metadata-error",
+        "text": "S11_FICTIONAL_PRIVATE_ERROR"
+      },
+      {
+        "op": "rpc",
+        "id": 4,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_dailytest_history_with_headers",
+          "arguments": {
+            "displayName": "Invented Student",
+            "lessonDate": "2040-01-16",
+            "purpose": "S11 fictional composition",
+            "currentRequestRef": "s11-fictional",
+            "periods": [
+              "11"
+            ]
+          }
+        }
+      },
+      {
+        "op": "unlink",
+        "path": "inject-metadata-error"
+      },
+      {
+        "op": "paper_scopes"
+      },
+      {
+        "op": "pointer",
+        "generation": "g1",
+        "version": 1
+      },
+      {
+        "op": "rpc",
+        "id": 5,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_paper_headers",
+          "arguments": {
+            "studentId": "77001",
+            "paperCodes": [
+              "7001"
+            ]
+          }
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 6,
+        "method": "tools/call",
+        "params": {
+          "name": "class2_academy_paper_headers",
+          "arguments": {
+            "studentId": "77002",
+            "paperCodes": [
+              "7001"
+            ]
+          }
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 7,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_paper_headers",
+          "arguments": {
+            "studentId": "77999",
+            "paperCodes": [
+              "7001"
+            ]
+          }
+        }
+      }
+    ],
+    "graph": [
+      {
+        "op": "pointer",
+        "generation": "g1",
+        "version": 1
+      },
+      {
+        "op": "rpc",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_runtime_identity",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_source_status",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "pointer",
+        "generation": "g2",
+        "version": 1
+      },
+      {
+        "op": "rpc",
+        "id": 4,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_runtime_identity",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "write",
+        "path": "fixture-control.json",
+        "json": {
+          "delayMs": 500
+        }
+      },
+      {
+        "op": "pending",
+        "id": 5,
+        "event": "pending",
+        "params": {
+          "name": "academy_cism_weekly_save",
+          "arguments": {}
+        },
+        "pointer": {
+          "op": "pointer",
+          "generation": "g3",
+          "version": 1
+        }
+      },
+      {
+        "op": "write",
+        "path": "fixture-control.json",
+        "json": {}
+      },
+      {
+        "op": "pointer",
+        "generation": "mismatch",
+        "version": 2,
+        "bridge": "dailyrecord-server.ts",
+        "endpointIdentities": {}
+      },
+      {
+        "op": "rpc",
+        "id": 6,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_source_status",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "pointer",
+        "generation": "recovered",
+        "version": 1
+      },
+      {
+        "op": "rpc",
+        "id": 7,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_source_status",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "unlink",
+        "path": "release.json"
+      },
+      {
+        "op": "rpc",
+        "id": 8,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_source_status",
+          "arguments": {}
+        }
+      }
+    ],
+    "identity": [
+      {
+        "op": "pointer",
+        "generation": "identity-v2",
+        "version": 2,
+        "bridge": "neutral-server.ts",
+        "endpointIdentities": "identity"
+      },
+      {
+        "op": "rpc",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_runtime_identity",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_runtime_read_admission",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "qualified_endpoint",
+        "request": {
+          "op": "rpc",
+          "id": 4,
+          "method": "tools/call",
+          "params": {
+            "name": "academy_endpoint_identity",
+            "arguments": {}
+          }
+        }
+      },
+      {
+        "op": "tamper_source",
+        "path": "dailyrecord.ts",
+        "suffix": "\n// fictional disposable tamper\n"
+      },
+      {
+        "op": "rpc",
+        "id": 5,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_runtime_identity",
+          "arguments": {}
+        }
+      }
+    ],
+    "framing": [
+      {
+        "op": "raw",
+        "hex": "7b6e6f742d6a736f6e7d0a"
+      },
+      {
+        "op": "raw",
+        "hex": "7b226a736f6e727063223a22322e30222c226964223a382c226d6574686f64223a22746f6f6c732f6c697374222c22706172616d73223a7b7d7d0d0a"
+      },
+      {
+        "op": "response",
+        "id": 8
+      },
+      {
+        "op": "raw",
+        "hex": "7b226a736f6e727063223a22322e30222c226964223a392c226d6574686f64223a22746f6f6c732f6c697374222c"
+      },
+      {
+        "op": "raw",
+        "hex": "22706172616d73223a7b7d7d0a"
+      },
+      {
+        "op": "response",
+        "id": 9
+      },
+      {
+        "op": "oversize",
+        "byte": 88,
+        "count": 1048577,
+        "suffixHex": "0a"
+      }
+    ],
+    "bounds": [
+      {
+        "op": "rpc",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_bounded_probe",
+          "arguments": {
+            "text": "four"
+          }
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_bounded_probe",
+          "arguments": {
+            "text": "five!"
+          }
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 4,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_bounded_probe",
+          "arguments": {
+            "text": "a",
+            "limit": 4
+          }
+        }
+      },
+      {
+        "op": "write",
+        "path": "fixture-control.json",
+        "json": {
+          "oversize": 600000
+        }
+      },
+      {
+        "op": "rpc",
+        "id": 5,
+        "method": "tools/call",
+        "params": {
+          "name": "academy_source_status",
+          "arguments": {}
+        }
+      },
+      {
+        "op": "write",
+        "path": "fixture-control.json",
+        "json": {
+          "hang": true
+        }
+      },
+      {
+        "op": "hung",
+        "id": 6,
+        "params": {
+          "name": "academy_cism_weekly_save",
+          "arguments": {}
+        },
+        "event": "hung",
+        "deadlineMs": 1000
+      }
+    ],
+    "launcher": [],
+    "relocation": []
+  },
+  "inventoryReplay": "migration/mcp-runtime-reference-v1/frozen/inventory/registry.json",
+  "fixture": "migration/mcp-runtime-reference-v1/fixture.ts",
+  "paperScopes": [
+    {
+      "endpoint": "paper1",
+      "studentIds": [
+        "77002"
+      ]
+    },
+    {
+      "endpoint": "paper2",
+      "studentIds": [
+        "77001"
+      ]
+    }
+  ],
+  "launcherAdapter": "await import({entryJson});\n",
+  "launcherTamper": "process.exit(99);\n",
+  "forbidden": [
+    "native release pointer",
+    "native config",
+    "private actual payloads",
+    "Date replacement",
+    "randomUUID replacement",
+    "candidate-derived expected"
+  ]
+}
