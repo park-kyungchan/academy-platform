@@ -1,5 +1,13 @@
 # DC Gang A Native Entry
 
+## Rust migration entry
+
+- New implementation uses the private Cargo workspace at `crates/edu-dc-gang-a/` and pinned Rust 1.95.0. The crate currently has documentation and a synthetic smoke test only; planned modules are not implemented behavior.
+- Preserve `publish = false`, workspace lint inheritance, `unsafe_code = "forbid"`, and Clippy `unwrap_used` / `expect_used` denial. Education-platform dependency pins come in a later PR.
+- Verify with `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, and `cargo test --workspace --locked`. Local builds use `-j1` and a task-owned `CARGO_TARGET_DIR`, removed after verification.
+- Retain Bun CI while TypeScript tests remain. Remove `.github/workflows/bun-cloud.yml` with the remaining TypeScript deletions. The Bun instructions below apply to retained legacy maintenance.
+- User decision U1 drops teacher web/auth/Postgres/UI. Port only approved teacher-domain use cases into Rust libraries and CLI entrypoints.
+
 ## Current Lead and native entry
 
 - Current engineering runs entirely on the **Hermes Linux Backend**. Windows Desktop is a remote interface only. `dc-gang-a-dev` owns academy product, operations and data; the current user may assign a temporary cross-profile coordination Lead. Multiple sessions can own disjoint work; neither a profile-wide monopoly nor a whole-repository stop follows from another open session. Preserve actual target ownership, unrelated branches and historical work.
@@ -14,7 +22,7 @@
 - Pure Git-only status/fetch/pull/log/diff requests use the current Backend checkout and direct Git sequence, without Bun setup, model configuration or product/source recovery. Preserve dirty work and use ff-only synchronization. Mixed engineering requests still use the scoped context entry. This retains the useful request-scope rule from historical PR 6 without restoring its retired Codex Cloud authority.
 
 - Once a goal is approved, finish its scoped implementation, useful tests, commit, push, PR, review/CI, merge, exact merge readback and owned cleanup. Interview at consequential unresolved intent/risk/cost/authority or a real blocker, not for routine plumbing already delegated to the Lead. Preserve dirty work and source locks.
-- Prefer TypeScript/Bun for owned code and typed `.ts`/`.json` engineering artifacts. Native-required `AGENTS.md`, profile `SOUL.md`, built-in `USER.md`/`MEMORY.md` and `SKILL.md` remain native prose. Preserve original evidence and necessary existing dual-runtime readers; Python is a scoped exception, not a convenience expansion.
+- Use Rust for new owned code. Retained TypeScript/Bun artifacts receive only scoped maintenance until their approved deletion. Native-required `AGENTS.md`, profile `SOUL.md`, built-in `USER.md`/`MEMORY.md` and `SKILL.md` remain native prose. Preserve original evidence and necessary existing dual-runtime readers; Python is a scoped exception, not a convenience expansion.
 - Workers require fresh admission, explicit input/ownership/verification and effective native controls. Model-facing `delegate_task` is excluded. The Lead chooses the supported model/provider/reasoning for the actual work; profile defaults are not per-assignment requirements or observed execution. Use `gpt-6.1-sol` for consequential judgment; Luna is only for negligible-judgment work, never an important reviewer. Consume the typed Bot contract instead of imposing a universal xhigh rule here. Mechanical work normally uses code. An unavailable mandatory control closes that lane; do not bypass it or declare unrelated admitted work unavailable.
 - Inspect staged paths and the entire staged diff for secrets/student material before every publication; `.gitignore` is not confidentiality enforcement. Stage explicit owned paths. Account permission metadata and dry runs do not prove writes. Verify the remote branch SHA, PR's exact tested head, applicable required checks and merge readback. Clean only owned merged branches/worktrees. Do not force-push main, bypass protections, extract credentials or delete foreign work.
 - `review/git-publication-cycle-2026-10-01.json` is dated publication evidence; revalidate the current backend identity/authentication instead of inheriting an old 403 or a connector grant. Use supported secure credential input, never chat, token-bearing remote URLs or credential dumps.
