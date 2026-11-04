@@ -814,3 +814,141 @@ fn audit_failure_preserves_publication_and_publish_failure_never_audits() {
         }
     }
 }
+
+#[test]
+fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() {
+    use edu_academy_core::workflow::{approval::RequestApproval, state};
+    struct CrashAfterFence(Clock);
+    impl Runtime for CrashAfterFence {
+        fn now(&self) -> String {
+            self.0.now()
+        }
+        fn epoch_ms(&self) -> u64 {
+            0
+        }
+        fn uuid(&self) -> Result<String> {
+            self.0.uuid()
+        }
+        fn fenced(&self) -> Result<()> {
+            Err(Fault::error("fictional_crash_before_resolution"))
+        }
+    }
+    for (physical, missing) in [
+        ("current-record", false),
+        ("record-😀", false),
+        ("current-record", true),
+    ] {
+        let root = root("unicode-fence");
+        let store = Store::open(&root.join("store"), &root).unwrap();
+        let scope = context().get("scope").clone();
+        let reviewed = js(json!({"field":"progress", "effectRecordKey":physical,
+            "before":"- Existing progress", "after":"- Updated progress"}));
+        let mut approval = RequestApproval {
+            store: &store,
+            input: obj(&[
+                ("requestRef", "req-😀".into()),
+                ("scope", scope.clone()),
+                ("reviewed", Js::Arr(vec![reviewed.clone()])),
+            ]),
+            runtime: &CrashAfterFence(Clock::new(NOW)),
+        };
+        let action = js(
+            json!({"target":{"studentKey":"student", "teacherKey":"teacher", "date":"2040-01-04"},
+            "field":"progress", "effectRecordKey":physical,"before":"- Existing progress","after":"- Updated progress"}),
+        );
+        assert_eq!(
+            approval.consume(&action).unwrap_err().message,
+            "fictional_crash_before_resolution"
+        );
+        drop(approval);
+        let store = Store::open(&root.join("store"), &root).unwrap();
+        let exact_key = state::execution_key(
+            "req-😀",
+            &scope,
+            "progress",
+            physical,
+            &"- Existing progress".into(),
+            &"- Updated progress".into(),
+        )
+        .unwrap();
+        assert!(!store.get(Kind::Execution, &exact_key).unwrap().absent());
+        assert_eq!(
+            state::unresolved_on_field(&store, &scope, "progress", physical)
+                .unwrap()
+                .len(),
+            1
+        );
+        if missing {
+            let key = state::execution_key(
+                "req-😀",
+                &scope,
+                "progress",
+                physical,
+                &"- Existing progress".into(),
+                &"- Updated progress".into(),
+            )
+            .unwrap();
+            fs::remove_file(
+                store
+                    .root()
+                    .join("execution")
+                    .join(sha(&("execution\n".to_owned() + &key)) + ".json"),
+            )
+            .unwrap();
+        }
+        let mut source = Source::observed();
+        let mut observation = source.result.get("observation").clone();
+        let mut target = observation.get("target").clone();
+        target.set("recordId", physical.into());
+        observation.set("target", target);
+        source.result.set("observation", observation);
+        let mut context = context();
+        context.set("currentRequestRef", "later-🚀".into());
+        context.set("selectedFields", js(json!(["progress"])));
+        context.set("facts", Js::Arr(vec![fact("progress", "Updated progress")]));
+        let mut backend = Backend; // Panics if the unresolved fence permits dispatch.
+        let policy = Policy::new(true);
+        let clock = Clock::new(NOW);
+        let mut svc = service::Service {
+            store: &store,
+            source: &mut source,
+            policy: &policy,
+            backend: &mut backend,
+            runtime: &clock,
+        };
+        let intake = svc.intake(&obj(&[("context", context.clone())])).unwrap();
+        let mut proposed = proposal("progress", "- Updated progress");
+        proposed.set(
+            "decision",
+            js(json!({"kind":"replace", "requestRef":"later-🚀"})),
+        );
+        let mut input = obj(&[
+            ("context", context),
+            ("observationHandle", intake.get("observationHandle").clone()),
+            ("proposals", Js::Arr(vec![proposed])),
+        ]);
+        let review = svc.review(&input, true).unwrap();
+        assert!(
+            review.get("status").is("prepared"),
+            "{}",
+            stringify(&review).unwrap()
+        );
+        input.set("reviewDigest", review.get("reviewDigest").clone());
+        input.set("request", js(json!({"requestRef":"later-🚀","instruction":{"text":"Save this reviewed fictional field."}})));
+        if missing {
+            assert_eq!(
+                svc.save(&input).unwrap_err().message,
+                "workflow_store_execution_record_missing"
+            );
+        } else {
+            let held = svc.save(&input).unwrap();
+            assert!(
+                held.get("reasonCode")
+                    .is("uncertain_dispatch_reconcile_required"),
+                "{}",
+                stringify(&held).unwrap()
+            );
+            assert_eq!(held.get("academyWrites"), &Js::Num(0.0));
+        }
+    }
+}

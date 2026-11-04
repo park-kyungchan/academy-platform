@@ -86,7 +86,7 @@ fn publication_is_immutable_and_identity_checked_after_readback() {
     );
 }
 #[test]
-fn index_only_is_available_and_physical_fence_ignores_request_and_date() {
+fn dangling_ledger_is_refused_and_physical_fence_ignores_request_and_date() {
     let p = root("fence");
     let s = Store::open(&p.join("store"), &p).unwrap();
     let scope = obj(&[
@@ -97,7 +97,10 @@ fn index_only_is_available_and_physical_fence_ignores_request_and_date() {
     ]);
     s.add_ledger(&state::lock_key(&scope).unwrap(), "index-only", &Clock)
         .unwrap();
-    assert!(state::student_executions(&s, &scope).unwrap().is_empty());
+    assert_eq!(
+        state::student_executions(&s, &scope).err().unwrap().message,
+        "workflow_store_execution_record_missing"
+    );
     assert_eq!(
         state::field_state(&s, "index-only").unwrap(),
         FieldState::Available
@@ -209,4 +212,184 @@ fn old_json_preserves_utf16_key_order_duplicate_keys_and_numeric_values() {
         stringify(&codec::parse(deep.as_bytes()).unwrap()).unwrap(),
         deep
     );
+}
+
+#[test]
+fn unicode_ledger_keys_match_actual_typescript_encoding_and_file_hashes() {
+    let cases = codec::parse(include_bytes!("fixtures/workflow-unicode-keys.json")).unwrap();
+    for (index, case) in cases.array().iter().enumerate() {
+        let p = root(&format!("unicode-key-{index}"));
+        let s = Store::open(&p.join("store"), &p).unwrap();
+        let scope = case.get("scope");
+        let key = state::execution_key(
+            case.get("requestRef").clone(),
+            scope,
+            "progress",
+            case.get("effectRecordKey").clone(),
+            case.get("before"),
+            case.get("after"),
+        )
+        .unwrap();
+        assert!(case.get("executionKey").is(&key));
+        assert!(
+            case.get("requestKey")
+                .is(&state::request_key(scope, case.get("requestRef").clone()).unwrap())
+        );
+        let record = obj(&[
+            ("field", "progress".into()),
+            ("effectRecordKey", case.get("effectRecordKey").clone()),
+        ]);
+        s.add_ledger(&state::lock_key(scope).unwrap(), &key, &Clock)
+            .unwrap();
+        s.publish(Kind::Execution, &key, &record, &Clock).unwrap();
+        let reopened = Store::open(&p.join("store"), &p).unwrap();
+        assert_eq!(
+            reopened.ledger(&state::lock_key(scope).unwrap()).unwrap(),
+            vec![key.clone()]
+        );
+        assert!(
+            s.root()
+                .join("execution")
+                .join(format!(
+                    "{}.json",
+                    String::from_utf16(case.get("executionFileHash").units()).unwrap()
+                ))
+                .exists()
+        );
+        assert_eq!(
+            state::unresolved_on_field(
+                &reopened,
+                scope,
+                "progress",
+                case.get("effectRecordKey").clone()
+            )
+            .unwrap()
+            .len(),
+            1
+        );
+    }
+}
+
+#[test]
+fn malformed_ledger_key_type_and_unpaired_utf16_fail_closed() {
+    for (label, value) in [("number", "42"), ("surrogate", "\"\\ud800\"")] {
+        let p = root(label);
+        let s = Store::open(&p.join("store"), &p).unwrap();
+        s.add_ledger("group", "original-key", &Clock).unwrap();
+        let ledger = fs::read_dir(
+            s.root()
+                .join("ledger")
+                .join(edu_academy_core::js::sha("group")),
+        )
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+        fs::write(ledger, format!("{{\"group\":\"group\",\"key\":{value}}}")).unwrap();
+        assert_eq!(
+            s.ledger("group").unwrap_err().message,
+            "workflow_store_ledger_key_invalid"
+        );
+    }
+}
+
+#[test]
+fn legacy_lossy_settled_key_cannot_be_replayed_as_a_new_exact_key() {
+    use edu_academy_core::{
+        js::sha,
+        workflow::approval::{Approval, RequestApproval},
+    };
+    let p = root("legacy-key");
+    let store = Store::open(&p.join("store"), &p).unwrap();
+    let scope = obj(&[
+        ("sourceNamespace", "namespace".into()),
+        ("teacherId", "teacher".into()),
+        ("studentId", "student".into()),
+        ("lessonDate", "2040-01-04".into()),
+    ]);
+    let request: Js = "req-😀".into();
+    let before: Js = "before".into();
+    let after: Js = "after".into();
+    let legacy = state::execution_key(
+        request.code_units().as_str(),
+        &scope,
+        "progress",
+        "physical",
+        &before,
+        &after,
+    )
+    .unwrap();
+    let exact = state::execution_key(
+        request.clone(),
+        &scope,
+        "progress",
+        "physical",
+        &before,
+        &after,
+    )
+    .unwrap();
+    assert_ne!(legacy, exact);
+    let record = obj(&[
+        ("requestRef", request.clone()),
+        ("scope", scope.clone()),
+        ("field", "progress".into()),
+        ("effectRecordKey", "physical".into()),
+        ("beforeSha256", sha("before").into()),
+        ("afterSha256", sha("after").into()),
+    ]);
+    store
+        .add_ledger(&state::lock_key(&scope).unwrap(), &legacy, &Clock)
+        .unwrap();
+    store
+        .publish(Kind::Execution, &legacy, &record, &Clock)
+        .unwrap();
+    store
+        .publish(
+            Kind::Outcome,
+            &legacy,
+            &obj(&[("status", "persisted".into())]),
+            &Clock,
+        )
+        .unwrap();
+    let reviewed = obj(&[
+        ("field", "progress".into()),
+        ("effectRecordKey", "physical".into()),
+        ("before", before.clone()),
+        ("after", after.clone()),
+    ]);
+    let mut approval = RequestApproval {
+        store: &store,
+        runtime: &Clock,
+        input: obj(&[
+            ("requestRef", request),
+            ("scope", scope),
+            ("reviewed", Js::Arr(vec![reviewed])),
+        ]),
+    };
+    let action = obj(&[
+        (
+            "target",
+            obj(&[
+                ("studentKey", "student".into()),
+                ("teacherKey", "teacher".into()),
+                ("date", "2040-01-04".into()),
+            ]),
+        ),
+        ("field", "progress".into()),
+        ("effectRecordKey", "physical".into()),
+        ("before", before),
+        ("after", after),
+    ]);
+    assert_eq!(
+        approval.consume(&action).unwrap_err().message,
+        "workflow_execution_key_encoding_conflict"
+    );
+    assert_eq!(
+        store
+            .ledger(&state::lock_key(approval.input.get("scope")).unwrap())
+            .unwrap(),
+        vec![legacy]
+    );
+    assert!(store.get(Kind::Execution, &exact).unwrap().absent());
 }

@@ -39,14 +39,7 @@ impl Approval for RequestApproval<'_> {
         {
             return Ok(rejected());
         }
-        let key = execution_key(
-            &self.input.get("requestRef").code_units(),
-            s,
-            &p.get("field").code_units(),
-            &p.get("effectRecordKey").code_units(),
-            a.get("before"),
-            a.get("after"),
-        )?;
+        let key = checked_execution_key(self.store, self.input.get("requestRef"), s, p)?;
         let digest = sha(&canonical(a)?);
         self.store.add_ledger(&lock_key(s)?, &key, self.runtime)?;
         self.runtime.indexed()?;

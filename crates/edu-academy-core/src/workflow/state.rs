@@ -2,8 +2,8 @@ use super::{
     canonical,
     store::{Kind, Store},
 };
-use crate::js::{Js, Result, obj, sha};
-pub fn request_key(scope: &Js, request: &str) -> Result<String> {
+use crate::js::{Fault, Js, Result, obj, sha};
+pub fn request_key(scope: &Js, request: impl Into<Js>) -> Result<String> {
     canonical(&obj(&[
         ("scope", scope.clone()),
         ("requestRef", request.into()),
@@ -17,10 +17,10 @@ pub fn lock_key(scope: &Js) -> Result<String> {
     ]))
 }
 pub fn execution_key(
-    request: &str,
+    request: impl Into<Js>,
     scope: &Js,
     field: &str,
-    record: &str,
+    record: impl Into<Js>,
     before: &Js,
     after: &Js,
 ) -> Result<String> {
@@ -38,6 +38,42 @@ pub fn execution_key(
             sha(&String::from_utf16_lossy(after.units())).into(),
         ),
     ]))
+}
+/// Preserve the new exact key while refusing legacy aliases for the same
+/// recorded transition, including settled outcomes. Recovery must be explicit.
+pub fn checked_execution_key(
+    store: &Store,
+    request: &Js,
+    scope: &Js,
+    transition: &Js,
+) -> Result<String> {
+    let field = transition.get("field").code_units();
+    let record = transition.get("effectRecordKey");
+    let before = transition.get("before");
+    let after = transition.get("after");
+    let key = execution_key(
+        request.clone(),
+        scope,
+        &field,
+        record.clone(),
+        before,
+        after,
+    )?;
+    let before_sha = sha(&String::from_utf16_lossy(before.units()));
+    let after_sha = sha(&String::from_utf16_lossy(after.units()));
+    for prior in student_executions(store, scope)? {
+        let r = &prior.record;
+        if r.get("requestRef") == request
+            && r.get("field").is(&field)
+            && r.get("effectRecordKey") == record
+            && r.get("beforeSha256").is(&before_sha)
+            && r.get("afterSha256").is(&after_sha)
+            && prior.key != key
+        {
+            return Err(Fault::error("workflow_execution_key_encoding_conflict"));
+        }
+    }
+    Ok(key)
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FieldState {
@@ -123,10 +159,13 @@ pub fn student_executions(store: &Store, scope: &Js) -> Result<Vec<Execution>> {
     let mut out = vec![];
     for key in store.ledger(&lock_key(scope)?)? {
         let record = store.get(Kind::Execution, &key)?;
-        if !record.absent() {
-            let state = field_state(store, &key)?;
-            out.push(Execution { key, record, state });
+        // A durable ledger entry promises an execution identity. An absent
+        // record cannot prove that dispatch never happened: fail closed.
+        if record.absent() {
+            return Err(Fault::error("workflow_store_execution_record_missing"));
         }
+        let state = field_state(store, &key)?;
+        out.push(Execution { key, record, state });
     }
     Ok(out)
 }
@@ -134,13 +173,14 @@ pub fn unresolved_on_field(
     store: &Store,
     scope: &Js,
     field: &str,
-    record: &str,
+    record: impl Into<Js>,
 ) -> Result<Vec<Execution>> {
+    let record = record.into();
     Ok(student_executions(store, scope)?
         .into_iter()
         .filter(|e| {
             e.record.get("field").is(field)
-                && e.record.get("effectRecordKey").is(record)
+                && e.record.get("effectRecordKey") == &record
                 && e.state.needs_reconciliation()
         })
         .collect())

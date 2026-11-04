@@ -1,0 +1,107 @@
+[
+  {
+    "scope": {
+      "sourceNamespace": "fictional:unicode",
+      "teacherId": "teacher",
+      "studentId": "student",
+      "lessonDate": "2040-01-04"
+    },
+    "requestRef": "req-ascii",
+    "effectRecordKey": "current-record",
+    "before": "- Before 😀",
+    "after": "- After 한글",
+    "executionKey": "{\"afterSha256\":\"a4ee3f3534eb443557a459711b7ce755e894de97c61f0081a5388bb0a5c39a5e\",\"beforeSha256\":\"da4c51a135d7ef3ceb1eecca17582fa98066f1287a71afeed93a96ceb7828fb3\",\"effectRecordKey\":\"current-record\",\"field\":\"progress\",\"requestRef\":\"req-ascii\",\"student\":\"{\\\"sourceNamespace\\\":\\\"fictional:unicode\\\",\\\"studentId\\\":\\\"student\\\",\\\"teacherId\\\":\\\"teacher\\\"}\"}",
+    "requestKey": "{\"requestRef\":\"req-ascii\",\"scope\":{\"lessonDate\":\"2040-01-04\",\"sourceNamespace\":\"fictional:unicode\",\"studentId\":\"student\",\"teacherId\":\"teacher\"}}",
+    "executionFileHash": "cabb046a139169ccd41e97c06062096fdfdd68cfa37b2e993f029f0a34a6b800"
+  },
+  {
+    "scope": {
+      "sourceNamespace": "fictional:unicode",
+      "teacherId": "teacher",
+      "studentId": "student",
+      "lessonDate": "2040-01-04"
+    },
+    "requestRef": "req-😀",
+    "effectRecordKey": "record-😀",
+    "before": "- Before 😀",
+    "after": "- After 한글",
+    "executionKey": "{\"afterSha256\":\"a4ee3f3534eb443557a459711b7ce755e894de97c61f0081a5388bb0a5c39a5e\",\"beforeSha256\":\"da4c51a135d7ef3ceb1eecca17582fa98066f1287a71afeed93a96ceb7828fb3\",\"effectRecordKey\":\"record-😀\",\"field\":\"progress\",\"requestRef\":\"req-😀\",\"student\":\"{\\\"sourceNamespace\\\":\\\"fictional:unicode\\\",\\\"studentId\\\":\\\"student\\\",\\\"teacherId\\\":\\\"teacher\\\"}\"}",
+    "requestKey": "{\"requestRef\":\"req-😀\",\"scope\":{\"lessonDate\":\"2040-01-04\",\"sourceNamespace\":\"fictional:unicode\",\"studentId\":\"student\",\"teacherId\":\"teacher\"}}",
+    "executionFileHash": "368cffa3230fb6c257f307923844d1e305976b07053d5d5d5ae537e72046edab"
+  },
+  {
+    "scope": {
+      "sourceNamespace": "fictional:unicode",
+      "teacherId": "teacher",
+      "studentId": "student",
+      "lessonDate": "2040-01-04"
+    },
+    "requestRef": "req-𐐷",
+    "effectRecordKey": "current-record",
+    "before": "- Before 😀",
+    "after": "- After 한글",
+    "executionKey": "{\"afterSha256\":\"a4ee3f3534eb443557a459711b7ce755e894de97c61f0081a5388bb0a5c39a5e\",\"beforeSha256\":\"da4c51a135d7ef3ceb1eecca17582fa98066f1287a71afeed93a96ceb7828fb3\",\"effectRecordKey\":\"current-record\",\"field\":\"progress\",\"requestRef\":\"req-𐐷\",\"student\":\"{\\\"sourceNamespace\\\":\\\"fictional:unicode\\\",\\\"studentId\\\":\\\"student\\\",\\\"teacherId\\\":\\\"teacher\\\"}\"}",
+    "requestKey": "{\"requestRef\":\"req-𐐷\",\"scope\":{\"lessonDate\":\"2040-01-04\",\"sourceNamespace\":\"fictional:unicode\",\"studentId\":\"student\",\"teacherId\":\"teacher\"}}",
+    "executionFileHash": "2dda5d233a4663982f94036dd838ef99a7352cf284964a8143a6b72066ce407e"
+  },
+  {
+    "scope": {
+      "sourceNamespace": "fictional:unicode",
+      "teacherId": "teacher",
+      "studentId": "student",
+      "lessonDate": "2040-01-04"
+    },
+    "requestRef": "req-한글",
+    "effectRecordKey": "record-😀",
+    "before": "- Before 😀",
+    "after": "- After 한글",
+    "executionKey": "{\"afterSha256\":\"a4ee3f3534eb443557a459711b7ce755e894de97c61f0081a5388bb0a5c39a5e\",\"beforeSha256\":\"da4c51a135d7ef3ceb1eecca17582fa98066f1287a71afeed93a96ceb7828fb3\",\"effectRecordKey\":\"record-😀\",\"field\":\"progress\",\"requestRef\":\"req-한글\",\"student\":\"{\\\"sourceNamespace\\\":\\\"fictional:unicode\\\",\\\"studentId\\\":\\\"student\\\",\\\"teacherId\\\":\\\"teacher\\\"}\"}",
+    "requestKey": "{\"requestRef\":\"req-한글\",\"scope\":{\"lessonDate\":\"2040-01-04\",\"sourceNamespace\":\"fictional:unicode\",\"studentId\":\"student\",\"teacherId\":\"teacher\"}}",
+    "executionFileHash": "e49ee23bec4705eeb0eb643b5d0690f0e10e9237b954afd7b53158b34c6b5eb7"
+  },
+  {
+    "scope": {
+      "sourceNamespace": "fictional:unicode",
+      "teacherId": "teacher",
+      "studentId": "student",
+      "lessonDate": "2040-01-04"
+    },
+    "requestRef": "req-",
+    "effectRecordKey": "current-record",
+    "before": "- Before 😀",
+    "after": "- After 한글",
+    "executionKey": "{\"afterSha256\":\"a4ee3f3534eb443557a459711b7ce755e894de97c61f0081a5388bb0a5c39a5e\",\"beforeSha256\":\"da4c51a135d7ef3ceb1eecca17582fa98066f1287a71afeed93a96ceb7828fb3\",\"effectRecordKey\":\"current-record\",\"field\":\"progress\",\"requestRef\":\"req-\",\"student\":\"{\\\"sourceNamespace\\\":\\\"fictional:unicode\\\",\\\"studentId\\\":\\\"student\\\",\\\"teacherId\\\":\\\"teacher\\\"}\"}",
+    "requestKey": "{\"requestRef\":\"req-\",\"scope\":{\"lessonDate\":\"2040-01-04\",\"sourceNamespace\":\"fictional:unicode\",\"studentId\":\"student\",\"teacherId\":\"teacher\"}}",
+    "executionFileHash": "919087802ac11a430208f1fc9abc3843af0ec7b0a9615c722b0654b37bbb1493"
+  },
+  {
+    "scope": {
+      "sourceNamespace": "fictional:unicode",
+      "teacherId": "teacher",
+      "studentId": "student",
+      "lessonDate": "2040-01-04"
+    },
+    "requestRef": "req-😀",
+    "effectRecordKey": "record-😀",
+    "before": "- Before 😀",
+    "after": "- After 한글",
+    "executionKey": "{\"afterSha256\":\"a4ee3f3534eb443557a459711b7ce755e894de97c61f0081a5388bb0a5c39a5e\",\"beforeSha256\":\"da4c51a135d7ef3ceb1eecca17582fa98066f1287a71afeed93a96ceb7828fb3\",\"effectRecordKey\":\"record-😀\",\"field\":\"progress\",\"requestRef\":\"req-😀\",\"student\":\"{\\\"sourceNamespace\\\":\\\"fictional:unicode\\\",\\\"studentId\\\":\\\"student\\\",\\\"teacherId\\\":\\\"teacher\\\"}\"}",
+    "requestKey": "{\"requestRef\":\"req-😀\",\"scope\":{\"lessonDate\":\"2040-01-04\",\"sourceNamespace\":\"fictional:unicode\",\"studentId\":\"student\",\"teacherId\":\"teacher\"}}",
+    "executionFileHash": "368cffa3230fb6c257f307923844d1e305976b07053d5d5d5ae537e72046edab"
+  },
+  {
+    "scope": {
+      "sourceNamespace": "fictional:unicode",
+      "teacherId": "teacher",
+      "studentId": "student",
+      "lessonDate": "2040-01-04"
+    },
+    "requestRef": "req-\ud800",
+    "effectRecordKey": "current-record",
+    "before": "- Before 😀",
+    "after": "- After 한글",
+    "executionKey": "{\"afterSha256\":\"a4ee3f3534eb443557a459711b7ce755e894de97c61f0081a5388bb0a5c39a5e\",\"beforeSha256\":\"da4c51a135d7ef3ceb1eecca17582fa98066f1287a71afeed93a96ceb7828fb3\",\"effectRecordKey\":\"current-record\",\"field\":\"progress\",\"requestRef\":\"req-\\ud800\",\"student\":\"{\\\"sourceNamespace\\\":\\\"fictional:unicode\\\",\\\"studentId\\\":\\\"student\\\",\\\"teacherId\\\":\\\"teacher\\\"}\"}",
+    "requestKey": "{\"requestRef\":\"req-\\ud800\",\"scope\":{\"lessonDate\":\"2040-01-04\",\"sourceNamespace\":\"fictional:unicode\",\"studentId\":\"student\",\"teacherId\":\"teacher\"}}",
+    "executionFileHash": "448871186c478cd18fc53e96997acf62d7f3fcef4ceb69e7bf01c50817b3806c"
+  }
+]

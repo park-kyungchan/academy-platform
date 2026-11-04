@@ -156,7 +156,7 @@ impl Service<'_> {
             // Publication and audit are separate durable operations. Propagate an
             // audit failure without removing or retrying the published observation.
             self.store.append_audit(
-                &request_key(scope, &request.code_units())?,
+                &request_key(scope, request.clone())?,
                 &obj(&[
                     ("event", "observation_recorded".into()),
                     ("observationHandle", handle.clone()),

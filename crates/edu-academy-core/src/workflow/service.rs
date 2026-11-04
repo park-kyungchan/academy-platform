@@ -218,7 +218,7 @@ impl Service<'_> {
                 self.runtime,
             )?;
             self.store.append_audit(
-                &request_key(scope, &request.code_units())?,
+                &request_key(scope, request.clone())?,
                 &obj(&[
                     ("event", "review_recorded".into()),
                     ("reviewDigest", result.get("reviewDigest").clone()),
@@ -280,8 +280,8 @@ impl Service<'_> {
         let input = super::schema::validate("dailyRecordSaveSchema", input)?;
         let c = input.get("context");
         let s = c.get("scope");
-        let request = c.get("currentRequestRef").code_units();
-        let key = request_key(s, &request)?;
+        let request = c.get("currentRequestRef");
+        let key = request_key(s, request.clone())?;
         let fallback = super::observe_attribution(self.runtime, input.get("actor"));
         let attribution = if input.get("attribution").absent() {
             &fallback
@@ -321,7 +321,7 @@ impl Service<'_> {
         if input.get("request").absent() {
             return hold("user_instruction_provenance_required", obj(&[]));
         }
-        if !input.get("request").get("requestRef").is(&request) {
+        if input.get("request").get("requestRef") != request {
             return hold("user_request_ref_mismatch", obj(&[]));
         }
         let instruction_sha = sha(&String::from_utf16_lossy(
@@ -372,7 +372,7 @@ impl Service<'_> {
         ]))?);
         if !prior.get("status").is("prepared")
             || !same(prior.get("scope"), s)?
-            || !prior.get("requestRef").is(&request)
+            || prior.get("requestRef") != request
             || prior.get("observationHandle") != input.get("observationHandle")
             || !same(prior.get("reviewPolicy"), &self.pins())?
             || !prior.get("inputDigest").is(&digest)
@@ -389,23 +389,14 @@ impl Service<'_> {
             }
             Err(e) => return Err(e),
         };
-        let pkey = |p: &Js| {
-            execution_key(
-                &request,
-                s,
-                &p.get("field").code_units(),
-                &p.get("effectRecordKey").code_units(),
-                p.get("before"),
-                p.get("after"),
-            )
-        };
+        let pkey = |p: &Js| checked_execution_key(self.store, request, s, p);
         let mut unresolved = vec![];
         for p in prior.get("patch").array() {
             let count = unresolved_on_field(
                 self.store,
                 s,
                 &p.get("field").code_units(),
-                &p.get("effectRecordKey").code_units(),
+                p.get("effectRecordKey").clone(),
             )?
             .len();
             if count > 0 {
@@ -570,7 +561,7 @@ impl Service<'_> {
         let mut approval = RequestApproval {
             store: self.store,
             input: obj(&[
-                ("requestRef", request.clone().into()),
+                ("requestRef", request.clone()),
                 ("attribution", attribution.clone()),
                 ("reviewDigest", input.get("reviewDigest").clone()),
                 ("scope", s.clone()),
@@ -895,7 +886,7 @@ impl Service<'_> {
                 .find(|(k, _)| k == &scope_key)
                 .expect("inserted source read")
                 .1;
-            let req_key = request_key(r.get("scope"), &r.get("requestRef").code_units())?;
+            let req_key = request_key(r.get("scope"), r.get("requestRef").clone())?;
             if !read.get("status").is("observed") {
                 self.store.append_audit(
                     &req_key,
@@ -1084,7 +1075,7 @@ pub fn status(store: &Store, input: &Js) -> Result<Js> {
         }
     }
     let request_key = if input.get("requestRef").truthy() {
-        Some(request_key(scope, &input.get("requestRef").code_units())?)
+        Some(request_key(scope, input.get("requestRef").clone())?)
     } else {
         None
     };

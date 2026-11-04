@@ -160,7 +160,13 @@ impl Store {
         for p in names(&self.root.join("ledger").join(sha(group)))? {
             let v = codec::parse(&fs::read(p).map_err(io_fault)?)?;
             if v.get("group").is(group) {
-                keys.push(v.get("key").code_units());
+                let value = v.get("key");
+                if !value.string() {
+                    return Err(Fault::error("workflow_store_ledger_key_invalid"));
+                }
+                let key = String::from_utf16(value.units())
+                    .map_err(|_| Fault::error("workflow_store_ledger_key_invalid"))?;
+                keys.push(key);
             }
         }
         keys.sort_by_key(|s| s.encode_utf16().collect::<Vec<_>>());
