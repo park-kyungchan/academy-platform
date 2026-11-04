@@ -14,7 +14,7 @@ function legacyRow(text='가우스 시리즈2 v1(1SAG) 준비'){
 }
 
 test('stored legacy draft remains readable with exact text and integrity checks',()=>{
- for(const text of ['가우스 시리즈2 v1(1SAG) 준비','가우스 1-1-2 (1P6A) 준비','가우스 (1U0T) 준비']){
+ for(const text of ['가우스 시리즈2 v1(1SAG) 준비','가우스 1-1-2 (1P6A) 준비','가우스 (1U0T) 준비','가우스 5-1-2 [1P6A] 준비']){
  const row=legacyRow(text),before=structuredClone(row);
  const stored=ownerWorkspaceVersionFrom(row);
  expect(stored.payload).toEqual(before.payload);expect(row).toEqual(before);
@@ -74,11 +74,22 @@ test('parent guard covers both catalogs, policy and retained textbook codes',()=
  for(const text of ['- 다빈치 1SJ2 준비','- 가우스플러스 (1U0T) 준비','- 교재 1P6A 준비','- 가우스 초5-1 1SAG 준비','- 교과서:1U0T 준비','- 시리즈 (1P6A) 준비','- 교재v3(1P6A) 준비'])expect(parentInternalLanguage.test(text)).toBe(true);
 });
 
-test('publisher codes require metadata contexts and ordinary algebra stays allowed',()=>{
+test('unknown publisher shapes require metadata contexts and ordinary algebra stays allowed',()=>{
  for(const code of ['2Q4Z','9Z0Q','2X3Y']){
   expect(parentInternalLanguage.test(`- 가우스 (${code}) 준비`)).toBe(true);
   expect(parentInternalLanguage.test(`- 가우스 ${code} 준비`)).toBe(true);
  }
  for(const text of ['- 단항식 2x3y를 간단히 하기','- 2x3y의 계산 연습','- (2x3y)의 계산 연습','- 다항식 3abc 계산','- x2y3를 간단히 하기','- 단항식 2X3Y를 간단히 하기','- 가우스 5-1-2 준비','- 2026-11-02까지 12문항 풀기'])expect(parentInternalLanguage.test(text)).toBe(false);
  for(const text of ['Teacher REVIEW','Ungraded','NOT COMPLETED','Insufficient TIME','VERSION:3','V 3','(1p6A)'])expect(parentInternalLanguage.test(text)).toBe(true);
+});
+
+
+test('known publisher codes cannot bypass admission through alternate delimiters',()=>{
+ const codes=['1MHL','1N82','1N87','1N88','1P6A','1SAG','1SJ2','1U0T','1U0U','1UFJ'];
+ const wrappers=[['',''],['(',')'],['[',']'],['{','}'],['「','」'],['（','）'],['"','"'],["'","'"],['<','>'],['【','】']];
+ for(const code of codes)for(const value of [code,code.toLowerCase()])for(const [open,close] of wrappers){
+  expect(parentInternalLanguage.test(`- 가우스 5-1-2 ${open}${value}${close} 준비`)).toBe(true);
+  expect(parentInternalLanguage.test(`- ${open}${value}${close} 준비`)).toBe(true);
+ }
+ for(const value of ['2x3y','3abc','x2y3','[2x3y]','(2x3y)','단항식 2X3Y'])expect(parentInternalLanguage.test(`- ${value}를 간단히 하기`)).toBe(false);
 });

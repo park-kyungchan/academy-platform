@@ -32,6 +32,22 @@ test('internal version facts remain accepted but parent memo metadata is blocked
  }
 });
 
+test('bracketed known publisher metadata cannot enter the lessonMemo patch',async()=>{
+ const policy=fileURLToPath(new URL('../../../../../apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md',import.meta.url));
+ const source=fileURLToPath(new URL('../../../../../apps/academy/dc-gang-a/src/contracts/parentInternalLanguage.ts',import.meta.url));
+ const sha=(bytes:Buffer)=>createHash('sha256').update(bytes).digest('hex');
+ const config=await dailyRecordToolConfiguration(['--dailyrecord-policy',policy,sha(await readFile(policy)),source,sha(await readFile(source))]);
+ for(const value of ['- 가우스 5-1-2 [1P6A] 준비','- 가우스 5-1-2 [1SAG] 준비','- 가우스 5-1-2 {1U0T} 준비','- [1p6a] 준비']){
+  const c=context();c.selectedFields=['lessonMemo'];
+  c.memoAnswer={kind:'content',requestRef:c.currentRequestRef,text:value};c.facts=[fact('lessonMemo',value)];
+  const s=new DailyRecordService(backend(),config.parentSafeguard!,()=>clock);
+  const i=await s.intake({context:c});
+  const r=await s.review({context:c,observationHandle:i.observationHandle,proposals:[proposal('lessonMemo',value)]});
+  expect(r.status).toBe('held');expect(r.rows[0].blockers).toContain('parent_internal_language_excluded');expect(r.patch).toEqual([]);
+  expect(c.memoAnswer.text).toBe(value);expect(c.facts[0]!.text).toBe(value);
+ }
+});
+
 test('ordinary algebra, textbook coordinates and full deadlines remain valid parent text',async()=>{
  for(const value of ['- 단항식 2x3y를 간단히 하기','- x2y3를 간단히 하기','- 다항식 3abc의 계산 연습','- 2x3y의 계산 연습','- 가우스 5-1-2 4-1~4-4 학습','- 2026-11-02까지 12문항 풀기']){
   const c=context();c.selectedFields=['lessonMemo'];c.memoAnswer={kind:'content',requestRef:c.currentRequestRef,text:value};c.facts=[fact('lessonMemo',value)];
