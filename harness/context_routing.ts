@@ -4,7 +4,7 @@ import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 export const contextPurposes = [
-  'continuation', 'interview', 'dependencies', 'main_sheet', 'google_integration', 'academy_local', 'spt_mobile', 'bot_development',
+  'continuation', 'interview', 'dependencies', 'main_sheet', 'google_integration', 'academy_local', 'bot_development',
 ] as const;
 export type ContextPurpose = typeof contextPurposes[number];
 
@@ -36,7 +36,6 @@ export const contextSourcePaths = {
   backend_map: 'research/backend-map/README.md',
   academy_routes: 'research/backend-map/route-registry.json',
   main_sheet_skill: '.agents/skills/park-main-sheet/SKILL.md',
-  spt_instructions: 'spt/AGENTS.md',
   source_imports: 'docs/source-import-manifest.json',
   student_database_architecture: 'docs/student-database-architecture-2026-10-01.json',
   preclass_main_sheet_ux: 'docs/preclass-main-sheet-ux-2026-10-01.json',

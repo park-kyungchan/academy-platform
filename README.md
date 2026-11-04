@@ -17,7 +17,7 @@ Rust CI runs alongside `.github/workflows/bun-cloud.yml` while retained
 TypeScript tests still need the Bun job. Remove that workflow with the
 remaining TypeScript deletions after their consumers migrate.
 
-This repository holds the Main Sheet workbench, a source snapshot of SPT, and the LMS automation package for one instructor's date-first workflow. The running SPT service, academy LMS, Sheet, and official sender remain separate authorities. The teacher performs the final parent send.
+This repository holds the Main Sheet workbench and the LMS automation package for one instructor's date-first workflow. The running SPT service, academy LMS, Sheet, and official sender remain separate authorities. The teacher performs the final parent send.
 
 ## Start on another Windows PC
 
@@ -29,7 +29,7 @@ bun run typecheck
 bun run test:synthetic
 ```
 
-The active work covers the synthetic 14:00 class projection, verified assessment and carry-forward models, and a dry-run plan to consolidate this instructor's companion tabs into the existing `박경찬` Main tab. See [the cutover candidate](docs/MAIN_SHEET_ONE_TAB_CUTOVER.md). The imported `spt/` and `lms-automation/` directories have their own `AGENTS.md` files.
+The active work covers the synthetic 14:00 class projection, verified assessment and carry-forward models, and a dry-run plan to consolidate this instructor's companion tabs into the existing `박경찬` Main tab. See [the cutover candidate](docs/MAIN_SHEET_ONE_TAB_CUTOVER.md). The imported `lms-automation/` directory has its own `AGENTS.md` file.
 
 ## Current state
 
@@ -37,7 +37,7 @@ The active work covers the synthetic 14:00 class projection, verified assessment
 - `workbench_v2/` is a legacy Python projection reference. It does not connect to the LMS or Sheet.
 - `research/main-sheet-v2/` records an owner-owned synthetic Google Sheets prototype. Its successful bot write does not prove a write to the academy-owned workbook.
 - `research/backend-map/` is the bounded, privacy-reviewed backend map. App submission/grading joins and an independent parent-delivery receipt are still unverified.
-- `spt/` contains 270 source files from the reviewed SPT checkout. `lms-automation/` contains 59 selected `ganga` code, test, and dependency files. Their source commits and file hashes are in `docs/source-import-manifest.json`.
+- The SPT snapshot was retired under user decision U2. Recover it from Git tag `archive/education-dc-gang-a-pre-spt-delete-20261105`. `lms-automation/` retains its selected `ganga` code, test, and dependency files; source commits and file hashes are in `docs/source-import-manifest.json`.
 - The saved-session client, its MCP server, smoke check, pipeline test, manual-session probe, and `ganga-read-client` skill were retired on 2026-09-27. The unused legacy PDF parser and Sheets bridge were also retired after their sole source dependency was found to be the removed MCP server. See [cleanup evidence](docs/cleanup-evidence.md).
 
 Read [AGENTS.md](AGENTS.md) for effect boundaries, [the Whole-Lens decision](docs/WHOLE_LENS_DECISION.md) for current priorities and the web-first mobile route, [the active handoff](handoffs/2026-09-28-antigravity-session-recovery.md) for continuation, and [the older Windows publication checkpoint](handoffs/2026-09-28-windows-antigravity.md) for historical evidence.
