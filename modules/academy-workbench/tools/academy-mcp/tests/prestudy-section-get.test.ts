@@ -18,6 +18,7 @@ test('prestudy get projects waiting/completed/summary with teacher judgment sepa
 });
 
 const reportObservation:PrestudyReportObservation={student:{studentId:'77001',displayName:'Invented Student'},prestudyKey:'12345',
+  sourceRecord:{prestudyKey:'12345',unitLabel:null,dateLiteral:null},
   sections:[{title:'개념 이해',subtitle:'개념을 정확히 이해하고 설명하는가?',blocks:[{heading:'포함된 핵심 개념',text:'Fictional narrative'}]}],
   scores:[77,80],encodingResult:'success',observedAt:'2040-01-16T09:00:00.000Z',coverage:'fictional_coverage'};
 
