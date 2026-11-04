@@ -114,7 +114,9 @@ pub struct Fault {
     pub message: String,
     pub issues: Option<Vec<Js>>,
     /// Ordered semantic source parts, including explicit null/undefined issues.
-    pub properties: Js,
+    /// Keep the shared error small on every Result return path; retain the
+    /// ordered, lossless semantic payload behind one allocation.
+    pub properties: Box<Js>,
     /// Native caller authority; never inferred from, or encoded into, Js data.
     pub trusted_context: Option<TrustedContext>,
 }
@@ -132,7 +134,7 @@ impl Fault {
             name: name.into(),
             message: message.into(),
             issues,
-            properties,
+            properties: Box::new(properties),
             trusted_context: None,
         }
     }
@@ -164,7 +166,7 @@ impl Fault {
             name: "Error".into(),
             message: message.into(),
             issues: None,
-            properties: obj(&[]),
+            properties: Box::new(obj(&[])),
             trusted_context: None,
         }
     }
@@ -173,7 +175,7 @@ impl Fault {
             name: "TypeError".into(),
             message: message.into(),
             issues: None,
-            properties: obj(&[]),
+            properties: Box::new(obj(&[])),
             trusted_context: None,
         }
     }
@@ -182,7 +184,7 @@ impl Fault {
             name: "AdapterAdmission".into(),
             message: message.into(),
             issues: None,
-            properties: obj(&[]),
+            properties: Box::new(obj(&[])),
             trusted_context: None,
         }
     }
@@ -196,10 +198,10 @@ impl Fault {
                 parts.push((key.clone(), value.clone()));
             }
         }
-        if !self.properties.has("issues") {
-            if let Some(issues) = &self.issues {
-                v.set("issues", Js::Arr(issues.clone()));
-            }
+        if !self.properties.has("issues")
+            && let Some(issues) = &self.issues
+        {
+            v.set("issues", Js::Arr(issues.clone()));
         }
         v
     }

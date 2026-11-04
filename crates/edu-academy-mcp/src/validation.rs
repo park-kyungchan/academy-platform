@@ -338,20 +338,20 @@ fn validate_known(s: &Js, v: &Js) -> Result<()> {
             }
         }
         Js::Num(n) => {
-            if let Js::Num(bound) = s.get("minimum") {
-                if n < bound {
-                    return Err(INVALID);
-                }
+            if let Js::Num(bound) = s.get("minimum")
+                && n < bound
+            {
+                return Err(INVALID);
             }
-            if let Js::Num(bound) = s.get("maximum") {
-                if n > bound {
-                    return Err(INVALID);
-                }
+            if let Js::Num(bound) = s.get("maximum")
+                && n > bound
+            {
+                return Err(INVALID);
             }
-            if let Js::Num(bound) = s.get("exclusiveMinimum") {
-                if n <= bound {
-                    return Err(INVALID);
-                }
+            if let Js::Num(bound) = s.get("exclusiveMinimum")
+                && n <= bound
+            {
+                return Err(INVALID);
             }
         }
         _ => (),

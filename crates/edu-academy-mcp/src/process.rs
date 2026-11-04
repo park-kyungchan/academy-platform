@@ -192,7 +192,7 @@ pub fn child_parent_guard() -> Result<()> {
         .map_err(|_| Error::new("owned_parent_guard_unavailable"))?;
     let me = Identity::read(std::process::id())
         .ok_or_else(|| Error::new("owned_parent_identity_required"))?;
-    if me.parent != expected || !Identity::read(expected).is_some_and(|p| p.start == start) {
+    if me.parent != expected || Identity::read(expected).is_none_or(|p| p.start != start) {
         return Err(Error::new("owned_parent_identity_changed"));
     }
     Ok(())

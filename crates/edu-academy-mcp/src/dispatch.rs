@@ -108,6 +108,13 @@ fn upstream_failure(result: &Js) -> Option<Js> {
     }
     None
 }
+// This boundary mirrors one RPC invocation. Keeping the independent session,
+// caller attribution and cancellation ports explicit avoids hiding ownership in
+// a second aggregate context alongside process::Context.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Explicit RPC/session/ownership ports at the dispatch boundary"
+)]
 pub fn call(
     graph: &ReleaseGraph,
     gate: &mut ConnectionGate,

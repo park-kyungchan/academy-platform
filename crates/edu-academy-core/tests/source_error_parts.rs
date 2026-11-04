@@ -517,7 +517,6 @@ fn backend_catalog_exception_keeps_original_audit_reason_and_reconciliation_fenc
                 .get("reasonCode")
                 .is("uncertain_dispatch_reconcile_required")
         );
-        drop(svc);
         assert_eq!(backend.calls, 1, "no automatic backend retry");
     }
 }

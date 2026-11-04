@@ -55,11 +55,11 @@ pub fn fault_from_error(error: Error) -> edu_academy_core::js::Fault {
     edu_academy_core::js::Fault::from_parts(error.name, error.message, error.properties)
 }
 pub fn error_from_fault(fault: edu_academy_core::js::Fault) -> Error {
-    let mut properties = fault.properties;
-    if !properties.has("issues") {
-        if let Some(issues) = fault.issues {
-            properties.set("issues", Js::Arr(issues));
-        }
+    let mut properties = *fault.properties;
+    if !properties.has("issues")
+        && let Some(issues) = fault.issues
+    {
+        properties.set("issues", Js::Arr(issues));
     }
     Error {
         name: fault.name,

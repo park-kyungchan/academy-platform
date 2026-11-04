@@ -491,21 +491,22 @@ fn project(error: &Fault, fallback: &str, depth: usize) -> Js {
         ),
     ]);
     if authentication {
-        if depth < 2 {
-            if let Some(TrustedContext::Authentication { cause: Some(cause) }) =
+        if depth < 2
+            && let Some(TrustedContext::Authentication { cause: Some(cause) }) =
                 &error.trusted_context
-            {
-                failure.set(
-                    "cause",
-                    project(cause, "source_cause_unclassified", depth + 1),
-                );
-            }
+        {
+            failure.set(
+                "cause",
+                project(cause, "source_cause_unclassified", depth + 1),
+            );
         }
     } else if !malformed && known.is_some() {
-        if let Js::Num(status) = error.properties.get("httpStatus") {
-            if status.is_finite() && status.fract() == 0.0 && (400.0..=599.0).contains(status) {
-                failure.set("sourceHttpStatus", Js::Num(*status));
-            }
+        if let Js::Num(status) = error.properties.get("httpStatus")
+            && status.is_finite()
+            && status.fract() == 0.0
+            && (400.0..=599.0).contains(status)
+        {
+            failure.set("sourceHttpStatus", Js::Num(*status));
         }
         let operation = error.properties.get("sourceOperation");
         if operation.string()

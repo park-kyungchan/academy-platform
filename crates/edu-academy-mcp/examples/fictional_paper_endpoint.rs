@@ -94,6 +94,7 @@ fn main() {
     // Keep the file; kernel lock lifetime is exactly this owned process lifetime.
     let lock = OpenOptions::new()
         .create(true)
+        .truncate(false)
         .read(true)
         .write(true)
         .mode(0o600)

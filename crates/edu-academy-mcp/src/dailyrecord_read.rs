@@ -201,7 +201,7 @@ fn project_failure(value: &Js, depth: usize) -> Js {
     } else {
         String::new()
     });
-    fault.properties = obj(&[
+    *fault.properties = obj(&[
         ("httpStatus", value.get("sourceHttpStatus").clone()),
         ("sourceOperation", value.get("sourceOperation").clone()),
     ]);
