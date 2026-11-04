@@ -4,7 +4,7 @@
   "repository": "park-kyungchan/education-platform",
   "visibilityRequired": "public",
   "visibilityPolicy": "architecture/repository-visibility-policy.json",
-  "workRef": "work/education-platform/academy-repository-integration-20261023/work.json",
+  "workRef": null,
   "sourceBaseCommit": "da51312ed08d506853c46d17573a5b5a1f405bef",
   "maintenanceRoutes": [
     {
@@ -47,13 +47,6 @@
       "root": "apps/academy/gang-a",
       "sourceCommit": "c4475511b347e9fdc83a7ebbc4b5a1779fa1be6e",
       "maintenanceOwner": "education-platform source integration with retained gang-a domain meaning",
-      "nativeRuntimeCutover": false
-    },
-    {
-      "sourceRepository": "park-kyungchan/hermes-profile-dc-gang-a-dev",
-      "root": "examples/clinic-workbench",
-      "sourceCommit": "3d45dc0bceff9df9a84a9fde2d0ffcf8f362a512",
-      "maintenanceOwner": "education-platform source integration with retained hermes-profile-dc-gang-a-dev domain meaning",
       "nativeRuntimeCutover": false
     }
   ],

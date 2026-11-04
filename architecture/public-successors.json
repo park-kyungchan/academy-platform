@@ -12,8 +12,8 @@
     {
       "predecessor": "hermes-profile-dc-gang-a-dev",
       "successor": "education-platform",
-      "module": "examples/clinic-workbench",
-      "currentURL": "https://github.com/park-kyungchan/education-platform/tree/main/examples/clinic-workbench"
+      "module": "apps/academy",
+      "currentURL": "https://github.com/park-kyungchan/education-platform/tree/main/apps/academy"
     }
   ],
   "common": [

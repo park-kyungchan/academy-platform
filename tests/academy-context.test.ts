@@ -39,7 +39,7 @@ test('integrated workflow routing reuses bounded selection and preserves exclusi
 });
 test('selected source resolution uses the integrated file while preserving original source identity',async()=>{
  const route=await runIntegratedAcademyContext(['resolve','--source','SRC-INTEGRATION-USER-20261023']);
- expect(route).toMatchObject({status:'original-bytes-retained',originalRepository:'education-platform',integratedPath:'work/education-platform/academy-repository-integration-20261023/inputs/AI-USER.json',sourceBodiesEmitted:false,nativePermissionGranted:false});
+ expect(route).toMatchObject({status:'not-imported',originalRepository:'education-platform',observedSha256:null,sourceBodiesEmitted:false,nativePermissionGranted:false});
  await expect(runIntegratedAcademyContext(['resolve','--source','../../foreign'])).rejects.toThrow('unknown_source');
 });
 test('an unmatched date preserves archival discovery and never becomes a claim of no student activity',async()=>{

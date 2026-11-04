@@ -26,7 +26,6 @@ The root Actions workflows set up Bun 1.4.3 directly; setup refuses any other Bu
 | `packages/curriculum` | `bun run preview`, `bun run project:ui`, `bun run validate`; `integration.ts` source inventory | Preserved 48 UI envelopes and original export provenance. Five canonical inputs are absent; boundary pin conflict is unresolved. |
 | `apps/academy` | `bun run check`, `integration.ts`; package-local native `academy:serve`/HTTP/query commands and gang-a code modules | Composite DC code/spec and gang-a code baseline. Native profiles, credentials, PostgreSQL and student originals retain their owners. |
 | `apps/mathcrew` | bilingual static build, routing handlers, `bun run test`, `bun run check` | Maintained Bun 1.4.3 product, fonts and publication allowlist; historical source links identify private maintained successors. |
-| `examples/clinic-workbench` | `bun run demo`, `bun run build`, `bun run check` | Synthetic snapshot consuming both academy source semantics; no official save or parent send. |
 
 `architecture/source-map.json` retains original Project/native bindings and observed commits. A native worktree HEAD does not identify its dirty content: `provenance/imported-files.json` hashes the selected actual bytes, while `provenance/adaptations.json` records each intentional integration change. Full Git histories, refs and selected native raw source archives are retained by the Hermes owner outside Git; `provenance/history-custody.json` carries restore locators and hashes without publishing those bundles.
 

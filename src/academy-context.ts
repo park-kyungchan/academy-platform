@@ -48,7 +48,7 @@ export async function runIntegratedAcademyContext(args:readonly string[]){
   let packages:ReturnType<typeof privatePackageRoutes>;
   try{packages=privatePackageRoutes(manifest,rest[1]);}catch(error){if(rest[1]&&error instanceof Error&&error.message==='academy_context_business_date_not_retained')packages=[];else throw error;}
   return {schema:'education.academy-context-entry.v1',repository:'park-kyungchan/education-platform',sourceBodiesLoaded:false,nativePermissionGranted:false,authority:'none',
-   currentWork:'work/education-platform/academy-repository-integration-20261023/work.json',
+   currentWork:null,
    currentDirection:'Use the integrated Education source. Historical keep-repositories/no-migration decisions retain their prior scope; current decisions govern this integration only.',
    hierarchy:['work-purpose','business-date','class-or-cohort','student','book-edition','unit','activity','occurrence-or-attempt','stage-and-attributable-observation-or-decision'],
    relationBoundaries:'Containment, prerequisite, provenance, scoped correction and recurring workflow are distinct. Missing evidence is unknown; latest timestamp alone never overwrites a different occurrence.',

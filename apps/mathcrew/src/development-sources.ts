@@ -4,7 +4,7 @@ import { snapshotData } from './data-snapshot';
 export const maintainedSuccessors = Object.freeze([{name:'education-platform',url:'https://github.com/park-kyungchan/education-platform'},{name:'agent-platform',url:'https://github.com/park-kyungchan/agent-platform'}] as const);
 export const profileInventory = ['default', 'dc-context', 'dc-contract-audit', 'dc-gang-a-dev', 'dc-review', 'ontology-platform'] as const;
 export type Profile = typeof profileInventory[number];
-export function maintainedSourceURL(profile:Profile):string {if(profile==='default')return 'https://github.com/park-kyungchan/education-platform/tree/main/apps/mathcrew';if(profile==='dc-gang-a-dev')return 'https://github.com/park-kyungchan/education-platform/tree/main/examples/clinic-workbench';return 'https://github.com/park-kyungchan/agent-platform/tree/main/history/public-contracts';}
+export function maintainedSourceURL(profile:Profile):string {if(profile==='default')return 'https://github.com/park-kyungchan/education-platform/tree/main/apps/mathcrew';if(profile==='dc-gang-a-dev')return 'https://github.com/park-kyungchan/education-platform/tree/main/apps/academy';return 'https://github.com/park-kyungchan/agent-platform/tree/main/history/public-contracts';}
 
 export interface PublicSource { readonly profile: Profile; readonly name: string; readonly url: string }
 export interface PublicSourceSnapshot { readonly schema: 'mathcrew.public-development-snapshot.v1'; readonly repositories: readonly PublicSource[] }

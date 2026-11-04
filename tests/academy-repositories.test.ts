@@ -11,8 +11,7 @@ test('the plan routes all source families without executing owner checks or feat
   expect(plan.repositories).toHaveLength(15);
   expect(plan.execution).toBe('plan-only');
   expect(plan.featureImplementation).toBe('external-pr');
-  expect(workflow.repositories.filter(r => r.work).map(r => r.repository)).toEqual(['education-platform']);
-  expect(workflow.repositories.find(r => r.repository === 'education-platform')!.work!.workId).toBe('academy-repository-integration-20261023');
+  expect(workflow.repositories.filter(r => r.work)).toEqual([]);
   for (const name of ['academy-workbench', 'math-research-module']) {
     const row = workflow.repositories.find(r => r.repository === name)!;
     expect(row.role).toBe('retained'); expect(row.work).toBeNull();
@@ -132,7 +131,7 @@ test('routing rejects missing owners, duplicate repositories, traversal, and a c
     (w: any) => w.repositories[0].routes[0].repository = 'absent',
     (w: any) => w.repositories[0].routes[0].path = '../native',
     (w: any) => w.provider.commit = 'f'.repeat(40),
-    (w: any) => w.repositories.find((r: any) => r.role === 'retained').work = source.repositories[0]!.work,
+    (w: any) => w.repositories.find((r: any) => r.role === 'retained').work = {domainId:'education',projectId:'synthetic',workId:'synthetic'},
     (w: any) => w.dependencies[0].provider = 'absent',
     (w: any) => w.dependencies.push(w.dependencies[0]),
   ]) {
