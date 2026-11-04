@@ -8,6 +8,7 @@ import {readItemAnswerBatch} from './itemAnswerBatch';
 import type {ItemAnswerObservation} from './itemAnswerRead';
 export const scopedReadFamilies=['daily_zero','day_record','item_answer','item_metadata','student_course','textbook'] as const;
 import {createStudentCourseRequest,readStudentCourses,type StudentCourseObservation,type StudentCourseRequest} from './studentCourseRead';
+import {deriveTextbookSectionTitlePattern,mergeTextbookSectionRows,TEXTBOOK_SECTION_NOT_IN_EITHER} from './textbookSectionIndex';
 export interface TextbookReadRequest {
   family: 'textbook'; teacherLabel: string; studentKey: string; studentName: string;
   courseKey: string; bookNo: string; sourceTitles: string[]; gradeViewAdmission: true;
@@ -123,6 +124,12 @@ export interface AcademyReadEnvironment {
   origin: string; authenticatedTeacherVisible: boolean;
   authenticationMode?:'browser_managed_manual'|'direct_http_api';
   principalKey?:string;
+  /** Optional all-records attempt source for the textbook family: the exact
+   * student's paper-search rows (every attempt, including all-correct
+   * sections the wrong-note index omits). Consulted lazily, only by the
+   * textbook branch; `unavailable` degrades to the wrong-note index alone
+   * and never licenses a not-in-either-source claim. */
+  textbookPaperSearch?:()=>Promise<{status:'observed';rows:{testingName:string;paperKey:string;attemptKey:string;applyDateLiteral:string|null}[]}|{status:'unavailable';rows:never[]}>;
   domParser?:Pick<DOMParser,'parseFromString'>;
   onItemAnswerObservation?:(answer:ItemAnswerObservation)=>void|Promise<void>;
   dayRecordColumnContract?:DayRecordColumnContract;
@@ -217,12 +224,27 @@ export async function executeAcademyRead(plan:ScopedAcademyReadPlan,environment:
   if(raw.result!=='ok'||!Array.isArray(raw.noteResultList))throw new Error('wrong_note_contract_rejected');
   const notes=raw.noteResultList.map(readInputRecord);
   for(const row of notes)if(sourceResponseKey(row.pri_no)!==request.studentKey||row.name!==request.studentName)throw new Error('source_subject_conflict');
+  // All-correct sections never enter the wrong-note index. Merge the exact
+  // student's paper-search attempts whose titles match this book's template
+  // (derived from the wrong-note titles above); the detail read below still
+  // requires sub_title to equal the requested title for the chosen attempt.
+  const paperSearch=environment.textbookPaperSearch?await environment.textbookPaperSearch():{status:'unavailable' as const,rows:[] as never[]};
+  const wrongRows=notes.map(row=>({sourceTitle:readLiteralName(row.testing_name),paperKey:sourceResponseKey(row.p_no),attemptKey:sourceResponseKey(row.testing_no),
+    sourceDateLiteral:typeof row.apply_date==='string'?row.apply_date:null}));
+  const titlePattern=paperSearch.status==='observed'
+    ?deriveTextbookSectionTitlePattern(wrongRows.map(r=>r.sourceTitle),request.studentName):null;
+  const attempts=paperSearch.status==='observed'
+    ?mergeTextbookSectionRows(wrongRows,paperSearch.rows,titlePattern)
+    :wrongRows.map(row=>({...row,sources:['wrong_answer_note'] as const}));
   const records:StoredSourceRecord[]=[];
   for(const title of request.sourceTitles) {
-    const matches=notes.filter(row=>row.testing_name===title);
-    if(matches.length!==1)throw new Error('source_selection_missing_or_ambiguous');
+    const matches=attempts.filter(row=>row.sourceTitle===title);
+    // Not-in-either may only be claimed when a derivable title pattern
+    // actually anchored the paper rows to this book. Without one, paper
+    // rows could not join at all, so absence is selection ambiguity.
+    if(matches.length!==1)throw new Error(matches.length===0&&paperSearch.status==='observed'&&titlePattern!==null?TEXTBOOK_SECTION_NOT_IN_EITHER:'source_selection_missing_or_ambiguous');
     const row=matches[0]!;
-    const paperKey=sourceResponseKey(row.p_no),attemptKey=sourceResponseKey(row.testing_no);
+    const paperKey=row.paperKey,attemptKey=row.attemptKey;
     const data=readInputRecord(JSON.parse(await post('/servlet/controller.common.TestpageSelectExServlet',{
       p_process:'getStudyResultSingleTestingSingleUser',condition:JSON.stringify({testing_no:Number(readLiteralKey(attemptKey)),pri_no:Number(request.studentKey),
         student_name:request.studentName,score:{create:1},incorrect:{create:0},similar:{create:0},advance:{create:0},report:{create:0}}),
@@ -233,11 +255,11 @@ export async function executeAcademyRead(plan:ScopedAcademyReadPlan,environment:
     const items=(paper.exam_list as unknown[]).map(readInputRecord).map(item=>({originalOrdinal:sourceResponseKey(item.exam_no),
       lectureKey:item.lecture_key==null?null:sourceResponseKey(item.lecture_key),outerLectureKey:item.outer_lecture_key==null?null:sourceResponseKey(item.outer_lecture_key),
       scoring:item.scoring_result as 'O'|'X'})).sort((a,b)=>Number(a.originalOrdinal)-Number(b.originalOrdinal));
-    const literal=typeof row.apply_date==='string'?row.apply_date:null;
+    const literal=row.sourceDateLiteral;
     records.push({sourceTitle:title,studentKey:request.studentKey,studentName:request.studentName,courseKey:request.courseKey,bookNo:request.bookNo,paperKey,attemptKey,
       score:detail.score,items,sourceDate:{literal,precision:literal&&/^\d{2}-\d{2}$/.test(literal)?'month_day':'unknown',meaning:'source_apply_date_not_exact_grade_time'}});
   }
   records.sort((a,b)=>a.sourceTitle<b.sourceTitle?-1:a.sourceTitle>b.sourceTitle?1:0);
   return {schemaVersion:1,family:'textbook',status:'observed',records,dailyResults:[],dayRecords:[],observedAt:new Date().toISOString(),coverage:'exact_selected_existing_records_not_whole_book',
-    unknownStates:[...trusted.unknownStates],nativePrintInvoked:false,automaticRetryAllowed:false};
+    unknownStates:[...trusted.unknownStates,...(paperSearch.status==='observed'?['student_paper_search_one_observed_page_not_complete_history']:['student_paper_search_unavailable_wrong_note_index_only'])],nativePrintInvoked:false,automaticRetryAllowed:false};
 }

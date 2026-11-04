@@ -5,7 +5,7 @@ import {dirname,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {z} from 'zod';
 import {readPinnedLocalBytes} from './item-label-store.ts';
-import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation,type ItemSectionTrace,type ItemSectionTraceObservation} from './dailyrecord.ts';
+import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type PrestudyReportGet,type PrestudyReportObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation,type TextbookSectionResultsByNameObservation,type ItemSectionTrace,type ItemSectionTraceObservation} from './dailyrecord.ts';
 import {createDailyRecordSaveAdmission,liveSaveRequestEvidence,type DailyRecordSaveAdmission,type DailyRecordSaveApproval} from './dailyrecord-save-admission.ts';
 import type {DailyRecordActionApproval} from './dailyrecord-workflow.ts';
 import type {DailyRecordField} from './dailyrecord-context.ts';
@@ -57,8 +57,9 @@ interface SourcePort {
    * request input. No sequential key probing, before or after. */
   searchStudentsByName?(input:{teacherLabel:string;studentName:string}):Promise<unknown>;
   readPrestudy?(input:{teacherLabel:string;studentName:string}):Promise<{waiting:unknown[];completed:unknown[];summary:unknown[];observedAt:string;coverage:string}>;
+  readPrestudyReport?(input:{teacherLabel:string;studentName:string;studentKey:string;prestudyKey:string}):Promise<{sections:unknown[];scores:number[];prestudyKey:string;encodingResult:string|null;observedAt:string;coverage:string}>;
   readTextbookBindings?(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[]>;
-  inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string}}[]}>;
+  inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];indexBasis?:string;coverage?:string}>;
 }
 type Admission={teacherId:string;teacherLabel:string;date:string;students:{studentId:string;displayName:string}[];sourceBundleSha256:string};
 const fields=['progress','homework','lessonMemo','attendance','dailyTestAssessment','previousHomeworkAssessment'] as const;
@@ -218,18 +219,59 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     return {student:{studentId:student.studentId,displayName:student.displayName},waiting,completed,summary,
       teacherJudgment:null,observedAt:raw.observedAt,coverage:raw.coverage};
   }
+  /** AI prestudy report for one exact record of an admitted student. The
+   * client binds the detail record to the student key before following
+   * its analysis key. Report text stays in this return value only. */
+  async readPrestudyReportByName(input:Readonly<PrestudyReportGet>):Promise<PrestudyReportObservation>{
+    const student=this.admission.students.find(s=>s.displayName===input.displayName);
+    if(!student||!this.managedNames.has(input.displayName))throw Error('prestudy_student_not_admitted');
+    if(!this.client.readPrestudyReport)throw Error('prestudy_report_source_port_unavailable');
+    await this.#authenticate();
+    const raw=await this.client.readPrestudyReport({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId,prestudyKey:input.prestudyKey});
+    if(raw.prestudyKey!==input.prestudyKey)throw Error('prestudy_report_result_unqualified');
+    const section=z.object({title:z.string().min(1).max(500),subtitle:z.string().max(1000).nullable(),
+      blocks:z.array(z.object({heading:z.string().max(1000).nullable(),text:z.string().min(1).max(20000)})).min(1).max(60)});
+    const sections=z.array(section).min(1).max(16).parse(raw.sections);
+    const scores=z.array(z.number()).max(20).parse(raw.scores);
+    const encodingResult=z.string().max(200).nullable().parse(raw.encodingResult);
+    return {student:{studentId:student.studentId,displayName:student.displayName},prestudyKey:raw.prestudyKey,
+      sections,scores,encodingResult,observedAt:raw.observedAt,coverage:raw.coverage};
+  }
   /** Section grading/index with the binding discovered owner-side from the
-   * live progress page. Exactly one registered binding is required; with no
-   * titles the observed title index is returned for caller selection. */
-  async readTextbookSectionsByName(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionObservation|TextbookSectionIndexObservation>{
+   * live progress page. With several registered bindings and no exact
+   * bookLabel the candidate labels are returned for caller selection; with
+   * no titles the observed title index is returned for caller selection. */
+  async readTextbookSectionsByName(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionResultsByNameObservation>{
     const student=this.admission.students.find(s=>s.displayName===input.displayName);
     if(!student||!this.managedNames.has(input.displayName))throw Error('textbook_student_not_admitted');
     if(!this.client.readTextbookBindings)throw Error('textbook_binding_source_port_unavailable');
     await this.#authenticate();
     const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
     if(!bindings.length)throw Error('textbook_binding_source_unqualified');
-    if(bindings.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
-    const binding=bindings[0]!;
+    const selected=input.bookLabel?bindings.filter(b=>b.bookLabel===input.bookLabel):bindings;
+    if(input.bookLabel&&selected.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
+    if(!input.bookLabel&&bindings.length>1){
+      // Source bookLabel cells are not always titles (a progress row can
+      // yield a percent literal), so attach each binding's first observed
+      // section title as a selection hint. The hint never selects; the
+      // caller still echoes the exact bookLabel on the second call.
+      const candidates:{bookLabel:string;hint?:string}[]=[];
+      for(const b of bindings){
+        let hint:string|undefined;
+        if(this.client.inspectTextbookIndex){
+          try{
+            const raw=await this.client.inspectTextbookIndex({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
+              studentName:student.displayName,courseKey:b.courseKey,bookNo:b.bookNo,sourceTitles:['index'],gradeViewAdmission:true});
+            const rows=z.array(z.object({sourceTitle:z.string().min(1).max(2000)}).passthrough()).max(1000).parse(raw.rows);
+            hint=rows[0]?.sourceTitle;
+          }catch{hint=undefined;}
+        }
+        candidates.push(hint?{bookLabel:b.bookLabel,hint}:{bookLabel:b.bookLabel});
+      }
+      return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
+        bindings:candidates,reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
+    }
+    const binding=selected[0]!;
     if(binding.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
     if(input.sourceTitles){
       return this.readTextbookSections({displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,
@@ -239,10 +281,16 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     const raw=await this.client.inspectTextbookIndex({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
       studentName:student.displayName,courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:['index'],gradeViewAdmission:true});
     const index=z.array(z.object({sourceTitle:z.string().min(1).max(2000),
-      sourceDate:z.object({literal:z.string().nullable(),meaning:z.string().max(200)}).passthrough()}).passthrough()).max(1000).parse(raw.rows)
-      .map(r=>({sourceTitle:r.sourceTitle,sourceDate:{literal:r.sourceDate.literal??null,meaning:String(r.sourceDate.meaning??'source_apply_date_not_exact_grade_time')}}));
+      sourceDate:z.object({literal:z.string().nullable(),meaning:z.string().max(200)}).passthrough(),
+      sources:z.array(z.string().max(64)).max(4).optional()}).passthrough()).max(1000).parse(raw.rows)
+      .map(r=>({sourceTitle:r.sourceTitle,sourceDate:{literal:r.sourceDate.literal??null,meaning:String(r.sourceDate.meaning??'source_apply_date_not_exact_grade_time')},
+        ...(r.sources?{sources:r.sources}:{})}));
+    const indexBasis=typeof raw.indexBasis==='string'?raw.indexBasis:'wrong_answer_note_only';
     return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:binding.courseKey,bookNo:binding.bookNo,
-      bookLabel:binding.bookLabel,index,observedAt:new Date().toISOString(),coverage:'observed_title_index_for_exact_student_course_book_not_section_grading'};
+      bookLabel:binding.bookLabel,index,observedAt:new Date().toISOString(),indexBasis,
+      coverage:indexBasis==='wrong_answer_note_plus_student_paper_search'
+        ?'wrong_answer_note_index_plus_one_observed_student_paper_search_page_for_exact_student_course_book_not_section_grading_not_complete_history'
+        :'wrong_answer_note_title_index_only_for_exact_student_course_book_not_section_grading_not_complete_history'};
   }
   /** Reverse trace: scan the student's registered textbook section indexes and
    * match item labels to original section items. Bindings are scanned in full

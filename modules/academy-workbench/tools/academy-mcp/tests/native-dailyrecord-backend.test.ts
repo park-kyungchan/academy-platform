@@ -124,6 +124,52 @@ test('native configuration rejects caller authority fields, duplicates and non-n
  await expect(nativeDailyRecordConfiguration(['--dailyrecord-native','/missing/config.json','b'.repeat(64)])).rejects.toThrow('native_dailyrecord_owner_required');
 });
 
+const textbookRequest={displayName:'Invented Student',purpose:'Read fictional textbook sections',currentRequestRef:'synthetic-textbook-request'};
+function textbookFixture(bindings:{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[]){
+ const calls={inspect:0,execute:0,inspectInputs:[] as any[],executeInputs:[] as any[]};
+ const port={authenticate:async()=>{},discoverDayRecordGroups:async()=>({groups:[]}),
+  readTextbookBindings:async()=>bindings,
+  inspectTextbookIndex:async(input:any)=>{calls.inspect++;calls.inspectInputs.push(input);
+   return {rows:[{sourceTitle:'Unit for book '+input.bookNo,sourceDate:{literal:'10-23',meaning:'source_apply_date_not_exact_grade_time'}}]};},
+  execute:async(input:any)=>{calls.execute++;calls.executeInputs.push(input);
+   return {family:'textbook',status:'observed',observedAt:'2040-01-16T09:00:00.000Z',coverage:'x',
+    records:input.sourceTitles.map((sourceTitle:string)=>({sourceTitle,studentKey:'77001',studentName:'Invented Student',courseKey:input.courseKey,bookNo:input.bookNo,score:80,items:[{originalOrdinal:'1',lectureKey:'8101',outerLectureKey:null,scoring:'O'}],sourceDate:{literal:null,precision:'unknown',meaning:'source_apply_date_not_exact_grade_time'}}))};},
+  journalState:async()=>{throw Error('not_called');},close:()=>{}};
+ return {calls,backend:new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}))};
+}
+const multiBindings=[{courseKey:'5',bookNo:'7',studentKey:'77001',bookLabel:'Book One'},{courseKey:'6',bookNo:'8',studentKey:'77001',bookLabel:'Book Two'}];
+test('textbook sections by name: multiple bindings without bookLabel returns interview_required candidates with first-title hints and no grading',async()=>{
+ const {calls,backend}=textbookFixture(multiBindings);
+ const result=await backend.readTextbookSectionsByName(textbookRequest);
+ expect(result).toMatchObject({kind:'interview_required',student:{studentId:'77001',displayName:'Invented Student'},
+  bindings:[{bookLabel:'Book One',hint:'Unit for book 7'},{bookLabel:'Book Two',hint:'Unit for book 8'}],reason:'multiple_book_bindings_select_one'});
+ expect(typeof (result as any).observedAt).toBe('string');
+ expect(calls.inspect).toBe(2);expect(calls.execute).toBe(0);
+ // The service surfaces the same candidates as interview_required, not observed/unavailable.
+ const serviceResult=await new DailyRecordService(backend).textbookSectionsByName(textbookRequest);
+ expect(serviceResult).toMatchObject({status:'interview_required',kind:'interview_required',bindings:[{bookLabel:'Book One',hint:'Unit for book 7'},{bookLabel:'Book Two',hint:'Unit for book 8'}]});
+ expect(calls.inspect).toBe(4);expect(calls.execute).toBe(0);
+});
+test('textbook sections by name: exact bookLabel selects that binding for index and grading',async()=>{
+ const {calls,backend}=textbookFixture(multiBindings);
+ expect(await backend.readTextbookSectionsByName({...textbookRequest,bookLabel:'Book Two'}))
+  .toMatchObject({courseKey:'6',bookNo:'8',bookLabel:'Book Two',index:[{sourceTitle:'Unit for book 8'}]});
+ expect(calls.inspectInputs.at(-1)).toMatchObject({courseKey:'6',bookNo:'8'});
+ const graded=await backend.readTextbookSectionsByName({...textbookRequest,bookLabel:'Book Two',sourceTitles:['Unit for book 8']});
+ expect(graded).toMatchObject({courseKey:'6',bookNo:'8',records:[{sourceTitle:'Unit for book 8',score:80,correctCount:1,itemCount:1}]});
+ expect(calls.executeInputs.at(-1)).toMatchObject({courseKey:'6',bookNo:'8'});
+});
+test('textbook sections by name: bookLabel with no exact match still throws textbook_binding_missing_or_ambiguous',async()=>{
+ const {calls,backend}=textbookFixture(multiBindings);
+ await expect(backend.readTextbookSectionsByName({...textbookRequest,bookLabel:'No Such Book'})).rejects.toThrow('textbook_binding_missing_or_ambiguous');
+ expect(calls.inspect).toBe(0);expect(calls.execute).toBe(0);
+});
+test('textbook sections by name: single binding without bookLabel is unchanged',async()=>{
+ const {backend}=textbookFixture([multiBindings[0]!]);
+ expect(await backend.readTextbookSectionsByName(textbookRequest))
+  .toMatchObject({courseKey:'5',bookNo:'7',bookLabel:'Book One',index:[{sourceTitle:'Unit for book 7'}]});
+});
+
 test('a dated source proof is request/date bound and expires before a dynamic student read',async()=>{
  const f=fixture(),newRow={...row,studentName:'Second Invented Student',studentKey:'77002'};
  const open={...range,schemaVersion:'academy.owner-admission/2' as const,allowedFrom:null,allowedThrough:null,studentScope:'source_verified' as const};

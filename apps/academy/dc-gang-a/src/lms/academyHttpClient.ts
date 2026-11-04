@@ -1,7 +1,7 @@
 import {CISM_PATH,parseCismReport,cismWriteParameters,cismWeek,type CismReport} from './cismWeeklyProtocol';
 import {JSDOM} from 'jsdom';
 import {TEXTBOOK_CATALOG_PATH,MAX_TEXTBOOK_CATALOG_BYTES,MAX_TEXTBOOK_SAMPLE_BYTES,MAX_TEXTBOOK_REFERENCE_BYTES,parseTextbookCatalog,boundedTextbookBody,qualifiedTextbookPdfUrl,textbookPdfDigest,type TextbookCatalogObservation,type TextbookPdfObservation,type TextbookSchoolLevel} from './textbookCatalogRead';
-import {PRESTUDY_PATH,PRESTUDY_SUMMARY_PATH,TEXTBOOK_PROGRESS_PATH,parsePrestudySearchForm,parsePrestudyList,parsePrestudySummary,prestudyRowsForStudent,parseTextbookBindings,type PrestudyListRow,type PrestudySummaryRow,type TextbookBinding} from './prestudyRead';
+import {PRESTUDY_PATH,PRESTUDY_SUMMARY_PATH,PRESTUDY_REPORT_PATH,TEXTBOOK_PROGRESS_PATH,parsePrestudySearchForm,parsePrestudyList,parsePrestudySummary,prestudyRowsForStudent,parseTextbookBindings,parsePrestudyDetail,parsePrestudyReport,type PrestudyListRow,type PrestudySummaryRow,type TextbookBinding,type PrestudyReport} from './prestudyRead';
 import {randomInt,createHash} from 'node:crypto';
 import {createAcademyReadPlan,executeAcademyRead,readLiteralKey,readLiteralName,sourceResponseKey,parseTextbookScopeBinding,type AcademyReadResult,type ScopedAcademyReadPlan} from './academyReadProtocol';
 import {readInputRecord} from '../contracts/readInputRecord';
@@ -14,6 +14,7 @@ import {parseItemMetadata} from './itemMetadataRead';
 import {selectSourceFunction} from './sourceFunctionText';
 import {inspectAssessmentSearchMetadata,inspectStudentNameSearch} from './assessmentReadProtocol';
 import {qualifyStudentPaperSearchPeriod,type StudentPaperSearchPeriod} from './studentPaperSearchPeriod';
+import {deriveTextbookSectionTitlePattern,mergeTextbookSectionRows,TEXTBOOK_PAPER_SEARCH_COVERAGE,type TextbookPaperSearchRow} from './textbookSectionIndex';
 import {decodePaperCode} from './printedPaperCode';
 import {inspectTestPoolDocument,readTestPoolDocument,testPoolSelectorDefaults} from './testPoolInspection';
 import {testPoolQuestionPreviewReferences,testPoolPreviewSourcePins} from './testPoolQuestionPreview';
@@ -129,6 +130,27 @@ export class AcademyHttpClient {
     const summaryHtml=await pageText(PRESTUDY_SUMMARY_PATH,{method:'GET'},'TeacherPrestudySummary');
     const summary=prestudyRowsForStudent(parsePrestudySummary(summaryHtml,sourceDomParser.parseFromString),input.studentName);
     return {waiting,completed,summary,observedAt:new Date().toISOString(),coverage:'exact_student_rows_on_waiting_completed_and_one_observed_summary_page_not_all_history'};
+  }
+  /** AI prestudy report for one exact uploaded-video record. The detail
+   * record must belong to the exact student; its rendered analysis key is
+   * followed to the server-rendered report page. Report text is student
+   * content for the teacher only; no transcript field exists on either
+   * page and none is derived. */
+  async readPrestudyReport(input:{teacherLabel:string;studentName:string;studentKey:string;prestudyKey:string}):Promise<PrestudyReport&{prestudyKey:string;encodingResult:string|null;observedAt:string;coverage:string}>{
+    if(!input||Object.keys(input).sort().join(',')!=='prestudyKey,studentKey,studentName,teacherLabel'||input.teacherLabel!==this.#principal.teacherLabel)throw Error('prestudy_report_principal_rejected');
+    readLiteralName(input.studentName);readLiteralKey(input.studentKey);readLiteralKey(input.prestudyKey);
+    if(!this.#authenticated)throw Error('authentication_required');
+    const pageText=async(path:string,operation:string)=>{
+      const response=await this.#request(path,{method:'GET'},false,operation);
+      const text=await response.text();if(text.length>2000000)throw Error('prestudy_source_rejected');return text;
+    };
+    const detailHtml=await pageText(PRESTUDY_PATH+'?reqCmd=WebPreStudy&prestudy_key='+encodeURIComponent(input.prestudyKey),'WebPreStudy');
+    const detail=parsePrestudyDetail(detailHtml,sourceDomParser.parseFromString,input.studentKey);
+    if(!detail.analysisKey)throw Error('prestudy_report_not_ready');
+    const reportHtml=await pageText(PRESTUDY_REPORT_PATH+'?analysis_key='+encodeURIComponent(detail.analysisKey),'prestudy_ai_report');
+    const report=parsePrestudyReport(reportHtml,sourceDomParser.parseFromString);
+    return {...report,prestudyKey:input.prestudyKey,encodingResult:detail.encodingResult,observedAt:new Date().toISOString(),
+      coverage:'exact_prestudy_detail_and_server_rendered_ai_report_sections_not_transcript'};
   }
   /** Registered textbook bindings for one exact student, from the live
    * getTextBookProgress rows. Caller IDs are never accepted here. */
@@ -709,9 +731,10 @@ export class AcademyHttpClient {
       filterContracts:{functions,controls,scriptSources,forms,navigation},displayRows,gradingPresence:'source_score_alone_not_teacher_review' as const,
       expectedPaperDefinitions:'not_observed' as const,handlersInvoked:false as const,academyWrites:0 as const,parentSends:0 as const};
   }
-  async searchStudentPaperMetadata(input:{teacherLabel:string;studentName:string;studentKey:string;period?:StudentPaperSearchPeriod}){
-    const hasPeriod=Object.hasOwn(input,'period');
-    assertExactKeys(input,['teacherLabel','studentName','studentKey',...(hasPeriod?['period']:[])]);readLiteralName(input.studentName);readLiteralKey(input.studentKey);
+  async searchStudentPaperMetadata(input:{teacherLabel:string;studentName:string;studentKey:string;period?:StudentPaperSearchPeriod;includeAllPaperTypes?:boolean}){
+    const hasPeriod=Object.hasOwn(input,'period'),hasAllTypes=Object.hasOwn(input,'includeAllPaperTypes');
+    assertExactKeys(input,['teacherLabel','studentName','studentKey',...(hasPeriod?['period']:[]),...(hasAllTypes?['includeAllPaperTypes']:[])]);readLiteralName(input.studentName);readLiteralKey(input.studentKey);
+    if(hasAllTypes&&input.includeAllPaperTypes!==true)throw Error('student_paper_type_scope_rejected');
     const period=hasPeriod?qualifyStudentPaperSearchPeriod(input.period):undefined;
     if(input.teacherLabel!==this.#principal.teacherLabel)throw Error('student_paper_principal_conflict');if(!this.#authenticated)throw Error('authentication_required');
     const path='/servlet/controller.tutor.base.TestPageListServlet';
@@ -724,7 +747,14 @@ export class AcademyHttpClient {
     const body=new URLSearchParams();
     for(const name of ['clg_no','cls_no','p_pageno','check_da_test','check_fa_test','check_na_test','stu_name','chioce_cls','sort_date1','sort_date2']){
       const nodes=form.querySelectorAll<HTMLInputElement|HTMLSelectElement>('[name='+name+']');if(nodes.length!==1)throw Error('student_paper_filter_drift');const node=nodes[0]!;
-      if(node.getAttribute('type')==='checkbox'&&!(node as HTMLInputElement).checked)continue;body.set(name,node.value);
+      if(node.getAttribute('type')==='checkbox'&&!(node as HTMLInputElement).checked){
+        // The search form checks only one paper type by default, which
+        // silently drops textbook section attempts of the other types.
+        // Callers that need every recorded attempt (textbook section
+        // index) opt in to all three source type values explicitly.
+        if(!hasAllTypes)continue;
+      }
+      body.set(name,node.value);
     }
     if(body.get('clg_no')!==this.#principal.collegeKey||input.studentName.length<2)throw Error('student_paper_college_scope_conflict');
     body.set('stu_name',input.studentName);body.set('p_pageno','1');body.set('cls_no',body.get('chioce_cls')!);
@@ -749,13 +779,44 @@ export class AcademyHttpClient {
     })));
     if(data.result!=='ok'||!Array.isArray(data.noteResultList)||data.noteResultList.length>1000)throw Error('wrong_note_contract_rejected');
     const identities=new Set<string>();
-    const rows=data.noteResultList.map(readInputRecord).map(row=>{
+    const wrongRows=data.noteResultList.map(readInputRecord).map(row=>{
       if(sourceResponseKey(row.pri_no)!==request.studentKey||row.name!==request.studentName)throw Error('source_subject_conflict');
       const paperKey=sourceResponseKey(row.p_no),attemptKey=sourceResponseKey(row.testing_no),identity=JSON.stringify([paperKey,attemptKey]);
       if(identities.has(identity))throw Error('ambiguous_textbook_index');identities.add(identity);
       return {sourceTitle:readLiteralName(row.testing_name),paperKey,attemptKey,fieldNames:Object.keys(row).sort(),sourceDate:{literal:typeof row.apply_date==='string'?row.apply_date:null,meaning:'source_apply_date_not_exact_grade_time' as const}};
     });
-    return {schemaVersion:1,sourceOperation:'getWrongAnswerNoteResult' as const,scope:{teacherLabel:request.teacherLabel,studentKey:request.studentKey,studentName:request.studentName,courseKey:request.courseKey,bookNo:request.bookNo},rows,rowCount:rows.length,sourceHandlersInvoked:false as const,generatedPaperMembership:'unqualified' as const,observedAt:new Date().toISOString()};
+    // The wrong-note index omits all-correct sections. Merge the exact
+    // student's paper-search attempts matching this book's title template;
+    // a failed paper search degrades the basis honestly instead of turning
+    // wrong-note absence into a no-record claim.
+    const pattern=deriveTextbookSectionTitlePattern(wrongRows.map(r=>r.sourceTitle),request.studentName);
+    let paperSearch:{status:'observed';coverage:typeof TEXTBOOK_PAPER_SEARCH_COVERAGE;page:1;sourcePeriod:{from:string|null;to:string|null}|null;matchedRowCount:number}
+      |{status:'unavailable'|'no_derivable_section_title_pattern';coverage:typeof TEXTBOOK_PAPER_SEARCH_COVERAGE;matchedRowCount:0};
+    let rows:({sourceTitle:string;paperKey:string;attemptKey:string;fieldNames?:string[];sourceDate:{literal:string|null;meaning:string};sources:readonly string[]})[]=wrongRows.map(r=>({...r,sources:['wrong_answer_note'] as const}));
+    if(!pattern){
+      paperSearch={status:'no_derivable_section_title_pattern',coverage:TEXTBOOK_PAPER_SEARCH_COVERAGE,matchedRowCount:0};
+    }else{
+      try{
+        const paper=await this.searchStudentPaperMetadata({teacherLabel:request.teacherLabel,studentName:request.studentName,studentKey:request.studentKey});
+        const paperRows:TextbookPaperSearchRow[]=paper.rows.flatMap(r=>typeof r.titles.testingName==='string'
+          ?[{testingName:r.titles.testingName,paperKey:r.paperKey,attemptKey:r.attemptKey,applyDateLiteral:typeof r.titles.applyDate==='string'?r.titles.applyDate:null}]:[]);
+        const merged=mergeTextbookSectionRows(wrongRows.map(r=>({sourceTitle:r.sourceTitle,paperKey:r.paperKey,attemptKey:r.attemptKey,sourceDateLiteral:r.sourceDate.literal})),paperRows,pattern);
+        const fieldNamesByAttempt=new Map(wrongRows.map(r=>[r.attemptKey,r.fieldNames] as const));
+        rows=merged.map(r=>({sourceTitle:r.sourceTitle,paperKey:r.paperKey,attemptKey:r.attemptKey,
+          ...(fieldNamesByAttempt.has(r.attemptKey)?{fieldNames:fieldNamesByAttempt.get(r.attemptKey)!}:{}),
+          sourceDate:{literal:r.sourceDateLiteral,meaning:'source_apply_date_not_exact_grade_time' as const},sources:r.sources}));
+        paperSearch={status:'observed',coverage:TEXTBOOK_PAPER_SEARCH_COVERAGE,page:1,sourcePeriod:paper.sourcePeriod,matchedRowCount:merged.filter(r=>r.sources.includes('student_paper_search')).length};
+      }catch(error){
+        if(error instanceof Error&&error.message==='textbook_section_title_conflict_for_attempt')throw error;
+        paperSearch={status:'unavailable',coverage:TEXTBOOK_PAPER_SEARCH_COVERAGE,matchedRowCount:0};
+      }
+    }
+    const indexBasis=paperSearch.status==='observed'?'wrong_answer_note_plus_student_paper_search':'wrong_answer_note_only' as const;
+    return {schemaVersion:1,sourceOperation:'getWrongAnswerNoteResult' as const,scope:{teacherLabel:request.teacherLabel,studentKey:request.studentKey,studentName:request.studentName,courseKey:request.courseKey,bookNo:request.bookNo},rows,rowCount:rows.length,
+      indexBasis,paperSearch,coverage:paperSearch.status==='observed'
+        ?'wrong_answer_note_index_plus_one_observed_student_paper_search_page_not_complete_history'
+        :'wrong_answer_note_index_only_paper_search_not_observed_not_complete_history',
+      sourceHandlersInvoked:false as const,generatedPaperMembership:'unqualified' as const,observedAt:new Date().toISOString()};
   }
   async inspectItemHeader(input:unknown){
     const plan=createAcademyReadPlan(input);
@@ -820,7 +881,15 @@ export class AcademyHttpClient {
     if(plan.request.teacherLabel!==this.#principal.teacherLabel)throw Error('teacher_scope_conflict');
     if(!this.#authenticated)throw Error('authentication_required');
     const result=await executeAcademyRead(plan,{origin:ACADEMY_ORIGIN,authenticatedTeacherVisible:true,authenticationMode:'direct_http_api',principalKey:this.#principal.teacherKey,
-      domParser:sourceDomParser,dayRecordColumnContract:currentDayRecordColumns,fetcher:(url,init)=>this.#readRequest(plan,url,init)});
+      domParser:sourceDomParser,dayRecordColumnContract:currentDayRecordColumns,fetcher:(url,init)=>this.#readRequest(plan,url,init),
+      textbookPaperSearch:async()=>{
+        if(plan.family!=='textbook')return {status:'unavailable',rows:[]};
+        try{
+          const paper=await this.searchStudentPaperMetadata({teacherLabel:plan.request.teacherLabel,studentName:plan.request.studentName,studentKey:plan.request.studentKey,includeAllPaperTypes:true});
+          return {status:'observed' as const,rows:paper.rows.flatMap(r=>typeof r.titles.testingName==='string'
+            ?[{testingName:r.titles.testingName,paperKey:r.paperKey,attemptKey:r.attemptKey,applyDateLiteral:typeof r.titles.applyDate==='string'?r.titles.applyDate:null}]:[])};
+        }catch{return {status:'unavailable' as const,rows:[] as never[]};}
+      }});
     if(!this.#authenticated)throw Error('authentication_required');return result;
   }
   async #readRequest(plan:ScopedAcademyReadPlan,path:string,init:RequestInit):Promise<Response>{

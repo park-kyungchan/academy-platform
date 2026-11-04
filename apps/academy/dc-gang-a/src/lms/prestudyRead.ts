@@ -10,6 +10,7 @@
  * another. Fictional fixtures only in tests. */
 
 export const PRESTUDY_PATH = '/servlet/controller.coursemanage.CourseManageServlet';
+export const PRESTUDY_REPORT_PATH = '/app-ui/solution_common/prestudy/prestudy_ai_report.jsp';
 export const PRESTUDY_SUMMARY_PATH = '/servlet/controller.coursemanage.CourseManageServlet?reqCmd=TeacherPrestudySummary';
 export const TEXTBOOK_PROGRESS_PATH = '/servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookProgress';
 
@@ -91,6 +92,91 @@ export function parsePrestudySummary(html: string, parse: (html: string, mime: D
  * suffix in parentheses (e.g. a grade literal). Never a substring match. */
 export function prestudyRowsForStudent<T extends { studentLabel: string }>(rows: readonly T[], studentName: string): T[] {
   return rows.filter(r => r.studentLabel === studentName || r.studentLabel.startsWith(studentName + '('));
+}
+
+export interface PrestudyDetail {
+  analysisKey: string | null; encodingResult: string | null;
+}
+
+/** One uploaded-video detail record (WebPreStudy). The record is bound to
+ * the exact student through its own form field; the AI report is reachable
+ * only through the rendered viewAiReport(analysis_key) handler. A missing
+ * handler means no finished report is exposed for this record. */
+export function parsePrestudyDetail(html: string, parse: (html: string, mime: DOMParserSupportedType) => Document, studentKey: string): PrestudyDetail {
+  rejectExpired(html);
+  const doc = parse(html, 'text/html');
+  const form = doc.querySelector('form[name="form1"]');
+  const studentField = form?.querySelector<HTMLInputElement>('[name="student_pri_no"]')?.value;
+  if (!form || !studentField) throw Error('prestudy_detail_unqualified');
+  if (studentField !== studentKey) throw Error('prestudy_detail_student_mismatch');
+  let analysisKey: string | null = null;
+  for (const node of doc.querySelectorAll('[onclick]')) {
+    const match = /viewAiReport\(\s*'([^']+)'\s*\)|viewAiReport\(\s*"([^"]+)"\s*\)/.exec(node.getAttribute('onclick') ?? '');
+    if (match) { analysisKey = match[1] ?? match[2] ?? null; break; }
+  }
+  if (analysisKey !== null && !/^[1-9][0-9]{0,15}$/.test(analysisKey)) throw Error('prestudy_detail_unqualified');
+  const encodingResult = clean(form.querySelector<HTMLInputElement>('[name="encoding_result"]')?.value ?? '') || null;
+  return { analysisKey, encodingResult };
+}
+
+export interface PrestudyReportBlock { heading: string | null; text: string }
+export interface PrestudyReportSection { title: string; subtitle: string | null; blocks: PrestudyReportBlock[] }
+export interface PrestudyReport { sections: PrestudyReportSection[]; scores: number[] }
+
+function blockText(node: Node): string {
+  let out = '';
+  const walk = (n: Node): void => {
+    if (n.nodeType === 3) { out += n.textContent ?? ''; return; }
+    if (n.nodeType !== 1) return;
+    const el = n as Element;
+    if (el.tagName === 'BR') { out += '\n'; return; }
+    if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
+    for (const child of n.childNodes) walk(child);
+    if (/^(P|DIV|LI|TR|H[1-6])$/.test(el.tagName)) out += '\n';
+  };
+  walk(node);
+  return out.split('\n').map(line => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
+}
+
+/** The AI report page is fully server-rendered: one card per section with
+ * an h1 title, an optional h2 question, h3-headed narrative blocks and the
+ * chart score array in an inline script. There is no transcript field on
+ * this page; nothing here derives one. An invalid analysis key renders a
+ * short cannot-generate page instead of the cards. */
+export function parsePrestudyReport(html: string, parse: (html: string, mime: DOMParserSupportedType) => Document): PrestudyReport {
+  rejectExpired(html);
+  if (html.includes('리포트를 생성할 수 없습니다')) throw Error('prestudy_report_not_ready');
+  const doc = parse(html, 'text/html');
+  const cards = [...doc.querySelectorAll('div')].filter(el =>
+    (el.getAttribute('class') ?? '').includes('max-w-5xl') && (el.getAttribute('class') ?? '').includes('rounded-2xl') && el.querySelector('h1'));
+  const sections: PrestudyReportSection[] = [];
+  let totalChars = 0;
+  for (const card of cards) {
+    const title = clean(card.querySelector('h1')?.textContent ?? '');
+    if (!title) continue;
+    const subtitle = clean(card.querySelector('h2')?.textContent ?? '') || null;
+    const blocks: PrestudyReportBlock[] = [];
+    let current: PrestudyReportBlock | null = null;
+    for (const el of card.querySelectorAll('h3, div.text-sm, p')) {
+      if (el.tagName === 'H3') { current = { heading: clean(el.textContent ?? '') || null, text: '' }; blocks.push(current); continue; }
+      if (el.tagName === 'P' && card.querySelector('h3')) continue;
+      const text = blockText(el);
+      if (!text) continue;
+      if (!current) { current = { heading: null, text: '' }; blocks.push(current); }
+      current.text = current.text ? current.text + '\n' + text : text;
+    }
+    const kept = blocks.filter(b => b.text);
+    totalChars += kept.reduce((sum, b) => sum + b.text.length, 0);
+    if (kept.length) sections.push({ title, subtitle, blocks: kept });
+  }
+  if (!sections.length) throw Error('prestudy_report_unqualified');
+  if (totalChars > 60000) throw Error('prestudy_report_source_rejected');
+  const inline = [...doc.querySelectorAll('script:not([src])')].map(s => s.textContent ?? '').join('\n');
+  const scoreObject = /\bscores\s*=\s*\{([^}]*)\}/.exec(inline)?.[1];
+  const scoreArray = scoreObject ?? /\bscores\s*=\s*\[([^\]]*)\]/.exec(inline)?.[1] ?? '';
+  const scores = [...scoreArray.matchAll(scoreObject ? /:\s*(-?\d+(?:\.\d+)?)/g : /-?\d+(?:\.\d+)?/g)]
+    .map(m => Number(m[1] ?? m[0])).filter(Number.isFinite).slice(0, 20);
+  return { sections, scores };
 }
 
 export interface TextbookBinding {

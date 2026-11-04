@@ -1,6 +1,6 @@
 import {expect,test} from 'bun:test';
 import {sourceDomParser} from '../../src/lms/academyHttpClient';
-import {parsePrestudySearchForm,parsePrestudyList,parsePrestudySummary,prestudyRowsForStudent,parseTextbookBindings} from '../../src/lms/prestudyRead';
+import {parsePrestudySearchForm,parsePrestudyList,parsePrestudySummary,prestudyRowsForStudent,parseTextbookBindings,parsePrestudyDetail,parsePrestudyReport} from '../../src/lms/prestudyRead';
 
 const form=(cmd:string)=>`<form name="form1"><input type="hidden" name="reqCmd" value="${cmd}"><input type="hidden" name="g_clg_no" value="88001"><input type="hidden" name="g_mem_type" value="1"><input type="hidden" name="g_pri_no" value="99001"><input type="text" name="student_name" value=""></form>`;
 const waiting=`<html>${form('WebUnPreStudy')}<table><tr><th>학생이름</th><th>단원명</th><th>날짜</th><th>영상 상태</th><th></th></tr>
@@ -39,6 +39,34 @@ test('textbook bindings come only from the exact student row handler',()=>{
   expect(parseTextbookBindings(progress,sourceDomParser.parseFromString,'77001'))
     .toEqual([{courseKey:'672',bookNo:'2198',studentKey:'77001',bookLabel:'22개정 Fictional Book'}]);
   expect(()=>parseTextbookBindings(progress,sourceDomParser.parseFromString,'77003')).toThrow('textbook_binding_source_unqualified');
+});
+
+const detail=`<html><form name="form1"><input type="hidden" name="prestudy_key" value="12345"><input type="hidden" name="student_pri_no" value="77001"><input type="hidden" name="encoding_result" value="success"></form>
+<button onclick="viewAiReport('55501');">Ai 보고서 보기</button></html>`;
+const detailNoReport=`<html><form name="form1"><input type="hidden" name="student_pri_no" value="77001"><input type="hidden" name="encoding_result" value="success"></form></html>`;
+
+test('prestudy detail binds the record to the exact student and exposes only the analysis key',()=>{
+  expect(parsePrestudyDetail(detail,sourceDomParser.parseFromString,'77001')).toEqual({analysisKey:'55501',encodingResult:'success'});
+  expect(parsePrestudyDetail(detailNoReport,sourceDomParser.parseFromString,'77001')).toEqual({analysisKey:null,encodingResult:'success'});
+  expect(()=>parsePrestudyDetail(detail,sourceDomParser.parseFromString,'77002')).toThrow('prestudy_detail_student_mismatch');
+  expect(()=>parsePrestudyDetail('<html><body>gone</body></html>',sourceDomParser.parseFromString,'77001')).toThrow('prestudy_detail_unqualified');
+});
+
+const report=`<html><body>
+<div class="w-full max-w-5xl mx-auto bg-white rounded-2xl shadow-lg"><div class="p-4"><h1>예습영상 AI 분석 종합</h1></div><div class="p-4"><p>총점 77점</p><p>한줄 요약</p></div></div>
+<div class="max-w-5xl mx-auto bg-white rounded-2xl shadow-lg"><div class="p-4"><h1>개념 이해</h1></div><div class="p-4"><h2>개념을 정확히 이해하고 설명하는가?</h2>
+<h3>포함된 핵심 개념</h3><div class="text-sm">첫째 줄<br>둘째 줄</div><h3>advice</h3><div class="text-sm">조언 본문</div></div></div>
+<script>const scores = { m1: 77, m2: 80, m3: 90 };</script></body></html>`;
+
+test('prestudy report parses server-rendered section cards without inventing a transcript',()=>{
+  const parsed=parsePrestudyReport(report,sourceDomParser.parseFromString);
+  expect(parsed.scores).toEqual([77,80,90]);
+  expect(parsed.sections).toHaveLength(2);
+  expect(parsed.sections[1]).toEqual({title:'개념 이해',subtitle:'개념을 정확히 이해하고 설명하는가?',blocks:[
+    {heading:'포함된 핵심 개념',text:'첫째 줄\n둘째 줄'},{heading:'advice',text:'조언 본문'}]});
+  expect(JSON.stringify(parsed)).not.toContain('transcript');
+  expect(()=>parsePrestudyReport('<html><body><h1>리포트를 생성할 수 없습니다.</h1></body></html>',sourceDomParser.parseFromString)).toThrow('prestudy_report_not_ready');
+  expect(()=>parsePrestudyReport('<html><body>empty</body></html>',sourceDomParser.parseFromString)).toThrow('prestudy_report_unqualified');
 });
 
 test('unqualified progress responses cannot establish an empty registered-book result',()=>{
