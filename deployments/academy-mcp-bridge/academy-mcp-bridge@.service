@@ -1,0 +1,10 @@
+[Unit]
+Description=Academy owner bridge for one Hermes MCP connection
+
+[Service]
+User=root
+Environment=ACADEMY_MCP_INSTALL_DIR=/root/.local/share/academy-mcp-scoped-20261030
+ExecStart=/usr/local/bin/bun --no-env-file /root/.local/share/academy-mcp-scoped-20261030/launcher.mjs
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal

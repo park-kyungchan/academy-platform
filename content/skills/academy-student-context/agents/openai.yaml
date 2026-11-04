@@ -1,0 +1,6 @@
+interface:
+  display_name: "학원 학생 맥락 보고"
+  short_description: "날짜·수업·학생·교재·소단원별로 이력과 오늘 할 일을 구분해 보고합니다"
+  default_prompt: "$academy-student-context 요청한 날짜와 학생의 수업 맥락을 교재·소단원·활동별로 정리하고, 확정된 상태와 오늘 할 일, 미확인 사항을 구분해 보고해줘."
+policy:
+  allow_implicit_invocation: true
