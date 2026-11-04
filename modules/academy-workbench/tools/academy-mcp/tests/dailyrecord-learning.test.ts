@@ -10,7 +10,7 @@ import {createDailyRecordLearningReviewer} from '../../../../../apps/academy/dc-
 import {parentInternalLanguage} from '../../../../../apps/academy/dc-gang-a/src/contracts/parentInternalLanguage.ts';
 
 test('internal version facts remain accepted but parent memo metadata is blocked',async()=>{
- for(const label of ['v3(1P6A)','v 3','v:3','시리즈: 2','(1P6A)']){
+ for(const label of ['v3(1P6A)','v 3','v:3','시리즈: 2','(1P6A)','교재5-1-1v1']){
   const c=context();c.selectedFields=['lessonMemo'];const value='- 가상 교재 '+label+' 준비';
   c.memoAnswer={kind:'content',requestRef:c.currentRequestRef,text:value};c.facts=[fact('lessonMemo',value)];
   const s=new DailyRecordService(backend(),{...safeguard,check:text=>parentInternalLanguage.test(text)},()=>clock);
