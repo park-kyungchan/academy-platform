@@ -196,6 +196,36 @@
       "name": "academy_clinic_paper_status_get",
       "class": "read",
       "exposure": "open"
+    },
+    {
+      "name": "academy_printed_paper_lookup",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_source_read_contracts",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_paper_headers",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_daily_test_inventory",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_paper_definition_lookup",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_paper_read_contracts",
+      "class": "read",
+      "exposure": "open"
     }
   ],
   "closedUntilAttribution": [],

@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {isAbsolute,join} from 'node:path';
 import {z} from 'zod';
 import {readPinnedLocalBytes} from './item-label-store.ts';
-import {artifactPinSchema,verifyEndpointManifest} from './runtime-identity.ts';
+import {artifactPinSchema,verifyEndpointManifest,verifyEndpointLauncher} from './runtime-identity.ts';
 import {ownerAdmissionSchema} from './owner-admission.ts';
 import {ReleaseBaseUnqualified} from './read-failure.ts';
 import {paperScopesSchema} from './paper-scope-routing.ts';
@@ -55,6 +55,7 @@ export async function loadRuntimeRelease(base:string){
     ||registry.some(r=>!Object.hasOwn(endpoints,r.endpoint)))throw Error('release_payload_unqualified');
   const endpointIdentities:Record<string,Awaited<ReturnType<typeof verifyEndpointManifest>>['summary']>={};
   if(release.schemaVersion==='academy.mcp-release/2'){
+    const accountLocks=new Set<string>();
     try{
       if(await realpath(process.argv[1]!)!==release.bridge.path)throw Error('release_bridge_identity_mismatch');
       await readPinnedLocalBytes(release.bridge.path,release.bridge.sha256);
@@ -64,11 +65,14 @@ export async function loadRuntimeRelease(base:string){
       const verified=await verifyEndpointManifest(ref);
       if(verified.manifest.endpoint!==endpoint)throw Error('release_endpoint_identity_mismatch');
       const args=endpoints[endpoint]?.args,entry=verified.manifest.artifacts.find(a=>a.role==='entry')!;
-      const entryIndex=Array.isArray(args)?args.indexOf(entry.path):-1;
-      if(entryIndex<0||args[entryIndex+1]!=='--runtime-identity'||args[entryIndex+2]!==ref.path||args[entryIndex+3]!==ref.sha256
+      const entryIndex=Array.isArray(args)?args.indexOf(entry.runtimePath??entry.path):-1;
+      if(entryIndex<0||args[entryIndex+1]!=='--runtime-identity'||args[entryIndex+2]!==(verified.manifest.runtimeManifestPath??ref.path)||args[entryIndex+3]!==ref.sha256
         ||createHash('sha256').update(JSON.stringify(args.slice(entryIndex+4))).digest('hex')!==verified.manifest.launchArgumentsSha256)throw Error('release_endpoint_identity_mismatch');
+      verifyEndpointLauncher(verified.manifest,endpoints[endpoint].command,args.slice(0,entryIndex));
+      if(verified.manifest.accountLockPath&&['dailyrecord','paper1','paper2'].includes(endpoint))accountLocks.add(verified.manifest.accountLockPath);
       endpointIdentities[endpoint]=verified.summary;
     }
+    if(accountLocks.size>1)throw Error('release_endpoint_identity_mismatch');
   }
   const after=await readPointer(base);
   if(after===null||createHash('sha256').update(pointer).digest('hex')!==createHash('sha256').update(after).digest('hex'))throw Error('release_pointer_changed');
