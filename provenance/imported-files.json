@@ -4861,6 +4861,42 @@
       "path": "tsconfig.json",
       "sha256": "f01cda3796fd73635935513df24bc323746650c6023ad607c5a2f991aa5a5b3f",
       "bytes": 556
+    },
+    {
+      "module": "modules/academy-workbench",
+      "path": "app/offline-import-adapter/src/printed-code.ts",
+      "sha256": "5d11ee75292b57aa9913a8d5b061f1b7476e6dd552b04dcc9f40b48ad827ab83",
+      "bytes": 1296,
+      "sourceRepository": "park-kyungchan/academy-workbench",
+      "sourceCommit": "dd98e33a5f3d7f9157ae8beba1e41bdf9b7e1eef",
+      "sourcePath": "app/offline-import-adapter/src/printed-code.ts"
+    },
+    {
+      "module": "modules/academy-workbench",
+      "path": "app/offline-import-adapter/tests/printed-code.test.ts",
+      "sha256": "945c7ea1948184d2360e31ce177b197dc3f13aba05bc980cae8d6cebfa5e0b92",
+      "bytes": 1112,
+      "sourceRepository": "park-kyungchan/academy-workbench",
+      "sourceCommit": "dd98e33a5f3d7f9157ae8beba1e41bdf9b7e1eef",
+      "sourcePath": "app/offline-import-adapter/tests/printed-code.test.ts"
+    },
+    {
+      "module": "modules/academy-workbench",
+      "path": "app/offline-import-adapter/src/class-day-guard.ts",
+      "sha256": "743abd02087f5c65997ccb5f14a7b702f2b5a99e4bb1be0a4f620714d4950120",
+      "bytes": 2211,
+      "sourceRepository": "park-kyungchan/academy-workbench",
+      "sourceCommit": "ec58b81483d0d64063416d275a6131bb4bc61da4",
+      "sourcePath": "app/offline-import-adapter/src/class-day-guard.ts"
+    },
+    {
+      "module": "modules/academy-workbench",
+      "path": "app/offline-import-adapter/tests/class-day-guard.test.ts",
+      "sha256": "ab0d4db7ce855e0e05b30341282631ba0ec318c7019a83f50272703d3ff38879",
+      "bytes": 1450,
+      "sourceRepository": "park-kyungchan/academy-workbench",
+      "sourceCommit": "ec58b81483d0d64063416d275a6131bb4bc61da4",
+      "sourcePath": "app/offline-import-adapter/tests/class-day-guard.test.ts"
     }
   ]
 }
