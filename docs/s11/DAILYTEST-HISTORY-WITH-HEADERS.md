@@ -104,3 +104,22 @@ now invokes strip only when the supplied executable exceeds ARTIFACT_BYTES;
 a release executable already fitting the cap is copied and pinned byte-for-byte.
 The packaging receipt records whether strip was invoked. This qualifies only
 the explicitly selected release child, not default debug-child performance.
+
+## Upstream failure contract repair
+
+The history child returns its bounded unavailable/blocked source envelope even
+when a valid source result exceeds the existing dual MCP 512 KiB limit. It
+retains measured sourceRequests; the parent therefore keeps failedSource and
+the original source-specific code/category/locator. An oversized metadata result
+maps to student_metadata_unqualified_no_automatic_retry; an oversized paper
+result maps to source_headers_read_failed. Both are upstream_unavailable.
+
+Malformed metadata/header response shapes map at the two upstream parse
+boundaries to source_response_malformed / malformed_response /
+academy-mcp:response-contract. These are ordinary response-contract failures:
+Composite-only failedSource/sourceRequests fields are absent. Caller schema
+failures still map to tool_input_invalid / input_validation, with zero child
+calls. Explicit semantic identity/scope conflicts retain their original codes.
+The fictional endpoint can inject a negative response mutation only after real
+session/driver/source execution, to verify malformed-response propagation.
+No cap, deadline, admission or existing seven-route behavior is changed.

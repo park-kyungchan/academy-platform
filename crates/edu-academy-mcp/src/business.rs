@@ -299,11 +299,28 @@ impl<P: edu_academy_sources::history::Port> History<P> {
         } else {
             self.source.headers(input)
         };
-        let value = match result {
-            Ok(value) => value,
+        // Cap/serialization failures belong to the same source envelope as a
+        // failed read, so the parent retains source identity and measured calls.
+        let result = result
+            .map_err(edu_academy_sources::data::fault_from_error)
+            .and_then(|value| {
+                let bytes = crate::audit::tool_result(value.clone())
+                    .and_then(|v| crate::encode(&v))
+                    .map_err(|e| Fault::error(e.code))?;
+                if bytes.len() > 512 * 1024 {
+                    return Err(Fault::error(if metadata {
+                        "metadata_result_too_large"
+                    } else {
+                        "source_headers_read_failed"
+                    }));
+                }
+                Ok(value)
+            });
+        match result {
+            Ok(value) => Ok(value),
             Err(error) => {
                 let failure = read_failure::public_read_failure(
-                    &edu_academy_sources::data::fault_from_error(error),
+                    &error,
                     if metadata {
                         "student_metadata_unqualified_no_automatic_retry"
                     } else {
@@ -325,19 +342,8 @@ impl<P: edu_academy_sources::history::Port> History<P> {
                 ]);
                 out.set("academyWrites", Js::Num(0.0));
                 out.set("parentSends", Js::Num(0.0));
-                return Ok(out);
+                Ok(out)
             }
-        };
-        let bytes = crate::audit::tool_result(value.clone())
-            .and_then(|v| crate::encode(&v))
-            .map_err(|e| Fault::error(e.code))?;
-        if bytes.len() > 512 * 1024 {
-            return Err(Fault::error(if metadata {
-                "metadata_result_too_large"
-            } else {
-                "source_headers_read_failed"
-            }));
         }
-        Ok(value)
     }
 }

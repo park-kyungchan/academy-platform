@@ -12,6 +12,10 @@ const HISTORY_COVERAGE: &str =
 fn invalid() -> Error {
     Error::new("tool_input_invalid")
 }
+/// The original upstream ZodError is a source contract failure, not caller input.
+fn response<T>(parse: impl FnOnce() -> Result<T>) -> Result<T> {
+    parse().map_err(|_| Error::new("source_response_malformed"))
+}
 fn object(v: &Js) -> Result<()> {
     if matches!(v, Js::Obj(_)) {
         Ok(())
@@ -349,7 +353,7 @@ pub fn read(value: &Js, mut invoke: impl FnMut(Source, &Js) -> Result<Js>) -> Re
             ),
         ]),
     )?;
-    let result = metadata(&raw)?;
+    let result = response(|| metadata(&raw))?;
     let scope = result.get("scope");
     let h = result.get("results").array()[0].clone();
     let o = h.get("observation");
@@ -425,13 +429,16 @@ pub fn read(value: &Js, mut invoke: impl FnMut(Source, &Js) -> Result<Js>) -> Re
                 ("paperCodes", Js::Arr(codes.clone())),
             ]),
         )?;
-        object(&h)?;
-        literal(h.get("status"), "observed")?;
-        object(h.get("scope"))?;
-        let student = key(h.get("scope").get("studentId"))?;
-        object(h.get("observation"))?;
-        literal(h.get("observation").get("status"), "observed")?;
-        let entries = array(h.get("observation").get("rows"), 32, header_row)?;
+        let (student, entries) = response(|| {
+            object(&h)?;
+            literal(h.get("status"), "observed")?;
+            object(h.get("scope"))?;
+            let student = key(h.get("scope").get("studentId"))?;
+            object(h.get("observation"))?;
+            literal(h.get("observation").get("status"), "observed")?;
+            let entries = array(h.get("observation").get("rows"), 32, header_row)?;
+            Ok((student, entries))
+        })?;
         if &student != scope.get("studentId") || entries.array().len() != codes.len() {
             return Err(conflict());
         }

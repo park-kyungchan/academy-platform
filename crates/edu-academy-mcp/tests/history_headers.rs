@@ -351,7 +351,11 @@ fn metadata_and_header_scope_identity_and_duplicate_conflicts() {
     ] {
         let mut m = metadata();
         *m.pointer_mut(path).unwrap() = json!("malformed");
-        assert!(run(input(), m, |_| {}).is_err(), "{path}");
+        assert_eq!(
+            run(input(), m, |_| {}).unwrap_err().code,
+            "source_response_malformed",
+            "{path}"
+        );
     }
 }
 #[test]
@@ -620,6 +624,17 @@ impl Scene {
         if mode == "metadata-failure" {
             metadata_captures[0]["error"] = json!("source_authentication_failed");
         }
+        if mode == "metadata-oversized" {
+            metadata_captures[1]["raw"]["rawRows"] = json!(
+                (0..1400)
+                    .map(|i| {
+                        let mut row = raw_row(1, 10000 + i);
+                        row["_id"] = json!("r".repeat(64));
+                        row
+                    })
+                    .collect::<Vec<_>>()
+            );
+        }
         let mut policy = metadata_admission();
         if mode == "metadata-denied" {
             policy["relativeSelectors"] = json!(["1"]);
@@ -631,6 +646,11 @@ impl Scene {
             if mode == "paper-denied" {
                 capture["error"] = json!("read_scope_not_admitted");
             }
+            if mode == "paper-oversized" && key == "1" {
+                capture["raw"]["metadataRows"] = json!((0..128).map(|i|
+                    json!({"label":format!("Fictional unused {i}"),"value":"x".repeat(2000)})
+                ).collect::<Vec<_>>());
+            }
             papers.push(capture);
         }
         let mut by_endpoint = serde_json::Map::new();
@@ -640,7 +660,8 @@ impl Scene {
         document(
             &config,
             json!({"fictionalOnly":true,"metadataAdmission":policy,"students":[{"studentId":"77001","displayName":"Fictional Learner"}],"managedNames":["Fictional Learner"],
-            "paperStudents":{"dailyrecord":[],"paper1":paper_scopes[0]["studentIds"],"paper2":paper_scopes[1]["studentIds"]},"captures":by_endpoint}),
+            "paperStudents":{"dailyrecord":[],"paper1":paper_scopes[0]["studentIds"],"paper2":paper_scopes[1]["studentIds"]},"captures":by_endpoint,
+            "responseFault":if mode=="malformed-metadata" {"metadata"} else if mode=="malformed-paper" {"paper"} else {"none"}}),
         );
         let mut artifact = pin(&config);
         artifact["role"] = json!("source");
@@ -918,4 +939,219 @@ fn actual_source_dated_identity_selector_and_row_checks_latch_failures() {
             ]),
         );
     }
+}
+
+#[test]
+fn actual_oversized_child_results_keep_exact_source_failure_envelopes() {
+    process::install_binary_subreaper().unwrap();
+    for (mode, source_name, expected_code, expected_locator, count) in [
+        (
+            "metadata-oversized",
+            "metadata",
+            "student_metadata_unqualified_no_automatic_retry",
+            "src/dailyrecord.ts:metadataByName",
+            4usize,
+        ),
+        (
+            "paper-oversized",
+            "paper",
+            "source_headers_read_failed",
+            "academy-mcp:paper-source-read",
+            3usize,
+        ),
+    ] {
+        let scene = Scene::new(mode, "paper1");
+        let config = serde_json::from_slice::<Value>(
+            &fs::read(scene.install.join("fictional-config.json")).unwrap(),
+        )
+        .unwrap();
+        let endpoint = if source_name == "metadata" {
+            "dailyrecord"
+        } else {
+            "paper1"
+        };
+        // Establish that valid, bounded raw source observations really cross
+        // the existing cap, rather than merely causing another source error.
+        let mut source = edu_academy_sources::history::History::new(
+            RawPort {
+                captures: config["captures"][endpoint]
+                    .as_array()
+                    .unwrap()
+                    .clone()
+                    .into(),
+            },
+            ordered_admission(),
+            js(config["metadataAdmission"].clone()),
+            vec![js(
+                json!({"studentId":"77001","displayName":"Fictional Learner"}),
+            )],
+            vec!["Fictional Learner".into()],
+            vec!["77001".into()],
+        )
+        .unwrap();
+        let observed = if source_name == "metadata" {
+            source.metadata(&metadata_input()).unwrap()
+        } else {
+            source
+                .headers(&js(
+                    json!({"studentId":"77001","paperCodes":["#3","#4","#5"]}),
+                ))
+                .unwrap()
+        };
+        assert!(observed.get("status").is("observed"));
+        let measured = encode(&edu_academy_mcp::audit::tool_result(observed).unwrap())
+            .unwrap()
+            .len();
+        assert!(measured > 512 * 1024);
+        assert_eq!(source.source_requests(), count);
+        retain(
+            &scene.state,
+            "oversized-source-measurement",
+            &obj(&[
+                ("dualResultBytes", measured.into()),
+                ("sourceRequests", count.into()),
+            ]),
+        );
+
+        let out = invoke(&scene, &js(input()));
+        retain(&scene.state, "parent-output", &out);
+        assert!(out.get("isError").truthy());
+        let data = out.get("structuredContent");
+        assert!(data.get("code").is(expected_code), "{mode}: {data:?}");
+        assert!(data.get("reasonCode").is(expected_code));
+        assert!(data.get("failure").get("code").is(expected_code));
+        assert!(
+            data.get("failure")
+                .get("category")
+                .is("upstream_unavailable")
+        );
+        assert!(
+            data.get("failure")
+                .get("evidenceLocator")
+                .is(expected_locator)
+        );
+        assert!(data.get("failedSource").is(source_name));
+        assert_eq!(data.get("sourceRequests"), &Js::from(count));
+        assert!(!data.get("automaticRetryAllowed").truthy());
+        let child = lines(&scene.state.join(format!("{endpoint}-responses.jsonl")))
+            .pop()
+            .unwrap();
+        let child_result = child.get("result");
+        assert!(!child_result.get("isError").truthy());
+        let body = child_result.get("structuredContent");
+        assert!(body.get("status").is(if source_name == "metadata" {
+            "unavailable"
+        } else {
+            "blocked"
+        }));
+        assert!(
+            body.get(if source_name == "metadata" {
+                "reasonCode"
+            } else {
+                "code"
+            })
+            .is(expected_code)
+        );
+        assert!(body.get("failure").get("code").is(expected_code));
+        assert!(
+            body.get("failure")
+                .get("category")
+                .is("upstream_unavailable")
+        );
+        assert_eq!(body.get("sourceRequests"), &Js::from(count));
+        assert!(encode(child_result).unwrap().len() <= 512 * 1024);
+        let expected_children = if source_name == "metadata" { 1 } else { 2 };
+        assert_eq!(scene.receipts("-cleanup.json").len(), expected_children);
+        assert!(
+            scene
+                .receipts("-cleanup.json")
+                .iter()
+                .all(|c| c.get("qualified").truthy())
+        );
+        if source_name == "metadata" {
+            assert!(!scene.state.join("paper1-requests.jsonl").exists());
+        }
+    }
+}
+
+#[test]
+fn malformed_upstream_contracts_have_exact_source_classification() {
+    let root = root("malformed-vectors");
+    for path in [
+        "/status",
+        "/scope/studentId",
+        "/observation/status",
+        "/observation/rows/0/observedAt",
+        "/observation/rows/0/requestedPaperKey",
+        "/observation/rows/0/contentHeader/sourceSha256",
+        "/observation/rows/0/contentHeader/metadataRows/0/label",
+    ] {
+        let e = run(input(), metadata(), |h| {
+            *h.pointer_mut(path).unwrap() = json!(false);
+        })
+        .unwrap_err();
+        assert_eq!(e.code, "source_response_malformed", "{path}");
+    }
+    retain(
+        &root,
+        "expected-contract-failure",
+        &"source_response_malformed".into(),
+    );
+    process::install_binary_subreaper().unwrap();
+    for mode in ["malformed-metadata", "malformed-paper"] {
+        let scene = Scene::new(mode, "paper1");
+        let out = invoke(&scene, &js(input()));
+        retain(&scene.state, "parent-output", &out);
+        let data = out.get("structuredContent");
+        assert!(out.get("isError").truthy());
+        assert!(
+            data.get("code").is("source_response_malformed"),
+            "{mode}: {data:?}"
+        );
+        let failure = data.get("failure");
+        assert!(failure.get("code").is("source_response_malformed"));
+        assert!(failure.get("category").is("malformed_response"));
+        assert!(
+            failure
+                .get("evidenceLocator")
+                .is("academy-mcp:response-contract")
+        );
+        // Original Zod errors are not CompositeSourceUnavailable: these fields
+        // must be absent, rather than fabricated source/count/null values.
+        assert!(!data.has("failedSource"));
+        assert!(!data.has("sourceRequests"));
+        assert!(!data.has("reasonCode"));
+        assert!(!data.get("automaticRetryAllowed").truthy());
+        let children = if mode == "malformed-metadata" { 1 } else { 2 };
+        assert_eq!(scene.receipts("-cleanup.json").len(), children);
+        let events = lines(&scene.state.join("history-events.jsonl"));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|e| e.get("event").is("transport-fault"))
+                .count(),
+            1
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|e| e.get("event").is("source"))
+                .count(),
+            if children == 1 { 4 } else { 7 }
+        );
+    }
+    let scene = Scene::new("malformed-caller-control", "paper1");
+    let mut bad = input();
+    bad["periods"] = json!(["11", "11"]);
+    let out = invoke(&scene, &js(bad));
+    retain(&scene.state, "parent-output", &out);
+    let data = out.get("structuredContent");
+    assert!(out.get("isError").truthy());
+    assert!(data.get("code").is("tool_input_invalid"));
+    assert!(data.get("failure").get("code").is("tool_input_invalid"));
+    assert!(data.get("failure").get("category").is("input_validation"));
+    assert!(!data.has("failedSource"));
+    assert!(!data.has("sourceRequests"));
+    assert!(!scene.state.join("history-events.jsonl").exists());
+    assert!(scene.receipts("-cleanup.json").is_empty());
 }

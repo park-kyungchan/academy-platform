@@ -132,7 +132,39 @@ fn main() {
         let request = parse(line.unwrap().as_bytes()).unwrap();
         append(&state.join(format!("{endpoint}-requests.jsonl")), &request);
         let response = session.handle_history(&request, &mut source).unwrap();
-        if let Some(response) = response {
+        if let Some(mut response) = response {
+            // Negative transport faults are applied only after the actual
+            // session/driver/source algorithms have produced their response.
+            // Never replace the source read with a canned handler success.
+            let tool = request.get("params").get("name");
+            let fault = config.get("responseFault");
+            if fault.is("metadata") && tool.is("academy_student_metadata_get")
+                || fault.is("paper") && tool.is("academy_paper_headers")
+            {
+                let mut data = response.get("result").get("structuredContent").clone();
+                assert!(data.get("status").is("observed"));
+                if fault.is("metadata") {
+                    let mut scope = data.get("scope").clone();
+                    scope.set("sourceNamespace", "fictional.malformed.namespace".into());
+                    data.set("scope", scope);
+                } else {
+                    let mut observation = data.get("observation").clone();
+                    let mut rows = observation.get("rows").array().to_vec();
+                    let mut header = rows[0].get("contentHeader").clone();
+                    header.set("sourceSha256", "fictional malformed hash".into());
+                    rows[0].set("contentHeader", header);
+                    observation.set("rows", Js::Arr(rows));
+                    data.set("observation", observation);
+                }
+                append(
+                    &events,
+                    &obj(&[
+                        ("event", "transport-fault".into()),
+                        ("source", fault.clone()),
+                    ]),
+                );
+                response.set("result", edu_academy_mcp::audit::tool_result(data).unwrap());
+            }
             append(
                 &state.join(format!("{endpoint}-responses.jsonl")),
                 &response,
