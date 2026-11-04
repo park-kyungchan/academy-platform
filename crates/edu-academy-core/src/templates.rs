@@ -122,18 +122,38 @@ fn collect_refs(entry: &Js, out: &mut Vec<Js>) {
         out.extend(m.get("evidenceRefs").array().iter().cloned());
     }
 }
+/// Write-admission guard. Historical observations are read without this filter.
+/// Rust regex has no lookaround; check the TS ASCII token boundaries explicitly.
 pub fn parent_internal(v: &Js) -> bool {
-    let folded = Js::Str(
-        v.units()
-            .iter()
-            .map(|u| if (65..=90).contains(u) { u + 32 } else { *u })
-            .collect(),
-    );
-    test(
-        r"(?:강사\s*확인|교사\s*확인|교사\s*검토|교사\s*(?:최종\s*)?완료\s*판정|채점|미실시|미완료|시간\s*부족|확인\s*전|검사[^\r\n\u{2028}\u{2029}]{0,8}미완료|풀이와\s*채점|teacher\s*(?:inspection|review)|ungraded|not\s*completed|insufficient\s*time)",
-        &folded,
-    )
+    let value = v.code_units();
+    if test(
+        r"강사\s*확인|교사\s*확인|교사\s*검토|교사\s*(?:최종\s*)?완료\s*판정|채점|미실시|미완료|시간\s*부족|확인\s*전|검사[^\r\n\u{2028}\u{2029}]{0,8}미완료|풀이와\s*채점|(?i-u:teacher)\s*(?i-u:inspection|review)|(?i-u:ungraded)|(?i-u:not)\s*(?i-u:completed)|(?i-u:insufficient)\s*(?i-u:time)|(?:시리즈|버전|(?i-u:version|v))\s*(?:[:._-]\s*)?\d+|\(\s*[1-9][A-Z][0-9][A-Z]\s*\)",
+        v,
+    ) {
+        return true;
+    }
+    let alphanumeric = |b: Option<&u8>| b.is_some_and(u8::is_ascii_alphanumeric);
+    let bytes = value.as_bytes();
+    // The catalogs and policy contain ten known codes, including non-alternating
+    // forms such as 1SAG. ASCII case only, as in the TS literal.
+    for (offset, code) in bytes.windows(4).enumerate() {
+        if [
+            b"1SAG", b"1SJ2", b"1U0U", b"1UFJ", b"1N82", b"1N87", b"1N88", b"1MHL", b"1P6A",
+            b"1U0T",
+        ]
+        .iter()
+        .any(|known| code.eq_ignore_ascii_case(*known))
+            && !alphanumeric(offset.checked_sub(1).and_then(|i| bytes.get(i)))
+            && !alphanumeric(bytes.get(offset + 4))
+        {
+            return true;
+        }
+    }
+    regex(r"(?:(?:가우스(?:\s*플러스)?|다빈치)(?:\s+(?:초|중|고)?[0-9]+(?:-[0-9]+){0,2})?|교재(?:명)?|교과서|문제집|시리즈)\s*(?:[:#-]\s*)?[1-9][A-Z][0-9][A-Z]")
+        .find_iter(&value)
+        .any(|m| !alphanumeric(bytes.get(m.end())))
 }
+
 pub fn render(input: &Js) -> Result<Js> {
     exact(
         input,

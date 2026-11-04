@@ -124,8 +124,8 @@ impl review::Policy for Policy {
         self.line_calls.set(self.line_calls.get() + 1);
         value.units().starts_with(&[45, 32])
     }
-    fn excluded_parent_language(&self, _: &Js) -> bool {
-        false
+    fn excluded_parent_language(&self, value: &Js) -> bool {
+        edu_academy_core::templates::parent_internal(value)
     }
     fn scope_qualified(&self, _: &Js) -> bool {
         true
@@ -1217,4 +1217,78 @@ fn supplementary_request_refs_remain_exact_through_save_and_distinct_store_keys(
             .iter()
             .all(|c| c.get("requestRef").is("req😀") || c.get("requestRef").is("req😃"))
     );
+}
+
+#[test]
+fn historical_parent_codes_remain_readable_but_new_wording_requires_admission() {
+    let old = "- 가우스 5-1-2 [1P6A] 준비";
+    for (after, blocked) in [
+        (old, false),
+        ("- 가우스 (1U0T) 준비", true),
+        ("- 가우스 5-1-2 준비", false),
+    ] {
+        let root = root("historical-parent-guard");
+        let store = Store::open(&root.join("store"), &root).unwrap();
+        let mut source = Source::observed();
+        let mut observed = source.result.get("observation").clone();
+        let mut fields = observed.get("fields").clone();
+        fields.set(
+            "progress",
+            obj(&[("state", "known".into()), ("value", old.into())]),
+        );
+        observed.set("fields", fields);
+        set_observation(&mut source, observed.clone());
+        let policy = Policy::new(true);
+        let clock = Clock::new(NOW);
+        let mut context = context();
+        context.set("selectedFields", js(json!(["progress"])));
+        context.set(
+            "facts",
+            Js::Arr(vec![fact("progress", after.trim_start_matches("- "))]),
+        );
+        let mut svc = service::Service {
+            store: &store,
+            source: &mut source,
+            policy: &policy,
+            backend: &mut Backend,
+            runtime: &clock,
+        };
+        let intake = svc.intake(&obj(&[("context", context.clone())])).unwrap();
+        assert!(intake.get("status").is("ready_for_review"), "{intake:?}");
+        let before = store
+            .get(
+                Kind::Observation,
+                &intake.get("observationHandle").code_units(),
+            )
+            .unwrap();
+        assert_eq!(before.get("observation"), &observed);
+        let review = svc
+            .review(
+                &obj(&[
+                    ("context", context),
+                    ("observationHandle", intake.get("observationHandle").clone()),
+                    ("proposals", Js::Arr(vec![proposal("progress", after)])),
+                ]),
+                true,
+            )
+            .unwrap();
+        let row = &review.get("fields").array()[0];
+        assert_eq!(
+            row.get("blockers")
+                .array()
+                .iter()
+                .any(|v| v.is("parent_internal_language_excluded")),
+            blocked,
+            "{review:?}"
+        );
+        assert_eq!(
+            store
+                .get(
+                    Kind::Observation,
+                    &intake.get("observationHandle").code_units()
+                )
+                .unwrap(),
+            before
+        );
+    }
 }
