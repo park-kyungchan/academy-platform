@@ -1,16 +1,27 @@
 import {expect,test} from 'bun:test';
-import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
 import {createHash} from 'node:crypto';
 import {DailyRecordService} from '../src/dailyrecord.ts';
 import {dailyRecordLearningConfiguration} from '../src/dailyrecord-learning.ts';
+import {dailyRecordToolConfiguration} from '../src/dailyrecord-tools.ts';
+import {fileURLToPath} from 'node:url';
 import {backend,clock,context,fact,observation,proposal,safeguard,learningPolicy} from './dailyrecord-fixture.ts';
 import {createDailyRecordLearningReviewer} from '../../../../../apps/academy/dc-gang-a/src/lms/dailyRecordLearning.ts';
 import {parentInternalLanguage} from '../../../../../apps/academy/dc-gang-a/src/contracts/parentInternalLanguage.ts';
 
+test('pinned source loader preserves publisher exclusions and algebra allowance',async()=>{
+ const policy=fileURLToPath(new URL('../../../../../apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md',import.meta.url));
+ const source=fileURLToPath(new URL('../../../../../apps/academy/dc-gang-a/src/contracts/parentInternalLanguage.ts',import.meta.url));
+ const sha=(bytes:Buffer)=>createHash('sha256').update(bytes).digest('hex');
+ const config=await dailyRecordToolConfiguration(['--dailyrecord-policy',policy,sha(await readFile(policy)),source,sha(await readFile(source))]);
+ for(const text of ['- 가우스 1-1-2 (1P6A) 준비','- 가우스 (1U0T) 준비','- 가우스 2Q4Z 준비','Teacher REVIEW'])expect(config.parentSafeguard?.check(text)).toBe(true);
+ expect(config.parentSafeguard?.check('- 2x3y의 계산 연습')).toBe(false);
+});
+
 test('internal version facts remain accepted but parent memo metadata is blocked',async()=>{
- for(const label of ['v3(1P6A)','v 3','v:3','시리즈: 2','(1SAG)','(1U0U)','(1N87)','교재5-1-1v1']){
+ for(const label of ['(1P6A)','(1U0T)','(2Q4Z)','v3(1P6A)','v 3','v:3','시리즈: 2','(1SAG)','(1U0U)','(1N87)','교재5-1-1v1']){
   const c=context();c.selectedFields=['lessonMemo'];const value='- 가상 교재 '+label+' 준비';
   c.memoAnswer={kind:'content',requestRef:c.currentRequestRef,text:value};c.facts=[fact('lessonMemo',value)];
   const s=new DailyRecordService(backend(),{...safeguard,check:text=>parentInternalLanguage.test(text)},()=>clock);
