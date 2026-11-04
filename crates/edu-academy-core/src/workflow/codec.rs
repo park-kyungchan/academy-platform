@@ -6,6 +6,7 @@ fn invalid() -> Fault {
 }
 struct Reader<'a> {
     bytes: &'a [u8],
+    text: &'a str,
     at: usize,
 }
 enum Frame {
@@ -74,8 +75,9 @@ impl Reader<'_> {
                 32..=127 => out.push(u16::from(b)),
                 _ => {
                     self.at -= 1;
-                    let tail =
-                        std::str::from_utf8(&self.bytes[self.at..]).map_err(|_| invalid())?;
+                    // parse validated the complete UTF-8 input once. at is
+                    // always a character boundary; decoding advances by len_utf8.
+                    let tail = &self.text[self.at..];
                     let ch = tail.chars().next().ok_or_else(invalid)?;
                     let mut buf = [0; 2];
                     out.extend_from_slice(ch.encode_utf16(&mut buf));
@@ -145,7 +147,7 @@ impl Reader<'_> {
                         return Err(invalid());
                     }
                 }
-                let s = std::str::from_utf8(&self.bytes[start..self.at]).map_err(|_| invalid())?;
+                let s = &self.text[start..self.at];
                 Ok(Some(Js::Num(s.parse().map_err(|_| invalid())?)))
             }
             _ => Err(invalid()),
@@ -153,8 +155,8 @@ impl Reader<'_> {
     }
 }
 pub fn parse(bytes: &[u8]) -> Result<Js> {
-    std::str::from_utf8(bytes).map_err(|_| invalid())?;
-    let mut r = Reader { bytes, at: 0 };
+    let text = std::str::from_utf8(bytes).map_err(|_| invalid())?;
+    let mut r = Reader { bytes, text, at: 0 };
     let mut stack = vec![];
     let mut pending = r.value(&mut stack)?;
     loop {

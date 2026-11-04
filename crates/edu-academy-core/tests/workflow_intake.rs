@@ -1094,3 +1094,127 @@ fn index_only_crash_allows_a_fresh_save_after_reopen() {
         }
     }
 }
+
+#[test]
+fn supplementary_request_refs_remain_exact_through_save_and_distinct_store_keys() {
+    use edu_academy_core::workflow::state;
+    struct FictionalSave(usize);
+    impl service::Backend for FictionalSave {
+        fn configured(&self) -> bool {
+            true
+        }
+        fn save(
+            &mut self,
+            scope: &Js,
+            patches: &Js,
+            approval: &mut dyn Approval,
+            _: &Js,
+        ) -> Result<Js> {
+            let patch = &patches.array()[0];
+            let action = obj(&[
+                (
+                    "target",
+                    obj(&[
+                        ("studentKey", scope.get("studentId").clone()),
+                        ("teacherKey", scope.get("teacherId").clone()),
+                        ("date", scope.get("lessonDate").clone()),
+                    ]),
+                ),
+                ("attemptId", "fictional-exact-ref".into()),
+                ("field", patch.get("field").clone()),
+                ("effectRecordKey", "current-record".into()),
+                ("before", patch.get("before").clone()),
+                ("after", patch.get("value").clone()),
+            ]);
+            assert!(approval.consume(&action)?.get("status").is("verified"));
+            self.0 += 1;
+            Ok(js(
+                json!([{"field":"progress","status":"persisted","dispatched":true,"transport":"returned"}]),
+            ))
+        }
+    }
+    let root = root("exact-request-refs");
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let scope = context().get("scope").clone();
+    let clock = Clock::new(NOW);
+    let policy = Policy::new(true);
+    let mut source = Source::observed();
+    let mut backend = FictionalSave(0);
+    let mut keys = vec![];
+    for request in ["req😀", "req😃"] {
+        let mut context = context();
+        context.set("currentRequestRef", request.into());
+        context.set("selectedFields", js(json!(["progress"])));
+        context.set("facts", Js::Arr(vec![fact("progress", "Updated progress")]));
+        let mut svc = service::Service {
+            store: &store,
+            source: &mut source,
+            policy: &policy,
+            backend: &mut backend,
+            runtime: &clock,
+        };
+        let intake = svc.intake(&obj(&[("context", context.clone())])).unwrap();
+        let mut proposed = proposal("progress", "- Updated progress");
+        proposed.set(
+            "decision",
+            js(json!({"kind":"replace", "requestRef":request})),
+        );
+        let mut input = obj(&[
+            ("context", context),
+            ("observationHandle", intake.get("observationHandle").clone()),
+            ("proposals", Js::Arr(vec![proposed])),
+        ]);
+        let review = svc.review(&input, true).unwrap();
+        assert!(review.get("status").is("prepared"));
+        input.set("reviewDigest", review.get("reviewDigest").clone());
+        let wrong = if request == "req😀" {
+            "req😃"
+        } else {
+            "req😀"
+        };
+        input.set(
+            "request",
+            js(json!({"requestRef":wrong,"instruction":{"text":"Fictional save."}})),
+        );
+        assert!(
+            svc.save(&input)
+                .unwrap()
+                .get("reasonCode")
+                .is("user_request_ref_mismatch")
+        );
+        input.set(
+            "request",
+            js(json!({"requestRef":request,"instruction":{"text":"Fictional save."}})),
+        );
+        let saved = svc.save(&input).unwrap();
+        assert!(
+            saved.get("status").is("saved"),
+            "{}",
+            stringify(&saved).unwrap()
+        );
+        let key = request_key(&scope, request).unwrap();
+        let stored = store.get(Kind::Request, &key).unwrap();
+        assert!(stored.get("request").get("requestRef").is(request));
+        keys.push(key);
+    }
+    assert_ne!(keys[0], keys[1]);
+    assert_eq!(backend.0, 2);
+    let executions = state::student_executions(&store, &scope).unwrap();
+    assert_eq!(executions.len(), 2);
+    assert_ne!(executions[0].key, executions[1].key);
+    for request in ["req😀", "req😃"] {
+        assert_eq!(
+            executions
+                .iter()
+                .filter(|e| e.record.get("requestRef").is(request))
+                .count(),
+            1
+        );
+    }
+    assert!(
+        source
+            .calls
+            .iter()
+            .all(|c| c.get("requestRef").is("req😀") || c.get("requestRef").is("req😃"))
+    );
+}

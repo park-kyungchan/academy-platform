@@ -1904,6 +1904,214 @@ pub(crate) fn bind_row(doc: &Document, row: scraper::ElementRef<'_>) -> Result<(
     }
     Ok((fields, canonical.clone()))
 }
+// XML 1.0 names and attribute grammar, checked before record extraction.
+// Attribute values are quoted; `>` inside a quoted value is ordinary data.
+fn xml_space(c: char) -> bool {
+    matches!(c, ' ' | '\t' | '\r' | '\n')
+}
+fn xml_char(c: char) -> bool {
+    matches!(c as u32, 0x9 | 0xA | 0xD | 0x20..=0xD7FF | 0xE000..=0xFFFD | 0x10000..=0x10FFFF)
+}
+fn xml_name_start(c: char) -> bool {
+    matches!(c, ':' | '_' | 'A'..='Z' | 'a'..='z')
+        || matches!(c as u32,
+        0xC0..=0xD6 | 0xD8..=0xF6 | 0xF8..=0x2FF | 0x370..=0x37D |
+        0x37F..=0x1FFF | 0x200C..=0x200D | 0x2070..=0x218F | 0x2C00..=0x2FEF |
+        0x3001..=0xD7FF | 0xF900..=0xFDCF | 0xFDF0..=0xFFFD | 0x10000..=0xEFFFF)
+}
+fn xml_name(s: &str, at: &mut usize) -> bool {
+    let start = *at;
+    for c in s[start..].chars() {
+        if if *at == start {
+            xml_name_start(c)
+        } else {
+            xml_name_start(c)
+                || matches!(c, '-' | '.' | '0'..='9' | '\u{B7}')
+                || matches!(c as u32, 0x300..=0x36F | 0x203F..=0x2040)
+        } {
+            *at += c.len_utf8();
+        } else {
+            break;
+        }
+    }
+    *at != start
+}
+struct XmlTag<'a> {
+    name: &'a str,
+    close: bool,
+    empty: bool,
+    end: usize,
+    attributes: Vec<(&'a str, String)>,
+}
+fn xml_tag(s: &str, start: usize) -> std::result::Result<XmlTag<'_>, (usize, String)> {
+    let bytes = s.as_bytes();
+    let next = |at: usize| {
+        s.get(at..)
+            .and_then(|s| s.chars().next())
+            .map_or(s.len(), |c| at + c.len_utf8())
+    };
+    let mut at = start + 1;
+    let close = bytes.get(at) == Some(&b'/');
+    if close {
+        at += 1;
+    }
+    let name_start = at;
+    if !xml_name(s, &mut at) {
+        return Err((at, "disallowed character in tag name.".into()));
+    }
+    let name = &s[name_start..at];
+    let mut attrs = std::collections::HashSet::new();
+    let mut attributes = vec![];
+    loop {
+        let before_space = at;
+        while bytes
+            .get(at)
+            .is_some_and(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n'))
+        {
+            at += 1;
+        }
+        if bytes.get(at) == Some(&b'>') {
+            return Ok(XmlTag {
+                name,
+                close,
+                empty: false,
+                end: at + 1,
+                attributes,
+            });
+        }
+        if !close && bytes.get(at..at + 2) == Some(b"/>") {
+            return Ok(XmlTag {
+                name,
+                close,
+                empty: true,
+                end: at + 2,
+                attributes,
+            });
+        }
+        if at >= bytes.len() {
+            return Err((at, "unclosed tag.".into()));
+        }
+        if close {
+            return Err((at, "disallowed character in closing tag.".into()));
+        }
+        if at == before_space {
+            return Err((next(at), "no whitespace between attributes.".into()));
+        }
+        let attr_start = at;
+        if !xml_name(s, &mut at) {
+            return Err((at, "disallowed character in attribute name.".into()));
+        }
+        let attr = &s[attr_start..at];
+        while bytes
+            .get(at)
+            .is_some_and(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n'))
+        {
+            at += 1;
+        }
+        if bytes.get(at) != Some(&b'=') {
+            return Err((next(at), "attribute without value.".into()));
+        }
+        at += 1;
+        while bytes
+            .get(at)
+            .is_some_and(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n'))
+        {
+            at += 1;
+        }
+        let Some(&quote @ (b'\'' | b'"')) = bytes.get(at) else {
+            return Err((next(at), "unquoted attribute value.".into()));
+        };
+        at += 1;
+        let value_start = at;
+        while let Some(&b) = bytes.get(at) {
+            if b == quote {
+                break;
+            }
+            if b == b'<' {
+                return Err((next(at), "disallowed character in attribute value.".into()));
+            }
+            // Advance by a scalar, keeping every error position a UTF-8 boundary.
+            at += s[at..].chars().next().expect("present byte").len_utf8();
+        }
+        if at == bytes.len() {
+            return Err((at, "unclosed attribute value.".into()));
+        }
+        let value =
+            xml_entities(&s[value_start..at]).map_err(|_| (at, "undefined entity.".into()))?;
+        attributes.push((attr, value));
+        at += 1;
+        if !attrs.insert(attr) {
+            return Err((next(at), format!("duplicate attribute: {attr}.")));
+        }
+    }
+}
+fn xml_qname(name: &str) -> Option<(&str, &str)> {
+    match name.split_once(':') {
+        Some((prefix, local))
+            if !prefix.is_empty()
+                && !local.is_empty()
+                && !local.contains(':')
+                && local.chars().next().is_some_and(xml_name_start) =>
+        {
+            Some((prefix, local))
+        }
+        None => Some(("", name)),
+        _ => None,
+    }
+}
+fn xml_namespaces(
+    tag: &XmlTag<'_>,
+    parent: Option<&HashMap<String, String>>,
+) -> std::result::Result<HashMap<String, String>, String> {
+    const XML: &str = "http://www.w3.org/XML/1998/namespace";
+    const XMLNS: &str = "http://www.w3.org/2000/xmlns/";
+    let mut scope = parent
+        .cloned()
+        .unwrap_or_else(|| HashMap::from([("xml".into(), XML.into())]));
+    for (name, value) in &tag.attributes {
+        let (prefix, local) = xml_qname(name).ok_or("malformed qualified attribute name.")?;
+        let binding = if *name == "xmlns" {
+            Some("")
+        } else if prefix == "xmlns" {
+            Some(local)
+        } else {
+            None
+        };
+        if let Some(prefix) = binding {
+            if prefix == "xmlns"
+                || value == XMLNS
+                || (prefix == "xml") != (value == XML)
+                || !prefix.is_empty() && value.is_empty()
+            {
+                return Err("invalid namespace binding.".into());
+            }
+            scope.insert(prefix.into(), value.clone());
+        }
+    }
+    let (prefix, _) = xml_qname(tag.name).ok_or("malformed qualified tag name.")?;
+    if !prefix.is_empty() && !scope.contains_key(prefix) {
+        return Err("unbound namespace prefix.".into());
+    }
+    let mut expanded = std::collections::HashSet::new();
+    for (name, _) in &tag.attributes {
+        let (prefix, local) = xml_qname(name).ok_or("malformed qualified attribute name.")?;
+        if *name == "xmlns" || prefix == "xmlns" {
+            continue;
+        }
+        let uri = if prefix.is_empty() {
+            ""
+        } else {
+            scope
+                .get(prefix)
+                .ok_or("unbound namespace prefix.")?
+                .as_str()
+        };
+        if !expanded.insert((uri, local)) {
+            return Err(format!("duplicate attribute: {name}."));
+        }
+    }
+    Ok(scope)
+}
 /// Strict recorded XML token parser; inert text only. Reports the original XML error shape.
 pub(crate) fn xml_record(s: &str) -> Result<String> {
     xml_record_observation(s).map(|(record, _)| record)
@@ -1911,6 +2119,7 @@ pub(crate) fn xml_record(s: &str) -> Result<String> {
 fn xml_record_observation(s: &str) -> Result<(String, bool)> {
     let mut parsererror = false;
     let mut stack: Vec<String> = vec![];
+    let mut namespaces = vec![];
     let mut records = vec![];
     let mut record_count = 0;
     let mut record = None::<String>;
@@ -1933,28 +2142,43 @@ fn xml_record_observation(s: &str) -> Result<(String, bool)> {
         e.properties.set("code", Js::Num(12.));
         e
     };
+    if let Some((at, _)) = s.char_indices().find(|(_, c)| !xml_char(*c)) {
+        return Err(syntax(at, "disallowed character.".into()));
+    }
     while i < b.len() {
         if b[i] != b'<' {
             let end = s[i..].find('<').map_or(s.len(), |n| i + n);
+            let text = &s[i..end];
+            if text.contains("]]>") {
+                return Err(syntax(
+                    end,
+                    "the string ]]> is disallowed in char data.".into(),
+                ));
+            }
+            let text = xml_entities(text).map_err(|_| syntax(end, "undefined entity.".into()))?;
             if let Some(r) = &mut record {
-                r.push_str(
-                    &xml_entities(&s[i..end])
-                        .map_err(|_| syntax(end, "undefined entity.".into()))?,
-                )
-            } else if stack.is_empty() && !s[i..end].trim().is_empty() {
+                r.push_str(&text);
+            } else if stack.is_empty() && !text.chars().all(xml_space) {
                 return Err(syntax(i, "text data outside of root node.".into()));
             }
             i = end;
             continue;
         }
         if s[i..].starts_with("<!--") {
-            i = s[i + 4..]
+            let end = s[i + 4..]
                 .find("-->")
-                .map(|n| i + 4 + n + 3)
+                .map(|n| i + 4 + n)
                 .ok_or_else(|| syntax(s.len(), "unclosed comment.".into()))?;
+            if s[i + 4..end].contains("--") || s[i + 4..end].ends_with('-') {
+                return Err(syntax(end, "malformed comment.".into()));
+            }
+            i = end + 3;
             continue;
         }
         if s[i..].starts_with("<![CDATA[") {
+            if stack.is_empty() {
+                return Err(syntax(i, "text data outside of root node.".into()));
+            }
             let end = s[i + 9..]
                 .find("]]>")
                 .map(|n| i + 9 + n)
@@ -1972,32 +2196,29 @@ fn xml_record_observation(s: &str) -> Result<(String, bool)> {
                 .ok_or_else(|| syntax(s.len(), "unclosed processing instruction.".into()))?;
             continue;
         }
-        let end = s[i..]
-            .find('>')
-            .map(|n| i + n)
-            .ok_or_else(|| syntax(s.len(), "unclosed tag.".into()))?;
-        let raw = s[i + 1..end].trim();
-        let close = raw.starts_with('/');
-        let empty = raw.ends_with('/');
-        let name = raw
-            .trim_start_matches('/')
-            .split(|c: char| c.is_whitespace() || c == '/')
-            .next()
-            .unwrap_or("");
-        if name.is_empty() {
-            return Err(syntax(end + 1, "disallowed character in tag name.".into()));
-        }
+        let tag = xml_tag(s, i).map_err(|(at, message)| syntax(at.min(s.len()), message))?;
+        let XmlTag {
+            name,
+            close,
+            empty,
+            end: next,
+            ..
+        } = tag;
+        let end = next - 1;
         if close {
             if stack.last().map(String::as_str) != Some(name) {
                 return Err(syntax(end + 1, "unexpected close tag.".into()));
             }
             stack.pop();
+            namespaces.pop();
             if name == "record"
                 && let Some(r) = record.take()
             {
                 records.push(r);
             }
         } else {
+            let namespace = xml_namespaces(&tag, namespaces.last())
+                .map_err(|message| syntax(end + 1, message))?;
             if name == "parsererror" {
                 parsererror = true;
             }
@@ -2015,6 +2236,7 @@ fn xml_record_observation(s: &str) -> Result<(String, bool)> {
                 record = Some(String::new())
             }
             if !empty {
+                namespaces.push(namespace);
                 stack.push(name.into())
             } else if name == "record" {
                 records.push(String::new());
@@ -2051,6 +2273,7 @@ fn xml_entities(s: &str) -> Result<String> {
                     key.strip_prefix('#').and_then(|n| n.parse().ok())
                 };
                 n.and_then(char::from_u32)
+                    .filter(|c| xml_char(*c))
                     .ok_or_else(|| err("xml_entity"))?
                     .to_string()
             }
@@ -2706,6 +2929,43 @@ mod review_fixes_fictional_journal {
         }
         if let Ok(path) = std::env::var("S09_REVIEW_UNIT_EVIDENCE") {
             std::fs::write(path, format!("{}\n", json(&Js::Arr(evidence)))).unwrap();
+        }
+    }
+}
+
+#[cfg(test)]
+mod xml_well_formed_tests {
+    use super::*;
+    #[test]
+    fn malformed_opening_tags_and_duplicate_attributes_never_return_record_text() {
+        for source in [
+            "<root a=\"1\" a=\"2\"><record>ok</record></root>",
+            "<root a><record>ok</record></root>",
+            "<root a=bad><record>ok</record></root>",
+            "<root a=\"1\"b=\"2\"><record>ok</record></root>",
+            "<root><record a='1' a='2'>ok</record></root>",
+            "<root><record a='1' / >ok</record></root>",
+            "<root><record a='<'>ok</record></root>",
+            "<root a='&missing;'><record>ok</record></root>",
+            "<root><record>ok</record bogus></root>",
+            "<root xmlns:a='urn:x' xmlns:b='urn:x' a:x='1' b:x='2'><record>ok</record></root>",
+            "<root a:unbound='1'><record>ok</record></root>",
+            "<root><:record>ok</:record></root>",
+        ] {
+            let error = xml_record(source).unwrap_err();
+            assert_eq!(error.name, "SyntaxError", "{source}");
+            assert_eq!(error.properties.get("code"), &Js::Num(12.0));
+        }
+    }
+    #[test]
+    fn valid_attributes_quotes_entities_and_unicode_preserve_record_text() {
+        for source in [
+            "<root a=\"1>2\"><record b='x'>한글 &amp; 😀</record></root>",
+            "<root a = '1' A=\"2\"><record><![CDATA[한글 & 😀]]></record></root>",
+            "<뿌리 속성='값'><record>한글 &amp; 😀</record><tail a='ok'/></뿌리>",
+            "<root xmlns:a='urn:x' xmlns:b='urn:y' a:x='1' b:x='2'><record>한글 &amp; 😀</record></root>",
+        ] {
+            assert_eq!(xml_record(source).unwrap(), "한글 & 😀");
         }
     }
 }

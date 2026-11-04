@@ -390,3 +390,19 @@ fn legacy_lossy_settled_key_cannot_be_replayed_as_a_new_exact_key() {
     );
     assert!(store.get(Kind::Execution, &exact).unwrap().absent());
 }
+
+#[test]
+fn large_korean_json_parses_with_a_linear_utf8_scan() {
+    let text = "가나다라마바사아".repeat(10_000);
+    assert_eq!(text.len(), 240_000);
+    let payload = format!(r#"{{"text":"{text}"}}"#);
+    let started = std::time::Instant::now();
+    let parsed = codec::parse(payload.as_bytes()).unwrap();
+    let elapsed = started.elapsed();
+    assert!(parsed.get("text").is(&text));
+    eprintln!("korean_json_bytes={} elapsed={elapsed:?}", payload.len());
+    assert!(
+        elapsed < Duration::from_millis(500),
+        "UTF-8 rescanning: {elapsed:?}"
+    );
+}

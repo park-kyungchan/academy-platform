@@ -17,15 +17,65 @@ use std::{
     sync::mpsc::TryRecvError,
     time::{Duration, Instant},
 };
+/// Cancellation belongs to request identity even while that request is queued.
+/// Only active/queued IDs are retained, so unknown notifications cannot grow state.
+#[derive(Default)]
+struct PendingInput {
+    messages: VecDeque<Js>,
+    cancelled: Vec<Js>,
+}
+impl PendingInput {
+    fn push(&mut self, message: Js, active: &Js) -> Result<()> {
+        if valid_envelope(&message)
+            && !message.has("id")
+            && message.get("method").is("notifications/cancelled")
+        {
+            let id = message.get("params").get("requestId");
+            let known = !id.absent()
+                && ((!active.absent() && id == active)
+                    || self
+                        .messages
+                        .iter()
+                        .any(|m| m.has("id") && m.get("id") == id));
+            if known && !self.is_cancelled(id) {
+                self.cancelled.push(id.clone());
+            }
+            return Ok(());
+        }
+        if self.messages.len() >= 16 {
+            return Err(Error::new("mcp_pending_input_capacity_exceeded"));
+        }
+        self.messages.push_back(message);
+        Ok(())
+    }
+    fn is_cancelled(&self, id: &Js) -> bool {
+        self.cancelled.contains(id)
+    }
+    fn take_cancelled(&mut self, id: &Js) -> bool {
+        if let Some(at) = self.cancelled.iter().position(|v| v == id) {
+            self.cancelled.remove(at);
+            true
+        } else {
+            false
+        }
+    }
+    fn pop_front(&mut self) -> Option<Js> {
+        while let Some(message) = self.messages.pop_front() {
+            if !message.has("id") || !self.take_cancelled(message.get("id")) {
+                return Some(message);
+            }
+        }
+        None
+    }
+}
 struct ParentControl {
     signals: Signals,
     input: InputPump,
-    pending: VecDeque<Js>,
+    pending: PendingInput,
     diagnostics: u8,
     eof: bool,
     failure: Option<Error>,
     signal: Option<i32>,
-    cancelled: Option<Js>,
 }
 impl ParentControl {
     fn signals_only(&mut self) -> Result<()> {
@@ -51,18 +101,7 @@ impl ParentControl {
                     if notification {
                         before_notification()?;
                     }
-                    if notification
-                        && message.get("method").is("notifications/cancelled")
-                        && !active.absent()
-                        && message.get("params").get("requestId") == active
-                    {
-                        self.cancelled = Some(active.clone());
-                    } else {
-                        if self.pending.len() >= 16 {
-                            return Err(Error::new("mcp_pending_input_capacity_exceeded"));
-                        }
-                        self.pending.push_back(message);
-                    }
+                    self.pending.push(message, active)?;
                 }
                 Ok(InputEvent::Diagnostic) => self.diagnostics = self.diagnostics.saturating_add(1),
                 Ok(InputEvent::Eof) => self.eof = true,
@@ -80,7 +119,7 @@ impl ParentControl {
         if self.eof {
             return Err(Error::new("mcp_client_eof"));
         }
-        if self.cancelled.as_ref() == Some(active) {
+        if self.pending.is_cancelled(active) {
             return Err(Error::new("request_cancelled"));
         }
         Ok(())
@@ -172,12 +211,11 @@ fn bridge(root: &PathBuf) -> Exit {
     let mut control = ParentControl {
         signals,
         input: InputPump::stdin(),
-        pending: VecDeque::new(),
+        pending: PendingInput::default(),
         diagnostics: 0,
         eof: false,
         failure: None,
         signal: None,
-        cancelled: None,
     };
     let output = OutputPump::stdout();
     let errors = OutputPump::stderr();
@@ -209,8 +247,7 @@ fn bridge(root: &PathBuf) -> Exit {
                 response?;
                 return Err(Error::new("mcp_client_eof"));
             }
-            if control.cancelled.as_ref() == Some(request.get("id")) {
-                control.cancelled = None;
+            if control.pending.take_cancelled(request.get("id")) {
                 continue; // SDK does not answer an aborted request.
             }
             match response {
@@ -328,4 +365,80 @@ fn main() {
     }
     // _exit avoids at-exit stdio locking when an inherited writer is blocked.
     signal_hook::low_level::exit(0);
+}
+
+#[cfg(test)]
+mod queued_cancellation_tests {
+    use super::*;
+    fn call(id: Js, tool: &str) -> Js {
+        obj(&[
+            ("jsonrpc", "2.0".into()),
+            ("id", id),
+            ("method", "tools/call".into()),
+            (
+                "params",
+                obj(&[("name", tool.into()), ("arguments", obj(&[]))]),
+            ),
+        ])
+    }
+    fn cancel(id: Js) -> Js {
+        obj(&[
+            ("jsonrpc", "2.0".into()),
+            ("method", "notifications/cancelled".into()),
+            ("params", obj(&[("requestId", id)])),
+        ])
+    }
+    #[test]
+    fn a_save_cancelled_in_the_same_idle_batch_never_reaches_dispatch() {
+        let mut pending = PendingInput::default();
+        // Deterministic same-poll order: call, cancellation, then a live call.
+        pending
+            .push(
+                call("save-😀".into(), "academy_dailyrecord_save"),
+                &Js::Undefined,
+            )
+            .unwrap();
+        pending
+            .push(cancel("save-😀".into()), &Js::Undefined)
+            .unwrap();
+        pending
+            .push(call("read".into(), "academy_source_status"), &Js::Undefined)
+            .unwrap();
+        let mut save_dispatches = 0;
+        while let Some(request) = pending.pop_front() {
+            if request
+                .get("params")
+                .get("name")
+                .is("academy_dailyrecord_save")
+            {
+                save_dispatches += 1;
+            }
+            assert!(request.get("id").is("read"));
+        }
+        assert_eq!(save_dispatches, 0);
+        assert!(pending.cancelled.is_empty());
+    }
+    #[test]
+    fn queued_and_active_cancellations_preserve_exact_id_and_bounded_state() {
+        let mut pending = PendingInput::default();
+        pending
+            .push(
+                call(Js::Num(1.0), "academy_dailyrecord_save"),
+                &"active".into(),
+            )
+            .unwrap();
+        pending.push(cancel("1".into()), &"active".into()).unwrap();
+        pending
+            .push(cancel("active".into()), &"active".into())
+            .unwrap();
+        assert!(pending.is_cancelled(&"active".into()));
+        assert!(pending.pop_front().unwrap().get("id") == &Js::Num(1.0));
+        assert!(pending.take_cancelled(&"active".into()));
+        for n in 0..100 {
+            pending
+                .push(cancel(Js::Num(n as f64)), &Js::Undefined)
+                .unwrap();
+        }
+        assert!(pending.cancelled.is_empty());
+    }
 }
