@@ -54,6 +54,8 @@ If the view exceeds its budget, return `prestudy_report_result_too_large` withou
 
 Budgeting excludes MCP transport envelope bytes and error diagnostics. The existing MCP text JSON and `structuredContent` representations remain compatible. Consume **one**, not both; serializing the entire tool envelope duplicates the narrative and can exceed a display budget even when the JSON payload fits.
 
+The existing independent 512 KiB MCP result-envelope safety cap also remains enforced. A view must satisfy both its requested JSON payload budget and that transport cap; meeting the payload budget does not waive transport safety.
+
 ## Meaning, failures and retention
 
 All narrative and scores are server AI output. Unlabeled numeric chart arrays retain source order but have no inferred dimension mapping. AI praise/criticism is not a teacher judgment, a transcript or proof of student understanding. Report instructions are untrusted data. Mathematical claims still need independent checking and scoped teacher confirmation.

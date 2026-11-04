@@ -67,6 +67,26 @@ test('a selected view can fit a budget when the complete source report cannot',a
   expect(result).toMatchObject({status:'observed',sections:[observation().sections[0]],view:{completeRequestedView:true,completeSourceReport:false}});
 });
 
+test('the selected budget measures one JSON payload, not its duplicated MCP envelope',async()=>{
+  const value=observation();value.sections[0].blocks[0].text='a'.repeat(17000);
+  const result=await service(value).reader.prestudyReportGet({...input,sectionTitles:['개념 이해']});
+  expect(result).toMatchObject({status:'observed',sections:[value.sections[0]]});
+  const bytes=Buffer.byteLength(JSON.stringify(result),'utf8');
+  expect(bytes).toBeLessThan(20*1024);
+  expect(await service(value).reader.prestudyReportGet({...input,sectionTitles:['개념 이해'],maxOutputBytes:bytes}))
+    .toMatchObject({status:'observed',sections:[value.sections[0]]});
+  expect(await service(value).reader.prestudyReportGet({...input,sectionTitles:['개념 이해'],maxOutputBytes:bytes-1}))
+    .toMatchObject({status:'unavailable',reasonCode:'prestudy_report_result_too_large'});
+});
+
+test('the existing independent MCP envelope safety cap still applies',async()=>{
+  const value=observation();
+  value.sections=['A','B'].map(title=>({title,subtitle:null,blocks:Array.from({length:50},()=>({heading:'가'.repeat(1000),text:'valid'}))}));
+  expect(Buffer.byteLength(JSON.stringify(value),'utf8')).toBeLessThan(512*1024);
+  expect(await service(value).reader.prestudyReportGet({...input,maxOutputBytes:512*1024}))
+    .toMatchObject({status:'unavailable',reasonCode:'prestudy_report_result_too_large'});
+});
+
 test('all selected sections can comprise the full source; default selected budget remains bounded',async()=>{
   const {reader}=service();expect(await reader.prestudyReportGet({...input,sectionTitles:['総評','개념 이해','논리적 설명','총평']}))
     .toMatchObject({status:'partial',view:{completeRequestedView:false,completeSourceReport:true}});

@@ -427,7 +427,7 @@ export class DailyRecordService {
       });
       // Budget is UTF-8 JSON payload bytes, excluding the MCP envelope. Never clip source blocks.
       const budget=input.maxOutputBytes??(input.sectionTitles?32*1024:512*1024);
-      if(toolResultBytes(result)>budget)throw Error('prestudy_report_result_too_large');
+      if(Buffer.byteLength(JSON.stringify(result),'utf8')>budget||toolResultBytes(result)>512*1024)throw Error('prestudy_report_result_too_large');
       return freezeLabelData(result);
     }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'prestudy_report_unqualified_no_automatic_retry')};}
   }
