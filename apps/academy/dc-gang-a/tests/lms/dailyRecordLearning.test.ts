@@ -1,6 +1,7 @@
 import {expect,test} from 'bun:test';
 import {createDailyRecordLearningReviewer,qualifyLearningCatalog,resolveLearningNotation,type LearningBook,type LearningCatalog,type LearningEntry} from '../../src/lms/dailyRecordLearning';
 import {parentDailyRecordLines} from '../../src/academy/teacherWorkspace';
+import {parentInternalLanguage} from '../../src/contracts/parentInternalLanguage';
 const refs=['fictional-teacher-source'];
 const unit=(unitRef:string,code='2-4')=>({unitRef,code,title:'가상 단원',kind:'minor' as const,evidenceRefs:refs,sections:[{sectionRef:unitRef+':a',label:'실력다지기',basis:'source_catalog' as const,evidenceRefs:refs},{sectionRef:unitRef+':b',label:'실력올리기',basis:'source_catalog' as const,evidenceRefs:refs}]});
 const book=(bookRef:string,series=1):LearningBook=>({studentRef:'fictional-student',bookRef,label:`가우스 초5-1 시리즈${series} v1`,brand:'가우스',schoolLevel:'elementary',grade:5,term:1,series,seriesKind:'numbered',edition:'v1',bindingState:'confirmed',evidenceRefs:refs,units:[unit(bookRef+':unit')]});
@@ -16,7 +17,7 @@ test('three parts select series; four select major/minor independently and ambig
 });
 test('group every section only for identical edition/unit/activity/deadline',()=>{
  const c=catalog(),r=createDailyRecordLearningReviewer(c),a=entry(),b=entry({sectionRefs:['fictional-book:unit:b']});
- expect(r.render('fictional-student',[a,b])).toBe('- 가우스 초5-1 시리즈1 v1 2-4 가상 단원 실력다지기·실력올리기 문제풀이');
+ expect(r.render('fictional-student',[a,b])).toBe('- 가우스 5-1-1 2-4 가상 단원 실력다지기·실력올리기 문제풀이');
  expect(r.render('fictional-student',[a,{...b,activity:'오답 정리'}]).split('\n')).toHaveLength(3);
  expect(r.render('fictional-student',[a,{...b,deadline:'2040-01-17'}]).split('\n')).toHaveLength(5);
  c.books[0]!.units.push(unit('different-unit','2-5'));const r2=createDailyRecordLearningReviewer(c);
@@ -27,7 +28,7 @@ test('shared deadline and book appear once while distinct sections and activity 
  const c=catalog();c.books[0]!.units.push(unit('second','2-5'));const r=createDailyRecordLearningReviewer(c);
  const rows=[entry({deadline:'2040-01-17',activity:'원본 오답클리닉'}),entry({sectionRefs:['fictional-book:unit:b'],deadline:'2040-01-17',activity:'원본 오답클리닉'}),entry({unitRef:'second',sectionRefs:['second:a'],deadline:'2040-01-17',activity:'유사문제 클리닉'})];
  const text=r.render('fictional-student',rows);
- expect(text.match(/2040-01-17/g)).toHaveLength(1);expect(text.match(/가우스 초5-1 시리즈1 v1/g)).toHaveLength(1);
+ expect(text.match(/2040-01-17/g)).toHaveLength(1);expect(text.match(/가우스 5-1-1/g)).toHaveLength(1);
  expect(text).toContain('2-4 가상 단원 실력다지기·실력올리기 오답클리닉');
  expect(text).toContain('2-5 가상 단원 실력다지기 유사문제 클리닉');expect(text).not.toContain('원본');
  expect(parentDailyRecordLines.test(text)).toBe(true);expect(r.review('fictional-student',text,rows).blockers).toEqual([]);
@@ -43,7 +44,7 @@ test('different or unknown deadlines never inherit a shared date and track label
  const c=catalog();c.books[0]!.units.push(unit('second','2-5'),unit('third','2-6'));const r=createDailyRecordLearningReviewer(c);
  const base=entry({scope:'unit',sectionRefs:[],activity:'원본 오답클리닉',deadline:'2040-01-17'});
  const text=r.render('fictional-student',[base,{...base,unitRef:'second',deadline:'2040-01-18'},{...base,unitRef:'third',deadline:null}]);
- const lines=text.split('\n');expect(lines[0]).toBe('- 가우스 초5-1 시리즈1 v1');
+ const lines=text.split('\n');expect(lines[0]).toBe('- 가우스 5-1-1');
  expect(lines[1]).toContain('2-6 가상 단원');expect(lines[1]).not.toContain('2040-');
  expect(lines[2]).toBe('- 2040-01-17까지');expect(lines[4]).toContain('2-4 가상 단원');
  expect(lines[5]).toBe('- 2040-01-18까지');expect(lines[7]).toContain('2-5 가상 단원');
@@ -72,4 +73,20 @@ test('chapter assessment retains major identity and middle Davinci has no inferr
 test('parent fields require literal hyphen and LF on every line',()=>{
  expect(parentDailyRecordLines.test('- 단원 섹션 풀이\n- 다른 단원 오답 정리')).toBe(true);
  for(const text of ['1. 항목','### 제목','내용','- 내용\n들여쓰기','- 내용\r\n- 내용','- 내용\n\n- 내용',''])expect(parentDailyRecordLines.test(text)).toBe(false);
+});
+
+test('parent book display preserves exact version metadata in the catalog',()=>{
+ const c=catalog();c.books[0]!.label='가우스 초5-1 시리즈1 v3(1P6A)';c.books[0]!.edition='v3(1P6A)';
+ const before=structuredClone(c),rendered=createDailyRecordLearningReviewer(c).render('fictional-student',[entry()]);
+ expect(rendered).toBe('- 가우스 5-1-1 2-4 가상 단원 실력다지기 문제풀이');
+ expect(parentInternalLanguage.test(rendered)).toBe(false);
+ expect(c).toEqual(before);expect(qualifyLearningCatalog(c).books[0]!.edition).toBe('v3(1P6A)');
+});
+
+test('different editions cannot silently collapse into one parent book name',()=>{
+ const c=catalog();c.books.push({...book('other-edition'),edition:'v2'});
+ const r=createDailyRecordLearningReviewer(c);
+ expect(()=>r.render('fictional-student',[entry(),entry({bookRef:'other-edition',unitRef:'other-edition:unit',sectionRefs:['other-edition:unit:a']})])).toThrow('book_parent_notation_ambiguous_ask_teacher');
+ const unknown=catalog();unknown.books[0]!.schoolLevel=null;
+ expect(()=>createDailyRecordLearningReviewer(unknown).render('fictional-student',[entry()])).toThrow('book_parent_notation_unverified_ask_teacher');
 });

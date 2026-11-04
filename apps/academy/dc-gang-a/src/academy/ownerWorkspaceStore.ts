@@ -2,12 +2,13 @@ import {validateTeacherExamDraft,type TeacherExamSelectionDraft} from './teacher
 import type {SQL} from 'bun';
 import {assertExactKeys,assertInstant,canonicalJson,digest,requireText,stableId} from '../learning/model';
 import {academyOperatingSelection} from './operatingWorkspace';
-import {TeacherWorkspaceRefusal,validateTeacherWorkspace,workspaceEntityId,isTeacherWorkspaceRecord,assertActivityReviewAttemptBinding,type TeacherOperationalCase,type TeacherWorkspaceRecord} from './teacherWorkspace';
+import {TeacherWorkspaceRefusal,validateTeacherWorkspace,validateTeacherWorkspaceWrite,workspaceEntityId,isTeacherWorkspaceRecord,assertActivityReviewAttemptBinding,type TeacherOperationalCase,type TeacherWorkspaceRecord} from './teacherWorkspace';
 import {assertAssignmentNotReplaced,type AssignmentVersion} from './learningWorkBindings';
 import type {WriteAcknowledgement} from './contracts/storageRecords';
 export type OwnerWorkspaceRecord=TeacherWorkspaceRecord|TeacherOperationalCase|TeacherExamSelectionDraft;
 export function ownerWorkspaceEntityId(payload:OwnerWorkspaceRecord){return payload.kind==='teacher_exam_selection_draft'?'teacher-exam-selection-'+payload.draftId:workspaceEntityId(payload);}
 export function validateOwnerWorkspace(payload:OwnerWorkspaceRecord){if(payload.kind==='teacher_exam_selection_draft')validateTeacherExamDraft(payload);else validateTeacherWorkspace(payload);}
+export function validateOwnerWorkspaceWrite(payload:OwnerWorkspaceRecord){if(payload.kind==='teacher_exam_selection_draft')validateTeacherExamDraft(payload);else validateTeacherWorkspaceWrite(payload);}
 export interface OwnerWorkspaceCommand {ownerId:string;actorId:string;idempotencyKey:string;expectedRevisionId:string|null;payload:OwnerWorkspaceRecord}
 export interface OwnerWorkspaceVersion {ownerId:string;entityId:string;sequence:number;revisionId:string;previousRevisionId:string|null;previousDigest:string|null;payload:OwnerWorkspaceRecord;contentDigest:string;integrityDigest:string;recordedAt:string;actorId:string;idempotencyKey:string;commandDigest:string}
 export interface OwnerWorkspaceStore {
@@ -36,7 +37,7 @@ export async function assertOwnerWorkspacesReady(db:SQL){
 }
 export async function appendOwnerWorkspace(db:SQL,command:OwnerWorkspaceCommand):Promise<WriteAcknowledgement>{
  command=JSON.parse(canonicalJson(command)) as OwnerWorkspaceCommand;
- assertExactKeys(command,['ownerId','actorId','idempotencyKey','expectedRevisionId','payload']);canonicalJson(command);validateOwnerWorkspace(command.payload);
+ assertExactKeys(command,['ownerId','actorId','idempotencyKey','expectedRevisionId','payload']);canonicalJson(command);validateOwnerWorkspaceWrite(command.payload);
  for(const id of [command.ownerId,command.actorId,command.idempotencyKey]){requireText(id,'workspace identity');if(id.length>200)throw Error('invalid_workspace_identity');}
  if(command.expectedRevisionId!==null){requireText(command.expectedRevisionId,'workspace predecessor');if(command.expectedRevisionId.length>200)throw Error('invalid_workspace_identity');}
  const recordedAt=new Date().toISOString();assertInstant(command.payload.reportedAt);if(Date.parse(command.payload.reportedAt)>Date.parse(recordedAt))throw Error('future_source_observation');
