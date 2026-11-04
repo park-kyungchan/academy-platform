@@ -241,3 +241,103 @@ pub(crate) fn effect(tool: &str) -> Effect {
         Effect::ReadbackConfirmed { academy_writes: 0 }
     }
 }
+
+/// Separate history-only source loan; never substitutes the seven-route driver.
+/// Only fictional owner graphs qualify in this source slice. No native factory.
+pub struct History<P: edu_academy_sources::history::Port> {
+    source: edu_academy_sources::history::History<P>,
+}
+impl<P: edu_academy_sources::history::Port> History<P> {
+    pub fn from_source(source: edu_academy_sources::history::History<P>) -> Self {
+        Self { source }
+    }
+    pub(crate) fn check_history_binding(&self, graph: &ReleaseGraph, endpoint: &str) -> Result<()> {
+        if graph.owner.kind != "fictional" {
+            return Err(Error::new("business_owner_binding_unqualified"));
+        }
+        let admission = self.source.routing_admission();
+        if crate::encode(&graph.admission()?)? != crate::encode(admission)?
+            || !graph
+                .routing
+                .get("admissionSha256")
+                .is(&crate::digest(&crate::encode(admission)?))
+        {
+            return Err(Error::new("release_upstream_admission_mismatch"));
+        }
+        if ["paper1", "paper2"].contains(&endpoint) {
+            let declared = graph
+                .routing
+                .get("paperScopes")
+                .array()
+                .iter()
+                .find(|s| s.get("endpoint").is(endpoint));
+            if !declared
+                .is_some_and(|s| s.get("studentIds").array() == self.source.paper_students())
+            {
+                return Err(Error::new("paper_scope_unresolved"));
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn history_call(&mut self, tool: &str, input: &Js) -> CoreResult<Js> {
+        if tool == "academy_runtime_read_admission" {
+            return Ok(obj(&[
+                ("status", "configured".into()),
+                (
+                    "admissionSha256",
+                    crate::digest(
+                        &crate::encode(self.source.routing_admission())
+                            .map_err(|e| Fault::error(e.code))?,
+                    )
+                    .into(),
+                ),
+            ]));
+        }
+        let metadata = tool == "academy_student_metadata_get";
+        let result = if metadata {
+            self.source.metadata(input)
+        } else {
+            self.source.headers(input)
+        };
+        let value = match result {
+            Ok(value) => value,
+            Err(error) => {
+                let failure = read_failure::public_read_failure(
+                    &edu_academy_sources::data::fault_from_error(error),
+                    if metadata {
+                        "student_metadata_unqualified_no_automatic_retry"
+                    } else {
+                        "source_headers_read_failed"
+                    },
+                );
+                let mut out = obj(&[
+                    (
+                        "status",
+                        if metadata { "unavailable" } else { "blocked" }.into(),
+                    ),
+                    (
+                        if metadata { "reasonCode" } else { "code" },
+                        failure.get("code").clone(),
+                    ),
+                    ("failure", failure),
+                    ("sourceRequests", self.source.source_requests().into()),
+                    ("automaticRetryAllowed", false.into()),
+                ]);
+                out.set("academyWrites", Js::Num(0.0));
+                out.set("parentSends", Js::Num(0.0));
+                return Ok(out);
+            }
+        };
+        let bytes = crate::audit::tool_result(value.clone())
+            .and_then(|v| crate::encode(&v))
+            .map_err(|e| Fault::error(e.code))?;
+        if bytes.len() > 512 * 1024 {
+            return Err(Fault::error(if metadata {
+                "metadata_result_too_large"
+            } else {
+                "source_headers_read_failed"
+            }));
+        }
+        Ok(value)
+    }
+}

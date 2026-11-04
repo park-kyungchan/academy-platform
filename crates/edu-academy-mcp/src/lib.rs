@@ -4,6 +4,7 @@
 pub mod audit;
 pub mod business;
 pub mod dailyrecord_read;
+pub mod dailytest_history;
 pub mod dispatch;
 pub mod endpoint;
 pub mod framing;

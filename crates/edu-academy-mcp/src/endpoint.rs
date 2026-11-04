@@ -81,3 +81,28 @@ pub(crate) fn business_entry<'a>(
     }
     Ok(first)
 }
+
+/// Additive, exact two-route binding. The original business_entry is unchanged.
+pub(crate) fn history_entry<'a>(
+    graph: &'a ReleaseGraph,
+    endpoint: &str,
+    name: &str,
+) -> Result<&'a Entry> {
+    if !((endpoint == "dailyrecord" && name == "academy_student_metadata_get")
+        || (["paper1", "paper2"].contains(&endpoint) && name == "academy_paper_headers"))
+    {
+        return Err(Error::new("business_endpoint_mismatch"));
+    }
+    let mut entries = graph
+        .registry
+        .entries()
+        .iter()
+        .filter(|e| e.endpoint == endpoint && e.upstream_name == name);
+    let first = entries
+        .next()
+        .ok_or_else(|| Error::new("business_tool_not_found"))?;
+    if entries.next().is_some() {
+        return Err(Error::new("business_tool_binding_ambiguous"));
+    }
+    Ok(first)
+}

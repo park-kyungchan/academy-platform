@@ -170,7 +170,20 @@ pub fn call(
         upstream_name = Some(entry.upstream_name.clone());
         phase = "upstream";
         if entry.upstream_name == "academy_dailytest_history_with_headers" {
-            return Err(Error::new("configured_rust_composition_unimplemented"));
+            let result = crate::dailytest_history::call(
+                graph,
+                &mut *gate,
+                args,
+                request_id,
+                &mut *control,
+                limits,
+                started,
+                &occurrence,
+                &mut failure_metadata,
+                &mut public_upstream_failure,
+            )?;
+            phase = "release_readback";
+            return Ok(result);
         }
         parent_get = entry.upstream_name == "academy_dailyrecord_get";
         let prepared = if parent_get {

@@ -74,6 +74,75 @@ impl RpcSession {
     {
         self.handle_inner(request, None, Limits::default(), Some(business))
     }
+    /// Separate loan for precisely the two history source routes. All other
+    /// messages traverse the unchanged RpcSession lifecycle/refusal path.
+    pub fn handle_history<P: edu_academy_sources::history::Port>(
+        &mut self,
+        request: &Js,
+        source: &mut crate::business::History<P>,
+    ) -> Result<Option<Js>> {
+        if !valid_envelope(request) {
+            return Err(Error::new("mcp_stdio_input_or_transport_invalid"));
+        }
+        let name = request.get("params").get("name");
+        let target = request.get("method").is("tools/call")
+            && request.has("id")
+            && (name.is("academy_student_metadata_get")
+                || name.is("academy_paper_headers")
+                || self.endpoint.as_deref() == Some("dailyrecord")
+                    && name.is("academy_runtime_read_admission"));
+        if !target {
+            return self.handle(request);
+        }
+        let id = request.get("id");
+        let outcome = (|| -> Result<Js> {
+            self.check_graph()?;
+            let params = request.get("params");
+            if !matches!(params, Js::Obj(_))
+                || (params.has("arguments") && !matches!(params.get("arguments"), Js::Obj(_)))
+            {
+                return Err(Error::new("tool_input_invalid"));
+            }
+            let input = if params.has("arguments") {
+                params.get("arguments").clone()
+            } else {
+                obj(&[])
+            };
+            let endpoint = self
+                .endpoint
+                .as_deref()
+                .ok_or_else(|| Error::new("business_endpoint_mismatch"))?;
+            let name = string(name)?;
+            if name != "academy_runtime_read_admission" {
+                let entry = crate::endpoint::history_entry(&self.graph, endpoint, &name)?;
+                if let Err(e) = crate::validation::validate(entry.tool.get("inputSchema"), &input) {
+                    return Ok(crate::business::tool_error(e.code));
+                }
+            } else if !input.props().is_empty() {
+                return Ok(crate::business::tool_error("tool_input_invalid"));
+            }
+            source.check_history_binding(&self.graph, endpoint)?;
+            let input = match crate::dailytest_history::driver_input(&name, &input) {
+                Ok(input) => input,
+                Err(e) => return Ok(crate::business::tool_error(e.code)),
+            };
+            self.check_graph()?;
+            let result = source.history_call(&name, &input);
+            self.check_graph()?;
+            match result {
+                Ok(value) => tool_result(value),
+                Err(e) => Ok(crate::business::tool_error(&e.message)),
+            }
+        })();
+        let outcome = match self.check_graph() {
+            Ok(()) => outcome,
+            Err(e) => Err(e),
+        };
+        Ok(Some(match outcome {
+            Ok(value) => rpc_result(id, value),
+            Err(e) => business_rpc_error(id, e.code, Effect::NotDispatched, false),
+        }))
+    }
     fn handle_inner(
         &mut self,
         request: &Js,
