@@ -285,11 +285,13 @@ test('textbook index merges an all-correct paper-search section the wrong-note i
   expect(body.get('p_process')).toBe('getWrongAnswerNoteResult');return new Response(JSON.stringify(notes));
  });
  await client.authenticate({username:'inventedUser',password:'inventedPassword'});
- (client as any).searchStudentPaperMetadata=async()=>({rows:[
+ let searchInput:unknown;
+ (client as any).searchStudentPaperMetadata=async(input:unknown)=>{searchInput=input;return {rows:[
    {studentKey:'77001',studentName:'Invented Learner',paperKey:'81004',attemptKey:'82004',sourceRowId:null,sourceScore:100,fieldNames:[],questionMetadata:{},titles:{testingName:perfect,applyDate:'2026-11-03 10:05:00'}},
    {studentKey:'77001',studentName:'Invented Learner',paperKey:'81009',attemptKey:'82009',sourceRowId:null,sourceScore:100,fieldNames:[],questionMetadata:{},titles:{testingName:'[필수예제] [다른책] 9-9 다른 책 - Invented Learner',applyDate:'2026-11-03 10:06:00'}},
- ],operation:'UserBySearchTestResult',page:1,sourcePeriod:{from:'2026-11-01',to:'2026-11-30'},observedAt:'2099-01-05T00:00:00.000Z',coverage:'one_observed_student_search_page_not_complete_history',generatedMembership:'unqualified'});
+ ],operation:'UserBySearchTestResult',page:1,sourcePeriod:{from:'2026-11-01',to:'2026-11-30'},observedAt:'2099-01-05T00:00:00.000Z',coverage:'one_observed_student_search_page_not_complete_history',generatedMembership:'unqualified'};};
  const result=await client.inspectTextbookIndex({family:'textbook',teacherLabel:'Invented Teacher',studentKey:'77001',studentName:'Invented Learner',courseKey:'693',bookNo:'2517',sourceTitles:['index'],gradeViewAdmission:true}) as any;
+ expect(searchInput).toEqual({teacherLabel:'Invented Teacher',studentName:'Invented Learner',studentKey:'77001',includeAllPaperTypes:true});
  expect(result.indexBasis).toBe('wrong_answer_note_plus_student_paper_search');
  expect(result.coverage).toBe('wrong_answer_note_index_plus_one_observed_student_paper_search_page_not_complete_history');
  expect(result.rows.map((r:any)=>r.sourceTitle)).toEqual([wrong,perfect]);
