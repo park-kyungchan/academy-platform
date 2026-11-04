@@ -5,7 +5,7 @@ import {dirname,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {z} from 'zod';
 import {readPinnedLocalBytes} from './item-label-store.ts';
-import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation,type ItemSectionTrace,type ItemSectionTraceObservation} from './dailyrecord.ts';
+import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation,type TextbookSectionResultsByNameObservation,type ItemSectionTrace,type ItemSectionTraceObservation} from './dailyrecord.ts';
 import {createDailyRecordSaveAdmission,liveSaveRequestEvidence,type DailyRecordSaveAdmission,type DailyRecordSaveApproval} from './dailyrecord-save-admission.ts';
 import type {DailyRecordActionApproval} from './dailyrecord-workflow.ts';
 import type {DailyRecordField} from './dailyrecord-context.ts';
@@ -219,17 +219,21 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       teacherJudgment:null,observedAt:raw.observedAt,coverage:raw.coverage};
   }
   /** Section grading/index with the binding discovered owner-side from the
-   * live progress page. Exactly one registered binding is required; with no
-   * titles the observed title index is returned for caller selection. */
-  async readTextbookSectionsByName(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionObservation|TextbookSectionIndexObservation>{
+   * live progress page. With several registered bindings and no exact
+   * bookLabel the candidate labels are returned for caller selection; with
+   * no titles the observed title index is returned for caller selection. */
+  async readTextbookSectionsByName(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionResultsByNameObservation>{
     const student=this.admission.students.find(s=>s.displayName===input.displayName);
     if(!student||!this.managedNames.has(input.displayName))throw Error('textbook_student_not_admitted');
     if(!this.client.readTextbookBindings)throw Error('textbook_binding_source_port_unavailable');
     await this.#authenticate();
     const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
     if(!bindings.length)throw Error('textbook_binding_source_unqualified');
-    if(bindings.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
-    const binding=bindings[0]!;
+    const selected=input.bookLabel?bindings.filter(b=>b.bookLabel===input.bookLabel):bindings;
+    if(input.bookLabel&&selected.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
+    if(!input.bookLabel&&bindings.length>1)return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
+      bindings:bindings.map(b=>({bookLabel:b.bookLabel})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
+    const binding=selected[0]!;
     if(binding.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
     if(input.sourceTitles){
       return this.readTextbookSections({displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,

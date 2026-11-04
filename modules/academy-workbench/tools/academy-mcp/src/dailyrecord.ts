@@ -88,6 +88,7 @@ export type PrestudyObservation={student:{studentId:string;displayName:string};
  * progress page. Without sourceTitles it returns the observed title index. */
 export const textbookSectionResultsGetSchema=z.object({displayName:z.string().trim().min(1).max(200),
   purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema,
+  bookLabel:z.string().trim().min(1).max(200).optional(),
   sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required').optional()}).strict();
 export type TextbookSectionResultsGet=z.infer<typeof textbookSectionResultsGetSchema>;
 /** Reverse trace from numeric item labels to the original textbook sections
@@ -107,6 +108,8 @@ export type ItemSectionTraceObservation=
     unmatchedLabels:string[];ambiguousLabels:string[];sectionsScanned:number;sectionsFailed:number;observedAt:string;coverage:string};
 export type TextbookSectionIndexObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bookLabel:string;
   index:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string}}[];observedAt:string;coverage:string};
+export type TextbookSectionInterviewObservation={kind:'interview_required';student:{studentId:string;displayName:string};bindings:{bookLabel:string}[];reason:'multiple_book_bindings_select_one';observedAt:string};
+export type TextbookSectionResultsByNameObservation=TextbookSectionObservation|TextbookSectionIndexObservation|TextbookSectionInterviewObservation;
 /** Implemented by the native/source owner, never by MCP arguments. All methods are read-only. */
 export interface DailyRecordReadBackend {
   readRoutingAdmission?():DailyRecordReadAdmission;
@@ -119,7 +122,7 @@ export interface DailyRecordReadBackend {
   searchStudentsByName?(exactName:Readonly<string>,requestRef:string,lessonDate?:string):Promise<unknown>;
   readTextbookSections?(input:Readonly<TextbookSectionResults>):Promise<TextbookSectionObservation>;
   readPrestudyByName?(input:Readonly<PrestudyGet>):Promise<PrestudyObservation>;
-  readTextbookSectionsByName?(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionObservation|TextbookSectionIndexObservation>;
+  readTextbookSectionsByName?(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionResultsByNameObservation>;
   readItemSectionTrace?(input:Readonly<ItemSectionTrace>):Promise<ItemSectionTraceObservation>;
 }
 export const dailyRecordSaveSchema=z.object({context:dailyRecordContextSchema,observationHandle:dailyRecordIdSchema,
@@ -369,6 +372,10 @@ export class DailyRecordService {
       const result=await this.#serial(async()=>{
         const observation=await this.backend!.readTextbookSectionsByName!(freezeLabelData(structuredClone(input)));
         if(observation.student.displayName!==input.displayName)throw Error('textbook_section_scope_conflict');
+        if('kind' in observation){
+          if(observation.kind!=='interview_required'||!Array.isArray(observation.bindings)||observation.bindings.length<2)throw Error('textbook_section_scope_conflict');
+          return {...base,status:'interview_required' as const,...observation};
+        }
         if(input.sourceTitles){
           const records=(observation as TextbookSectionObservation).records;
           if(!Array.isArray(records)||records.length!==input.sourceTitles.length
