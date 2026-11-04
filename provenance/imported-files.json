@@ -4897,6 +4897,60 @@
       "sourceRepository": "park-kyungchan/academy-workbench",
       "sourceCommit": "ec58b81483d0d64063416d275a6131bb4bc61da4",
       "sourcePath": "app/offline-import-adapter/tests/class-day-guard.test.ts"
+    },
+    {
+      "module": "apps/academy/dc-gang-a",
+      "path": "docs/academy-mcp-runtime-agnostic-problems.md",
+      "sha256": "f40589819eeef00726be52e266c24bef4627cf89151f28122ba53995e50a44ab",
+      "bytes": 4481,
+      "sourceRepository": "park-kyungchan/dc-gang-a",
+      "sourceCommit": "f0cd747ec11899b1d8cd6ed5fb77c7316f80b24b",
+      "sourcePath": "docs/academy-mcp-runtime-agnostic-problems.md"
+    },
+    {
+      "module": "apps/academy/dc-gang-a",
+      "path": "docs/academy-attribution-envelope.schema.json",
+      "sha256": "f09c78355d5ea3c08d24848c0c563deb9f89b4f03b5e8f083db69c08f5e47e34",
+      "bytes": 1420,
+      "sourceRepository": "park-kyungchan/dc-gang-a",
+      "sourceCommit": "af524de625e19f8398c0d8494610ff8a1800038a",
+      "sourcePath": "docs/academy-attribution-envelope.schema.json"
+    },
+    {
+      "module": "apps/academy/dc-gang-a",
+      "path": "docs/academy-attribution-envelope.examples.json",
+      "sha256": "5bbc42a970ed7ca7744f9a87c0d3fbc7f19e0d511a7f3e623c2bd23fa21b7317",
+      "bytes": 2476,
+      "sourceRepository": "park-kyungchan/dc-gang-a",
+      "sourceCommit": "af524de625e19f8398c0d8494610ff8a1800038a",
+      "sourcePath": "docs/academy-attribution-envelope.examples.json"
+    },
+    {
+      "module": "apps/academy/dc-gang-a",
+      "path": "context/private-students/schemas/context-event.schema.json",
+      "sha256": "0774bbdb84ea26f7f0ef4cff54cf56d9e520bd81fa92327d7895d6b487664b7d",
+      "bytes": 1387,
+      "sourceRepository": "park-kyungchan/dc-gang-a",
+      "sourceCommit": "8437017de525fcadd09da5fcf822d8ddaf743c1b",
+      "sourcePath": "context/private-students/schemas/context-event.schema.json"
+    },
+    {
+      "module": "apps/academy/dc-gang-a",
+      "path": "context/private-students/schemas/student-state.schema.json",
+      "sha256": "535a43bde9a3401296f7b9d8df13f908857023dd990e5081df28ef1ba551be47",
+      "bytes": 1080,
+      "sourceRepository": "park-kyungchan/dc-gang-a",
+      "sourceCommit": "8437017de525fcadd09da5fcf822d8ddaf743c1b",
+      "sourcePath": "context/private-students/schemas/student-state.schema.json"
+    },
+    {
+      "module": "apps/academy/dc-gang-a",
+      "path": "context/private-students/tools/validate.mjs",
+      "sha256": "32a52c756a9b8ba09c1ac0787ba657f87d59940bb8e13d076965eafcafc1a968",
+      "bytes": 3126,
+      "sourceRepository": "park-kyungchan/dc-gang-a",
+      "sourceCommit": "8437017de525fcadd09da5fcf822d8ddaf743c1b",
+      "sourcePath": "context/private-students/tools/validate.mjs"
     }
   ]
 }
