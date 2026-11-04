@@ -33,7 +33,7 @@ test('internal version facts remain accepted but parent memo metadata is blocked
 });
 
 test('ordinary algebra, textbook coordinates and full deadlines remain valid parent text',async()=>{
- for(const value of ['- 다항식 3abc의 계산 연습','- 2x3y의 계산 연습','- 가우스 5-1-2 4-1~4-4 학습','- 2026-11-02까지 12문항 풀기']){
+ for(const value of ['- 단항식 2x3y를 간단히 하기','- x2y3를 간단히 하기','- 다항식 3abc의 계산 연습','- 2x3y의 계산 연습','- 가우스 5-1-2 4-1~4-4 학습','- 2026-11-02까지 12문항 풀기']){
   const c=context();c.selectedFields=['lessonMemo'];c.memoAnswer={kind:'content',requestRef:c.currentRequestRef,text:value};c.facts=[fact('lessonMemo',value)];
   const s=new DailyRecordService(backend(),{...safeguard,check:text=>parentInternalLanguage.test(text)},()=>clock),i=await s.intake({context:c});
   const r=await s.review({context:c,observationHandle:i.observationHandle,proposals:[proposal('lessonMemo',value)]});

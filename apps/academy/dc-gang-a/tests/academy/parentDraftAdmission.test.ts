@@ -55,7 +55,10 @@ test('parent guard covers both catalogs, policy and retained textbook codes',()=
  const codes=new Set<string>();
  for(const version of ['v1','v2']){
   const catalog=JSON.parse(readFileSync(new URL(`../../research/textbooks/edition-catalog-20261028-${version}.json`,import.meta.url),'utf8'));
-  for(const book of catalog.books)codes.add(book.identity.printedCoverCode);
+  for(const book of catalog.books){
+   codes.add(book.identity.printedCoverCode);
+   expect(parentInternalLanguage.test(`- ${book.identity.brand} ${book.identity.printedCoverCode} 준비`)).toBe(true);
+  }
  }
  const policy=readFileSync(new URL('../../docs/daily-record-authoring-policy.md',import.meta.url),'utf8');
  for(const code of policy.match(/(?<![A-Za-z0-9])[1-9][A-Z][0-9][A-Z](?![A-Za-z0-9])/g)??[])codes.add(code);
@@ -68,13 +71,14 @@ test('parent guard covers both catalogs, policy and retained textbook codes',()=
   expect(parentInternalLanguage.test(`- 가우스 ${value} 준비`)).toBe(true);
  }
  expect(parentInternalLanguage.test('- 가우스 1-1-2 (1P6A) 준비')).toBe(true);
+ for(const text of ['- 다빈치 1SJ2 준비','- 가우스플러스 (1U0T) 준비','- 교재 1P6A 준비','- 가우스 초5-1 1SAG 준비','- 교과서:1U0T 준비','- 시리즈 (1P6A) 준비','- 교재v3(1P6A) 준비'])expect(parentInternalLanguage.test(text)).toBe(true);
 });
 
-test('unknown uppercase publisher shapes are held while ordinary algebra stays allowed',()=>{
+test('publisher codes require metadata contexts and ordinary algebra stays allowed',()=>{
  for(const code of ['2Q4Z','9Z0Q','2X3Y']){
   expect(parentInternalLanguage.test(`- 가우스 (${code}) 준비`)).toBe(true);
   expect(parentInternalLanguage.test(`- 가우스 ${code} 준비`)).toBe(true);
  }
- for(const text of ['- 2x3y의 계산 연습','- (2x3y)의 계산 연습','- 다항식 3abc 계산','- 가우스 5-1-2 준비','- 2026-11-02까지 12문항 풀기'])expect(parentInternalLanguage.test(text)).toBe(false);
+ for(const text of ['- 단항식 2x3y를 간단히 하기','- 2x3y의 계산 연습','- (2x3y)의 계산 연습','- 다항식 3abc 계산','- x2y3를 간단히 하기','- 단항식 2X3Y를 간단히 하기','- 가우스 5-1-2 준비','- 2026-11-02까지 12문항 풀기'])expect(parentInternalLanguage.test(text)).toBe(false);
  for(const text of ['Teacher REVIEW','Ungraded','NOT COMPLETED','Insufficient TIME','VERSION:3','V 3','(1p6A)'])expect(parentInternalLanguage.test(text)).toBe(true);
 });
