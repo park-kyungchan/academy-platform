@@ -3,7 +3,7 @@ import {join,resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
 import {z} from 'zod';
-import {artifactPinSchema,verifyEndpointManifest} from './runtime-identity.ts';
+import {artifactPinSchema,verifyEndpointManifest,verifyEndpointLauncher} from './runtime-identity.ts';
 import {readPinnedLocalBytes} from './item-label-store.ts';
 import {ownerAdmissionSchema} from './owner-admission.ts';
 import {paperScopesSchema} from './paper-scope-routing.ts';
@@ -23,13 +23,17 @@ export async function prepareRuntimeRelease(value:unknown){
   if(new Set(registry.map(r=>r.tool.name)).size!==registry.length||registry.some(r=>!Object.hasOwn(plan.endpoints,r.endpoint)))throw Error('release_payload_unqualified');
   const paperScopes=plan.paperScopes?paperScopesSchema.parse(JSON.parse((await readPinnedLocalBytes(plan.paperScopes.path,plan.paperScopes.sha256)).bytes.toString('utf8'))):undefined;
   if(paperScopes?.some(s=>!['paper1','paper2'].includes(s.endpoint)||!Object.hasOwn(plan.endpoints,s.endpoint)))throw Error('release_payload_unqualified');
-  const endpoints:Record<string,unknown>={},endpointIdentities:Record<string,z.infer<typeof artifactPinSchema>>={};
+  const endpoints:Record<string,unknown>={},endpointIdentities:Record<string,z.infer<typeof artifactPinSchema>>={},accountLocks=new Set<string>();
   for(const [endpoint,config] of Object.entries(plan.endpoints)){
     const {manifest}=await verifyEndpointManifest(config.identity);
     if(manifest.endpoint!==endpoint||manifest.launchArgumentsSha256!==hash(JSON.stringify(config.args)))throw Error('release_endpoint_identity_mismatch');
-    endpoints[endpoint]={command:config.command,args:[...config.prefixArgs,manifest.artifacts.find(a=>a.role==='entry')!.path,'--runtime-identity',config.identity.path,config.identity.sha256,...config.args]};
+    verifyEndpointLauncher(manifest,config.command,config.prefixArgs);
+    if(manifest.accountLockPath&&['dailyrecord','paper1','paper2'].includes(endpoint))accountLocks.add(manifest.accountLockPath);
+    const entry=manifest.artifacts.find(a=>a.role==='entry')!;
+    endpoints[endpoint]={command:config.command,args:[...config.prefixArgs,entry.runtimePath??entry.path,'--runtime-identity',manifest.runtimeManifestPath??config.identity.path,config.identity.sha256,...config.args]};
     endpointIdentities[endpoint]=config.identity;
   }
+  if(accountLocks.size>1)throw Error('release_endpoint_identity_mismatch');
   const base=await mkdtemp(join(tmpdir(),'academy-release-draft-'));
   const save=async(name:string,value:unknown)=>{const path=join(base,name),bytes=JSON.stringify(value,null,2)+'\n';await writeFile(path,bytes,{mode:0o600,flag:'wx'});return {path,sha256:hash(bytes)};};
   const routing=await save('routing.json',{admissionPath:plan.admission.path,admissionSha256:plan.admission.sha256,...(paperScopes?{paperScopes}:{})}),endpointPin=await save('endpoints.json',endpoints);

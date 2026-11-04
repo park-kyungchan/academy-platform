@@ -28,6 +28,13 @@ hashes and endpoint identities. A v1/legacy graph is explicitly incomplete.
 Reading identity does not prove source freshness, actual live source access,
 reload of other clients or native endpoint qualification.
 
+For container-backed endpoints a manifest can additionally declare a runtime
+manifest path and a runtime path for each artifact. The host and the endpoint
+independently read their respective paths and check the same pinned byte digests;
+paths alone never establish equivalence. Such endpoints pin the full command
+and launch prefix, require `/usr/bin/flock --nonblock` on the declared account
+lock, and share one lock across the Academy native endpoints in a release.
+
 Discovery retains a native tool's public name when a saved endpoint advertises
 the same name. The saved route remains callable as `saved_<original-name>`;
 endpoint order never silently chooses the source. Any remaining duplicate or
