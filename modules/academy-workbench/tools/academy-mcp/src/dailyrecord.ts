@@ -91,6 +91,23 @@ export const textbookSectionResultsGetSchema=z.object({displayName:z.string().tr
   bookLabel:z.string().trim().min(1).max(200).optional(),
   sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required').optional()}).strict();
 export type TextbookSectionResultsGet=z.infer<typeof textbookSectionResultsGetSchema>;
+/** Clinic (wrong-answer/similar) bundle read by exact student name. Clinic
+ * papers have no server score-input support, so this read can only bundle
+ * the original section attempt (wrong items make a section clinic-eligible)
+ * and the merged title index. Clinic generation, printing, hand-out, solving,
+ * scoring and teacher review are never asserted from source rows: generation
+ * stays 'unqualified' and the remaining axes are explicit teacher-judgment
+ * slots. */
+export const clinicPaperStatusGetSchema=textbookSectionResultsGetSchema;
+export type ClinicPaperStatusGet=z.infer<typeof clinicPaperStatusGetSchema>;
+export type ClinicPaperStatusObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bookLabel:string;
+  sections:{sourceTitle:string;originalAttempt:'observed_original_attempt'|'paper_row_observed'|'not_observed_in_scope';
+    score:number|null;correctCount:number|null;itemCount:number|null;
+    wrongItems:{ordinal:string;lectureKey:string|null;outerLectureKey:string|null}[]|null;
+    clinicEligible:boolean|null;sourceDate:{literal:string|null;meaning:string}|{literal:string|null;precision:string;meaning:string}}[];
+  generatedMembership:'unqualified';clinicGeneration:'unqualified';
+  teacherJudgmentSlots:{printed:'teacher_report_required';handedOut:'teacher_report_required';solved:'teacher_judged_only_no_server_score_input';scored:'teacher_judged_only_no_server_score_input';teacherReviewed:'teacher_report_required'};
+  observedAt:string;coverage:string;indexBasis?:string};
 /** Reverse trace from numeric item labels to the original textbook sections
  * (activity titles) whose observed items carry those labels. This proves
  * original-attempt lineage only: a generated wrong-answer clinic paper's own
@@ -397,6 +414,53 @@ export class DailyRecordService {
       if(toolResultBytes(result)>512*1024)throw Error('textbook_section_result_too_large');
       return freezeLabelData(result);
     }catch(error){if(isTextbookSectionNotInEither(error))return textbookSectionNotInEither(base,input.displayName);return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
+  }
+  async clinicPaperStatus(value:unknown){
+    const input=clinicPaperStatusGetSchema.parse(value);
+    const base={purpose:input.purpose,currentRequestRef:input.currentRequestRef,displayName:input.displayName,
+      academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only' as const};
+    if(!this.backend?.readTextbookSectionsByName)return {...base,status:'unavailable' as const,reasonCode:'clinic_paper_backend_not_configured'};
+    const slots={printed:'teacher_report_required' as const,handedOut:'teacher_report_required' as const,
+      solved:'teacher_judged_only_no_server_score_input' as const,scored:'teacher_judged_only_no_server_score_input' as const,
+      teacherReviewed:'teacher_report_required' as const};
+    try{
+      const result=await this.#serial(async()=>{
+        const backend=this.backend!;
+        const first=await backend.readTextbookSectionsByName!(freezeLabelData(structuredClone(
+          input.sourceTitles?{displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,bookLabel:input.bookLabel,sourceTitles:input.sourceTitles}
+            :{displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,bookLabel:input.bookLabel})));
+        if(first.student.displayName!==input.displayName)throw Error('clinic_paper_scope_conflict');
+        if('kind' in first){
+          if(first.kind!=='interview_required'||!Array.isArray(first.bindings)||first.bindings.length<2)throw Error('clinic_paper_scope_conflict');
+          return {...base,status:'interview_required' as const,...first};
+        }
+        let sections:ClinicPaperStatusObservation['sections'];let observedAt:string;let coverage:string;let indexBasis:string|undefined;
+        if(input.sourceTitles){
+          const grading=first as TextbookSectionObservation;
+          if(!Array.isArray(grading.records)||grading.records.length!==input.sourceTitles.length
+            ||grading.records.some(r=>!input.sourceTitles!.includes(r.sourceTitle)))throw Error('clinic_paper_scope_conflict');
+          sections=grading.records.map(r=>{
+            const wrongItems=r.items.filter(i=>i.scoring==='X').map(i=>({ordinal:i.ordinal,lectureKey:i.lectureKey,outerLectureKey:i.outerLectureKey}));
+            return {sourceTitle:r.sourceTitle,originalAttempt:'observed_original_attempt' as const,score:r.score,
+              correctCount:r.correctCount,itemCount:r.itemCount,wrongItems,clinicEligible:wrongItems.length>0,sourceDate:r.sourceDate};
+          });
+          observedAt=grading.observedAt;coverage=grading.coverage;
+        }else{
+          const indexObs=first as TextbookSectionIndexObservation;
+          if(!Array.isArray(indexObs.index))throw Error('clinic_paper_scope_conflict');
+          sections=indexObs.index.map(r=>({sourceTitle:r.sourceTitle,originalAttempt:'paper_row_observed' as const,score:null,
+            correctCount:null,itemCount:null,wrongItems:null,clinicEligible:null,sourceDate:r.sourceDate}));
+          observedAt=indexObs.observedAt;coverage=indexObs.coverage;indexBasis=indexObs.indexBasis;
+        }
+        const observation:ClinicPaperStatusObservation={student:first.student,courseKey:first.courseKey,bookNo:first.bookNo,
+          bookLabel:(first as TextbookSectionIndexObservation).bookLabel??'',sections,
+          generatedMembership:'unqualified',clinicGeneration:'unqualified',teacherJudgmentSlots:slots,
+          observedAt,coverage,...(indexBasis?{indexBasis}:{})};
+        return {...base,status:'observed' as const,...observation};
+      });
+      if(toolResultBytes(result)>512*1024)throw Error('clinic_paper_result_too_large');
+      return freezeLabelData(result);
+    }catch(error){if(isTextbookSectionNotInEither(error))return textbookSectionNotInEither(base,input.displayName);return {...base,status:'unavailable' as const,...readFailureResult(error,'clinic_paper_unqualified_no_automatic_retry')};}
   }
   async itemSectionTrace(value:unknown){
     const input=itemSectionTraceSchema.parse(value);
