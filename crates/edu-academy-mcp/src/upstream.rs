@@ -7,21 +7,12 @@ use crate::{
     protocol::SUPPORTED_VERSIONS,
 };
 use std::collections::VecDeque;
+#[derive(Default)]
 pub struct Client {
     pending: VecDeque<u8>,
     scanned: usize,
     next: u32,
     pub failure_metadata: Option<Js>,
-}
-impl Default for Client {
-    fn default() -> Self {
-        Self {
-            pending: VecDeque::new(),
-            scanned: 0,
-            next: 0,
-            failure_metadata: None,
-        }
-    }
 }
 impl Client {
     fn buffered_frame(&mut self) -> Option<Js> {

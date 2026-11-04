@@ -33,3 +33,9 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 all = "warn"
+
+# Every release-graph check hashes pinned fixture binaries. Optimize the hash
+# primitive in debug/test builds too, so synthetic work budgets measure protocol
+# behavior rather than the debug SHA compression implementation.
+[profile.dev.package.sha2]
+opt-level = 3

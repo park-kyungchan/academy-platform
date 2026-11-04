@@ -254,15 +254,17 @@ impl Transport for MemoryHttp {
         })
     }
 }
+type FictionalOwner<'a> = (
+    Owner<'a, MemoryHttp, LiteralCredentials>,
+    Rc<RefCell<Vec<Request>>>,
+    Rc<Cell<usize>>,
+);
+
 fn owner<'a>(
     clock: &'a Clock,
     replies: Vec<(String, u16, String)>,
     v2: bool,
-) -> (
-    Owner<'a, MemoryHttp, LiteralCredentials>,
-    Rc<RefCell<Vec<Request>>>,
-    Rc<Cell<usize>>,
-) {
+) -> FictionalOwner<'a> {
     let seen = Rc::new(RefCell::new(vec![]));
     let credentials = Rc::new(Cell::new(0));
     let client = Client::new(

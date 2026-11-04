@@ -10,8 +10,14 @@ fn require(ok: bool, code: &str) -> Result<()> {
     if ok { Ok(()) } else { Err(Error::error(code)) }
 }
 fn key(v: &Js) -> Result<Js> {
+    // A page can contain 2,000 rows. Compile this source-constant grammar once,
+    // rather than recompiling it for every identity in every result half.
+    static KEY: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
     require(
-        v.string() && test("^[1-9][0-9]{0,15}$", v),
+        v.string()
+            && KEY
+                .get_or_init(|| edu_academy_core::js::regex("^[1-9][0-9]{0,15}$"))
+                .is_match(&v.code_units()),
         "native_metadata_row_identity_conflict",
     )?;
     Ok(v.clone())
@@ -388,6 +394,8 @@ pub fn project_page(raw: &Js, student: &Js, selector: &Js) -> Result<Js> {
         "student_search_list_rejected",
     )?;
     let mut rows = vec![];
+    // Membership only: output retains original row order and exact identities.
+    let mut attempts = std::collections::BTreeSet::new();
     for r in list.array() {
         require(object(r), "invalid_capture_shape")?;
         if source_key(r.get("priNo"))? != *student.get("studentKey") {
@@ -401,9 +409,7 @@ pub fn project_page(raw: &Js, student: &Js, selector: &Js) -> Result<Js> {
         let paper = key(&source_key(r.get("pNo"))?)?;
         let attempt = key(&source_key(r.get("testingNo"))?)?;
         require(
-            !rows
-                .iter()
-                .any(|v: &Js| v.get("paperKey") == &paper && v.get("attemptKey") == &attempt),
+            attempts.insert((paper.units().to_vec(), attempt.units().to_vec())),
             "duplicate_student_search_row",
         )?;
         let raw_id = r.get("_id");
@@ -414,7 +420,12 @@ pub fn project_page(raw: &Js, student: &Js, selector: &Js) -> Result<Js> {
         } else {
             Js::Null
         };
-        let id = if id.string() && test("^[A-Za-z0-9_-]{1,64}$", &id) {
+        static ROW_ID: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+        let id = if id.string()
+            && ROW_ID
+                .get_or_init(|| edu_academy_core::js::regex("^[A-Za-z0-9_-]{1,64}$"))
+                .is_match(&id.code_units())
+        {
             id
         } else {
             Js::Null

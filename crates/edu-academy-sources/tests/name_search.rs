@@ -12,8 +12,10 @@ const NAME: &str = "Fictional + Learner &😀";
 const TEACHER: &str = "Fictional Name Teacher";
 const COOKIE: &str = "JSESSIONID=fictional-name-session";
 
+type Page = (u16, Vec<(String, String)>, String);
+
 struct Fictional {
-    responses: VecDeque<(u16, Vec<(String, String)>, String)>,
+    responses: VecDeque<Page>,
     requests: Vec<Request>,
 }
 impl Transport for Fictional {
@@ -40,7 +42,7 @@ fn page() -> String {
         r#"testResultList:JSON.parse('[{{"userName":"{NAME}","priNo":"007"}},{{"userName":"Other Fictional Learner","priNo":null}},{{"userName":"{NAME}","priNo":7}}]')"#
     )
 }
-fn client(pages: Vec<(u16, Vec<(String, String)>, String)>) -> Client<Fictional> {
+fn client(pages: Vec<Page>) -> Client<Fictional> {
     let login = r#"<form id="loginForm" method="post"><input name="p_process"><input name="p_prino"><input name="p_groupno"><input name="userpwd"><input name="userid"><input name="cf_pc"><input name="cf_user"><input name="autoLoginCheck"><input name="autoLoginKey"></form>
 <script>document.loginForm.action = "/servlet/controller.login.LoginServlet";
 document.loginForm.p_process.value = "c_login";</script>"#;
@@ -68,7 +70,7 @@ document.loginForm.p_process.value = "c_login";</script>"#;
     )
     .unwrap()
 }
-fn ready(pages: Vec<(u16, Vec<(String, String)>, String)>) -> Client<Fictional> {
+fn ready(pages: Vec<Page>) -> Client<Fictional> {
     let mut client = client(pages);
     let result = client
         .authenticate("fictional-name-user", "fictional-name-password")
@@ -104,7 +106,7 @@ fn ready(pages: Vec<(u16, Vec<(String, String)>, String)>) -> Client<Fictional> 
     }
     client
 }
-fn success(body: String) -> (u16, Vec<(String, String)>, String) {
+fn success(body: String) -> Page {
     (200, vec![], body)
 }
 

@@ -1,6 +1,8 @@
 //! SOURCE-ONLY: every test below is UNEXECUTED by the source author.
 //! Root supplies a pre-existing canonical absolute root and pinned Cargo example.
 //! All fictional child files and Store observations remain for independent readback.
+#[path = "common/isolated.rs"]
+mod isolated;
 use edu_academy_core::{
     instant::{Grammar, epoch_ms},
     workflow::{
@@ -24,7 +26,7 @@ use std::{
     os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
-    time::Duration,
+    time::{Duration, Instant},
 };
 static NEXT: AtomicU64 = AtomicU64::new(0);
 fn now() -> i64 {
@@ -616,13 +618,31 @@ fn seoul_today_rollover_leap_and_freshness_inclusive_edges() {
         retain(&root, &format!("age-{age}"), &out);
     }
 }
-struct OwnedControl;
+#[derive(Default)]
+struct OwnedControl {
+    stall_marker: Option<PathBuf>,
+    stall_deadline: Option<Instant>,
+}
 impl Control for OwnedControl {
     fn poll(
         &mut self,
         _: &Js,
         _: &mut dyn FnMut() -> edu_academy_mcp::Result<()>,
     ) -> edu_academy_mcp::Result<()> {
+        if let Some(marker) = &self.stall_marker
+            && fs::read(marker)
+                .ok()
+                .is_some_and(|bytes| parse(&bytes).is_ok())
+        {
+            // Begin the short fault budget only after the child proves intake
+            // was issued. The real whole-request work limit remains in force.
+            let deadline = self
+                .stall_deadline
+                .get_or_insert_with(|| Instant::now() + Duration::from_millis(500));
+            if Instant::now() >= *deadline {
+                return Err(edu_academy_mcp::Error::new("upstream_deadline_exceeded"));
+            }
+        }
         Ok(())
     }
     fn adopt_orphans(&self) -> bool {
@@ -642,8 +662,10 @@ fn receipts(scene: &Scene, suffix: &str) -> Vec<Js> {
         .collect()
 }
 fn invoke(scene: &Scene, i: &Js, work: Duration) -> Js {
+    invoke_control(scene, i, work, OwnedControl::default())
+}
+fn invoke_control(scene: &Scene, i: &Js, work: Duration, mut control: OwnedControl) -> Js {
     let mut gate = ConnectionGate::default();
-    let mut control = OwnedControl;
     let reply = dispatch::call(
         &scene.graph(),
         &mut gate,
@@ -668,17 +690,21 @@ fn invoke(scene: &Scene, i: &Js, work: Duration) -> Js {
 }
 #[test]
 fn actual_same_child_resolve_intake_store_and_failure_cleanup() {
-    // Dedicated finite test process only. Root must use --test-threads=1.
+    if isolated::run("actual_same_child_resolve_intake_store_and_failure_cleanup") {
+        return;
+    }
+    // The isolated harness process exclusively owns its subreaper.
     process::install_binary_subreaper().unwrap();
     for mode in ["normal", "close_after_intake", "stall_intake"] {
         let scene = Scene::new(mode, &routing_admission(), "dailyrecord");
-        let out = invoke(
+        let out = invoke_control(
             &scene,
             &input(),
-            if mode == "stall_intake" {
-                Duration::from_millis(500)
-            } else {
-                Duration::from_secs(10)
+            Duration::from_secs(10),
+            OwnedControl {
+                stall_marker: (mode == "stall_intake")
+                    .then(|| scene.state.join("intake-ready.json")),
+                stall_deadline: None,
             },
         );
         put(
@@ -741,8 +767,8 @@ fn actual_same_child_resolve_intake_store_and_failure_cleanup() {
             _ => panic!("pid required"),
         };
         assert!(
-            !process::Identity::read(pid)
-                .is_some_and(|p| p.start.to_string() == cleanup[0].get("startTicks").code_units())
+            process::Identity::read(pid)
+                .is_none_or(|p| p.start.to_string() != cleanup[0].get("startTicks").code_units())
         );
         let data = out.get("structuredContent");
         if mode == "stall_intake" {
@@ -780,7 +806,7 @@ fn actual_same_child_resolve_intake_store_and_failure_cleanup() {
                     .unwrap()
                     .lines()
                     .map(|s| parse(s.as_bytes()).unwrap())
-                    .last()
+                    .next_back()
                     .unwrap();
                 let original = child.get("result").get("structuredContent");
                 assert_eq!(
@@ -827,6 +853,27 @@ fn actual_same_child_resolve_intake_store_and_failure_cleanup() {
     );
     assert!(!scene.state.join("child-requests.jsonl").exists());
     assert!(receipts(&scene, "-cleanup.json").is_empty());
+    // Preserve real global-deadline coverage separately from the readiness-
+    // triggered fault above. Cold startup may consume this entire short budget;
+    // no assertion assumes a particular handshake/intake step was reached.
+    let scene = Scene::new("stall_intake", &routing_admission(), "dailyrecord");
+    let out = invoke(&scene, &input(), Duration::from_millis(500));
+    assert!(
+        out.get("structuredContent")
+            .get("code")
+            .is("upstream_deadline_exceeded"),
+        "{out:?}"
+    );
+    assert!(
+        receipts(&scene, "-cleanup.json")[0]
+            .get("qualified")
+            .truthy()
+    );
+    assert_eq!(receipts(&scene, "-failure.json").len(), 1);
+    let path = scene.state.join("workflow/observation");
+    if path.exists() {
+        assert!(fs::read_dir(path).unwrap().next().is_none());
+    }
 }
 
 #[test]

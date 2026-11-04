@@ -33,7 +33,7 @@ fn source_core_source_roundtrip_retains_dynamic_name_order_absence_null_and_issu
         let fault = fault_from_error(error);
         assert_eq!(fault.name, original.name);
         assert_eq!(fault.message, original.message);
-        assert_eq!(fault.properties, original.properties);
+        assert_eq!(*fault.properties, original.properties);
         assert!(fault.trusted_context.is_none());
         assert_eq!(fault.value(), original.value());
         let back = error_from_fault(fault);

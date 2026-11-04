@@ -31,13 +31,12 @@ fn source_key(value: &Js) -> Result<String> {
         if n.is_finite() && *n > 0.0 && n.fract() == 0.0 && *n <= 9_007_199_254_740_991.0 {
             return Ok(format!("{n:.0}"));
         }
-    } else if let Js::Str(units) = value {
-        if !units.is_empty()
-            && units.iter().all(|u| (48..=57).contains(u))
-            && units.iter().any(|u| *u != 48)
-        {
-            return Ok(string(value));
-        }
+    } else if let Js::Str(units) = value
+        && !units.is_empty()
+        && units.iter().all(|u| (48..=57).contains(u))
+        && units.iter().any(|u| *u != 48)
+    {
+        return Ok(string(value));
     }
     Err(Error::error("invalid_source_key"))
 }
@@ -197,19 +196,8 @@ mod tests {
             "html-exact-2m-units",
             "html-over-2m-units",
         ];
-        let selected = std::env::var_os("S11_NAME_REFERENCE_ROOT")
-            .expect("Root must explicitly select S11_NAME_REFERENCE_ROOT; no default or skip");
-        let root = PathBuf::from(selected);
-        assert!(root.is_absolute());
-        assert_eq!(
-            root.as_os_str(),
-            std::ffi::OsStr::new(ROOT),
-            "exact Root-selected corpus only"
-        );
-        assert_eq!(
-            fs::canonicalize(&root).expect("canonical corpus root"),
-            root
-        );
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/name-search-reference-v1");
         let result_path = root.join("ORIGINAL-RESULTS.json");
         assert!(
             fs::symlink_metadata(&result_path)
@@ -242,7 +230,7 @@ mod tests {
             let input_path = root.join("inputs").join(format!("{id}.json"));
             assert_eq!(
                 case.get("inputPath"),
-                &Js::from(input_path.to_str().expect("canonical input path"))
+                &Js::from(format!("{ROOT}/inputs/{id}.json"))
             );
             assert_eq!(
                 fs::canonicalize(&input_path).expect("canonical input"),

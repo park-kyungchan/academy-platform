@@ -232,3 +232,21 @@ fn json_parse_large_exponents_and_non_scalar_source_pointer() {
         expected.as_slice()
     );
 }
+
+#[test]
+fn sibling_publication_does_not_replace_the_admitted_directory_or_leaf() {
+    let parent = fixture("sibling-publication");
+    let root_path = parent.join("owner");
+    private(&root_path);
+    let bytes = b"unchanged pinned leaf";
+    fs::write(root_path.join("data"), bytes).unwrap();
+    fs::set_permissions(root_path.join("data"), fs::Permissions::from_mode(0o600)).unwrap();
+    let reader = OwnerRoot::open(&root_path).unwrap();
+    // Deterministically reproduce other parallel fixtures publishing siblings.
+    private(&parent.join("independent-owner"));
+    let capture = reader.read("data", &hash(bytes), 100).unwrap();
+    assert_eq!(capture.bytes, bytes);
+    // Stable inode alone never excuses an admission-mode change.
+    fs::set_permissions(&parent, fs::Permissions::from_mode(0o777)).unwrap();
+    assert!(reader.read("data", &hash(bytes), 100).is_err());
+}

@@ -1,12 +1,10 @@
 //! One strict, read-only original/candidate comparison. Authored only by F;
 //! Root owns execution with the explicit immutable diagnostic reference root.
 use edu_academy_sources::data::*;
-use std::{ffi::OsStr, fs, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 #[test]
 fn json_object_key_diagnostics_match_all_20_pinned_original_cases() {
-    const ROOT: &str =
-        "/home/palantirkc/work/ws-replan/preparation/slices/S11/json-object-reference-v1";
     const IDS: [&str; 20] = [
         "bare-first-key",
         "different-bare-first-key",
@@ -29,15 +27,8 @@ fn json_object_key_diagnostics_match_all_20_pinned_original_cases() {
         "key-looking-string",
         "array-control",
     ];
-    let selected = std::env::var_os("S11_JSON_OBJECT_REFERENCE_ROOT")
-        .expect("Root must explicitly supply S11_JSON_OBJECT_REFERENCE_ROOT; no fallback or skip");
-    let root = PathBuf::from(selected);
-    assert!(root.is_absolute());
-    assert_eq!(
-        root.as_os_str(),
-        OsStr::new(ROOT),
-        "exact canonical root only"
-    );
+    let root =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/json-object-reference-v1");
     assert!(
         fs::symlink_metadata(&root)
             .expect("reference root required")

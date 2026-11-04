@@ -36,6 +36,15 @@ impl Identity {
             changed: (s.st_ctime as i64, s.st_ctime_nsec as i64),
         }
     }
+    // Directory entry publication changes size, link count and timestamps without
+    // replacing the directory. Pin its object and admission attributes; leaf
+    // bytes still require full before/after identity plus digest verification.
+    fn same_directory(&self, other: &Self) -> bool {
+        self.device == other.device
+            && self.inode == other.inode
+            && self.uid == other.uid
+            && self.mode == other.mode
+    }
     pub fn value(&self) -> Js {
         obj(&[
             ("device", self.device.to_string().into()),
@@ -199,7 +208,7 @@ impl OwnerRoot {
                 fs::fstat(&self.fds[edge.child]),
                 "owner_root_stat_failed",
             )?);
-            if linked != edge.identity || fd != edge.identity {
+            if !linked.same_directory(&edge.identity) || !fd.same_directory(&edge.identity) {
                 return Err(admission("owner_root_ancestor_replaced"));
             }
         }
@@ -351,7 +360,7 @@ impl OwnerRoot {
                 "owner_root_descendant_replaced",
             )?);
             let b = Identity::of(&os(fs::fstat(&dirs[i]), "owner_root_stat_failed")?);
-            if &a != identity || &b != identity {
+            if !a.same_directory(identity) || !b.same_directory(identity) {
                 return Err(admission("owner_root_descendant_replaced"));
             }
         }

@@ -48,7 +48,14 @@ fn literal(v: &Js, s: &str) -> Result<Js> {
     }
 }
 fn key(v: &Js) -> Result<Js> {
-    if v.string() && test("^[1-9][0-9]{0,15}$", v) {
+    // A page can contain 2,000 rows. Compile this source-constant grammar once,
+    // rather than recompiling it for every identity in every result half.
+    static KEY: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    if v.string()
+        && KEY
+            .get_or_init(|| edu_academy_core::js::regex("^[1-9][0-9]{0,15}$"))
+            .is_match(&v.code_units())
+    {
         Ok(v.clone())
     } else {
         Err(invalid())

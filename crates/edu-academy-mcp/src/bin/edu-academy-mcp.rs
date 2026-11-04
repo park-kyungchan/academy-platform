@@ -13,7 +13,7 @@ use signal_hook::{consts::SIGTERM, iterator::Signals};
 use std::{
     collections::VecDeque,
     io::{self, BufReader},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::mpsc::TryRecvError,
     time::{Duration, Instant},
 };
@@ -141,7 +141,7 @@ struct Exit {
     result: Result<()>,
     signal: Option<i32>,
 }
-fn endpoint(args: &[String], root: &PathBuf) -> Result<()> {
+fn endpoint(args: &[String], root: &Path) -> Result<()> {
     process::child_parent_guard()?;
     let graph = ReleaseGraph::open(root)?;
     let config = graph
@@ -188,7 +188,7 @@ fn endpoint(args: &[String], root: &PathBuf) -> Result<()> {
     }
     Ok(())
 }
-fn bridge(root: &PathBuf) -> Exit {
+fn bridge(root: &Path) -> Exit {
     let startup = (|| -> Result<(RpcSession, Signals)> {
         let signals =
             Signals::new([SIGTERM]).map_err(|_| Error::new("safe_signal_receipt_unavailable"))?;
