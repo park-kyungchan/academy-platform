@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "academy.audit.normalized/1.0.0",
+  "collectedAt": "2040-01-04T08:00:00Z",
+  "students": [
+    {
+      "studentId": "s09://account-A/student/0001",
+      "name": "S09 Saved 0",
+      "sourceAccount": "account-A",
+      "books": [
+        {
+          "sourceBookEditionId": "edition/A:01",
+          "displayName": "Synthetic Book 가",
+          "nativeBookKey": "001",
+          "provenance": "synthetic_link_fixture_only"
+        },
+        {
+          "sourceBookEditionId": "edition/B",
+          "displayName": "Separate Synthetic Book"
+        }
+      ],
+      "sections": [
+        {
+          "id": "section/1",
+          "bookEditionId": "edition/A:01",
+          "rowKind": "section",
+          "progress": {
+            "state": "observed",
+            "completed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": "placeholder",
+          "bookEditionId": "edition/A:01",
+          "rowKind": "placeholder",
+          "progress": null
+        },
+        {
+          "id": "section-b",
+          "bookEditionId": "edition/B",
+          "rowKind": "section"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "assessment-a",
+          "bookEditionId": "edition/A:01",
+          "sectionId": "section/1",
+          "score": 0,
+          "teacherFinal": "unknown",
+          "relationEvidence": {
+            "basis": "synthetic_explicit_edition_section_link",
+            "bookEditionId": "edition/A:01",
+            "sectionId": "section/1"
+          }
+        },
+        {
+          "id": "missing"
+        },
+        {
+          "id": "null",
+          "score": null
+        },
+        {
+          "id": "blank",
+          "score": ""
+        },
+        {
+          "id": "unknown",
+          "score": "unknown"
+        },
+        {
+          "id": "not-performed",
+          "state": "not_performed"
+        }
+      ],
+      "effectiveAssignments": [
+        {
+          "id": "assignment-a",
+          "bookEditionId": "edition/A:01",
+          "sectionId": "section/1",
+          "state": "assigned_not_completed"
+        }
+      ],
+      "prepVideosHistorical": [
+        {
+          "id": "video-1",
+          "state": "waiting_teacher_review"
+        },
+        {
+          "id": "video-2",
+          "state": "completed_source_not_teacher_final"
+        }
+      ],
+      "DTZT": {
+        "date/DT~1": {
+          "score": 0,
+          "bookEditionId": "edition/A:01"
+        },
+        "not-performed": {
+          "state": "not_performed"
+        }
+      },
+      "liveDailyRecords": [
+        {
+          "date": "2040-01-04",
+          "recordKey": "13",
+          "progress": "Unit 1",
+          "homework": "",
+          "account": "account-A"
+        },
+        {
+          "date": "2040-01-02",
+          "recordKey": "12",
+          "progress": null,
+          "account": "account-A"
+        }
+      ]
+    },
+    {
+      "studentId": "s09://account-B/student/0001",
+      "name": "S09 Saved 1",
+      "sourceAccount": "account-B",
+      "books": [],
+      "sections": [],
+      "prepVideosHistorical": null
+    },
+    {
+      "studentId": "0001",
+      "name": "S09 Saved 2",
+      "sourceAccount": "account-B",
+      "books": [],
+      "sections": [],
+      "prepVideosHistorical": []
+    },
+    {
+      "studentId": "0001 ",
+      "name": "S09 Duplicate Name",
+      "sourceAccount": "account-B",
+      "books": [],
+      "sections": []
+    },
+    {
+      "studentId": "0001:Ab",
+      "name": "S09 Duplicate Name",
+      "sourceAccount": "account-B",
+      "books": [],
+      "sections": []
+    }
+  ]
+}

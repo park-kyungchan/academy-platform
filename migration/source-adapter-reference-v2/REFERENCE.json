@@ -1,0 +1,15 @@
+{
+  "schema": "s09.reference-executor-margin/2",
+  "originalReferenceCommit": "65e690b76884c8e9c01acb55b89086c8a218c9e7",
+  "originalExecutorSha256": "d0296d70266e655f4fa6c8b53a7ee377fdc4fe79d21a0694b8034068d0b465e6",
+  "executorSha256": "8879a1401b172ad46e672985873d54ce0141d26d51bcbea7dfa2da2914d2b05f",
+  "readmeSha256": "aa4a45c4f7e0d87ec08aed37e6fdfb87fbe645c3a1928f4d97038eb7005e0044",
+  "originalExpectedSha256": "31cfecc3357007332d81dd7437eb14a1bde27b51a3ae518695c762976673f535",
+  "originalObserverExpectedSha256": "e322211a87cc92690de35d4fd29ff5c721dae5c7665ac95ed5e2676d7ebdc4d9",
+  "literalChanges": {
+    "CPU": "40soft-hard->90soft-hard",
+    "executeWallDefault": "45->90",
+    "CLIWallDefault": "48->90"
+  },
+  "unchanged": "originalsource/reference/fixtures/expected/judge/normalization/effects/output-and-filebounds/groupcleanup"
+}

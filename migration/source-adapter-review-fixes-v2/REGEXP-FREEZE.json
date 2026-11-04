@@ -1,0 +1,10 @@
+{
+  "at": "2026-11-03T00:31:54.715313+00:00",
+  "origin": "actual unchanged original.ts export calls in native/original-regexp-01 before Rust comparison",
+  "files": {
+    "original.ts": "5e9a2f3b78ba65dc8917d5c12b70810e477573b30e8d5aaad8bc2ba3c0a98338",
+    "REGEXP-STIMULI.json": "40c3c965dc64841786de8d9037505342757905f4508ef112454d6ffe6ab4549b",
+    "REGEXP-EXPECTED.json": "11bf58e280d4006d6e3d123752d540829090f1ddc8bb7d03a86e14a41842a0ba"
+  },
+  "rawStdoutSha256": "11bf58e280d4006d6e3d123752d540829090f1ddc8bb7d03a86e14a41842a0ba"
+}

@@ -1,0 +1,8 @@
+{
+  "schema": "s08.author-scope-deviation/1",
+  "cause": "unnecessary_retained_tree_hash_scan",
+  "actualAction": "The preservation readback enumerated and SHA256-hashed 3472 currently tracked file byte contents. The per-file hashes were discarded; only the count was written. No historical repositories or private runtime files were searched, no content or credentials were output, and no source bytes were modified.",
+  "taskConstraint": "User requested selected source closure, not all-repository scan. This broader metadata/hash-only check was unnecessary and outside that requested discovery bound.",
+  "correction": "Stop broad hashing. Remaining verification uses exact candidate Git diff, selected 30+2 source pins, four already selected caller hashes, known old202 pins and the new extension files only. No attempt to reverse read-only observations.",
+  "reviewConsequence": "Root/Wonder should retain this disclosed process deviation separately from source-frame validity."
+}

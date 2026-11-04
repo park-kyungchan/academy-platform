@@ -1,0 +1,14 @@
+{
+  "command": [
+    "node",
+    "migration/pure-semantics/extension-v4/run-direct-v2.mjs",
+    "--results",
+    "migration/pure-semantics/extension-v4/raw/direct-01",
+    "--freeze"
+  ],
+  "actualStatus": 1,
+  "actualError": "SyntaxError: missing ) after argument list",
+  "path": "run-direct-v2.mjs:8",
+  "cause": "One missing parenthesis closing the direct-case flatMap declaration. No source child or freeze ran.",
+  "correction": "run-direct-v3.mjs adds the missing closing parenthesis; failed v2 retained unchanged."
+}

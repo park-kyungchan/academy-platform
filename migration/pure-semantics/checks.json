@@ -1,0 +1,66 @@
+{
+  "schema": "s08.static-checks/1",
+  "commands": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "cargo",
+        "metadata",
+        "--offline",
+        "--locked",
+        "--no-deps",
+        "--format-version",
+        "1"
+      ],
+      "status": 0,
+      "stdout": "{\"packages\":[{\"name\":\"edu-academy-core\",\"version\":\"0.0.0\",\"id\":\"path+file:///home/palantirkc/work/ws-replan/wt/education-platform/crates/edu-academy-core#0.0.0\",\"license\":\"UNLICENSED\",\"license_file\":null,\"description\":null,\"source\":null,\"dependencies\":[{\"name\":\"serde\",\"source\":\"registry+https://github.com/rust-lang/crates.io-index\",\"req\":\"=1.0.228\",\"kind\":null,\"rename\":null,\"optional\":false,\"uses_default_features\":true,\"features\":[\"derive\"],\"target\":null,\"registry\":null},{\"name\":\"serde_json\",\"source\":\"registry+https://github.com/rust-lang/crates.io-index\",\"req\":\"=1.0.150\",\"kind\":null,\"rename\":null,\"optional\":false,\"uses_default_features\":true,\"features\":[],\"target\":null,\"registry\":null}],\"targets\":[{\"kind\":[\"lib\"],\"crate_types\":[\"lib\"],\"name\":\"edu_academy_core\",\"src_path\":\"/home/palantirkc/work/ws-replan/wt/education-platform/crates/edu-academy-core/src/lib.rs\",\"edition\":\"2024\",\"doc\":true,\"doctest\":true,\"test\":true},{\"kind\":[\"bin\"],\"crate_types\":[\"bin\"],\"name\":\"edu-academy-core\",\"src_path\":\"/home/palantirkc/work/ws-replan/wt/education-platform/crates/edu-academy-core/src/main.rs\",\"edition\":\"2024\",\"doc\":true,\"doctest\":false,\"test\":true}],\"features\":{},\"manifest_path\":\"/home/palantirkc/work/ws-replan/wt/education-platform/crates/edu-academy-core/Cargo.toml\",\"metadata\":null,\"publish\":[],\"authors\":[],\"categories\":[],\"keywords\":[],\"readme\":null,\"repository\":null,\"homepage\":null,\"documentation\":null,\"edition\":\"2024\",\"links\":null,\"default_run\":null,\"rust_version\":\"1.95\"}],\"workspace_members\":[\"path+file:///home/palantirkc/work/ws-replan/wt/education-platform/crates/edu-academy-core#0.0.0\"],\"workspace_default_members\":[\"path+file:///home/palantirkc/work/ws-replan/wt/education-platform/crates/edu-academy-core#0.0.0\"],\"resolve\":null,\"target_directory\":\"/home/palantirkc/work/ws-replan/wt/education-platform/target\",\"build_directory\":\"/home/palantirkc/work/ws-replan/wt/education-platform/target\",\"version\":1,\"workspace_root\":\"/home/palantirkc/work/ws-replan/wt/education-platform\",\"metadata\":null}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "allowedAdditivePathsVerified": true,
+  "frozenS05AndProductionDiffEmpty": true,
+  "originalSourcePinsAndActiveFreezeVerified": true,
+  "independentDigestByteChecks": 52,
+  "rustBuildTestClippy": "not_run_no_build_slot",
+  "initialFormatObservation": {
+    "command": "cargo fmt --all -- --check",
+    "observation": "emitted line wrapping diff in new main.rs, corrected by cargo fmt --all",
+    "childStatus": "not_separately_captured",
+    "combinedShellStatus": 0,
+    "notCountedAsPass": true
+  },
+  "runningTaskChildren": [],
+  "runningTaskBuilds": []
+}

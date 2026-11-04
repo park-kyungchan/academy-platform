@@ -1,0 +1,14 @@
+{
+  "schema": "s09.original-freeze/1",
+  "basis": "Original source run only, no Rust candidate executed/consulted",
+  "originalRunRawStdoutSha256": "d547ad7fc34fd0d030b097f2db8742795c6a714718a451771ac4d331e1da6b33",
+  "frames": 190,
+  "hashes": {
+    "EXPECTED.json": "31cfecc3357007332d81dd7437eb14a1bde27b51a3ae518695c762976673f535",
+    "EXPECTED-EFFECTS.ndjson": "9ac051ae8036cca8900ffc633cf5c01c3c82bd03231070bfd992a6e519303297",
+    "NORMALIZATION.json": "d08debb32c25eae34b7de343a6826912e567cda1f008fafa85dd27dbfa5f3ad6",
+    "corpus/CASES.json": "d3198700ba2d9906bff28c4e01a0ff5a6ced02b385eb46a747e7feb3803b60a8",
+    "SOURCE-PINS.json": "313d70da71fd3e7d1b01f4c7201e72f074d4689fef343d5ec92f0853c9c0a33b"
+  },
+  "independentQualification": "pending Lead/Wonder"
+}

@@ -1,0 +1,154 @@
+[
+  {
+    "id": "direct-cismHash-cycle",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/direct-baseline-v2.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace/source"
+      ],
+      "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"throw\",\"error\":{\"name\":\"TypeError\",\"message\":\"JSON.stringify cannot serialize cyclic structures.\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"cism.cismHash\"],\"uuidValues\":[]}}\n",
+      "stderr": ""
+    }
+  },
+  {
+    "id": "direct-cismHash-array_cycle",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/direct-baseline-v2.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace/source"
+      ],
+      "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"throw\",\"error\":{\"name\":\"TypeError\",\"message\":\"JSON.stringify cannot serialize cyclic structures.\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"cism.cismHash\"],\"uuidValues\":[]}}\n",
+      "stderr": ""
+    }
+  },
+  {
+    "id": "direct-cismHash-undefined",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/direct-baseline-v2.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace/source"
+      ],
+      "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"throw\",\"error\":{\"name\":\"TypeError\",\"message\":\"The \\\"data\\\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received undefined\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"cism.cismHash\"],\"uuidValues\":[]}}\n",
+      "stderr": ""
+    }
+  },
+  {
+    "id": "direct-cismHash-depth512",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/direct-baseline-v2.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace/source"
+      ],
+      "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"490bbd4aec5dc81c0049d7a1761368cb3eddc2911a51816fd51e3bb935c16ddd\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"cism.cismHash\"],\"uuidValues\":[]}}\n",
+      "stderr": ""
+    }
+  },
+  {
+    "id": "direct-admission-canonicalJson-cycle",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/direct-baseline-v2.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace/source"
+      ],
+      "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"throw\",\"error\":{\"name\":\"RangeError\",\"message\":\"Maximum call stack size exceeded.\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"admission.canonicalJson\"],\"uuidValues\":[]}}\n",
+      "stderr": ""
+    }
+  },
+  {
+    "id": "direct-admission-canonicalJson-depth512",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/direct-baseline-v2.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace/source"
+      ],
+      "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[null]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"admission.canonicalJson\"],\"uuidValues\":[]}}\n",
+      "stderr": ""
+    }
+  },
+  {
+    "id": "direct-admission-canonicalActionDigest-cycle",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/direct-baseline-v2.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace/source"
+      ],
+      "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"throw\",\"error\":{\"name\":\"RangeError\",\"message\":\"Maximum call stack size exceeded.\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"admission.canonicalActionDigest\"],\"uuidValues\":[]}}\n",
+      "stderr": ""
+    }
+  },
+  {
+    "id": "direct-admission-canonicalActionDigest-depth512",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/direct-baseline-v2.ts",
+        "--source-root",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace/source"
+      ],
+      "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/direct-01/workspace",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":\"490bbd4aec5dc81c0049d7a1761368cb3eddc2911a51816fd51e3bb935c16ddd\"},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"admission.canonicalActionDigest\"],\"uuidValues\":[]}}\n",
+      "stderr": ""
+    }
+  }
+]

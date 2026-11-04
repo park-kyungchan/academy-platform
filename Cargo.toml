@@ -1,0 +1,35 @@
+[workspace]
+members = ["crates/edu-academy-core", "crates/edu-academy-sources", "crates/edu-academy-mcp"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.95"
+license = "UNLICENSED"
+publish = false
+
+[workspace.dependencies]
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.150"
+ryu-js = "=1.0.2"
+sha2 = "=0.10.9"
+regex = "=1.12.2"
+scraper = { version = "=0.29.0", default-features = false }
+chrono-tz = { version = "=0.10.4", default-features = false, features = ["case-insensitive"] }
+
+html5ever = "=0.40.1"
+rustix = { version = "=1.1.2", features = ["fs", "process"] }
+swc_ecma_parser = { version = "=47.0.0", default-features = false }
+swc_ecma_ast = "=30.0.0"
+swc_common = { version = "=27.0.0", default-features = false }
+swc_ecma_visit = "=30.0.0"
+swc_ecma_regexp = "=0.16.0"
+swc_ecma_regexp_visit = "=0.16.0"
+url = "=2.5.8"
+signal-hook = { version = "=0.4.4", default-features = false, features = ["iterator"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "warn"

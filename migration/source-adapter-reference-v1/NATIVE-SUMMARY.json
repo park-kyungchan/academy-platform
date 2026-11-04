@@ -1,0 +1,34 @@
+{
+  "schema": "s09.native-results/1",
+  "status": "AUTHOR_REFERENCE_PENDING_INDEPENDENT_WONDER_AND_LEAD",
+  "base": "39441f5d205b8a67e5c911da747d213a322d20da",
+  "branch": "rust/s09-reference-20261102",
+  "primaryFrames": 190,
+  "additiveFrames": 3,
+  "separatelyPendingBodyCase": 1,
+  "sourcePinCount": 56,
+  "selectedOriginalAndLeadBlobCount": 65,
+  "runtimePackageCount": 35,
+  "directOwnedIgnoredLinks": 3,
+  "frozenExpectations": {
+    "EXPECTED.json": "31cfecc3357007332d81dd7437eb14a1bde27b51a3ae518695c762976673f535",
+    "EXPECTED-EFFECTS.ndjson": "9ac051ae8036cca8900ffc633cf5c01c3c82bd03231070bfd992a6e519303297",
+    "OBSERVERS-v2-EXPECTED.json": "e322211a87cc92690de35d4fd29ff5c721dae5c7665ac95ed5e2676d7ebdc4d9",
+    "OBSERVERS-v2-EFFECTS.ndjson": "ac98cdd95cac30883d8941196fc245d169388f032de9d5cd9bbce5e9736bff5c"
+  },
+  "remainingBroaderScope": [
+    "Genuine qualified journal wire fixture and complete HTTP->journalState->backend success join",
+    "Source-account namespace collision and S06 untrusted content-bound lineage",
+    "Original duplicate ID/name behavior, root ownership/parent/race, Response.url/encoding/body deadline gaps require Lead disposition",
+    "Real P8 recorded textbook/progress/assessment-edition evidence and actual user verdict remain pending",
+    "Unselected HTTP APIs, MCP/native host graph, S10 locks/journals/real operational integration",
+    "No source acceptance, Rust implementation, production or live activation claim"
+  ],
+  "primaryRuns": 2,
+  "primaryMutantsPerRun": 14,
+  "boundsPerRun": 5,
+  "relocationChecksPerRun": 6,
+  "observerMutants": 8,
+  "allAuthoredGroupsEmpty": true,
+  "sourceNotes": "/home/palantirkc/work/ws-replan/preparation/slices/S09/reference-v1/NATIVE-RESULTS.json"
+}

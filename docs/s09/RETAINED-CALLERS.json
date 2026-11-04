@@ -1,0 +1,71 @@
+{
+  "originalOwnerInventoryOnly": true,
+  "rustCoverageInferred": false,
+  "retainedOriginalMethods": {
+    "AcademyHttpClient": [
+      "readCismReport",
+      "applyCismField",
+      "readTextbookCatalog",
+      "readTextbookPdf",
+      "readPrestudy",
+      "readTextbookBindings",
+      "inspectDayRecordGroupSelector",
+      "discoverBooks",
+      "inspectTestPoolIndex",
+      "inspectTestPoolTab",
+      "readReusableTestPoolReadback",
+      "createReusableTestPool",
+      "readLectureUsageHistory",
+      "saveLectureUsageLog",
+      "inspectNativePaperInputDocument",
+      "readNativePaperOptions",
+      "readNativePaperSelectedQuestions",
+      "inspectTestPoolSelector",
+      "inspectTestPoolQuestionProtocol",
+      "inspectTestPoolPresentationProtocol",
+      "inspectTestPoolCategoryTree",
+      "readTestPoolTypeLabels",
+      "readTestPoolQuestions",
+      "inspectStudentPaperForm",
+      "lookupPrintedPaperMetadata",
+      "searchStudentsByName",
+      "searchDailyTestMetadata",
+      "inspectDailyTestInventory",
+      "readDailyTestHistory",
+      "searchStudentPaperMetadata",
+      "inspectTextbookIndex",
+      "inspectItemHeader",
+      "applyJournalAction"
+    ],
+    "NativeDailyRecordBackend": [
+      "readCismReport",
+      "applyCismField",
+      "readTextbookCatalog",
+      "readTextbookPdf",
+      "readTextbookSections",
+      "readPrestudyByName",
+      "readTextbookSectionsByName",
+      "readItemSectionTrace",
+      "saveConfigured",
+      "requestBoundSaveConfigured",
+      "saveDailyRecord",
+      "readRoutingAdmission",
+      "readItemAnswers",
+      "readStudentMetadata",
+      "readStudentMetadataByName",
+      "searchStudentsByName"
+    ],
+    "SavedContext": [
+      "reference",
+      "records"
+    ]
+  },
+  "actualCallerProofPending": [
+    "AcademyService.query -> queryInputSchema -> saved.query -> queryResultSchema",
+    "registerSavedQuery -> toolResult(query(input))",
+    "DailyRecordService/readDailyRecordByName -> NativeDailyRecordBackend.readDailyRecord",
+    "AcademyHttpClient.execute -> executeAcademyRead -> readDayRecordSource -> bindDayRecordDomRow",
+    "AcademyHttpClient.inspectTestPoolPresentationProtocol -> inspectTestPoolPresentationProtocol (standalone original parser called here)"
+  ],
+  "nativeActivation": false
+}

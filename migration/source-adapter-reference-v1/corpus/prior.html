@@ -1,0 +1,15 @@
+<input name="std_date" value="2040-01-02"><input name="teacher_pri_no" value="99001"><select name="grp_seq"><option value="0">All</option><option value="3" selected>Class 가</option></select><table><thead><tr><th rowspan="2">이름</th><th rowspan="2">과정</th><th rowspan="2">지속사항</th><th colspan="4">지난진도</th><th colspan="6">일괄 발송 금일진도</th></tr><tr><th>지난수업일</th><th>진도</th><th>숙제</th><th>메모</th><th></th><th>금일출석</th><th>일일테스트</th><th>진도</th><th>숙제</th><th>메모</th></tr></thead><tbody><tr><td><a onclick="onOpenDaysMain('77001')">S09 Learner 가😀</a></td><td>S09 Course</td><td><textarea onfocusout="onFoStuMemo('0','77001','5')">unselected synthetic note</textarea></td><td>2040-01-02</td><td>prior display only</td><td><a onclick="openHomeWorkRate(11,8,0)">prior assessment</a></td><td>prior memo</td><td></td><td><select onchange="onAttn('0','5','77001','12','8')"><option value="Y" selected>출석</option><option value="N">결석</option></select></td><td><a onclick="setDailyTest(12,8,0)">DT</a><input name="h_daily_test" value="0"><input name="h_homework_rate" value="3"></td><td><textarea onfocusout="onFoPrg('0','5','77001','12','8')">Previous wording</textarea></td><td><textarea onfocusout="onFoHw('0','5','77001','12','8')">Previous homework</textarea></td><td><input onfocusout="onFoMm('0','5','77001','12','8')" value="Memo &quot;raw&quot;"></td></tr></tbody></table><script>
+function onAttn(i,course_seq,stu_pri_no,record_seq,cm_seq){ return "inert"; }
+function onFoPrg(i,course_seq,stu_pri_no,record_seq,cm_seq){ return "inert"; }
+function onFoHw(i,course_seq,stu_pri_no,record_seq,cm_seq){ return "inert"; }
+function onFoMm(i,course_seq,stu_pri_no,record_seq,cm_seq){ return "inert"; }
+function onFoStuMemo(i,stu_pri_no,course_seq){ return "inert"; }
+function onOpenDaysMain(student_pri_no){ return "inert"; }
+function onDailyReport(report_seq,stu_pri_no,record_seq,cm_seq){ return "inert"; }
+function setDailyTest(record_seq,cm_seq,count){ return "inert"; }
+function openHomeWorkRate(record_seq,cm_seq,count){ return "inert"; }
+globalThis.s09ScriptRan=true; fetch("https://blocked.invalid/");
+</script><script>
+var g_param = "";
+var daily_test_radio="synthetic";
+</script>

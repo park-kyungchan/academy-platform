@@ -1,0 +1,35 @@
+{
+  "schema": "s05.recorded-lookup-check/1",
+  "sourceBase": "cc6e81f1be2fcb56f011041e3d606e21edf76da3",
+  "sourceRoot": "/home/palantirkc/work/ws-replan/wt/education-platform",
+  "depsRoot": "/home/palantirkc/projects/education-platform/modules/academy-workbench/tools/academy-mcp/node_modules",
+  "tempEvidenceRoot": "/tmp/s05-recorded-lookup-JUhmM0",
+  "runtime": {
+    "bun": {
+      "command": [
+        "bun",
+        "--version"
+      ],
+      "cwd": "/tmp/s05-recorded-lookup-JUhmM0",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "1.4.3\n",
+      "stderr": ""
+    },
+    "node": "v24.22.1",
+    "zod": "4.4.3"
+  },
+  "frozenPinsSha256": "1279e11cc2328cd47335ba41eebc1da8d76f956ff667b155976ee99e51b79525",
+  "expectedSha256": "aae41a0f4d79752a0b14d2d4504d5112d4bc576ba6827412675f6789eb6ee234",
+  "reference": {
+    "total": 34,
+    "accepted": 34
+  },
+  "qualification": {
+    "total": 18,
+    "rejected": 18
+  },
+  "sourceTestStatus": 1,
+  "childrenRunningAtReturn": 0
+}

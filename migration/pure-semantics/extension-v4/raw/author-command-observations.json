@@ -1,0 +1,73 @@
+{
+  "schema": "s08.actual-author-command-observations/4",
+  "source": "actual tool exec completions, not planned outcomes",
+  "commands": [
+    {
+      "argv": [
+        "node",
+        "migration/pure-semantics/extension-v4/create-cases.mjs"
+      ],
+      "actualStatus": 0,
+      "outputCases": 550
+    },
+    {
+      "argv": [
+        "node",
+        "migration/pure-semantics/extension-v4/run.mjs",
+        "--deps-root",
+        "/home/palantirkc/projects/education-platform/modules/academy-workbench/tools/academy-mcp/node_modules",
+        "--results",
+        "migration/pure-semantics/extension-v4/raw/run-01",
+        "--freeze"
+      ],
+      "actualStatus": 0,
+      "raw": "raw/run-01/"
+    },
+    {
+      "argv": [
+        "node",
+        "migration/pure-semantics/extension-v4/check-source-meaning.mjs",
+        "migration/pure-semantics/extension-v4/raw/meaning-01.json"
+      ],
+      "actualStatus": 0,
+      "checks": 45
+    },
+    {
+      "argv": [
+        "node",
+        "migration/pure-semantics/extension-v4/create-supplement.mjs"
+      ],
+      "actualStatus": 1,
+      "raw": "raw/supplement-preparation-failure-01.json"
+    },
+    {
+      "argv": [
+        "node",
+        "migration/pure-semantics/extension-v4/create-supplement-v2.mjs"
+      ],
+      "actualStatus": 0,
+      "outputCases": 45
+    },
+    {
+      "argv": [
+        "node",
+        "migration/pure-semantics/extension-v4/run-supplement.mjs",
+        "--results",
+        "migration/pure-semantics/extension-v4/raw/supplement-01",
+        "--freeze"
+      ],
+      "actualStatus": 0,
+      "raw": "raw/supplement-01/"
+    }
+  ],
+  "additionalOrientationFailure": {
+    "status": 2,
+    "cause": "sparse_official_document_not_in_worktree",
+    "correctedBy": "git show actual verified a5a619b revision for official knowledge pages and tool tests"
+  },
+  "unusedPathProbe": {
+    "status": 2,
+    "cause": "sourceDomParser.ts not a file",
+    "correctedBy": "bounded rg found actual sourceDomParser inline in academyHttpClient.ts:36; that file consulted read-only"
+  }
+}

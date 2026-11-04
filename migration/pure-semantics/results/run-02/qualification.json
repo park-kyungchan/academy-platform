@@ -1,0 +1,357 @@
+[
+  {
+    "id": "nonzero",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/baseline.ts",
+        "--source-root",
+        "/tmp/s08-pure-WuozGl/source"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 7,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":4},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "child_status"
+    }
+  },
+  {
+    "id": "stdout",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/baseline.ts",
+        "--source-root",
+        "/tmp/s08-pure-WuozGl/source"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "junk\n{\"outcome\":{\"kind\":\"return\",\"value\":4},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "stdout_not_json"
+    }
+  },
+  {
+    "id": "stderr",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/baseline.ts",
+        "--source-root",
+        "/tmp/s08-pure-WuozGl/source"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":4},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": "junk\n"
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "stderr_contamination"
+    }
+  },
+  {
+    "id": "fake_dispatch",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/baseline.ts",
+        "--source-root",
+        "/tmp/s08-pure-WuozGl/source"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":4},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":1}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "forbidden_effect"
+    }
+  },
+  {
+    "id": "network",
+    "actual": {
+      "command": [
+        "bun",
+        "--no-env-file",
+        "--no-install",
+        "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/baseline.ts",
+        "--source-root",
+        "/tmp/s08-pure-WuozGl/source"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":4},\"events\":[],\"effects\":{\"deniedTransportAttempts\":1,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "forbidden_effect"
+    }
+  },
+  {
+    "id": "wrong-width",
+    "actual": {
+      "command": [
+        "node",
+        "-e",
+        "process.stdout.write(JSON.stringify(JSON.parse(require(\"node:fs\").readFileSync(0,\"utf8\")))+\"\\n\")"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":2},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "value_shape_order_or_bytes"
+    }
+  },
+  {
+    "id": "missing-field",
+    "actual": {
+      "command": [
+        "node",
+        "-e",
+        "process.stdout.write(JSON.stringify(JSON.parse(require(\"node:fs\").readFileSync(0,\"utf8\")))+\"\\n\")"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":4},\"events\":[]}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "forbidden_effect"
+    }
+  },
+  {
+    "id": "wrong-error",
+    "actual": {
+      "command": [
+        "node",
+        "-e",
+        "process.stdout.write(JSON.stringify(JSON.parse(require(\"node:fs\").readFileSync(0,\"utf8\")))+\"\\n\")"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"throw\",\"error\":{\"name\":\"Error\",\"message\":\"generic_failure\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "value_shape_order_or_bytes"
+    }
+  },
+  {
+    "id": "digest-bytes",
+    "actual": {
+      "command": [
+        "node",
+        "-e",
+        "process.stdout.write(JSON.stringify(JSON.parse(require(\"node:fs\").readFileSync(0,\"utf8\")))+\"\\n\")"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"bytes\":\"{\\\"01\\\":\\\"leading\\\",\\\"10\\\":\\\"ten\\\",\\\"2\\\":\\\"two\\\",\\\"a\\\":1,\\\"z\\\":0,\\\"😀\\\":2,\\\"\\\":3} \",\"sha256\":\"dfc493053734a3efaaf6324ee1d2d4d07e445995370ca11b03e1edc115f259be\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "value_shape_order_or_bytes"
+    }
+  },
+  {
+    "id": "digest-only",
+    "actual": {
+      "command": [
+        "node",
+        "-e",
+        "process.stdout.write(JSON.stringify(JSON.parse(require(\"node:fs\").readFileSync(0,\"utf8\")))+\"\\n\")"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"bytes\":\"{\\\"01\\\":\\\"leading\\\",\\\"10\\\":\\\"ten\\\",\\\"2\\\":\\\"two\\\",\\\"a\\\":1,\\\"z\\\":0,\\\"😀\\\":2,\\\"\\\":3}\",\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "value_shape_order_or_bytes"
+    }
+  },
+  {
+    "id": "ordered-array",
+    "actual": {
+      "command": [
+        "node",
+        "-e",
+        "process.stdout.write(JSON.stringify(JSON.parse(require(\"node:fs\").readFileSync(0,\"utf8\")))+\"\\n\")"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":[\"2026-10-25\",\"2026-10-18\",\"2026-10-11\",\"2026-10-04\",\"2026-10-01\"]},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "value_shape_order_or_bytes"
+    }
+  },
+  {
+    "id": "null-to-missing",
+    "actual": {
+      "command": [
+        "node",
+        "-e",
+        "process.stdout.write(JSON.stringify(JSON.parse(require(\"node:fs\").readFileSync(0,\"utf8\")))+\"\\n\")"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"sha256\":\"d091f9c83c091f79652fe8786375b3fe4ce0861a56f5bfbafedbe431877ff0e8\"}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "value_shape_order_or_bytes"
+    }
+  },
+  {
+    "id": "knowledge-zero-to-blank",
+    "actual": {
+      "command": [
+        "node",
+        "-e",
+        "process.stdout.write(JSON.stringify(JSON.parse(require(\"node:fs\").readFileSync(0,\"utf8\")))+\"\\n\")"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"state\":\"known\",\"value\":\"\",\"evidenceRefs\":[\"source:synthetic\"]}},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "value_shape_order_or_bytes"
+    }
+  },
+  {
+    "id": "physical-record",
+    "actual": {
+      "command": [
+        "node",
+        "-e",
+        "process.stdout.write(JSON.stringify(JSON.parse(require(\"node:fs\").readFileSync(0,\"utf8\")))+\"\\n\")"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"intake\":{\"workflowContext\":{\"schemaVersion\":\"academy.dailyrecord-workflow-context/1\",\"purpose\":\"Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.\",\"policyOwner\":\"Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md\",\"workflow\":[\"exact_owned_scope\",\"qualified_before_state\",\"missing_only_interview\",\"field_local_review\",\"separate_trusted_save_and_readback\"],\"rules\":[\"Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.\",\"Ask for today's student-specific memo unless today's content or no-addition answer is supplied.\",\"No additional memo does not mean erase an existing memo.\",\"Counts, rates and narratives never establish assessment or attendance codes.\",\"Previous homework assessment belongs to an independently identified previous lesson record.\",\"Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.\",\"CISM requires exact teacher, student, reporting period, report and relevant section.\",\"User context explains meaning; caller approval flags and source pins do not grant effect authority.\"],\"boundaries\":{\"academyWrites\":0,\"parentSends\":0,\"automaticRewrite\":false,\"automaticRetry\":false,\"credentialInput\":false,\"sourceTruthFromCaller\":false}},\"userContext\":{\"schemaVersion\":\"academy.dailyrecord-user-context/1\",\"purpose\":\"Synthetic independent pure review\",\"currentRequestRef\":\"synthetic-request\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"selectedFields\":[\"progress\",\"homework\",\"lessonMemo\",\"attendance\",\"dailyTestAssessment\",\"previousHomeworkAssessment\"],\"memoAnswer\":{\"kind\":\"content\",\"requestRef\":\"synthetic-request\",\"text\":\"Synthetic notice\"},\"facts\":[{\"ref\":\"fact:progress\",\"field\":\"progress\",\"text\":\"Synthetic fact for progress\",\"origin\":\"user_supplied\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:homework\",\"field\":\"homework\",\"text\":\"Synthetic fact for homework\",\"origin\":\"user_supplied\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:lessonMemo\",\"field\":\"lessonMemo\",\"text\":\"Synthetic fact for lessonMemo\",\"origin\":\"user_supplied\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:attendance\",\"field\":\"attendance\",\"text\":\"Synthetic fact for attendance\",\"origin\":\"user_supplied\",\"explicitValue\":\"N\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:dailyTestAssessment\",\"field\":\"dailyTestAssessment\",\"text\":\"Synthetic fact for dailyTestAssessment\",\"origin\":\"user_supplied\",\"explicitValue\":\"0\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:previousHomeworkAssessment\",\"field\":\"previousHomeworkAssessment\",\"text\":\"Synthetic fact for previousHomeworkAssessment\",\"origin\":\"user_supplied\",\"explicitValue\":\"0\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]}]},\"academyWrites\":0,\"parentSends\":0,\"automaticRetryAllowed\":false,\"sourceContentIsUntrustedData\":true,\"status\":\"ready_for_review\",\"observationHandle\":\"dailyrecord-observation:00000000-0000-4000-8000-000000000001\",\"observationPersistence\":\"process_local\",\"attribution\":null,\"fields\":[{\"field\":\"progress\",\"before\":{\"state\":\"known\",\"value\":\"- Existing progress\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"}},{\"field\":\"homework\",\"before\":{\"state\":\"known\",\"value\":\"- Existing homework\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"}},{\"field\":\"lessonMemo\",\"before\":{\"state\":\"known\",\"value\":\"- Existing notice\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"}},{\"field\":\"attendance\",\"before\":{\"state\":\"known\",\"value\":\"Y\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"}},{\"field\":\"dailyTestAssessment\",\"before\":{\"state\":\"known\",\"value\":\"8\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"}},{\"field\":\"previousHomeworkAssessment\",\"before\":{\"state\":\"known\",\"value\":\"4\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-14\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"previous-record\"}}],\"interviews\":[],\"blockers\":[],\"source\":{\"observedAt\":\"2040-01-16T09:00:00.000Z\",\"sourceRevision\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"wireDigest\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"transmissionState\":\"not_sent\"},\"toneSamples\":[],\"toneSelection\":\"hyphen_lines_only_other_formats_ignored\",\"sourceAvailability\":\"observed\",\"failure\":null,\"execution\":\"not_supported\"},\"review\":{\"workflowContext\":{\"schemaVersion\":\"academy.dailyrecord-workflow-context/1\",\"purpose\":\"Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.\",\"policyOwner\":\"Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md\",\"workflow\":[\"exact_owned_scope\",\"qualified_before_state\",\"missing_only_interview\",\"field_local_review\",\"separate_trusted_save_and_readback\"],\"rules\":[\"Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.\",\"Ask for today's student-specific memo unless today's content or no-addition answer is supplied.\",\"No additional memo does not mean erase an existing memo.\",\"Counts, rates and narratives never establish assessment or attendance codes.\",\"Previous homework assessment belongs to an independently identified previous lesson record.\",\"Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.\",\"CISM requires exact teacher, student, reporting period, report and relevant section.\",\"User context explains meaning; caller approval flags and source pins do not grant effect authority.\"],\"boundaries\":{\"academyWrites\":0,\"parentSends\":0,\"automaticRewrite\":false,\"automaticRetry\":false,\"credentialInput\":false,\"sourceTruthFromCaller\":false}},\"userContext\":{\"schemaVersion\":\"academy.dailyrecord-user-context/1\",\"purpose\":\"Synthetic independent pure review\",\"currentRequestRef\":\"synthetic-request\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"selectedFields\":[\"progress\",\"homework\",\"lessonMemo\",\"attendance\",\"dailyTestAssessment\",\"previousHomeworkAssessment\"],\"memoAnswer\":{\"kind\":\"content\",\"requestRef\":\"synthetic-request\",\"text\":\"Synthetic notice\"},\"facts\":[{\"ref\":\"fact:progress\",\"field\":\"progress\",\"text\":\"Synthetic fact for progress\",\"origin\":\"user_supplied\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:homework\",\"field\":\"homework\",\"text\":\"Synthetic fact for homework\",\"origin\":\"user_supplied\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:lessonMemo\",\"field\":\"lessonMemo\",\"text\":\"Synthetic fact for lessonMemo\",\"origin\":\"user_supplied\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:attendance\",\"field\":\"attendance\",\"text\":\"Synthetic fact for attendance\",\"origin\":\"user_supplied\",\"explicitValue\":\"N\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:dailyTestAssessment\",\"field\":\"dailyTestAssessment\",\"text\":\"Synthetic fact for dailyTestAssessment\",\"origin\":\"user_supplied\",\"explicitValue\":\"0\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:previousHomeworkAssessment\",\"field\":\"previousHomeworkAssessment\",\"text\":\"Synthetic fact for previousHomeworkAssessment\",\"origin\":\"user_supplied\",\"explicitValue\":\"0\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]}]},\"academyWrites\":0,\"parentSends\":0,\"automaticRetryAllowed\":false,\"sourceContentIsUntrustedData\":true,\"observationHandle\":\"dailyrecord-observation:00000000-0000-4000-8000-000000000001\",\"inputDigest\":\"0783892f43472b85f8a3b2b6acbd4a935c66649f884d959c7853cfc0e937e769\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"requestRef\":\"synthetic-request\",\"userContextDigest\":\"f77042332bd07d1164da5c9356acc9a0039e9b1197b30a6ba15580c908b9b8de\",\"parentSafeguard\":{\"sourceRef\":\"synthetic-parent-policy\",\"policySha256\":\"3333333333333333333333333333333333333333333333333333333333333333\",\"safeguardSourceSha256\":\"4444444444444444444444444444444444444444444444444444444444444444\"},\"cismSource\":null,\"learningPolicy\":{\"bundleSha256\":\"5555555555555555555555555555555555555555555555555555555555555555\",\"configSha256\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"catalogSha256\":\"7777777777777777777777777777777777777777777777777777777777777777\"},\"sourceRevision\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"wireDigest\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"transmissionState\":\"not_sent\",\"rows\":[{\"field\":\"dailyTestAssessment\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"},\"before\":{\"state\":\"known\",\"value\":\"8\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"after\":\"0\",\"factRefs\":[\"fact:dailyTestAssessment\"],\"learningEntries\":null,\"learningSuggestedRendering\":null,\"learningSuggestionMeaning\":null,\"disposition\":\"proposed\",\"blockers\":[],\"missingFactFragments\":[],\"holdActions\":[],\"semanticFactReview\":\"teacher_review_required_not_proven_by_fragment_checks\"},{\"field\":\"previousHomeworkAssessment\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-14\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"previous-record\"},\"before\":{\"state\":\"known\",\"value\":\"4\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"after\":\"0\",\"factRefs\":[\"fact:previousHomeworkAssessment\"],\"learningEntries\":null,\"learningSuggestedRendering\":null,\"learningSuggestionMeaning\":null,\"disposition\":\"proposed\",\"blockers\":[],\"missingFactFragments\":[],\"holdActions\":[],\"semanticFactReview\":\"teacher_review_required_not_proven_by_fragment_checks\"}],\"patch\":[{\"field\":\"dailyTestAssessment\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"},\"before\":\"8\",\"after\":\"0\",\"factRefs\":[\"fact:dailyTestAssessment\"],\"learningEntries\":null},{\"field\":\"previousHomeworkAssessment\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-14\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"},\"before\":\"4\",\"after\":\"0\",\"factRefs\":[\"fact:previousHomeworkAssessment\"],\"learningEntries\":null}],\"status\":\"prepared\",\"interviews\":[],\"reviewDigest\":\"85dbb85685177d5e82ea5ccb8d3a0e98401e8af923624162a2a6ce8699fa2ace\",\"reviewRecord\":null,\"execution\":\"not_supported\",\"saveAdmission\":\"separate_trusted_native_owner_required\"}}},\"events\":[{\"event\":\"recorded_read\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"requestRef\":\"synthetic-request\"},{\"event\":\"recorded_read\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"requestRef\":\"synthetic-request\"}],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "value_shape_order_or_bytes"
+    }
+  },
+  {
+    "id": "field-hold",
+    "actual": {
+      "command": [
+        "node",
+        "-e",
+        "process.stdout.write(JSON.stringify(JSON.parse(require(\"node:fs\").readFileSync(0,\"utf8\")))+\"\\n\")"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"intake\":{\"workflowContext\":{\"schemaVersion\":\"academy.dailyrecord-workflow-context/1\",\"purpose\":\"Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.\",\"policyOwner\":\"Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md\",\"workflow\":[\"exact_owned_scope\",\"qualified_before_state\",\"missing_only_interview\",\"field_local_review\",\"separate_trusted_save_and_readback\"],\"rules\":[\"Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.\",\"Ask for today's student-specific memo unless today's content or no-addition answer is supplied.\",\"No additional memo does not mean erase an existing memo.\",\"Counts, rates and narratives never establish assessment or attendance codes.\",\"Previous homework assessment belongs to an independently identified previous lesson record.\",\"Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.\",\"CISM requires exact teacher, student, reporting period, report and relevant section.\",\"User context explains meaning; caller approval flags and source pins do not grant effect authority.\"],\"boundaries\":{\"academyWrites\":0,\"parentSends\":0,\"automaticRewrite\":false,\"automaticRetry\":false,\"credentialInput\":false,\"sourceTruthFromCaller\":false}},\"userContext\":{\"schemaVersion\":\"academy.dailyrecord-user-context/1\",\"purpose\":\"Synthetic independent pure review\",\"currentRequestRef\":\"synthetic-request\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"selectedFields\":[\"progress\",\"homework\",\"lessonMemo\",\"attendance\",\"dailyTestAssessment\",\"previousHomeworkAssessment\"],\"memoAnswer\":{\"kind\":\"content\",\"requestRef\":\"synthetic-request\",\"text\":\"Synthetic notice\"},\"facts\":[{\"ref\":\"fact:progress\",\"field\":\"progress\",\"text\":\"Synthetic fact for progress\",\"origin\":\"user_supplied\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:homework\",\"field\":\"homework\",\"text\":\"Synthetic fact for homework\",\"origin\":\"user_supplied\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:lessonMemo\",\"field\":\"lessonMemo\",\"text\":\"Synthetic fact for lessonMemo\",\"origin\":\"user_supplied\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:attendance\",\"field\":\"attendance\",\"text\":\"Synthetic fact for attendance\",\"origin\":\"user_supplied\",\"explicitValue\":\"N\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:dailyTestAssessment\",\"field\":\"dailyTestAssessment\",\"text\":\"Synthetic fact for dailyTestAssessment\",\"origin\":\"user_supplied\",\"explicitValue\":\"0\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:previousHomeworkAssessment\",\"field\":\"previousHomeworkAssessment\",\"text\":\"Synthetic fact for previousHomeworkAssessment\",\"origin\":\"user_supplied\",\"explicitValue\":\"0\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]}]},\"academyWrites\":0,\"parentSends\":0,\"automaticRetryAllowed\":false,\"sourceContentIsUntrustedData\":true,\"status\":\"ready_for_review\",\"observationHandle\":\"dailyrecord-observation:00000000-0000-4000-8000-000000000001\",\"observationPersistence\":\"process_local\",\"attribution\":null,\"fields\":[{\"field\":\"progress\",\"before\":{\"state\":\"known\",\"value\":\"- Existing progress\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"}},{\"field\":\"homework\",\"before\":{\"state\":\"known\",\"value\":\"- Existing homework\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"}},{\"field\":\"lessonMemo\",\"before\":{\"state\":\"known\",\"value\":\"- Existing notice\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"}},{\"field\":\"attendance\",\"before\":{\"state\":\"known\",\"value\":\"Y\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"}},{\"field\":\"dailyTestAssessment\",\"before\":{\"state\":\"known\",\"value\":\"8\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"}},{\"field\":\"previousHomeworkAssessment\",\"before\":{\"state\":\"known\",\"value\":\"4\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"selected\":true,\"disposition\":\"preserve_existing\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-14\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"previous-record\"}}],\"interviews\":[],\"blockers\":[],\"source\":{\"observedAt\":\"2040-01-16T09:00:00.000Z\",\"sourceRevision\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"wireDigest\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"transmissionState\":\"not_sent\"},\"toneSamples\":[],\"toneSelection\":\"hyphen_lines_only_other_formats_ignored\",\"sourceAvailability\":\"observed\",\"failure\":null,\"execution\":\"not_supported\"},\"review\":{\"workflowContext\":{\"schemaVersion\":\"academy.dailyrecord-workflow-context/1\",\"purpose\":\"Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.\",\"policyOwner\":\"Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md\",\"workflow\":[\"exact_owned_scope\",\"qualified_before_state\",\"missing_only_interview\",\"field_local_review\",\"separate_trusted_save_and_readback\"],\"rules\":[\"Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.\",\"Ask for today's student-specific memo unless today's content or no-addition answer is supplied.\",\"No additional memo does not mean erase an existing memo.\",\"Counts, rates and narratives never establish assessment or attendance codes.\",\"Previous homework assessment belongs to an independently identified previous lesson record.\",\"Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.\",\"CISM requires exact teacher, student, reporting period, report and relevant section.\",\"User context explains meaning; caller approval flags and source pins do not grant effect authority.\"],\"boundaries\":{\"academyWrites\":0,\"parentSends\":0,\"automaticRewrite\":false,\"automaticRetry\":false,\"credentialInput\":false,\"sourceTruthFromCaller\":false}},\"userContext\":{\"schemaVersion\":\"academy.dailyrecord-user-context/1\",\"purpose\":\"Synthetic independent pure review\",\"currentRequestRef\":\"synthetic-request\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"selectedFields\":[\"progress\",\"homework\",\"lessonMemo\",\"attendance\",\"dailyTestAssessment\",\"previousHomeworkAssessment\"],\"memoAnswer\":{\"kind\":\"content\",\"requestRef\":\"synthetic-request\",\"text\":\"Synthetic notice\"},\"facts\":[{\"ref\":\"fact:progress\",\"field\":\"progress\",\"text\":\"Synthetic fact for progress\",\"origin\":\"user_supplied\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:homework\",\"field\":\"homework\",\"text\":\"Synthetic fact for homework\",\"origin\":\"user_supplied\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:lessonMemo\",\"field\":\"lessonMemo\",\"text\":\"Synthetic fact for lessonMemo\",\"origin\":\"user_supplied\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:attendance\",\"field\":\"attendance\",\"text\":\"Synthetic fact for attendance\",\"origin\":\"user_supplied\",\"explicitValue\":\"N\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:dailyTestAssessment\",\"field\":\"dailyTestAssessment\",\"text\":\"Synthetic fact for dailyTestAssessment\",\"origin\":\"user_supplied\",\"explicitValue\":\"0\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]},{\"ref\":\"fact:previousHomeworkAssessment\",\"field\":\"previousHomeworkAssessment\",\"text\":\"Synthetic fact for previousHomeworkAssessment\",\"origin\":\"user_supplied\",\"explicitValue\":\"0\",\"requiredFragments\":[],\"questionCounts\":[],\"deadlines\":[],\"stageClaims\":[]}]},\"academyWrites\":0,\"parentSends\":0,\"automaticRetryAllowed\":false,\"sourceContentIsUntrustedData\":true,\"observationHandle\":\"dailyrecord-observation:00000000-0000-4000-8000-000000000001\",\"inputDigest\":\"3c000ebe8c431b020b6ec03e11b8ea87ba5ae38104c0b82a3e54efd843785dd7\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"requestRef\":\"synthetic-request\",\"userContextDigest\":\"f77042332bd07d1164da5c9356acc9a0039e9b1197b30a6ba15580c908b9b8de\",\"parentSafeguard\":{\"sourceRef\":\"synthetic-parent-policy\",\"policySha256\":\"3333333333333333333333333333333333333333333333333333333333333333\",\"safeguardSourceSha256\":\"4444444444444444444444444444444444444444444444444444444444444444\"},\"cismSource\":null,\"learningPolicy\":{\"bundleSha256\":\"5555555555555555555555555555555555555555555555555555555555555555\",\"configSha256\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"catalogSha256\":\"7777777777777777777777777777777777777777777777777777777777777777\"},\"sourceRevision\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"wireDigest\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"transmissionState\":\"not_sent\",\"rows\":[{\"field\":\"progress\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"},\"before\":{\"state\":\"known\",\"value\":\"- Existing progress\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"after\":\"- New mapped text\",\"factRefs\":[\"fact:progress\"],\"learningEntries\":null,\"learningSuggestedRendering\":null,\"learningSuggestionMeaning\":null,\"disposition\":\"blocked\",\"blockers\":[\"student_namespace_bridge_unverified_ask_teacher\"],\"missingFactFragments\":[],\"holdActions\":[{\"field\":\"progress\",\"code\":\"student_namespace_bridge_unverified_ask_teacher\",\"action\":\"teacher_interview\",\"guidance\":\"Ask the teacher for the exact edition/unit/section binding of this activity and record the answer as a scoped correction for this student, edition and activity only.\",\"correctionScope\":{\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"field\":\"progress\",\"learningEntries\":null,\"appliesTo\":\"this_student_edition_unit_activity_only\"}}],\"semanticFactReview\":\"teacher_review_required_not_proven_by_fragment_checks\"},{\"field\":\"attendance\",\"target\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\",\"courseId\":\"course-fictional\",\"membershipId\":\"membership-fictional\",\"recordId\":\"current-record\"},\"before\":{\"state\":\"known\",\"value\":\"Y\",\"evidenceRefs\":[\"synthetic:recorded\"]},\"after\":\"N\",\"factRefs\":[\"fact:attendance\"],\"learningEntries\":null,\"learningSuggestedRendering\":null,\"learningSuggestionMeaning\":null,\"disposition\":\"proposed\",\"blockers\":[],\"missingFactFragments\":[],\"holdActions\":[],\"semanticFactReview\":\"teacher_review_required_not_proven_by_fragment_checks\"}],\"patch\":[],\"status\":\"held\",\"interviews\":[],\"reviewDigest\":\"bb7ba36c5b478ed1a584e538233ce285ad555db8fa86879606a8ad7889a4b2cd\",\"reviewRecord\":null,\"execution\":\"not_supported\",\"saveAdmission\":\"separate_trusted_native_owner_required\"}}},\"events\":[{\"event\":\"recorded_read\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"requestRef\":\"synthetic-request\"},{\"event\":\"recorded_read\",\"scope\":{\"sourceNamespace\":\"synthetic-account\",\"teacherId\":\"teacher-fictional\",\"studentId\":\"student-fictional\",\"lessonDate\":\"2040-01-16\"},\"requestRef\":\"synthetic-request\"},{\"event\":\"fake_learning_review\",\"value\":\"- New mapped text\",\"entries\":null}],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "value_shape_order_or_bytes"
+    }
+  },
+  {
+    "id": "event-order",
+    "actual": {
+      "command": [
+        "node",
+        "-e",
+        "process.stdout.write(JSON.stringify(JSON.parse(require(\"node:fs\").readFileSync(0,\"utf8\")))+\"\\n\")"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"status\":\"persisted\",\"action\":{\"attemptId\":\"synthetic-attempt\",\"target\":{\"studentName\":\"Fictional Student\",\"date\":\"2040-01-16\",\"groupId\":\"90001\",\"teacherKey\":\"90002\",\"studentKey\":\"90003\",\"courseKey\":\"90004\",\"recordKey\":\"90005\",\"membershipKey\":\"90006\"},\"field\":\"previousHomeworkAssessment\",\"effectRecordKey\":\"90007\",\"before\":\"4\",\"after\":\"0\",\"wireDigest\":\"2222222222222222222222222222222222222222222222222222222222222222\"},\"before\":{\"target\":{\"studentName\":\"Fictional Student\",\"date\":\"2040-01-16\",\"groupId\":\"90001\",\"teacherKey\":\"90002\",\"studentKey\":\"90003\",\"courseKey\":\"90004\",\"recordKey\":\"90005\",\"membershipKey\":\"90006\"},\"fields\":{\"progress\":\"old\",\"homework\":\"old\",\"lessonMemo\":\"old\",\"attendance\":\"Y\",\"dailyTestAssessment\":\"8\",\"previousHomeworkAssessment\":\"4\"},\"previousRecordKey\":\"90007\",\"previousDate\":\"2040-01-14\",\"wireDigest\":\"2222222222222222222222222222222222222222222222222222222222222222\"},\"after\":{\"target\":{\"studentName\":\"Fictional Student\",\"date\":\"2040-01-16\",\"groupId\":\"90001\",\"teacherKey\":\"90002\",\"studentKey\":\"90003\",\"courseKey\":\"90004\",\"recordKey\":\"90005\",\"membershipKey\":\"90006\"},\"fields\":{\"progress\":\"old\",\"homework\":\"old\",\"lessonMemo\":\"old\",\"attendance\":\"Y\",\"dailyTestAssessment\":\"8\",\"previousHomeworkAssessment\":\"0\"},\"previousRecordKey\":\"90007\",\"previousDate\":\"2040-01-14\",\"wireDigest\":\"2222222222222222222222222222222222222222222222222222222222222222\"},\"transport\":\"returned\",\"parentSends\":0,\"automaticRetryAllowed\":false}},\"events\":[{\"event\":\"fake_read\",\"target\":{\"studentName\":\"Fictional Student\",\"date\":\"2040-01-16\",\"groupId\":\"90001\",\"teacherKey\":\"90002\",\"studentKey\":\"90003\",\"courseKey\":\"90004\",\"recordKey\":\"90005\",\"membershipKey\":\"90006\"}},{\"event\":\"fake_write\",\"action\":{\"attemptId\":\"synthetic-attempt\",\"target\":{\"studentName\":\"Fictional Student\",\"date\":\"2040-01-16\",\"groupId\":\"90001\",\"teacherKey\":\"90002\",\"studentKey\":\"90003\",\"courseKey\":\"90004\",\"recordKey\":\"90005\",\"membershipKey\":\"90006\"},\"field\":\"previousHomeworkAssessment\",\"effectRecordKey\":\"90007\",\"before\":\"4\",\"after\":\"0\",\"wireDigest\":\"2222222222222222222222222222222222222222222222222222222222222222\"}},{\"event\":\"fake_approval\",\"action\":{\"attemptId\":\"synthetic-attempt\",\"target\":{\"studentName\":\"Fictional Student\",\"date\":\"2040-01-16\",\"groupId\":\"90001\",\"teacherKey\":\"90002\",\"studentKey\":\"90003\",\"courseKey\":\"90004\",\"recordKey\":\"90005\",\"membershipKey\":\"90006\"},\"field\":\"previousHomeworkAssessment\",\"effectRecordKey\":\"90007\",\"before\":\"4\",\"after\":\"0\",\"wireDigest\":\"2222222222222222222222222222222222222222222222222222222222222222\"}},{\"event\":\"fake_read\",\"target\":{\"studentName\":\"Fictional Student\",\"date\":\"2040-01-16\",\"groupId\":\"90001\",\"teacherKey\":\"90002\",\"studentKey\":\"90003\",\"courseKey\":\"90004\",\"recordKey\":\"90005\",\"membershipKey\":\"90006\"}}],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "value_shape_order_or_bytes"
+    }
+  },
+  {
+    "id": "protocol-whitespace",
+    "actual": {
+      "command": [
+        "node",
+        "-e",
+        "process.stdout.write(\" \"+require(\"node:fs\").readFileSync(0,\"utf8\"))"
+      ],
+      "cwd": "/tmp/s08-pure-WuozGl",
+      "status": 0,
+      "signal": null,
+      "spawnError": null,
+      "stdout": " {\"outcome\":{\"kind\":\"return\",\"value\":4},\"events\":[],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0}}\n",
+      "stderr": ""
+    },
+    "comparison": {
+      "accepted": false,
+      "reason": "stdout_framing"
+    }
+  }
+]

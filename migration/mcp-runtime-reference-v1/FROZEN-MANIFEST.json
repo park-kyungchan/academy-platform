@@ -1,0 +1,2287 @@
+{
+  "schema": "s11.independent-original-freeze/1",
+  "frozenAt": "2026-11-03T02:35:31.139371+00:00",
+  "beforeAnyRustCandidate": true,
+  "modes": {
+    "inventory": {
+      "nativeRoot": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-inventory",
+      "observations": 1,
+      "originalPinsSha256": "3a32e11344758d0f2f8d4e734f32237232da78f55686646621cfb91cd4dde6b8",
+      "processes": 1,
+      "note": "full original file/process/network syscall traces and effect files remain at nativeRoot; all raw Bun channels copied here"
+    },
+    "discovery": {
+      "nativeRoot": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-discovery",
+      "observations": 8,
+      "originalPinsSha256": "3a32e11344758d0f2f8d4e734f32237232da78f55686646621cfb91cd4dde6b8",
+      "processes": 7,
+      "note": "full original file/process/network syscall traces and effect files remain at nativeRoot; all raw Bun channels copied here"
+    },
+    "protocol": {
+      "nativeRoot": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-protocol",
+      "observations": 13,
+      "originalPinsSha256": "3a32e11344758d0f2f8d4e734f32237232da78f55686646621cfb91cd4dde6b8",
+      "processes": 9,
+      "note": "full original file/process/network syscall traces and effect files remain at nativeRoot; all raw Bun channels copied here"
+    },
+    "composition": {
+      "nativeRoot": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-composition",
+      "observations": 7,
+      "originalPinsSha256": "3a32e11344758d0f2f8d4e734f32237232da78f55686646621cfb91cd4dde6b8",
+      "processes": 11,
+      "note": "full original file/process/network syscall traces and effect files remain at nativeRoot; all raw Bun channels copied here"
+    },
+    "graph": {
+      "nativeRoot": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-graph",
+      "observations": 8,
+      "originalPinsSha256": "3a32e11344758d0f2f8d4e734f32237232da78f55686646621cfb91cd4dde6b8",
+      "processes": 6,
+      "note": "full original file/process/network syscall traces and effect files remain at nativeRoot; all raw Bun channels copied here"
+    },
+    "identity": {
+      "nativeRoot": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-identity",
+      "observations": 5,
+      "originalPinsSha256": "3a32e11344758d0f2f8d4e734f32237232da78f55686646621cfb91cd4dde6b8",
+      "processes": 5,
+      "note": "full original file/process/network syscall traces and effect files remain at nativeRoot; all raw Bun channels copied here"
+    },
+    "framing": {
+      "nativeRoot": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-framing",
+      "observations": 3,
+      "originalPinsSha256": "3a32e11344758d0f2f8d4e734f32237232da78f55686646621cfb91cd4dde6b8",
+      "processes": 3,
+      "note": "full original file/process/network syscall traces and effect files remain at nativeRoot; all raw Bun channels copied here"
+    },
+    "bounds": {
+      "nativeRoot": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-bounds",
+      "observations": 7,
+      "originalPinsSha256": "3a32e11344758d0f2f8d4e734f32237232da78f55686646621cfb91cd4dde6b8",
+      "processes": 6,
+      "note": "full original file/process/network syscall traces and effect files remain at nativeRoot; all raw Bun channels copied here"
+    },
+    "launcher": {
+      "nativeRoot": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-launcher",
+      "observations": 2,
+      "originalPinsSha256": "3a32e11344758d0f2f8d4e734f32237232da78f55686646621cfb91cd4dde6b8",
+      "processes": 3,
+      "note": "full original file/process/network syscall traces and effect files remain at nativeRoot; all raw Bun channels copied here"
+    },
+    "relocation": {
+      "nativeRoot": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-relocation",
+      "observations": 2,
+      "originalPinsSha256": "3a32e11344758d0f2f8d4e734f32237232da78f55686646621cfb91cd4dde6b8",
+      "processes": 3,
+      "note": "full original file/process/network syscall traces and effect files remain at nativeRoot; all raw Bun channels copied here"
+    }
+  },
+  "files": {
+    "frozen/bounds/COMPLETE.json": {
+      "bytes": 214,
+      "sha256": "d7401433286ff43c70ddaa71d1b4e448f9af67d6b104e2200107302baf5416ff"
+    },
+    "frozen/bounds/OBSERVER-PINS.json": {
+      "bytes": 937,
+      "sha256": "5e8a6f176095596079a5d5cff82199d181e7b2e17c561101c4667a334624084f"
+    },
+    "frozen/bounds/SOURCE-MIRROR.json": {
+      "bytes": 25832,
+      "sha256": "da99ffd85ce7615a5064ad600e5a7bad7940b94d67841cb2a9678eaf95257b7d"
+    },
+    "frozen/bounds/commands/discover/RESULT.json": {
+      "bytes": 890,
+      "sha256": "7c8f4bc16c1c990d0221035f9c1e9fe1fcb0c90c8a1b286cf48bde1747e558ad"
+    },
+    "frozen/bounds/commands/discover/START.json": {
+      "bytes": 1629,
+      "sha256": "5c8e6c3cd545c19bd4f7afbe8db473f7cf3c5c2439e7fd3789e154b621a793d5"
+    },
+    "frozen/bounds/commands/discover/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/bounds/commands/discover/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/bounds/commands/discover/stdout.bin": {
+      "bytes": 174,
+      "sha256": "e41ec6c1caa4975c6c7dbacac478c2e2e3e589a819e2b7404b4aa878902f7261"
+    },
+    "frozen/bounds/commands/lock-release-readback/RESULT.json": {
+      "bytes": 932,
+      "sha256": "08e706dd85f369871f9ac0b37aa7530ededd5fdab93ebe0d6f8ab56afe4eb15c"
+    },
+    "frozen/bounds/commands/lock-release-readback/START.json": {
+      "bytes": 1214,
+      "sha256": "084d77db9ce9591872545b0b93cc67464acb71a6a9bf12360de7ba723b55526d"
+    },
+    "frozen/bounds/commands/lock-release-readback/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/bounds/commands/lock-release-readback/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/bounds/commands/lock-release-readback/stdout.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/bounds/commands/neutral/RESULT.json": {
+      "bytes": 1106,
+      "sha256": "5fcdc7ec17e1436724fcfa87f4c565004f1f9f1a62a8de8bc605d3abbe97753f"
+    },
+    "frozen/bounds/commands/neutral/START.json": {
+      "bytes": 1592,
+      "sha256": "99ba91963e31d71b9980cbdca1a0d674a51815f7dad60d42d35d64619e4d2f42"
+    },
+    "frozen/bounds/commands/neutral/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/bounds/commands/neutral/stdin.bin": {
+      "bytes": 852,
+      "sha256": "f6120266e50977bcbb36178a0e0f4f5a19c265a7996ae4120da2ca9b4234136c"
+    },
+    "frozen/bounds/commands/neutral/stdout.bin": {
+      "bytes": 1209562,
+      "sha256": "48827b276ba5ec411333471f4f3470b42794efd8e0768892657605e46059b8f2"
+    },
+    "frozen/bounds/expected.json": {
+      "bytes": 1213660,
+      "sha256": "4bc8c254f1b1701533b4b0403416f0e2977dce9c5b9f8233a4548c474c6c8dd3"
+    },
+    "frozen/bounds/observations.json": {
+      "bytes": 1213738,
+      "sha256": "1acbdba45bdd241c812ec99e0f74b7afad228c83af2dca88b33af6417ab23fdd"
+    },
+    "frozen/bounds/processes/3295721/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/bounds/processes/3295721/EXIT.json": {
+      "bytes": 43,
+      "sha256": "79f257b1cde5ae072f5915c715936707177b571828fa6287f434f54b9714fb09"
+    },
+    "frozen/bounds/processes/3295721/START.json": {
+      "bytes": 429,
+      "sha256": "e224497c2b5f48125a425a6c8ad934e698b862210744f5f239d28e1fc7e2b9f2"
+    },
+    "frozen/bounds/processes/3295721/loads.ndjson": {
+      "bytes": 278,
+      "sha256": "2bfc1e82d7a4e96817a6ca2d6c60dd81fb4616030b2276df7d4d80e3152c66e5"
+    },
+    "frozen/bounds/processes/3295721/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/bounds/processes/3295721/stdin.bin": {
+      "bytes": 852,
+      "sha256": "f6120266e50977bcbb36178a0e0f4f5a19c265a7996ae4120da2ca9b4234136c"
+    },
+    "frozen/bounds/processes/3295721/stdout.bin": {
+      "bytes": 1209562,
+      "sha256": "48827b276ba5ec411333471f4f3470b42794efd8e0768892657605e46059b8f2"
+    },
+    "frozen/bounds/processes/3295744/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/bounds/processes/3295744/EXIT.json": {
+      "bytes": 43,
+      "sha256": "63567b318b6d3e7970f5bd50f017522466a5f44d9a693461cc7e1f446674bdb8"
+    },
+    "frozen/bounds/processes/3295744/START.json": {
+      "bytes": 391,
+      "sha256": "dd748c6cff35549011cdc5ab267f6e30f0ae6d91f3e31904117a43eee841e464"
+    },
+    "frozen/bounds/processes/3295744/loads.ndjson": {
+      "bytes": 238,
+      "sha256": "20eead204fed82349a87fc881541076a8c14a1b97c38644e7f7384c1d31f76b4"
+    },
+    "frozen/bounds/processes/3295744/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/bounds/processes/3295744/stdin.bin": {
+      "bytes": 280,
+      "sha256": "d0f1c32fa85d30266ce9257937efab07c9b1eab15222deca45ec176a08825aaf"
+    },
+    "frozen/bounds/processes/3295744/stdout.bin": {
+      "bytes": 1508,
+      "sha256": "cd0526887a949ee6e5179f67ab1b30c58941f01b8aee2a6228b725570f354978"
+    },
+    "frozen/bounds/processes/3295769/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/bounds/processes/3295769/START.json": {
+      "bytes": 416,
+      "sha256": "11c106bcb609224ad0bb9ee63ed2f75b112091eeffef324090288d2b2c39b8aa"
+    },
+    "frozen/bounds/processes/3295769/loads.ndjson": {
+      "bytes": 278,
+      "sha256": "2bfc1e82d7a4e96817a6ca2d6c60dd81fb4616030b2276df7d4d80e3152c66e5"
+    },
+    "frozen/bounds/processes/3295769/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/bounds/processes/3295769/stdin.bin": {
+      "bytes": 852,
+      "sha256": "f6120266e50977bcbb36178a0e0f4f5a19c265a7996ae4120da2ca9b4234136c"
+    },
+    "frozen/bounds/processes/3295769/stdout.bin": {
+      "bytes": 1209562,
+      "sha256": "48827b276ba5ec411333471f4f3470b42794efd8e0768892657605e46059b8f2"
+    },
+    "frozen/bounds/processes/3295797/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/bounds/processes/3295797/EXIT.json": {
+      "bytes": 43,
+      "sha256": "736f1535acf823a9023bc09a4103bb0ef7b4f2a7ee31d8dec2f26f35cfd3f30e"
+    },
+    "frozen/bounds/processes/3295797/START.json": {
+      "bytes": 391,
+      "sha256": "dfd22d651d8e814aa77a394ee59b218c5f94645cfab9710dcae74b981dbf6853"
+    },
+    "frozen/bounds/processes/3295797/loads.ndjson": {
+      "bytes": 238,
+      "sha256": "20eead204fed82349a87fc881541076a8c14a1b97c38644e7f7384c1d31f76b4"
+    },
+    "frozen/bounds/processes/3295797/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/bounds/processes/3295797/stdin.bin": {
+      "bytes": 397,
+      "sha256": "370921454ebae8540da3c5c5df9628d706be5a86367a003ec21b41b766d6a0e8"
+    },
+    "frozen/bounds/processes/3295797/stdout.bin": {
+      "bytes": 1839,
+      "sha256": "b4cb145673b15c39d3d54810cdc167d5b71aeb73a2fcc43bf89da2bde3c6b891"
+    },
+    "frozen/bounds/processes/3295807/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/bounds/processes/3295807/EXIT.json": {
+      "bytes": 43,
+      "sha256": "589a53f9cbdb7969db9fa10f19cafc6c22739d91466e826be320095264d2b903"
+    },
+    "frozen/bounds/processes/3295807/START.json": {
+      "bytes": 391,
+      "sha256": "528be2316605ed6f946f2d3b6e132627bfd521d0c11c47d85080096399b97825"
+    },
+    "frozen/bounds/processes/3295807/loads.ndjson": {
+      "bytes": 238,
+      "sha256": "20eead204fed82349a87fc881541076a8c14a1b97c38644e7f7384c1d31f76b4"
+    },
+    "frozen/bounds/processes/3295807/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/bounds/processes/3295807/stdin.bin": {
+      "bytes": 384,
+      "sha256": "4ee4c85b6d29db4f4bd8d673195c93ac23f84522a6ce62c519a33e33cfdda470"
+    },
+    "frozen/bounds/processes/3295807/stdout.bin": {
+      "bytes": 1201683,
+      "sha256": "52e7e49e6f20d8f427d72154e5da6cee5ee08ad91e66665165946f2d28b7efea"
+    },
+    "frozen/bounds/processes/3295817/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/bounds/processes/3295817/START.json": {
+      "bytes": 391,
+      "sha256": "5d36fe9dcf0c605af7d2820a5a8bb436563125ef3870b917f9fabe8cd0947a4f"
+    },
+    "frozen/bounds/processes/3295817/loads.ndjson": {
+      "bytes": 238,
+      "sha256": "20eead204fed82349a87fc881541076a8c14a1b97c38644e7f7384c1d31f76b4"
+    },
+    "frozen/bounds/processes/3295817/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/bounds/processes/3295817/stdin.bin": {
+      "bytes": 772,
+      "sha256": "dcd321f927eb238741415de156a872a1b5a999b144569980f8c35fbb6766dfe6"
+    },
+    "frozen/bounds/processes/3295817/stdout.bin": {
+      "bytes": 1508,
+      "sha256": "cd0526887a949ee6e5179f67ab1b30c58941f01b8aee2a6228b725570f354978"
+    },
+    "frozen/bounds/registry.json": {
+      "bytes": 5871,
+      "sha256": "af0d355df62e706f0afb0f74a985f5b6a44a1a7879476f09e2c44f036a9ea06a"
+    },
+    "frozen/composition/COMPLETE.json": {
+      "bytes": 219,
+      "sha256": "fe2d87758bedbd748d6db1245ebf0f2ef3aab0ab1e4dcd481752e36451cf78b5"
+    },
+    "frozen/composition/OBSERVER-PINS.json": {
+      "bytes": 957,
+      "sha256": "463ea8593e03f2065a12fa3886f3031613bccf5569f3d9aa975297aa59f584bb"
+    },
+    "frozen/composition/SOURCE-MIRROR.json": {
+      "bytes": 26087,
+      "sha256": "7488a957ece9401b683075c0c1af77aff24f7c9303694404c6d049411cf5e802"
+    },
+    "frozen/composition/commands/discover/RESULT.json": {
+      "bytes": 906,
+      "sha256": "49dcedefbd38672a33ed01b8e2e0cf9bd9bddbf30024636bc003b7939f976b19"
+    },
+    "frozen/composition/commands/discover/START.json": {
+      "bytes": 1659,
+      "sha256": "e5ddc3d26dbddaa9bf3b291687b5b571e9ed506a906db22a54f031c00cb14a85"
+    },
+    "frozen/composition/commands/discover/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/commands/discover/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/commands/discover/stdout.bin": {
+      "bytes": 926,
+      "sha256": "3bf466ba6c0150c13f36bc81ca420fe53194f28ecf0c9ef66fdcee22588ddb64"
+    },
+    "frozen/composition/commands/neutral/RESULT.json": {
+      "bytes": 901,
+      "sha256": "d17cbaa99882f7f97b446ad8ff38372e2e7048a513370fc86561fb53fabbaca3"
+    },
+    "frozen/composition/commands/neutral/START.json": {
+      "bytes": 1622,
+      "sha256": "6798e127549883e681fe394bc1cda5c910ffd0c1a9657a8d5c997c08be33af7f"
+    },
+    "frozen/composition/commands/neutral/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/commands/neutral/stdin.bin": {
+      "bytes": 1534,
+      "sha256": "0c6a766914482ce4d7964d93710b44bf0373a1e10d8ff59fbe97b93f760f6d57"
+    },
+    "frozen/composition/commands/neutral/stdout.bin": {
+      "bytes": 112374,
+      "sha256": "929e9884712358cd7b8ae0fd76a9e458345d8e4f6cc16bdf955e2f9c955b74a0"
+    },
+    "frozen/composition/expected.json": {
+      "bytes": 254487,
+      "sha256": "f719713cbcbed97185c2bcc9dcffb4d1d26f85d425b012eb021bde07505a3e09"
+    },
+    "frozen/composition/observations.json": {
+      "bytes": 254672,
+      "sha256": "64ed63f0635a2a29e5ae9158fb3baad7d68ce12db4c6156bbc5f8a97891e9333"
+    },
+    "frozen/composition/processes/3294606/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/composition/processes/3294606/EXIT.json": {
+      "bytes": 43,
+      "sha256": "8c834dfc900a614455fa0a85e729a8df3df880dfbec6122901e2e9af23a06493"
+    },
+    "frozen/composition/processes/3294606/START.json": {
+      "bytes": 439,
+      "sha256": "4959c946662dcdfec05db83cf4705dea784d09399ca3abbb544a2a9216f7c34e"
+    },
+    "frozen/composition/processes/3294606/loads.ndjson": {
+      "bytes": 283,
+      "sha256": "424937141c291fe4c91bfc6028d89d75607bcb5f94eef1c96d24d65d4fce833c"
+    },
+    "frozen/composition/processes/3294606/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/processes/3294606/stdin.bin": {
+      "bytes": 1534,
+      "sha256": "0c6a766914482ce4d7964d93710b44bf0373a1e10d8ff59fbe97b93f760f6d57"
+    },
+    "frozen/composition/processes/3294606/stdout.bin": {
+      "bytes": 112374,
+      "sha256": "929e9884712358cd7b8ae0fd76a9e458345d8e4f6cc16bdf955e2f9c955b74a0"
+    },
+    "frozen/composition/processes/3294618/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/composition/processes/3294618/EXIT.json": {
+      "bytes": 43,
+      "sha256": "f9f54e5d9247b40234952cf038691f47a6db59a1ccfd39e5857cf9d50fa7d0c1"
+    },
+    "frozen/composition/processes/3294618/START.json": {
+      "bytes": 545,
+      "sha256": "f3222f2676f93dcc382acc378f56342efe2709ab2f9715790be0f1ae45707411"
+    },
+    "frozen/composition/processes/3294618/loads.ndjson": {
+      "bytes": 294,
+      "sha256": "4cba1dab170c90e45d590e4da6f2701598bad6f6dcdaddb55d0bab9027a34797"
+    },
+    "frozen/composition/processes/3294618/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/processes/3294618/stdin.bin": {
+      "bytes": 280,
+      "sha256": "d0f1c32fa85d30266ce9257937efab07c9b1eab15222deca45ec176a08825aaf"
+    },
+    "frozen/composition/processes/3294618/stdout.bin": {
+      "bytes": 66632,
+      "sha256": "86f5129623a9bf52678cacfbe92db1cb31755e96870f7c15a554a2de018e514a"
+    },
+    "frozen/composition/processes/3294682/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/composition/processes/3294682/EXIT.json": {
+      "bytes": 43,
+      "sha256": "1df6b37ac53a2325c018c2fa6869b304b6b426d48086673177a86452a0f69868"
+    },
+    "frozen/composition/processes/3294682/START.json": {
+      "bytes": 435,
+      "sha256": "e2229404bd5704041194e04c9d9a5b23983c2a59cd5e7182f32ac325d30480bf"
+    },
+    "frozen/composition/processes/3294682/loads.ndjson": {
+      "bytes": 290,
+      "sha256": "65394f7d695ee50fa3974173c45f4f4dae0e87591f6e04eae7e716b177671e8f"
+    },
+    "frozen/composition/processes/3294682/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/processes/3294682/stdin.bin": {
+      "bytes": 280,
+      "sha256": "d0f1c32fa85d30266ce9257937efab07c9b1eab15222deca45ec176a08825aaf"
+    },
+    "frozen/composition/processes/3294682/stdout.bin": {
+      "bytes": 80644,
+      "sha256": "f931639da640044ad160fc4fcf8805b15bb4bca587fde93d25c203428aea8a79"
+    },
+    "frozen/composition/processes/3294711/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/composition/processes/3294711/EXIT.json": {
+      "bytes": 43,
+      "sha256": "d6e873582006c4fd65d1de104d47a28ef9e8dead5997b5ecc81e7ea235c60726"
+    },
+    "frozen/composition/processes/3294711/START.json": {
+      "bytes": 549,
+      "sha256": "5a1169735654a1e70a3b67e6f9a8a3874223eddb04a3cc1547060854883172e4"
+    },
+    "frozen/composition/processes/3294711/loads.ndjson": {
+      "bytes": 298,
+      "sha256": "9b8658e49d51a766255f3b28ef85d45c00b99bffdbd5bf725b5ed49916b82b9b"
+    },
+    "frozen/composition/processes/3294711/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/processes/3294711/stdin.bin": {
+      "bytes": 280,
+      "sha256": "d0f1c32fa85d30266ce9257937efab07c9b1eab15222deca45ec176a08825aaf"
+    },
+    "frozen/composition/processes/3294711/stdout.bin": {
+      "bytes": 514,
+      "sha256": "43b9051d3da345c214702e685494211ae37ff940ae41abdb1b288f19facec73c"
+    },
+    "frozen/composition/processes/3294739/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/composition/processes/3294739/EXIT.json": {
+      "bytes": 43,
+      "sha256": "190897ef4b1a877f52c8516718a5ced97e3e3d1d3cd6210d81f0feed03d7f12f"
+    },
+    "frozen/composition/processes/3294739/START.json": {
+      "bytes": 549,
+      "sha256": "004b695e512a83b26427888ebc83a1215fddbf60456a19c3b11ecfbde6fc8dfc"
+    },
+    "frozen/composition/processes/3294739/loads.ndjson": {
+      "bytes": 298,
+      "sha256": "9b8658e49d51a766255f3b28ef85d45c00b99bffdbd5bf725b5ed49916b82b9b"
+    },
+    "frozen/composition/processes/3294739/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/processes/3294739/stdin.bin": {
+      "bytes": 280,
+      "sha256": "d0f1c32fa85d30266ce9257937efab07c9b1eab15222deca45ec176a08825aaf"
+    },
+    "frozen/composition/processes/3294739/stdout.bin": {
+      "bytes": 514,
+      "sha256": "43b9051d3da345c214702e685494211ae37ff940ae41abdb1b288f19facec73c"
+    },
+    "frozen/composition/processes/3294773/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/composition/processes/3294773/EXIT.json": {
+      "bytes": 43,
+      "sha256": "6c710c251f54f1905df89004afac7f0a150c8aeddefa4214fd31defb3d6806f6"
+    },
+    "frozen/composition/processes/3294773/START.json": {
+      "bytes": 426,
+      "sha256": "ba6fd7e2506b32044e9a99a414b9318358069d3d7838d860dba7cfa51d98fa70"
+    },
+    "frozen/composition/processes/3294773/loads.ndjson": {
+      "bytes": 283,
+      "sha256": "424937141c291fe4c91bfc6028d89d75607bcb5f94eef1c96d24d65d4fce833c"
+    },
+    "frozen/composition/processes/3294773/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/processes/3294773/stdin.bin": {
+      "bytes": 1534,
+      "sha256": "0c6a766914482ce4d7964d93710b44bf0373a1e10d8ff59fbe97b93f760f6d57"
+    },
+    "frozen/composition/processes/3294773/stdout.bin": {
+      "bytes": 112374,
+      "sha256": "929e9884712358cd7b8ae0fd76a9e458345d8e4f6cc16bdf955e2f9c955b74a0"
+    },
+    "frozen/composition/processes/3294800/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/composition/processes/3294800/EXIT.json": {
+      "bytes": 43,
+      "sha256": "2ee11e1615f3183033bcbe6ad3ab5539bd1153edbf32af646c9cb877ca7befa5"
+    },
+    "frozen/composition/processes/3294800/START.json": {
+      "bytes": 545,
+      "sha256": "b000e46fed9e04d2e639fa784210e878398c6a30cd100df05704b62893c7dc93"
+    },
+    "frozen/composition/processes/3294800/loads.ndjson": {
+      "bytes": 294,
+      "sha256": "4cba1dab170c90e45d590e4da6f2701598bad6f6dcdaddb55d0bab9027a34797"
+    },
+    "frozen/composition/processes/3294800/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/processes/3294800/stdin.bin": {
+      "bytes": 577,
+      "sha256": "93c883583e0a48fab159861311a13671f10506d044a767ae6e8c644f15d6728b"
+    },
+    "frozen/composition/processes/3294800/stdout.bin": {
+      "bytes": 69105,
+      "sha256": "45b14189cc1f1446b252fe7de3325a877e73569912161249fd0ef4fc6d2f6851"
+    },
+    "frozen/composition/processes/3294834/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/composition/processes/3294834/EXIT.json": {
+      "bytes": 43,
+      "sha256": "8cfe1d061d8508458425407ba874fefabe9dc9773839902c193d3182b8e3c258"
+    },
+    "frozen/composition/processes/3294834/START.json": {
+      "bytes": 549,
+      "sha256": "e354c5c0a2c36e1e5439ea9375054507cc95c2b206045ecb09a0735bf9f9e75c"
+    },
+    "frozen/composition/processes/3294834/loads.ndjson": {
+      "bytes": 298,
+      "sha256": "9b8658e49d51a766255f3b28ef85d45c00b99bffdbd5bf725b5ed49916b82b9b"
+    },
+    "frozen/composition/processes/3294834/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/processes/3294834/stdin.bin": {
+      "bytes": 425,
+      "sha256": "cdd7447be8a9fb983207688cbc797b840a62b291dad6c9b3009cf8dea8825505"
+    },
+    "frozen/composition/processes/3294834/stdout.bin": {
+      "bytes": 1575,
+      "sha256": "03b841d7ed5dc5b66e95b65015a40703e65b09d844ee27a34ceeef29e39fef3f"
+    },
+    "frozen/composition/processes/3294871/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/composition/processes/3294871/EXIT.json": {
+      "bytes": 43,
+      "sha256": "0f8e15b1c5356ee64ab9436fcd8e1ceaf063923dc3b931d77bfde3818ce3c81c"
+    },
+    "frozen/composition/processes/3294871/START.json": {
+      "bytes": 545,
+      "sha256": "582693164cfe6ab81157f8c0d6e338373325129c7b5fc938147512011cc4622a"
+    },
+    "frozen/composition/processes/3294871/loads.ndjson": {
+      "bytes": 294,
+      "sha256": "4cba1dab170c90e45d590e4da6f2701598bad6f6dcdaddb55d0bab9027a34797"
+    },
+    "frozen/composition/processes/3294871/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/processes/3294871/stdin.bin": {
+      "bytes": 577,
+      "sha256": "93c883583e0a48fab159861311a13671f10506d044a767ae6e8c644f15d6728b"
+    },
+    "frozen/composition/processes/3294871/stdout.bin": {
+      "bytes": 67921,
+      "sha256": "ae2539691bcbc484797e0c33f9495e09cc13e56c1ca6d849ee373fefb00b45b8"
+    },
+    "frozen/composition/processes/3294889/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/composition/processes/3294889/EXIT.json": {
+      "bytes": 43,
+      "sha256": "b91aaa1ea55b734e52f17a20355ba17add931496613042df47681b8e2deac34e"
+    },
+    "frozen/composition/processes/3294889/START.json": {
+      "bytes": 545,
+      "sha256": "2586790b4b867911e657535ddc9f1a749ae5079376eacf354e46484ddc9b7f4b"
+    },
+    "frozen/composition/processes/3294889/loads.ndjson": {
+      "bytes": 294,
+      "sha256": "4cba1dab170c90e45d590e4da6f2701598bad6f6dcdaddb55d0bab9027a34797"
+    },
+    "frozen/composition/processes/3294889/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/processes/3294889/stdin.bin": {
+      "bytes": 577,
+      "sha256": "93c883583e0a48fab159861311a13671f10506d044a767ae6e8c644f15d6728b"
+    },
+    "frozen/composition/processes/3294889/stdout.bin": {
+      "bytes": 67977,
+      "sha256": "62a34e9f21a49f33a0bb8d350399aac944667edf33d7a05faa84fa544563173a"
+    },
+    "frozen/composition/processes/3294916/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/composition/processes/3294916/EXIT.json": {
+      "bytes": 43,
+      "sha256": "b01d988778fb79c7979116f079000c6b3edae99ab0e9359cb5938c19fdfd9fcc"
+    },
+    "frozen/composition/processes/3294916/START.json": {
+      "bytes": 549,
+      "sha256": "e0f202382defe34c888720666a154a51e82211eb0c34978cb288f96fbf06b02c"
+    },
+    "frozen/composition/processes/3294916/loads.ndjson": {
+      "bytes": 298,
+      "sha256": "9b8658e49d51a766255f3b28ef85d45c00b99bffdbd5bf725b5ed49916b82b9b"
+    },
+    "frozen/composition/processes/3294916/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/composition/processes/3294916/stdin.bin": {
+      "bytes": 425,
+      "sha256": "26faa9abb2a6e6d9bf30ac12d081e52a4c26239035246e40b9c3034f3ceba4f1"
+    },
+    "frozen/composition/processes/3294916/stdout.bin": {
+      "bytes": 629,
+      "sha256": "526ff8931686214ea2a4f1766f51c6c6c07b5bc5a13188836c378700befc8607"
+    },
+    "frozen/composition/registry.json": {
+      "bytes": 204384,
+      "sha256": "918e4b70aeb016a683e4286d9e0aa09576fd167a867fffb0e3ba0c2a7b460631"
+    },
+    "frozen/discovery/COMPLETE.json": {
+      "bytes": 217,
+      "sha256": "ab623a6e8eda8604f374fbf0ebd5994e8bf6158016bbd7543facddd9975cee53"
+    },
+    "frozen/discovery/OBSERVER-PINS.json": {
+      "bytes": 949,
+      "sha256": "a35d6e8dc46b97324a4692216b9823016ad4c8295d41d0eaff5688d19e499ecb"
+    },
+    "frozen/discovery/SOURCE-MIRROR.json": {
+      "bytes": 25985,
+      "sha256": "2b8f36356a90f510e429834080fb6d60da521e77d44bfffabef8470f923a6052"
+    },
+    "frozen/discovery/commands/dailyrecord-source/RESULT.json": {
+      "bytes": 930,
+      "sha256": "3498bbca37f15b3aeff52a8ede47077da66e341173f6d69290250d5a8948259b"
+    },
+    "frozen/discovery/commands/dailyrecord-source/START.json": {
+      "bytes": 1629,
+      "sha256": "435aea345abe62e42d7b20ad85c29bf24cf791a1ca3733bfaf056f4c65e4ada0"
+    },
+    "frozen/discovery/commands/dailyrecord-source/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/discovery/commands/dailyrecord-source/stdin.bin": {
+      "bytes": 990,
+      "sha256": "3be64de28cd931bc74a3aa376fce043453b5191724c64fd59ed67de2f9a225e5"
+    },
+    "frozen/discovery/commands/dailyrecord-source/stdout.bin": {
+      "bytes": 86737,
+      "sha256": "ec17cd95871fdff714cedb7aed972b39ebd37d03fa62fe4860f99f518a0d58dc"
+    },
+    "frozen/discovery/commands/discover/RESULT.json": {
+      "bytes": 900,
+      "sha256": "b71281aca712abc8f3421d2bda2b049156669119a1c27a79bbbc0339a95dc07b"
+    },
+    "frozen/discovery/commands/discover/START.json": {
+      "bytes": 1647,
+      "sha256": "d1d304ebc4e0ff4a0448b7cbe3429aa288c10b8f4bd33a0b17035327e5ed8e65"
+    },
+    "frozen/discovery/commands/discover/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/discovery/commands/discover/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/discovery/commands/discover/stdout.bin": {
+      "bytes": 926,
+      "sha256": "3bf466ba6c0150c13f36bc81ca420fe53194f28ecf0c9ef66fdcee22588ddb64"
+    },
+    "frozen/discovery/commands/neutral/RESULT.json": {
+      "bytes": 897,
+      "sha256": "fd8ea4a2ac304db2822deb099298ef264138e471081f3bfdfcf69cd259625d62"
+    },
+    "frozen/discovery/commands/neutral/START.json": {
+      "bytes": 1610,
+      "sha256": "dbe41968a014538d6ca4c7f6622682c04c341aeff78bbf96352b27655b5e957e"
+    },
+    "frozen/discovery/commands/neutral/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/discovery/commands/neutral/stdin.bin": {
+      "bytes": 282,
+      "sha256": "76f8e71a714e36ec6b63dd4e04c16e7ae51821abf89698a52cd6429b108abab9"
+    },
+    "frozen/discovery/commands/neutral/stdout.bin": {
+      "bytes": 100277,
+      "sha256": "23b45c74acdc239adf1ffeae4e220b346239651466d5e84f790f5c3f1c34da20"
+    },
+    "frozen/discovery/expected.json": {
+      "bytes": 446946,
+      "sha256": "73e0b55f853ea348ad556fb9bbe956af8be2edc92b0e99e28162eda2faede41b"
+    },
+    "frozen/discovery/observations.json": {
+      "bytes": 447042,
+      "sha256": "fcf12b7b8e95606a944a2c8a33a04d70537dcaee28b15ceb8bb81c098f1bdc46"
+    },
+    "frozen/discovery/processes/3294293/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/discovery/processes/3294293/EXIT.json": {
+      "bytes": 43,
+      "sha256": "3565c8d9e958834ebabdbb88c027dd87d3b35beeb186a33e183107e588495053"
+    },
+    "frozen/discovery/processes/3294293/START.json": {
+      "bytes": 435,
+      "sha256": "55e52ee4bf02ed4a842981265737fb569e03fdfda5270ba457685c7eda5038c0"
+    },
+    "frozen/discovery/processes/3294293/loads.ndjson": {
+      "bytes": 281,
+      "sha256": "c68eb6a3d64079091e00a42da3ea96679f2b56aa14c3ce97272073704df55edf"
+    },
+    "frozen/discovery/processes/3294293/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/discovery/processes/3294293/stdin.bin": {
+      "bytes": 282,
+      "sha256": "76f8e71a714e36ec6b63dd4e04c16e7ae51821abf89698a52cd6429b108abab9"
+    },
+    "frozen/discovery/processes/3294293/stdout.bin": {
+      "bytes": 100277,
+      "sha256": "23b45c74acdc239adf1ffeae4e220b346239651466d5e84f790f5c3f1c34da20"
+    },
+    "frozen/discovery/processes/3294321/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/discovery/processes/3294321/EXIT.json": {
+      "bytes": 43,
+      "sha256": "2b884e1bb34a812ac45b423610ddd2960240bb5554f0b87b88aec175c908a533"
+    },
+    "frozen/discovery/processes/3294321/START.json": {
+      "bytes": 539,
+      "sha256": "399c15184027b4c45b5766d6402b3e2876e69c27df55a7d62a457e5e4759013b"
+    },
+    "frozen/discovery/processes/3294321/loads.ndjson": {
+      "bytes": 292,
+      "sha256": "6501055a2d30cefec86da7562359977978a00c91ee9dc14cf79bb346923daaa9"
+    },
+    "frozen/discovery/processes/3294321/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/discovery/processes/3294321/stdin.bin": {
+      "bytes": 280,
+      "sha256": "d0f1c32fa85d30266ce9257937efab07c9b1eab15222deca45ec176a08825aaf"
+    },
+    "frozen/discovery/processes/3294321/stdout.bin": {
+      "bytes": 66632,
+      "sha256": "86f5129623a9bf52678cacfbe92db1cb31755e96870f7c15a554a2de018e514a"
+    },
+    "frozen/discovery/processes/3294330/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/discovery/processes/3294330/EXIT.json": {
+      "bytes": 43,
+      "sha256": "c926ca0c1675cd822c2e4a2c6aac41cad2c352eb5ffaab9381d833ea93250073"
+    },
+    "frozen/discovery/processes/3294330/START.json": {
+      "bytes": 431,
+      "sha256": "fdc6ee5afb2fc8a0f7dd7d356237d19ea5d217c79685677ebe675fd1fe53aea7"
+    },
+    "frozen/discovery/processes/3294330/loads.ndjson": {
+      "bytes": 288,
+      "sha256": "97b40ad3a1cc6c5e1c79936eecf2c784de2b39476e4720079efcbed0c0839bbd"
+    },
+    "frozen/discovery/processes/3294330/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/discovery/processes/3294330/stdin.bin": {
+      "bytes": 280,
+      "sha256": "d0f1c32fa85d30266ce9257937efab07c9b1eab15222deca45ec176a08825aaf"
+    },
+    "frozen/discovery/processes/3294330/stdout.bin": {
+      "bytes": 80644,
+      "sha256": "f931639da640044ad160fc4fcf8805b15bb4bca587fde93d25c203428aea8a79"
+    },
+    "frozen/discovery/processes/3294342/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/discovery/processes/3294342/EXIT.json": {
+      "bytes": 43,
+      "sha256": "0fd0a5b868df13cb2bdef087904fdb01b27a4ad96bdf4280c3482992023bf8a0"
+    },
+    "frozen/discovery/processes/3294342/START.json": {
+      "bytes": 543,
+      "sha256": "942a0f3d2336cfe3ac4752728c70601340101205aa38e7fae9ac2c8addd2ee21"
+    },
+    "frozen/discovery/processes/3294342/loads.ndjson": {
+      "bytes": 296,
+      "sha256": "71afd87a0f79a590f034d908cfe7a398ed9495cd69bb6fdc4f71f500d9932572"
+    },
+    "frozen/discovery/processes/3294342/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/discovery/processes/3294342/stdin.bin": {
+      "bytes": 280,
+      "sha256": "d0f1c32fa85d30266ce9257937efab07c9b1eab15222deca45ec176a08825aaf"
+    },
+    "frozen/discovery/processes/3294342/stdout.bin": {
+      "bytes": 514,
+      "sha256": "43b9051d3da345c214702e685494211ae37ff940ae41abdb1b288f19facec73c"
+    },
+    "frozen/discovery/processes/3294351/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/discovery/processes/3294351/EXIT.json": {
+      "bytes": 43,
+      "sha256": "b3a53dbcc81d82b256e1ca66ef6337f390356062e4771ce1263b9166dec30a6a"
+    },
+    "frozen/discovery/processes/3294351/START.json": {
+      "bytes": 543,
+      "sha256": "cf20beab06c51b34d2f6aaaee2950b24bbf3b38248700b805a57f40aa1eefe42"
+    },
+    "frozen/discovery/processes/3294351/loads.ndjson": {
+      "bytes": 296,
+      "sha256": "71afd87a0f79a590f034d908cfe7a398ed9495cd69bb6fdc4f71f500d9932572"
+    },
+    "frozen/discovery/processes/3294351/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/discovery/processes/3294351/stdin.bin": {
+      "bytes": 280,
+      "sha256": "d0f1c32fa85d30266ce9257937efab07c9b1eab15222deca45ec176a08825aaf"
+    },
+    "frozen/discovery/processes/3294351/stdout.bin": {
+      "bytes": 514,
+      "sha256": "43b9051d3da345c214702e685494211ae37ff940ae41abdb1b288f19facec73c"
+    },
+    "frozen/discovery/processes/3294363/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/discovery/processes/3294363/EXIT.json": {
+      "bytes": 43,
+      "sha256": "f7c38864c2b65cf0b7fa19147c0282c4ff1c5d97d1e21d98cf5842a015496f36"
+    },
+    "frozen/discovery/processes/3294363/START.json": {
+      "bytes": 422,
+      "sha256": "690411c3fecc9077cce392cad9ec227175c509c2c3b226c62ac388de918367a1"
+    },
+    "frozen/discovery/processes/3294363/loads.ndjson": {
+      "bytes": 281,
+      "sha256": "c68eb6a3d64079091e00a42da3ea96679f2b56aa14c3ce97272073704df55edf"
+    },
+    "frozen/discovery/processes/3294363/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/discovery/processes/3294363/stdin.bin": {
+      "bytes": 282,
+      "sha256": "76f8e71a714e36ec6b63dd4e04c16e7ae51821abf89698a52cd6429b108abab9"
+    },
+    "frozen/discovery/processes/3294363/stdout.bin": {
+      "bytes": 100277,
+      "sha256": "23b45c74acdc239adf1ffeae4e220b346239651466d5e84f790f5c3f1c34da20"
+    },
+    "frozen/discovery/processes/3294404/CHANNEL-ORIGINS.json": {
+      "bytes": 224,
+      "sha256": "da22730e82390f77a7efdec4b22874892db26a1046cc6eef598d15154af4474a"
+    },
+    "frozen/discovery/processes/3294404/EXIT.json": {
+      "bytes": 43,
+      "sha256": "065c39e89a01ad44b2a9ee35109e2b92f5bae6455dfea7962b16237d728bf35c"
+    },
+    "frozen/discovery/processes/3294404/START.json": {
+      "bytes": 426,
+      "sha256": "31e17ca261ca6115ec0c763e62e7579cfc981683a4bcbfff0dae57aca65180d0"
+    },
+    "frozen/discovery/processes/3294404/loads.ndjson": {
+      "bytes": 284,
+      "sha256": "861d169e56572645dd2601ef3f249005b0cf28e51cf76c626eada05e8b392c5c"
+    },
+    "frozen/discovery/processes/3294404/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/discovery/processes/3294404/stdin.bin": {
+      "bytes": 990,
+      "sha256": "3be64de28cd931bc74a3aa376fce043453b5191724c64fd59ed67de2f9a225e5"
+    },
+    "frozen/discovery/processes/3294404/stdout.bin": {
+      "bytes": 86737,
+      "sha256": "ec17cd95871fdff714cedb7aed972b39ebd37d03fa62fe4860f99f518a0d58dc"
+    },
+    "frozen/discovery/registry.json": {
+      "bytes": 204384,
+      "sha256": "918e4b70aeb016a683e4286d9e0aa09576fd167a867fffb0e3ba0c2a7b460631"
+    },
+    "frozen/framing/COMPLETE.json": {
+      "bytes": 215,
+      "sha256": "b405e34a8e724fdf8c52dfcbbaf9e279d46476b6ae0c79fdedde524e033aad15"
+    },
+    "frozen/framing/OBSERVER-PINS.json": {
+      "bytes": 941,
+      "sha256": "a4791f8a23f4b9a329299a6b174b76ac9f05e051c3cd9f7cbb20cc7d7536e607"
+    },
+    "frozen/framing/SOURCE-MIRROR.json": {
+      "bytes": 25883,
+      "sha256": "908d764d12863e1ddc85145d6f1561942855a682d50edbbfefef182650220eec"
+    },
+    "frozen/framing/commands/discover/RESULT.json": {
+      "bytes": 894,
+      "sha256": "811708e1b0c7856dcf383d348582bbfb9657d689ca23fd0ff135fe601fd5d299"
+    },
+    "frozen/framing/commands/discover/START.json": {
+      "bytes": 1635,
+      "sha256": "75c7068028aca8d7e290bb439c280b979ed4796616f3cc340200d5c613270f06"
+    },
+    "frozen/framing/commands/discover/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/framing/commands/discover/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/framing/commands/discover/stdout.bin": {
+      "bytes": 568,
+      "sha256": "4cb2fb181b820540bf2c2017734b2564b65957f342694734d4f6fa932f1a1110"
+    },
+    "frozen/framing/commands/neutral/RESULT.json": {
+      "bytes": 946,
+      "sha256": "756af7a92013c340cb7937cbf3373bd135b834035a9c940e029a9d8ec21e31f7"
+    },
+    "frozen/framing/commands/neutral/START.json": {
+      "bytes": 1598,
+      "sha256": "46b55ee81a9c1a201c8db170e2d6a1973187c77d6c80591752943b28c10b52b0"
+    },
+    "frozen/framing/commands/neutral/stderr.bin": {
+      "bytes": 519,
+      "sha256": "d0559a5c9e30b122da40684b38ffa20c8f445ab327850d0e3e60364f7fcfd138"
+    },
+    "frozen/framing/commands/neutral/stdin.bin": {
+      "bytes": 1048990,
+      "sha256": "f3d57dada48f51f5db757e043b2320d1969d2f2973cc70d49be4b3237930d6c9"
+    },
+    "frozen/framing/commands/neutral/stdout.bin": {
+      "bytes": 215273,
+      "sha256": "a5daa35b3fa76ca8f62f326d0fd2fa322247b2beec116c3795325ed7210f1069"
+    },
+    "frozen/framing/expected.json": {
+      "bytes": 527000,
+      "sha256": "8b76365a6380a1cf46cb6dedf3e0a6dc3bc8dd656c880e8fcdc72701600aa281"
+    },
+    "frozen/framing/observations.json": {
+      "bytes": 527000,
+      "sha256": "8b76365a6380a1cf46cb6dedf3e0a6dc3bc8dd656c880e8fcdc72701600aa281"
+    },
+    "frozen/framing/processes/3295713/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/framing/processes/3295713/EXIT.json": {
+      "bytes": 43,
+      "sha256": "32dba29fe213ec49fd78046c0a5769830fed4df6d3818a7d76aa4b6c51c3b332"
+    },
+    "frozen/framing/processes/3295713/START.json": {
+      "bytes": 431,
+      "sha256": "1d9de77e44fd2f1e920b98dd8d116d44c16710af99753b74ea58a1b5597aaaae"
+    },
+    "frozen/framing/processes/3295713/loads.ndjson": {
+      "bytes": 279,
+      "sha256": "bf931f225fbe74c239f2d22cf7e5276f336576b35a82b154b345ac1c7cffa0d7"
+    },
+    "frozen/framing/processes/3295713/stderr.bin": {
+      "bytes": 519,
+      "sha256": "d0559a5c9e30b122da40684b38ffa20c8f445ab327850d0e3e60364f7fcfd138"
+    },
+    "frozen/framing/processes/3295713/stdin.bin": {
+      "bytes": 1048990,
+      "sha256": "f3d57dada48f51f5db757e043b2320d1969d2f2973cc70d49be4b3237930d6c9"
+    },
+    "frozen/framing/processes/3295713/stdout.bin": {
+      "bytes": 215273,
+      "sha256": "a5daa35b3fa76ca8f62f326d0fd2fa322247b2beec116c3795325ed7210f1069"
+    },
+    "frozen/framing/processes/3295736/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/framing/processes/3295736/EXIT.json": {
+      "bytes": 43,
+      "sha256": "0083e6c7130cd5f5f85fb08589ecdc8ead3b8f45329dd8c46a6bbf164ede1d5a"
+    },
+    "frozen/framing/processes/3295736/START.json": {
+      "bytes": 533,
+      "sha256": "0f1af76f3fb44607d52091c21ec1f15d4504c949ab371f391e39510c66d801cc"
+    },
+    "frozen/framing/processes/3295736/loads.ndjson": {
+      "bytes": 290,
+      "sha256": "4245e99dfd6e8c3c9c365f8431cce5fdcd03c8e550dbbba28f6fb5ad24f59304"
+    },
+    "frozen/framing/processes/3295736/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/framing/processes/3295736/stdin.bin": {
+      "bytes": 280,
+      "sha256": "d0f1c32fa85d30266ce9257937efab07c9b1eab15222deca45ec176a08825aaf"
+    },
+    "frozen/framing/processes/3295736/stdout.bin": {
+      "bytes": 66632,
+      "sha256": "86f5129623a9bf52678cacfbe92db1cb31755e96870f7c15a554a2de018e514a"
+    },
+    "frozen/framing/processes/3295776/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/framing/processes/3295776/EXIT.json": {
+      "bytes": 43,
+      "sha256": "0b3dda3d7b35f13c674bd46376b9190cf5a8378b8614f66b68291ff564017fd5"
+    },
+    "frozen/framing/processes/3295776/START.json": {
+      "bytes": 418,
+      "sha256": "8fd611c12958c26cd137aabc10183ce8a5870971af09beb0f7e90362bc0f3a0c"
+    },
+    "frozen/framing/processes/3295776/loads.ndjson": {
+      "bytes": 279,
+      "sha256": "bf931f225fbe74c239f2d22cf7e5276f336576b35a82b154b345ac1c7cffa0d7"
+    },
+    "frozen/framing/processes/3295776/stderr.bin": {
+      "bytes": 519,
+      "sha256": "d0559a5c9e30b122da40684b38ffa20c8f445ab327850d0e3e60364f7fcfd138"
+    },
+    "frozen/framing/processes/3295776/stdin.bin": {
+      "bytes": 1048990,
+      "sha256": "f3d57dada48f51f5db757e043b2320d1969d2f2973cc70d49be4b3237930d6c9"
+    },
+    "frozen/framing/processes/3295776/stdout.bin": {
+      "bytes": 215273,
+      "sha256": "a5daa35b3fa76ca8f62f326d0fd2fa322247b2beec116c3795325ed7210f1069"
+    },
+    "frozen/framing/registry.json": {
+      "bytes": 151160,
+      "sha256": "f39da7244d5a71e79371f04d8ce301dabcaf2489681d246e3ac34401996d1a71"
+    },
+    "frozen/graph/COMPLETE.json": {
+      "bytes": 213,
+      "sha256": "ecf69a6533e7b31b5d358c8a8e5f6f73a7b42721a499d9d5827cd53ac0af5cb7"
+    },
+    "frozen/graph/OBSERVER-PINS.json": {
+      "bytes": 933,
+      "sha256": "4e5097d9b76faca7800d503d99b7d88e9012b2951e7d05202770db90d96cafc5"
+    },
+    "frozen/graph/SOURCE-MIRROR.json": {
+      "bytes": 25781,
+      "sha256": "7df13cdeb6f588c86488f8f81246ee6a90fe6be7775da2112a981fa278cdabc3"
+    },
+    "frozen/graph/commands/discover/RESULT.json": {
+      "bytes": 888,
+      "sha256": "d71ad2295b7dabb560fff1742a7b2e771737e728d04577cadc759e57edd3f46e"
+    },
+    "frozen/graph/commands/discover/START.json": {
+      "bytes": 1623,
+      "sha256": "bd25b6cc335273af1cf4a15172f9c2a171ebe4be9e24c258f74ff2f3e47d9262"
+    },
+    "frozen/graph/commands/discover/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/graph/commands/discover/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/graph/commands/discover/stdout.bin": {
+      "bytes": 174,
+      "sha256": "e41ec6c1caa4975c6c7dbacac478c2e2e3e589a819e2b7404b4aa878902f7261"
+    },
+    "frozen/graph/commands/neutral/RESULT.json": {
+      "bytes": 884,
+      "sha256": "91466aabb9e0b2a0952ba5a6b565233c31d3ce70a5fcf43af55a15b7cbec8abc"
+    },
+    "frozen/graph/commands/neutral/START.json": {
+      "bytes": 1586,
+      "sha256": "622177f94345bb6df0f36384a8ab1b35351b5f97b356ae808b4177b2b8e4355c"
+    },
+    "frozen/graph/commands/neutral/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/graph/commands/neutral/stdin.bin": {
+      "bytes": 1019,
+      "sha256": "f6e884284632a7e0018bb931c995a5d6feaf3ef21792d7a8f84999d3a3179bdb"
+    },
+    "frozen/graph/commands/neutral/stdout.bin": {
+      "bytes": 14757,
+      "sha256": "800d3a74c30fe3b770199fc26c98fd776a6fe4e9bbc95c6936452870af6747c2"
+    },
+    "frozen/graph/expected.json": {
+      "bytes": 19811,
+      "sha256": "739b5f8837ae881b6f3f44cdd81269c0111571ee99d37b43327ecd8900477178"
+    },
+    "frozen/graph/observations.json": {
+      "bytes": 20005,
+      "sha256": "79c4687f335320fcb9a4b5d54189640cb226f684d697cadc4f9faf403921ff14"
+    },
+    "frozen/graph/processes/3295474/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/graph/processes/3295474/EXIT.json": {
+      "bytes": 43,
+      "sha256": "149452bf679895e15a7f6cc7a7816c43dc421a35b414cb4c8f0d0aa6d52d87d3"
+    },
+    "frozen/graph/processes/3295474/START.json": {
+      "bytes": 427,
+      "sha256": "ce9585453acee6fe58567d1a17320e37ef773ecd2f19d719eadf72fc4fc4050d"
+    },
+    "frozen/graph/processes/3295474/loads.ndjson": {
+      "bytes": 277,
+      "sha256": "6686774a43bcad8b90bcc3a42ec8b24e17c6a84d33b7f392fcdd5b4fbe03eb90"
+    },
+    "frozen/graph/processes/3295474/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/graph/processes/3295474/stdin.bin": {
+      "bytes": 1019,
+      "sha256": "f6e884284632a7e0018bb931c995a5d6feaf3ef21792d7a8f84999d3a3179bdb"
+    },
+    "frozen/graph/processes/3295474/stdout.bin": {
+      "bytes": 14757,
+      "sha256": "800d3a74c30fe3b770199fc26c98fd776a6fe4e9bbc95c6936452870af6747c2"
+    },
+    "frozen/graph/processes/3295532/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/graph/processes/3295532/EXIT.json": {
+      "bytes": 43,
+      "sha256": "f1a34133b4330c44a79cccaa089b6964a3317b498c9d7025c6a6ffe6fca0e778"
+    },
+    "frozen/graph/processes/3295532/START.json": {
+      "bytes": 389,
+      "sha256": "ed9b27a5af3c1286afaff31c0ac62e40030d0a26aaaaa429cfc05f7033eb271d"
+    },
+    "frozen/graph/processes/3295532/loads.ndjson": {
+      "bytes": 237,
+      "sha256": "2e35446b93cf47ed708710c0c4681c7d77359d214133e7b675b52fb89a1edd4b"
+    },
+    "frozen/graph/processes/3295532/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/graph/processes/3295532/stdin.bin": {
+      "bytes": 280,
+      "sha256": "d0f1c32fa85d30266ce9257937efab07c9b1eab15222deca45ec176a08825aaf"
+    },
+    "frozen/graph/processes/3295532/stdout.bin": {
+      "bytes": 1508,
+      "sha256": "cd0526887a949ee6e5179f67ab1b30c58941f01b8aee2a6228b725570f354978"
+    },
+    "frozen/graph/processes/3295568/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/graph/processes/3295568/EXIT.json": {
+      "bytes": 43,
+      "sha256": "a33202d4c0d6b80feaab88edadb01a074eebe5a0dcb4f8754615671cb74a7fda"
+    },
+    "frozen/graph/processes/3295568/START.json": {
+      "bytes": 414,
+      "sha256": "1e929e87d22bb42984a18a115a54f68a0b000070b2b0b318064121cae7e1053a"
+    },
+    "frozen/graph/processes/3295568/loads.ndjson": {
+      "bytes": 277,
+      "sha256": "6686774a43bcad8b90bcc3a42ec8b24e17c6a84d33b7f392fcdd5b4fbe03eb90"
+    },
+    "frozen/graph/processes/3295568/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/graph/processes/3295568/stdin.bin": {
+      "bytes": 1019,
+      "sha256": "f6e884284632a7e0018bb931c995a5d6feaf3ef21792d7a8f84999d3a3179bdb"
+    },
+    "frozen/graph/processes/3295568/stdout.bin": {
+      "bytes": 14757,
+      "sha256": "800d3a74c30fe3b770199fc26c98fd776a6fe4e9bbc95c6936452870af6747c2"
+    },
+    "frozen/graph/processes/3295589/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/graph/processes/3295589/EXIT.json": {
+      "bytes": 43,
+      "sha256": "cd7a1ecaa6d7dcf5dedf1e19802a2d5268ad251fe6d19e94fab93464413df655"
+    },
+    "frozen/graph/processes/3295589/START.json": {
+      "bytes": 389,
+      "sha256": "2ed025c75b00d5c116bb97d907247decd45801cc766b67ac81e96b6c908c6399"
+    },
+    "frozen/graph/processes/3295589/loads.ndjson": {
+      "bytes": 237,
+      "sha256": "2e35446b93cf47ed708710c0c4681c7d77359d214133e7b675b52fb89a1edd4b"
+    },
+    "frozen/graph/processes/3295589/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/graph/processes/3295589/stdin.bin": {
+      "bytes": 497,
+      "sha256": "9ba8e7bc3b1df3f583b435c80067bcb5c4e2a978fae9494ff7aacc356e4b7a67"
+    },
+    "frozen/graph/processes/3295589/stdout.bin": {
+      "bytes": 2106,
+      "sha256": "c9bef547c087db69c85c4cc319edce329750913ab2e729bf9f9ad9a38193054e"
+    },
+    "frozen/graph/processes/3295605/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/graph/processes/3295605/EXIT.json": {
+      "bytes": 43,
+      "sha256": "428ef83ccf4ac29c8b2c9b4aa06bba29de1c5df831e5abb0c92fc08182e33653"
+    },
+    "frozen/graph/processes/3295605/START.json": {
+      "bytes": 389,
+      "sha256": "3a869f9220c98f5c4baa7bb29006775e772301d83709bbc5e11adae419f665a0"
+    },
+    "frozen/graph/processes/3295605/loads.ndjson": {
+      "bytes": 237,
+      "sha256": "2e35446b93cf47ed708710c0c4681c7d77359d214133e7b675b52fb89a1edd4b"
+    },
+    "frozen/graph/processes/3295605/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/graph/processes/3295605/stdin.bin": {
+      "bytes": 885,
+      "sha256": "a2b51e543306c35c16adb4969d659e14d4d9748ef46871ad7ade2ba946351fea"
+    },
+    "frozen/graph/processes/3295605/stdout.bin": {
+      "bytes": 2920,
+      "sha256": "972e7d103c955905c77df7c78ab055e5840b4f28bdf80e53b55a0bb10669dd6d"
+    },
+    "frozen/graph/processes/3295638/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/graph/processes/3295638/EXIT.json": {
+      "bytes": 43,
+      "sha256": "373434f0405ec3e4f3caec2762321b5beefb0ec113b8faac64abbec64ab509ea"
+    },
+    "frozen/graph/processes/3295638/START.json": {
+      "bytes": 389,
+      "sha256": "19b3a67287bdaf30d986e2844e04d93d93cc81c3371d6c3c00545763f95d01c0"
+    },
+    "frozen/graph/processes/3295638/loads.ndjson": {
+      "bytes": 237,
+      "sha256": "2e35446b93cf47ed708710c0c4681c7d77359d214133e7b675b52fb89a1edd4b"
+    },
+    "frozen/graph/processes/3295638/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/graph/processes/3295638/stdin.bin": {
+      "bytes": 497,
+      "sha256": "9ba8e7bc3b1df3f583b435c80067bcb5c4e2a978fae9494ff7aacc356e4b7a67"
+    },
+    "frozen/graph/processes/3295638/stdout.bin": {
+      "bytes": 2106,
+      "sha256": "c9bef547c087db69c85c4cc319edce329750913ab2e729bf9f9ad9a38193054e"
+    },
+    "frozen/graph/registry.json": {
+      "bytes": 5871,
+      "sha256": "af0d355df62e706f0afb0f74a985f5b6a44a1a7879476f09e2c44f036a9ea06a"
+    },
+    "frozen/identity/COMPLETE.json": {
+      "bytes": 216,
+      "sha256": "d05ad722f7dbe79b0b1b4adf6af88dbd11963e80935347315f1cd19f1f343a51"
+    },
+    "frozen/identity/OBSERVER-PINS.json": {
+      "bytes": 945,
+      "sha256": "0b8fbdc77fb0e122d903f66234f4f149df530f411e158ef98d18881586d93140"
+    },
+    "frozen/identity/SOURCE-MIRROR.json": {
+      "bytes": 25934,
+      "sha256": "1c973b4df4b8dd2720f9c1e9e0f5df952426ecbeebf1ee78392b48e5a5d375d3"
+    },
+    "frozen/identity/commands/discover/RESULT.json": {
+      "bytes": 897,
+      "sha256": "879c51f33be0cba6e5ce1d01443a3348ac7bb29bcd71e323dc21df67e6acfd56"
+    },
+    "frozen/identity/commands/discover/START.json": {
+      "bytes": 1641,
+      "sha256": "e53beb141b56bc4d9b304316f3718cd2326bbbf426bed832b1956cd45657343e"
+    },
+    "frozen/identity/commands/discover/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/identity/commands/discover/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/identity/commands/discover/stdout.bin": {
+      "bytes": 670,
+      "sha256": "251b5333e88a9a1c52c32bcf630bac2e1bb43d082e865fdd6b84d54a295683ed"
+    },
+    "frozen/identity/commands/neutral/RESULT.json": {
+      "bytes": 894,
+      "sha256": "9e1a33bb26b79d57067c0e03ab5320af5295c66e0642734591e503b25558352f"
+    },
+    "frozen/identity/commands/neutral/START.json": {
+      "bytes": 1604,
+      "sha256": "deb451e8ab6729e7a5b6c1ba521532c13bed528108b331285ba4cb3ad1391d4e"
+    },
+    "frozen/identity/commands/neutral/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/identity/commands/neutral/stdin.bin": {
+      "bytes": 609,
+      "sha256": "2b2c9b7da3462ba598ec9ee7c95b3c0c03129a8c68c1bdabd0c1190b8a7eb553"
+    },
+    "frozen/identity/commands/neutral/stdout.bin": {
+      "bytes": 90855,
+      "sha256": "e8e736fc36fb88237fbd3286eebdd9bcb1ce1d01775857918d872b0c8005b1d9"
+    },
+    "frozen/identity/commands/qualified-endpoint/RESULT.json": {
+      "bytes": 928,
+      "sha256": "7d1bfafa6846c90b54226e1e8f319f35a6d4bd631609d9b04f2123917f67b6c8"
+    },
+    "frozen/identity/commands/qualified-endpoint/START.json": {
+      "bytes": 2061,
+      "sha256": "57239bf192245411aeaaac465f6f345429c6c33880738a15e5cd0b49cac40fd5"
+    },
+    "frozen/identity/commands/qualified-endpoint/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/identity/commands/qualified-endpoint/stdin.bin": {
+      "bytes": 331,
+      "sha256": "2afbcd8ca47cbc2ecfb3a930506b1085e44c605cbce319ccb47aa7a690723673"
+    },
+    "frozen/identity/commands/qualified-endpoint/stdout.bin": {
+      "bytes": 1728,
+      "sha256": "27c2ce0e380f4fdb0b64e3686d6c5f7fa1a8899fe28097109bd14f4944a666d9"
+    },
+    "frozen/identity/expected.json": {
+      "bytes": 213368,
+      "sha256": "3b04fbbb0d56d8f27b1f2ba5b23e7a45b84db8a5bc7f5125462f51dab90c52e8"
+    },
+    "frozen/identity/observations.json": {
+      "bytes": 213482,
+      "sha256": "e97acbddd847e0e6af651094540addc8ed8b79e0605a07252d4ac45a9977f7c6"
+    },
+    "frozen/identity/processes/3295465/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/identity/processes/3295465/EXIT.json": {
+      "bytes": 43,
+      "sha256": "918ddcc447130f6db37bda102420388299e4258366d819baadb3a95f92b9d71d"
+    },
+    "frozen/identity/processes/3295465/START.json": {
+      "bytes": 433,
+      "sha256": "35318d58f5bc87cebc2f0ef4d16378c92329031a5abe5e797b0d8b0c8f9ef441"
+    },
+    "frozen/identity/processes/3295465/loads.ndjson": {
+      "bytes": 280,
+      "sha256": "0656c3de997b948d92f8478f9e6921a0d0d9a8e05102f2ba6114690e5da8f593"
+    },
+    "frozen/identity/processes/3295465/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/identity/processes/3295465/stdin.bin": {
+      "bytes": 609,
+      "sha256": "2b2c9b7da3462ba598ec9ee7c95b3c0c03129a8c68c1bdabd0c1190b8a7eb553"
+    },
+    "frozen/identity/processes/3295465/stdout.bin": {
+      "bytes": 90855,
+      "sha256": "e8e736fc36fb88237fbd3286eebdd9bcb1ce1d01775857918d872b0c8005b1d9"
+    },
+    "frozen/identity/processes/3295528/CHANNEL-ORIGINS.json": {
+      "bytes": 224,
+      "sha256": "a9eaf457acb505d393068df5d2bfc3057c1b9ec840e888c93f8ae76705f1b558"
+    },
+    "frozen/identity/processes/3295528/EXIT.json": {
+      "bytes": 43,
+      "sha256": "ad3cf4350aad99ff21bf3b0ce27215fc6be558848d45a2bd2b0ba4c9f45a3620"
+    },
+    "frozen/identity/processes/3295528/START.json": {
+      "bytes": 628,
+      "sha256": "a9b11feeb6a5fa8178a01edac6debd2ff43dbee5fb8bcbf5d993990be60abd7e"
+    },
+    "frozen/identity/processes/3295528/loads.ndjson": {
+      "bytes": 283,
+      "sha256": "e9d16b0e5b2f911c138d81b11429ae1086624d4fbd07af196bd8418b5612e18f"
+    },
+    "frozen/identity/processes/3295528/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/identity/processes/3295528/stdin.bin": {
+      "bytes": 331,
+      "sha256": "2afbcd8ca47cbc2ecfb3a930506b1085e44c605cbce319ccb47aa7a690723673"
+    },
+    "frozen/identity/processes/3295528/stdout.bin": {
+      "bytes": 1728,
+      "sha256": "27c2ce0e380f4fdb0b64e3686d6c5f7fa1a8899fe28097109bd14f4944a666d9"
+    },
+    "frozen/identity/processes/3295578/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/identity/processes/3295578/EXIT.json": {
+      "bytes": 43,
+      "sha256": "c9fa9bcacd53caf6a0b2ee27249062c7c66ae1f470704d63199559057f28e71e"
+    },
+    "frozen/identity/processes/3295578/START.json": {
+      "bytes": 420,
+      "sha256": "e180bc4fab1d02ec0d671a8072ab247b6069a3983129322685af1361e961ba91"
+    },
+    "frozen/identity/processes/3295578/loads.ndjson": {
+      "bytes": 280,
+      "sha256": "0656c3de997b948d92f8478f9e6921a0d0d9a8e05102f2ba6114690e5da8f593"
+    },
+    "frozen/identity/processes/3295578/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/identity/processes/3295578/stdin.bin": {
+      "bytes": 609,
+      "sha256": "2b2c9b7da3462ba598ec9ee7c95b3c0c03129a8c68c1bdabd0c1190b8a7eb553"
+    },
+    "frozen/identity/processes/3295578/stdout.bin": {
+      "bytes": 90855,
+      "sha256": "e8e736fc36fb88237fbd3286eebdd9bcb1ce1d01775857918d872b0c8005b1d9"
+    },
+    "frozen/identity/processes/3295597/CHANNEL-ORIGINS.json": {
+      "bytes": 224,
+      "sha256": "a9eaf457acb505d393068df5d2bfc3057c1b9ec840e888c93f8ae76705f1b558"
+    },
+    "frozen/identity/processes/3295597/EXIT.json": {
+      "bytes": 43,
+      "sha256": "a6a3c9c692c2e332d89ae7601441647547f80d5b9bcbd3f0d8a3a0a0bbe91028"
+    },
+    "frozen/identity/processes/3295597/START.json": {
+      "bytes": 628,
+      "sha256": "a4a248badcc9d17b030c6ab5579140f47fe4d55675293a29486ee9c05ef8a115"
+    },
+    "frozen/identity/processes/3295597/loads.ndjson": {
+      "bytes": 283,
+      "sha256": "e9d16b0e5b2f911c138d81b11429ae1086624d4fbd07af196bd8418b5612e18f"
+    },
+    "frozen/identity/processes/3295597/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/identity/processes/3295597/stdin.bin": {
+      "bytes": 331,
+      "sha256": "2afbcd8ca47cbc2ecfb3a930506b1085e44c605cbce319ccb47aa7a690723673"
+    },
+    "frozen/identity/processes/3295597/stdout.bin": {
+      "bytes": 1728,
+      "sha256": "27c2ce0e380f4fdb0b64e3686d6c5f7fa1a8899fe28097109bd14f4944a666d9"
+    },
+    "frozen/identity/processes/3295629/CHANNEL-ORIGINS.json": {
+      "bytes": 224,
+      "sha256": "a9eaf457acb505d393068df5d2bfc3057c1b9ec840e888c93f8ae76705f1b558"
+    },
+    "frozen/identity/processes/3295629/EXIT.json": {
+      "bytes": 43,
+      "sha256": "199394d48d1aa46e1352460d1e253dba02b0097901b6efc900b24563b4c80d8c"
+    },
+    "frozen/identity/processes/3295629/START.json": {
+      "bytes": 628,
+      "sha256": "d1ba7c8cdc8bbe849f8e0ba578463cd2f071f4a5f20684708f55a35acd2463b3"
+    },
+    "frozen/identity/processes/3295629/loads.ndjson": {
+      "bytes": 283,
+      "sha256": "e9d16b0e5b2f911c138d81b11429ae1086624d4fbd07af196bd8418b5612e18f"
+    },
+    "frozen/identity/processes/3295629/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/identity/processes/3295629/stdin.bin": {
+      "bytes": 331,
+      "sha256": "2afbcd8ca47cbc2ecfb3a930506b1085e44c605cbce319ccb47aa7a690723673"
+    },
+    "frozen/identity/processes/3295629/stdout.bin": {
+      "bytes": 1728,
+      "sha256": "27c2ce0e380f4fdb0b64e3686d6c5f7fa1a8899fe28097109bd14f4944a666d9"
+    },
+    "frozen/identity/registry.json": {
+      "bytes": 176673,
+      "sha256": "54f6ddbf76d8f3121f637d512fb484c1a63eab44e0a5e453810cb3e3f709ba30"
+    },
+    "frozen/inventory/COMPLETE.json": {
+      "bytes": 217,
+      "sha256": "fe3224569a9c6dbbc7df150dcf16290e24b8c677edf29342c854f0a6e452ed86"
+    },
+    "frozen/inventory/OBSERVER-PINS.json": {
+      "bytes": 949,
+      "sha256": "eb91d38fe24cf86dc1cc9ba646d4043269e828b70180d7c9981deffdfb9a2bc0"
+    },
+    "frozen/inventory/SOURCE-MIRROR.json": {
+      "bytes": 25985,
+      "sha256": "0d768ce1c47bc74918aa35ba1aaf0e160a017813df5da6b2a4e0239704331b13"
+    },
+    "frozen/inventory/commands/neutral/RESULT.json": {
+      "bytes": 897,
+      "sha256": "d2c8c58c5428629cc48b806dcf0d2fa38ff108c5553278e3eadcccf19abbe9c3"
+    },
+    "frozen/inventory/commands/neutral/START.json": {
+      "bytes": 1610,
+      "sha256": "04466fa9293bb96e0ec071037f49e65c57db42c34aa48392666d7c32fb5f0e5a"
+    },
+    "frozen/inventory/commands/neutral/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/inventory/commands/neutral/stdin.bin": {
+      "bytes": 282,
+      "sha256": "76f8e71a714e36ec6b63dd4e04c16e7ae51821abf89698a52cd6429b108abab9"
+    },
+    "frozen/inventory/commands/neutral/stdout.bin": {
+      "bytes": 146132,
+      "sha256": "25ab9db16ecf5bcb4f4cdc2a8fee795a2616bc88c5a8e1428e046e7919774fd0"
+    },
+    "frozen/inventory/expected.json": {
+      "bytes": 314427,
+      "sha256": "59ddae70d98b19a0d0ec89eff5ad646e564916973b3d64fa8ea379c3e329befe"
+    },
+    "frozen/inventory/observations.json": {
+      "bytes": 314427,
+      "sha256": "59ddae70d98b19a0d0ec89eff5ad646e564916973b3d64fa8ea379c3e329befe"
+    },
+    "frozen/inventory/processes/3294296/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/inventory/processes/3294296/EXIT.json": {
+      "bytes": 43,
+      "sha256": "fde28f8973d626c35c72fd64c01460805db29e3f430dac8741fc9c3c4810c3df"
+    },
+    "frozen/inventory/processes/3294296/START.json": {
+      "bytes": 422,
+      "sha256": "a908f8db3f4f1a8dc824c0e62f1b4651b1006d5ed69f69f76ec32d5399b97e43"
+    },
+    "frozen/inventory/processes/3294296/loads.ndjson": {
+      "bytes": 281,
+      "sha256": "449b23eee5937a4436574957ec2dffee80266cc8b25b9a5e532c2f941ff613d4"
+    },
+    "frozen/inventory/processes/3294296/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/inventory/processes/3294296/stdin.bin": {
+      "bytes": 282,
+      "sha256": "76f8e71a714e36ec6b63dd4e04c16e7ae51821abf89698a52cd6429b108abab9"
+    },
+    "frozen/inventory/processes/3294296/stdout.bin": {
+      "bytes": 146132,
+      "sha256": "25ab9db16ecf5bcb4f4cdc2a8fee795a2616bc88c5a8e1428e046e7919774fd0"
+    },
+    "frozen/inventory/registry.json": {
+      "bytes": 270448,
+      "sha256": "2b30fcdd18fce4e82e79e74406a58e580d594381a94164fc1e3631d2f4e2a5d5"
+    },
+    "frozen/launcher/COMPLETE.json": {
+      "bytes": 216,
+      "sha256": "9d9c51b05fa1c98af63300476862716cab1d86c88ab88f7e32246e4bfb3e38c9"
+    },
+    "frozen/launcher/OBSERVER-PINS.json": {
+      "bytes": 945,
+      "sha256": "87b8eb367830e9bbb3e334e9948724c1ed9572516ad7507358d38bd3567532ab"
+    },
+    "frozen/launcher/SOURCE-MIRROR.json": {
+      "bytes": 25934,
+      "sha256": "62c855704ac98123cf0635cac6c24d78cd711fade4fda61325ae32ec5daa8c3d"
+    },
+    "frozen/launcher/commands/tampered-bridge/RESULT.json": {
+      "bytes": 919,
+      "sha256": "15d58f52b3bd6bb3fa84cd587fae24352761cc40edaec0ac183a3c14a434a985"
+    },
+    "frozen/launcher/commands/tampered-bridge/START.json": {
+      "bytes": 1633,
+      "sha256": "845b52c8382b6417585c1033ddd72b58ead05f93a9d625793d51ebe123985650"
+    },
+    "frozen/launcher/commands/tampered-bridge/stderr.bin": {
+      "bytes": 55,
+      "sha256": "3505aae91f5407f3370d430f1ba3d9c0a8e268b1f78df399de4ae64946da6077"
+    },
+    "frozen/launcher/commands/tampered-bridge/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/launcher/commands/tampered-bridge/stdout.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/launcher/commands/valid-launch/RESULT.json": {
+      "bytes": 909,
+      "sha256": "f6a244bb54e724a791e2bea64695e1bca6a9370a72bb2cf59de982e8262b7b00"
+    },
+    "frozen/launcher/commands/valid-launch/START.json": {
+      "bytes": 1630,
+      "sha256": "bd603c1cd7e9ba44db026e0b1eb82d7389d7bb41c9a9da9870ca5c901e0341be"
+    },
+    "frozen/launcher/commands/valid-launch/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/launcher/commands/valid-launch/stdin.bin": {
+      "bytes": 282,
+      "sha256": "76f8e71a714e36ec6b63dd4e04c16e7ae51821abf89698a52cd6429b108abab9"
+    },
+    "frozen/launcher/commands/valid-launch/stdout.bin": {
+      "bytes": 80627,
+      "sha256": "2073576b0cbd9228022cb91a8cd6d19e9602a80e4e807d43aa01787694392ddb"
+    },
+    "frozen/launcher/expected.json": {
+      "bytes": 199455,
+      "sha256": "dc4dacfa54b826f648624aca63dca505278d8e7d80c92d2840e543852a0ad2dc"
+    },
+    "frozen/launcher/observations.json": {
+      "bytes": 199455,
+      "sha256": "dc4dacfa54b826f648624aca63dca505278d8e7d80c92d2840e543852a0ad2dc"
+    },
+    "frozen/launcher/processes/3298002/CHANNEL-ORIGINS.json": {
+      "bytes": 215,
+      "sha256": "9f9fa399dc80c99b95a0c99444f4704db7e770b14dce06042af90d7248b77d84"
+    },
+    "frozen/launcher/processes/3298002/EXIT.json": {
+      "bytes": 43,
+      "sha256": "d54486d251b3210309ccc37e79431d71e2b24ec5538f275c4baf2dc60b6474e3"
+    },
+    "frozen/launcher/processes/3298002/START.json": {
+      "bytes": 421,
+      "sha256": "cc14bbf078da6e47c125bb5fe51cb0938109ed74c1ebc0eac2de1b83bb7e31b0"
+    },
+    "frozen/launcher/processes/3298002/loads.ndjson": {
+      "bytes": 280,
+      "sha256": "1cd6d0371162f4bdaed50b8754c55ae2247d356efd3ad56b3e2b1ffdbe425309"
+    },
+    "frozen/launcher/processes/3298002/stderr.bin": {
+      "bytes": 55,
+      "sha256": "3505aae91f5407f3370d430f1ba3d9c0a8e268b1f78df399de4ae64946da6077"
+    },
+    "frozen/launcher/processes/3298002/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/launcher/processes/3298002/stdout.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/launcher/processes/3298015/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/launcher/processes/3298015/EXIT.json": {
+      "bytes": 43,
+      "sha256": "4b3ebad6f2612cb4392d242524fae1ba3123bc9e5746f854730a33e9706f028e"
+    },
+    "frozen/launcher/processes/3298015/START.json": {
+      "bytes": 377,
+      "sha256": "ee3492682ba8c0802964f610f4eb04a53daff60afe9af4ada013f03cec8ea277"
+    },
+    "frozen/launcher/processes/3298015/loads.ndjson": {
+      "bytes": 235,
+      "sha256": "5c8bfd35a1bfeaa1e50ab9f5570b138da5eadfaef2ab05880342fca36f219df5"
+    },
+    "frozen/launcher/processes/3298015/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/launcher/processes/3298015/stdin.bin": {
+      "bytes": 282,
+      "sha256": "76f8e71a714e36ec6b63dd4e04c16e7ae51821abf89698a52cd6429b108abab9"
+    },
+    "frozen/launcher/processes/3298015/stdout.bin": {
+      "bytes": 80627,
+      "sha256": "2073576b0cbd9228022cb91a8cd6d19e9602a80e4e807d43aa01787694392ddb"
+    },
+    "frozen/launcher/processes/3298037/CHANNEL-ORIGINS.json": {
+      "bytes": 215,
+      "sha256": "9f9fa399dc80c99b95a0c99444f4704db7e770b14dce06042af90d7248b77d84"
+    },
+    "frozen/launcher/processes/3298037/EXIT.json": {
+      "bytes": 43,
+      "sha256": "16aad94e4d1b29ba6803891b6fa33268f8338227dabbf1b7efd929bb8068908e"
+    },
+    "frozen/launcher/processes/3298037/START.json": {
+      "bytes": 421,
+      "sha256": "107b19303c6724d10ceb432b744fc87e4ca450f71c39c572bdd02f12ed69198c"
+    },
+    "frozen/launcher/processes/3298037/loads.ndjson": {
+      "bytes": 280,
+      "sha256": "1cd6d0371162f4bdaed50b8754c55ae2247d356efd3ad56b3e2b1ffdbe425309"
+    },
+    "frozen/launcher/processes/3298037/stderr.bin": {
+      "bytes": 55,
+      "sha256": "3505aae91f5407f3370d430f1ba3d9c0a8e268b1f78df399de4ae64946da6077"
+    },
+    "frozen/launcher/processes/3298037/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/launcher/processes/3298037/stdout.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/COMPLETE.json": {
+      "bytes": 217,
+      "sha256": "054d240c450ea7222f6c9a1bb1cd4e9b010fb743407c7b55379611681500c7bb"
+    },
+    "frozen/protocol/OBSERVER-PINS.json": {
+      "bytes": 945,
+      "sha256": "3576157052c858429f875dd1ce159a2c1106cec434ac2120dc4a991e4c6811c0"
+    },
+    "frozen/protocol/SOURCE-MIRROR.json": {
+      "bytes": 25934,
+      "sha256": "56ab0f5c890a699e6ade3b18923e6f375f6e89ab89fc6de14b70cc8291922e83"
+    },
+    "frozen/protocol/commands/discover/RESULT.json": {
+      "bytes": 896,
+      "sha256": "8bc4b0ff9ed932330f5cd8ed9d2bbcbdebcd0e02892cd76d47af13b090869836"
+    },
+    "frozen/protocol/commands/discover/START.json": {
+      "bytes": 1641,
+      "sha256": "24e5de27c793cc2917f5c0e83632fa1f746da7f33a8226e51013d98823b7178a"
+    },
+    "frozen/protocol/commands/discover/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/commands/discover/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/commands/discover/stdout.bin": {
+      "bytes": 568,
+      "sha256": "4cb2fb181b820540bf2c2017734b2564b65957f342694734d4f6fa932f1a1110"
+    },
+    "frozen/protocol/commands/neutral/RESULT.json": {
+      "bytes": 893,
+      "sha256": "7ccbc2cec3091055cab6efef27121832d0c10e2799a12e777542996a0a342702"
+    },
+    "frozen/protocol/commands/neutral/START.json": {
+      "bytes": 1604,
+      "sha256": "d345bffe2919d8f3d45ede4d3f0c15aca3b69f2f66bdf961a1e08f345377d083"
+    },
+    "frozen/protocol/commands/neutral/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/commands/neutral/stdin.bin": {
+      "bytes": 2213,
+      "sha256": "31969c2844a5b02118f6f60fdd9984202bcb587f2705629ecb2ec3817e8299d7"
+    },
+    "frozen/protocol/commands/neutral/stdout.bin": {
+      "bytes": 92020,
+      "sha256": "8998846f023154baf767f5d88748e0f86cee17268b4da98f1ebe026bc69813ec"
+    },
+    "frozen/protocol/expected.json": {
+      "bytes": 203548,
+      "sha256": "6a3b346652f8ff9cfe78a8e47f9a157b4bc5caaf9af5433045c4a90b70dc708c"
+    },
+    "frozen/protocol/observations.json": {
+      "bytes": 203918,
+      "sha256": "2da1831b218db2cbe6873fe5b0f958d17e8b1fb423cd87cd83291a8d52168883"
+    },
+    "frozen/protocol/processes/3294597/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/protocol/processes/3294597/EXIT.json": {
+      "bytes": 43,
+      "sha256": "6f92ac705c442d9697c980721c572838dd8b5a583d39f93d76b4c941b6589518"
+    },
+    "frozen/protocol/processes/3294597/START.json": {
+      "bytes": 433,
+      "sha256": "942efe5a358fbe2d5515416a67cc8baf33fa58dc57ace49d1f4b7fcf2b17bbd0"
+    },
+    "frozen/protocol/processes/3294597/loads.ndjson": {
+      "bytes": 280,
+      "sha256": "4ed0129113bd8dbf5bc30c69e85f4aedc2661dc77b47431d0535cc22b1bb1e19"
+    },
+    "frozen/protocol/processes/3294597/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/processes/3294597/stdin.bin": {
+      "bytes": 2213,
+      "sha256": "31969c2844a5b02118f6f60fdd9984202bcb587f2705629ecb2ec3817e8299d7"
+    },
+    "frozen/protocol/processes/3294597/stdout.bin": {
+      "bytes": 92020,
+      "sha256": "8998846f023154baf767f5d88748e0f86cee17268b4da98f1ebe026bc69813ec"
+    },
+    "frozen/protocol/processes/3294617/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/protocol/processes/3294617/EXIT.json": {
+      "bytes": 43,
+      "sha256": "f07a998dc3fc0d9af897dc0f8726c159f7614b58265c72d8d246041acd5fdab2"
+    },
+    "frozen/protocol/processes/3294617/START.json": {
+      "bytes": 536,
+      "sha256": "2f3ed058f1c57d74de343a58f8777b969d78c6cc52753d7a0a1449bc5b850751"
+    },
+    "frozen/protocol/processes/3294617/loads.ndjson": {
+      "bytes": 291,
+      "sha256": "05b03ccffa70e2d2ba0610bc6cb32f662cab1a5728aad7fc3bf0a1141dbcae68"
+    },
+    "frozen/protocol/processes/3294617/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/processes/3294617/stdin.bin": {
+      "bytes": 280,
+      "sha256": "d0f1c32fa85d30266ce9257937efab07c9b1eab15222deca45ec176a08825aaf"
+    },
+    "frozen/protocol/processes/3294617/stdout.bin": {
+      "bytes": 66632,
+      "sha256": "86f5129623a9bf52678cacfbe92db1cb31755e96870f7c15a554a2de018e514a"
+    },
+    "frozen/protocol/processes/3294691/CHANNEL-ORIGINS.json": {
+      "bytes": 191,
+      "sha256": "000336682651452e766f65da18f7dcf5aa1c7b042d2acba1662d537a4bc71701"
+    },
+    "frozen/protocol/processes/3294691/EXIT.json": {
+      "bytes": 43,
+      "sha256": "e4a8e3bac76315b721be9ded9f569b32075e788b4fc8b40a31e616ce04742089"
+    },
+    "frozen/protocol/processes/3294691/START.json": {
+      "bytes": 420,
+      "sha256": "523b2252b42e34e6398718a633f9e579ce72b7441ccbf3ac2c76f188ee4d88e1"
+    },
+    "frozen/protocol/processes/3294691/loads.ndjson": {
+      "bytes": 280,
+      "sha256": "4ed0129113bd8dbf5bc30c69e85f4aedc2661dc77b47431d0535cc22b1bb1e19"
+    },
+    "frozen/protocol/processes/3294691/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/processes/3294691/stdin.bin": {
+      "bytes": 2213,
+      "sha256": "31969c2844a5b02118f6f60fdd9984202bcb587f2705629ecb2ec3817e8299d7"
+    },
+    "frozen/protocol/processes/3294691/stdout.bin": {
+      "bytes": 92020,
+      "sha256": "8998846f023154baf767f5d88748e0f86cee17268b4da98f1ebe026bc69813ec"
+    },
+    "frozen/protocol/processes/3294717/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/protocol/processes/3294717/EXIT.json": {
+      "bytes": 43,
+      "sha256": "73604135430cdebdbcc97b191176aa4702f54d5415a12ee93d487556549ed8a9"
+    },
+    "frozen/protocol/processes/3294717/START.json": {
+      "bytes": 536,
+      "sha256": "29821454054bbb5d8a583ce5732199b77b1c017d9ff1f27bc6ffa54564e1d186"
+    },
+    "frozen/protocol/processes/3294717/loads.ndjson": {
+      "bytes": 291,
+      "sha256": "05b03ccffa70e2d2ba0610bc6cb32f662cab1a5728aad7fc3bf0a1141dbcae68"
+    },
+    "frozen/protocol/processes/3294717/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/processes/3294717/stdin.bin": {
+      "bytes": 384,
+      "sha256": "4ee4c85b6d29db4f4bd8d673195c93ac23f84522a6ce62c519a33e33cfdda470"
+    },
+    "frozen/protocol/processes/3294717/stdout.bin": {
+      "bytes": 66875,
+      "sha256": "cc59e659bacbe12ae02d8c2bbbbffaae54a4fd09ec37616bab37905b9ac3fe23"
+    },
+    "frozen/protocol/processes/3294764/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/protocol/processes/3294764/EXIT.json": {
+      "bytes": 43,
+      "sha256": "6e1dae02fd5fc58fb6bb2b4abb45d25bf5487985a3822c56c98258793049a889"
+    },
+    "frozen/protocol/processes/3294764/START.json": {
+      "bytes": 536,
+      "sha256": "01920c298372d48f22749ba4b117efa240553d7635fb143b9ad80c677bb1afa7"
+    },
+    "frozen/protocol/processes/3294764/loads.ndjson": {
+      "bytes": 291,
+      "sha256": "05b03ccffa70e2d2ba0610bc6cb32f662cab1a5728aad7fc3bf0a1141dbcae68"
+    },
+    "frozen/protocol/processes/3294764/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/processes/3294764/stdin.bin": {
+      "bytes": 384,
+      "sha256": "4ee4c85b6d29db4f4bd8d673195c93ac23f84522a6ce62c519a33e33cfdda470"
+    },
+    "frozen/protocol/processes/3294764/stdout.bin": {
+      "bytes": 66747,
+      "sha256": "56eeefe0fac950a261487211dd09893c7a44955ea692d8c975406c7f4063cedd"
+    },
+    "frozen/protocol/processes/3294799/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/protocol/processes/3294799/EXIT.json": {
+      "bytes": 43,
+      "sha256": "029ad18450036c6980abe66e7117e160cdb7941317466ef1dc7e66ac5050c606"
+    },
+    "frozen/protocol/processes/3294799/START.json": {
+      "bytes": 536,
+      "sha256": "dcf1f73a8b1354e78a7975612d8b7a3444d2ca3127f468c05297faa1b3e1215c"
+    },
+    "frozen/protocol/processes/3294799/loads.ndjson": {
+      "bytes": 291,
+      "sha256": "05b03ccffa70e2d2ba0610bc6cb32f662cab1a5728aad7fc3bf0a1141dbcae68"
+    },
+    "frozen/protocol/processes/3294799/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/processes/3294799/stdin.bin": {
+      "bytes": 384,
+      "sha256": "4ee4c85b6d29db4f4bd8d673195c93ac23f84522a6ce62c519a33e33cfdda470"
+    },
+    "frozen/protocol/processes/3294799/stdout.bin": {
+      "bytes": 66748,
+      "sha256": "b8e422e655e4ee1ca7344de193e5ea9ea79f469e33111ae752954b6773040af2"
+    },
+    "frozen/protocol/processes/3294840/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/protocol/processes/3294840/EXIT.json": {
+      "bytes": 43,
+      "sha256": "56260cf2129db8c7057438cc269088f53b2868ff64f4c0d69e46f02bf201b7fc"
+    },
+    "frozen/protocol/processes/3294840/START.json": {
+      "bytes": 536,
+      "sha256": "741016fb48a39d124fa2d336f10dfe38d9bc4320cf2924e019df781a736be3e6"
+    },
+    "frozen/protocol/processes/3294840/loads.ndjson": {
+      "bytes": 291,
+      "sha256": "05b03ccffa70e2d2ba0610bc6cb32f662cab1a5728aad7fc3bf0a1141dbcae68"
+    },
+    "frozen/protocol/processes/3294840/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/processes/3294840/stdin.bin": {
+      "bytes": 1437,
+      "sha256": "ccf5b2d11688eccf51fce1eff61f31de0d1e3e0d6be98774423365c6a2db3754"
+    },
+    "frozen/protocol/processes/3294840/stdout.bin": {
+      "bytes": 77782,
+      "sha256": "03f1976d6f4db2cbd15aae3ea3f0ecd5db98c638f6cdfb80481843ec06800949"
+    },
+    "frozen/protocol/processes/3294878/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/protocol/processes/3294878/EXIT.json": {
+      "bytes": 43,
+      "sha256": "3f4733046ba8f33d29631b14ee271c6ad4edd68a68dc79e26113ac3174c72e31"
+    },
+    "frozen/protocol/processes/3294878/START.json": {
+      "bytes": 536,
+      "sha256": "3df41951e1518f3712071b05390be7344adb3bb55d2cfc94b784bbe21e7e3397"
+    },
+    "frozen/protocol/processes/3294878/loads.ndjson": {
+      "bytes": 291,
+      "sha256": "05b03ccffa70e2d2ba0610bc6cb32f662cab1a5728aad7fc3bf0a1141dbcae68"
+    },
+    "frozen/protocol/processes/3294878/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/processes/3294878/stdin.bin": {
+      "bytes": 465,
+      "sha256": "88555bfdc04f72b0d45b2532f086badb0f3d492b5bff563f939c630ff68aabad"
+    },
+    "frozen/protocol/processes/3294878/stdout.bin": {
+      "bytes": 68585,
+      "sha256": "a9aa52fbc51a47ca25adab5d9acbf2045b83858861e9952404d0255c67e1d7ed"
+    },
+    "frozen/protocol/processes/3294905/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/protocol/processes/3294905/EXIT.json": {
+      "bytes": 43,
+      "sha256": "9e7919007fa5d34d422c3af15e507c351b2c7968b07d928fc386efbae21604ba"
+    },
+    "frozen/protocol/processes/3294905/START.json": {
+      "bytes": 536,
+      "sha256": "e687fcf21754eeeea7015d71ed924255f967107ebe14533459afc3426795aad3"
+    },
+    "frozen/protocol/processes/3294905/loads.ndjson": {
+      "bytes": 291,
+      "sha256": "05b03ccffa70e2d2ba0610bc6cb32f662cab1a5728aad7fc3bf0a1141dbcae68"
+    },
+    "frozen/protocol/processes/3294905/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/protocol/processes/3294905/stdin.bin": {
+      "bytes": 772,
+      "sha256": "2908dd220dee93b36c897b8704f131c38cf851518dc70d9dc744c41b4c3b8023"
+    },
+    "frozen/protocol/processes/3294905/stdout.bin": {
+      "bytes": 66751,
+      "sha256": "71af519a5144c6e45f0e51898ce2206f52bd8238a99b26fc6172320a9d4d8dd4"
+    },
+    "frozen/protocol/registry.json": {
+      "bytes": 151160,
+      "sha256": "f39da7244d5a71e79371f04d8ce301dabcaf2489681d246e3ac34401996d1a71"
+    },
+    "frozen/relocation/COMPLETE.json": {
+      "bytes": 218,
+      "sha256": "7cf7bf8bd949de52a809d43e28600f9301f9b036e0fd9d33d0434a639c4ab882"
+    },
+    "frozen/relocation/OBSERVER-PINS.json": {
+      "bytes": 953,
+      "sha256": "a68e0d15dd793d6107b622da54dd3eedfb83f0f43b8ba07c194200ac8d7d0731"
+    },
+    "frozen/relocation/SOURCE-MIRROR.json": {
+      "bytes": 26036,
+      "sha256": "3ab3c795bf77a5f20146805da9e9b2a6b5d92c194332db76ec825b2b6e41e7b8"
+    },
+    "frozen/relocation/commands/tampered-bridge/RESULT.json": {
+      "bytes": 925,
+      "sha256": "80b5c842fa8bed9a0c646770b5e6cc5a43ceedbeab45c54e36e5938a5d5acae9"
+    },
+    "frozen/relocation/commands/tampered-bridge/START.json": {
+      "bytes": 1541,
+      "sha256": "9237edee2289d92e6bb7172ca77f8f1b5a9508e0e87d2434ccee890b99752b93"
+    },
+    "frozen/relocation/commands/tampered-bridge/stderr.bin": {
+      "bytes": 55,
+      "sha256": "3505aae91f5407f3370d430f1ba3d9c0a8e268b1f78df399de4ae64946da6077"
+    },
+    "frozen/relocation/commands/tampered-bridge/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/relocation/commands/tampered-bridge/stdout.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/relocation/commands/valid-launch/RESULT.json": {
+      "bytes": 915,
+      "sha256": "26c72d5d1fd2ba7b90c4fddcde3bdde747f4698fe67ad69aacf76965e7d62efe"
+    },
+    "frozen/relocation/commands/valid-launch/START.json": {
+      "bytes": 1538,
+      "sha256": "c9689e8c4568ea40036d22d0baf796e436cc4bb8c20552f54a9b6bc0801a7156"
+    },
+    "frozen/relocation/commands/valid-launch/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/relocation/commands/valid-launch/stdin.bin": {
+      "bytes": 282,
+      "sha256": "76f8e71a714e36ec6b63dd4e04c16e7ae51821abf89698a52cd6429b108abab9"
+    },
+    "frozen/relocation/commands/valid-launch/stdout.bin": {
+      "bytes": 80627,
+      "sha256": "2073576b0cbd9228022cb91a8cd6d19e9602a80e4e807d43aa01787694392ddb"
+    },
+    "frozen/relocation/expected.json": {
+      "bytes": 199455,
+      "sha256": "dc4dacfa54b826f648624aca63dca505278d8e7d80c92d2840e543852a0ad2dc"
+    },
+    "frozen/relocation/observations.json": {
+      "bytes": 199455,
+      "sha256": "dc4dacfa54b826f648624aca63dca505278d8e7d80c92d2840e543852a0ad2dc"
+    },
+    "frozen/relocation/processes/3298003/CHANNEL-ORIGINS.json": {
+      "bytes": 215,
+      "sha256": "9f9fa399dc80c99b95a0c99444f4704db7e770b14dce06042af90d7248b77d84"
+    },
+    "frozen/relocation/processes/3298003/EXIT.json": {
+      "bytes": 43,
+      "sha256": "7aa6b2b2b15ae2fa97c2efd2ad255168c9e10ffb1a977628f39f8217c5d013ba"
+    },
+    "frozen/relocation/processes/3298003/START.json": {
+      "bytes": 373,
+      "sha256": "57b1d2ed441331c6174d22aa74c7635e154b6118c1173db1b0907877f031f124"
+    },
+    "frozen/relocation/processes/3298003/loads.ndjson": {
+      "bytes": 230,
+      "sha256": "0e1dd12fc6854c4f53f081ee5d60f8b47291d4969fa37417a67ca466bd3cc2ef"
+    },
+    "frozen/relocation/processes/3298003/stderr.bin": {
+      "bytes": 55,
+      "sha256": "3505aae91f5407f3370d430f1ba3d9c0a8e268b1f78df399de4ae64946da6077"
+    },
+    "frozen/relocation/processes/3298003/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/relocation/processes/3298003/stdout.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/relocation/processes/3298014/CHANNEL-ORIGINS.json": {
+      "bytes": 172,
+      "sha256": "1f1ef4731878acd82cda82c8ea2454e810a6a3dc142bf8e27451fbdb30b7a85d"
+    },
+    "frozen/relocation/processes/3298014/EXIT.json": {
+      "bytes": 43,
+      "sha256": "32347a573f9a12025cef1ff27ea5b20acb87ceb58e7311c9a6cadddd1a5c9354"
+    },
+    "frozen/relocation/processes/3298014/START.json": {
+      "bytes": 381,
+      "sha256": "9be2b995e8c34774c1c8f6efc2ed85e03c255867c718038016f55d86a25e8332"
+    },
+    "frozen/relocation/processes/3298014/loads.ndjson": {
+      "bytes": 237,
+      "sha256": "1150dc90d9fcba373890d2a8e0e185e8ab0bdbc79290b9530479a45fd1530908"
+    },
+    "frozen/relocation/processes/3298014/stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/relocation/processes/3298014/stdin.bin": {
+      "bytes": 282,
+      "sha256": "76f8e71a714e36ec6b63dd4e04c16e7ae51821abf89698a52cd6429b108abab9"
+    },
+    "frozen/relocation/processes/3298014/stdout.bin": {
+      "bytes": 80627,
+      "sha256": "2073576b0cbd9228022cb91a8cd6d19e9602a80e4e807d43aa01787694392ddb"
+    },
+    "frozen/relocation/processes/3298046/CHANNEL-ORIGINS.json": {
+      "bytes": 215,
+      "sha256": "9f9fa399dc80c99b95a0c99444f4704db7e770b14dce06042af90d7248b77d84"
+    },
+    "frozen/relocation/processes/3298046/EXIT.json": {
+      "bytes": 43,
+      "sha256": "b723e34792f5479c6369ba642935363256cbc02970953b56b71872d8c2a6ec15"
+    },
+    "frozen/relocation/processes/3298046/START.json": {
+      "bytes": 373,
+      "sha256": "f4453d368ee9d53e84c945abb6fe909f3a65397f1e1eafaa98d7055d9226996d"
+    },
+    "frozen/relocation/processes/3298046/loads.ndjson": {
+      "bytes": 230,
+      "sha256": "0e1dd12fc6854c4f53f081ee5d60f8b47291d4969fa37417a67ca466bd3cc2ef"
+    },
+    "frozen/relocation/processes/3298046/stderr.bin": {
+      "bytes": 55,
+      "sha256": "3505aae91f5407f3370d430f1ba3d9c0a8e268b1f78df399de4ae64946da6077"
+    },
+    "frozen/relocation/processes/3298046/stdin.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frozen/relocation/processes/3298046/stdout.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "PINS-before-v2.json": {
+      "bytes": 183877,
+      "sha256": "3a32e11344758d0f2f8d4e734f32237232da78f55686646621cfb91cd4dde6b8"
+    },
+    "GRAPH-v2.json": {
+      "bytes": 34576,
+      "sha256": "33d19e24bd5d181fcbd214ae48b2f527ea0ae8e029678a32b1ac545e794b3081"
+    },
+    "observe.py": {
+      "bytes": 19150,
+      "sha256": "638321f2a1774bd9ce00fa85233677ceae7f5d1a73815f97ac110fd41e34a173"
+    },
+    "pins.py": {
+      "bytes": 3099,
+      "sha256": "1bdfa24da508174fb3425b39709146ad8c75b6bef6103214044b87b2ddf02842"
+    },
+    "preload.ts": {
+      "bytes": 3354,
+      "sha256": "c9a871fc99dcd2f2c747270399ecf8951a416fb36371ce99978c09123341bdb4"
+    },
+    "fixture.ts": {
+      "bytes": 2495,
+      "sha256": "360dd3331b98f464451d8f666c5379c78cb4d3220204068b2c1e3d7747d9f274"
+    },
+    "judge.py": {
+      "bytes": 7201,
+      "sha256": "a614e4a05801a7a2b3f33f80b6d8059c6656fbacfb40164ed6bc24dce5cdbaab"
+    },
+    "freeze.py": {
+      "bytes": 3928,
+      "sha256": "d4f41817736bb41952c67cfeefb57b1db48c9603953c0b768947fb2fbdaf5cae"
+    }
+  }
+}

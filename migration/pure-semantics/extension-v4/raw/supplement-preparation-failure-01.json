@@ -1,0 +1,8 @@
+{
+  "command": ["node", "migration/pure-semantics/extension-v4/create-supplement.mjs"],
+  "status": 1,
+  "cause": "dependency_package_root_resolution",
+  "actualError": "MODULE_NOT_FOUND: @palantirkc/ontology",
+  "diagnosis": "Nested type-only package.json in lru-cache and builtin punycode resolution accidentally ascended to repository package.json.",
+  "correction": "create-supplement-v2.mjs requires the exact dependency package name when finding roots and resolves the declared punycode package with its slash suffix; no dependencies installed. Initial script preserved."
+}

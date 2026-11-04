@@ -1,0 +1,81 @@
+{
+  "learning": [
+    "assertContext",
+    "assertDate",
+    "assertExactKeys",
+    "assertInstant",
+    "assertKnowledge",
+    "assertRefs",
+    "assertTime",
+    "canonicalJson",
+    "contextFromLessonKey",
+    "digest",
+    "immutableCopy",
+    "known",
+    "parseCalendarDate",
+    "requireText",
+    "resolveProblemPath",
+    "stableId",
+    "studentOf",
+    "unknown",
+    "validateCatalog",
+    "validateRecord",
+    "validateScope"
+  ],
+  "cism": [
+    "CISM_NARRATIVES",
+    "CISM_PATH",
+    "CISM_WIRE_SHA256",
+    "cismDate",
+    "cismHash",
+    "cismMonthDates",
+    "cismWeek",
+    "cismWriteParameters",
+    "parseCismReport"
+  ],
+  "templates": [
+    "homeworkActions",
+    "journalActivities",
+    "journalOutcomes",
+    "journalWireWidth",
+    "lessonJournalTemplates",
+    "renderLessonJournal"
+  ],
+  "admission": [
+    "canonicalActionDigest",
+    "canonicalJson",
+    "createDailyRecordSaveAdmission",
+    "dailyRecordSaveAdmissionSchema",
+    "dailyRecordSaveRequestEvidenceSchema",
+    "liveSaveRequestEvidence"
+  ],
+  "daily": [
+    "DailyRecordService",
+    "cismObservationSchema",
+    "cismSectionSchema",
+    "dailyRecordExecutionStatusSchema",
+    "dailyRecordIntakeSchema",
+    "dailyRecordObservationSchema",
+    "dailyRecordReconcileSchema",
+    "dailyRecordReviewSchema",
+    "dailyRecordSaveSchema",
+    "dailyRecordWorkflowToolSchemas",
+    "itemSectionTraceSchema",
+    "prestudyGetSchema",
+    "studentMetadataBatchSchema",
+    "studentMetadataGetSchema",
+    "studentMetadataQuerySchema",
+    "textbookSectionResultsGetSchema",
+    "textbookSectionResultsSchema"
+  ],
+  "context": [
+    "dailyRecordContextSchema",
+    "dailyRecordDateSchema",
+    "dailyRecordFactSchema",
+    "dailyRecordFieldSchema",
+    "dailyRecordFields",
+    "dailyRecordIdSchema",
+    "dailyRecordScopeSchema",
+    "dailyRecordWorkflowContext"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "method": "actual ps -eo pid,ppid,args filtered to task source runners/baselines only",
+  "activeTaskSourceRunners": [],
+  "compilerCommandsExecutedByAuthor": 0,
+  "rootOwnsStopRetentionAndPaneClosure": true,
+  "note": "Unrelated/native MCP services remain intact; this worker does not close its own native pane."
+}

@@ -1,0 +1,2 @@
+{"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{"listChanged":true}},"serverInfo":{"name":"fictional-paper-reader","version":"1.0.0"}},"jsonrpc":"2.0","id":0}
+{"result":{"tools":[{"name":"academy_paper_headers","inputSchema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"studentId":{"type":"string"},"paperCodes":{"type":"array","items":{"type":"string"}}},"required":["studentId","paperCodes"],"additionalProperties":false}}]},"jsonrpc":"2.0","id":1}

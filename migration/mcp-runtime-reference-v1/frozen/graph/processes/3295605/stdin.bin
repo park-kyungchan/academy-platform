@@ -1,0 +1,5 @@
+{"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"muse-academy-bounded-adapter","version":"1.0.0"}},"jsonrpc":"2.0","id":0}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"method":"tools/list","jsonrpc":"2.0","id":1}
+{"method":"tools/call","params":{"name":"academy_runtime_read_admission","arguments":{}},"jsonrpc":"2.0","id":2}
+{"method":"tools/call","params":{"name":"academy_cism_weekly_save","arguments":{"attribution":{"schemaVersion":"academy.dailyrecord-attribution/1","observedBy":"neutral-bridge","observedAt":"2026-11-03T02:31:36.393Z","client":{"name":"s11-fictional-observer","version":"1"},"process":{"pid":3295568,"ppid":3295565,"uid":0,"parentCommand":"strace","bridgeSha256":"36394d985e2bc142e7ba423a915b998507c898f80676e5d44f212feb75406e14"},"herdrPaneId":null,"declared":null}}},"jsonrpc":"2.0","id":3}

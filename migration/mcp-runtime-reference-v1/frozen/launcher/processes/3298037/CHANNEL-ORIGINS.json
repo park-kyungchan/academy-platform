@@ -1,0 +1,5 @@
+{
+  "stdin.bin": "direct_original_child_pipe:commands/tampered-bridge",
+  "stdout.bin": "direct_original_child_pipe:commands/tampered-bridge",
+  "stderr.bin": "direct_original_child_pipe:commands/tampered-bridge"
+}

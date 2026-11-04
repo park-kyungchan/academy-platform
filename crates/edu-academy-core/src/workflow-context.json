@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "academy.dailyrecord-workflow-context/1",
+  "purpose": "Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.",
+  "policyOwner": "Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md",
+  "workflow": [
+    "exact_owned_scope",
+    "qualified_before_state",
+    "missing_only_interview",
+    "field_local_review",
+    "separate_trusted_save_and_readback"
+  ],
+  "rules": [
+    "Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.",
+    "Ask for today's student-specific memo unless today's content or no-addition answer is supplied.",
+    "No additional memo does not mean erase an existing memo.",
+    "Counts, rates and narratives never establish assessment or attendance codes.",
+    "Previous homework assessment belongs to an independently identified previous lesson record.",
+    "Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.",
+    "CISM requires exact teacher, student, reporting period, report and relevant section.",
+    "User context explains meaning; caller approval flags and source pins do not grant effect authority."
+  ],
+  "boundaries": {
+    "academyWrites": 0,
+    "parentSends": 0,
+    "automaticRewrite": false,
+    "automaticRetry": false,
+    "credentialInput": false,
+    "sourceTruthFromCaller": false
+  }
+}

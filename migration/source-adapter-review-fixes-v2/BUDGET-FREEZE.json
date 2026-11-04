@@ -1,0 +1,10 @@
+{
+  "at": "2026-11-03T01:02:15.476684+00:00",
+  "origin": "actual unchanged original export calls before Rust comparison",
+  "files": {
+    "original.ts": "5e9a2f3b78ba65dc8917d5c12b70810e477573b30e8d5aaad8bc2ba3c0a98338",
+    "BUDGET-STIMULI.json": "d7b65cf1dadc70ddecaebc4c191a25eba282d2be9f8b41f76723242fc6f68dd4",
+    "BUDGET-EXPECTED.json": "8127f4bc7a188f4cde0d14c5fbaa9935e21738815c7c4b542f8cee7b3155b3ca"
+  },
+  "rawStdoutSha256": "8127f4bc7a188f4cde0d14c5fbaa9935e21738815c7c4b542f8cee7b3155b3ca"
+}

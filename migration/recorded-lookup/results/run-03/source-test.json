@@ -1,0 +1,16 @@
+{
+  "command": [
+    "bun",
+    "test",
+    "--no-install",
+    "--preload",
+    "/home/palantirkc/work/ws-replan/wt/education-platform/migration/recorded-lookup/deny-transport.ts",
+    "/tmp/s05-recorded-lookup-jicWNO/source-test-copy/modules/academy-workbench/tools/academy-mcp/tests/saved-context.test.ts"
+  ],
+  "cwd": "/tmp/s05-recorded-lookup-jicWNO",
+  "status": 0,
+  "signal": null,
+  "spawnError": null,
+  "stdout": "bun test v1.4.3 (c6da4a4d3)\n",
+  "stderr": "\nsource-test-copy/modules/academy-workbench/tools/academy-mcp/tests/saved-context.test.ts:\n(pass) preserved academy query semantics > a complete saved roster page does not establish the whole teacher roster [12.67ms]\n(pass) preserved academy query semantics > cursor continuation preserves order and exact subject scope [4.78ms]\n(pass) preserved academy query semantics > stale snapshot, malformed and overlong cursors fail closed [1.61ms]\n(pass) preserved academy query semantics > an unknown student is unavailable, not a demo fallback or a false membership claim [0.49ms]\n(pass) preserved academy query semantics > historical records survive the reported website window and keep original scores [0.25ms]\n(pass) preserved academy query semantics > empty assignment evidence and empty dated lesson evidence remain unknown [0.70ms]\n(pass) preserved academy query semantics > teacher reports, supplied context, source observations and drafts stay distinct [0.55ms]\n(pass) preserved academy query semantics > book filtering preserves edition identity and original source pointer [0.44ms]\n(pass) preserved academy query semantics > source snapshots cannot mutate under an unchanged hash [0.58ms]\n(pass) preserved academy query semantics > network, credentials, source mutations and invalid calendar dates are not query inputs [1.27ms]\n\n 10 pass\n 0 fail\n 43 expect() calls\nRan 10 tests across 1 file. [97.00ms]\n"
+}

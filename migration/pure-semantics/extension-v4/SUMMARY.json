@@ -1,0 +1,38 @@
+{
+  "schema": "s08.source-characterization-summary/4",
+  "cases": 595,
+  "mainCases": 550,
+  "supplementCases": 45,
+  "operations": {
+    "exports": 1,
+    "learning": 236,
+    "schema": 83,
+    "review": 73,
+    "json": 94,
+    "admission": 18,
+    "live_evidence": 2,
+    "cism_write": 64,
+    "cism_date": 6,
+    "parser": 18
+  },
+  "sourceReturns": 311,
+  "sourceThrows": 284,
+  "throwNames": {
+    "Error": 198,
+    "TypeError": 20,
+    "ZodError": 64,
+    "RangeError": 2
+  },
+  "expectedSha256": {
+    "expected.json": "eaa5af1ca3f6d938cc8d31f0fba1e091605fc7bfda5976562a04318bc9eb454b",
+    "supplement-expected.json": "4bfe0bd9fa9cdb670150a643bd4b5590781cc6f3899613195892b69d79bb806f"
+  },
+  "sourceChildStatus0": 595,
+  "uncharacterized": 0,
+  "actualChildNegativeControls": 32,
+  "strictProtocolAndScopeControls": 8,
+  "sourceMeaningAssertions": 52,
+  "independentWonderReview": "REQUIRED_NOT_PERFORMED",
+  "candidateExecuted": false,
+  "rustCommands": 0
+}

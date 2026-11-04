@@ -1,0 +1,215 @@
+{
+  "schema": "s11.strict-captured-boundary-policy/2",
+  "base": "807db88af175b4dc60b843584e2cc62101e1ac31",
+  "default": "literal; exact omissions/types/array order/names/schema/routing/error codes/digests",
+  "semanticVolatileAtoms": [],
+  "rootRelocationRules": [],
+  "captureDurationRoles": {
+    "inventory": {
+      "neutral": {
+        "minimumSeconds": 0.48256,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/neutral/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      }
+    },
+    "discovery": {
+      "dailyrecord-source": {
+        "minimumSeconds": 0.43507,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/dailyrecord-source/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      },
+      "discover": {
+        "minimumSeconds": 1.966478,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/discover/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      },
+      "neutral": {
+        "minimumSeconds": 0.47626,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/neutral/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      }
+    },
+    "protocol": {
+      "discover": {
+        "minimumSeconds": 1.854037,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/discover/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      },
+      "neutral": {
+        "minimumSeconds": 6.308508,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/neutral/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      }
+    },
+    "composition": {
+      "discover": {
+        "minimumSeconds": 3.646785,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/discover/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      },
+      "neutral": {
+        "minimumSeconds": 4.800776,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/neutral/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      }
+    },
+    "graph": {
+      "discover": {
+        "minimumSeconds": 1.989698,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/discover/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      },
+      "neutral": {
+        "minimumSeconds": 2.838904,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/neutral/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      }
+    },
+    "identity": {
+      "discover": {
+        "minimumSeconds": 2.272595,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/discover/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      },
+      "neutral": {
+        "minimumSeconds": 2.253446,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/neutral/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      },
+      "qualified-endpoint": {
+        "minimumSeconds": 0.392722,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/qualified-endpoint/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      }
+    },
+    "framing": {
+      "discover": {
+        "minimumSeconds": 1.534222,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/discover/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      },
+      "neutral": {
+        "minimumSeconds": 0.678445,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/neutral/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      }
+    },
+    "bounds": {
+      "discover": {
+        "minimumSeconds": 1.537489,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/discover/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      },
+      "lock-release-readback": {
+        "minimumSeconds": 0.0,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/lock-release-readback/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      },
+      "neutral": {
+        "minimumSeconds": 1.45755,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/neutral/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      }
+    },
+    "launcher": {
+      "tampered-bridge": {
+        "minimumSeconds": 0.08145,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/tampered-bridge/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      },
+      "valid-launch": {
+        "minimumSeconds": 0.582917,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/valid-launch/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      }
+    },
+    "relocation": {
+      "tampered-bridge": {
+        "minimumSeconds": 0.069542,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/tampered-bridge/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      },
+      "valid-launch": {
+        "minimumSeconds": 0.64743,
+        "maximumSeconds": 90.0,
+        "source": "migration/mcp-runtime-reference-v1/observe.py:30-34,90",
+        "role": "commands/valid-launch/RESULT.json.elapsedSeconds",
+        "correlation": ">= latest frozen same-PGID EXIT.at minus literal command START.startedAt; <= pinned 90s command wall budget"
+      }
+    }
+  },
+  "wire": {
+    "stdin": "literal aggregate bytes including malformed input and CRLF; no read-chunk parity",
+    "stdout": "strict LF frame sequence; duplicate keys refused; only object member order may differ; scalar tokens, whitespace, escaping and content.text remain literal",
+    "stderr": "literal bytes including diagnostic count/order/content",
+    "channelHashes": "recompute candidate RESULT binding from actual channel; compare wire by above rule, not whole-stdout hash"
+  },
+  "occurrence": {
+    "source": "modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts:119,126,132,241-254",
+    "rule": "literal original request/response/receipt roles; no first-seen UUID mapping; identity-result receipts without returned occurrence remain separately pinned"
+  },
+  "sourceObservedAt": {
+    "fixtureSource": "modules/academy-workbench/tools/academy-mcp/tests/neutral-upstream-fixture.ts:39",
+    "propagation": "modules/academy-workbench/tools/academy-mcp/src/dailyrecord.ts:244,423,451",
+    "decision": "literal; fixture generates current clock but source age participates in 0..300000ms freshness; not safe to ignore",
+    "futureProposalOnly": "independent source-read receipt bound to request/namespace/revision/wireDigest, UTC source observedAt <= read completion <= service evaluation, evaluation-observedAt in [0,300000]ms, exact text/structured/receipt linkage; required evaluation-clock and read-completion evidence is not in v1 freeze; REFUSE substitution"
+  },
+  "unsupportedFreshReplay": [
+    "new semantic UUIDs or occurrence role reassignment",
+    "new payload/process/source timestamps",
+    "relocated logical roots, changed digests or argv/process identity",
+    "native child termination equivalence beyond exact retained EXIT/command result",
+    "early unavailable stderr, native graph/owner admission, dynamic bundles/jsdom"
+  ],
+  "success": "MATCH is recorded semantic/raw correspondence only; all ten modes LIMITED; exit 2; no graph admission; author cannot accept own qualifier",
+  "missingChannel": "REFUSED; no_stream_data_or_write_observed remains explicit LIMITED, never syscall-empty",
+  "expectedBoundsTermination": {
+    "mode": "bounds",
+    "command": "neutral",
+    "returncode": -15,
+    "cleanupRequested": true,
+    "meaning": "intentional fixture SIGTERM cleanup, never generic child success"
+  }
+}

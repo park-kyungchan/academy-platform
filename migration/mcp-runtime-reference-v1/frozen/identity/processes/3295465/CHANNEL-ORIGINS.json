@@ -1,0 +1,5 @@
+{
+  "stdin.bin": "direct_original_child_pipe:commands/neutral",
+  "stdout.bin": "direct_original_child_pipe:commands/neutral",
+  "stderr.bin": "direct_original_child_pipe:commands/neutral"
+}

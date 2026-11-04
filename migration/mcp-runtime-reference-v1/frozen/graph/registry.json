@@ -1,0 +1,152 @@
+[
+  {
+    "endpoint": "dailyrecord",
+    "upstreamName": "academy_runtime_read_admission",
+    "tool": {
+      "name": "academy_runtime_read_admission",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "description": "undefined One serialized native read batch; releases the account lock after completion. No saving, printing, sending, automatic retry or credentials in arguments. DailyRecord owner-admitted dates: 2040-01-15 through 2040-01-17."
+    }
+  },
+  {
+    "endpoint": "dailyrecord",
+    "upstreamName": "academy_source_status",
+    "tool": {
+      "name": "academy_source_status",
+      "description": "S11 fictional fault stimulus One serialized native read batch; releases the account lock after completion. No saving, printing, sending, automatic retry or credentials in arguments. DailyRecord owner-admitted dates: 2040-01-15 through 2040-01-17.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    }
+  },
+  {
+    "endpoint": "dailyrecord",
+    "upstreamName": "academy_cism_weekly_save",
+    "tool": {
+      "name": "academy_cism_weekly_save",
+      "description": "S11 fictional fault stimulus One serialized native write batch; releases the account lock after completion. Requires a prior recorded review and the verbatim user instruction; the bridge records the observed caller attribution for audit. No printing, sending, automatic retry or credentials in arguments.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "attribution": {}
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    }
+  },
+  {
+    "endpoint": "dailyrecord",
+    "upstreamName": "academy_bounded_probe",
+    "tool": {
+      "name": "academy_bounded_probe",
+      "description": "S11 fictional fault stimulus One serialized native read batch; releases the account lock after completion. No saving, printing, sending, automatic retry or credentials in arguments. DailyRecord owner-admitted dates: 2040-01-15 through 2040-01-17.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4
+          },
+          "limit": {
+            "default": 2,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    }
+  },
+  {
+    "endpoint": "dailyrecord",
+    "upstreamName": "academy_dailyrecord_get",
+    "tool": {
+      "name": "academy_dailyrecord_get",
+      "title": "Read live DailyRecord by student name (today by default)",
+      "description": "Read live DailyRecord by exact student name. Preferred for requests such as “오늘 학생 DailyRecord 조회해봐” or current/today DailyRecord lookups. Omit lessonDate for today in Asia/Seoul. The owner launch supplies namespace, teacher and admitted dates; this tool resolves the name to a native key then calls academy_dailyrecord_intake. Never use saved academy_query or academy_source_status to decide live availability. Ambiguous names, missing admission, out-of-range dates or failed source reads stop with a named blocker; no guesses or automatic retry. Returns observed fields even when authoring would require a memo/assessment interview. No authoring, save or send.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Exact student display name from the current user request; never guess a native key."
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "The current user request or its purpose. Reading does not authorize authoring or saving."
+          },
+          "currentRequestRef": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Reference to this current user request; not an approval or credential."
+          },
+          "lessonDate": {
+            "default": "today",
+            "description": "Omit for today in Asia/Seoul. An explicit date must fall inside the owner-admitted range.",
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "today"
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              }
+            ]
+          }
+        },
+        "required": [
+          "displayName",
+          "purpose",
+          "currentRequestRef"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    }
+  }
+]

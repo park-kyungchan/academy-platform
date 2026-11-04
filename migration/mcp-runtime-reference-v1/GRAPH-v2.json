@@ -1,0 +1,782 @@
+{
+  "schema": "s11.public-runtime-graph/1",
+  "observedPointer": {
+    "schemaVersion": "academy.mcp-release/1",
+    "generation": "main-20261102-cc6e81f",
+    "routing": {
+      "path": "/root/.local/share/academy-mcp-scoped-20261030/releases/main-20261102-cc6e81f/routing.json",
+      "sha256": "89793d3e286e0a44cc7e92a904d87a365700003133ec606403ce8aa899e6dd8e"
+    },
+    "registry": {
+      "path": "/root/.local/share/academy-mcp-scoped-20261030/releases/main-20261102-cc6e81f/registry.json",
+      "sha256": "2b30fcdd18fce4e82e79e74406a58e580d594381a94164fc1e3631d2f4e2a5d5"
+    },
+    "endpoints": {
+      "path": "/root/.local/share/academy-mcp-scoped-20261030/releases/main-20261102-cc6e81f/endpoints.json",
+      "sha256": "85447ebc1f18657c7725ebecbdba9e81f4942ea610f1ede1d864b1484bfafade"
+    }
+  },
+  "pointerFile": {
+    "path": "/root/.local/share/academy-mcp-scoped-20261030/release.json",
+    "bytes": 715,
+    "sha256": "b5159c1bd815b87d67a4488dd4e978c051b777686856dd542b9a5452ad9aad3b",
+    "uid": 0,
+    "mode": "0o600",
+    "resolved": "/root/.local/share/academy-mcp-scoped-20261030/release.json"
+  },
+  "endpointsFile": {
+    "path": "/root/.local/share/academy-mcp-scoped-20261030/releases/main-20261102-cc6e81f/endpoints.json",
+    "bytes": 13801,
+    "sha256": "85447ebc1f18657c7725ebecbdba9e81f4942ea610f1ede1d864b1484bfafade",
+    "uid": 0,
+    "mode": "0o600",
+    "resolved": "/root/.local/share/academy-mcp-scoped-20261030/releases/main-20261102-cc6e81f/endpoints.json"
+  },
+  "registryFile": {
+    "path": "/root/.local/share/academy-mcp-scoped-20261030/releases/main-20261102-cc6e81f/registry.json",
+    "bytes": 270448,
+    "sha256": "2b30fcdd18fce4e82e79e74406a58e580d594381a94164fc1e3631d2f4e2a5d5",
+    "uid": 0,
+    "mode": "0o600",
+    "resolved": "/root/.local/share/academy-mcp-scoped-20261030/releases/main-20261102-cc6e81f/registry.json"
+  },
+  "installedRoutingDescriptor": {
+    "path": "/root/.local/share/academy-mcp-scoped-20261030/releases/main-20261102-cc6e81f/routing.json",
+    "declaredSha256": "89793d3e286e0a44cc7e92a904d87a365700003133ec606403ce8aa899e6dd8e",
+    "opened": false,
+    "reason": "not_needed; preserve private admission custody"
+  },
+  "selectedOriginalRoutes": [
+    {
+      "name": "academy_runtime_read_admission",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_runtime_read_admission"
+    },
+    {
+      "name": "academy_item_answer_lookup",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_item_answer_lookup"
+    },
+    {
+      "name": "academy_student_metadata_get",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_student_metadata_get"
+    },
+    {
+      "name": "academy_student_metadata",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_student_metadata"
+    },
+    {
+      "name": "academy_student_resolve",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_student_resolve"
+    },
+    {
+      "name": "academy_dailyrecord_intake",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_dailyrecord_intake"
+    },
+    {
+      "name": "academy_dailyrecord_review",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_dailyrecord_review"
+    },
+    {
+      "name": "academy_textbook_section_results",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_textbook_section_results"
+    },
+    {
+      "name": "academy_dailyrecord_save",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_dailyrecord_save"
+    },
+    {
+      "name": "academy_dailyrecord_reconcile",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_dailyrecord_reconcile"
+    },
+    {
+      "name": "academy_dailyrecord_execution_status",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_dailyrecord_execution_status"
+    },
+    {
+      "name": "academy_cism_section",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_cism_section"
+    },
+    {
+      "name": "academy_printed_paper_lookup",
+      "endpoint": "paper1",
+      "upstreamName": "academy_printed_paper_lookup"
+    },
+    {
+      "name": "academy_source_read_contracts",
+      "endpoint": "paper1",
+      "upstreamName": "academy_source_read_contracts"
+    },
+    {
+      "name": "academy_paper_headers",
+      "endpoint": "paper1",
+      "upstreamName": "academy_paper_headers"
+    },
+    {
+      "name": "academy_daily_test_inventory",
+      "endpoint": "paper1",
+      "upstreamName": "academy_daily_test_inventory"
+    },
+    {
+      "name": "academy_paper_definition_lookup",
+      "endpoint": "paper1",
+      "upstreamName": "academy_paper_definition_lookup"
+    },
+    {
+      "name": "academy_paper_read_contracts",
+      "endpoint": "paper1",
+      "upstreamName": "academy_paper_read_contracts"
+    },
+    {
+      "name": "class2_academy_printed_paper_lookup",
+      "endpoint": "paper2",
+      "upstreamName": "academy_printed_paper_lookup"
+    },
+    {
+      "name": "class2_academy_source_read_contracts",
+      "endpoint": "paper2",
+      "upstreamName": "academy_source_read_contracts"
+    },
+    {
+      "name": "class2_academy_paper_headers",
+      "endpoint": "paper2",
+      "upstreamName": "academy_paper_headers"
+    },
+    {
+      "name": "class2_academy_daily_test_inventory",
+      "endpoint": "paper2",
+      "upstreamName": "academy_daily_test_inventory"
+    },
+    {
+      "name": "class2_academy_paper_definition_lookup",
+      "endpoint": "paper2",
+      "upstreamName": "academy_paper_definition_lookup"
+    },
+    {
+      "name": "class2_academy_paper_read_contracts",
+      "endpoint": "paper2",
+      "upstreamName": "academy_paper_read_contracts"
+    },
+    {
+      "name": "academy_item_label_scope",
+      "endpoint": "saved",
+      "upstreamName": "academy_item_label_scope"
+    },
+    {
+      "name": "academy_find_item_labels",
+      "endpoint": "saved",
+      "upstreamName": "academy_find_item_labels"
+    },
+    {
+      "name": "academy_review_type_questions",
+      "endpoint": "saved",
+      "upstreamName": "academy_review_type_questions"
+    },
+    {
+      "name": "academy_capabilities",
+      "endpoint": "saved",
+      "upstreamName": "academy_capabilities"
+    },
+    {
+      "name": "academy_query",
+      "endpoint": "saved",
+      "upstreamName": "academy_query"
+    },
+    {
+      "name": "academy_source_status",
+      "endpoint": "saved",
+      "upstreamName": "academy_source_status"
+    },
+    {
+      "name": "academy_dailyrecord_get",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_dailyrecord_get"
+    },
+    {
+      "name": "academy_dailytest_history_with_headers",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_dailytest_history_with_headers"
+    },
+    {
+      "name": "academy_textbook_catalog",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_textbook_catalog"
+    },
+    {
+      "name": "academy_textbook_pdf",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_textbook_pdf"
+    },
+    {
+      "name": "academy_cism_weekly_get",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_cism_weekly_get"
+    },
+    {
+      "name": "academy_cism_month",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_cism_month"
+    },
+    {
+      "name": "academy_cism_weekly_review",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_cism_weekly_review"
+    },
+    {
+      "name": "academy_cism_weekly_save",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_cism_weekly_save"
+    },
+    {
+      "name": "academy_prestudy_get",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_prestudy_get"
+    },
+    {
+      "name": "academy_textbook_section_results_get",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_textbook_section_results_get"
+    },
+    {
+      "name": "academy_item_section_trace",
+      "endpoint": "dailyrecord",
+      "upstreamName": "academy_item_section_trace"
+    }
+  ],
+  "hostEntrypoints": [
+    {
+      "path": "/root/.local/share/academy-mcp-scoped-20261030/launcher.mjs",
+      "bytes": 3309,
+      "sha256": "a788dec3f0433b04b8781e8308af600e13f29fc3aa9800e6095f30d10e382544",
+      "uid": 0,
+      "mode": "0o600",
+      "resolved": "/root/.local/share/academy-mcp-scoped-20261030/launcher.mjs",
+      "staticImportSpecifiers": [
+        "crypto",
+        "fs",
+        "fs/promises",
+        "path"
+      ],
+      "literalRequireCandidates": [],
+      "dynamicImportQualification": "native config data-URL imports and external jsdom require separate owner proof",
+      "qualification": "public_source_bytes_only_not_executed"
+    },
+    {
+      "path": "/root/.local/share/academy-mcp-scoped-20261030/releases/main-20261102-cc6e81f/server.mjs",
+      "bytes": 1371100,
+      "sha256": "4cc8cf6f4bf2b81b0312c8ee6aa9d230192554ffc4874f16d4dd7b9810b9ad5a",
+      "uid": 0,
+      "mode": "0o600",
+      "resolved": "/root/.local/share/academy-mcp-scoped-20261030/releases/main-20261102-cc6e81f/server.mjs",
+      "staticImportSpecifiers": [
+        "crypto",
+        "fs",
+        "fs/promises",
+        "path",
+        "process",
+        "stream"
+      ],
+      "literalRequireCandidates": [
+        "ajv-formats/dist/formats",
+        "ajv/dist/runtime/equal",
+        "ajv/dist/runtime/ucs2length",
+        "ajv/dist/runtime/uri",
+        "ajv/dist/runtime/validation_error",
+        "child_process",
+        "fs",
+        "path"
+      ],
+      "dynamicImportQualification": "native config data-URL imports and external jsdom require separate owner proof",
+      "qualification": "public_source_bytes_only_not_executed"
+    }
+  ],
+  "metadataEvidence": {
+    "preparation/slices/S10/reference-v1/LEAD-HOST-LOCK-LOCATOR.json": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S10/reference-v1/LEAD-HOST-LOCK-LOCATOR.json",
+      "bytes": 3388,
+      "sha256": "8b0cd77339df218940db17cd170d082f062c2765829c4afeb6eedcf2ae9d38f3",
+      "uid": 0,
+      "mode": "0o644",
+      "resolved": "/home/palantirkc/work/ws-replan/preparation/slices/S10/reference-v1/LEAD-HOST-LOCK-LOCATOR.json"
+    },
+    "preparation/final-review/runtime/native-config-metadata.json": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/final-review/runtime/native-config-metadata.json",
+      "bytes": 5272,
+      "sha256": "f4fb5464ae86e40834e583847d25dbc353f9ef99df2017b32e597af86f2c2653",
+      "uid": 0,
+      "mode": "0o644",
+      "resolved": "/home/palantirkc/work/ws-replan/preparation/final-review/runtime/native-config-metadata.json"
+    }
+  },
+  "endpoints": {
+    "dailyrecord": {
+      "command": "flock",
+      "environmentKeys": [],
+      "argumentSha256": [
+        "cce6a81cf3a793a9fc116cad5679a4af35d58c61cf1058350045dcd6c6d72911",
+        "811786ad1ae74adfdd20dd0372abaaebc6246e343aebd01da0bfc4c02bf0106c",
+        "05d4a78ea2815054e5a24fa4ea320cd8ec2a337619cb0f9a4561dc3c8b455ab6",
+        "d548c5b83fa61d8e3bd86ad42a7ffea9b7c86e3f9d8095c1577d3e1270bb9420",
+        "2706c619fe73f0cf112473c6ee02e66c04e1c01c110b0c37b88d8eb509630c9f",
+        "444c8974fcf3d4d990db382d0a6ed1d69ffc4caa10da28afd7ab561fd7f27ced",
+        "e10da743756caad00107a12e114d90356b5e8dc95d21883c32e0a57185d8cf7d",
+        "39e5b4830d4d9c14db7368a95b65d5463ea3d09520373723430c03a5a453b5df",
+        "d225549a81f17c07c3c80dcbe03d5821828835b230d7e02bb46bc6a312e7b668",
+        "26f1ea4727760f6f5d328efd5b6a38516bd3a42a7061a558dce164210f8cef4c",
+        "d225549a81f17c07c3c80dcbe03d5821828835b230d7e02bb46bc6a312e7b668",
+        "54e90da8595be077c9216a4e59922536edb811df03323911b5ff2d091d323a31",
+        "67a20aa0babf42cd416add2150bc46818f805e05c84cc1ccac291368d99432af",
+        "351f81cc0628449496e2e4af81dfcaa2cb4c423cb0dbc17f2ee174be92a6436d",
+        "59d043200d4760bdf7af70ebf13d3b6ef3742e3d03850da6557c3018c4cc4bb7",
+        "aeab6e4f4c9facfa1a5c214b292ef065fa5f31a9e3cc1e0e2c605863361348d7",
+        "71fbb8ec87f49f3c9d2c521011c3b7d4420003406bc441a916aa6a4c68672e89",
+        "0c3603e13e24a40b4bf215e3795a9a40d60a8456fb7b63c2d11e81701a231e85",
+        "32022bfd93f3e448b7f362681d4748ab775a44b4be06614c44b2f18712d4ee89"
+      ],
+      "inlinePythonSha256": "32022bfd93f3e448b7f362681d4748ab775a44b4be06614c44b2f18712d4ee89",
+      "imports": [
+        "import os, site, hashlib, json",
+        "from hermes_cli.config import get_env_value_prefer_dotenv"
+      ],
+      "nativeDeclaredPins": {
+        "dailyrecord-server.mjs": {
+          "bytes": 788172,
+          "sha256": "f0521d6d93e392e71e81a803a6cbcc2be351d7e0a82e93dae75814a65b1a259b"
+        },
+        "dailyrecord-learning.mjs": {
+          "bytes": 7423,
+          "sha256": "c1654936ecb420e58ee20f53c122073c69f019583bfa0b202fedb52e59b0a3b4"
+        },
+        "learning-catalog.json": {
+          "bytes": 244034,
+          "sha256": "4fdca4db7bb4a87445456e708cd08ff3531116b8ae2e8e1cd7eb799a6239709c"
+        },
+        "learning-config.json": {
+          "bytes": 1037,
+          "sha256": "109522f718ec947718f912d9736b7c9540099719f82fed066ce54c05619db5e3"
+        },
+        "daily-record-authoring-policy.md": {
+          "bytes": 9337,
+          "sha256": "373fa6ace0098bc393d4bb0a69987c287bc981f62e91e9902e5cac401ebf5628"
+        },
+        "teacherWorkspace.ts": {
+          "bytes": 13984,
+          "sha256": "4864871ca8aba659a1c173056b5da97f22cfb4953ecf496bf523f1f78131aee3"
+        },
+        "mcp-access-bc29d07/native-config.json": {
+          "bytes": 631,
+          "sha256": "ce41f1b2f35793e8446c7e99d8359e7c73a6abed2fb14fec74840b30a40c4ea7"
+        },
+        "mcp-access-bc29d07/owner-admission.json": {
+          "bytes": 559,
+          "sha256": "d6421d60cdc2445a53a6cde17f4fa41cf437f0bdefc43a11b1f3e7cce916db88"
+        },
+        "mcp-access-bc29d07/academy-client.mjs": {
+          "bytes": 432080,
+          "sha256": "52002eadca98091529f9ff1a3003c98bd41ac173fd7b86757e2c2e5eb5c39f5c"
+        },
+        "mcp-access-feaabcf/dailyrecord-server.mjs": {
+          "bytes": 811045,
+          "sha256": "d0f5a76e7340ef942de0a1eb970986b0323b696ceec1a16d395edcd9999c9f1f"
+        },
+        "main-6b4d8d2-20261028/academy-client.mjs": {
+          "bytes": 427496,
+          "sha256": "d60a1af7e4e4a3d0b24b8e6b0ce84676fb59f43589f3bcd8fc9cb7099c8f113d"
+        },
+        "main-6b4d8d2-20261028/metadata-admission.json": {
+          "bytes": 449,
+          "sha256": "55bb9183ee6684c0d3c0ffc2a44b8cea85bb92282a6350adaeda207140d1fb35"
+        },
+        "main-6b4d8d2-20261028/runtime-identity.json": {
+          "bytes": 3248,
+          "sha256": "e629cf12b464f75c5892fd67550572fbd92f97b62fbd2caac741379595ab5239"
+        },
+        "main-save4-20261028/native-config.json": {
+          "bytes": 710,
+          "sha256": "ba3a52552c2a5798c2d30ea62aedbd1923647089d10db1f9df27b8dc501901f5"
+        },
+        "multiuser-c79cbfb-20261030/dailyrecord-server.mjs": {
+          "bytes": 904520,
+          "sha256": "f9dcbdc477aaa68059f354338b7cf5af9e08e829b259ac68dd6061a777f075b2"
+        },
+        "parent-notation-20261101/dailyrecord-learning.mjs": {
+          "bytes": 9997,
+          "sha256": "677595492ab4a24a103be5462c4ebc523d4d61e7294941bd952abf62f72e60bf"
+        },
+        "parent-notation-20261101/daily-record-authoring-policy.md": {
+          "bytes": 14963,
+          "sha256": "9aad384cd109e94c96229ae42fb38483abe7e8ebd8b5631a13761d0c94881d71"
+        },
+        "parent-notation-20261101/parentInternalLanguage.ts": {
+          "bytes": 653,
+          "sha256": "02186b0eecf3bab54c022c1bfd7c0f622e8180f26113e50ebf97f00214ac9a04"
+        },
+        "textbook-source-20261102-2142d1c/academy-client.mjs": {
+          "sha256": "b92985b58da0470ea53b53b3eb86d9791b924abf14abdc8edb0440bffe58ee18",
+          "bytes": 441917
+        },
+        "textbook-source-20261102-2142d1c/dailyrecord-server.mjs": {
+          "sha256": "833360299b0c175e5643db1c920d9c1b97ae64f32d31eb59c9eae120cc1564d4",
+          "bytes": 913610
+        },
+        "textbook-source-20261102-2142d1c/native-config.json": {
+          "sha256": "d7a40858212f9e32ada18cbe7d59b5014467ec523de939a27adfea57809535e2",
+          "bytes": 721
+        },
+        "cism-weekly-20261102-e8fad57/academy-client.mjs": {
+          "sha256": "b90545a7192a3a89b3443076b6bd8f68a58d1e2ae93782eaa15812d4038e1900",
+          "bytes": 450953
+        },
+        "cism-weekly-20261102-e8fad57/dailyrecord-server.mjs": {
+          "sha256": "030ac0002739b8e14cef77c0962ddada12ee2e562ea5fe1971c1f5f7d50d1b66",
+          "bytes": 929946
+        },
+        "cism-weekly-20261102-e8fad57/native-config.json": {
+          "sha256": "ea32dfe02232bf7e86cfbb1b536063fa1871a9ae3b721350ac745ae63001d8e1",
+          "bytes": 717
+        },
+        "cism-weekly-20261102-3f88133/academy-client.mjs": {
+          "sha256": "6e09a91c58eaffafd4d247214944da3249263c4d3ee58b9691a5ef3cdc7ed862",
+          "bytes": 451185
+        },
+        "cism-weekly-20261102-3f88133/dailyrecord-server.mjs": {
+          "sha256": "2e6ef3aa4006ef59d9c9a1be55a83756dd3497616d25bf1b9d5d0e22b61959d5",
+          "bytes": 930902
+        },
+        "cism-weekly-20261102-3f88133/native-config.json": {
+          "sha256": "a02c20aa7d8d3a1c7df4cb19442b42d807fd2cc3458fc5322a8f11394c3f2e59",
+          "bytes": 717
+        },
+        "prestudy-section-20261102-0845b2e/academy-client.mjs": {
+          "sha256": "8da25ab43a611a7bd581fe374e77d9816b0b0917621169e78bebd81f40195254",
+          "bytes": 448570
+        },
+        "prestudy-section-20261102-0845b2e/dailyrecord-server.mjs": {
+          "sha256": "1145d6f89057d083cb662b294e69f30e9808a879c076cd928ea1c2fe4165183c",
+          "bytes": 922337
+        },
+        "prestudy-section-20261102-0845b2e/native-config.json": {
+          "sha256": "f2b98d79900f18fa843dcaa3396aed216f8e630e3975d03549539ab846a3a421",
+          "bytes": 722
+        },
+        "item-unit-20261102-f5ca8d6/academy-client.mjs": {
+          "sha256": "8da25ab43a611a7bd581fe374e77d9816b0b0917621169e78bebd81f40195254",
+          "bytes": 448570
+        },
+        "item-unit-20261102-f5ca8d6/dailyrecord-server.mjs": {
+          "sha256": "3b8959d5768a5d50c97875720e29c3522bd313df3a1dceb70ced9ecca07ecee0",
+          "bytes": 920255
+        },
+        "item-unit-20261102-f5ca8d6/native-config.json": {
+          "sha256": "2da0bae5e568a9a8944bb57237211fcaba57b4744b352818f9c72e65d2de1925",
+          "bytes": 715
+        },
+        "item-trace-20261102-7a0daa0/academy-client.mjs": {
+          "sha256": "8da25ab43a611a7bd581fe374e77d9816b0b0917621169e78bebd81f40195254",
+          "bytes": 448570
+        },
+        "item-trace-20261102-7a0daa0/dailyrecord-server.mjs": {
+          "sha256": "50dbc0b2e2f051d0359a34bd429e2c5e5d9bdefddfb07e712747292f999df771",
+          "bytes": 929386
+        },
+        "item-trace-20261102-7a0daa0/native-config.json": {
+          "sha256": "c47670fc2b3899d62ce1d9d71d738a62332cca944745abc103a8432cfb85c2e8",
+          "bytes": 716
+        },
+        "dailyrecord-repair-20261102-1c9f01e/dailyrecord-server.mjs": {
+          "sha256": "0137bf191f51847c416dd9f144ee2b6094dd31570ca2ab3c6f3ea66fff8c71ae",
+          "bytes": 935266
+        },
+        "dailyrecord-repair-20261102-1c9f01e/learning-catalog.json": {
+          "sha256": "28efda48596cf53f35eb2dd3e9cdbe002d7d088dead02ace86c7c192e2eb63f2",
+          "bytes": 323557
+        },
+        "dailyrecord-repair-20261102-1c9f01e/learning-config.json": {
+          "sha256": "fa300f49ed60aef3010ab580c51191b6dc366b13f93c8216793ad81ce091cb31",
+          "bytes": 1263
+        },
+        "mcp-audit-20261102-4bf0a08/dailyrecord-server.mjs": {
+          "sha256": "df711591a6cc39c4ef4a76b52f58a3ddb17def623fde972f4f7650af0f3677a7",
+          "bytes": 973800
+        },
+        "mcp-audit-20261102-4bf0a08/academy-client.mjs": {
+          "sha256": "cb5baa7890ed8b3f524b29f270ffc160e36d763eb1cd34ffb2f8e65909ef075a",
+          "bytes": 457850
+        },
+        "mcp-audit-20261102-4bf0a08/native-config.json": {
+          "sha256": "829b888dcb26958a4828fb44a0ebc12dbcb26de6495d5d60d08bc42b3958efa2",
+          "bytes": 715
+        },
+        "runtime-repair-20261102-27ada8f/dailyrecord-server.mjs": {
+          "sha256": "2b5e9cd37eac7a5ede179fbde90a814891c28bfba1b06134973e75c323e4b565",
+          "bytes": 976769
+        },
+        "main-20261102-cc6e81f/dailyrecord-server.mjs": {
+          "bytes": 977847,
+          "sha256": "ad45a5b96335e9cee2ddf8b5de7cd24a08d03b78aa0bc7a8e21462ce52f9ee91"
+        },
+        "main-20261102-cc6e81f/academy-client.mjs": {
+          "bytes": 457896,
+          "sha256": "368bcc4712add2221017ffd9556046e30ecdabbcfbf8879ad94fb0e8bc822fb5"
+        },
+        "main-20261102-cc6e81f/dailyrecord-learning.mjs": {
+          "bytes": 9230,
+          "sha256": "df94b6ef6625467184ac868b6b4f5a610eaaff346e0e383ee0e7cb4f33416e13"
+        },
+        "main-20261102-cc6e81f/native-config.json": {
+          "bytes": 710,
+          "sha256": "dac007a9e30e31511e7492bfd1859f0c6d7d2506add7cc1542837335cec45332"
+        }
+      },
+      "nativePublicRoot": "/opt/data/profiles/dc-gang-a-dev/artifacts/class-operations-20261023",
+      "credentialLookup": {
+        "publicFunction": "hermes_cli.config.get_env_value_prefer_dotenv",
+        "keyNames": [
+          "DC_ACADEMY_HTTP_PASSWORD"
+        ],
+        "valuesRead": false
+      },
+      "nativeExecExpression": "['bun', '--no-env-file', '/opt/data/profiles/dc-gang-a-dev/artifacts/class-operations-20261023/main-20261102-cc6e81f/dailyrecord-server.mjs', '--dailyrecord-learning', '/opt/data/profiles/dc-gang-a-dev/artifacts/class-operations-20261023/main-20261102-cc6e81f/dailyrecord-learning.mjs', 'df94b6ef6625467184ac868b6b4f5a610eaaff346e0e383ee0e7cb4f33416e13', '/opt/data/profiles/dc-gang-a-dev/artifacts/class-operations-20261023/dailyrecord-repair-20261102-1c9f01e/learning-config.json', 'fa300f49ed60aef3010ab580c51191b6dc366b13f93c8216793ad81ce091cb31', '--dailyrecord-policy', '/opt/data/profiles/dc-gang-a-dev/artifacts/class-operations-20261023/parent-notation-20261101/daily-record-authoring-policy.md', '9aad384cd109e94c96229ae42fb38483abe7e8ebd8b5631a13761d0c94881d71', '/opt/data/profiles/dc-gang-a-dev/artifacts/class-operations-20261023/parent-notation-20261101/parentInternalLanguage.ts', '02186b0eecf3bab54c022c1bfd7c0f622e8180f26113e50ebf97f00214ac9a04', '--dailyrecord-admission', '/opt/data/profiles/dc-gang-a-dev/artifacts/class-operations-20261023/mcp-access-bc29d07/owner-admission.json', 'd6421d60cdc2445a53a6cde17f4fa41cf437f0bdefc43a11b1f3e7cce916db88', '--metadata-admission', '/opt/data/profiles/dc-gang-a-dev/artifacts/class-operations-20261023/main-6b4d8d2-20261028/metadata-admission.json', '55bb9183ee6684c0d3c0ffc2a44b8cea85bb92282a6350adaeda207140d1fb35', '--dailyrecord-native', '/opt/data/profiles/dc-gang-a-dev/artifacts/class-operations-20261023/main-20261102-cc6e81f/native-config.json', 'dac007a9e30e31511e7492bfd1859f0c6d7d2506add7cc1542837335cec45332']",
+      "hostTransport": {
+        "accountLockLocator": "/home/palantirkc/work/edu-class-operations/native-academy-account.lock",
+        "accountLockOpened": false,
+        "flockWaitSeconds": 45,
+        "container": "hermes-agent-2q3y-hermes-serve-1",
+        "uid": "10000",
+        "cwd": "/opt/hermes",
+        "pythonExecutable": "/opt/hermes/.venv/bin/python",
+        "environmentKeys": [
+          "HOME",
+          "HERMES_HOME"
+        ]
+      },
+      "declaredPinQualification": "metadata_only_container_bytes_owners_binaries_unverified"
+    },
+    "paper1": {
+      "command": "flock",
+      "environmentKeys": [],
+      "argumentSha256": [
+        "cce6a81cf3a793a9fc116cad5679a4af35d58c61cf1058350045dcd6c6d72911",
+        "811786ad1ae74adfdd20dd0372abaaebc6246e343aebd01da0bfc4c02bf0106c",
+        "05d4a78ea2815054e5a24fa4ea320cd8ec2a337619cb0f9a4561dc3c8b455ab6",
+        "d548c5b83fa61d8e3bd86ad42a7ffea9b7c86e3f9d8095c1577d3e1270bb9420",
+        "2706c619fe73f0cf112473c6ee02e66c04e1c01c110b0c37b88d8eb509630c9f",
+        "444c8974fcf3d4d990db382d0a6ed1d69ffc4caa10da28afd7ab561fd7f27ced",
+        "e10da743756caad00107a12e114d90356b5e8dc95d21883c32e0a57185d8cf7d",
+        "39e5b4830d4d9c14db7368a95b65d5463ea3d09520373723430c03a5a453b5df",
+        "d225549a81f17c07c3c80dcbe03d5821828835b230d7e02bb46bc6a312e7b668",
+        "26f1ea4727760f6f5d328efd5b6a38516bd3a42a7061a558dce164210f8cef4c",
+        "d225549a81f17c07c3c80dcbe03d5821828835b230d7e02bb46bc6a312e7b668",
+        "54e90da8595be077c9216a4e59922536edb811df03323911b5ff2d091d323a31",
+        "67a20aa0babf42cd416add2150bc46818f805e05c84cc1ccac291368d99432af",
+        "351f81cc0628449496e2e4af81dfcaa2cb4c423cb0dbc17f2ee174be92a6436d",
+        "59d043200d4760bdf7af70ebf13d3b6ef3742e3d03850da6557c3018c4cc4bb7",
+        "aeab6e4f4c9facfa1a5c214b292ef065fa5f31a9e3cc1e0e2c605863361348d7",
+        "71fbb8ec87f49f3c9d2c521011c3b7d4420003406bc441a916aa6a4c68672e89",
+        "0c3603e13e24a40b4bf215e3795a9a40d60a8456fb7b63c2d11e81701a231e85",
+        "c31ca713bb9956bed718fab931b4bdbb60c5b5394eaf27e0f4b384e96ca98470"
+      ],
+      "inlinePythonSha256": "c31ca713bb9956bed718fab931b4bdbb60c5b5394eaf27e0f4b384e96ca98470",
+      "imports": [
+        "import os, site, hashlib, json",
+        "from hermes_cli.config import get_env_value_prefer_dotenv"
+      ],
+      "nativeDeclaredPins": {
+        "academy-client-period-r10.mjs": {
+          "sha256": "3995d2545fc2d8366d1ca88e9dddfa32bcb93a37a919a4d487e45e82dc0eb4be",
+          "bytes": 400874
+        },
+        "paper-lookup-mcp.mjs": {
+          "sha256": "6e6bd2307acd37c487b6f7de438f04a199c3c33a35d69359eabda7930682b2e0",
+          "bytes": 746567
+        },
+        "native-config.json": {
+          "sha256": "fc3f337288bf2f02c60f708bfa9413720f964808ad66c72a77279c1ccc2b286e",
+          "bytes": 539
+        }
+      },
+      "nativePublicRoot": "/opt/data/profiles/dc-gang-a-dev/artifacts/printed-paper-lookup-20261023-r10",
+      "credentialLookup": {
+        "publicFunction": "hermes_cli.config.get_env_value_prefer_dotenv",
+        "keyNames": [
+          "DC_ACADEMY_HTTP_PASSWORD"
+        ],
+        "valuesRead": false
+      },
+      "nativeExecExpression": "['bun', '--no-env-file', native + '/paper-lookup-mcp.mjs', native + '/native-config.json', pins['native-config.json']['sha256']]",
+      "hostTransport": {
+        "accountLockLocator": "/home/palantirkc/work/edu-class-operations/native-academy-account.lock",
+        "accountLockOpened": false,
+        "flockWaitSeconds": 45,
+        "container": "hermes-agent-2q3y-hermes-serve-1",
+        "uid": "10000",
+        "cwd": "/opt/hermes",
+        "pythonExecutable": "/opt/hermes/.venv/bin/python",
+        "environmentKeys": [
+          "HOME",
+          "HERMES_HOME"
+        ]
+      },
+      "declaredPinQualification": "metadata_only_container_bytes_owners_binaries_unverified"
+    },
+    "paper2": {
+      "command": "flock",
+      "environmentKeys": [],
+      "argumentSha256": [
+        "cce6a81cf3a793a9fc116cad5679a4af35d58c61cf1058350045dcd6c6d72911",
+        "811786ad1ae74adfdd20dd0372abaaebc6246e343aebd01da0bfc4c02bf0106c",
+        "05d4a78ea2815054e5a24fa4ea320cd8ec2a337619cb0f9a4561dc3c8b455ab6",
+        "d548c5b83fa61d8e3bd86ad42a7ffea9b7c86e3f9d8095c1577d3e1270bb9420",
+        "2706c619fe73f0cf112473c6ee02e66c04e1c01c110b0c37b88d8eb509630c9f",
+        "444c8974fcf3d4d990db382d0a6ed1d69ffc4caa10da28afd7ab561fd7f27ced",
+        "e10da743756caad00107a12e114d90356b5e8dc95d21883c32e0a57185d8cf7d",
+        "39e5b4830d4d9c14db7368a95b65d5463ea3d09520373723430c03a5a453b5df",
+        "d225549a81f17c07c3c80dcbe03d5821828835b230d7e02bb46bc6a312e7b668",
+        "26f1ea4727760f6f5d328efd5b6a38516bd3a42a7061a558dce164210f8cef4c",
+        "d225549a81f17c07c3c80dcbe03d5821828835b230d7e02bb46bc6a312e7b668",
+        "54e90da8595be077c9216a4e59922536edb811df03323911b5ff2d091d323a31",
+        "67a20aa0babf42cd416add2150bc46818f805e05c84cc1ccac291368d99432af",
+        "351f81cc0628449496e2e4af81dfcaa2cb4c423cb0dbc17f2ee174be92a6436d",
+        "59d043200d4760bdf7af70ebf13d3b6ef3742e3d03850da6557c3018c4cc4bb7",
+        "aeab6e4f4c9facfa1a5c214b292ef065fa5f31a9e3cc1e0e2c605863361348d7",
+        "71fbb8ec87f49f3c9d2c521011c3b7d4420003406bc441a916aa6a4c68672e89",
+        "0c3603e13e24a40b4bf215e3795a9a40d60a8456fb7b63c2d11e81701a231e85",
+        "79b981a76421861e64c0ff2f19f604cc7fa974071b9e4309c218677699611651"
+      ],
+      "inlinePythonSha256": "79b981a76421861e64c0ff2f19f604cc7fa974071b9e4309c218677699611651",
+      "imports": [
+        "import os, site, hashlib, json",
+        "from hermes_cli.config import get_env_value_prefer_dotenv"
+      ],
+      "nativeDeclaredPins": {
+        "academy-client-dt-r10.mjs": {
+          "sha256": "8dd4e4060c97f9742ef9d89b5062a973adce15ad2ef48849a49ef0d5be2c6b87",
+          "bytes": 401898
+        },
+        "paper-lookup-mcp.mjs": {
+          "sha256": "139e7dfdeb08a0e134724517862a73f6545715b2eaa61a25945c145198adf903",
+          "bytes": 746753
+        },
+        "native-config.json": {
+          "sha256": "38e55f47a25bc18180e7d27104fa4473ef912450a856f3372160932b62649c84",
+          "bytes": 454
+        }
+      },
+      "nativePublicRoot": "/opt/data/profiles/dc-gang-a-dev/artifacts/class2-luhan-dt-20261023-r10",
+      "credentialLookup": {
+        "publicFunction": "hermes_cli.config.get_env_value_prefer_dotenv",
+        "keyNames": [
+          "DC_ACADEMY_HTTP_PASSWORD"
+        ],
+        "valuesRead": false
+      },
+      "nativeExecExpression": "['bun', '--no-env-file', native + '/paper-lookup-mcp.mjs', native + '/native-config.json', pins['native-config.json']['sha256']]",
+      "hostTransport": {
+        "accountLockLocator": "/home/palantirkc/work/edu-class-operations/native-academy-account.lock",
+        "accountLockOpened": false,
+        "flockWaitSeconds": 45,
+        "container": "hermes-agent-2q3y-hermes-serve-1",
+        "uid": "10000",
+        "cwd": "/opt/hermes",
+        "pythonExecutable": "/opt/hermes/.venv/bin/python",
+        "environmentKeys": [
+          "HOME",
+          "HERMES_HOME"
+        ]
+      },
+      "declaredPinQualification": "metadata_only_container_bytes_owners_binaries_unverified"
+    },
+    "saved": {
+      "command": "/usr/local/bin/bun",
+      "environmentKeys": [],
+      "argumentSha256": [
+        "093ba273a7815aaac18f1a7cff4cffc860589d5fe9ea98f85c81db9bebb155e2",
+        "6a6f3b655f57c5ca554a55d34dad474f5d089f8aa39187f6a98346b6c5dc46f4"
+      ],
+      "argv": [
+        "--no-env-file",
+        "/home/palantirkc/projects/education-platform/modules/academy-workbench/.local/academy-mcp/src/server-main-20261102-cc6e81f.mjs"
+      ],
+      "publicExecutable": {
+        "path": "/home/palantirkc/projects/education-platform/modules/academy-workbench/.local/academy-mcp/src/server-main-20261102-cc6e81f.mjs",
+        "bytes": 1005019,
+        "sha256": "8365cd9f6ed70fb78e46c5e4ee7c981912b40006e1e691565515ee97b5b75a51",
+        "uid": 0,
+        "mode": "0o600",
+        "resolved": "/home/palantirkc/projects/education-platform/modules/academy-workbench/.local/academy-mcp/src/server-main-20261102-cc6e81f.mjs",
+        "staticImportSpecifiers": [
+          "crypto",
+          "fs",
+          "fs/promises",
+          "path",
+          "process",
+          "stream",
+          "url"
+        ],
+        "literalRequireCandidates": [
+          "ajv-formats/dist/formats",
+          "ajv/dist/runtime/equal",
+          "ajv/dist/runtime/ucs2length",
+          "ajv/dist/runtime/uri",
+          "ajv/dist/runtime/validation_error"
+        ],
+        "dynamicImportQualification": "native config data-URL imports and external jsdom require separate owner proof",
+        "qualification": "public_source_bytes_only_not_executed"
+      }
+    }
+  },
+  "chosenCandidateContract": "fail_closed_mandatory_graph_mismatch",
+  "nativeObservation": false,
+  "containerInvoked": false,
+  "actualAccountLockOpened": false,
+  "sourceOwnedRuntimeEdges": [
+    {
+      "edge": "Hermes stdio relay -> Unix socket -> socket-activated host launcher",
+      "source": "modules/academy-workbench/tools/academy-mcp/runtime",
+      "hostSocket": "/docker/hermes-agent-2q3y/data/academy-mcp-relay/bridge.sock",
+      "containerSocket": "/opt/data/academy-mcp-relay/bridge.sock",
+      "mountQualification": "documented existing /opt/data bind edge; actual mount/namespace not inspected",
+      "hostUser": "root",
+      "containerDirectoryOwnerUid": 10000,
+      "socketDirectoryMode": "0700",
+      "sourceSocketMode": "0666",
+      "actualUnitSelection": "unverified"
+    },
+    {
+      "edge": "dailyrecord-server -> nativeDailyRecordConfiguration -> pinned AcademyHttpClient bundle -> external jsdom",
+      "source": "modules/academy-workbench/tools/academy-mcp/src/native-dailyrecord-backend.ts:553",
+      "requiredUid": 10000,
+      "requiredHermesHome": "/opt/data/profiles/dc-gang-a-dev",
+      "jsdomPath": "/opt/data/workspace/dc-gang-a/node_modules/jsdom/lib/api.js",
+      "requiredJsdomVersion": "30.1.2",
+      "externalImportCountContract": 1,
+      "credentialEnvKey": "DC_ACADEMY_HTTP_PASSWORD",
+      "nativeConfigOwner": "existing Hermes profile",
+      "contentRead": false
+    },
+    {
+      "edge": "dailyrecord-server -> runtimeIdentityConfiguration -> learning config/policy/admissions -> owner workflow/CISM/textbook stores",
+      "source": "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-server.ts",
+      "ownerArtifactsRoot": "/opt/data/profiles/dc-gang-a-dev/artifacts/",
+      "ownerState": "retained existing workflow, account lock and native journal formats; no new generic lifecycle"
+    }
+  ],
+  "remainingNativePrerequisites": [
+    "Owner-authorized metadata verification of actual container binary/UID/cwd/mount and Hermes selected config/relay/unit; no inferred host/container path equivalence.",
+    "Verify public hermes_cli.config source at the selected container revision and its native dotenv/session/permission ownership without opening secrets under this grant.",
+    "Verify actual declared bundle bytes and external imports/dependency versions in owner namespace; descriptor hashes alone are not current container observations.",
+    "Independently prove account-qualified authentication, authorization, exact source content, native UID and genuine transport seals before activating any S09/S10 source path.",
+    "Retain original account lock/journal readers, keys, unresolved field fences and immutable old sessions; exact 65081389 journal gate remains unchanged.",
+    "Root independent Wonder review and implementation authorization; separate P9 read/write/recovery/stability/deletion conditions."
+  ]
+}

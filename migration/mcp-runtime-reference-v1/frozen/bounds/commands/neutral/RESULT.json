@@ -1,0 +1,38 @@
+{
+  "returncode": -15,
+  "elapsedSeconds": 2.990640690899454,
+  "cleanupRequested": true,
+  "membersBeforeCleanup": [
+    {
+      "pid": 3295766,
+      "state": "S"
+    },
+    {
+      "pid": 3295769,
+      "state": "S"
+    },
+    {
+      "pid": 3295816,
+      "state": "S"
+    },
+    {
+      "pid": 3295817,
+      "state": "S"
+    }
+  ],
+  "membersAfterCleanup": [],
+  "channels": {
+    "stdin": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-bounds/commands/neutral/stdin.bin",
+      "sha256": "f6120266e50977bcbb36178a0e0f4f5a19c265a7996ae4120da2ca9b4234136c"
+    },
+    "stdout": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-bounds/commands/neutral/stdout.bin",
+      "sha256": "48827b276ba5ec411333471f4f3470b42794efd8e0768892657605e46059b8f2"
+    },
+    "stderr": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-bounds/commands/neutral/stderr.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

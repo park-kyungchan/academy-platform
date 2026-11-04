@@ -1,0 +1,342 @@
+{
+  "schema": "s09.runtime-export-inventory/1",
+  "observedRuntimeMethods": {
+    "AcademyHttpClient": [
+      {
+        "name": "authenticated",
+        "disposition": "executed_selected_boundary",
+        "note": "see CONTRACT.md for finite admitted scope"
+      },
+      {
+        "name": "readCismReport",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "applyCismField",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readTextbookCatalog",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readTextbookPdf",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readPrestudy",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readTextbookBindings",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "close",
+        "disposition": "executed_selected_boundary",
+        "note": "see CONTRACT.md for finite admitted scope"
+      },
+      {
+        "name": "inspectDayRecordGroupSelector",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "authenticate",
+        "disposition": "executed_selected_boundary",
+        "note": "see CONTRACT.md for finite admitted scope"
+      },
+      {
+        "name": "discoverBooks",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "inspectTestPoolIndex",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "inspectTestPoolTab",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readReusableTestPoolReadback",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "createReusableTestPool",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readLectureUsageHistory",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "saveLectureUsageLog",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "inspectNativePaperInputDocument",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readNativePaperOptions",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readNativePaperSelectedQuestions",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "inspectTestPoolSelector",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "inspectTestPoolQuestionProtocol",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "inspectTestPoolPresentationProtocol",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "inspectTestPoolCategoryTree",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readTestPoolTypeLabels",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readTestPoolQuestions",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "discoverDayRecordGroups",
+        "disposition": "executed_selected_boundary",
+        "note": "see CONTRACT.md for finite admitted scope"
+      },
+      {
+        "name": "inspectDayRecordWire",
+        "disposition": "executed_selected_boundary",
+        "note": "see CONTRACT.md for finite admitted scope"
+      },
+      {
+        "name": "inspectStudentPaperForm",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "lookupPrintedPaperMetadata",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "searchStudentsByName",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "searchDailyTestMetadata",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "inspectDailyTestInventory",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readDailyTestHistory",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "searchStudentPaperMetadata",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "inspectTextbookIndex",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "inspectItemHeader",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "journalState",
+        "disposition": "executed_selected_boundary",
+        "note": "journalState reaches actual synthetic wire qualification refusal; no successful HTTP wire join"
+      },
+      {
+        "name": "applyJournalAction",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "execute",
+        "disposition": "executed_selected_boundary",
+        "note": "see CONTRACT.md for finite admitted scope"
+      }
+    ],
+    "NativeDailyRecordBackend": [
+      {
+        "name": "readCismReport",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "applyCismField",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readTextbookCatalog",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readTextbookPdf",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readTextbookSections",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readPrestudyByName",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readTextbookSectionsByName",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readItemSectionTrace",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "saveConfigured",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "requestBoundSaveConfigured",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "saveDailyRecord",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readRoutingAdmission",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readItemAnswers",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readStudentMetadata",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readStudentMetadataByName",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "searchStudentsByName",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "original owner/API retained; import alone grants no coverage"
+      },
+      {
+        "name": "readDailyRecord",
+        "disposition": "executed_selected_boundary",
+        "note": "see CONTRACT.md for finite admitted scope"
+      }
+    ],
+    "SavedContext": [
+      {
+        "name": "reference",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "query uses private records/reference internally"
+      },
+      {
+        "name": "records",
+        "disposition": "retained_compatibility_owner_not_executed",
+        "note": "query uses private records/reference internally"
+      },
+      {
+        "name": "query",
+        "disposition": "executed_selected_boundary",
+        "note": "see CONTRACT.md for finite admitted scope"
+      }
+    ]
+  },
+  "selectedModuleExports": [
+    "sourceDomParser.parseFromString",
+    "sourceDomParser.parseWithSourceLocations",
+    "inspectTestPoolPresentationProtocol",
+    "selectSourceFunction",
+    "createAcademyReadPlan",
+    "readLiteralKey",
+    "JOURNAL_HTTP_SOURCE_CONTRACT (data observer)",
+    "loadSavedContext",
+    "paginate",
+    "resolveStudentByName",
+    "readPinnedLocalBytes",
+    "nativeDailyRecordConfigSchema.parse",
+    "nativeDailyRecordConfiguration (empty/nonowner refusal only)",
+    "paths.ts exports"
+  ],
+  "inspectedActualCallers": [
+    "AcademyService.query -> queryInputSchema -> saved.query -> queryResultSchema",
+    "registerSavedQuery -> toolResult(query(input))",
+    "DailyRecordService/readDailyRecordByName -> NativeDailyRecordBackend.readDailyRecord",
+    "AcademyHttpClient.execute -> executeAcademyRead -> readDayRecordSource -> bindDayRecordDomRow",
+    "AcademyHttpClient.inspectTestPoolPresentationProtocol -> inspectTestPoolPresentationProtocol (standalone original parser called here)"
+  ],
+  "notUniversal": [
+    "arbitrary JS object/prototype/reference/descriptor observers",
+    "private #readRequest via arbitrary operation injection",
+    "service/catalog/MCP server/real native startup",
+    "qualified real journal wire success",
+    "all unselected HTTP family methods",
+    "real account namespace/owner/private evidence/live stores"
+  ]
+}

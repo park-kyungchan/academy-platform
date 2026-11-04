@@ -1,0 +1,42 @@
+{
+  "schema": "s08.retained-boundary-decisions/4.2",
+  "status": "SOURCE_CONTRACT_REQUIREMENTS; independent Wonder and Root oracle acceptance pending",
+  "decisions": [
+    {
+      "boundary": "learning JSON versus admission/CISM",
+      "decision": "Retain source depth64 only for learning. Admission/CISM finite source returns through512 are required examples;512 is not a newly approved maximum. Preserve each selected source refusal.",
+      "executableEvidence": ["json-learning-depth-64", "json-learning-depth-65", "json-admission-depth-65..96", "json-cism-depth-65..96", "direct-cismHash-depth512", "direct-admission-canonicalJson-depth512"],
+      "callerConsequence": "wire.rs decode96 is a separate existing transport inability, not original source rejection. A future representation must carry retained deeper examples or expose the exact unresolved adapter limit for review; no silent source limit."
+    },
+    {
+      "boundary": "Object.freeze and reference identity",
+      "decision": "Retain explicit measured source observers. Serialization is insufficient. The future typed Rust library must provide immutable detached returns with no shared children where source JSON cloning duplicates them; the comparison adapter must expose real observation evidence rather than constants loaded from expectations.",
+      "executableEvidence": ["learning-known-shared", "learning-copy-shared", "learning-copy-null_prototype", "learning-copy-nonenumerable", "learning-fromKey-valid", "learning-resolve-complete"],
+      "callerConsequence": "A mutable owned public result, identity-preserving shared clone or null-prototype identity claim does not satisfy these observers. JS callers requiring Object.isFrozen, descriptors or JS TypeErrors retain their compatibility port until an equivalent boundary is actually demonstrated. No owned-value serialization acceptance is granted here."
+    },
+    {
+      "boundary": "admission closure aliases and shallow owner record freeze",
+      "decision": "The original admission argument remains referenced after parse. Retain current-request comparison mutation effects, initial tuple-map capture and owner request reference/shallow freeze as measured; do not silently copy/freeze launch input and call that parity.",
+      "executableEvidence": ["admission-request-mutation", "admission-after-mutation", "admission-once-and-repeat"],
+      "callerConsequence": "Ordinary owned serialized values cannot express post-construction mutation or reference identity. Preserve the existing JS owner compatibility port until a caller-backed shared request view/equivalent native API is reviewed; durable one-time effect owner remains S10."
+    },
+    {
+      "boundary": "arbitrary JavaScript execution",
+      "decision": "No JS interpreter, arbitrary proxies/getters/toJSON or prototype program execution is authorized. Only named fixed descriptors reconstruct selected original inputs and actual known refusals. Their source-valid business values and fixed observations remain required.",
+      "executableEvidence": ["learning-copy-accessor", "json-admission-accessor", "json-cism-accessor", "direct-cismHash-cycle"],
+      "callerConsequence": "Unknown dynamic programs are UNCHARACTERIZED rather than guessed source frames. A later real retained caller demanding such behavior needs explicit original-source characterization, not an admission that silently collapses its data."
+    },
+    {
+      "boundary": "CISM parameter kind and source binding",
+      "decision": "Retain source runtime string behavior including matching unknown kind, ordered JSON.stringify(source) identity and exact URLSearchParams bytes. A closed Rust enum alone cannot represent every observed public JS call.",
+      "executableEvidence": ["cism-write-unknown-kind", "cism-write-source-order", "cism-write-same-binding-extra-label"],
+      "callerConsequence": "Keep a raw-string comparison boundary or explicitly retain JS compatibility for that input; rejecting it is an adapter limitation, not the source cism_value_rejected outcome. No new write authority follows."
+    },
+    {
+      "boundary": "runtime refusal and schema diagnostics",
+      "decision": "Reproduce the pinned Bun/Zod name/message/issues/order/defaults for the selected input boundary. Keep source exceptions distinct from bad observed-source read-failure frames and outer child failures.",
+      "executableEvidence": ["review-unknown-context-key", "review-multiple-errors", "review-instant-9", "direct-admission-canonicalJson-cycle", "direct-cismHash-cycle"],
+      "callerConsequence": "No universal status64/generic error replacement, cross-engine TypeError claim, or success inferred from a plausible frame with bad process status."
+    }
+  ]
+}

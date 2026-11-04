@@ -1,0 +1,77 @@
+{
+  "schema": "s11.fresh-policy/3",
+  "designSha256": "368e5b0e7f1cb993afbe21f1c24ebf87d97942a5eb41d4c871cd8d4f4e39f041",
+  "modes": [
+    "inventory",
+    "discovery",
+    "protocol",
+    "composition",
+    "graph",
+    "identity",
+    "framing",
+    "bounds",
+    "launcher",
+    "relocation"
+  ],
+  "limits": {
+    "wallNs": 90000000000,
+    "recorderHardNs": 85000000000,
+    "workNs": 80000000000,
+    "cleanupReserveNs": 5000000000,
+    "perProcessCPUSeconds": 90,
+    "fileBytes": 67108864,
+    "channelBytes": 12582912,
+    "combinedTopOutputBytes": 12582912,
+    "captureEntries": 8192
+  },
+  "ageMs": {
+    "minimum": 0,
+    "maximum": 300000
+  },
+  "clockAssumption": "Nondecreasing stable local wall clock between sampled boundaries; samples cannot exclude hidden steps. Internal read completion/evaluation are not observed.",
+  "results": {
+    "match": 0,
+    "mismatch": 1,
+    "unqualified": 2
+  },
+  "claims": {
+    "fullS11": false,
+    "fullParity": false,
+    "graphAdmission": false,
+    "rustCandidateEvaluated": false
+  },
+  "channels": {
+    "command": "aggregate_os_pipe",
+    "process": "js_emit_or_write_tap",
+    "shared": "inherited_shared_command_pipe",
+    "noEvent": "js_no_event",
+    "unavailable": "unavailable"
+  },
+  "sourceLocations": {
+    "bridge": "neutral-server.ts:117-255",
+    "audit": "tool-audit.ts:40-74",
+    "freshness": [
+      "dailyrecord.ts:422-423",
+      "dailyrecord-read.ts:76-82"
+    ],
+    "cap": "tool-result.ts:16-19",
+    "identity": [
+      "runtime-release.ts:46-81",
+      "runtime-identity.ts:16-45"
+    ]
+  },
+  "requiredCases": [
+    "independent_producer_timestamp",
+    "serial_occurrence_swap",
+    "cap_receipt_absence",
+    "source_preimage_order",
+    "clock_ambiguous",
+    "native_child_nonzero",
+    "no_js_exit_native_signal",
+    "wire_lexemes",
+    "source_pins",
+    "rooted_identity",
+    "constant_replay",
+    "all_ten_modes"
+  ]
+}

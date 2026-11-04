@@ -1,0 +1,5 @@
+{
+  "stdin.bin": "direct_original_child_pipe:commands/dailyrecord-source",
+  "stdout.bin": "direct_original_child_pipe:commands/dailyrecord-source",
+  "stderr.bin": "direct_original_child_pipe:commands/dailyrecord-source"
+}

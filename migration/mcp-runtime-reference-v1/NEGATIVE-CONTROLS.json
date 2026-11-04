@@ -1,0 +1,108 @@
+{
+  "transcriptControls": [
+    {
+      "id": "EDU-21-same-count-renamed",
+      "detected": true,
+      "firstDifference": {
+        "path": "$[0].response.result.tools[1].name",
+        "change": "value",
+        "expectedSha256": "2a0bb94f0177118da9f71354497c4b169e9573a3f77991a1821040ad2e01610c",
+        "actualSha256": "ccbf578afce70277082f71a6a209af1004782dfad2ec3dce65800db81e8836b3"
+      }
+    },
+    {
+      "id": "EDU-22-schema",
+      "detected": true,
+      "firstDifference": {
+        "path": "$[0].response.result.tools[1].inputSchema.type",
+        "change": "value",
+        "expectedSha256": "626992da9517ee49930ee1340383a0cc334563d9aa429619a17842d0eeecb524",
+        "actualSha256": "9b2a344820da3e82bfe8dba723e10565e30024d9cd391b853fbadc55f585c909"
+      }
+    },
+    {
+      "id": "EDU-22-annotation",
+      "detected": true,
+      "firstDifference": {
+        "path": "$[0].response.result.tools[1].annotations.readOnlyHint",
+        "change": "value",
+        "expectedSha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+        "actualSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+      }
+    },
+    {
+      "id": "EDU-22-omission",
+      "detected": true,
+      "firstDifference": {
+        "path": "$[0].response.result.tools[1].description",
+        "change": "omitted"
+      }
+    },
+    {
+      "id": "EDU-22-maximum",
+      "detected": true,
+      "firstDifference": {
+        "path": "$.inputSchema.properties.limit.maximum",
+        "change": "value",
+        "expectedSha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+        "actualSha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+      }
+    },
+    {
+      "id": "EDU-22-default",
+      "detected": true,
+      "firstDifference": {
+        "path": "$.inputSchema.properties.limit.default",
+        "change": "value",
+        "expectedSha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+        "actualSha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce"
+      }
+    },
+    {
+      "id": "same-names-routing-drift",
+      "detected": true
+    },
+    {
+      "id": "EDU-23-unqualified-graph",
+      "detected": true
+    },
+    {
+      "id": "BUILD-01-lying-wrapper",
+      "detected": true
+    },
+    {
+      "id": "BUILD-01-source-after-green",
+      "detected": true
+    }
+  ],
+  "actualNativeControls": {
+    "lyingWrapper": {
+      "outer": 0,
+      "actualChild": 23,
+      "rejected": true
+    },
+    "sourceAfterGreen": {
+      "green": {
+        "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/negative-controls-01/fictional-source.txt",
+        "sha256": "6bb5ca5c745d530fe481918a69020a0b66e33d8d3e82d36920846bcd8fe191e5"
+      },
+      "current": {
+        "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/negative-controls-01/fictional-source.txt",
+        "sha256": "6ee73d03396a20028e4e7aa1f80ba004562d4bd8143bcd8dc3f465b734c754e9"
+      },
+      "rejected": true
+    },
+    "scripts": {
+      "inner": {
+        "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/negative-controls-01/inner.py",
+        "sha256": "1b9f842b31814e2090dd81eaa54e6e3117aa944c18d3be3e6ace61ec1646e3f7"
+      },
+      "wrapper": {
+        "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/negative-controls-01/wrapper.py",
+        "sha256": "ffe789b181138b2504c2ce663d56c21e1ccd072f2eba179c9bfc217b60bc3cce"
+      }
+    },
+    "notRustOrRealBuild": true
+  },
+  "qualification": "author verification only; independent review pending"
+}

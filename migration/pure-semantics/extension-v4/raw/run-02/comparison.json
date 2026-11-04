@@ -1,0 +1,2755 @@
+{
+  "accepted": true,
+  "comparisons": [
+    {
+      "id": "source-runtime-exports",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-stableId-opaque",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-stableId-ordered",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-stableId-reverse",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-stableId-blankkey",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-stableId-noKeys",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-stableId-badkind",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-stableId-unicode",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-stableId-space",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-stableId-nodelimiterA",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-stableId-nodelimiterB",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-context-valid",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-context-unknown",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-context-null",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-context-undefined",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-context-extra",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-context-missing",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-context-invalidzone",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-context-UTC",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-context-offsetzone",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-context-invaliddate",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-context-wrongtime",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-context-ordering",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-fromKey-valid",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-fromKey-ignoredextra",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-fromKey-missingOccurrence",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-fromKey-null",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-fromKey-noRefs",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-fromKey-badTime",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-time-29",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-time-30",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-time-31",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-time-32",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-time-33",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-time-34",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-time-35",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-time-36",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-time-37",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-time-38",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-39",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-40",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-41",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-42",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-43",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-44",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-45",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-46",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-47",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-48",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-49",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-50",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-51",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-text-52",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-refs-53",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-refs-54",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-refs-55",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-refs-56",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-refs-57",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-refs-58",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-refs-59",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-refs-60",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-refs-61",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-refs-62",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-refs-63",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-64",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-65",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-66",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-67",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-68",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-69",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-70",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-71",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-72",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-73",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-74",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-75",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-keys-76",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-knowledge-77",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-knowledge-78",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-knowledge-79",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-knowledge-80",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-knowledge-81",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-knowledge-82",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-knowledge-83",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-knowledge-84",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-knowledge-85",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-copy-null_prototype",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-copy-shared",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-copy-nonenumerable",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-copy-inherited",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-copy-accessor",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-copy-symbol_key",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-copy-sparse",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-copy-decorated",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-copy-cycle",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-copy--0",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-copy-NaN",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-copy-structure",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-known-shared",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-known-refs",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-unknown-space",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-empty",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-valid",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-duplicate",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-blank-id",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-title",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-label",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-refs",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-edition",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-majorparent",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-level",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-parent-level",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-parent-edition",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-unknown-parent",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-page-unit",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-page-cross",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-page-blank",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-problem-page",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-problem-label",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-extra",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-null",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-catalog-missing",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-valid",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-withoutCatalog",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-unknown",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-unknownedition",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-missingunit",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-duplicatepage",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-wrongarray",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-blankid",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-crossedition",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-mixed",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-outsidepage",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-outsideunit",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-unknownancestry",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-extra",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-null",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-undefined",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-scope-missing",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-resolve-complete",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-resolve-unknownpage",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-resolve-unknownunit",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-resolve-unknownmiddle",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-resolve-unknown",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-assignment",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-studentOf-assignment",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-assignment-extra",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-assignment-missing",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-assignment-badcontext",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-assignment-undefined",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-plan",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-studentOf-plan",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-plan-extra",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-plan-missing",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-plan-badcontext",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-plan-undefined",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-record",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-studentOf-record",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-record-extra",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-record-missing",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-record-badcontext",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-record-record-undefined",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-assignment-range",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-assignment-unknown",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-assignment-actor",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-assignment-refs",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-plan-basis",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-plan-basis-type",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-plan-due",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-plan-enum",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-source-future",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-source-equaloffset",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-source-digest",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-source-bind",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-source-bindunknown",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-source-inspected",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-source-correction",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-source-attendance",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-source-unknown-kind",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-studentOf-unvalidated",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-studentOf-missing",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-studentOf-null",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-0",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-0",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-1",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-1",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-2",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-2",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-3",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-3",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-4",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-4",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-5",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-5",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-6",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-6",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-7",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-7",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-8",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-8",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-9",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-9",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-10",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-10",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-11",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-11",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-12",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-12",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-13",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-13",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-14",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-14",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-15",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-15",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-16",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-16",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-17",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-17",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-18",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-18",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-19",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-19",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-20",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-20",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-21",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-21",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-22",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-22",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-23",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-23",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-24",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-24",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-25",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-25",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-26",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-26",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-27",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-27",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-28",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-28",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-29",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-29",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-30",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-30",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "learning-instant-31",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-instant-31",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-0",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-1",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-2",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-3",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-4",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-5",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-6",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-7",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-8",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-9",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-10",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-11",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-12",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-13",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-14",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-15",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-16",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-17",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-18",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-19",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-20",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-21",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-22",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-23",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-24",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-25",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-26",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-27",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-28",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-29",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-30",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-instant-31",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-Z--300001",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-Z--300000",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-Z--1",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-Z-0",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-Z-1",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-Z-299999",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-Z-300000",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-Z-300001",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-+09:00--300001",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-+09:00--300000",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-+09:00--1",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-+09:00-0",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-+09:00-1",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-+09:00-299999",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-+09:00-300000",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale-+09:00-300001",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale--05:30--300001",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale--05:30--300000",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale--05:30--1",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale--05:30-0",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale--05:30-1",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale--05:30-299999",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale--05:30-300000",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-stale--05:30-300001",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-trunc-down",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-boundary-fraction",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-future-fraction",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-drift-offset-same-instant",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-tone-offset",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-unknown-context-key",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-duplicate-fields",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-duplicate-facts",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-duplicate-proposals",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-observation-extra",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-observation-null",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-context-null",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-context-wrong-type",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "review-multiple-errors",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-intake-valid",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-intake-null",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-intake-undefined",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-intake-unknown",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-intake-suppliedNull",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-intake-missing",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-intake-wrongtypes",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-review-valid",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-review-empty",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-review-decision",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-review-wrongtype",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-review-unknown",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-review-null",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-context-valid",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-context-defaults",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-context-extra",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-context-duplicates",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-context-safeText",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-context-date",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-context-wrongBool",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-context-enum",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-observation-337",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-observation-338",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-observation-339",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-observation-340",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-observation-341",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-observation-342",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-observation-343",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-observation-344",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-cism-section",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-cism-ordered",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-cism-observation",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-learning-depth-63",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-learning-depth-64",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-learning-depth-65",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-learning-depth-66",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-64",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-65",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-66",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-67",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-68",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-69",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-70",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-71",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-72",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-73",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-74",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-75",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-76",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-77",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-78",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-79",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-80",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-81",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-82",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-83",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-84",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-85",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-86",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-87",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-88",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-89",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-90",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-91",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-92",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-93",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-94",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-95",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-96",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-128",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-256",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-depth-512",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-64",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-65",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-66",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-67",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-68",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-69",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-70",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-71",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-72",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-73",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-74",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-75",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-76",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-77",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-78",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-79",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-80",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-81",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-82",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-83",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-84",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-85",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-86",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-87",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-88",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-89",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-90",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-91",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-92",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-93",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-94",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-95",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-96",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-128",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-256",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-depth-512",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-learning-cycle",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-learning-array_cycle",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-learning-undefined",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-learning-null_prototype",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-learning-shared",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-learning-accessor",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-cycle",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-array_cycle",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-undefined",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-null_prototype",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-shared",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-admission-accessor",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-cycle",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-array_cycle",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-undefined",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-null_prototype",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-shared",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "json-cism-accessor",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-once-and-repeat",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-consume-false-used",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-read-throw-retry",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-consume-throw-retry",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-current-mismatch-runtime",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-current-mismatch-requestRef",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-current-mismatch-requestTextSha256",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-current-mismatch-currentUserEventRef",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-tuple-mismatch-field",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-tuple-mismatch-effectRecordKey",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-tuple-mismatch-after",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-tuple-mismatch-target",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-date-mismatch",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-non-tuple-fields",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-duplicate",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-empty",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-after-mutation",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "admission-request-mutation",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-valid",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-empty",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-tooMany",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-duplicates",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-extra",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-wrongtype",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-badDate",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-null",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-missing",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-tupleExtra",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-afterLong",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-blankRuntime",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-admission-hash",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-request-473",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-request-474",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-request-475",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-request-476",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-request-477",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "schema-request-478",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "live-evidence-local-reread",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-narrative-480",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-narrative-481",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-narrative-482",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-narrative-483",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-narrative-484",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-narrative-485",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-narrative-486",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-narrative-487",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-narrative-488",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-narrative-489",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-narrative-490",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-491",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-492",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-493",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-494",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-495",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-496",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-497",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-498",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-499",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-500",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-501",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-502",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-503",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-504",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-505",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-class_mode-506",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-507",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-508",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-509",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-510",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-511",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-512",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-513",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-514",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-515",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-516",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-517",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-518",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-519",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-520",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-521",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-think_note-522",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-523",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-524",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-525",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-526",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-527",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-528",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-529",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-530",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-531",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-532",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-533",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-534",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-535",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-536",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-537",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-week_test-538",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-unknown-kind",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-membership-missing",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-source-order",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-field-id-mismatch",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-write-same-binding-extra-label",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-date-544",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-date-545",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-date-546",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-date-547",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-date-548",
+      "accepted": true,
+      "reason": "full_frame"
+    },
+    {
+      "id": "cism-date-549",
+      "accepted": true,
+      "reason": "full_frame"
+    }
+  ]
+}

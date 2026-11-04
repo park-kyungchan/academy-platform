@@ -1,0 +1,10 @@
+{
+  "finding": "main CISM JSON composition serializes bytes before calling cismHash; cycle error preempts actual hash export call",
+  "correction": "8 additive direct export calls invoke unchanged functions before any adapter serialization; exact errors now directly measured",
+  "sourceFunctionsMocked": false,
+  "earlierCasesChanged": false,
+  "newExpected": "direct-expected-v2.json",
+  "actualStatus": 0,
+  "cases": 8,
+  "passed": 8
+}

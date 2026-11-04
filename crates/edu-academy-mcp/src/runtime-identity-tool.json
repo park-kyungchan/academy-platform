@@ -1,0 +1,16 @@
+{
+  "name": "academy_runtime_identity",
+  "description": "Inspect the active release graph and loaded bridge digest. Legacy graphs are explicitly incomplete. No source reads or namespace authorization.\n\nAcademy routing context: 현재 연결된 MCP release·브리지·원천 빌드 일치 확인. Backend/source: Bridge release graph; infrastructure metadata. Hashes and loaded-process identity only, not source freshness, namespace permission or live academic evidence.\nEnd Academy routing context.",
+  "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+  },
+  "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+  }
+}

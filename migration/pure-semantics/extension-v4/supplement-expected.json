@@ -1,0 +1,2501 @@
+{
+  "parser-valid": {
+    "outcome": {
+      "kind": "return",
+      "value": {
+        "date": "2040-10-15",
+        "periodStart": "2040-10-14",
+        "periodEnd": "2040-10-20",
+        "weekLabel": "2040-42 주차 (10월14일~10월20일)",
+        "teacherLabel": "Fictional Teacher",
+        "teacherKey": "90001",
+        "wireSha256": "401beb7c9957d4b688e00655f6f5ece6831e1b857961b131d7cf02269fd6b67b",
+        "reportSha256": "593d1fa156b35592f9454ae5cc0872bba503719f21703945b83e8a0a75ec4d11",
+        "observedAt": "2040-10-15T09:00:00.000Z",
+        "fields": [
+          {
+            "fieldRef": "6e80a3ab45833e798c7d56a33e7a3a4a5167b6259ef3a28eede2bab19177d6d7",
+            "kind": "narrative",
+            "label": "i_1",
+            "value": "Synthetic & note",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "i_1"
+            }
+          },
+          {
+            "fieldRef": "8d5a4bf4719f25881ebf9502f71069b7ea187d2ea49f474419023c290c5beb0c",
+            "kind": "narrative",
+            "label": "i_2",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "i_2"
+            }
+          },
+          {
+            "fieldRef": "8704be53f3127b6ff258c26662be81b39594e4392590678a506727c2709d787f",
+            "kind": "narrative",
+            "label": "s_1",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "s_1"
+            }
+          },
+          {
+            "fieldRef": "ef579d518673c568fe0d5c097c4ccdb0300533c4ec67f2925ee200eafe9887a7",
+            "kind": "narrative",
+            "label": "s_2",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "s_2"
+            }
+          },
+          {
+            "fieldRef": "9304dac02b6de97b9bb3a7fec20b9259340220af535e1af3aac2cf34b55c7c0b",
+            "kind": "narrative",
+            "label": "s_3",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "s_3"
+            }
+          },
+          {
+            "fieldRef": "42db6b6458bd4803b35fea20e92464dc62a814545ab98d32491d52b04fffd2dd",
+            "kind": "narrative",
+            "label": "s_4",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "s_4"
+            }
+          },
+          {
+            "fieldRef": "5245928e00e5c695a9c3c55bb855ef4c84e54f0832f2ab025e94cd50cb8557d9",
+            "kind": "narrative",
+            "label": "m_1",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "m_1"
+            }
+          },
+          {
+            "fieldRef": "d52e245b01cf0a17894023ab7d06ec51ec921739d4819cd8c18762a08808e2ae",
+            "kind": "narrative",
+            "label": "m_2",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "m_2"
+            }
+          },
+          {
+            "fieldRef": "db48a8e74f2e1af2cfebb18da3834dd3b4d3eb70094172dcb9855d604c3614fc",
+            "kind": "class_mode",
+            "label": "이번주 반 수업 분위기",
+            "value": "0",
+            "studentName": null,
+            "groupName": "Fictional Group",
+            "source": {
+              "fieldName": "class_mode",
+              "studentKey": "90002",
+              "membershipKey": "90003",
+              "groupKey": "1"
+            }
+          },
+          {
+            "fieldRef": "f36b91479f17912cf62350f4100305fc4eb47570f7e0f042c228a0f62d91ba15",
+            "kind": "think_note",
+            "label": "풀이노트작성",
+            "value": "",
+            "studentName": "Fictional Student",
+            "groupName": "Fictional Group",
+            "source": {
+              "fieldName": "think_note",
+              "studentKey": "90002",
+              "membershipKey": "90003",
+              "groupKey": "1"
+            }
+          },
+          {
+            "fieldRef": "8e5d151da1241a94673bd0e7ef5d41ad0fa156f963bcea0a98eb79dfc0968658",
+            "kind": "week_test",
+            "label": "주간테스트",
+            "value": "",
+            "studentName": "Fictional Student",
+            "groupName": "Fictional Group",
+            "source": {
+              "fieldName": "week_test",
+              "studentKey": "90002",
+              "membershipKey": "90003",
+              "groupKey": "1"
+            }
+          }
+        ],
+        "sourceMode": "live_source",
+        "pdfGenerated": false
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3959
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-script-inert": {
+    "outcome": {
+      "kind": "return",
+      "value": {
+        "date": "2040-10-15",
+        "periodStart": "2040-10-14",
+        "periodEnd": "2040-10-20",
+        "weekLabel": "2040-42 주차 (10월14일~10월20일)",
+        "teacherLabel": "Fictional Teacher",
+        "teacherKey": "90001",
+        "wireSha256": "401beb7c9957d4b688e00655f6f5ece6831e1b857961b131d7cf02269fd6b67b",
+        "reportSha256": "593d1fa156b35592f9454ae5cc0872bba503719f21703945b83e8a0a75ec4d11",
+        "observedAt": "2040-10-15T09:00:00.000Z",
+        "fields": [
+          {
+            "fieldRef": "6e80a3ab45833e798c7d56a33e7a3a4a5167b6259ef3a28eede2bab19177d6d7",
+            "kind": "narrative",
+            "label": "i_1",
+            "value": "Synthetic & note",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "i_1"
+            }
+          },
+          {
+            "fieldRef": "8d5a4bf4719f25881ebf9502f71069b7ea187d2ea49f474419023c290c5beb0c",
+            "kind": "narrative",
+            "label": "i_2",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "i_2"
+            }
+          },
+          {
+            "fieldRef": "8704be53f3127b6ff258c26662be81b39594e4392590678a506727c2709d787f",
+            "kind": "narrative",
+            "label": "s_1",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "s_1"
+            }
+          },
+          {
+            "fieldRef": "ef579d518673c568fe0d5c097c4ccdb0300533c4ec67f2925ee200eafe9887a7",
+            "kind": "narrative",
+            "label": "s_2",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "s_2"
+            }
+          },
+          {
+            "fieldRef": "9304dac02b6de97b9bb3a7fec20b9259340220af535e1af3aac2cf34b55c7c0b",
+            "kind": "narrative",
+            "label": "s_3",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "s_3"
+            }
+          },
+          {
+            "fieldRef": "42db6b6458bd4803b35fea20e92464dc62a814545ab98d32491d52b04fffd2dd",
+            "kind": "narrative",
+            "label": "s_4",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "s_4"
+            }
+          },
+          {
+            "fieldRef": "5245928e00e5c695a9c3c55bb855ef4c84e54f0832f2ab025e94cd50cb8557d9",
+            "kind": "narrative",
+            "label": "m_1",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "m_1"
+            }
+          },
+          {
+            "fieldRef": "d52e245b01cf0a17894023ab7d06ec51ec921739d4819cd8c18762a08808e2ae",
+            "kind": "narrative",
+            "label": "m_2",
+            "value": "",
+            "studentName": null,
+            "groupName": null,
+            "source": {
+              "fieldName": "m_2"
+            }
+          },
+          {
+            "fieldRef": "db48a8e74f2e1af2cfebb18da3834dd3b4d3eb70094172dcb9855d604c3614fc",
+            "kind": "class_mode",
+            "label": "이번주 반 수업 분위기",
+            "value": "0",
+            "studentName": null,
+            "groupName": "Fictional Group",
+            "source": {
+              "fieldName": "class_mode",
+              "studentKey": "90002",
+              "membershipKey": "90003",
+              "groupKey": "1"
+            }
+          },
+          {
+            "fieldRef": "f36b91479f17912cf62350f4100305fc4eb47570f7e0f042c228a0f62d91ba15",
+            "kind": "think_note",
+            "label": "풀이노트작성",
+            "value": "",
+            "studentName": "Fictional Student",
+            "groupName": "Fictional Group",
+            "source": {
+              "fieldName": "think_note",
+              "studentKey": "90002",
+              "membershipKey": "90003",
+              "groupKey": "1"
+            }
+          },
+          {
+            "fieldRef": "8e5d151da1241a94673bd0e7ef5d41ad0fa156f963bcea0a98eb79dfc0968658",
+            "kind": "week_test",
+            "label": "주간테스트",
+            "value": "",
+            "studentName": "Fictional Student",
+            "groupName": "Fictional Group",
+            "source": {
+              "fieldName": "week_test",
+              "studentKey": "90002",
+              "membershipKey": "90003",
+              "groupKey": "1"
+            }
+          }
+        ],
+        "sourceMode": "live_source",
+        "pdfGenerated": false
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3991
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-date-rejected": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_date_rejected"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-body-bound": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_body_rejected"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-login": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_document_rejected"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3982
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-heading": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_document_rejected"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3933
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-date": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_scope_conflict"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3959
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-teacherkey": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_scope_conflict"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3959
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-teacherlabel": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_scope_conflict"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3947
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-command": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_scope_conflict"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3951
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-wire": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_wire_drift"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3957
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-period": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_period_conflict"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3960
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-narrative-handler": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_fields_unqualified"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3922
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-metric-handler": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_fields_unqualified"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3955
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-options": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_fields_unqualified"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3959
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-narrative-duplicate": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_fields_unqualified"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 4000
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-metric-duplicate": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cism_fields_unqualified"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 4040
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "parser-teacher-null": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "TypeError",
+        "message": "null is not an object (evaluating 'teacher.teacherKey')"
+      }
+    },
+    "events": [
+      {
+        "event": "inert_dom_parse",
+        "mime": "text/html",
+        "bytes": 3959
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "cism.parseCismReport"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-parseCalendarDate-18": {
+    "outcome": {
+      "kind": "return",
+      "value": "0000-01-01"
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.parseCalendarDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-parseCalendarDate-19": {
+    "outcome": {
+      "kind": "return",
+      "value": "2000-02-29"
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.parseCalendarDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-parseCalendarDate-20": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "invalid calendar date"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.parseCalendarDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-parseCalendarDate-21": {
+    "outcome": {
+      "kind": "return",
+      "value": "9999-12-31"
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.parseCalendarDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-parseCalendarDate-22": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "invalid calendar date"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.parseCalendarDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-parseCalendarDate-23": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "invalid calendar date"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.parseCalendarDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-parseCalendarDate-24": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "invalid calendar date"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.parseCalendarDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-assertDate-25": {
+    "outcome": {
+      "kind": "return",
+      "value": {
+        "$observed": "undefined"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.assertDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-assertDate-26": {
+    "outcome": {
+      "kind": "return",
+      "value": {
+        "$observed": "undefined"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.assertDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-assertDate-27": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "invalid calendar date"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.assertDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-assertDate-28": {
+    "outcome": {
+      "kind": "return",
+      "value": {
+        "$observed": "undefined"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.assertDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-assertDate-29": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "invalid calendar date"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.assertDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-assertDate-30": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "invalid calendar date"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.assertDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-assertDate-31": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "invalid calendar date"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.assertDate"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-canonicalJson-32": {
+    "outcome": {
+      "kind": "return",
+      "value": "{\"a\":2,\"b\":1}"
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.canonicalJson"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-canonicalJson-33": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "only finite JSON data is allowed"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.canonicalJson"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-canonicalJson-34": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cyclic JSON is not allowed"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.canonicalJson"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-digest-35": {
+    "outcome": {
+      "kind": "return",
+      "value": "d3626ac30a87e6f7a6428233b3c68299976865fa5508e4267c5415c76af7a772"
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.digest"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-digest-36": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "only finite JSON data is allowed"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.digest"
+      ],
+      "uuidValues": []
+    }
+  },
+  "direct-digest-37": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "cyclic JSON is not allowed"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.digest"
+      ],
+      "uuidValues": []
+    }
+  },
+  "time-coercion-38": {
+    "outcome": {
+      "kind": "return",
+      "value": {
+        "$observed": "undefined"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.assertTime"
+      ],
+      "uuidValues": []
+    }
+  },
+  "time-coercion-39": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "invalid local lesson time"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.assertTime"
+      ],
+      "uuidValues": []
+    }
+  },
+  "time-coercion-40": {
+    "outcome": {
+      "kind": "throw",
+      "error": {
+        "name": "Error",
+        "message": "invalid local lesson time"
+      }
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "learning.assertTime"
+      ],
+      "uuidValues": []
+    }
+  },
+  "live-evidence-boundaries": {
+    "outcome": {
+      "kind": "return",
+      "value": [
+        {
+          "kind": "return",
+          "value": {
+            "runtime": "runtime:synthetic",
+            "requestRef": "request:synthetic",
+            "requestTextSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "currentUserEventRef": "event:synthetic"
+          }
+        },
+        {
+          "kind": "throw",
+          "error": {
+            "name": "Error",
+            "message": "dailyrecord_save_current_request_unavailable"
+          }
+        },
+        {
+          "kind": "throw",
+          "error": {
+            "name": "SyntaxError",
+            "message": "JSON Parse error: Unrecognized token '﻿'"
+          }
+        },
+        {
+          "kind": "return",
+          "value": {
+            "runtime": "runtime:synthetic",
+            "requestRef": "request:synthetic",
+            "requestTextSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "currentUserEventRef": "event:synthetic"
+          }
+        },
+        {
+          "kind": "throw",
+          "error": {
+            "name": "ZodError",
+            "message": "[\n  {\n    \"expected\": \"object\",\n    \"code\": \"invalid_type\",\n    \"path\": [],\n    \"message\": \"Invalid input: expected object, received null\"\n  }\n]",
+            "issues": [
+              {
+                "expected": "object",
+                "code": "invalid_type",
+                "path": [],
+                "message": "Invalid input: expected object, received null"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "throw",
+          "error": {
+            "name": "Error",
+            "message": "dailyrecord_save_current_request_unavailable"
+          }
+        }
+      ]
+    },
+    "events": [],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "admission.liveSaveRequestEvidence",
+        "admission.liveSaveRequestEvidence.read",
+        "admission.liveSaveRequestEvidence.read",
+        "admission.liveSaveRequestEvidence.read",
+        "admission.liveSaveRequestEvidence.read",
+        "admission.liveSaveRequestEvidence.read",
+        "admission.liveSaveRequestEvidence.read"
+      ],
+      "uuidValues": []
+    }
+  },
+  "review-valid-one-fraction": {
+    "outcome": {
+      "kind": "return",
+      "value": {
+        "intake": {
+          "workflowContext": {
+            "schemaVersion": "academy.dailyrecord-workflow-context/1",
+            "purpose": "Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.",
+            "policyOwner": "Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md",
+            "workflow": [
+              "exact_owned_scope",
+              "qualified_before_state",
+              "missing_only_interview",
+              "field_local_review",
+              "separate_trusted_save_and_readback"
+            ],
+            "rules": [
+              "Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.",
+              "Ask for today's student-specific memo unless today's content or no-addition answer is supplied.",
+              "No additional memo does not mean erase an existing memo.",
+              "Counts, rates and narratives never establish assessment or attendance codes.",
+              "Previous homework assessment belongs to an independently identified previous lesson record.",
+              "Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.",
+              "CISM requires exact teacher, student, reporting period, report and relevant section.",
+              "User context explains meaning; caller approval flags and source pins do not grant effect authority."
+            ],
+            "boundaries": {
+              "academyWrites": 0,
+              "parentSends": 0,
+              "automaticRewrite": false,
+              "automaticRetry": false,
+              "credentialInput": false,
+              "sourceTruthFromCaller": false
+            }
+          },
+          "userContext": {
+            "schemaVersion": "academy.dailyrecord-user-context/1",
+            "purpose": "Synthetic independent source extension",
+            "currentRequestRef": "synthetic-request",
+            "scope": {
+              "sourceNamespace": "synthetic-account",
+              "teacherId": "teacher-fictional",
+              "studentId": "student-fictional",
+              "lessonDate": "2040-01-16"
+            },
+            "selectedFields": [
+              "progress",
+              "homework",
+              "lessonMemo",
+              "attendance",
+              "dailyTestAssessment",
+              "previousHomeworkAssessment"
+            ],
+            "memoAnswer": {
+              "kind": "no_addition",
+              "requestRef": "synthetic-request"
+            },
+            "facts": [
+              {
+                "ref": "fact:attendance",
+                "field": "attendance",
+                "text": "Synthetic explicit absence",
+                "origin": "user_supplied",
+                "explicitValue": "N",
+                "requiredFragments": [],
+                "questionCounts": [],
+                "deadlines": [],
+                "stageClaims": []
+              }
+            ]
+          },
+          "academyWrites": 0,
+          "parentSends": 0,
+          "automaticRetryAllowed": false,
+          "sourceContentIsUntrustedData": true,
+          "status": "interview_required",
+          "observationHandle": "dailyrecord-observation:00000000-0000-4000-8000-000000000001",
+          "observationPersistence": "process_local",
+          "attribution": null,
+          "fields": [
+            {
+              "field": "progress",
+              "before": {
+                "state": "known",
+                "value": "",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "missing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "homework",
+              "before": {
+                "state": "known",
+                "value": "",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "missing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "lessonMemo",
+              "before": {
+                "state": "known",
+                "value": "",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "preserve_existing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "attendance",
+              "before": {
+                "state": "known",
+                "value": "Y",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "preserve_existing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "dailyTestAssessment",
+              "before": {
+                "state": "known",
+                "value": "0",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "preserve_existing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "previousHomeworkAssessment",
+              "before": {
+                "state": "known",
+                "value": "0",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "preserve_existing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-09",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "previous-record"
+              }
+            }
+          ],
+          "interviews": [
+            {
+              "field": "progress",
+              "reasonCode": "explicit_value_or_qualified_existing_value_required"
+            },
+            {
+              "field": "homework",
+              "reasonCode": "explicit_value_or_qualified_existing_value_required"
+            }
+          ],
+          "blockers": [],
+          "source": {
+            "observedAt": "2040-01-16T18:00:00.5+09:00",
+            "sourceRevision": "1111111111111111111111111111111111111111111111111111111111111111",
+            "wireDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+            "transmissionState": "not_sent"
+          },
+          "toneSamples": [],
+          "toneSelection": "hyphen_lines_only_other_formats_ignored",
+          "sourceAvailability": "observed",
+          "failure": null,
+          "execution": "not_supported"
+        },
+        "review": {
+          "workflowContext": {
+            "schemaVersion": "academy.dailyrecord-workflow-context/1",
+            "purpose": "Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.",
+            "policyOwner": "Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md",
+            "workflow": [
+              "exact_owned_scope",
+              "qualified_before_state",
+              "missing_only_interview",
+              "field_local_review",
+              "separate_trusted_save_and_readback"
+            ],
+            "rules": [
+              "Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.",
+              "Ask for today's student-specific memo unless today's content or no-addition answer is supplied.",
+              "No additional memo does not mean erase an existing memo.",
+              "Counts, rates and narratives never establish assessment or attendance codes.",
+              "Previous homework assessment belongs to an independently identified previous lesson record.",
+              "Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.",
+              "CISM requires exact teacher, student, reporting period, report and relevant section.",
+              "User context explains meaning; caller approval flags and source pins do not grant effect authority."
+            ],
+            "boundaries": {
+              "academyWrites": 0,
+              "parentSends": 0,
+              "automaticRewrite": false,
+              "automaticRetry": false,
+              "credentialInput": false,
+              "sourceTruthFromCaller": false
+            }
+          },
+          "userContext": {
+            "schemaVersion": "academy.dailyrecord-user-context/1",
+            "purpose": "Synthetic independent source extension",
+            "currentRequestRef": "synthetic-request",
+            "scope": {
+              "sourceNamespace": "synthetic-account",
+              "teacherId": "teacher-fictional",
+              "studentId": "student-fictional",
+              "lessonDate": "2040-01-16"
+            },
+            "selectedFields": [
+              "progress",
+              "homework",
+              "lessonMemo",
+              "attendance",
+              "dailyTestAssessment",
+              "previousHomeworkAssessment"
+            ],
+            "memoAnswer": {
+              "kind": "no_addition",
+              "requestRef": "synthetic-request"
+            },
+            "facts": [
+              {
+                "ref": "fact:attendance",
+                "field": "attendance",
+                "text": "Synthetic explicit absence",
+                "origin": "user_supplied",
+                "explicitValue": "N",
+                "requiredFragments": [],
+                "questionCounts": [],
+                "deadlines": [],
+                "stageClaims": []
+              }
+            ]
+          },
+          "academyWrites": 0,
+          "parentSends": 0,
+          "automaticRetryAllowed": false,
+          "sourceContentIsUntrustedData": true,
+          "observationHandle": "dailyrecord-observation:00000000-0000-4000-8000-000000000001",
+          "inputDigest": "51ca266386a6913d69e9ec49a8dae74d451928a1b8aacc034001b3f3e02ea573",
+          "scope": {
+            "sourceNamespace": "synthetic-account",
+            "teacherId": "teacher-fictional",
+            "studentId": "student-fictional",
+            "lessonDate": "2040-01-16"
+          },
+          "requestRef": "synthetic-request",
+          "userContextDigest": "762be6500b390dd86b4b8941d29a18609fed187ab9cfe38bf4c8e15e45982b4e",
+          "parentSafeguard": {
+            "sourceRef": "synthetic-parent-policy",
+            "policySha256": "3333333333333333333333333333333333333333333333333333333333333333",
+            "safeguardSourceSha256": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "cismSource": null,
+          "learningPolicy": {
+            "bundleSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+            "configSha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "catalogSha256": "7777777777777777777777777777777777777777777777777777777777777777"
+          },
+          "sourceRevision": "1111111111111111111111111111111111111111111111111111111111111111",
+          "wireDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+          "transmissionState": "not_sent",
+          "rows": [
+            {
+              "field": "attendance",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              },
+              "before": {
+                "state": "known",
+                "value": "Y",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "after": "N",
+              "factRefs": [
+                "fact:attendance"
+              ],
+              "learningEntries": null,
+              "learningSuggestedRendering": null,
+              "learningSuggestionMeaning": null,
+              "disposition": "blocked",
+              "blockers": [
+                "existing_value_requires_explicit_replace"
+              ],
+              "missingFactFragments": [],
+              "holdActions": [
+                {
+                  "field": "attendance",
+                  "code": "existing_value_requires_explicit_replace",
+                  "action": "explicit_teacher_decision",
+                  "guidance": "Obtain the explicit teacher decision for this exact field and request.",
+                  "correctionScope": null
+                }
+              ],
+              "semanticFactReview": "teacher_review_required_not_proven_by_fragment_checks"
+            }
+          ],
+          "patch": [],
+          "status": "held",
+          "interviews": [],
+          "reviewDigest": "7ac344d800d200d57c158d71917dfdc8458e4658757a70bc18d7586a2510af4f",
+          "reviewRecord": null,
+          "execution": "not_supported",
+          "saveAdmission": "separate_trusted_native_owner_required"
+        }
+      }
+    },
+    "events": [
+      {
+        "event": "recorded_read",
+        "scope": {
+          "sourceNamespace": "synthetic-account",
+          "teacherId": "teacher-fictional",
+          "studentId": "student-fictional",
+          "lessonDate": "2040-01-16"
+        },
+        "requestRef": "synthetic-request"
+      },
+      {
+        "event": "recorded_read",
+        "scope": {
+          "sourceNamespace": "synthetic-account",
+          "teacherId": "teacher-fictional",
+          "studentId": "student-fictional",
+          "lessonDate": "2040-01-16"
+        },
+        "requestRef": "synthetic-request"
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "daily.DailyRecordService.intake",
+        "daily.DailyRecordService.review"
+      ],
+      "uuidValues": [
+        "00000000-0000-4000-8000-000000000001"
+      ]
+    }
+  },
+  "review-valid-two-fraction": {
+    "outcome": {
+      "kind": "return",
+      "value": {
+        "intake": {
+          "workflowContext": {
+            "schemaVersion": "academy.dailyrecord-workflow-context/1",
+            "purpose": "Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.",
+            "policyOwner": "Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md",
+            "workflow": [
+              "exact_owned_scope",
+              "qualified_before_state",
+              "missing_only_interview",
+              "field_local_review",
+              "separate_trusted_save_and_readback"
+            ],
+            "rules": [
+              "Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.",
+              "Ask for today's student-specific memo unless today's content or no-addition answer is supplied.",
+              "No additional memo does not mean erase an existing memo.",
+              "Counts, rates and narratives never establish assessment or attendance codes.",
+              "Previous homework assessment belongs to an independently identified previous lesson record.",
+              "Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.",
+              "CISM requires exact teacher, student, reporting period, report and relevant section.",
+              "User context explains meaning; caller approval flags and source pins do not grant effect authority."
+            ],
+            "boundaries": {
+              "academyWrites": 0,
+              "parentSends": 0,
+              "automaticRewrite": false,
+              "automaticRetry": false,
+              "credentialInput": false,
+              "sourceTruthFromCaller": false
+            }
+          },
+          "userContext": {
+            "schemaVersion": "academy.dailyrecord-user-context/1",
+            "purpose": "Synthetic independent source extension",
+            "currentRequestRef": "synthetic-request",
+            "scope": {
+              "sourceNamespace": "synthetic-account",
+              "teacherId": "teacher-fictional",
+              "studentId": "student-fictional",
+              "lessonDate": "2040-01-16"
+            },
+            "selectedFields": [
+              "progress",
+              "homework",
+              "lessonMemo",
+              "attendance",
+              "dailyTestAssessment",
+              "previousHomeworkAssessment"
+            ],
+            "memoAnswer": {
+              "kind": "no_addition",
+              "requestRef": "synthetic-request"
+            },
+            "facts": [
+              {
+                "ref": "fact:attendance",
+                "field": "attendance",
+                "text": "Synthetic explicit absence",
+                "origin": "user_supplied",
+                "explicitValue": "N",
+                "requiredFragments": [],
+                "questionCounts": [],
+                "deadlines": [],
+                "stageClaims": []
+              }
+            ]
+          },
+          "academyWrites": 0,
+          "parentSends": 0,
+          "automaticRetryAllowed": false,
+          "sourceContentIsUntrustedData": true,
+          "status": "interview_required",
+          "observationHandle": "dailyrecord-observation:00000000-0000-4000-8000-000000000001",
+          "observationPersistence": "process_local",
+          "attribution": null,
+          "fields": [
+            {
+              "field": "progress",
+              "before": {
+                "state": "known",
+                "value": "",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "missing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "homework",
+              "before": {
+                "state": "known",
+                "value": "",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "missing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "lessonMemo",
+              "before": {
+                "state": "known",
+                "value": "",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "preserve_existing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "attendance",
+              "before": {
+                "state": "known",
+                "value": "Y",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "preserve_existing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "dailyTestAssessment",
+              "before": {
+                "state": "known",
+                "value": "0",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "preserve_existing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "previousHomeworkAssessment",
+              "before": {
+                "state": "known",
+                "value": "0",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "preserve_existing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-09",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "previous-record"
+              }
+            }
+          ],
+          "interviews": [
+            {
+              "field": "progress",
+              "reasonCode": "explicit_value_or_qualified_existing_value_required"
+            },
+            {
+              "field": "homework",
+              "reasonCode": "explicit_value_or_qualified_existing_value_required"
+            }
+          ],
+          "blockers": [],
+          "source": {
+            "observedAt": "2040-01-16T03:30:00.12-05:30",
+            "sourceRevision": "1111111111111111111111111111111111111111111111111111111111111111",
+            "wireDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+            "transmissionState": "not_sent"
+          },
+          "toneSamples": [],
+          "toneSelection": "hyphen_lines_only_other_formats_ignored",
+          "sourceAvailability": "observed",
+          "failure": null,
+          "execution": "not_supported"
+        },
+        "review": {
+          "workflowContext": {
+            "schemaVersion": "academy.dailyrecord-workflow-context/1",
+            "purpose": "Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.",
+            "policyOwner": "Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md",
+            "workflow": [
+              "exact_owned_scope",
+              "qualified_before_state",
+              "missing_only_interview",
+              "field_local_review",
+              "separate_trusted_save_and_readback"
+            ],
+            "rules": [
+              "Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.",
+              "Ask for today's student-specific memo unless today's content or no-addition answer is supplied.",
+              "No additional memo does not mean erase an existing memo.",
+              "Counts, rates and narratives never establish assessment or attendance codes.",
+              "Previous homework assessment belongs to an independently identified previous lesson record.",
+              "Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.",
+              "CISM requires exact teacher, student, reporting period, report and relevant section.",
+              "User context explains meaning; caller approval flags and source pins do not grant effect authority."
+            ],
+            "boundaries": {
+              "academyWrites": 0,
+              "parentSends": 0,
+              "automaticRewrite": false,
+              "automaticRetry": false,
+              "credentialInput": false,
+              "sourceTruthFromCaller": false
+            }
+          },
+          "userContext": {
+            "schemaVersion": "academy.dailyrecord-user-context/1",
+            "purpose": "Synthetic independent source extension",
+            "currentRequestRef": "synthetic-request",
+            "scope": {
+              "sourceNamespace": "synthetic-account",
+              "teacherId": "teacher-fictional",
+              "studentId": "student-fictional",
+              "lessonDate": "2040-01-16"
+            },
+            "selectedFields": [
+              "progress",
+              "homework",
+              "lessonMemo",
+              "attendance",
+              "dailyTestAssessment",
+              "previousHomeworkAssessment"
+            ],
+            "memoAnswer": {
+              "kind": "no_addition",
+              "requestRef": "synthetic-request"
+            },
+            "facts": [
+              {
+                "ref": "fact:attendance",
+                "field": "attendance",
+                "text": "Synthetic explicit absence",
+                "origin": "user_supplied",
+                "explicitValue": "N",
+                "requiredFragments": [],
+                "questionCounts": [],
+                "deadlines": [],
+                "stageClaims": []
+              }
+            ]
+          },
+          "academyWrites": 0,
+          "parentSends": 0,
+          "automaticRetryAllowed": false,
+          "sourceContentIsUntrustedData": true,
+          "observationHandle": "dailyrecord-observation:00000000-0000-4000-8000-000000000001",
+          "inputDigest": "51ca266386a6913d69e9ec49a8dae74d451928a1b8aacc034001b3f3e02ea573",
+          "scope": {
+            "sourceNamespace": "synthetic-account",
+            "teacherId": "teacher-fictional",
+            "studentId": "student-fictional",
+            "lessonDate": "2040-01-16"
+          },
+          "requestRef": "synthetic-request",
+          "userContextDigest": "762be6500b390dd86b4b8941d29a18609fed187ab9cfe38bf4c8e15e45982b4e",
+          "parentSafeguard": {
+            "sourceRef": "synthetic-parent-policy",
+            "policySha256": "3333333333333333333333333333333333333333333333333333333333333333",
+            "safeguardSourceSha256": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "cismSource": null,
+          "learningPolicy": {
+            "bundleSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+            "configSha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "catalogSha256": "7777777777777777777777777777777777777777777777777777777777777777"
+          },
+          "sourceRevision": "1111111111111111111111111111111111111111111111111111111111111111",
+          "wireDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+          "transmissionState": "not_sent",
+          "rows": [
+            {
+              "field": "attendance",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              },
+              "before": {
+                "state": "known",
+                "value": "Y",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "after": "N",
+              "factRefs": [
+                "fact:attendance"
+              ],
+              "learningEntries": null,
+              "learningSuggestedRendering": null,
+              "learningSuggestionMeaning": null,
+              "disposition": "blocked",
+              "blockers": [
+                "existing_value_requires_explicit_replace"
+              ],
+              "missingFactFragments": [],
+              "holdActions": [
+                {
+                  "field": "attendance",
+                  "code": "existing_value_requires_explicit_replace",
+                  "action": "explicit_teacher_decision",
+                  "guidance": "Obtain the explicit teacher decision for this exact field and request.",
+                  "correctionScope": null
+                }
+              ],
+              "semanticFactReview": "teacher_review_required_not_proven_by_fragment_checks"
+            }
+          ],
+          "patch": [],
+          "status": "held",
+          "interviews": [],
+          "reviewDigest": "7ac344d800d200d57c158d71917dfdc8458e4658757a70bc18d7586a2510af4f",
+          "reviewRecord": null,
+          "execution": "not_supported",
+          "saveAdmission": "separate_trusted_native_owner_required"
+        }
+      }
+    },
+    "events": [
+      {
+        "event": "recorded_read",
+        "scope": {
+          "sourceNamespace": "synthetic-account",
+          "teacherId": "teacher-fictional",
+          "studentId": "student-fictional",
+          "lessonDate": "2040-01-16"
+        },
+        "requestRef": "synthetic-request"
+      },
+      {
+        "event": "recorded_read",
+        "scope": {
+          "sourceNamespace": "synthetic-account",
+          "teacherId": "teacher-fictional",
+          "studentId": "student-fictional",
+          "lessonDate": "2040-01-16"
+        },
+        "requestRef": "synthetic-request"
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "daily.DailyRecordService.intake",
+        "daily.DailyRecordService.review"
+      ],
+      "uuidValues": [
+        "00000000-0000-4000-8000-000000000001"
+      ]
+    }
+  },
+  "review-valid-nine-fraction": {
+    "outcome": {
+      "kind": "return",
+      "value": {
+        "intake": {
+          "workflowContext": {
+            "schemaVersion": "academy.dailyrecord-workflow-context/1",
+            "purpose": "Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.",
+            "policyOwner": "Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md",
+            "workflow": [
+              "exact_owned_scope",
+              "qualified_before_state",
+              "missing_only_interview",
+              "field_local_review",
+              "separate_trusted_save_and_readback"
+            ],
+            "rules": [
+              "Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.",
+              "Ask for today's student-specific memo unless today's content or no-addition answer is supplied.",
+              "No additional memo does not mean erase an existing memo.",
+              "Counts, rates and narratives never establish assessment or attendance codes.",
+              "Previous homework assessment belongs to an independently identified previous lesson record.",
+              "Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.",
+              "CISM requires exact teacher, student, reporting period, report and relevant section.",
+              "User context explains meaning; caller approval flags and source pins do not grant effect authority."
+            ],
+            "boundaries": {
+              "academyWrites": 0,
+              "parentSends": 0,
+              "automaticRewrite": false,
+              "automaticRetry": false,
+              "credentialInput": false,
+              "sourceTruthFromCaller": false
+            }
+          },
+          "userContext": {
+            "schemaVersion": "academy.dailyrecord-user-context/1",
+            "purpose": "Synthetic independent source extension",
+            "currentRequestRef": "synthetic-request",
+            "scope": {
+              "sourceNamespace": "synthetic-account",
+              "teacherId": "teacher-fictional",
+              "studentId": "student-fictional",
+              "lessonDate": "2040-01-16"
+            },
+            "selectedFields": [
+              "progress",
+              "homework",
+              "lessonMemo",
+              "attendance",
+              "dailyTestAssessment",
+              "previousHomeworkAssessment"
+            ],
+            "memoAnswer": {
+              "kind": "no_addition",
+              "requestRef": "synthetic-request"
+            },
+            "facts": [
+              {
+                "ref": "fact:attendance",
+                "field": "attendance",
+                "text": "Synthetic explicit absence",
+                "origin": "user_supplied",
+                "explicitValue": "N",
+                "requiredFragments": [],
+                "questionCounts": [],
+                "deadlines": [],
+                "stageClaims": []
+              }
+            ]
+          },
+          "academyWrites": 0,
+          "parentSends": 0,
+          "automaticRetryAllowed": false,
+          "sourceContentIsUntrustedData": true,
+          "status": "interview_required",
+          "observationHandle": "dailyrecord-observation:00000000-0000-4000-8000-000000000001",
+          "observationPersistence": "process_local",
+          "attribution": null,
+          "fields": [
+            {
+              "field": "progress",
+              "before": {
+                "state": "known",
+                "value": "",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "missing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "homework",
+              "before": {
+                "state": "known",
+                "value": "",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "missing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "lessonMemo",
+              "before": {
+                "state": "known",
+                "value": "",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "preserve_existing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "attendance",
+              "before": {
+                "state": "known",
+                "value": "Y",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "preserve_existing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "dailyTestAssessment",
+              "before": {
+                "state": "known",
+                "value": "0",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "preserve_existing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              }
+            },
+            {
+              "field": "previousHomeworkAssessment",
+              "before": {
+                "state": "known",
+                "value": "0",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "selected": true,
+              "disposition": "preserve_existing",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-09",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "previous-record"
+              }
+            }
+          ],
+          "interviews": [
+            {
+              "field": "progress",
+              "reasonCode": "explicit_value_or_qualified_existing_value_required"
+            },
+            {
+              "field": "homework",
+              "reasonCode": "explicit_value_or_qualified_existing_value_required"
+            }
+          ],
+          "blockers": [],
+          "source": {
+            "observedAt": "2040-01-16T09:00:00.123456789Z",
+            "sourceRevision": "1111111111111111111111111111111111111111111111111111111111111111",
+            "wireDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+            "transmissionState": "not_sent"
+          },
+          "toneSamples": [],
+          "toneSelection": "hyphen_lines_only_other_formats_ignored",
+          "sourceAvailability": "observed",
+          "failure": null,
+          "execution": "not_supported"
+        },
+        "review": {
+          "workflowContext": {
+            "schemaVersion": "academy.dailyrecord-workflow-context/1",
+            "purpose": "Prepare exact student/date DailyRecord intake and parent-facing field review using the current user context.",
+            "policyOwner": "Education/apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md",
+            "workflow": [
+              "exact_owned_scope",
+              "qualified_before_state",
+              "missing_only_interview",
+              "field_local_review",
+              "separate_trusted_save_and_readback"
+            ],
+            "rules": [
+              "Preserve existing homework assessment, DailyTest and attendance unless the user explicitly changes that exact field.",
+              "Ask for today's student-specific memo unless today's content or no-addition answer is supplied.",
+              "No additional memo does not mean erase an existing memo.",
+              "Counts, rates and narratives never establish assessment or attendance codes.",
+              "Previous homework assessment belongs to an independently identified previous lesson record.",
+              "Preserve supplied counts including duplicate-inclusive counts; preserve deadlines and learning stages.",
+              "CISM requires exact teacher, student, reporting period, report and relevant section.",
+              "User context explains meaning; caller approval flags and source pins do not grant effect authority."
+            ],
+            "boundaries": {
+              "academyWrites": 0,
+              "parentSends": 0,
+              "automaticRewrite": false,
+              "automaticRetry": false,
+              "credentialInput": false,
+              "sourceTruthFromCaller": false
+            }
+          },
+          "userContext": {
+            "schemaVersion": "academy.dailyrecord-user-context/1",
+            "purpose": "Synthetic independent source extension",
+            "currentRequestRef": "synthetic-request",
+            "scope": {
+              "sourceNamespace": "synthetic-account",
+              "teacherId": "teacher-fictional",
+              "studentId": "student-fictional",
+              "lessonDate": "2040-01-16"
+            },
+            "selectedFields": [
+              "progress",
+              "homework",
+              "lessonMemo",
+              "attendance",
+              "dailyTestAssessment",
+              "previousHomeworkAssessment"
+            ],
+            "memoAnswer": {
+              "kind": "no_addition",
+              "requestRef": "synthetic-request"
+            },
+            "facts": [
+              {
+                "ref": "fact:attendance",
+                "field": "attendance",
+                "text": "Synthetic explicit absence",
+                "origin": "user_supplied",
+                "explicitValue": "N",
+                "requiredFragments": [],
+                "questionCounts": [],
+                "deadlines": [],
+                "stageClaims": []
+              }
+            ]
+          },
+          "academyWrites": 0,
+          "parentSends": 0,
+          "automaticRetryAllowed": false,
+          "sourceContentIsUntrustedData": true,
+          "observationHandle": "dailyrecord-observation:00000000-0000-4000-8000-000000000001",
+          "inputDigest": "51ca266386a6913d69e9ec49a8dae74d451928a1b8aacc034001b3f3e02ea573",
+          "scope": {
+            "sourceNamespace": "synthetic-account",
+            "teacherId": "teacher-fictional",
+            "studentId": "student-fictional",
+            "lessonDate": "2040-01-16"
+          },
+          "requestRef": "synthetic-request",
+          "userContextDigest": "762be6500b390dd86b4b8941d29a18609fed187ab9cfe38bf4c8e15e45982b4e",
+          "parentSafeguard": {
+            "sourceRef": "synthetic-parent-policy",
+            "policySha256": "3333333333333333333333333333333333333333333333333333333333333333",
+            "safeguardSourceSha256": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "cismSource": null,
+          "learningPolicy": {
+            "bundleSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+            "configSha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "catalogSha256": "7777777777777777777777777777777777777777777777777777777777777777"
+          },
+          "sourceRevision": "1111111111111111111111111111111111111111111111111111111111111111",
+          "wireDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+          "transmissionState": "not_sent",
+          "rows": [
+            {
+              "field": "attendance",
+              "target": {
+                "sourceNamespace": "synthetic-account",
+                "teacherId": "teacher-fictional",
+                "studentId": "student-fictional",
+                "lessonDate": "2040-01-16",
+                "courseId": "course:1",
+                "membershipId": "membership:1",
+                "recordId": "current-record"
+              },
+              "before": {
+                "state": "known",
+                "value": "Y",
+                "evidenceRefs": [
+                  "recorded:r"
+                ]
+              },
+              "after": "N",
+              "factRefs": [
+                "fact:attendance"
+              ],
+              "learningEntries": null,
+              "learningSuggestedRendering": null,
+              "learningSuggestionMeaning": null,
+              "disposition": "blocked",
+              "blockers": [
+                "existing_value_requires_explicit_replace"
+              ],
+              "missingFactFragments": [],
+              "holdActions": [
+                {
+                  "field": "attendance",
+                  "code": "existing_value_requires_explicit_replace",
+                  "action": "explicit_teacher_decision",
+                  "guidance": "Obtain the explicit teacher decision for this exact field and request.",
+                  "correctionScope": null
+                }
+              ],
+              "semanticFactReview": "teacher_review_required_not_proven_by_fragment_checks"
+            }
+          ],
+          "patch": [],
+          "status": "held",
+          "interviews": [],
+          "reviewDigest": "7ac344d800d200d57c158d71917dfdc8458e4658757a70bc18d7586a2510af4f",
+          "reviewRecord": null,
+          "execution": "not_supported",
+          "saveAdmission": "separate_trusted_native_owner_required"
+        }
+      }
+    },
+    "events": [
+      {
+        "event": "recorded_read",
+        "scope": {
+          "sourceNamespace": "synthetic-account",
+          "teacherId": "teacher-fictional",
+          "studentId": "student-fictional",
+          "lessonDate": "2040-01-16"
+        },
+        "requestRef": "synthetic-request"
+      },
+      {
+        "event": "recorded_read",
+        "scope": {
+          "sourceNamespace": "synthetic-account",
+          "teacherId": "teacher-fictional",
+          "studentId": "student-fictional",
+          "lessonDate": "2040-01-16"
+        },
+        "requestRef": "synthetic-request"
+      }
+    ],
+    "effects": {
+      "deniedTransportAttempts": 0,
+      "forbiddenFakeDispatches": 0
+    },
+    "metadata": {
+      "sourceCalls": [
+        "daily.DailyRecordService.intake",
+        "daily.DailyRecordService.review"
+      ],
+      "uuidValues": [
+        "00000000-0000-4000-8000-000000000001"
+      ]
+    }
+  }
+}

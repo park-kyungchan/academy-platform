@@ -1,0 +1,12 @@
+{
+  "files": [
+    {
+      "path": "private/student-audit-20261014/audit.json",
+      "sha256": "4bdf5431cf2823cf707f9b73d2f7b07b47122369fde7ba7a0831bd9700922c3e"
+    },
+    {
+      "path": "private/lesson-20261014/overlay.json",
+      "sha256": "453ccba341027f52cd24cd145fc9984079070c5aa24d802878a9e3addd3a12ec"
+    }
+  ]
+}

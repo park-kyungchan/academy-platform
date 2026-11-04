@@ -1,0 +1,73 @@
+{
+  "source": "/home/palantirkc/work/ws-replan/inputs/final-review-20261102/extracted/rust_migration_reassessment_2026-11-02/contracts/acceptance_vectors.json",
+  "sha256": "82b2f48644cb44aa03532778da59db30aa94e67c852e576a7cc9b9d7f0025866",
+  "vectors": [
+    {
+      "id": "EDU-21",
+      "category": "protocol",
+      "setup": "One tool renamed while inventory count stays constant",
+      "expected": "Fail compatibility; compare exact names and routing.",
+      "source_refs": [
+        "bridge"
+      ],
+      "method": "protocol transcript comparison",
+      "status": "proposed"
+    },
+    {
+      "id": "EDU-22",
+      "category": "protocol",
+      "setup": "Names unchanged but schema, annotation, omission or validation bound changes",
+      "expected": "Detect and report the specific behavior change.",
+      "source_refs": [
+        "bridge"
+      ],
+      "method": "protocol transcript comparison",
+      "status": "proposed"
+    },
+    {
+      "id": "EDU-23",
+      "category": "generation",
+      "setup": "Old V1 bridge/new pointer, mandatory graph mismatch and pending request during switch",
+      "expected": "Follow the chosen complete-graph retention or refusal contract; no unqualified mixed graph.",
+      "source_refs": [
+        "release",
+        "bridge"
+      ],
+      "method": "isolated launch/switch/recovery test",
+      "status": "proposed"
+    },
+    {
+      "id": "EDU-24",
+      "category": "bounds",
+      "setup": "Oversized, slow or malformed MCP/source output, including a hung child",
+      "expected": "Bound time/output, clean up the process tree, observe lock release, and preserve uncertainty after possible dispatch.",
+      "source_refs": [
+        "dom",
+        "bridge",
+        "workflow"
+      ],
+      "method": "isolated deadline and cleanup test",
+      "status": "proposed"
+    },
+    {
+      "id": "EDU-25",
+      "category": "relocation",
+      "setup": "Move executable independently of evidence data",
+      "expected": "Explicit source root preserves identity/provenance and validates ownership, or startup refuses.",
+      "source_refs": [
+        "paths"
+      ],
+      "method": "temporary-directory launch test",
+      "status": "proposed"
+    },
+    {
+      "id": "BUILD-01",
+      "category": "build_identity",
+      "setup": "Build wrapper logs a failing child status but exits zero, or source changes after a green log",
+      "expected": "Do not mark the current candidate successful; bind the actual child status and artifact to the selected revision.",
+      "source_refs": [],
+      "method": "synthetic wrapper/immutable candidate check",
+      "status": "proposed"
+    }
+  ]
+}

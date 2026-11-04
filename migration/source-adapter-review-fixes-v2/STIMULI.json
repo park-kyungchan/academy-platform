@@ -1,0 +1,240 @@
+{
+  "presentation": [
+    {
+      "id": "template",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(a){return `x${a + \"\uac00\ud83d\ude00\"}y`;}"
+    },
+    {
+      "id": "arrow",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "var previewDBExam = (a = 7, ...rest) => ({value:a, label:\"\uc0c8\ud83d\ude00\"});"
+    },
+    {
+      "id": "async",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "var previewDBExam = async (a) => await Promise.resolve(a + 4);"
+    },
+    {
+      "id": "regexp-division",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(a){return /ab+c/gi.test(a) ? a / 2 : /[\\/]/u.test(a);}"
+    },
+    {
+      "id": "optional",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(a){return a?.b?.(3) ?? a?.[\"\uac00\"];}"
+    },
+    {
+      "id": "loops",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(a){for(let i=0;i<3;i++){a+=i;} while(a<9){a++;} do {a--;} while(a>8); for(const x of [1,2]){a+=x;} for(const k in {x:1}){a+=k;} return a;}"
+    },
+    {
+      "id": "destructure",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam({x = \"default\", ...rest} = {}){let [a,,b=4,...tail]=[1,2,3]; return {...rest,x,a,b};}"
+    },
+    {
+      "id": "spread",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(...a){return Math.max(...a,9)+[...a,2].length;}"
+    },
+    {
+      "id": "switch-try",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(a){try {switch(a){case 1:return \"one\";default:throw \"other\";}}catch({message=\"none\"}){return message;}finally{a=0;}}"
+    },
+    {
+      "id": "utf16",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "/*\ud83d\ude00*/ function previewDBExam(){return [\"\\uD800\",\"\\uDFFF\",\"\\u{1f600}\",\"\\x41\",\"\\u0042\",`x${\"\\uD801\"}`];}"
+    },
+    {
+      "id": "nested",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){function dbFormatterExam(){return \"inner\";} return function(){return \"outer\";};}"
+    },
+    {
+      "id": "class2022",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){class X {#x=2;static y=\"yes\"; static {this.y=\"ok\";} get(){return this.#x;}} return new X();}"
+    },
+    {
+      "id": "computed",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "var previewDBExam = function(){return ({[\"x\"]:1, x:2, get y(){return \"y\";}, z(a){return a+3;}});};"
+    },
+    {
+      "id": "division-template",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(a){return `${a / 3}${/x/.test(a)}`;}"
+    },
+    {
+      "id": "assignment",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "previewDBExam = (a) => \"unobserved assignment\";"
+    },
+    {
+      "id": "malformed",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(a){let x = ;return \"no\";}"
+    },
+    {
+      "id": "return-outside",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "return previewDBExam(\"no\");"
+    },
+    {
+      "id": "typescript",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(a: number){return a;}"
+    },
+    {
+      "id": "jsx",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return <div/>;}"
+    },
+    {
+      "id": "decorator",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "@dec class X {} function previewDBExam(){return 1;}"
+    },
+    {
+      "id": "using",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){using x = resource;return 1;}"
+    },
+    {
+      "id": "import-options",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return import(\"x\",{with:{type:\"json\"}});}"
+    },
+    {
+      "id": "import-source",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return import.source(\"x\");}"
+    },
+    {
+      "id": "regex-v",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /[a]/v;}"
+    },
+    {
+      "id": "regex-duplicate",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /a/gg;}"
+    },
+    {
+      "id": "regex-invalid",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /(/;}"
+    },
+    {
+      "id": "regex-u-invalid",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "function previewDBExam(){return /[z-a]/u;}"
+    },
+    {
+      "id": "hashbang",
+      "op": "presentation",
+      "html": "<!doctype html>\uc55e\ud83d\ude00\n<label for=\"difficulty\">\ub09c\uc774\ub3c4 &amp; \uac12</label><select id=\"difficulty\" onchange=\"choose(this.value)\"><option value=\"01\">\ud558&amp;\uc911</option><option selected>\uc0c1\ud83d\ude00 </option></select><textarea>unused</textarea><script>\nvar g_examtype_filter=\"all\";var searchConditionDifficulty=0;var searchConditionBehAreaNo=null;\n$(\"#dbExamListGrid\").jqGrid({colNames:[\"\ub09c\uc774\ub3c4\"],colModel:[{name:\"difficulty\",formatter:dbFormatterDifficulty}]});\nfunction dbFormatterDifficulty(value){return value===0?\"\ubbf8\uc2e4\uc2dc\":\"\uac00\ud83d\ude00\";}\nfunction previewDBExam(key){return \"inert\";}\nglobalThis.s09ScriptRan=true; fetch(\"https://blocked.invalid/\");\n</script>",
+      "helpers": "#!/bin/env node\nfunction previewDBExam(){return 1;}"
+    },
+    {
+      "id": "handler-return",
+      "op": "presentation",
+      "html": "<button id=\"difficulty\" onclick=\"return previewDBExam(2);\">\ub09c\uc774\ub3c4</button>",
+      "helpers": "function previewDBExam(a){return `x${a + \"\uac00\ud83d\ude00\"}y`;}"
+    },
+    {
+      "id": "handler-arrow",
+      "op": "presentation",
+      "html": "<button id=\"difficulty\" onclick=\"(()=>previewDBExam(3))();\">\ub09c\uc774\ub3c4</button>",
+      "helpers": "function previewDBExam(a){return `x${a + \"\uac00\ud83d\ude00\"}y`;}"
+    },
+    {
+      "id": "handler-optional",
+      "op": "presentation",
+      "html": "<button id=\"difficulty\" onclick=\"api?.previewDBExam?.(4);\">\ub09c\uc774\ub3c4</button>",
+      "helpers": "function previewDBExam(a){return `x${a + \"\uac00\ud83d\ude00\"}y`;}"
+    },
+    {
+      "id": "handler-loop",
+      "op": "presentation",
+      "html": "<button id=\"difficulty\" onclick=\"for(let x of [1]){previewDBExam(x);}\">\ub09c\uc774\ub3c4</button>",
+      "helpers": "function previewDBExam(a){return `x${a + \"\uac00\ud83d\ude00\"}y`;}"
+    },
+    {
+      "id": "handler-malformed",
+      "op": "presentation",
+      "html": "<button id=\"difficulty\" onclick=\"return ( ;\">\ub09c\uc774\ub3c4</button>",
+      "helpers": "function previewDBExam(a){return `x${a + \"\uac00\ud83d\ude00\"}y`;}"
+    },
+    {
+      "id": "grid-dynamic",
+      "op": "presentation",
+      "html": "\ud83d\ude00<script>$(\"#dbExamListGrid\").jqGrid(config);</script>",
+      "helpers": "function previewDBExam(a){return `x${a + \"\uac00\ud83d\ude00\"}y`;}"
+    },
+    {
+      "id": "grid-arrow",
+      "op": "presentation",
+      "html": "\ud83d\ude00<script>$(\"#dbExamListGrid\").jqGrid({colNames:[\"\uc0c8\ud83d\ude00\"],colModel:[{name:\"n\",formatter:(a)=>`${a + 5}`} ]});</script>",
+      "helpers": "function previewDBExam(a){return `x${a + \"\uac00\ud83d\ude00\"}y`;}"
+    },
+    {
+      "id": "grid-computed",
+      "op": "presentation",
+      "html": "\ud83d\ude00<script>$(\"#dbExamListGrid\").jqGrid({[\"colModel\"]:[{[\"name\"]:\"n\",formatter:obj[key]}]});</script>",
+      "helpers": "function previewDBExam(a){return `x${a + \"\uac00\ud83d\ude00\"}y`;}"
+    },
+    {
+      "id": "grid-malformed-fallback",
+      "op": "presentation",
+      "html": "\ud83d\ude00<script>var broken=; $(\"#dbExamListGrid\").jqGrid({colModel:[{name:\"n\",formatter:function(a){return a+2;}}]}); var more=;</script>",
+      "helpers": "function previewDBExam(a){return `x${a + \"\uac00\ud83d\ude00\"}y`;}"
+    }
+  ],
+  "locations": [
+    "c_login.jsp",
+    "../login@next?email=a@b",
+    "?next=a@b",
+    "/ordinary@path?q=@",
+    "https://dc.gang-a.kr:443/ordinary@path",
+    "//dc.gang-a.kr/next",
+    "/next#",
+    "/next#bad",
+    "https://user@dc.gang-a.kr/next",
+    "https://foreign.invalid/next",
+    "",
+    "/next"
+  ]
+}

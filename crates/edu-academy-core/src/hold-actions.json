@@ -1,0 +1,57 @@
+[
+  {
+    "pattern": "_ask_teacher$|^interview_required$",
+    "action": "teacher_interview",
+    "guidance": "Ask the teacher for the exact edition/unit/section binding of this activity and record the answer as a scoped correction for this student, edition and activity only."
+  },
+  {
+    "pattern": "^count_rendering_must_preserve_count$",
+    "action": "correct_fact",
+    "guidance": "questionCounts accepts cardinal question counts such as 8문항. Put ordinal scope such as 유형 10 in requiredFragments; preserve the teacher fact and review again."
+  },
+  {
+    "pattern": "^learning_entries_required$",
+    "action": "supply_learning_entries",
+    "guidance": "Supply learningEntries binding book, unit and sections through the owner catalog."
+  },
+  {
+    "pattern": "^learning_(mapping_unqualified|evidence_required|book_invalid|unit_invalid|section_invalid|edition_invalid|grade_invalid|entry_invalid)$|^duplicate_learning_",
+    "action": "owner_catalog_binding",
+    "guidance": "The owner catalog has no qualified binding for this entry; record a teacher-confirmed binding in the private owner catalog. Never invent a mapping."
+  },
+  {
+    "pattern": "^learning_render_mismatch$",
+    "action": "teacher_review_rendering",
+    "guidance": "Text differs from the canonical grouped rendering; the teacher reviews any format example for meaning before resubmitting."
+  },
+  {
+    "pattern": "^teacher_reported_",
+    "action": "supply_or_correct_fact",
+    "guidance": "Bind each teacher-reported line to its exact user-supplied fact and preserve any selected existing text."
+  },
+  {
+    "pattern": "^canonical_(learning_policy|parent_safeguard)_not_connected$|^learning_(catalog|contract)_invalid$",
+    "action": "owner_configuration",
+    "guidance": "The runtime owner must connect the pinned policy; a caller cannot resolve this."
+  },
+  {
+    "pattern": "^(supplied_fact_fragment_missing|unsupported_question_count|unsupported_deadline|unsupported_completion_claim|unsupported_stage_completion_claim|stage_completion_mismatch|field_fact_reference_required|explicit_user_source_option_fact_required|conflicting_explicit_user_source_options|duplicate_fact_ref)$",
+    "action": "supply_or_correct_fact",
+    "guidance": "The text asserts something the supplied teacher facts do not support; obtain that teacher fact or remove the claim."
+  },
+  {
+    "pattern": "^(source_before_or_contract_drift|stale_source|qualified_before_source_unavailable|unknown_before|qualified_current_record_required|independent_previous_record_required|exact_fresh_cism_observation_handle_required|cism_fact_not_bound_to_exact_observed_section)$",
+    "action": "fresh_intake",
+    "guidance": "Run a fresh intake and review; the source changed or is not qualified."
+  },
+  {
+    "pattern": "^(parent_hyphen_lines_required|parent_internal_language_excluded|invalid_explicit_field_value)$",
+    "action": "rewrite_text",
+    "guidance": "Rewrite the parent-facing field text and review again."
+  },
+  {
+    "pattern": "^(existing_value_requires_explicit_replace|explicit_clear_decision_required|clear_requires_empty_value|no_addition_preserves_existing_memo|today_memo_interview_required|field_not_selected|current_request_ref_required)$",
+    "action": "explicit_teacher_decision",
+    "guidance": "Obtain the explicit teacher decision for this exact field and request."
+  }
+]

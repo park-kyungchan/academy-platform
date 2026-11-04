@@ -1,0 +1,18 @@
+{
+  "allocatedBase": "2d7f348a66fe9a628eee896be041033ab1946bdb",
+  "originalReference": "65e690b76884c8e9c01acb55b89086c8a218c9e7",
+  "qualifiedExecutor": "925bbe29316a4bf5e1087be5fe8c1cb04974d4d3",
+  "unchangedOriginalSourcePinsVerified": 56,
+  "immutableFiles": {
+    "Cargo.toml": "e1653f6431123475c4cf5b126a43f45db7eb8f9f37d4439a2c761e28af0873a3",
+    "Cargo.lock": "87c463ca178161a978d6cec59e80ce263a0a28fe1c7eefda395cdc2d14009303",
+    "crates/edu-academy-sources/Cargo.toml": "83d75d7a120c2de2e97199f363a4b5c8bb9c7b01a69793eec35906138489c059",
+    "crates/edu-academy-core/Cargo.toml": "a593c4c64f9d611c430990ceb07e27f4723953101112460a66a7cb7d85594708",
+    "migration/source-adapter-reference-v1/EXPECTED.json": "31cfecc3357007332d81dd7437eb14a1bde27b51a3ae518695c762976673f535",
+    "migration/source-adapter-reference-v1/OBSERVERS-v2-EXPECTED.json": "e322211a87cc92690de35d4fd29ff5c721dae5c7665ac95ed5e2676d7ebdc4d9",
+    "migration/source-adapter-reference-v1/EXPECTED-EFFECTS.ndjson": "9ac051ae8036cca8900ffc633cf5c01c3c82bd03231070bfd992a6e519303297",
+    "migration/source-adapter-reference-v1/OBSERVERS-v2-EFFECTS.ndjson": "ac98cdd95cac30883d8941196fc245d169388f032de9d5cd9bbce5e9736bff5c",
+    "migration/source-adapter-reference-v1/judge.py": "9da0051acfe049769c85d58c668f0ce11f9efc3ac28c3291cd67330622214840",
+    "migration/source-adapter-reference-v2/run.py": "8879a1401b172ad46e672985873d54ce0141d26d51bcbea7dfa2da2914d2b05f"
+  }
+}

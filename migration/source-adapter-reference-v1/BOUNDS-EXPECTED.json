@@ -1,0 +1,14 @@
+{
+  "schema": "s09.bounds-expectations/1",
+  "scope": "Original read failures and disposable outer process lifecycle only; no real account lock or write reconciliation claim",
+  "faults": {
+    "hung-descendant": {"termination":"deadline","signal":9,"remainingGroupMembers":[],"lockReleased":true,"fakeDispatchCount":1,"fakeSettlement":"unknown","automaticRetryPerformed":false},
+    "output-flood": {"termination":"output_limit","signal":9,"remainingGroupMembers":[]},
+    "malformed-output": {"exitCode":0,"stdout":"{ malformed\n","remainingGroupMembers":[],"validReferenceFrame":false},
+    "signal": {"signal":15,"remainingGroupMembers":[]},
+    "stalled-source-body": {"termination":"deadline","signal":9,"remainingGroupMembers":[],"sourceResultReturned":false,"retainedLocalDispatchPrefix":true,"productionDispatches":0}
+  },
+  "sourceBounds": {"readRequestBodyBytes":2000000,"presentationSourceBytes":2000000,"savedLeafBytes":33554432,"pinnedLocalBytes":4194304,"queryResultTransportBytes":524288,"sourceSignalMilliseconds":20000},
+  "outerBounds": {"defaultWallSeconds":48,"stdoutAndStderrBytes":16777216,"cpuSeconds":40,"fileBytes":67108864,"faultOutputCapBytes":65536},
+  "qualifications": ["Some original outer methods use JS string lengths rather than byte count.","A stalled synthetic response body remains pending without an outer process bound.","Process-group children and inherited disposable flock are observed; escaped daemon sessions and real native account locks are unqualified.","Oversize pre-freeze observer v1 hit the old32MiB outer file cap; preserved diagnostic only. v2 reaches original loader refusal."]
+}

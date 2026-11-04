@@ -1,0 +1,294 @@
+{
+  "base": "39441f5d205b8a67e5c911da747d213a322d20da",
+  "sources": [
+    {
+      "path": "apps/academy/dc-gang-a/src/contracts/parentInternalLanguage.ts",
+      "sha256": "60742973557e383b57c065dc7ef9cb806677f15ca4a571f48f7b2184f93aa456",
+      "bytes": 385,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/contracts/readInputRecord.ts",
+      "sha256": "ba2eda95e601ccd9eba44fc77c43ed5fde50801d34c8f77ea0f9d0dedd65db0c",
+      "bytes": 557,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/learning/model.ts",
+      "sha256": "9603c0c5c8d30453bb8f60ecb79b7d0974619fb17807b76d969fc132015f8b9f",
+      "bytes": 21757,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/academyReadProtocol.ts",
+      "sha256": "ac462984b3a0fbaef4ea8c802f0c962b5a0bbbaa3f2e46e0a3cb1576c88d82fc",
+      "bytes": 21801,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/assessmentReadProtocol.ts",
+      "sha256": "a4f489ae77c27bcb0fcb8459e0504be84d568a08d4e81b01638d0e1ae74a0f55",
+      "bytes": 18405,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol.ts",
+      "sha256": "3db052875ef4f8039c007cf5f5a1ec1bde2d30f837a49e8abf467493c2c4b965",
+      "bytes": 6868,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/dayRecordColumnContract.ts",
+      "sha256": "88840882b0a88c3a6482ee7a78f28affc6faa2c92c6bbb9338389834c8a1cf84",
+      "bytes": 2276,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/dayRecordDomBinding.ts",
+      "sha256": "2621ede29edc04e39356145a2ec5cb723cb557a1e99feb3e6587bdec085bec70",
+      "bytes": 19419,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/dayRecordReadProtocol.ts",
+      "sha256": "28188190d156b1a1fd7aba6a2e33beb055aa49c963ec0d2187b3b67804898d65",
+      "bytes": 9446,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/itemAnswerBatch.ts",
+      "sha256": "d25c9e9a29fd361b38e69f16e396d77b5b38baff9f1bcfc7d75eea529512c977",
+      "bytes": 1697,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/itemAnswerRead.ts",
+      "sha256": "0667be75b064011e419cf51f5951b142e722b170062768d3be8a359afdbeca76",
+      "bytes": 2250,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/itemMetadataRead.ts",
+      "sha256": "952bf8d6bd2779b043b9087d91f4238699a9a7e9f22cc902bd51159419c489ef",
+      "bytes": 3098,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/lessonJournalHttp.ts",
+      "sha256": "3de2ac92bd7d086939373779af59b80acd069a2cc5631f465c92aae4dc3234a2",
+      "bytes": 11538,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/lessonJournalTemplates.ts",
+      "sha256": "5195709e7e905b864f8f6f5a7c72909f1654bf0968873612fb4e36a0b669d6e2",
+      "bytes": 8388,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/printedPaperCode.ts",
+      "sha256": "e753d51df93843921b6c481df4e9a9da5776c799eed1d0328b5eac2494409e22",
+      "bytes": 1017,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/sourceFunctionText.ts",
+      "sha256": "6c371f6c2ea7e36d99bb5bbe14df650049b0151bbea18c7ddb32f5d6cc7aa9e9",
+      "bytes": 1512,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/studentCourseRead.ts",
+      "sha256": "668325f2328d33eef20bde9b67c1dbece33133565423c839c9100fa94ce9b236",
+      "bytes": 7064,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/lms/textbookCatalogRead.ts",
+      "sha256": "55aca2e21f68d3deb4bf19a194cfcf8a71be5de0833d3e148312eb12d087b930",
+      "bytes": 7046,
+      "matchesBase": true
+    },
+    {
+      "path": "apps/academy/dc-gang-a/src/wholeLens/domain.ts",
+      "sha256": "e3758b49b02a12b9aa37dc0137c3de2faad2911b4995671a1477dacd4e509a82",
+      "bytes": 17061,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/bun.lock",
+      "sha256": "daad384cf226541cd8375f4e1ea06ee0e2b0f144812238407115a30d96e77172",
+      "bytes": 43036,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/docs/dailyrecord-workflow.md",
+      "sha256": "82950e75fdc6c3d85ab23b7845a7a63f4f712fcf3264ebd32f544fafad63ed6f",
+      "bytes": 23726,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/package.json",
+      "sha256": "7cc89c147fdbf6dde32e9845d8aa1aeeebc8626d6c0270aa078613bce4512008",
+      "bytes": 1478,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/assessment-binding.ts",
+      "sha256": "fe9154ff7d2217226c0b28ae56be70f7249a6fcb20b38b7affa6153416c45abd",
+      "bytes": 3998,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/cism-weekly-tools.ts",
+      "sha256": "8c762fcbaef98566d57decb6c15d754fd8eb4e1ed7f68a7a5e50d25492f566f2",
+      "bytes": 12780,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-context.ts",
+      "sha256": "85ca8effd2c6b0c9eed83ed76ab3f778c494dbd816917a692977caa4e46dc7d6",
+      "bytes": 5256,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-read.ts",
+      "sha256": "cfb466e431d10ac069f9a3d2c408db9b0f13736306f17d19ab8ccd2bf497db9f",
+      "bytes": 8260,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-save-admission.ts",
+      "sha256": "0e208e3f36a042fe3e2c33fe27067051830f4e90b6de720e820223983b524360",
+      "bytes": 6215,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-server.ts",
+      "sha256": "61b12b21cef9c3b4e543df27400863f886e2eeec3a60c83feb90fc5de64872a6",
+      "bytes": 2749,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-tools.ts",
+      "sha256": "fe1cd2d9046e55fdcfca56b86ad1c07455027d53c8bc6622bfe27ce505c7c893",
+      "bytes": 21412,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-workflow.ts",
+      "sha256": "e928666b9b46b2eafd6f7146a3985ade2c048ea1f28519f51c0f03935f601180",
+      "bytes": 17147,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/dailyrecord.ts",
+      "sha256": "fa5d9db70e5f022697ebfdeff3b7623c68e3457105f480d05d5fc291fc1e61bb",
+      "bytes": 75155,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/item-answer-lookup.ts",
+      "sha256": "27000c623e2677f506b20c0d31b43a7494420ac0515f3fcba86e191802c67e48",
+      "bytes": 4181,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/item-label-context.ts",
+      "sha256": "ceeecf0c8e808c529e2db0e784d5d7293d3fa16c3d3f51993f8813897929b3be",
+      "bytes": 2434,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/item-label-store.ts",
+      "sha256": "3ba13151cd0c36548870c832fddab1519c04335bc9e7aedd59b11c901a295d34",
+      "bytes": 2090,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/item-labels.ts",
+      "sha256": "af6780c9bf2bd503e3581706a2fef975e368e0b6bc8348a145e36476da571d76",
+      "bytes": 8873,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/metadata-admission.ts",
+      "sha256": "df70f29d118b2686cb7e6cd5de28b9bb8c68be3f64eb5301b751633a0a6716df",
+      "bytes": 1489,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/native-dailyrecord-backend.ts",
+      "sha256": "a77b2bac3fb1aad10dfbbe47af495a4d320683f6f1f8e1a87cd508deb26400ef",
+      "bytes": 51754,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/neutral-server.ts",
+      "sha256": "36394d985e2bc142e7ba423a915b998507c898f80676e5d44f212feb75406e14",
+      "bytes": 25549,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/owner-admission.ts",
+      "sha256": "f3b795b2dcfbf4e341e37ceaa80bc89e4a14bf4f1b4640c8c5cf6507e17ffb7b",
+      "bytes": 2019,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/read-failure.ts",
+      "sha256": "2f25a7c02a5f2380424dc137181c908c479a114103be6af6d6ff1051f994f843",
+      "bytes": 22863,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/routing-context.ts",
+      "sha256": "332ff3f2f63fc30af7eab936b987c8ed7be507a57678528f6f8ebd459e721c29",
+      "bytes": 15905,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/student-resolver.ts",
+      "sha256": "08542d706a92f77c6f0e20c998829f28bab33c28ba4cc1108ccd78d042e22acf",
+      "bytes": 2794,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/tool-result.ts",
+      "sha256": "eece5a4c8d4fda38515a1939b31485f73c025b1d49491974a1337a8086905bd9",
+      "bytes": 1060,
+      "matchesBase": true
+    },
+    {
+      "path": "modules/academy-workbench/tools/academy-mcp/src/upstream-failure.ts",
+      "sha256": "8a49ecf13782e1a638a968c26143409710b9e80480b14e534b92193766da43ee",
+      "bytes": 1193,
+      "matchesBase": true
+    }
+  ],
+  "dependency": {
+    "name": "zod",
+    "version": "4.4.3",
+    "manifestAndLockMatch": true,
+    "entries": [
+      {
+        "path": "/home/palantirkc/projects/education-platform/modules/academy-workbench/tools/academy-mcp/node_modules/zod/package.json",
+        "sha256": "c630bd10b52dcf71c112a2bf78dbf2734b9db58d62de663b8d86c2ec2c8cda2e"
+      },
+      {
+        "path": "/home/palantirkc/projects/education-platform/modules/academy-workbench/tools/academy-mcp/node_modules/zod/index.js",
+        "sha256": "c733a1897d6b4b30dad6998597f6896b265b094a65534359ada34b08ecf8932c"
+      },
+      {
+        "path": "/home/palantirkc/projects/education-platform/modules/academy-workbench/tools/academy-mcp/node_modules/zod/v4/classic/external.js",
+        "sha256": "179a03ace3d1d77895cc5b3c54a3fcbf2b7f8bad44d6f030092491c10e5d9097"
+      }
+    ],
+    "ownedIgnoredLink": "modules/academy-workbench/tools/academy-mcp/node_modules/zod",
+    "linkTarget": "/home/palantirkc/projects/education-platform/modules/academy-workbench/tools/academy-mcp/node_modules/zod"
+  },
+  "runtime": {
+    "bun": "1.4.3",
+    "compiler": false
+  }
+}

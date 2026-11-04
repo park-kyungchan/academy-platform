@@ -1,0 +1,17 @@
+{
+  "at": "2026-11-03T00:27:14.256499+00:00",
+  "origin": "actual unchanged original exported functions; native/original-02 raw stdout copied before first Rust comparison",
+  "rawStdoutSha256": "9d63fe58653eb3e01e86108919391b6f4cac0895ffc2280954e81ba24c6dcd2c",
+  "files": {
+    "STIMULI.json": "2781dbb26bd18f7279d2a22bebd11bf0af88bf342222502098a6cf33d558015e",
+    "original.ts": "5e9a2f3b78ba65dc8917d5c12b70810e477573b30e8d5aaad8bc2ba3c0a98338",
+    "ORIGINAL-EXPECTED.json": "9d63fe58653eb3e01e86108919391b6f4cac0895ffc2280954e81ba24c6dcd2c",
+    "ASSESSMENT-EXPECTED.json": "8a841fc71e497fe685adea60ff20d1c223b2c2873401a9a7d9fc5d135677b866"
+  },
+  "oldOracleHashes": {
+    "EXPECTED.json": "31cfecc3357007332d81dd7437eb14a1bde27b51a3ae518695c762976673f535",
+    "OBSERVERS-v2-EXPECTED.json": "e322211a87cc92690de35d4fd29ff5c721dae5c7665ac95ed5e2676d7ebdc4d9",
+    "SOURCE-PINS.json": "313d70da71fd3e7d1b01f4c7201e72f074d4689fef343d5ec92f0853c9c0a33b",
+    "DEPENDENCY-PINS.json": "7fc0683a3269ef9e04135869ec322af607385fbc070c464f748068f3e42e7474"
+  }
+}

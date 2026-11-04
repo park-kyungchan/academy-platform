@@ -1,0 +1,154 @@
+{
+  "controls": [
+    {
+      "id": "wrong-report-digest",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/supplement-01/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"date\":\"2040-10-15\",\"periodStart\":\"2040-10-14\",\"periodEnd\":\"2040-10-20\",\"weekLabel\":\"2040-42 주차 (10월14일~10월20일)\",\"teacherLabel\":\"Fictional Teacher\",\"teacherKey\":\"90001\",\"wireSha256\":\"401beb7c9957d4b688e00655f6f5ece6831e1b857961b131d7cf02269fd6b67b\",\"reportSha256\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"observedAt\":\"2040-10-15T09:00:00.000Z\",\"fields\":[{\"fieldRef\":\"6e80a3ab45833e798c7d56a33e7a3a4a5167b6259ef3a28eede2bab19177d6d7\",\"kind\":\"narrative\",\"label\":\"i_1\",\"value\":\"Synthetic & note\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"i_1\"}},{\"fieldRef\":\"8d5a4bf4719f25881ebf9502f71069b7ea187d2ea49f474419023c290c5beb0c\",\"kind\":\"narrative\",\"label\":\"i_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"i_2\"}},{\"fieldRef\":\"8704be53f3127b6ff258c26662be81b39594e4392590678a506727c2709d787f\",\"kind\":\"narrative\",\"label\":\"s_1\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_1\"}},{\"fieldRef\":\"ef579d518673c568fe0d5c097c4ccdb0300533c4ec67f2925ee200eafe9887a7\",\"kind\":\"narrative\",\"label\":\"s_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_2\"}},{\"fieldRef\":\"9304dac02b6de97b9bb3a7fec20b9259340220af535e1af3aac2cf34b55c7c0b\",\"kind\":\"narrative\",\"label\":\"s_3\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_3\"}},{\"fieldRef\":\"42db6b6458bd4803b35fea20e92464dc62a814545ab98d32491d52b04fffd2dd\",\"kind\":\"narrative\",\"label\":\"s_4\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_4\"}},{\"fieldRef\":\"5245928e00e5c695a9c3c55bb855ef4c84e54f0832f2ab025e94cd50cb8557d9\",\"kind\":\"narrative\",\"label\":\"m_1\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"m_1\"}},{\"fieldRef\":\"d52e245b01cf0a17894023ab7d06ec51ec921739d4819cd8c18762a08808e2ae\",\"kind\":\"narrative\",\"label\":\"m_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"m_2\"}},{\"fieldRef\":\"db48a8e74f2e1af2cfebb18da3834dd3b4d3eb70094172dcb9855d604c3614fc\",\"kind\":\"class_mode\",\"label\":\"이번주 반 수업 분위기\",\"value\":\"0\",\"studentName\":null,\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"class_mode\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}},{\"fieldRef\":\"f36b91479f17912cf62350f4100305fc4eb47570f7e0f042c228a0f62d91ba15\",\"kind\":\"think_note\",\"label\":\"풀이노트작성\",\"value\":\"\",\"studentName\":\"Fictional Student\",\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"think_note\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}},{\"fieldRef\":\"8e5d151da1241a94673bd0e7ef5d41ad0fa156f963bcea0a98eb79dfc0968658\",\"kind\":\"week_test\",\"label\":\"주간테스트\",\"value\":\"\",\"studentName\":\"Fictional Student\",\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"week_test\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}}],\"sourceMode\":\"live_source\",\"pdfGenerated\":false}},\"events\":[{\"event\":\"inert_dom_parse\",\"mime\":\"text/html\",\"bytes\":3959}],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"cism.parseCismReport\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "missing-fields",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/supplement-01/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"date\":\"2040-10-15\",\"periodStart\":\"2040-10-14\",\"periodEnd\":\"2040-10-20\",\"weekLabel\":\"2040-42 주차 (10월14일~10월20일)\",\"teacherLabel\":\"Fictional Teacher\",\"teacherKey\":\"90001\",\"wireSha256\":\"401beb7c9957d4b688e00655f6f5ece6831e1b857961b131d7cf02269fd6b67b\",\"reportSha256\":\"593d1fa156b35592f9454ae5cc0872bba503719f21703945b83e8a0a75ec4d11\",\"observedAt\":\"2040-10-15T09:00:00.000Z\",\"sourceMode\":\"live_source\",\"pdfGenerated\":false}},\"events\":[{\"event\":\"inert_dom_parse\",\"mime\":\"text/html\",\"bytes\":3959}],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"cism.parseCismReport\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "wrong-native-membership",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/supplement-01/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"date\":\"2040-10-15\",\"periodStart\":\"2040-10-14\",\"periodEnd\":\"2040-10-20\",\"weekLabel\":\"2040-42 주차 (10월14일~10월20일)\",\"teacherLabel\":\"Fictional Teacher\",\"teacherKey\":\"90001\",\"wireSha256\":\"401beb7c9957d4b688e00655f6f5ece6831e1b857961b131d7cf02269fd6b67b\",\"reportSha256\":\"593d1fa156b35592f9454ae5cc0872bba503719f21703945b83e8a0a75ec4d11\",\"observedAt\":\"2040-10-15T09:00:00.000Z\",\"fields\":[{\"fieldRef\":\"6e80a3ab45833e798c7d56a33e7a3a4a5167b6259ef3a28eede2bab19177d6d7\",\"kind\":\"narrative\",\"label\":\"i_1\",\"value\":\"Synthetic & note\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"i_1\"}},{\"fieldRef\":\"8d5a4bf4719f25881ebf9502f71069b7ea187d2ea49f474419023c290c5beb0c\",\"kind\":\"narrative\",\"label\":\"i_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"i_2\"}},{\"fieldRef\":\"8704be53f3127b6ff258c26662be81b39594e4392590678a506727c2709d787f\",\"kind\":\"narrative\",\"label\":\"s_1\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_1\"}},{\"fieldRef\":\"ef579d518673c568fe0d5c097c4ccdb0300533c4ec67f2925ee200eafe9887a7\",\"kind\":\"narrative\",\"label\":\"s_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_2\"}},{\"fieldRef\":\"9304dac02b6de97b9bb3a7fec20b9259340220af535e1af3aac2cf34b55c7c0b\",\"kind\":\"narrative\",\"label\":\"s_3\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_3\"}},{\"fieldRef\":\"42db6b6458bd4803b35fea20e92464dc62a814545ab98d32491d52b04fffd2dd\",\"kind\":\"narrative\",\"label\":\"s_4\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_4\"}},{\"fieldRef\":\"5245928e00e5c695a9c3c55bb855ef4c84e54f0832f2ab025e94cd50cb8557d9\",\"kind\":\"narrative\",\"label\":\"m_1\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"m_1\"}},{\"fieldRef\":\"d52e245b01cf0a17894023ab7d06ec51ec921739d4819cd8c18762a08808e2ae\",\"kind\":\"narrative\",\"label\":\"m_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"m_2\"}},{\"fieldRef\":\"db48a8e74f2e1af2cfebb18da3834dd3b4d3eb70094172dcb9855d604c3614fc\",\"kind\":\"class_mode\",\"label\":\"이번주 반 수업 분위기\",\"value\":\"0\",\"studentName\":null,\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"class_mode\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}},{\"fieldRef\":\"f36b91479f17912cf62350f4100305fc4eb47570f7e0f042c228a0f62d91ba15\",\"kind\":\"think_note\",\"label\":\"풀이노트작성\",\"value\":\"\",\"studentName\":\"Fictional Student\",\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"think_note\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}},{\"fieldRef\":\"8e5d151da1241a94673bd0e7ef5d41ad0fa156f963bcea0a98eb79dfc0968658\",\"kind\":\"week_test\",\"label\":\"주간테스트\",\"value\":\"\",\"studentName\":\"Fictional Student\",\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"week_test\",\"studentKey\":\"90002\",\"membershipKey\":\"other\",\"groupKey\":\"1\"}}],\"sourceMode\":\"live_source\",\"pdfGenerated\":false}},\"events\":[{\"event\":\"inert_dom_parse\",\"mime\":\"text/html\",\"bytes\":3959}],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"cism.parseCismReport\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "wrong-clock",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/supplement-01/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"date\":\"2040-10-15\",\"periodStart\":\"2040-10-14\",\"periodEnd\":\"2040-10-20\",\"weekLabel\":\"2040-42 주차 (10월14일~10월20일)\",\"teacherLabel\":\"Fictional Teacher\",\"teacherKey\":\"90001\",\"wireSha256\":\"401beb7c9957d4b688e00655f6f5ece6831e1b857961b131d7cf02269fd6b67b\",\"reportSha256\":\"593d1fa156b35592f9454ae5cc0872bba503719f21703945b83e8a0a75ec4d11\",\"observedAt\":\"2040-10-16T09:00:00.000Z\",\"fields\":[{\"fieldRef\":\"6e80a3ab45833e798c7d56a33e7a3a4a5167b6259ef3a28eede2bab19177d6d7\",\"kind\":\"narrative\",\"label\":\"i_1\",\"value\":\"Synthetic & note\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"i_1\"}},{\"fieldRef\":\"8d5a4bf4719f25881ebf9502f71069b7ea187d2ea49f474419023c290c5beb0c\",\"kind\":\"narrative\",\"label\":\"i_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"i_2\"}},{\"fieldRef\":\"8704be53f3127b6ff258c26662be81b39594e4392590678a506727c2709d787f\",\"kind\":\"narrative\",\"label\":\"s_1\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_1\"}},{\"fieldRef\":\"ef579d518673c568fe0d5c097c4ccdb0300533c4ec67f2925ee200eafe9887a7\",\"kind\":\"narrative\",\"label\":\"s_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_2\"}},{\"fieldRef\":\"9304dac02b6de97b9bb3a7fec20b9259340220af535e1af3aac2cf34b55c7c0b\",\"kind\":\"narrative\",\"label\":\"s_3\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_3\"}},{\"fieldRef\":\"42db6b6458bd4803b35fea20e92464dc62a814545ab98d32491d52b04fffd2dd\",\"kind\":\"narrative\",\"label\":\"s_4\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_4\"}},{\"fieldRef\":\"5245928e00e5c695a9c3c55bb855ef4c84e54f0832f2ab025e94cd50cb8557d9\",\"kind\":\"narrative\",\"label\":\"m_1\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"m_1\"}},{\"fieldRef\":\"d52e245b01cf0a17894023ab7d06ec51ec921739d4819cd8c18762a08808e2ae\",\"kind\":\"narrative\",\"label\":\"m_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"m_2\"}},{\"fieldRef\":\"db48a8e74f2e1af2cfebb18da3834dd3b4d3eb70094172dcb9855d604c3614fc\",\"kind\":\"class_mode\",\"label\":\"이번주 반 수업 분위기\",\"value\":\"0\",\"studentName\":null,\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"class_mode\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}},{\"fieldRef\":\"f36b91479f17912cf62350f4100305fc4eb47570f7e0f042c228a0f62d91ba15\",\"kind\":\"think_note\",\"label\":\"풀이노트작성\",\"value\":\"\",\"studentName\":\"Fictional Student\",\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"think_note\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}},{\"fieldRef\":\"8e5d151da1241a94673bd0e7ef5d41ad0fa156f963bcea0a98eb79dfc0968658\",\"kind\":\"week_test\",\"label\":\"주간테스트\",\"value\":\"\",\"studentName\":\"Fictional Student\",\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"week_test\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}}],\"sourceMode\":\"live_source\",\"pdfGenerated\":false}},\"events\":[{\"event\":\"inert_dom_parse\",\"mime\":\"text/html\",\"bytes\":3959}],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"cism.parseCismReport\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "wrong-field-order",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/supplement-01/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"date\":\"2040-10-15\",\"periodStart\":\"2040-10-14\",\"periodEnd\":\"2040-10-20\",\"weekLabel\":\"2040-42 주차 (10월14일~10월20일)\",\"teacherLabel\":\"Fictional Teacher\",\"teacherKey\":\"90001\",\"wireSha256\":\"401beb7c9957d4b688e00655f6f5ece6831e1b857961b131d7cf02269fd6b67b\",\"reportSha256\":\"593d1fa156b35592f9454ae5cc0872bba503719f21703945b83e8a0a75ec4d11\",\"observedAt\":\"2040-10-15T09:00:00.000Z\",\"fields\":[{\"fieldRef\":\"8e5d151da1241a94673bd0e7ef5d41ad0fa156f963bcea0a98eb79dfc0968658\",\"kind\":\"week_test\",\"label\":\"주간테스트\",\"value\":\"\",\"studentName\":\"Fictional Student\",\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"week_test\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}},{\"fieldRef\":\"f36b91479f17912cf62350f4100305fc4eb47570f7e0f042c228a0f62d91ba15\",\"kind\":\"think_note\",\"label\":\"풀이노트작성\",\"value\":\"\",\"studentName\":\"Fictional Student\",\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"think_note\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}},{\"fieldRef\":\"db48a8e74f2e1af2cfebb18da3834dd3b4d3eb70094172dcb9855d604c3614fc\",\"kind\":\"class_mode\",\"label\":\"이번주 반 수업 분위기\",\"value\":\"0\",\"studentName\":null,\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"class_mode\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}},{\"fieldRef\":\"d52e245b01cf0a17894023ab7d06ec51ec921739d4819cd8c18762a08808e2ae\",\"kind\":\"narrative\",\"label\":\"m_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"m_2\"}},{\"fieldRef\":\"5245928e00e5c695a9c3c55bb855ef4c84e54f0832f2ab025e94cd50cb8557d9\",\"kind\":\"narrative\",\"label\":\"m_1\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"m_1\"}},{\"fieldRef\":\"42db6b6458bd4803b35fea20e92464dc62a814545ab98d32491d52b04fffd2dd\",\"kind\":\"narrative\",\"label\":\"s_4\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_4\"}},{\"fieldRef\":\"9304dac02b6de97b9bb3a7fec20b9259340220af535e1af3aac2cf34b55c7c0b\",\"kind\":\"narrative\",\"label\":\"s_3\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_3\"}},{\"fieldRef\":\"ef579d518673c568fe0d5c097c4ccdb0300533c4ec67f2925ee200eafe9887a7\",\"kind\":\"narrative\",\"label\":\"s_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_2\"}},{\"fieldRef\":\"8704be53f3127b6ff258c26662be81b39594e4392590678a506727c2709d787f\",\"kind\":\"narrative\",\"label\":\"s_1\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_1\"}},{\"fieldRef\":\"8d5a4bf4719f25881ebf9502f71069b7ea187d2ea49f474419023c290c5beb0c\",\"kind\":\"narrative\",\"label\":\"i_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"i_2\"}},{\"fieldRef\":\"6e80a3ab45833e798c7d56a33e7a3a4a5167b6259ef3a28eede2bab19177d6d7\",\"kind\":\"narrative\",\"label\":\"i_1\",\"value\":\"Synthetic & note\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"i_1\"}}],\"sourceMode\":\"live_source\",\"pdfGenerated\":false}},\"events\":[{\"event\":\"inert_dom_parse\",\"mime\":\"text/html\",\"bytes\":3959}],\"effects\":{\"deniedTransportAttempts\":0,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"cism.parseCismReport\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "value_type_presence_order_or_bytes"
+      }
+    },
+    {
+      "id": "unintended-script-execution",
+      "actual": {
+        "command": [
+          "node",
+          "-e",
+          "process.stdout.write(require(\"node:fs\").readFileSync(0,\"utf8\"))"
+        ],
+        "cwd": "/home/palantirkc/work/ws-replan/wt/education-platform/migration/pure-semantics/extension-v4/raw/supplement-01/workspace",
+        "status": 0,
+        "signal": null,
+        "spawnError": null,
+        "stdout": "{\"outcome\":{\"kind\":\"return\",\"value\":{\"date\":\"2040-10-15\",\"periodStart\":\"2040-10-14\",\"periodEnd\":\"2040-10-20\",\"weekLabel\":\"2040-42 주차 (10월14일~10월20일)\",\"teacherLabel\":\"Fictional Teacher\",\"teacherKey\":\"90001\",\"wireSha256\":\"401beb7c9957d4b688e00655f6f5ece6831e1b857961b131d7cf02269fd6b67b\",\"reportSha256\":\"593d1fa156b35592f9454ae5cc0872bba503719f21703945b83e8a0a75ec4d11\",\"observedAt\":\"2040-10-15T09:00:00.000Z\",\"fields\":[{\"fieldRef\":\"6e80a3ab45833e798c7d56a33e7a3a4a5167b6259ef3a28eede2bab19177d6d7\",\"kind\":\"narrative\",\"label\":\"i_1\",\"value\":\"Synthetic & note\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"i_1\"}},{\"fieldRef\":\"8d5a4bf4719f25881ebf9502f71069b7ea187d2ea49f474419023c290c5beb0c\",\"kind\":\"narrative\",\"label\":\"i_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"i_2\"}},{\"fieldRef\":\"8704be53f3127b6ff258c26662be81b39594e4392590678a506727c2709d787f\",\"kind\":\"narrative\",\"label\":\"s_1\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_1\"}},{\"fieldRef\":\"ef579d518673c568fe0d5c097c4ccdb0300533c4ec67f2925ee200eafe9887a7\",\"kind\":\"narrative\",\"label\":\"s_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_2\"}},{\"fieldRef\":\"9304dac02b6de97b9bb3a7fec20b9259340220af535e1af3aac2cf34b55c7c0b\",\"kind\":\"narrative\",\"label\":\"s_3\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_3\"}},{\"fieldRef\":\"42db6b6458bd4803b35fea20e92464dc62a814545ab98d32491d52b04fffd2dd\",\"kind\":\"narrative\",\"label\":\"s_4\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"s_4\"}},{\"fieldRef\":\"5245928e00e5c695a9c3c55bb855ef4c84e54f0832f2ab025e94cd50cb8557d9\",\"kind\":\"narrative\",\"label\":\"m_1\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"m_1\"}},{\"fieldRef\":\"d52e245b01cf0a17894023ab7d06ec51ec921739d4819cd8c18762a08808e2ae\",\"kind\":\"narrative\",\"label\":\"m_2\",\"value\":\"\",\"studentName\":null,\"groupName\":null,\"source\":{\"fieldName\":\"m_2\"}},{\"fieldRef\":\"db48a8e74f2e1af2cfebb18da3834dd3b4d3eb70094172dcb9855d604c3614fc\",\"kind\":\"class_mode\",\"label\":\"이번주 반 수업 분위기\",\"value\":\"0\",\"studentName\":null,\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"class_mode\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}},{\"fieldRef\":\"f36b91479f17912cf62350f4100305fc4eb47570f7e0f042c228a0f62d91ba15\",\"kind\":\"think_note\",\"label\":\"풀이노트작성\",\"value\":\"\",\"studentName\":\"Fictional Student\",\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"think_note\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}},{\"fieldRef\":\"8e5d151da1241a94673bd0e7ef5d41ad0fa156f963bcea0a98eb79dfc0968658\",\"kind\":\"week_test\",\"label\":\"주간테스트\",\"value\":\"\",\"studentName\":\"Fictional Student\",\"groupName\":\"Fictional Group\",\"source\":{\"fieldName\":\"week_test\",\"studentKey\":\"90002\",\"membershipKey\":\"90003\",\"groupKey\":\"1\"}}],\"sourceMode\":\"live_source\",\"pdfGenerated\":false}},\"events\":[{\"event\":\"inert_dom_parse\",\"mime\":\"text/html\",\"bytes\":3959}],\"effects\":{\"deniedTransportAttempts\":1,\"forbiddenFakeDispatches\":0},\"metadata\":{\"sourceCalls\":[\"cism.parseCismReport\"],\"uuidValues\":[]}}\n",
+        "stderr": ""
+      },
+      "judgment": {
+        "accepted": false,
+        "reason": "frame_or_effect_contract"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "actual-inert-parser-success-11-fields-full-digest-and-clock",
+      "passed": true
+    },
+    {
+      "name": "inline-scripts-inert-no-execution",
+      "passed": true
+    },
+    {
+      "name": "parser-refusal-order-body-before-DOM-invalid-date-first",
+      "passed": true
+    },
+    {
+      "name": "parser-document-scope-wire-period-field-refusals",
+      "passed": true
+    },
+    {
+      "name": "source-null-teacher-is-TypeError",
+      "passed": true
+    },
+    {
+      "name": "valid-fractions-at-equal-explicit-clock-all-intake-not-stale",
+      "passed": true
+    },
+    {
+      "name": "local-evidence-byte-limit-and-JSON-duplicate-member-source-last-wins",
+      "passed": true
+    }
+  ]
+}

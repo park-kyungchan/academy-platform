@@ -1,0 +1,6 @@
+{"event":"case_start","id":"authentication-error-own-observers"}
+{"event":"case_end","id":"authentication-error-own-observers","effects":{"liveAttempts":0,"socketAttempts":0,"childAttempts":0,"fakeDispatches":0,"deniedOperations":0,"mutatingFakeDispatches":0,"sourceHandlersExecuted":false}}
+{"event":"case_start","id":"same-principal-two-accounts-same-native-key"}
+{"event":"case_end","id":"same-principal-two-accounts-same-native-key","effects":{"liveAttempts":0,"socketAttempts":0,"childAttempts":0,"fakeDispatches":0,"deniedOperations":0,"mutatingFakeDispatches":0,"sourceHandlersExecuted":false}}
+{"event":"case_start","id":"saved-loader-32MiB-leaf-refusal"}
+{"event":"case_end","id":"saved-loader-32MiB-leaf-refusal","effects":{"liveAttempts":0,"socketAttempts":0,"childAttempts":0,"fakeDispatches":0,"deniedOperations":0,"mutatingFakeDispatches":0,"sourceHandlersExecuted":false}}

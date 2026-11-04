@@ -1,0 +1,46 @@
+{
+  "argv": [
+    "/usr/bin/strace",
+    "-ff",
+    "-ttt",
+    "-T",
+    "-s",
+    "4096",
+    "-e",
+    "trace=process,file,network",
+    "-o",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-bounds/commands/lock-release-readback/syscalls",
+    "/usr/bin/flock",
+    "--nonblock",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-bounds/fictional-account.lock",
+    "/usr/bin/true"
+  ],
+  "originalArgv": [
+    "/usr/bin/flock",
+    "--nonblock",
+    "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-bounds/fictional-account.lock",
+    "/usr/bin/true"
+  ],
+  "pid": 3295855,
+  "pgid": 3295855,
+  "cwd": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-bounds",
+  "startedAt": "2026-11-03T02:31:43.551042+00:00",
+  "limits": {
+    "cpuSeconds": 90,
+    "wallSeconds": 90,
+    "fileBytes": 67108864,
+    "outputBytes": 12582912
+  },
+  "environmentKeys": [
+    "ACADEMY_MCP_INSTALL_DIR",
+    "BUN_RUNTIME_TRANSPILER_CACHE_PATH",
+    "LANG",
+    "NODE_PATH",
+    "PATH",
+    "S11_DEPENDENCY_ROOT",
+    "S11_MODE_ROOT",
+    "S11_SOURCE_ROOT",
+    "TMPDIR",
+    "TZ"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "returncode": 0,
+  "elapsedSeconds": 1.569501452962868,
+  "cleanupRequested": false,
+  "membersBeforeCleanup": [],
+  "membersAfterCleanup": [],
+  "channels": {
+    "stdin": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-bounds/commands/discover/stdin.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-bounds/commands/discover/stdout.bin",
+      "sha256": "e41ec6c1caa4975c6c7dbacac478c2e2e3e589a819e2b7404b4aa878902f7261"
+    },
+    "stderr": {
+      "path": "/home/palantirkc/work/ws-replan/preparation/slices/S11/reference-v1/native/frozen-bounds/commands/discover/stderr.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

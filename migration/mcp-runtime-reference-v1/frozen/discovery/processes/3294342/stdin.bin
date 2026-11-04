@@ -1,0 +1,3 @@
+{"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"muse-academy-bounded-adapter","version":"1.0.0"}},"jsonrpc":"2.0","id":0}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"method":"tools/list","jsonrpc":"2.0","id":1}

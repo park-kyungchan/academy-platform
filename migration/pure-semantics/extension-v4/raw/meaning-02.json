@@ -1,0 +1,187 @@
+{
+  "schema": "s08.source-meaning-checks/4",
+  "checks": 45,
+  "passed": true,
+  "results": [
+    {
+      "name": "actual-export-inventory-21-learning-9-cism-6-template-6-admission",
+      "passed": true
+    },
+    {
+      "name": "every-learning-export-in-source-or-retained202",
+      "passed": true
+    },
+    {
+      "name": "stableId-sha256-opaque-components-no-trim-or-delimiter-inference",
+      "passed": true
+    },
+    {
+      "name": "context-real-calendar-time-zone-and-order",
+      "passed": true
+    },
+    {
+      "name": "contextFromLessonKey-validates-and-copies",
+      "passed": true
+    },
+    {
+      "name": "catalog-duplicate-precedes-later-relations",
+      "passed": true
+    },
+    {
+      "name": "catalog-no-display-name-join-parent-level-and-edition",
+      "passed": true
+    },
+    {
+      "name": "catalog-unknown-ancestry-preserved",
+      "passed": true
+    },
+    {
+      "name": "scope-opaque-duplicates-cross-edition-and-page-unit-boundaries",
+      "passed": true
+    },
+    {
+      "name": "resolveProblemPath-unknowns-and-copy-freeze",
+      "passed": true
+    },
+    {
+      "name": "record-assignment-plan-observation-distinct",
+      "passed": true
+    },
+    {
+      "name": "record-canonical-json-before-kind-validation",
+      "passed": true
+    },
+    {
+      "name": "record-binding-digest-boolean-and-source-time-order",
+      "passed": true
+    },
+    {
+      "name": "studentOf-is-projection-without-validation",
+      "passed": true
+    },
+    {
+      "name": "null-undefined-ObjectKeys-remain-TypeError",
+      "passed": true
+    },
+    {
+      "name": "knowledge-copy-freeze-and-reference-probes-are-executed",
+      "passed": true
+    },
+    {
+      "name": "copy-destroys-sharing-and-normalizes-prototype",
+      "passed": true
+    },
+    {
+      "name": "learning64-source-guard-not-shared-by-other-families",
+      "passed": true
+    },
+    {
+      "name": "ALL-admission-and-CISM-depth65-through96-actual-source-results",
+      "passed": true
+    },
+    {
+      "name": "cycle-error-families-and-runtime-messages-distinct",
+      "passed": true
+    },
+    {
+      "name": "selected-getter-events-no-business-mock",
+      "passed": true
+    },
+    {
+      "name": "timestamp-offsets-identical-epoch",
+      "passed": true
+    },
+    {
+      "name": "Zod-seconds-optional-learning-seconds-required",
+      "passed": true
+    },
+    {
+      "name": "Zod-fractions-positive-arbitrary-digits-learning-max3",
+      "passed": true
+    },
+    {
+      "name": "selected-schema-valid-timestamps-have-no-DateParse-NaN",
+      "passed": true
+    },
+    {
+      "name": "Zod-real-calendar-time-offset-rejections",
+      "passed": true
+    },
+    {
+      "name": "Zod-year0-and-year9999-offset-epoch-outside-local-year",
+      "passed": true
+    },
+    {
+      "name": "exact-age-rule-past300000-inclusive-future1-refused-all-offsets",
+      "passed": true
+    },
+    {
+      "name": "fraction-truncation-at-future-and-stale-edges",
+      "passed": true
+    },
+    {
+      "name": "schema-invalid-observation-is-read-failure-not-top-level-throw",
+      "passed": true
+    },
+    {
+      "name": "strict-schema-unknown-key-order-and-errors",
+      "passed": true
+    },
+    {
+      "name": "strict-schema-custom-duplicates-and-no-automatic-dedup",
+      "passed": true
+    },
+    {
+      "name": "Zod-defaults-origin-and-suppliedValues-not-null-coercion",
+      "passed": true
+    },
+    {
+      "name": "UUID-provider-before-intake-and-full-digest-not-normalized",
+      "passed": true
+    },
+    {
+      "name": "admission-tuple-digest-action-digest-and-effect-record-separate",
+      "passed": true
+    },
+    {
+      "name": "admission-consume-false-still-local-used-and-no-durable-proof",
+      "passed": true
+    },
+    {
+      "name": "admission-owner-errors-do-not-set-used-before-awaited-success",
+      "passed": true
+    },
+    {
+      "name": "admission-input-parse-does-not-freeze-or-copy-request",
+      "passed": true
+    },
+    {
+      "name": "admission-schema-duplicates-accepted-but-constructor-rejects",
+      "passed": true
+    },
+    {
+      "name": "live-evidence-rereads-only-disposable-file-each-call",
+      "passed": true
+    },
+    {
+      "name": "cismWriteParameters-URLSearchParams-order-encoding-and-native-membership",
+      "passed": true
+    },
+    {
+      "name": "cismWriteParameters-source-order-identity-and-labels",
+      "passed": true
+    },
+    {
+      "name": "all-source-calls-have-zero-effects-and-reviewed-ports",
+      "passed": true
+    },
+    {
+      "name": "old202-full-reference-bytes-preserved",
+      "passed": true
+    },
+    {
+      "name": "all-tracked-changes-confined-to-extension-and-candidate-unchanged",
+      "passed": true
+    }
+  ]
+}

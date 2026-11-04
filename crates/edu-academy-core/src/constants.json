@@ -1,0 +1,89 @@
+{
+  "templates": {
+    "revision": "3",
+    "formatting": {
+      "bullet": "- ",
+      "separator": "\n",
+      "entryBoundary": "one_attributable_activity_assignment_or_notice_not_each_sentence",
+      "dueDate": "first_homework_entry_only",
+      "existingTeacherText": "preserve_meaning_no_automatic_reapplication",
+      "authority": "teacher_final_format_feedback_2026_10_06"
+    },
+    "progress": {
+      "order": [
+        "mapped_content",
+        "activity",
+        "attributable_outcome",
+        "specific_detail"
+      ],
+      "mappingRules": [
+        "Resolve edition + literal minor-unit code + name from scoped source/teacher evidence.",
+        "An internal inspection code never appears in parent text.",
+        "Keep solving, grading, correction and inspection separate.",
+        "Use an attributable topic only when an exact printed unit is unresolved; do not manufacture it."
+      ]
+    },
+    "homework": {
+      "order": [
+        "due_date",
+        "mapped_content",
+        "selected_range",
+        "action"
+      ],
+      "mappingRules": [
+        "Preserve exact due date and teacher-selected partial range.",
+        "Unverified type/header blocks this field, not independent student fields.",
+        "Never infer a clinic ordinal from its original item ordinal."
+      ]
+    },
+    "memo": {
+      "order": [
+        "teacher_notice"
+      ],
+      "mappingRules": [
+        "Filter notices by the admitted lesson part.",
+        "Preserve exact teacher purpose without adding an assessment or delivery claim."
+      ]
+    }
+  },
+  "activities": {
+    "homework": "숙제",
+    "wrong_clinic": "오답클리닉",
+    "similar_clinic": "유사클리닉",
+    "solving": "문제풀이",
+    "prestudy": "예습영상",
+    "concept_blank_test": "개념백지테스트",
+    "daily_test": "DailyTest",
+    "havruta": "하브루타",
+    "routine": "나머지 학습 루틴",
+    "correction": "오답 정리"
+  },
+  "outcomes": {
+    "teacher_checked": "채점·검사 완료",
+    "inspected": "검사 완료",
+    "performed": "진행",
+    "completed": "완료",
+    "worked_ungraded": "진행(미채점)",
+    "not_performed": "미실시",
+    "incomplete": "미완료",
+    "deferred": "다음 수업으로 이월"
+  },
+  "homeworkActions": {
+    "solve": "문제풀이 해오기",
+    "solve_without_grading": "프린트에 풀이를 적어 오기. 집에서는 채점하지 않고 등원 후 채점합니다",
+    "correct": "오답 정리 해오기",
+    "prestudy": "예습 해오기"
+  },
+  "cismPath": "/servlet/controller.cct.common.CourseCommonServlet",
+  "cismWireSha256": "401beb7c9957d4b688e00655f6f5ece6831e1b857961b131d7cf02269fd6b67b",
+  "narratives": [
+    "i_1",
+    "i_2",
+    "s_1",
+    "s_2",
+    "s_3",
+    "s_4",
+    "m_1",
+    "m_2"
+  ]
+}

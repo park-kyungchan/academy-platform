@@ -1,0 +1,821 @@
+{
+  "schema": "s08.candidate-v3/1",
+  "scope": "202 frozen selected source cases; no S09/S10/P8/live claim",
+  "mode": "lowering_only_no_candidate_execution",
+  "candidate": null,
+  "candidateSha256": null,
+  "expectedSha256": "9073faa3c80aced0bcc01f77ed99e4d1984b218134bc1d11910e15933d202578",
+  "cases": 202,
+  "matched": 0,
+  "prepared": 202,
+  "comparisons": [
+    {
+      "id": "width-empty",
+      "inputBytes": 25
+    },
+    {
+      "id": "width-ascii",
+      "inputBytes": 33
+    },
+    {
+      "id": "width-hangul",
+      "inputBytes": 30
+    },
+    {
+      "id": "width-emoji",
+      "inputBytes": 36
+    },
+    {
+      "id": "width-bmp",
+      "inputBytes": 30
+    },
+    {
+      "id": "width-composed",
+      "inputBytes": 28
+    },
+    {
+      "id": "width-decomposed",
+      "inputBytes": 32
+    },
+    {
+      "id": "width-crlf",
+      "inputBytes": 36
+    },
+    {
+      "id": "width-controls",
+      "inputBytes": 36
+    },
+    {
+      "id": "width-high",
+      "inputBytes": 30
+    },
+    {
+      "id": "width-low",
+      "inputBytes": 30
+    },
+    {
+      "id": "width-pair",
+      "inputBytes": 36
+    },
+    {
+      "id": "width-width399",
+      "inputBytes": 1221
+    },
+    {
+      "id": "width-width400",
+      "inputBytes": 1224
+    },
+    {
+      "id": "width-width401",
+      "inputBytes": 1227
+    },
+    {
+      "id": "width-width404",
+      "inputBytes": 1236
+    },
+    {
+      "id": "week-2026-10-18",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2026-10-19",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2026-10-24",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2026-10-25",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2026-01-01",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2026-12-31",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2027-01-01",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2024-02-28",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2024-02-29",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2024-03-01",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2000-01-01",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2000-02-29",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2099-12-31",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2026-02-29",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2026-02-30",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2100-01-01",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-1999-12-31",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2026-13-01",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2026-01-00",
+      "inputBytes": 34
+    },
+    {
+      "id": "week-2026-1-01",
+      "inputBytes": 33
+    },
+    {
+      "id": "week-2026-01-01T00:00:00Z",
+      "inputBytes": 44
+    },
+    {
+      "id": "week- 2026-01-01",
+      "inputBytes": 35
+    },
+    {
+      "id": "month-2026-02",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2026-08",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2026-10",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2026-11",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2026-12",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2027-01",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2024-02",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2000-01",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2099-12",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2026-13",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2026-00",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2026-1",
+      "inputBytes": 31
+    },
+    {
+      "id": "month-1999-12",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2100-01",
+      "inputBytes": 32
+    },
+    {
+      "id": "month-2026-01-01",
+      "inputBytes": 35
+    },
+    {
+      "id": "month-empty",
+      "inputBytes": 25
+    },
+    {
+      "id": "learning-date-0000-01-01",
+      "inputBytes": 250
+    },
+    {
+      "id": "learning-date-0099-12-31",
+      "inputBytes": 250
+    },
+    {
+      "id": "learning-date-1900-02-29",
+      "inputBytes": 250
+    },
+    {
+      "id": "learning-date-2000-02-29",
+      "inputBytes": 250
+    },
+    {
+      "id": "learning-date-2100-02-29",
+      "inputBytes": 250
+    },
+    {
+      "id": "learning-date-9999-12-31",
+      "inputBytes": 250
+    },
+    {
+      "id": "learning-date-null",
+      "inputBytes": 208
+    },
+    {
+      "id": "json-learning-ordering",
+      "inputBytes": 673
+    },
+    {
+      "id": "json-learning-insertionA",
+      "inputBytes": 385
+    },
+    {
+      "id": "json-learning-insertionB",
+      "inputBytes": 385
+    },
+    {
+      "id": "json-learning-escapes",
+      "inputBytes": 424
+    },
+    {
+      "id": "json-learning-numbers",
+      "inputBytes": 740
+    },
+    {
+      "id": "json-learning-missing",
+      "inputBytes": 332
+    },
+    {
+      "id": "json-learning-null",
+      "inputBytes": 304
+    },
+    {
+      "id": "json-learning-blank",
+      "inputBytes": 317
+    },
+    {
+      "id": "json-learning-zero",
+      "inputBytes": 332
+    },
+    {
+      "id": "json-learning-unknown",
+      "inputBytes": 344
+    },
+    {
+      "id": "json-learning-not_performed",
+      "inputBytes": 367
+    },
+    {
+      "id": "json-learning-undefinedMember",
+      "inputBytes": 334
+    },
+    {
+      "id": "json-learning-undefinedArray",
+      "inputBytes": 299
+    },
+    {
+      "id": "json-learning-undefined",
+      "inputBytes": 270
+    },
+    {
+      "id": "json-learning-NaN",
+      "inputBytes": 293
+    },
+    {
+      "id": "json-learning-Infinity",
+      "inputBytes": 293
+    },
+    {
+      "id": "json-learning-bigint",
+      "inputBytes": 267
+    },
+    {
+      "id": "json-learning-function",
+      "inputBytes": 269
+    },
+    {
+      "id": "json-learning-symbol",
+      "inputBytes": 267
+    },
+    {
+      "id": "json-learning-sparse",
+      "inputBytes": 278
+    },
+    {
+      "id": "json-learning-decorated",
+      "inputBytes": 407
+    },
+    {
+      "id": "json-learning-date",
+      "inputBytes": 345
+    },
+    {
+      "id": "json-learning-null_prototype",
+      "inputBytes": 393
+    },
+    {
+      "id": "json-learning-symbol_key",
+      "inputBytes": 337
+    },
+    {
+      "id": "json-learning-accessor",
+      "inputBytes": 334
+    },
+    {
+      "id": "json-learning-cycle",
+      "inputBytes": 266
+    },
+    {
+      "id": "json-learning-depth_64",
+      "inputBytes": 2179
+    },
+    {
+      "id": "json-learning-depth_65",
+      "inputBytes": 2209
+    },
+    {
+      "id": "json-admission-ordering",
+      "inputBytes": 677
+    },
+    {
+      "id": "json-admission-insertionA",
+      "inputBytes": 389
+    },
+    {
+      "id": "json-admission-insertionB",
+      "inputBytes": 389
+    },
+    {
+      "id": "json-admission-escapes",
+      "inputBytes": 428
+    },
+    {
+      "id": "json-admission-numbers",
+      "inputBytes": 744
+    },
+    {
+      "id": "json-admission-missing",
+      "inputBytes": 336
+    },
+    {
+      "id": "json-admission-null",
+      "inputBytes": 308
+    },
+    {
+      "id": "json-admission-blank",
+      "inputBytes": 321
+    },
+    {
+      "id": "json-admission-zero",
+      "inputBytes": 336
+    },
+    {
+      "id": "json-admission-unknown",
+      "inputBytes": 348
+    },
+    {
+      "id": "json-admission-not_performed",
+      "inputBytes": 371
+    },
+    {
+      "id": "json-admission-undefinedMember",
+      "inputBytes": 338
+    },
+    {
+      "id": "json-admission-undefinedArray",
+      "inputBytes": 303
+    },
+    {
+      "id": "json-admission-undefined",
+      "inputBytes": 274
+    },
+    {
+      "id": "json-admission-NaN",
+      "inputBytes": 297
+    },
+    {
+      "id": "json-admission-Infinity",
+      "inputBytes": 297
+    },
+    {
+      "id": "json-admission-bigint",
+      "inputBytes": 271
+    },
+    {
+      "id": "json-admission-function",
+      "inputBytes": 273
+    },
+    {
+      "id": "json-admission-symbol",
+      "inputBytes": 271
+    },
+    {
+      "id": "json-admission-sparse",
+      "inputBytes": 282
+    },
+    {
+      "id": "json-admission-decorated",
+      "inputBytes": 411
+    },
+    {
+      "id": "json-admission-date",
+      "inputBytes": 349
+    },
+    {
+      "id": "json-admission-null_prototype",
+      "inputBytes": 397
+    },
+    {
+      "id": "json-admission-symbol_key",
+      "inputBytes": 341
+    },
+    {
+      "id": "json-admission-accessor",
+      "inputBytes": 338
+    },
+    {
+      "id": "json-cism-ordering",
+      "inputBytes": 657
+    },
+    {
+      "id": "json-cism-insertionA",
+      "inputBytes": 369
+    },
+    {
+      "id": "json-cism-insertionB",
+      "inputBytes": 369
+    },
+    {
+      "id": "json-cism-escapes",
+      "inputBytes": 408
+    },
+    {
+      "id": "json-cism-numbers",
+      "inputBytes": 724
+    },
+    {
+      "id": "json-cism-missing",
+      "inputBytes": 316
+    },
+    {
+      "id": "json-cism-null",
+      "inputBytes": 288
+    },
+    {
+      "id": "json-cism-blank",
+      "inputBytes": 301
+    },
+    {
+      "id": "json-cism-zero",
+      "inputBytes": 316
+    },
+    {
+      "id": "json-cism-unknown",
+      "inputBytes": 328
+    },
+    {
+      "id": "json-cism-not_performed",
+      "inputBytes": 351
+    },
+    {
+      "id": "json-cism-undefinedMember",
+      "inputBytes": 318
+    },
+    {
+      "id": "json-cism-undefinedArray",
+      "inputBytes": 283
+    },
+    {
+      "id": "json-cism-undefined",
+      "inputBytes": 254
+    },
+    {
+      "id": "json-cism-NaN",
+      "inputBytes": 277
+    },
+    {
+      "id": "json-cism-Infinity",
+      "inputBytes": 277
+    },
+    {
+      "id": "json-cism-bigint",
+      "inputBytes": 251
+    },
+    {
+      "id": "json-cism-function",
+      "inputBytes": 253
+    },
+    {
+      "id": "json-cism-symbol",
+      "inputBytes": 251
+    },
+    {
+      "id": "json-cism-sparse",
+      "inputBytes": 262
+    },
+    {
+      "id": "json-cism-decorated",
+      "inputBytes": 391
+    },
+    {
+      "id": "json-cism-date",
+      "inputBytes": 329
+    },
+    {
+      "id": "json-cism-null_prototype",
+      "inputBytes": 377
+    },
+    {
+      "id": "json-cism-symbol_key",
+      "inputBytes": 321
+    },
+    {
+      "id": "json-cism-accessor",
+      "inputBytes": 318
+    },
+    {
+      "id": "knowledge-missing",
+      "inputBytes": 202
+    },
+    {
+      "id": "knowledge-null",
+      "inputBytes": 197
+    },
+    {
+      "id": "knowledge-empty",
+      "inputBytes": 212
+    },
+    {
+      "id": "knowledge-unknown",
+      "inputBytes": 454
+    },
+    {
+      "id": "knowledge-blank",
+      "inputBytes": 508
+    },
+    {
+      "id": "knowledge-zero",
+      "inputBytes": 523
+    },
+    {
+      "id": "knowledge-not_performed",
+      "inputBytes": 561
+    },
+    {
+      "id": "knowledge-null_value",
+      "inputBytes": 495
+    },
+    {
+      "id": "knowledge-missing_value",
+      "inputBytes": 454
+    },
+    {
+      "id": "knowledge-missing_refs",
+      "inputBytes": 353
+    },
+    {
+      "id": "knowledge-duplicate_refs",
+      "inputBytes": 522
+    },
+    {
+      "id": "knowledge-unknown_extra",
+      "inputBytes": 440
+    },
+    {
+      "id": "known-zero-copy",
+      "inputBytes": 479
+    },
+    {
+      "id": "known-null-refused",
+      "inputBytes": 324
+    },
+    {
+      "id": "unknown-reason",
+      "inputBytes": 335
+    },
+    {
+      "id": "unknown-blank-refused",
+      "inputBytes": 208
+    },
+    {
+      "id": "constants",
+      "inputBytes": 154
+    },
+    {
+      "id": "template-base",
+      "inputBytes": 4057
+    },
+    {
+      "id": "template-field-local-header-hold",
+      "inputBytes": 4091
+    },
+    {
+      "id": "template-ordered-deduplicated-content",
+      "inputBytes": 5874
+    },
+    {
+      "id": "template-due-first-only",
+      "inputBytes": 5134
+    },
+    {
+      "id": "template-part-filter",
+      "inputBytes": 4057
+    },
+    {
+      "id": "template-unresolved-topic",
+      "inputBytes": 4019
+    },
+    {
+      "id": "template-missing-evidence",
+      "inputBytes": 3959
+    },
+    {
+      "id": "template-duplicate-evidence",
+      "inputBytes": 4050
+    },
+    {
+      "id": "template-missing-key",
+      "inputBytes": 3991
+    },
+    {
+      "id": "template-unknown-key",
+      "inputBytes": 4124
+    },
+    {
+      "id": "template-invalid-date",
+      "inputBytes": 4057
+    },
+    {
+      "id": "template-due-before",
+      "inputBytes": 4057
+    },
+    {
+      "id": "template-internal-code",
+      "inputBytes": 4052
+    },
+    {
+      "id": "template-blank-unit",
+      "inputBytes": 4035
+    },
+    {
+      "id": "template-coercible-enum",
+      "inputBytes": 4087
+    },
+    {
+      "id": "template-overflow-not-truncated",
+      "inputBytes": 5126
+    },
+    {
+      "id": "template-empty",
+      "inputBytes": 816
+    },
+    {
+      "id": "template-invalid-excluded-memo-still-checked",
+      "inputBytes": 3958
+    },
+    {
+      "id": "review-physical-current-and-previous",
+      "inputBytes": 15904
+    },
+    {
+      "id": "review-missing-previous-unknown-assessment",
+      "inputBytes": 14867
+    },
+    {
+      "id": "review-missing-previous-known-refusal",
+      "inputBytes": 14956
+    },
+    {
+      "id": "review-previous-conflict-studentId",
+      "inputBytes": 15867
+    },
+    {
+      "id": "review-previous-conflict-recordId",
+      "inputBytes": 15899
+    },
+    {
+      "id": "review-previous-conflict-lessonDate",
+      "inputBytes": 15904
+    },
+    {
+      "id": "review-previous-conflict-courseId",
+      "inputBytes": 15872
+    },
+    {
+      "id": "review-previous-conflict-membershipId",
+      "inputBytes": 15856
+    },
+    {
+      "id": "review-previous-conflict-sourceNamespace",
+      "inputBytes": 15869
+    },
+    {
+      "id": "review-learning-hold-independent-assessment",
+      "inputBytes": 15958
+    },
+    {
+      "id": "review-missing-learning-policy",
+      "inputBytes": 15645
+    },
+    {
+      "id": "review-narrative-set",
+      "inputBytes": 15088
+    },
+    {
+      "id": "review-narrative-replace",
+      "inputBytes": 15102
+    },
+    {
+      "id": "review-narrative-clear",
+      "inputBytes": 15059
+    },
+    {
+      "id": "review-narrative-noop-set",
+      "inputBytes": 15124
+    },
+    {
+      "id": "review-memo-no-addition-clear-hold",
+      "inputBytes": 14976
+    },
+    {
+      "id": "review-unsupported-completion",
+      "inputBytes": 15099
+    },
+    {
+      "id": "review-teacher-preserve-before",
+      "inputBytes": 15811
+    },
+    {
+      "id": "review-assessment-before--1",
+      "inputBytes": 15140
+    },
+    {
+      "id": "review-assessment-before-0",
+      "inputBytes": 15137
+    },
+    {
+      "id": "review-assessment-before-blank",
+      "inputBytes": 15135
+    },
+    {
+      "id": "review-assessment-unknown",
+      "inputBytes": 15792
+    },
+    {
+      "id": "review-assessment-missing",
+      "inputBytes": 15478
+    },
+    {
+      "id": "review-unavailable",
+      "inputBytes": 9693
+    },
+    {
+      "id": "http-dailyTestAssessment-true",
+      "inputBytes": 3745
+    },
+    {
+      "id": "http-dailyTestAssessment-false",
+      "inputBytes": 3745
+    },
+    {
+      "id": "http-previousHomeworkAssessment-true",
+      "inputBytes": 3774
+    },
+    {
+      "id": "http-previousHomeworkAssessment-false",
+      "inputBytes": 3774
+    }
+  ]
+}
