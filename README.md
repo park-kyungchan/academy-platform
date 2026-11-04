@@ -1,5 +1,22 @@
 # Daechi instructor workbench
 
+The canonical private Rust workspace starts at `crates/edu-dc-gang-a/`.
+It currently contains module planning documentation and a synthetic scaffold
+smoke test; domain behavior and education-platform dependency pins follow in
+later PRs. Teacher web, auth, Postgres and UI are dropped under decision U1.
+
+Use the pinned Rust 1.95.0 toolchain:
+
+```sh
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+```
+
+Rust CI runs alongside `.github/workflows/bun-cloud.yml` while retained
+TypeScript tests still need the Bun job. Remove that workflow with the
+remaining TypeScript deletions after their consumers migrate.
+
 This repository holds the Main Sheet workbench and the LMS automation package for one instructor's date-first workflow. The running SPT service, academy LMS, Sheet, and official sender remain separate authorities. The teacher performs the final parent send.
 
 ## Start on another Windows PC
@@ -44,7 +61,7 @@ The test data is invented. Keep `config/` credentials and `data/` student materi
 occurrence and DayRecord binding. Live app-grade joins remain unverified.
 Continue backend research only through exact, source-reviewed, task-scoped
 read operations with an authorized ephemeral session; new maintained code
-uses TypeScript/Bun. Preserve unknown app and delivery states until their
+uses Rust. Preserve unknown app and delivery states until their
 selected-student read contracts are verified. Review a reversible Main-tab
 batch with the instructor before applying it; save any DayRecord fields only
 after teacher review and exact readback. The instructor performs the final
