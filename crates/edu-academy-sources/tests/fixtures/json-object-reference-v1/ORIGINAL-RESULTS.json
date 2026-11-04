@@ -1,0 +1,220 @@
+{
+  "bunVersion": "1.4.3",
+  "originalOnly": true,
+  "productImports": 0,
+  "serviceRequests": 0,
+  "cases": [
+    {
+      "id": "bare-first-key",
+      "input": "{bad}",
+      "inputSha256": "578aa9d10ab9fa1cb438fe80d3ff19b67c49275766380e0c99e63a7f38dee5cb",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Expected '}'"
+      }
+    },
+    {
+      "id": "different-bare-first-key",
+      "input": "{other}",
+      "inputSha256": "a7bade7c42bcc63562e658bb2fdb7252f6924b9d212d75170045f9b459093c85",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Expected '}'"
+      }
+    },
+    {
+      "id": "numeric-first-key",
+      "input": "{1:2}",
+      "inputSha256": "f1d881702c53d1b618117fe64a13a6985cd49192f5ffe28081cb567d6a8eeaad",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Expected '}'"
+      }
+    },
+    {
+      "id": "single-quoted-first-key",
+      "input": "{'a':1}",
+      "inputSha256": "a84fed7e2eca1809b18c96ccd4571e0cef929a290d0108e0f4df368b7227eb5c",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Single quotes (') are not allowed in JSON"
+      }
+    },
+    {
+      "id": "space-before-invalid-key",
+      "input": "{ \n bad:1}",
+      "inputSha256": "4af1919150d01675ec9b438592e1f1315b681173388da1969bc1083bea77b340",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Expected '}'"
+      }
+    },
+    {
+      "id": "bare-key-after-comma",
+      "input": "{\"a\":1,bad:2}",
+      "inputSha256": "30017efcad8a599ba9d1a4e8c4f89833dec2a078a6475ce30f6d665675c69a43",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Property name must be a string literal"
+      }
+    },
+    {
+      "id": "trailing-comma",
+      "input": "{\"a\":1,}",
+      "inputSha256": "aa99a5ce3eb0dd8355f0bfb15376ea1d862ad75d0d278af1f8c280ca8c02c640",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Property name must be a string literal"
+      }
+    },
+    {
+      "id": "space-trailing-comma",
+      "input": "{\"a\":1, \n }",
+      "inputSha256": "007bef4396fba3a5ca886cc1d46b3444fa96edacd65ebd02da2d02e8036824ba",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Property name must be a string literal"
+      }
+    },
+    {
+      "id": "object-first-key-eof",
+      "input": "{",
+      "inputSha256": "021fb596db81e6d02bf3d2586ee3981fe519f275c0ac9ca76bbcf2ebb4097d96",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Expected '}'"
+      }
+    },
+    {
+      "id": "object-first-key-space-eof",
+      "input": "{ \n ",
+      "inputSha256": "5a3fb4a2c15e4f869c67244cacb313be735705109903ea0485d332069987ac7a",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Expected '}'"
+      }
+    },
+    {
+      "id": "object-after-comma-eof",
+      "input": "{\"a\":1,",
+      "inputSha256": "880e9c79fdec2261160585730499727d63cd811a6d0792dcc04b46bce307d259",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Property name must be a string literal"
+      }
+    },
+    {
+      "id": "nested-first-key",
+      "input": "{\"a\":{bad}}",
+      "inputSha256": "b297e3dda90af29688767a5f529a0b85741791486df3c2a8efeb3ebcd8eefad7",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Expected '}'"
+      }
+    },
+    {
+      "id": "array-object-first-key",
+      "input": "[{bad}]",
+      "inputSha256": "68f0b8b2985439b6a8fa71a08b8e9d038101460abf8dd602bbac12ed89335544",
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Expected '}'"
+      }
+    },
+    {
+      "id": "empty-object",
+      "input": "{}",
+      "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "observed": {
+        "outcome": "returned",
+        "value": {}
+      }
+    },
+    {
+      "id": "spaced-empty-object",
+      "input": " \n { }\t",
+      "inputSha256": "b84ea02589a624e95080b3e644c666fa87854b1ef8b1cf2e5a9a85dd9aa9c2db",
+      "observed": {
+        "outcome": "returned",
+        "value": {}
+      }
+    },
+    {
+      "id": "one-member",
+      "input": "{\"a\":1}",
+      "inputSha256": "015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862",
+      "observed": {
+        "outcome": "returned",
+        "value": {
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "duplicate-member",
+      "input": "{\"a\":1,\"a\":2}",
+      "inputSha256": "1c53ee0df7b12fd4d65b976120c7fa6b847dc41dffd7f0331c3237a1ceab1756",
+      "observed": {
+        "outcome": "returned",
+        "value": {
+          "a": 2
+        }
+      }
+    },
+    {
+      "id": "nested-valid",
+      "input": "{\"a\":[null,true,false,{\"b\":\"x\"}]}",
+      "inputSha256": "5d53f7a63db00f299ceb7286c81adabf6b6cdfaedbed7818bb6fc5394c2783af",
+      "observed": {
+        "outcome": "returned",
+        "value": {
+          "a": [
+            null,
+            true,
+            false,
+            {
+              "b": "x"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "key-looking-string",
+      "input": "{\"value\":\"{bad}\"}",
+      "inputSha256": "42fa50a5d073219576d60ff181fe85a7b779469b2233cb3d844f07bd4ed2c3e8",
+      "observed": {
+        "outcome": "returned",
+        "value": {
+          "value": "{bad}"
+        }
+      }
+    },
+    {
+      "id": "array-control",
+      "input": "[1,2,3]",
+      "inputSha256": "a615eeaee21de5179de080de8c3052c8da901138406ba71c38c032845f7d54f4",
+      "observed": {
+        "outcome": "returned",
+        "value": [
+          1,
+          2,
+          3
+        ]
+      }
+    }
+  ]
+}

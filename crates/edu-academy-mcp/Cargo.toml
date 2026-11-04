@@ -18,10 +18,9 @@ regex.workspace = true
 rustix.workspace = true
 signal-hook.workspace = true
 
-[[test]]
+[[example]]
 name = "s11-stdio-peer"
 path = "tests/fixtures/stdio_peer.rs"
-harness = false
 
 [lints]
 workspace = true

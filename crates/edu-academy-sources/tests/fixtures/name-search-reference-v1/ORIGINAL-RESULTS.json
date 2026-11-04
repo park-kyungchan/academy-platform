@@ -1,0 +1,1182 @@
+{
+  "sourceBase": "27506037debcf519bc3f3ed42faaad478656560d",
+  "bunVersion": "1.4.3",
+  "originalOnly": true,
+  "cases": [
+    {
+      "id": "empty",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/empty.json",
+      "inputSha256": "0a60a599c07af59cc729bfbe5d6a2ffaf4f1ff6a208443c83abfb3a27b14ba04",
+      "htmlUtf16Units": 32,
+      "observed": {
+        "outcome": "returned",
+        "value": []
+      }
+    },
+    {
+      "id": "ordered-dedupe-key-forms",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/ordered-dedupe-key-forms.json",
+      "inputSha256": "11bb8b728eff69c23e7986b2a7372d87466349bcdaa0f8bfdc2710dd5052c982",
+      "htmlUtf16Units": 225,
+      "observed": {
+        "outcome": "returned",
+        "value": [
+          {
+            "studentKey": "9",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "0007",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "9007199254740992",
+            "studentName": "Fictional Learner"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nonmatching-key-not-validated",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/nonmatching-key-not-validated.json",
+      "inputSha256": "f921a533e0053b7a4ac75d25132668fea5e1a583988347ad87bb934e2a900e8e",
+      "htmlUtf16Units": 142,
+      "observed": {
+        "outcome": "returned",
+        "value": [
+          {
+            "studentKey": "7",
+            "studentName": "Fictional Learner"
+          }
+        ]
+      }
+    },
+    {
+      "id": "invalid-nonmatching-name",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/invalid-nonmatching-name.json",
+      "inputSha256": "2b79a038b23478708a330ed97f10e00a55f22ee70dd95927431c6f7688ed4e9d",
+      "htmlUtf16Units": 59,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "invalid_student_name"
+      }
+    },
+    {
+      "id": "matching-zero-key",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/matching-zero-key.json",
+      "inputSha256": "435785a731ef48790087e2d568b6a9582257d329a4a58f6835d2c0b54d7aa657",
+      "htmlUtf16Units": 78,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "invalid_source_key"
+      }
+    },
+    {
+      "id": "matching-unsafe-number",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/matching-unsafe-number.json",
+      "inputSha256": "5465077f56b414dbf578990d60150e7f352f1599b948fa8bd7286ac14f2c1fac",
+      "htmlUtf16Units": 89,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "invalid_source_key"
+      }
+    },
+    {
+      "id": "matching-fraction",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/matching-fraction.json",
+      "inputSha256": "9b7e8c5086413458a70f077e079a1d8becb2f55f74673a97463c67a1f858ea44",
+      "htmlUtf16Units": 76,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "invalid_source_key"
+      }
+    },
+    {
+      "id": "invalid-object",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/invalid-object.json",
+      "inputSha256": "3c1664ffd0e7e42de071dae11a677c1460db686ce710866cc2448ad1378317b5",
+      "htmlUtf16Units": 36,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "invalid_capture_shape"
+      }
+    },
+    {
+      "id": "not-array",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/not-array.json",
+      "inputSha256": "c1218d33414f2f517d6db6878c90e0365dc5b98f6ad26fdab60d5b014ee44936",
+      "htmlUtf16Units": 32,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "student_search_list_rejected"
+      }
+    },
+    {
+      "id": "requested-number",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/requested-number.json",
+      "inputSha256": "defeace9a29eee2fbe99ffe09afaf981cad51c8161d4e091869c29924a3b5f69",
+      "htmlUtf16Units": 32,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "invalid_student_name"
+      }
+    },
+    {
+      "id": "requested-empty",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/requested-empty.json",
+      "inputSha256": "b155f7843a515f6d188bcfefd740245ac3339e2ec3791e4522b24115197afb60",
+      "htmlUtf16Units": 32,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "invalid_student_name"
+      }
+    },
+    {
+      "id": "requested-whitespace",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/requested-whitespace.json",
+      "inputSha256": "19c54f47c13cc7a8851ff8435eac1eb3b086abb70590b733353766d1ff615ee1",
+      "htmlUtf16Units": 32,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "invalid_student_name"
+      }
+    },
+    {
+      "id": "name-leading-space-exact",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/name-leading-space-exact.json",
+      "inputSha256": "cf32b7f9dd3403b8fb0afbea9fe3131e932cd230f6754582c59e19f08efa120a",
+      "htmlUtf16Units": 75,
+      "observed": {
+        "outcome": "returned",
+        "value": [
+          {
+            "studentKey": "7",
+            "studentName": " Fictional Learner"
+          }
+        ]
+      }
+    },
+    {
+      "id": "name-lone-surrogate",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/name-lone-surrogate.json",
+      "inputSha256": "c8865ba15ef8c56955fc130f88bc231d6367c90365ddf204bae8dadc43c47973",
+      "htmlUtf16Units": 64,
+      "observed": {
+        "outcome": "returned",
+        "value": [
+          {
+            "studentKey": "7",
+            "studentName": "\ud800"
+          }
+        ]
+      }
+    },
+    {
+      "id": "name-astral-200-units",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/name-astral-200-units.json",
+      "inputSha256": "b88b6f1005130a906f5e8fff46a99f6b3abfd2248490cb1ea1113664b47bc9d6",
+      "htmlUtf16Units": 257,
+      "observed": {
+        "outcome": "returned",
+        "value": [
+          {
+            "studentKey": "7",
+            "studentName": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+          }
+        ]
+      }
+    },
+    {
+      "id": "name-astral-over-200-units",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/name-astral-over-200-units.json",
+      "inputSha256": "7586de51f205ce9248847b10fa071b3c68c21c7de709a3a5227fa05ade3c1dc9",
+      "htmlUtf16Units": 32,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "invalid_student_name"
+      }
+    },
+    {
+      "id": "200-unique",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/200-unique.json",
+      "inputSha256": "4249bbd761bf3089cdce62443a38cfec56e7036cc9fc04b4587e09bc0eaad551",
+      "htmlUtf16Units": 8923,
+      "observed": {
+        "outcome": "returned",
+        "value": [
+          {
+            "studentKey": "1",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "2",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "3",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "4",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "5",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "6",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "7",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "8",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "9",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "10",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "11",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "12",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "13",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "14",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "15",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "16",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "17",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "18",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "19",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "20",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "21",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "22",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "23",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "24",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "25",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "26",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "27",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "28",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "29",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "30",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "31",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "32",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "33",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "34",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "35",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "36",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "37",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "38",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "39",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "40",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "41",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "42",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "43",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "44",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "45",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "46",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "47",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "48",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "49",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "50",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "51",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "52",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "53",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "54",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "55",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "56",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "57",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "58",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "59",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "60",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "61",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "62",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "63",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "64",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "65",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "66",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "67",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "68",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "69",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "70",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "71",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "72",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "73",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "74",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "75",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "76",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "77",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "78",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "79",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "80",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "81",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "82",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "83",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "84",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "85",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "86",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "87",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "88",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "89",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "90",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "91",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "92",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "93",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "94",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "95",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "96",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "97",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "98",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "99",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "100",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "101",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "102",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "103",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "104",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "105",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "106",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "107",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "108",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "109",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "110",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "111",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "112",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "113",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "114",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "115",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "116",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "117",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "118",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "119",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "120",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "121",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "122",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "123",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "124",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "125",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "126",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "127",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "128",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "129",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "130",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "131",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "132",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "133",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "134",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "135",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "136",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "137",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "138",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "139",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "140",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "141",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "142",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "143",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "144",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "145",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "146",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "147",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "148",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "149",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "150",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "151",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "152",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "153",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "154",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "155",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "156",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "157",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "158",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "159",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "160",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "161",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "162",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "163",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "164",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "165",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "166",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "167",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "168",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "169",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "170",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "171",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "172",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "173",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "174",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "175",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "176",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "177",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "178",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "179",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "180",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "181",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "182",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "183",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "184",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "185",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "186",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "187",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "188",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "189",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "190",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "191",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "192",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "193",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "194",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "195",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "196",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "197",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "198",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "199",
+            "studentName": "Fictional Learner"
+          },
+          {
+            "studentKey": "200",
+            "studentName": "Fictional Learner"
+          }
+        ]
+      }
+    },
+    {
+      "id": "201-unique",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/201-unique.json",
+      "inputSha256": "cf069e1d7a9d39fc3c5e58a6e9d27a877bf8aa0ee8bd49be067bb41ec75c6092",
+      "htmlUtf16Units": 8968,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "student_search_list_rejected"
+      }
+    },
+    {
+      "id": "2000-duplicate-rows",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/2000-duplicate-rows.json",
+      "inputSha256": "828b251baabc914f4045be6da8eb84d3fb002eafd54d1a4190a0df6957305fd7",
+      "htmlUtf16Units": 86031,
+      "observed": {
+        "outcome": "returned",
+        "value": [
+          {
+            "studentKey": "7",
+            "studentName": "Fictional Learner"
+          }
+        ]
+      }
+    },
+    {
+      "id": "2001-rows",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/2001-rows.json",
+      "inputSha256": "965bb3f3596c2679b775ae368a6e6249ecd5df5fa6883c99e53fbb9cc72d2f3e",
+      "htmlUtf16Units": 86074,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "student_search_list_rejected"
+      }
+    },
+    {
+      "id": "missing-literal",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/missing-literal.json",
+      "inputSha256": "57d3ecc5c36732244feab236ca359c2cd6547810e4c353c97ed71a3eec3f66b9",
+      "htmlUtf16Units": 20,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "result_list_missing_or_ambiguous"
+      }
+    },
+    {
+      "id": "ambiguous-literal",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/ambiguous-literal.json",
+      "inputSha256": "f7f0fd717fa4d32a5a60c2521f7e55edbb0fac91392552de7b6ff26fe6cffcbb",
+      "htmlUtf16Units": 65,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "result_list_missing_or_ambiguous"
+      }
+    },
+    {
+      "id": "invalid-escape",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/invalid-escape.json",
+      "inputSha256": "1ab5a1435dda185cac827168aadd3d3accda6515568cdd873d0d7cb24f0036ae",
+      "htmlUtf16Units": 34,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "invalid_embedded_escape"
+      }
+    },
+    {
+      "id": "malformed-json",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/malformed-json.json",
+      "inputSha256": "f65bf3ed8884fe976d76eead0789392158eacb72f72605117033c588a3bfe139",
+      "htmlUtf16Units": 35,
+      "observed": {
+        "outcome": "threw",
+        "name": "SyntaxError",
+        "message": "JSON Parse error: Expected '}'"
+      }
+    },
+    {
+      "id": "password-input",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/password-input.json",
+      "inputSha256": "6d1f766f294301171225afdc2de8670dffeaf0d8591f94cd1e866f1ec78f4372",
+      "htmlUtf16Units": 55,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "student_search_source_rejected"
+      }
+    },
+    {
+      "id": "hex-unicode-escaped-json",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/hex-unicode-escaped-json.json",
+      "inputSha256": "53f8b980210b01ddb18edb8962d7619e284f7e3b1d1ae26ff47b73887b123817",
+      "htmlUtf16Units": 82,
+      "observed": {
+        "outcome": "returned",
+        "value": [
+          {
+            "studentKey": "7",
+            "studentName": "Fictional Learner"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ascii-word-boundary",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/ascii-word-boundary.json",
+      "inputSha256": "c4a83c20dcffe527305e4b9b86c7ad7c14f8d5218b173da552b294376716dbee",
+      "htmlUtf16Units": 33,
+      "observed": {
+        "outcome": "returned",
+        "value": []
+      }
+    },
+    {
+      "id": "js-feff-whitespace",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/js-feff-whitespace.json",
+      "inputSha256": "a018fa231af23b3d6e8e33e6a266c7ef544ceb03aaface6eef1442e159a572ef",
+      "htmlUtf16Units": 32,
+      "observed": {
+        "outcome": "returned",
+        "value": []
+      }
+    },
+    {
+      "id": "non-js-0085-whitespace",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/non-js-0085-whitespace.json",
+      "inputSha256": "f15fb32220997bdf0fc3fd3f389b607233855ccd767d82b536f2b8eb6cb89322",
+      "htmlUtf16Units": 32,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "result_list_missing_or_ambiguous"
+      }
+    },
+    {
+      "id": "html-exact-2m-units",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/html-exact-2m-units.json",
+      "inputSha256": "bc592fda1e7cfb7d15271ce9f1655878537c29fdfb007b4dda019fceab6991f0",
+      "htmlUtf16Units": 2000000,
+      "observed": {
+        "outcome": "returned",
+        "value": []
+      }
+    },
+    {
+      "id": "html-over-2m-units",
+      "inputPath": "/home/palantirkc/work/ws-replan/preparation/slices/S11/name-search-reference-v1/inputs/html-over-2m-units.json",
+      "inputSha256": "5aa0ecc8d1a41368c0f4c9c4139c73951367e8af9df9a7391e96552e5268074a",
+      "htmlUtf16Units": 2000001,
+      "observed": {
+        "outcome": "threw",
+        "name": "Error",
+        "message": "student_search_source_rejected"
+      }
+    }
+  ],
+  "serviceRequests": 0,
+  "originalCaptureVersion": 1
+}
