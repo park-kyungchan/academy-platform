@@ -35,14 +35,6 @@ paths alone never establish equivalence. Such endpoints pin the full command
 and launch prefix, require `/usr/bin/flock --nonblock` on the declared account
 lock, and share one lock across the Academy native endpoints in a release.
 
-The native paper server pins its explicit source bundle, configuration, owner
-record, jsdom package metadata and jsdom entry. Its jsdom entry is imported
-by path after verification; transitive jsdom dependencies and the interval
-between entry verification and import are not independently pinned. Identity
-therefore attests the declared artifact bytes only, not a complete transitive
-runtime closure. Production migration requires separate qualification of this
-remaining boundary; a successful identity handshake alone does not close it.
-
 Discovery retains a native tool's public name when a saved endpoint advertises
 the same name. The saved route remains callable as `saved_<original-name>`;
 endpoint order never silently chooses the source. Any remaining duplicate or
