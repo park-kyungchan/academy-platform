@@ -138,17 +138,17 @@ function textbookFixture(bindings:{courseKey:string;bookNo:string;studentKey:str
  return {calls,backend:new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}))};
 }
 const multiBindings=[{courseKey:'5',bookNo:'7',studentKey:'77001',bookLabel:'Book One'},{courseKey:'6',bookNo:'8',studentKey:'77001',bookLabel:'Book Two'}];
-test('textbook sections by name: multiple bindings without bookLabel returns interview_required candidates without inspecting or executing',async()=>{
+test('textbook sections by name: multiple bindings without bookLabel returns interview_required candidates with first-title hints and no grading',async()=>{
  const {calls,backend}=textbookFixture(multiBindings);
  const result=await backend.readTextbookSectionsByName(textbookRequest);
  expect(result).toMatchObject({kind:'interview_required',student:{studentId:'77001',displayName:'Invented Student'},
-  bindings:[{bookLabel:'Book One'},{bookLabel:'Book Two'}],reason:'multiple_book_bindings_select_one'});
+  bindings:[{bookLabel:'Book One',hint:'Unit for book 7'},{bookLabel:'Book Two',hint:'Unit for book 8'}],reason:'multiple_book_bindings_select_one'});
  expect(typeof (result as any).observedAt).toBe('string');
- expect(calls.inspect).toBe(0);expect(calls.execute).toBe(0);
+ expect(calls.inspect).toBe(2);expect(calls.execute).toBe(0);
  // The service surfaces the same candidates as interview_required, not observed/unavailable.
  const serviceResult=await new DailyRecordService(backend).textbookSectionsByName(textbookRequest);
- expect(serviceResult).toMatchObject({status:'interview_required',kind:'interview_required',bindings:[{bookLabel:'Book One'},{bookLabel:'Book Two'}]});
- expect(calls.inspect).toBe(0);expect(calls.execute).toBe(0);
+ expect(serviceResult).toMatchObject({status:'interview_required',kind:'interview_required',bindings:[{bookLabel:'Book One',hint:'Unit for book 7'},{bookLabel:'Book Two',hint:'Unit for book 8'}]});
+ expect(calls.inspect).toBe(4);expect(calls.execute).toBe(0);
 });
 test('textbook sections by name: exact bookLabel selects that binding for index and grading',async()=>{
  const {calls,backend}=textbookFixture(multiBindings);

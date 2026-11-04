@@ -231,8 +231,27 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     if(!bindings.length)throw Error('textbook_binding_source_unqualified');
     const selected=input.bookLabel?bindings.filter(b=>b.bookLabel===input.bookLabel):bindings;
     if(input.bookLabel&&selected.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
-    if(!input.bookLabel&&bindings.length>1)return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
-      bindings:bindings.map(b=>({bookLabel:b.bookLabel})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
+    if(!input.bookLabel&&bindings.length>1){
+      // Source bookLabel cells are not always titles (a progress row can
+      // yield a percent literal), so attach each binding's first observed
+      // section title as a selection hint. The hint never selects; the
+      // caller still echoes the exact bookLabel on the second call.
+      const candidates:{bookLabel:string;hint?:string}[]=[];
+      for(const b of bindings){
+        let hint:string|undefined;
+        if(this.client.inspectTextbookIndex){
+          try{
+            const raw=await this.client.inspectTextbookIndex({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
+              studentName:student.displayName,courseKey:b.courseKey,bookNo:b.bookNo,sourceTitles:['index'],gradeViewAdmission:true});
+            const rows=z.array(z.object({sourceTitle:z.string().min(1).max(2000)}).passthrough()).max(1000).parse(raw.rows);
+            hint=rows[0]?.sourceTitle;
+          }catch{hint=undefined;}
+        }
+        candidates.push(hint?{bookLabel:b.bookLabel,hint}:{bookLabel:b.bookLabel});
+      }
+      return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
+        bindings:candidates,reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
+    }
     const binding=selected[0]!;
     if(binding.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
     if(input.sourceTitles){
