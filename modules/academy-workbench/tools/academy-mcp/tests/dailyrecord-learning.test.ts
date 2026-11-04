@@ -10,7 +10,7 @@ import {createDailyRecordLearningReviewer} from '../../../../../apps/academy/dc-
 import {parentInternalLanguage} from '../../../../../apps/academy/dc-gang-a/src/contracts/parentInternalLanguage.ts';
 
 test('internal version facts remain accepted but parent memo metadata is blocked',async()=>{
- for(const label of ['v3(1P6A)','v 3','v:3','시리즈: 2','(1P6A)','교재5-1-1v1']){
+ for(const label of ['v3(1P6A)','v 3','v:3','시리즈: 2','(1SAG)','(1U0U)','(1N87)','교재5-1-1v1']){
   const c=context();c.selectedFields=['lessonMemo'];const value='- 가상 교재 '+label+' 준비';
   c.memoAnswer={kind:'content',requestRef:c.currentRequestRef,text:value};c.facts=[fact('lessonMemo',value)];
   const s=new DailyRecordService(backend(),{...safeguard,check:text=>parentInternalLanguage.test(text)},()=>clock);
@@ -22,7 +22,7 @@ test('internal version facts remain accepted but parent memo metadata is blocked
 });
 
 test('ordinary algebra, textbook coordinates and full deadlines remain valid parent text',async()=>{
- for(const value of ['- 다항식 3abc의 계산 연습','- 가우스 5-1-2 4-1~4-4 학습','- 2026-11-02까지 12문항 풀기']){
+ for(const value of ['- 다항식 3abc의 계산 연습','- 2x3y의 계산 연습','- 가우스 5-1-2 4-1~4-4 학습','- 2026-11-02까지 12문항 풀기']){
   const c=context();c.selectedFields=['lessonMemo'];c.memoAnswer={kind:'content',requestRef:c.currentRequestRef,text:value};c.facts=[fact('lessonMemo',value)];
   const s=new DailyRecordService(backend(),{...safeguard,check:text=>parentInternalLanguage.test(text)},()=>clock),i=await s.intake({context:c});
   const r=await s.review({context:c,observationHandle:i.observationHandle,proposals:[proposal('lessonMemo',value)]});

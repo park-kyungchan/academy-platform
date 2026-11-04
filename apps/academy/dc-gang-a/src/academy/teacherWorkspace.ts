@@ -75,7 +75,7 @@ export function validateTeacherWorkspace(payload:TeacherWorkspaceRecord|TeacherO
   assertExactKeys(payload,['kind','studentBinding','sourceStudent','reportedAt','evidenceRevisionIds','date','state','progress','homework','memo','internalNote','teacherReviewed','officialSaved','parentSent','deliveryReceipt']);assertDate(payload.date);member(payload.state,['draft','reviewed']);boundedText(payload.internalNote);
   for(const section of [payload.progress,payload.homework,payload.memo]){
    if(!Array.isArray(section)||section.length>100)throw Error('invalid_parent_draft');
-   for(const line of section){assertExactKeys(line,['text','evidenceRevisionIds']);boundedText(line.text,2000);requireText(line.text,'parent line');if(/[\r\n]/.test(line.text)||line.text.startsWith('- '))throw Error('parent_line_format');refs(line.evidenceRevisionIds);if(line.evidenceRevisionIds.some(id=>!payload.evidenceRevisionIds.includes(id)))throw Error('parent_line_evidence_conflict');if(parentInternalLanguage.test(line.text))throw Error('parent_internal_language_excluded');}
+   for(const line of section){assertExactKeys(line,['text','evidenceRevisionIds']);boundedText(line.text,2000);requireText(line.text,'parent line');if(/[\r\n]/.test(line.text)||line.text.startsWith('- '))throw Error('parent_line_format');refs(line.evidenceRevisionIds);if(line.evidenceRevisionIds.some(id=>!payload.evidenceRevisionIds.includes(id)))throw Error('parent_line_evidence_conflict');}
   }
   if(payload.progress.length+payload.homework.length+payload.memo.length===0||typeof payload.teacherReviewed!=='boolean'||payload.state==='reviewed'&&!payload.teacherReviewed||payload.officialSaved!==false||payload.parentSent!==false||payload.deliveryReceipt!=='unobserved')throw Error('invalid_parent_draft');return;
  }
@@ -98,4 +98,10 @@ export function assertActivityReviewAttemptBinding(review:TeacherActivityReview,
    ||!attempt||attempt.payload.kind!=='learning_work_attempt'||attempt.ownerId!==assignment.ownerId||attempt.studentId!==assignment.studentId||attempt.entityId!==binding.value.attemptEntityId||attempt.revisionId!==binding.value.attemptRevisionId||attempt.payload.assignmentRevisionId!==assignment.revisionId||canonicalJson(attempt.payload.sourceStudent)!==canonicalJson(review.sourceStudent)
    ||canonicalJson(attempt.payload.paperIssuanceKey)!==canonicalJson(assignment.payload.paper.state==='known'?assignment.payload.paper.value.issuanceKey:null)
    ||review.selectedItemIds.some(id=>!assignedItems.some(item=>item.assignedItemId===id)))throw Error('workspace_attempt_binding_conflict');
+}
+
+/** Current wording policy applies at write admission, never historical decoding. */
+export function validateTeacherWorkspaceWrite(payload:TeacherWorkspaceRecord|TeacherOperationalCase){
+ validateTeacherWorkspace(payload);
+ if(payload.kind==='teacher_parent_draft')for(const section of [payload.progress,payload.homework,payload.memo])for(const line of section)if(parentInternalLanguage.test(line.text))throw Error('parent_internal_language_excluded');
 }

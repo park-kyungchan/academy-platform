@@ -3,7 +3,7 @@ import {readInputRecord} from '../../contracts/readInputRecord';
 import type {TeacherStore} from '../ports/teacherStore';
 import type {TrustedTeacherContext} from '../contracts/teacherOperations';
 import {assertTeacherScope} from './requestRecovery';
-import {TeacherWorkspaceRefusal,isTeacherWorkspaceRecord,validateTeacherWorkspace,workspaceEntityId,type TeacherWorkspaceRecord,type TeacherWorkspaceInput,type TeacherOperationalCase} from '../teacherWorkspace';
+import {TeacherWorkspaceRefusal,isTeacherWorkspaceRecord,validateTeacherWorkspaceWrite,workspaceEntityId,type TeacherWorkspaceRecord,type TeacherWorkspaceInput,type TeacherOperationalCase} from '../teacherWorkspace';
 import {asStudentWorkspace,ownerWorkspaceEntityId,validateOwnerWorkspace,type OwnerWorkspaceStore,type OwnerWorkspaceRecord} from '../ownerWorkspaceStore';
 import {createExamCandidate,type ExamCandidateBody} from '../examSelection';
 import {academyOperatingCatalog,academyOperatingSelection} from '../operatingWorkspace';
@@ -24,7 +24,7 @@ export class TeacherWorkspaceCommands {
   const student=(await this.store.students(this.ownerId)).find(row=>row.id===data.studentId);if(!student)throw Error('student_scope_conflict');
   const raw=readInputRecord(data.payload);if(Object.hasOwn(raw,'sourceStudent')||Object.hasOwn(raw,'reportedAt')||Object.hasOwn(raw,'studentBinding'))throw Error('unexpected_workspace_attribution');
   const payload={...raw,studentBinding:{studentId:student.id,sourceStudent:student.sourceKey},sourceStudent:student.sourceKey,reportedAt:data.reportedAt} as unknown as TeacherWorkspaceRecord;
-  if(!isTeacherWorkspaceRecord(payload))throw Error('unsupported_teacher_workspace');validateTeacherWorkspace(payload);return {data,student,payload};});
+  if(!isTeacherWorkspaceRecord(payload))throw Error('unsupported_teacher_workspace');validateTeacherWorkspaceWrite(payload);return {data,student,payload};});
   const store=this.ownerStore(),receipt=await store.appendOwnerWorkspace({ownerId:this.ownerId,actorId:context.actorId,idempotencyKey:data.idempotencyKey as string,expectedRevisionId:data.expectedRevisionId as string|null,payload});
   let record;try{const [stored]=await store.ownerWorkspaceHistory(this.ownerId,workspaceEntityId(payload),receipt.sequence-1);if(!stored||stored.revisionId!==receipt.revisionId)throw Error('committed_outcome_uncertain');record=asStudentWorkspace(stored,student.id);}catch{throw Error('committed_outcome_uncertain');}
   return {...receipt,record};
