@@ -26,6 +26,42 @@ test('textbook section results fail closed without a backend or on scope drift',
   expect(await new DailyRecordService(drifting).textbookSections(request)).toMatchObject({status:'unavailable',academyWrites:0});
 });
 
+test('a title absent from both observed sources is coverage-qualified, never a no-record claim',async()=>{
+  const missing:DailyRecordReadBackend={readDailyRecord:async()=>({status:'unavailable',reasonCode:'not_used'}),
+    readTextbookSections:async()=>{throw Error('textbook_section_not_in_either_observed_source');},
+    readTextbookSectionsByName:async()=>{throw Error('textbook_section_not_in_either_observed_source');}};
+  const service=new DailyRecordService(missing);
+  const byKey=await service.textbookSections(request);
+  expect(byKey).toMatchObject({status:'not_observed_in_either_source',reasonCode:'textbook_section_not_in_either_observed_source',
+    coverage:'wrong_answer_note_index_plus_one_observed_student_paper_search_page_not_complete_history',
+    meaning:'requested_title_absent_from_both_observed_sources_only_not_proof_of_no_record',academyWrites:0});
+  const byName=await service.textbookSectionsByName({displayName:'Invented Student',purpose:'x',currentRequestRef:'y',sourceTitles:['Missing title']});
+  expect(byName).toMatchObject({status:'not_observed_in_either_source',reasonCode:'textbook_section_not_in_either_observed_source'});
+  // Other failures keep the generic unavailable contract.
+  const broken:DailyRecordReadBackend={readDailyRecord:async()=>({status:'unavailable',reasonCode:'not_used'}),
+    readTextbookSections:async()=>{throw Error('textbook_section_result_unqualified');}};
+  expect(await new DailyRecordService(broken).textbookSections(request)).toMatchObject({status:'unavailable'});
+});
+
+test('native index passes through the merged paper-search basis and all-correct titles',async()=>{
+  const admission={teacherId:'99001',teacherLabel:'Invented Teacher',date:'2040-01-04',
+    students:[{studentId:'77001',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};
+  const perfect='[필수예제] [가우스] 5-4 대분수의 뺄셈 - Invented Student';
+  const port={authenticate:async()=>{},close:()=>{},
+    readTextbookBindings:async()=>[{courseKey:'693',bookNo:'2517',studentKey:'77001',bookLabel:'Gauss fraction book'}],
+    inspectTextbookIndex:async()=>({indexBasis:'wrong_answer_note_plus_student_paper_search',rows:[
+      {sourceTitle:'[필수예제] [가우스] 5-3 진분수의 뺄셈 - Invented Student',sourceDate:{literal:'11-03',meaning:'source_apply_date_not_exact_grade_time'},sources:['wrong_answer_note','student_paper_search']},
+      {sourceTitle:perfect,sourceDate:{literal:'2026-11-03 10:05:00',meaning:'source_apply_date_not_exact_grade_time'},sources:['student_paper_search']},
+    ]})};
+  const backend=new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}));
+  const result=await backend.readTextbookSectionsByName({displayName:'Invented Student',purpose:'x',currentRequestRef:'y',bookLabel:'Gauss fraction book'});
+  if(!('index' in result))throw Error('index_expected');
+  expect(result.indexBasis).toBe('wrong_answer_note_plus_student_paper_search');
+  expect(result.coverage).toContain('not_complete_history');
+  expect(result.index.map(r=>r.sourceTitle)).toContain(perfect);
+  expect(result.index[1]).toMatchObject({sources:['student_paper_search']});
+});
+
 test('native backend binds textbook execute output to the admitted student and request',async()=>{
   const admission={teacherId:'99001',teacherLabel:'Invented Teacher',date:'2040-01-04',
     students:[{studentId:'77001',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};

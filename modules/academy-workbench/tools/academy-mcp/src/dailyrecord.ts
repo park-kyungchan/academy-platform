@@ -107,7 +107,7 @@ export type ItemSectionTraceObservation=
     items:{label:string;matches:{bookLabel:string;sourceTitle:string;ordinal:string;matchedBy:'lectureKey'|'outerLectureKey';originalScoring:'O'|'X'}[]}[];
     unmatchedLabels:string[];ambiguousLabels:string[];sectionsScanned:number;sectionsFailed:number;observedAt:string;coverage:string};
 export type TextbookSectionIndexObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bookLabel:string;
-  index:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string}}[];observedAt:string;coverage:string};
+  index:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];observedAt:string;coverage:string;indexBasis?:string};
 export type TextbookSectionInterviewObservation={kind:'interview_required';student:{studentId:string;displayName:string};bindings:{bookLabel:string;hint?:string}[];reason:'multiple_book_bindings_select_one';observedAt:string};
 export type TextbookSectionResultsByNameObservation=TextbookSectionObservation|TextbookSectionIndexObservation|TextbookSectionInterviewObservation;
 /** Implemented by the native/source owner, never by MCP arguments. All methods are read-only. */
@@ -164,6 +164,16 @@ const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value))
 const fieldValues=(observation:DailyRecordObservation)=>Object.fromEntries(dailyRecordFields.map(field=>{const value=observation.fields[field];return [field,value.state==='known'?{state:value.state,value:value.value}:{state:value.state,reasonCode:value.reasonCode}];}));
 const scopeOf=(target:z.infer<typeof currentTargetSchema>):DailyRecordScope=>({sourceNamespace:target.sourceNamespace,teacherId:target.teacherId,studentId:target.studentId,lessonDate:target.lessonDate});
 const safeReason=(value:string)=>readFailureResult(Error(value),'source_read_unavailable').reasonCode;
+/** A requested title absent from BOTH observed sources (wrong-note index and
+ * one student paper-search page) is a coverage-qualified non-observation,
+ * never a claim that the student has no such record. */
+export const TEXTBOOK_SECTION_NOT_IN_EITHER='textbook_section_not_in_either_observed_source';
+export function textbookSectionNotInEither(base:Record<string,unknown>,displayName:string){
+  return {...base,status:'not_observed_in_either_source' as const,reasonCode:TEXTBOOK_SECTION_NOT_IN_EITHER,displayName,
+    coverage:'wrong_answer_note_index_plus_one_observed_student_paper_search_page_not_complete_history' as const,
+    meaning:'requested_title_absent_from_both_observed_sources_only_not_proof_of_no_record' as const};
+}
+export function isTextbookSectionNotInEither(error:unknown){return error instanceof Error&&error.message===TEXTBOOK_SECTION_NOT_IN_EITHER;}
 function validValue(field:DailyRecordField,value:string){
   if(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value))return false;
   if(field==='attendance')return ['Y','N','L',' ',''].includes(value);
@@ -346,7 +356,7 @@ export class DailyRecordService {
       });
       if(toolResultBytes(result)>512*1024)throw Error('textbook_section_result_too_large');
       return freezeLabelData(result);
-    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
+    }catch(error){if(isTextbookSectionNotInEither(error))return textbookSectionNotInEither(base,input.displayName);return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
   }
   async prestudyGet(value:unknown){
     const input=prestudyGetSchema.parse(value);
@@ -386,7 +396,7 @@ export class DailyRecordService {
       });
       if(toolResultBytes(result)>512*1024)throw Error('textbook_section_result_too_large');
       return freezeLabelData(result);
-    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
+    }catch(error){if(isTextbookSectionNotInEither(error))return textbookSectionNotInEither(base,input.displayName);return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
   }
   async itemSectionTrace(value:unknown){
     const input=itemSectionTraceSchema.parse(value);

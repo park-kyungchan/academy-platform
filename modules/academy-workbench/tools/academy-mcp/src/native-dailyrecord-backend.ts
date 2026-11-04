@@ -58,7 +58,7 @@ interface SourcePort {
   searchStudentsByName?(input:{teacherLabel:string;studentName:string}):Promise<unknown>;
   readPrestudy?(input:{teacherLabel:string;studentName:string}):Promise<{waiting:unknown[];completed:unknown[];summary:unknown[];observedAt:string;coverage:string}>;
   readTextbookBindings?(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[]>;
-  inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string}}[]}>;
+  inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];indexBasis?:string;coverage?:string}>;
 }
 type Admission={teacherId:string;teacherLabel:string;date:string;students:{studentId:string;displayName:string}[];sourceBundleSha256:string};
 const fields=['progress','homework','lessonMemo','attendance','dailyTestAssessment','previousHomeworkAssessment'] as const;
@@ -262,10 +262,16 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     const raw=await this.client.inspectTextbookIndex({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
       studentName:student.displayName,courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:['index'],gradeViewAdmission:true});
     const index=z.array(z.object({sourceTitle:z.string().min(1).max(2000),
-      sourceDate:z.object({literal:z.string().nullable(),meaning:z.string().max(200)}).passthrough()}).passthrough()).max(1000).parse(raw.rows)
-      .map(r=>({sourceTitle:r.sourceTitle,sourceDate:{literal:r.sourceDate.literal??null,meaning:String(r.sourceDate.meaning??'source_apply_date_not_exact_grade_time')}}));
+      sourceDate:z.object({literal:z.string().nullable(),meaning:z.string().max(200)}).passthrough(),
+      sources:z.array(z.string().max(64)).max(4).optional()}).passthrough()).max(1000).parse(raw.rows)
+      .map(r=>({sourceTitle:r.sourceTitle,sourceDate:{literal:r.sourceDate.literal??null,meaning:String(r.sourceDate.meaning??'source_apply_date_not_exact_grade_time')},
+        ...(r.sources?{sources:r.sources}:{})}));
+    const indexBasis=typeof raw.indexBasis==='string'?raw.indexBasis:'wrong_answer_note_only';
     return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:binding.courseKey,bookNo:binding.bookNo,
-      bookLabel:binding.bookLabel,index,observedAt:new Date().toISOString(),coverage:'observed_title_index_for_exact_student_course_book_not_section_grading'};
+      bookLabel:binding.bookLabel,index,observedAt:new Date().toISOString(),indexBasis,
+      coverage:indexBasis==='wrong_answer_note_plus_student_paper_search'
+        ?'wrong_answer_note_index_plus_one_observed_student_paper_search_page_for_exact_student_course_book_not_section_grading_not_complete_history'
+        :'wrong_answer_note_title_index_only_for_exact_student_course_book_not_section_grading_not_complete_history'};
   }
   /** Reverse trace: scan the student's registered textbook section indexes and
    * match item labels to original section items. Bindings are scanned in full
