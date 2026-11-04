@@ -6,10 +6,10 @@ use edu_academy_core::{
     js::test,
 };
 const COVERAGE: &str = "one_observed_student_search_page_not_complete_history";
-fn require(ok: bool, code: &str) -> Result<()> {
+pub(crate) fn require(ok: bool, code: &str) -> Result<()> {
     if ok { Ok(()) } else { Err(Error::error(code)) }
 }
-fn key(v: &Js) -> Result<Js> {
+pub(crate) fn key(v: &Js) -> Result<Js> {
     require(
         v.string() && test("^[1-9][0-9]{0,15}$", v),
         "native_metadata_row_identity_conflict",
@@ -33,10 +33,10 @@ fn source_key(v: &Js) -> Result<Js> {
         _ => Err(Error::error("invalid_source_key")),
     }
 }
-fn date(v: &Js) -> bool {
+pub(crate) fn date(v: &Js) -> bool {
     v.string() && edu_academy_core::schema::validate("dailyRecordDateSchema", v).is_ok()
 }
-fn instant(v: &Js) -> Result<Js> {
+pub(crate) fn instant(v: &Js) -> Result<Js> {
     require(
         epoch_ms(v, Grammar::DailyRecord).is_some(),
         "native_metadata_row_identity_conflict",
@@ -50,18 +50,27 @@ pub trait Port {
     fn dated_students(&mut self, input: &Js) -> Result<Js>;
     fn daily_page(&mut self, student: &Js, selector: &Js) -> Result<Js>;
     fn paper_header(&mut self, student: &Js, paper_code: &Js) -> Result<Js>;
+    /// Raw embedded assessment rows plus observed request identity/period.
+    /// Defaults preserve existing I1 port implementations without inventing data.
+    fn student_paper_page(&mut self, _student: &Js, _period: &Js) -> Result<Js> {
+        Err(Error::error("native_metadata_method_unavailable"))
+    }
+    fn metadata_method_available(&self, kind: &str) -> bool {
+        kind != "student_papers" && kind != "printed_paper_metadata"
+    }
 }
 /// Separately admitted source loan. Private fields prevent request arguments from
 /// replacing its namespace policy, managed-name set or paper-student scope.
 pub struct History<P: Port> {
-    port: P,
-    routing_admission: Js,
-    metadata_admission: Js,
-    students: Vec<Js>,
-    managed_names: Vec<Js>,
+    pub(crate) port: P,
+    pub(crate) routing_admission: Js,
+    pub(crate) metadata_admission: Js,
+    pub(crate) students: Vec<Js>,
+    pub(crate) managed_names: Vec<Js>,
     paper_students: Vec<Js>,
-    latched: bool,
-    requests: usize,
+    pub(crate) selected_metadata_date: Js,
+    pub(crate) latched: bool,
+    pub(crate) requests: usize,
 }
 impl<P: Port> History<P> {
     pub fn new(
@@ -73,77 +82,80 @@ impl<P: Port> History<P> {
         paper_students: Vec<Js>,
     ) -> Result<Self> {
         let p = &metadata_admission;
-        require(
-            object(p)
-                && p.props().iter().all(|(k, _)| {
-                    [
-                        "schemaVersion",
-                        "sourceNamespace",
-                        "teacherId",
-                        "allowedFrom",
-                        "allowedThrough",
-                        "studentScope",
-                        "relativeSelectors",
-                        "operations",
-                    ]
-                    .iter()
-                    .any(|s| k == &text(s))
-                })
-                && p.get("schemaVersion").is("academy.metadata-admission/1")
-                && p.get("sourceNamespace").is("academy.lms.metadata"),
-            "metadata_namespace_not_admitted",
-        )?;
-        key(p.get("teacherId"))?;
-        require(
-            p.get("teacherId") == routing_admission.get("teacherId"),
-            "native_metadata_scope_refused",
-        )?;
-        for k in ["allowedFrom", "allowedThrough"] {
+        if p != &Js::Null {
             require(
-                p.get(k) == &Js::Null || date(p.get(k)),
+                object(p)
+                    && p.props().iter().all(|(k, _)| {
+                        [
+                            "schemaVersion",
+                            "sourceNamespace",
+                            "teacherId",
+                            "allowedFrom",
+                            "allowedThrough",
+                            "studentScope",
+                            "relativeSelectors",
+                            "operations",
+                        ]
+                        .iter()
+                        .any(|s| k == &text(s))
+                    })
+                    && p.get("schemaVersion").is("academy.metadata-admission/1")
+                    && p.get("sourceNamespace").is("academy.lms.metadata"),
+                "metadata_namespace_not_admitted",
+            )?;
+            key(p.get("teacherId"))?;
+            require(
+                p.get("teacherId") == routing_admission.get("teacherId"),
+                "native_metadata_scope_refused",
+            )?;
+            for k in ["allowedFrom", "allowedThrough"] {
+                require(
+                    p.get(k) == &Js::Null || date(p.get(k)),
+                    "metadata_namespace_not_admitted",
+                )?;
+            }
+            require(
+                p.get("allowedFrom") == &Js::Null
+                    || p.get("allowedThrough") == &Js::Null
+                    || p.get("allowedFrom").units() <= p.get("allowedThrough").units(),
+                "metadata_namespace_not_admitted",
+            )?;
+            require(
+                p.get("studentScope").is("configured")
+                    || p.get("studentScope").is("source_verified"),
+                "metadata_namespace_not_admitted",
+            )?;
+            let selectors = p.get("relativeSelectors");
+            require(
+                !p.has("relativeSelectors")
+                    || array(selectors)
+                        && selectors.array().len() <= 7
+                        && selectors.array().iter().all(|s| {
+                            ["1", "11", "12", "13", "14", "15", "16"]
+                                .iter()
+                                .any(|x| s.is(x))
+                        }),
+                "metadata_namespace_not_admitted",
+            )?;
+            let operations = p.get("operations");
+            require(
+                array(operations)
+                    && (1..=5).contains(&operations.array().len())
+                    && operations.array().iter().enumerate().all(|(i, op)| {
+                        [
+                            "student_papers",
+                            "daily_metadata",
+                            "daily_inventory",
+                            "daily_history",
+                            "printed_paper_metadata",
+                        ]
+                        .iter()
+                        .any(|s| op.is(s))
+                            && !operations.array()[..i].contains(op)
+                    }),
                 "metadata_namespace_not_admitted",
             )?;
         }
-        require(
-            p.get("allowedFrom") == &Js::Null
-                || p.get("allowedThrough") == &Js::Null
-                || p.get("allowedFrom").units() <= p.get("allowedThrough").units(),
-            "metadata_namespace_not_admitted",
-        )?;
-        require(
-            p.get("studentScope").is("configured") || p.get("studentScope").is("source_verified"),
-            "metadata_namespace_not_admitted",
-        )?;
-        let selectors = p.get("relativeSelectors");
-        require(
-            !p.has("relativeSelectors")
-                || array(selectors)
-                    && selectors.array().len() <= 7
-                    && selectors.array().iter().all(|s| {
-                        ["1", "11", "12", "13", "14", "15", "16"]
-                            .iter()
-                            .any(|x| s.is(x))
-                    }),
-            "metadata_namespace_not_admitted",
-        )?;
-        let operations = p.get("operations");
-        require(
-            array(operations)
-                && (1..=5).contains(&operations.array().len())
-                && operations.array().iter().enumerate().all(|(i, op)| {
-                    [
-                        "student_papers",
-                        "daily_metadata",
-                        "daily_inventory",
-                        "daily_history",
-                        "printed_paper_metadata",
-                    ]
-                    .iter()
-                    .any(|s| op.is(s))
-                        && !operations.array()[..i].contains(op)
-                }),
-            "metadata_namespace_not_admitted",
-        )?;
         for s in &students {
             key(s.get("studentId"))?;
             crate::native::literal_name(s.get("displayName"))?;
@@ -154,7 +166,14 @@ impl<P: Port> History<P> {
         for s in &paper_students {
             key(s)?;
         }
+        let selected_metadata_date =
+            if routing_admission.get("allowedFrom") == routing_admission.get("allowedThrough") {
+                routing_admission.get("allowedFrom").clone()
+            } else {
+                Js::Null
+            };
         Ok(Self {
+            selected_metadata_date,
             port,
             routing_admission,
             metadata_admission,
@@ -226,6 +245,31 @@ impl<P: Port> History<P> {
         result
     }
     fn metadata_inner(&mut self, input: &Js) -> Result<Js> {
+        let student = self.dated_student(input)?;
+        let student_key = student.get("studentKey").clone();
+        let query = input.get("queries").array()[0].clone();
+        let observation = self.read_history(&student, &query, false)?;
+        Ok(obj(&[
+            ("status", "observed".into()),
+            (
+                "scope",
+                obj(&[
+                    ("sourceNamespace", "academy.lms.metadata".into()),
+                    (
+                        "teacherId",
+                        self.metadata_admission.get("teacherId").clone(),
+                    ),
+                    ("studentId", student_key),
+                    ("lessonDate", input.get("lessonDate").clone()),
+                ]),
+            ),
+            (
+                "results",
+                Js::Arr(vec![obj(&[("query", query), ("observation", observation)])]),
+            ),
+        ]))
+    }
+    pub(crate) fn dated_student(&mut self, input: &Js) -> Result<Js> {
         self.requests += 1;
         let rows = self.port.dated_students(input)?;
         require(array(&rows), "native_dated_name_scope_conflict")?;
@@ -250,11 +294,13 @@ impl<P: Port> History<P> {
                 .all(|s| s.get("studentId") == &student_key),
             "native_dated_name_scope_conflict",
         )?;
-        let student = obj(&[
+        Ok(obj(&[
             ("studentKey", student_key.clone()),
             ("studentName", input.get("displayName").clone()),
-        ]);
-        let query = input.get("queries").array()[0].clone();
+        ]))
+    }
+    /// One shared selector qualification/read loop for I1 and the metadata family.
+    pub(crate) fn read_history(&mut self, student: &Js, query: &Js, full: bool) -> Result<Js> {
         self.requests += 1;
         let current_raw = self.port.daily_page(&student, &"1".into())?;
         require(
@@ -266,20 +312,49 @@ impl<P: Port> History<P> {
                     .all(|s| current_raw.get("relativeSelectors").array().contains(s)),
             "daily_history_selector_drift",
         )?;
-        let current = project_page(&current_raw, &student, &"1".into())?;
+        let current = if full {
+            crate::metadata::project_daily_page(&current_raw, student, &"1".into(), true)?
+        } else {
+            project_page(&current_raw, student, &"1".into())?
+        };
         let mut observations = vec![];
         for selector in query.get("periods").array() {
             self.requests += 1;
             let raw = self.port.daily_page(&student, selector)?;
-            observations.push(project_page(&raw, &student, selector)?);
+            observations.push(if full {
+                crate::metadata::project_daily_page(&raw, student, selector, true)?
+            } else {
+                project_page(&raw, student, selector)?
+            });
         }
-        Ok(obj(&[("status", "observed".into()), ("scope", obj(&[("sourceNamespace", "academy.lms.metadata".into()),
-            ("teacherId", self.metadata_admission.get("teacherId").clone()), ("studentId", student_key), ("lessonDate", input.get("lessonDate").clone())])),
-            ("results", Js::Arr(vec![obj(&[("query", query), ("observation", obj(&[("status", "observed".into()),
-                ("studentKey", student.get("studentKey").clone()), ("studentName", student.get("studentName").clone()),
-                ("currentFilterQualification", obj(&[("observedAt", current.get("observedAt").clone()), ("selector", "1".into()), ("rows", current.get("rows").clone())])),
-                ("observations", Js::Arr(observations)), ("coverage", "all_parsed_embedded_rows_on_each_observed_response_not_complete_history".into())]))])]))]))
+        let mut observation = obj(&[
+            ("status", "observed".into()),
+            ("studentKey", student.get("studentKey").clone()),
+            ("studentName", student.get("studentName").clone()),
+            (
+                "currentFilterQualification",
+                obj(&[
+                    ("observedAt", current.get("observedAt").clone()),
+                    ("selector", "1".into()),
+                    ("rows", current.get("rows").clone()),
+                ]),
+            ),
+            ("observations", Js::Arr(observations)),
+        ]);
+        if full {
+            observation.set(
+                "calendarBounds",
+                "source_relative_labels_only_not_exact_calendar_bounds".into(),
+            );
+            observation.set("expectedPaperDefinitions", "not_observed".into());
+        }
+        observation.set(
+            "coverage",
+            "all_parsed_embedded_rows_on_each_observed_response_not_complete_history".into(),
+        );
+        Ok(observation)
     }
+
     pub fn headers(&mut self, input: &Js) -> Result<Js> {
         require(
             object(input)
@@ -376,13 +451,32 @@ impl<P: Port> History<P> {
 }
 /// Original embedded row projection, including identity and duplicate-attempt checks.
 pub fn project_page(raw: &Js, student: &Js, selector: &Js) -> Result<Js> {
+    project_page_with_titles(raw, student, selector, false)
+}
+pub(crate) fn project_page_with_titles(
+    raw: &Js,
+    student: &Js,
+    selector: &Js,
+    titles: bool,
+) -> Result<Js> {
     require(
         raw.get("selector") == selector
             && raw.get("operation").is("DtResultSearch")
             && raw.get("page") == &Js::Num(1.0),
         "native_metadata_selector_conflict",
     )?;
-    let list = raw.get("rawRows");
+    let rows = project_rows(raw.get("rawRows"), student, titles)?;
+    Ok(obj(&[
+        ("selector", selector.clone()),
+        ("rows", Js::Arr(rows)),
+        ("observedAt", instant(raw.get("observedAt"))?),
+        ("operation", "DtResultSearch".into()),
+        ("page", Js::Num(1.0)),
+        ("coverage", COVERAGE.into()),
+        ("fixedSourceFilter", obj(&[("sort_date", selector.clone())])),
+    ]))
+}
+pub(crate) fn project_rows(list: &Js, student: &Js, titles: bool) -> Result<Vec<Js>> {
     require(
         array(list) && list.array().len() <= 2000,
         "student_search_list_rejected",
@@ -423,24 +517,37 @@ pub fn project_page(raw: &Js, student: &Js, selector: &Js) -> Result<Js> {
             Js::Num(n) if n.is_finite() => Js::Num(*n),
             _ => Js::Null,
         };
-        rows.push(obj(&[
+        let mut row = obj(&[
             ("studentKey", student.get("studentKey").clone()),
             ("studentName", student.get("studentName").clone()),
             ("paperKey", paper),
             ("attemptKey", attempt),
             ("sourceRowId", id),
             ("sourceScore", score),
-        ]));
+        ]);
+        if titles {
+            let mut selected = obj(&[]);
+            for name in [
+                "testpageName",
+                "testPageName",
+                "pName",
+                "examName",
+                "title",
+                "testName",
+                "testingName",
+                "printTestingName",
+                "testTypeName",
+                "applyDate",
+            ] {
+                if r.get(name).string() && r.get(name).units().len() < 2000 {
+                    selected.set(name, r.get(name).clone());
+                }
+            }
+            row.set("titles", selected);
+        }
+        rows.push(row);
     }
-    Ok(obj(&[
-        ("selector", selector.clone()),
-        ("rows", Js::Arr(rows)),
-        ("observedAt", instant(raw.get("observedAt"))?),
-        ("operation", "DtResultSearch".into()),
-        ("page", Js::Num(1.0)),
-        ("coverage", COVERAGE.into()),
-        ("fixedSourceFilter", obj(&[("sort_date", selector.clone())])),
-    ]))
+    Ok(rows)
 }
 pub fn decode_code(code: &Js) -> Result<Js> {
     require(

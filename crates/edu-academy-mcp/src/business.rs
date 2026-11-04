@@ -246,10 +246,119 @@ pub(crate) fn effect(tool: &str) -> Effect {
 /// Only fictional owner graphs qualify in this source slice. No native factory.
 pub struct History<P: edu_academy_sources::history::Port> {
     source: edu_academy_sources::history::History<P>,
+    metadata_configured: bool,
 }
 impl<P: edu_academy_sources::history::Port> History<P> {
     pub fn from_source(source: edu_academy_sources::history::History<P>) -> Self {
-        Self { source }
+        Self {
+            source,
+            metadata_configured: true,
+        }
+    }
+    /// Explicit backend absence, preserving the original service failure bases.
+    pub fn without_metadata_backend(mut self) -> Self {
+        self.metadata_configured = false;
+        self
+    }
+    /// Full service metadata boundary. The accepted one-query I1 endpoint shape
+    /// retains its original envelope below; batches reuse its source algorithms.
+    pub fn student_metadata_call(&mut self, input: &Js, by_name: bool) -> CoreResult<Js> {
+        use edu_academy_sources::{data::fault_from_error, metadata};
+        let input = metadata::prepare(input, by_name).map_err(fault_from_error)?;
+        let base = if by_name {
+            obj(&[
+                ("purpose", input.get("purpose").clone()),
+                ("currentRequestRef", input.get("currentRequestRef").clone()),
+                ("academyWrites", 0usize.into()),
+                ("parentSends", 0usize.into()),
+                ("automaticRetryAllowed", false.into()),
+                ("execution", "read_only".into()),
+            ])
+        } else {
+            obj(&[
+                ("scope", input.get("scope").clone()),
+                ("purpose", input.get("purpose").clone()),
+                ("currentRequestRef", input.get("currentRequestRef").clone()),
+                ("academyWrites", 0usize.into()),
+                ("parentSends", 0usize.into()),
+                ("automaticRetryAllowed", false.into()),
+                ("sourceContentIsUntrustedData", true.into()),
+                ("execution", "read_only".into()),
+            ])
+        };
+        let mut failure_base = if by_name {
+            base.clone()
+        } else {
+            obj(&[
+                ("currentRequestRef", input.get("currentRequestRef").clone()),
+                ("academyWrites", 0usize.into()),
+                ("parentSends", 0usize.into()),
+                ("automaticRetryAllowed", false.into()),
+                ("execution", "read_only".into()),
+            ])
+        };
+        if !self.metadata_configured {
+            failure_base.set("status", "unavailable".into());
+            failure_base.set(
+                "reasonCode",
+                "student_metadata_backend_not_configured".into(),
+            );
+            return Ok(failure_base);
+        }
+        let before = self.source.source_requests();
+        let result = self
+            .source
+            .student_metadata(&input, by_name)
+            .and_then(|v| metadata::qualify_observation(&v, &input, by_name))
+            .map_err(fault_from_error)
+            .and_then(|observation| {
+                let mut out = base;
+                out.set("status", "observed".into());
+                if by_name {
+                    out.set("scope", observation.get("scope").clone());
+                }
+                out.set("results", observation.get("results").clone());
+                let bytes = crate::audit::tool_result(out.clone())
+                    .and_then(|v| crate::encode(&v))
+                    .map_err(|e| Fault::error(e.code))?;
+                if bytes.len() > 512 * 1024 {
+                    return Err(Fault::error("metadata_result_too_large"));
+                }
+                Ok(out)
+            });
+        match result {
+            Ok(out) => Ok(out),
+            Err(error) => {
+                let mut failure = read_failure::public_read_failure(
+                    &error,
+                    "student_metadata_unqualified_no_automatic_retry",
+                );
+                // Selected-batch oversized failure omits diagnostic hash/kind,
+                // exactly as service.metadata. Name reads retain those fields.
+                if !by_name && error.message == "metadata_result_too_large" {
+                    failure = Js::Obj(
+                        failure
+                            .props()
+                            .iter()
+                            .filter(|(k, _)| {
+                                !["origin", "errorKind", "errorSha256"]
+                                    .iter()
+                                    .any(|s| k == &crate::text(s))
+                            })
+                            .cloned()
+                            .collect(),
+                    );
+                }
+                failure_base.set("status", "unavailable".into());
+                failure_base.set("reasonCode", failure.get("code").clone());
+                failure_base.set("failure", failure);
+                failure_base.set(
+                    "sourceRequests",
+                    (self.source.source_requests() - before).into(),
+                );
+                Ok(failure_base)
+            }
+        }
     }
     pub(crate) fn check_history_binding(&self, graph: &ReleaseGraph, endpoint: &str) -> Result<()> {
         if graph.owner.kind != "fictional" {
@@ -294,6 +403,16 @@ impl<P: edu_academy_sources::history::Port> History<P> {
             ]));
         }
         let metadata = tool == "academy_student_metadata_get";
+        let i1_history = metadata
+            && input.get("queries").array().len() == 1
+            && input.get("queries").array()[0]
+                .get("kind")
+                .is("daily_history");
+        if tool == "academy_student_metadata"
+            || metadata && (!i1_history || !self.metadata_configured)
+        {
+            return self.student_metadata_call(input, metadata);
+        }
         let result = if metadata {
             self.source.metadata(input)
         } else {

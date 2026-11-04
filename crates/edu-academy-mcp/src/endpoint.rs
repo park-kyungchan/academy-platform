@@ -82,13 +82,14 @@ pub(crate) fn business_entry<'a>(
     Ok(first)
 }
 
-/// Additive, exact two-route binding. The original business_entry is unchanged.
+/// Additive, exact metadata/history binding. The original business_entry is unchanged.
 pub(crate) fn history_entry<'a>(
     graph: &'a ReleaseGraph,
     endpoint: &str,
     name: &str,
 ) -> Result<&'a Entry> {
-    if !((endpoint == "dailyrecord" && name == "academy_student_metadata_get")
+    if !((endpoint == "dailyrecord"
+        && ["academy_student_metadata_get", "academy_student_metadata"].contains(&name))
         || (["paper1", "paper2"].contains(&endpoint) && name == "academy_paper_headers"))
     {
         return Err(Error::new("business_endpoint_mismatch"));

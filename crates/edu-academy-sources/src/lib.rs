@@ -5,6 +5,7 @@ pub mod dom;
 pub mod evidence;
 pub mod history;
 pub mod http;
+pub mod metadata;
 pub mod native;
 pub mod owner_admission;
 pub mod owner_root;

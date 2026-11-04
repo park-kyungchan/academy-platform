@@ -56,6 +56,15 @@ impl Fictional {
     }
 }
 impl Port for Fictional {
+    fn metadata_method_available(&self, _: &str) -> bool {
+        true
+    }
+    fn student_paper_page(&mut self, student: &Js, period: &Js) -> Result<Js> {
+        self.take(
+            "student_paper_page",
+            &obj(&[("student", student.clone()), ("period", period.clone())]),
+        )
+    }
     fn dated_students(&mut self, input: &Js) -> Result<Js> {
         self.take("dated_students", input)
     }
@@ -125,6 +134,9 @@ fn main() {
     )
     .unwrap();
     let mut source = business::History::from_source(source);
+    if config.get("metadataBackendAbsent").truthy() {
+        source = source.without_metadata_backend();
+    }
     let mut session = RpcSession::endpoint(graph, endpoint.clone()).unwrap();
     let stdin = io::stdin();
     let mut stdout = io::stdout().lock();
