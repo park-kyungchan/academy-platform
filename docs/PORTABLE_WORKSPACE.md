@@ -17,7 +17,7 @@ vendor conversation or global memory, carry the durable project context.
 4. `docs/WHOLE_LENS_DECISION.md`: date-first product direction and acceptance.
 5. Only the task-relevant part of `research/backend-map/README.md` and its
    operation registry before any academy read.
-6. `spt/AGENTS.md` or `lms-automation/AGENTS.md` before work in those trees.
+6. `lms-automation/AGENTS.md` before work in that tree.
 
 Antigravity CLI's [workspace rules](https://antigravity.google/docs/rules/)
 load `AGENTS.md` at the repository root and in relevant subdirectories. Other
@@ -31,11 +31,12 @@ of the project policy in model-specific instruction files.
 | `src/wholeLens/`, `src/assessment/`, `src/preclass/`, `src/sheets/` | Active TypeScript domain models and Main Sheet projections | Bun synthetic tests; no live LMS or Sheet connection |
 | `workbench_v2/`, `review/` | Historical Python projection and static 14:00 teacher screen candidate | Parity reference; no LMS or Sheet connection |
 | `research/backend-map/` | Dated, bounded academy operation evidence | Registry contracts, not a live login or current student state |
-| `spt/` | Imported SPT classroom client/server source | D1/R2 runtime remains separate and needs fresh service/device proof |
 | `lms-automation/` | Imported `ganga` source, tests, dependencies | LMS owns official records; source alone grants no live effect |
 | `docs/source-import-manifest.json` | File hashes and source Git revisions at import | Provenance, not a permanent development lock |
 
-The source imports are snapshots, not nested Git repositories or submodules.
+The SPT snapshot was retired under user decision U2; recover its historical bytes from Git tag `archive/education-dc-gang-a-pre-spt-delete-20261105`.
+
+The retained source imports are snapshots, not nested Git repositories or submodules.
 The old SPT and LMS working directories were left untouched. Importing their
 old Git history would carry known credential and student-data exposure risks,
 so this repository records source commits and file hashes instead. The LMS

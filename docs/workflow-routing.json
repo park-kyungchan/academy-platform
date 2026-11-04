@@ -8,7 +8,7 @@
     "doctor": "bun run harness/workflow_checkpoint.ts doctor",
     "tests": "bun test --dots tests/harness/workflowCheckpoint.test.ts",
     "dependencyDoctor": "bun run harness/backend_dependencies.ts doctor",
-    "context": "bun run workflow:context [continuation|interview|dependencies|main_sheet|google_integration|academy_local|spt_mobile|bot_development]"
+    "context": "bun run workflow:context [continuation|interview|dependencies|main_sheet|google_integration|academy_local|bot_development]"
   },
   "execution": [
     "Use the existing pinned Bun executable. If bun is absent from PATH, invoke its already verified executable path or prepend its bin directory for the current command only.",
@@ -325,13 +325,6 @@
         "declaredAsOf": null
       },
       {
-        "id": "spt_instructions",
-        "path": "spt/AGENTS.md",
-        "authority": "native_instructions",
-        "role": "SPT subtree boundaries; source import and running service are separate authorities.",
-        "declaredAsOf": null
-      },
-      {
         "id": "source_imports",
         "path": "docs/source-import-manifest.json",
         "authority": "dated_evidence",
@@ -531,20 +524,6 @@
         "interviewRule": "Investigate exact source contracts through deterministic harness queries before asking the teacher for source facts. Ask only teacher decisions or truly missing authority; unknown joins remain unknown."
       },
       {
-        "id": "spt_mobile",
-        "sourceIds": [
-          "spt_instructions",
-          "source_imports",
-          "main_sheet_design",
-          "cloud_environment"
-        ],
-        "entryRule": "Read SPT subtree instructions and distinguish imported source from the operational checkout/service. Reconcile the web-first candidate with the later documented mobile pause before dependent mobile work.",
-        "commandReferences": [
-          "bun run workflow:context"
-        ],
-        "interviewRule": "Do not reopen paid Apple membership or assume current device acceptance. Ask whether the recorded mobile pause should change only if the requested work depends on that choice."
-      },
-      {
         "id": "bot_development",
         "sourceIds": ["backend_profile", "backend_autonomy", "bot_development_contract", "bot_development_runbook", "package_scripts"],
         "entryRule": "Use the real typed Bot contract and decision CLI for a bounded current Work. Separate trusted Lead, restricted worker/reviewer and native caller scopes. Qualify only the affected tools/effects; no historical private resume, Cloud bootstrap or GUI gate for source-only engineering. Failed child mutation stays blocked without declaring every Bot or independent lane unavailable.",
@@ -573,8 +552,7 @@
         "id": "mobile_candidate_and_pause",
         "purposes": [
           "continuation",
-          "interview",
-          "spt_mobile"
+          "interview"
         ],
         "sourceIds": [
           "product_direction",

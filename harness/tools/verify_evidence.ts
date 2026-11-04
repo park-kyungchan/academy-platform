@@ -32,7 +32,7 @@ export function verifyEvidence(root: string) {
   if (imported.schema_version !== 1) throw new Error('unsupported_import_manifest');
   let importFiles = 0;
   for (const component of imported.components) {
-    if (!['spt','lms-automation'].includes(component.name)) throw new Error('unexpected_source_component');
+    if (component.name !== 'lms-automation') throw new Error('unexpected_source_component');
     const source = safeProjectPath(root, component.name);
     if (Object.keys(component.files).length !== component.file_count) failures.push(component.name + ':count_drift');
     for (const [ref, expected] of Object.entries(component.files)) {
