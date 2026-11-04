@@ -88,6 +88,11 @@
       "exposure": "open"
     },
     {
+      "name": "academy_prestudy_report_get",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
       "name": "academy_query",
       "class": "read",
       "exposure": "open"

@@ -83,6 +83,17 @@ export type PrestudyObservation={student:{studentId:string;displayName:string};
   completed:{unitLabel:string;dateLiteral:string;statusLiteral:string;prestudyKey:string}[];
   summary:{unitLabel:string;dateLiteral:string;aiScoreLiteral:string;ratingLiteral:string;reportAvailable:boolean;videoAvailable:boolean}[];
   teacherJudgment:null;observedAt:string;coverage:string};
+/** AI prestudy report read by exact student name and prestudy key. The
+ * report text is student content for the teacher only: it is returned to
+ * the caller and never stored. No transcript exists on the source pages;
+ * the sections below are the LLM report itself. */
+export const prestudyReportGetSchema=z.object({displayName:z.string().trim().min(1).max(200),
+  prestudyKey:z.string().regex(/^[1-9][0-9]{0,15}$/),
+  purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema}).strict();
+export type PrestudyReportGet=z.infer<typeof prestudyReportGetSchema>;
+export type PrestudyReportObservation={student:{studentId:string;displayName:string};prestudyKey:string;
+  sections:{title:string;subtitle:string|null;blocks:{heading:string|null;text:string}[]}[];scores:number[];
+  encodingResult:string|null;observedAt:string;coverage:string};
 /** Textbook section grading resolved by exact student name: the owner
  * backend discovers the registered course/book binding from the live
  * progress page. Without sourceTitles it returns the observed title index. */
@@ -139,6 +150,7 @@ export interface DailyRecordReadBackend {
   searchStudentsByName?(exactName:Readonly<string>,requestRef:string,lessonDate?:string):Promise<unknown>;
   readTextbookSections?(input:Readonly<TextbookSectionResults>):Promise<TextbookSectionObservation>;
   readPrestudyByName?(input:Readonly<PrestudyGet>):Promise<PrestudyObservation>;
+  readPrestudyReportByName?(input:Readonly<PrestudyReportGet>):Promise<PrestudyReportObservation>;
   readTextbookSectionsByName?(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionResultsByNameObservation>;
   readItemSectionTrace?(input:Readonly<ItemSectionTrace>):Promise<ItemSectionTraceObservation>;
 }
@@ -389,6 +401,22 @@ export class DailyRecordService {
       if(toolResultBytes(result)>512*1024)throw Error('prestudy_result_too_large');
       return freezeLabelData(result);
     }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'prestudy_unqualified_no_automatic_retry')};}
+  }
+  async prestudyReportGet(value:unknown){
+    const input=prestudyReportGetSchema.parse(value);
+    const base={purpose:input.purpose,currentRequestRef:input.currentRequestRef,displayName:input.displayName,prestudyKey:input.prestudyKey,
+      academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only' as const,
+      studentContent:'teacher_only_do_not_store_or_relay' as const};
+    if(!this.backend?.readPrestudyReportByName)return {...base,status:'unavailable' as const,reasonCode:'prestudy_report_backend_not_configured'};
+    try{
+      const result=await this.#serial(async()=>{
+        const observation=await this.backend!.readPrestudyReportByName!(freezeLabelData(structuredClone(input)));
+        if(observation.student.displayName!==input.displayName||observation.prestudyKey!==input.prestudyKey)throw Error('prestudy_report_scope_conflict');
+        return {...base,status:'observed' as const,...observation};
+      });
+      if(toolResultBytes(result)>512*1024)throw Error('prestudy_report_result_too_large');
+      return freezeLabelData(result);
+    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'prestudy_report_unqualified_no_automatic_retry')};}
   }
   async textbookSectionsByName(value:unknown){
     const input=textbookSectionResultsGetSchema.parse(value);

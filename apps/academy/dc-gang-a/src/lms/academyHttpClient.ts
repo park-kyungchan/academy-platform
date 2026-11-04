@@ -1,7 +1,7 @@
 import {CISM_PATH,parseCismReport,cismWriteParameters,cismWeek,type CismReport} from './cismWeeklyProtocol';
 import {JSDOM} from 'jsdom';
 import {TEXTBOOK_CATALOG_PATH,MAX_TEXTBOOK_CATALOG_BYTES,MAX_TEXTBOOK_SAMPLE_BYTES,MAX_TEXTBOOK_REFERENCE_BYTES,parseTextbookCatalog,boundedTextbookBody,qualifiedTextbookPdfUrl,textbookPdfDigest,type TextbookCatalogObservation,type TextbookPdfObservation,type TextbookSchoolLevel} from './textbookCatalogRead';
-import {PRESTUDY_PATH,PRESTUDY_SUMMARY_PATH,TEXTBOOK_PROGRESS_PATH,parsePrestudySearchForm,parsePrestudyList,parsePrestudySummary,prestudyRowsForStudent,parseTextbookBindings,type PrestudyListRow,type PrestudySummaryRow,type TextbookBinding} from './prestudyRead';
+import {PRESTUDY_PATH,PRESTUDY_SUMMARY_PATH,PRESTUDY_REPORT_PATH,TEXTBOOK_PROGRESS_PATH,parsePrestudySearchForm,parsePrestudyList,parsePrestudySummary,prestudyRowsForStudent,parseTextbookBindings,parsePrestudyDetail,parsePrestudyReport,type PrestudyListRow,type PrestudySummaryRow,type TextbookBinding,type PrestudyReport} from './prestudyRead';
 import {randomInt,createHash} from 'node:crypto';
 import {createAcademyReadPlan,executeAcademyRead,readLiteralKey,readLiteralName,sourceResponseKey,parseTextbookScopeBinding,type AcademyReadResult,type ScopedAcademyReadPlan} from './academyReadProtocol';
 import {readInputRecord} from '../contracts/readInputRecord';
@@ -130,6 +130,27 @@ export class AcademyHttpClient {
     const summaryHtml=await pageText(PRESTUDY_SUMMARY_PATH,{method:'GET'},'TeacherPrestudySummary');
     const summary=prestudyRowsForStudent(parsePrestudySummary(summaryHtml,sourceDomParser.parseFromString),input.studentName);
     return {waiting,completed,summary,observedAt:new Date().toISOString(),coverage:'exact_student_rows_on_waiting_completed_and_one_observed_summary_page_not_all_history'};
+  }
+  /** AI prestudy report for one exact uploaded-video record. The detail
+   * record must belong to the exact student; its rendered analysis key is
+   * followed to the server-rendered report page. Report text is student
+   * content for the teacher only; no transcript field exists on either
+   * page and none is derived. */
+  async readPrestudyReport(input:{teacherLabel:string;studentName:string;studentKey:string;prestudyKey:string}):Promise<PrestudyReport&{prestudyKey:string;encodingResult:string|null;observedAt:string;coverage:string}>{
+    if(!input||Object.keys(input).sort().join(',')!=='prestudyKey,studentKey,studentName,teacherLabel'||input.teacherLabel!==this.#principal.teacherLabel)throw Error('prestudy_report_principal_rejected');
+    readLiteralName(input.studentName);readLiteralKey(input.studentKey);readLiteralKey(input.prestudyKey);
+    if(!this.#authenticated)throw Error('authentication_required');
+    const pageText=async(path:string,operation:string)=>{
+      const response=await this.#request(path,{method:'GET'},false,operation);
+      const text=await response.text();if(text.length>2000000)throw Error('prestudy_source_rejected');return text;
+    };
+    const detailHtml=await pageText(PRESTUDY_PATH+'?reqCmd=WebPreStudy&prestudy_key='+encodeURIComponent(input.prestudyKey),'WebPreStudy');
+    const detail=parsePrestudyDetail(detailHtml,sourceDomParser.parseFromString,input.studentKey);
+    if(!detail.analysisKey)throw Error('prestudy_report_not_ready');
+    const reportHtml=await pageText(PRESTUDY_REPORT_PATH+'?analysis_key='+encodeURIComponent(detail.analysisKey),'prestudy_ai_report');
+    const report=parsePrestudyReport(reportHtml,sourceDomParser.parseFromString);
+    return {...report,prestudyKey:input.prestudyKey,encodingResult:detail.encodingResult,observedAt:new Date().toISOString(),
+      coverage:'exact_prestudy_detail_and_server_rendered_ai_report_sections_not_transcript'};
   }
   /** Registered textbook bindings for one exact student, from the live
    * getTextBookProgress rows. Caller IDs are never accepted here. */

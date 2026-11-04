@@ -5,7 +5,7 @@ import {dirname,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {z} from 'zod';
 import {readPinnedLocalBytes} from './item-label-store.ts';
-import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation,type TextbookSectionResultsByNameObservation,type ItemSectionTrace,type ItemSectionTraceObservation} from './dailyrecord.ts';
+import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type PrestudyReportGet,type PrestudyReportObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation,type TextbookSectionResultsByNameObservation,type ItemSectionTrace,type ItemSectionTraceObservation} from './dailyrecord.ts';
 import {createDailyRecordSaveAdmission,liveSaveRequestEvidence,type DailyRecordSaveAdmission,type DailyRecordSaveApproval} from './dailyrecord-save-admission.ts';
 import type {DailyRecordActionApproval} from './dailyrecord-workflow.ts';
 import type {DailyRecordField} from './dailyrecord-context.ts';
@@ -57,6 +57,7 @@ interface SourcePort {
    * request input. No sequential key probing, before or after. */
   searchStudentsByName?(input:{teacherLabel:string;studentName:string}):Promise<unknown>;
   readPrestudy?(input:{teacherLabel:string;studentName:string}):Promise<{waiting:unknown[];completed:unknown[];summary:unknown[];observedAt:string;coverage:string}>;
+  readPrestudyReport?(input:{teacherLabel:string;studentName:string;studentKey:string;prestudyKey:string}):Promise<{sections:unknown[];scores:number[];prestudyKey:string;encodingResult:string|null;observedAt:string;coverage:string}>;
   readTextbookBindings?(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[]>;
   inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];indexBasis?:string;coverage?:string}>;
 }
@@ -217,6 +218,24 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       summary=z.array(summaryRow).max(1000).parse(raw.summary);
     return {student:{studentId:student.studentId,displayName:student.displayName},waiting,completed,summary,
       teacherJudgment:null,observedAt:raw.observedAt,coverage:raw.coverage};
+  }
+  /** AI prestudy report for one exact record of an admitted student. The
+   * client binds the detail record to the student key before following
+   * its analysis key. Report text stays in this return value only. */
+  async readPrestudyReportByName(input:Readonly<PrestudyReportGet>):Promise<PrestudyReportObservation>{
+    const student=this.admission.students.find(s=>s.displayName===input.displayName);
+    if(!student||!this.managedNames.has(input.displayName))throw Error('prestudy_student_not_admitted');
+    if(!this.client.readPrestudyReport)throw Error('prestudy_report_source_port_unavailable');
+    await this.#authenticate();
+    const raw=await this.client.readPrestudyReport({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId,prestudyKey:input.prestudyKey});
+    if(raw.prestudyKey!==input.prestudyKey)throw Error('prestudy_report_result_unqualified');
+    const section=z.object({title:z.string().min(1).max(500),subtitle:z.string().max(1000).nullable(),
+      blocks:z.array(z.object({heading:z.string().max(1000).nullable(),text:z.string().min(1).max(20000)})).min(1).max(60)});
+    const sections=z.array(section).min(1).max(16).parse(raw.sections);
+    const scores=z.array(z.number()).max(20).parse(raw.scores);
+    const encodingResult=z.string().max(200).nullable().parse(raw.encodingResult);
+    return {student:{studentId:student.studentId,displayName:student.displayName},prestudyKey:raw.prestudyKey,
+      sections,scores,encodingResult,observedAt:raw.observedAt,coverage:raw.coverage};
   }
   /** Section grading/index with the binding discovered owner-side from the
    * live progress page. With several registered bindings and no exact
