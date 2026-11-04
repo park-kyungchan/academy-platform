@@ -853,6 +853,27 @@ fn actual_same_child_resolve_intake_store_and_failure_cleanup() {
     );
     assert!(!scene.state.join("child-requests.jsonl").exists());
     assert!(receipts(&scene, "-cleanup.json").is_empty());
+    // Preserve real global-deadline coverage separately from the readiness-
+    // triggered fault above. Cold startup may consume this entire short budget;
+    // no assertion assumes a particular handshake/intake step was reached.
+    let scene = Scene::new("stall_intake", &routing_admission(), "dailyrecord");
+    let out = invoke(&scene, &input(), Duration::from_millis(500));
+    assert!(
+        out.get("structuredContent")
+            .get("code")
+            .is("upstream_deadline_exceeded"),
+        "{out:?}"
+    );
+    assert!(
+        receipts(&scene, "-cleanup.json")[0]
+            .get("qualified")
+            .truthy()
+    );
+    assert_eq!(receipts(&scene, "-failure.json").len(), 1);
+    let path = scene.state.join("workflow/observation");
+    if path.exists() {
+        assert!(fs::read_dir(path).unwrap().next().is_none());
+    }
 }
 
 #[test]
