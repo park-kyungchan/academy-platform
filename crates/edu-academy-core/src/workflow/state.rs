@@ -159,10 +159,11 @@ pub fn student_executions(store: &Store, scope: &Js) -> Result<Vec<Execution>> {
     let mut out = vec![];
     for key in store.ledger(&lock_key(scope)?)? {
         let record = store.get(Kind::Execution, &key)?;
-        // A durable ledger entry promises an execution identity. An absent
-        // record cannot prove that dispatch never happened: fail closed.
+        // Match the TS reference: ledger publication precedes the execution
+        // fence. A crash between them never authorized dispatch, so skip the
+        // index-only entry and permit a fresh save. Keep exact Unicode keys.
         if record.absent() {
-            return Err(Fault::error("workflow_store_execution_record_missing"));
+            continue;
         }
         let state = field_state(store, &key)?;
         out.push(Execution { key, record, state });

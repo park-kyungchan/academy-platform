@@ -86,7 +86,7 @@ fn publication_is_immutable_and_identity_checked_after_readback() {
     );
 }
 #[test]
-fn dangling_ledger_is_refused_and_physical_fence_ignores_request_and_date() {
+fn index_only_is_available_and_physical_fence_ignores_request_and_date() {
     let p = root("fence");
     let s = Store::open(&p.join("store"), &p).unwrap();
     let scope = obj(&[
@@ -97,10 +97,7 @@ fn dangling_ledger_is_refused_and_physical_fence_ignores_request_and_date() {
     ]);
     s.add_ledger(&state::lock_key(&scope).unwrap(), "index-only", &Clock)
         .unwrap();
-    assert_eq!(
-        state::student_executions(&s, &scope).err().unwrap().message,
-        "workflow_store_execution_record_missing"
-    );
+    assert!(state::student_executions(&s, &scope).unwrap().is_empty());
     assert_eq!(
         state::field_state(&s, "index-only").unwrap(),
         FieldState::Available

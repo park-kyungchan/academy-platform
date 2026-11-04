@@ -833,11 +833,7 @@ fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() 
             Err(Fault::error("fictional_crash_before_resolution"))
         }
     }
-    for (physical, missing) in [
-        ("current-record", false),
-        ("record-😀", false),
-        ("current-record", true),
-    ] {
+    for physical in ["current-record", "record-😀"] {
         let root = root("unicode-fence");
         let store = Store::open(&root.join("store"), &root).unwrap();
         let scope = context().get("scope").clone();
@@ -878,24 +874,6 @@ fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() 
                 .len(),
             1
         );
-        if missing {
-            let key = state::execution_key(
-                "req-😀",
-                &scope,
-                "progress",
-                physical,
-                &"- Existing progress".into(),
-                &"- Updated progress".into(),
-            )
-            .unwrap();
-            fs::remove_file(
-                store
-                    .root()
-                    .join("execution")
-                    .join(sha(&("execution\n".to_owned() + &key)) + ".json"),
-            )
-            .unwrap();
-        }
         let mut source = Source::observed();
         let mut observation = source.result.get("observation").clone();
         let mut target = observation.get("target").clone();
@@ -935,20 +913,184 @@ fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() 
         );
         input.set("reviewDigest", review.get("reviewDigest").clone());
         input.set("request", js(json!({"requestRef":"later-🚀","instruction":{"text":"Save this reviewed fictional field."}})));
-        if missing {
+        let held = svc.save(&input).unwrap();
+        assert!(
+            held.get("reasonCode")
+                .is("uncertain_dispatch_reconcile_required"),
+            "{}",
+            stringify(&held).unwrap()
+        );
+        assert_eq!(held.get("academyWrites"), &Js::Num(0.0));
+    }
+}
+
+#[test]
+fn index_only_crash_allows_a_fresh_save_after_reopen() {
+    use edu_academy_core::workflow::{approval::RequestApproval, state};
+    struct CrashAfterIndex(Clock);
+    impl Runtime for CrashAfterIndex {
+        fn now(&self) -> String {
+            self.0.now()
+        }
+        fn epoch_ms(&self) -> u64 {
+            0
+        }
+        fn uuid(&self) -> Result<String> {
+            self.0.uuid()
+        }
+        fn indexed(&self) -> Result<()> {
+            Err(Fault::error("fictional_crash_after_index"))
+        }
+    }
+    struct FictionalSave {
+        dispatches: usize,
+    }
+    impl service::Backend for FictionalSave {
+        fn configured(&self) -> bool {
+            true
+        }
+        fn save(
+            &mut self,
+            scope: &Js,
+            patches: &Js,
+            approval: &mut dyn Approval,
+            _: &Js,
+        ) -> Result<Js> {
+            assert_eq!(patches.array().len(), 1);
+            let patch = &patches.array()[0];
+            let action = obj(&[
+                (
+                    "target",
+                    obj(&[
+                        ("studentKey", scope.get("studentId").clone()),
+                        ("teacherKey", scope.get("teacherId").clone()),
+                        ("date", scope.get("lessonDate").clone()),
+                    ]),
+                ),
+                ("attemptId", "fictional-attempt".into()),
+                ("field", patch.get("field").clone()),
+                ("effectRecordKey", "record-😀".into()),
+                ("before", patch.get("before").clone()),
+                ("after", patch.get("value").clone()),
+            ]);
+            assert!(approval.consume(&action)?.get("status").is("verified"));
+            self.dispatches += 1;
+            Ok(js(
+                json!([{"field":"progress","status":"persisted","dispatched":true,"transport":"returned"}]),
+            ))
+        }
+    }
+    // Both retrying the never-dispatched request and using a new request are valid.
+    for request in ["req-😀", "later-🚀"] {
+        let root = root("index-only-recovery");
+        let store = Store::open(&root.join("store"), &root).unwrap();
+        let scope = context().get("scope").clone();
+        let reviewed = js(json!({"field":"progress","effectRecordKey":"record-😀",
+            "before":"- Existing progress","after":"- Updated progress"}));
+        let key = state::execution_key(
+            "req-😀",
+            &scope,
+            "progress",
+            "record-😀",
+            reviewed.get("before"),
+            reviewed.get("after"),
+        )
+        .unwrap();
+        let crash_clock = CrashAfterIndex(Clock::new(NOW));
+        let mut approval = RequestApproval {
+            store: &store,
+            input: obj(&[
+                ("requestRef", "req-😀".into()),
+                ("scope", scope.clone()),
+                ("reviewed", Js::Arr(vec![reviewed])),
+            ]),
+            runtime: &crash_clock,
+        };
+        let action = js(
+            json!({"target":{"studentKey":"student","teacherKey":"teacher","date":"2040-01-04"},
+            "field":"progress","effectRecordKey":"record-😀","before":"- Existing progress","after":"- Updated progress"}),
+        );
+        assert_eq!(
+            approval.consume(&action).unwrap_err().message,
+            "fictional_crash_after_index"
+        );
+        drop(approval);
+        drop(store);
+        let store = Store::open(&root.join("store"), &root).unwrap();
+        assert_eq!(
+            store.ledger(&state::lock_key(&scope).unwrap()).unwrap(),
+            vec![key.clone()]
+        );
+        assert!(store.get(Kind::Execution, &key).unwrap().absent());
+        assert_eq!(
+            state::field_state(&store, &key).unwrap(),
+            state::FieldState::Available
+        );
+        assert!(
+            state::student_executions(&store, &scope)
+                .unwrap()
+                .is_empty()
+        );
+        let mut source = Source::observed();
+        let mut observation = source.result.get("observation").clone();
+        let mut target = observation.get("target").clone();
+        target.set("recordId", "record-😀".into());
+        observation.set("target", target);
+        source.result.set("observation", observation);
+        let mut context = context();
+        context.set("currentRequestRef", request.into());
+        context.set("selectedFields", js(json!(["progress"])));
+        context.set("facts", Js::Arr(vec![fact("progress", "Updated progress")]));
+        let mut backend = FictionalSave { dispatches: 0 };
+        let policy = Policy::new(true);
+        let clock = Clock::new(NOW);
+        let mut svc = service::Service {
+            store: &store,
+            source: &mut source,
+            policy: &policy,
+            backend: &mut backend,
+            runtime: &clock,
+        };
+        let intake = svc.intake(&obj(&[("context", context.clone())])).unwrap();
+        let mut proposed = proposal("progress", "- Updated progress");
+        proposed.set(
+            "decision",
+            js(json!({"kind":"replace", "requestRef":request})),
+        );
+        let mut input = obj(&[
+            ("context", context),
+            ("observationHandle", intake.get("observationHandle").clone()),
+            ("proposals", Js::Arr(vec![proposed])),
+        ]);
+        let review = svc.review(&input, true).unwrap();
+        assert!(
+            review.get("status").is("prepared"),
+            "{}",
+            stringify(&review).unwrap()
+        );
+        input.set("reviewDigest", review.get("reviewDigest").clone());
+        input.set("request", js(json!({"requestRef":request,"instruction":{"text":"Save this reviewed fictional field."}})));
+        let saved = svc.save(&input).unwrap();
+        assert!(
+            saved.get("status").is("saved"),
+            "{}",
+            stringify(&saved).unwrap()
+        );
+        assert_eq!(saved.get("academyWrites"), &Js::Num(1.0));
+        assert_eq!(backend.dispatches, 1);
+        let executions = state::student_executions(&store, &scope).unwrap();
+        assert_eq!(executions.len(), 1);
+        assert_eq!(executions[0].state, state::FieldState::SettledPersisted);
+        assert!(executions[0].record.get("requestRef").is(request));
+        if request != "req-😀" {
+            assert!(store.get(Kind::Execution, &key).unwrap().absent());
             assert_eq!(
-                svc.save(&input).unwrap_err().message,
-                "workflow_store_execution_record_missing"
+                store
+                    .ledger(&state::lock_key(&scope).unwrap())
+                    .unwrap()
+                    .len(),
+                2
             );
-        } else {
-            let held = svc.save(&input).unwrap();
-            assert!(
-                held.get("reasonCode")
-                    .is("uncertain_dispatch_reconcile_required"),
-                "{}",
-                stringify(&held).unwrap()
-            );
-            assert_eq!(held.get("academyWrites"), &Js::Num(0.0));
         }
     }
 }
