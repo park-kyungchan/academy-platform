@@ -95,28 +95,43 @@ export function prestudyRowsForStudent<T extends { studentLabel: string }>(rows:
 }
 
 export interface PrestudyDetail {
+  prestudyKey: string; unitLabel: string | null; dateLiteral: string | null;
   analysisKey: string | null; encodingResult: string | null;
 }
 
 /** One uploaded-video detail record (WebPreStudy). The record is bound to
- * the exact student through its own form field; the AI report is reachable
+ * the exact student and requested record through its own form fields; the AI report is reachable
  * only through the rendered viewAiReport(analysis_key) handler. A missing
  * handler means no finished report is exposed for this record. */
-export function parsePrestudyDetail(html: string, parse: (html: string, mime: DOMParserSupportedType) => Document, studentKey: string): PrestudyDetail {
+export function parsePrestudyDetail(html: string, parse: (html: string, mime: DOMParserSupportedType) => Document, studentKey: string, prestudyKey: string): PrestudyDetail {
   rejectExpired(html);
   const doc = parse(html, 'text/html');
-  const form = doc.querySelector('form[name="form1"]');
-  const studentField = form?.querySelector<HTMLInputElement>('[name="student_pri_no"]')?.value;
-  if (!form || !studentField) throw Error('prestudy_detail_unqualified');
+  const forms = doc.querySelectorAll('form[name="form1"]');
+  if (forms.length !== 1) throw Error('prestudy_detail_unqualified');
+  const form = forms[0];
+  const field = (name: string): string | null => {
+    const nodes = form.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`);
+    if (nodes.length > 1) throw Error('prestudy_detail_unqualified');
+    const value = nodes[0]?.value;
+    return value?.trim() ? value : null;
+  };
+  const studentField = field('student_pri_no');
+  const sourceKey = field('prestudy_key');
+  if (!studentField || !sourceKey || !/^[1-9][0-9]{0,15}$/.test(sourceKey)) throw Error('prestudy_detail_unqualified');
   if (studentField !== studentKey) throw Error('prestudy_detail_student_mismatch');
+  if (sourceKey !== prestudyKey) throw Error('prestudy_detail_record_mismatch');
   let analysisKey: string | null = null;
   for (const node of doc.querySelectorAll('[onclick]')) {
     const match = /viewAiReport\(\s*'([^']+)'\s*\)|viewAiReport\(\s*"([^"]+)"\s*\)/.exec(node.getAttribute('onclick') ?? '');
-    if (match) { analysisKey = match[1] ?? match[2] ?? null; break; }
+    if (match) {
+      const key = match[1] ?? match[2] ?? null;
+      if (analysisKey !== null && analysisKey !== key) throw Error('prestudy_detail_unqualified');
+      analysisKey = key;
+    }
   }
   if (analysisKey !== null && !/^[1-9][0-9]{0,15}$/.test(analysisKey)) throw Error('prestudy_detail_unqualified');
-  const encodingResult = clean(form.querySelector<HTMLInputElement>('[name="encoding_result"]')?.value ?? '') || null;
-  return { analysisKey, encodingResult };
+  const encodingResult = clean(field('encoding_result') ?? '') || null;
+  return { prestudyKey: sourceKey, unitLabel: field('sunit_name'), dateLiteral: field('create_datetime'), analysisKey, encodingResult };
 }
 
 export interface PrestudyReportBlock { heading: string | null; text: string }

@@ -41,15 +41,26 @@ test('textbook bindings come only from the exact student row handler',()=>{
   expect(()=>parseTextbookBindings(progress,sourceDomParser.parseFromString,'77003')).toThrow('textbook_binding_source_unqualified');
 });
 
-const detail=`<html><form name="form1"><input type="hidden" name="prestudy_key" value="12345"><input type="hidden" name="student_pri_no" value="77001"><input type="hidden" name="encoding_result" value="success"></form>
+const detail=`<html><form name="form1"><input type="hidden" name="prestudy_key" value="12345"><input type="hidden" name="student_pri_no" value="77001"><input type="hidden" name="sunit_name" value="9-1 Fictional Unit(ver. 1)"><input type="hidden" name="create_datetime" value="2040-01-02 03:04:05"><input type="hidden" name="encoding_result" value="success"></form>
 <button onclick="viewAiReport('55501');">Ai 보고서 보기</button></html>`;
-const detailNoReport=`<html><form name="form1"><input type="hidden" name="student_pri_no" value="77001"><input type="hidden" name="encoding_result" value="success"></form></html>`;
+const detailNoReport=`<html><form name="form1"><input type="hidden" name="prestudy_key" value="12345"><input type="hidden" name="student_pri_no" value="77001"><input type="hidden" name="encoding_result" value="success"></form></html>`;
 
-test('prestudy detail binds the record to the exact student and exposes only the analysis key',()=>{
-  expect(parsePrestudyDetail(detail,sourceDomParser.parseFromString,'77001')).toEqual({analysisKey:'55501',encodingResult:'success'});
-  expect(parsePrestudyDetail(detailNoReport,sourceDomParser.parseFromString,'77001')).toEqual({analysisKey:null,encodingResult:'success'});
-  expect(()=>parsePrestudyDetail(detail,sourceDomParser.parseFromString,'77002')).toThrow('prestudy_detail_student_mismatch');
-  expect(()=>parsePrestudyDetail('<html><body>gone</body></html>',sourceDomParser.parseFromString,'77001')).toThrow('prestudy_detail_unqualified');
+test('prestudy detail binds exact student and record and preserves source unit/date literals',()=>{
+  expect(parsePrestudyDetail(detail,sourceDomParser.parseFromString,'77001','12345')).toEqual({prestudyKey:'12345',unitLabel:'9-1 Fictional Unit(ver. 1)',dateLiteral:'2040-01-02 03:04:05',analysisKey:'55501',encodingResult:'success'});
+  expect(parsePrestudyDetail(detailNoReport,sourceDomParser.parseFromString,'77001','12345')).toEqual({prestudyKey:'12345',unitLabel:null,dateLiteral:null,analysisKey:null,encodingResult:'success'});
+  expect(()=>parsePrestudyDetail(detail,sourceDomParser.parseFromString,'77002','12345')).toThrow('prestudy_detail_student_mismatch');
+  expect(()=>parsePrestudyDetail(detail,sourceDomParser.parseFromString,'77001','12346')).toThrow('prestudy_detail_record_mismatch');
+  expect(()=>parsePrestudyDetail('<html><body>gone</body></html>',sourceDomParser.parseFromString,'77001','12345')).toThrow('prestudy_detail_unqualified');
+});
+
+test('duplicate detail identity fields and conflicting report links fail closed',()=>{
+  for(const html of [detail.replace('</form>','<input name="prestudy_key" value="12346"></form>'),
+    detail.replace('</form>','<input name="student_pri_no" value="77002"></form>'),
+    detail+'<form name="form1"><input name="prestudy_key" value="12345"></form>',
+    detail+'<button onclick="viewAiReport(\'55502\')">other report</button>',
+    detail.replace('name="prestudy_key"','name="unrelated_key"')]){
+    expect(()=>parsePrestudyDetail(html,sourceDomParser.parseFromString,'77001','12345')).toThrow('prestudy_detail_unqualified');
+  }
 });
 
 const report=`<html><body>

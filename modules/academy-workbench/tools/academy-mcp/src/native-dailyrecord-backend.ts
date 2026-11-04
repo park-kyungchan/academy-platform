@@ -57,7 +57,7 @@ interface SourcePort {
    * request input. No sequential key probing, before or after. */
   searchStudentsByName?(input:{teacherLabel:string;studentName:string}):Promise<unknown>;
   readPrestudy?(input:{teacherLabel:string;studentName:string}):Promise<{waiting:unknown[];completed:unknown[];summary:unknown[];observedAt:string;coverage:string}>;
-  readPrestudyReport?(input:{teacherLabel:string;studentName:string;studentKey:string;prestudyKey:string}):Promise<{sections:unknown[];scores:number[];prestudyKey:string;encodingResult:string|null;observedAt:string;coverage:string}>;
+  readPrestudyReport?(input:{teacherLabel:string;studentName:string;studentKey:string;prestudyKey:string}):Promise<{sections:unknown[];scores:number[];prestudyKey:string;sourceRecord:{prestudyKey:string;unitLabel:string|null;dateLiteral:string|null};encodingResult:string|null;observedAt:string;coverage:string}>;
   readTextbookBindings?(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[]>;
   inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];indexBasis?:string;coverage?:string}>;
 }
@@ -229,13 +229,15 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     await this.#authenticate();
     const raw=await this.client.readPrestudyReport({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId,prestudyKey:input.prestudyKey});
     if(raw.prestudyKey!==input.prestudyKey)throw Error('prestudy_report_result_unqualified');
+    const sourceRecord=z.object({prestudyKey:z.string().regex(/^[1-9][0-9]{0,15}$/),unitLabel:z.string().min(1).max(500).nullable(),dateLiteral:z.string().min(1).max(200).nullable()}).strict().parse(raw.sourceRecord);
+    if(sourceRecord.prestudyKey!==input.prestudyKey)throw Error('prestudy_report_scope_conflict');
     const section=z.object({title:z.string().min(1).max(500),subtitle:z.string().max(1000).nullable(),
       blocks:z.array(z.object({heading:z.string().max(1000).nullable(),text:z.string().min(1).max(20000)})).min(1).max(60)});
     const sections=z.array(section).min(1).max(16).parse(raw.sections);
     const scores=z.array(z.number()).max(20).parse(raw.scores);
     const encodingResult=z.string().max(200).nullable().parse(raw.encodingResult);
     return {student:{studentId:student.studentId,displayName:student.displayName},prestudyKey:raw.prestudyKey,
-      sections,scores,encodingResult,observedAt:raw.observedAt,coverage:raw.coverage};
+      sourceRecord,sections,scores,encodingResult,observedAt:raw.observedAt,coverage:raw.coverage};
   }
   /** Section grading/index with the binding discovered owner-side from the
    * live progress page. With several registered bindings and no exact

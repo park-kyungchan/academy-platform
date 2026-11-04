@@ -89,9 +89,12 @@ export type PrestudyObservation={student:{studentId:string;displayName:string};
  * the sections below are the LLM report itself. */
 export const prestudyReportGetSchema=z.object({displayName:z.string().trim().min(1).max(200),
   prestudyKey:z.string().regex(/^[1-9][0-9]{0,15}$/),
+  sectionTitles:z.array(z.string().min(1).max(500)).min(1).max(16).refine(v=>new Set(v).size===v.length,'unique_section_titles_required').optional(),
+  maxOutputBytes:z.number().int().min(1024).max(512*1024).optional(),
   purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema}).strict();
 export type PrestudyReportGet=z.infer<typeof prestudyReportGetSchema>;
 export type PrestudyReportObservation={student:{studentId:string;displayName:string};prestudyKey:string;
+  sourceRecord:{prestudyKey:string;unitLabel:string|null;dateLiteral:string|null};
   sections:{title:string;subtitle:string|null;blocks:{heading:string|null;text:string}[]}[];scores:number[];
   encodingResult:string|null;observedAt:string;coverage:string};
 /** Textbook section grading resolved by exact student name: the owner
@@ -411,10 +414,20 @@ export class DailyRecordService {
     try{
       const result=await this.#serial(async()=>{
         const observation=await this.backend!.readPrestudyReportByName!(freezeLabelData(structuredClone(input)));
-        if(observation.student.displayName!==input.displayName||observation.prestudyKey!==input.prestudyKey)throw Error('prestudy_report_scope_conflict');
-        return {...base,status:'observed' as const,...observation};
+        if(observation.student.displayName!==input.displayName||observation.prestudyKey!==input.prestudyKey||observation.sourceRecord?.prestudyKey!==input.prestudyKey)throw Error('prestudy_report_scope_conflict');
+        const availableSectionTitles=observation.sections.map(section=>section.title);
+        const requested=input.sectionTitles??availableSectionTitles;
+        if(input.sectionTitles&&requested.some(title=>availableSectionTitles.filter(t=>t===title).length>1))throw Error('prestudy_report_section_ambiguous');
+        const missingSectionTitles=requested.filter(title=>!availableSectionTitles.includes(title));
+        const sections=input.sectionTitles?observation.sections.filter(section=>requested.includes(section.title)):observation.sections;
+        const view={mode:input.sectionTitles?'selected' as const:'full' as const,
+          requestedSectionTitles:input.sectionTitles??null,availableSectionTitles,returnedSectionTitles:sections.map(section=>section.title),missingSectionTitles,
+          completeRequestedView:missingSectionTitles.length===0,completeSourceReport:sections.length===observation.sections.length};
+        return {...base,...observation,status:missingSectionTitles.length?'partial' as const:'observed' as const,sections,view};
       });
-      if(toolResultBytes(result)>512*1024)throw Error('prestudy_report_result_too_large');
+      // Budget is UTF-8 JSON payload bytes, excluding the MCP envelope. Never clip source blocks.
+      const budget=input.maxOutputBytes??(input.sectionTitles?32*1024:512*1024);
+      if(Buffer.byteLength(JSON.stringify(result),'utf8')>budget||toolResultBytes(result)>512*1024)throw Error('prestudy_report_result_too_large');
       return freezeLabelData(result);
     }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'prestudy_report_unqualified_no_automatic_retry')};}
   }

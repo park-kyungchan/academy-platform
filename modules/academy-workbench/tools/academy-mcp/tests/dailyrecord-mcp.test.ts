@@ -36,6 +36,15 @@ test('dedicated entrypoint discovers the read-only DailyRecord/metadata/resolver
   try{
     const tools=(await client.listTools()).tools;
     expect(tools.map(t=>t.name).sort()).toEqual(['academy_textbook_catalog','academy_textbook_pdf','academy_endpoint_identity','academy_student_metadata_get','academy_cism_section','academy_dailyrecord_execution_status','academy_dailyrecord_get','academy_dailyrecord_intake','academy_dailyrecord_reconcile','academy_dailyrecord_review','academy_dailyrecord_save','academy_item_answer_lookup','academy_item_section_trace','academy_runtime_read_admission','academy_student_metadata','academy_student_resolve','academy_prestudy_get','academy_prestudy_report_get','academy_clinic_paper_status_get','academy_textbook_section_results_get','academy_textbook_section_results','academy_cism_month','academy_cism_weekly_get','academy_cism_weekly_review','academy_cism_weekly_save'].sort());
+    const reportTool=tools.find(t=>t.name==='academy_prestudy_report_get')!;
+    expect(reportTool.inputSchema.properties).toHaveProperty('sectionTitles');
+    expect(reportTool.inputSchema.properties).toHaveProperty('maxOutputBytes');
+    expect(reportTool.inputSchema.required).not.toContain('sectionTitles');
+    expect(reportTool.annotations?.readOnlyHint).toBe(true);
+    const report=await client.callTool({name:'academy_prestudy_report_get',arguments:{displayName:'Invented Student',prestudyKey:'12345',purpose:'Inspect fictional view',currentRequestRef:'fictional-report-view',sectionTitles:['개념 이해'],maxOutputBytes:4096}});
+    expect(report.isError).not.toBe(true);
+    expect(report.structuredContent).toMatchObject({status:'unavailable',reasonCode:'prestudy_report_backend_not_configured',academyWrites:0,parentSends:0});
+    expect(JSON.parse((report.content as {type:string;text:string}[])[0].text)).toEqual(report.structuredContent);
     const catalog=await client.callTool({name:'academy_textbook_catalog',arguments:{limit:100}});
     expect(catalog.structuredContent).toMatchObject({status:'unavailable',code:'textbook_source_backend_not_configured',academyWrites:0});
     expect(tools.find(t=>t.name==='academy_student_metadata')?.annotations?.readOnlyHint).toBe(true);

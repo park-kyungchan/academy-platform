@@ -136,7 +136,7 @@ export class AcademyHttpClient {
    * followed to the server-rendered report page. Report text is student
    * content for the teacher only; no transcript field exists on either
    * page and none is derived. */
-  async readPrestudyReport(input:{teacherLabel:string;studentName:string;studentKey:string;prestudyKey:string}):Promise<PrestudyReport&{prestudyKey:string;encodingResult:string|null;observedAt:string;coverage:string}>{
+  async readPrestudyReport(input:{teacherLabel:string;studentName:string;studentKey:string;prestudyKey:string}):Promise<PrestudyReport&{prestudyKey:string;sourceRecord:{prestudyKey:string;unitLabel:string|null;dateLiteral:string|null};encodingResult:string|null;observedAt:string;coverage:string}>{
     if(!input||Object.keys(input).sort().join(',')!=='prestudyKey,studentKey,studentName,teacherLabel'||input.teacherLabel!==this.#principal.teacherLabel)throw Error('prestudy_report_principal_rejected');
     readLiteralName(input.studentName);readLiteralKey(input.studentKey);readLiteralKey(input.prestudyKey);
     if(!this.#authenticated)throw Error('authentication_required');
@@ -145,11 +145,11 @@ export class AcademyHttpClient {
       const text=await response.text();if(text.length>2000000)throw Error('prestudy_source_rejected');return text;
     };
     const detailHtml=await pageText(PRESTUDY_PATH+'?reqCmd=WebPreStudy&prestudy_key='+encodeURIComponent(input.prestudyKey),'WebPreStudy');
-    const detail=parsePrestudyDetail(detailHtml,sourceDomParser.parseFromString,input.studentKey);
+    const detail=parsePrestudyDetail(detailHtml,sourceDomParser.parseFromString,input.studentKey,input.prestudyKey);
     if(!detail.analysisKey)throw Error('prestudy_report_not_ready');
     const reportHtml=await pageText(PRESTUDY_REPORT_PATH+'?analysis_key='+encodeURIComponent(detail.analysisKey),'prestudy_ai_report');
     const report=parsePrestudyReport(reportHtml,sourceDomParser.parseFromString);
-    return {...report,prestudyKey:input.prestudyKey,encodingResult:detail.encodingResult,observedAt:new Date().toISOString(),
+    return {...report,prestudyKey:detail.prestudyKey,sourceRecord:{prestudyKey:detail.prestudyKey,unitLabel:detail.unitLabel,dateLiteral:detail.dateLiteral},encodingResult:detail.encodingResult,observedAt:new Date().toISOString(),
       coverage:'exact_prestudy_detail_and_server_rendered_ai_report_sections_not_transcript'};
   }
   /** Registered textbook bindings for one exact student, from the live
