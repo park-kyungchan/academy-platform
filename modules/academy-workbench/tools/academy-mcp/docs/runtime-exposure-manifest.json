@@ -88,6 +88,11 @@
       "exposure": "open"
     },
     {
+      "name": "academy_prestudy_report_get",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
       "name": "academy_query",
       "class": "read",
       "exposure": "open"
@@ -186,6 +191,11 @@
       "name": "academy_cism_weekly_save",
       "class": "write",
       "exposure": "gated_save_admission"
+    },
+    {
+      "name": "academy_clinic_paper_status_get",
+      "class": "read",
+      "exposure": "open"
     }
   ],
   "closedUntilAttribution": [],

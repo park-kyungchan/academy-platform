@@ -83,13 +83,45 @@ export type PrestudyObservation={student:{studentId:string;displayName:string};
   completed:{unitLabel:string;dateLiteral:string;statusLiteral:string;prestudyKey:string}[];
   summary:{unitLabel:string;dateLiteral:string;aiScoreLiteral:string;ratingLiteral:string;reportAvailable:boolean;videoAvailable:boolean}[];
   teacherJudgment:null;observedAt:string;coverage:string};
+/** AI prestudy report read by exact student name and prestudy key. The
+ * report text is student content for the teacher only: it is returned to
+ * the caller and never stored. No transcript exists on the source pages;
+ * the sections below are the LLM report itself. */
+export const prestudyReportGetSchema=z.object({displayName:z.string().trim().min(1).max(200),
+  prestudyKey:z.string().regex(/^[1-9][0-9]{0,15}$/),
+  sectionTitles:z.array(z.string().min(1).max(500)).min(1).max(16).refine(v=>new Set(v).size===v.length,'unique_section_titles_required').optional(),
+  maxOutputBytes:z.number().int().min(1024).max(512*1024).optional(),
+  purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema}).strict();
+export type PrestudyReportGet=z.infer<typeof prestudyReportGetSchema>;
+export type PrestudyReportObservation={student:{studentId:string;displayName:string};prestudyKey:string;
+  sourceRecord:{prestudyKey:string;unitLabel:string|null;dateLiteral:string|null};
+  sections:{title:string;subtitle:string|null;blocks:{heading:string|null;text:string}[]}[];scores:number[];
+  encodingResult:string|null;observedAt:string;coverage:string};
 /** Textbook section grading resolved by exact student name: the owner
  * backend discovers the registered course/book binding from the live
  * progress page. Without sourceTitles it returns the observed title index. */
 export const textbookSectionResultsGetSchema=z.object({displayName:z.string().trim().min(1).max(200),
   purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema,
+  bookLabel:z.string().trim().min(1).max(200).optional(),
   sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required').optional()}).strict();
 export type TextbookSectionResultsGet=z.infer<typeof textbookSectionResultsGetSchema>;
+/** Clinic (wrong-answer/similar) bundle read by exact student name. Clinic
+ * papers have no server score-input support, so this read can only bundle
+ * the original section attempt (wrong items make a section clinic-eligible)
+ * and the merged title index. Clinic generation, printing, hand-out, solving,
+ * scoring and teacher review are never asserted from source rows: generation
+ * stays 'unqualified' and the remaining axes are explicit teacher-judgment
+ * slots. */
+export const clinicPaperStatusGetSchema=textbookSectionResultsGetSchema;
+export type ClinicPaperStatusGet=z.infer<typeof clinicPaperStatusGetSchema>;
+export type ClinicPaperStatusObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bookLabel:string;
+  sections:{sourceTitle:string;originalAttempt:'observed_original_attempt'|'paper_row_observed'|'not_observed_in_scope';
+    score:number|null;correctCount:number|null;itemCount:number|null;
+    wrongItems:{ordinal:string;lectureKey:string|null;outerLectureKey:string|null}[]|null;
+    clinicEligible:boolean|null;sourceDate:{literal:string|null;meaning:string}|{literal:string|null;precision:string;meaning:string}}[];
+  generatedMembership:'unqualified';clinicGeneration:'unqualified';
+  teacherJudgmentSlots:{printed:'teacher_report_required';handedOut:'teacher_report_required';solved:'teacher_judged_only_no_server_score_input';scored:'teacher_judged_only_no_server_score_input';teacherReviewed:'teacher_report_required'};
+  observedAt:string;coverage:string;indexBasis?:string};
 /** Reverse trace from numeric item labels to the original textbook sections
  * (activity titles) whose observed items carry those labels. This proves
  * original-attempt lineage only: a generated wrong-answer clinic paper's own
@@ -106,7 +138,9 @@ export type ItemSectionTraceObservation=
     items:{label:string;matches:{bookLabel:string;sourceTitle:string;ordinal:string;matchedBy:'lectureKey'|'outerLectureKey';originalScoring:'O'|'X'}[]}[];
     unmatchedLabels:string[];ambiguousLabels:string[];sectionsScanned:number;sectionsFailed:number;observedAt:string;coverage:string};
 export type TextbookSectionIndexObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bookLabel:string;
-  index:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string}}[];observedAt:string;coverage:string};
+  index:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];observedAt:string;coverage:string;indexBasis?:string};
+export type TextbookSectionInterviewObservation={kind:'interview_required';student:{studentId:string;displayName:string};bindings:{bookLabel:string;hint?:string}[];reason:'multiple_book_bindings_select_one';observedAt:string};
+export type TextbookSectionResultsByNameObservation=TextbookSectionObservation|TextbookSectionIndexObservation|TextbookSectionInterviewObservation;
 /** Implemented by the native/source owner, never by MCP arguments. All methods are read-only. */
 export interface DailyRecordReadBackend {
   readRoutingAdmission?():DailyRecordReadAdmission;
@@ -119,7 +153,8 @@ export interface DailyRecordReadBackend {
   searchStudentsByName?(exactName:Readonly<string>,requestRef:string,lessonDate?:string):Promise<unknown>;
   readTextbookSections?(input:Readonly<TextbookSectionResults>):Promise<TextbookSectionObservation>;
   readPrestudyByName?(input:Readonly<PrestudyGet>):Promise<PrestudyObservation>;
-  readTextbookSectionsByName?(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionObservation|TextbookSectionIndexObservation>;
+  readPrestudyReportByName?(input:Readonly<PrestudyReportGet>):Promise<PrestudyReportObservation>;
+  readTextbookSectionsByName?(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionResultsByNameObservation>;
   readItemSectionTrace?(input:Readonly<ItemSectionTrace>):Promise<ItemSectionTraceObservation>;
 }
 export const dailyRecordSaveSchema=z.object({context:dailyRecordContextSchema,observationHandle:dailyRecordIdSchema,
@@ -161,6 +196,16 @@ const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value))
 const fieldValues=(observation:DailyRecordObservation)=>Object.fromEntries(dailyRecordFields.map(field=>{const value=observation.fields[field];return [field,value.state==='known'?{state:value.state,value:value.value}:{state:value.state,reasonCode:value.reasonCode}];}));
 const scopeOf=(target:z.infer<typeof currentTargetSchema>):DailyRecordScope=>({sourceNamespace:target.sourceNamespace,teacherId:target.teacherId,studentId:target.studentId,lessonDate:target.lessonDate});
 const safeReason=(value:string)=>readFailureResult(Error(value),'source_read_unavailable').reasonCode;
+/** A requested title absent from BOTH observed sources (wrong-note index and
+ * one student paper-search page) is a coverage-qualified non-observation,
+ * never a claim that the student has no such record. */
+export const TEXTBOOK_SECTION_NOT_IN_EITHER='textbook_section_not_in_either_observed_source';
+export function textbookSectionNotInEither(base:Record<string,unknown>,displayName:string){
+  return {...base,status:'not_observed_in_either_source' as const,reasonCode:TEXTBOOK_SECTION_NOT_IN_EITHER,displayName,
+    coverage:'wrong_answer_note_index_plus_one_observed_student_paper_search_page_not_complete_history' as const,
+    meaning:'requested_title_absent_from_both_observed_sources_only_not_proof_of_no_record' as const};
+}
+export function isTextbookSectionNotInEither(error:unknown){return error instanceof Error&&error.message===TEXTBOOK_SECTION_NOT_IN_EITHER;}
 function validValue(field:DailyRecordField,value:string){
   if(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value))return false;
   if(field==='attendance')return ['Y','N','L',' ',''].includes(value);
@@ -343,7 +388,7 @@ export class DailyRecordService {
       });
       if(toolResultBytes(result)>512*1024)throw Error('textbook_section_result_too_large');
       return freezeLabelData(result);
-    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
+    }catch(error){if(isTextbookSectionNotInEither(error))return textbookSectionNotInEither(base,input.displayName);return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
   }
   async prestudyGet(value:unknown){
     const input=prestudyGetSchema.parse(value);
@@ -360,6 +405,32 @@ export class DailyRecordService {
       return freezeLabelData(result);
     }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'prestudy_unqualified_no_automatic_retry')};}
   }
+  async prestudyReportGet(value:unknown){
+    const input=prestudyReportGetSchema.parse(value);
+    const base={purpose:input.purpose,currentRequestRef:input.currentRequestRef,displayName:input.displayName,prestudyKey:input.prestudyKey,
+      academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only' as const,
+      studentContent:'teacher_only_do_not_store_or_relay' as const};
+    if(!this.backend?.readPrestudyReportByName)return {...base,status:'unavailable' as const,reasonCode:'prestudy_report_backend_not_configured'};
+    try{
+      const result=await this.#serial(async()=>{
+        const observation=await this.backend!.readPrestudyReportByName!(freezeLabelData(structuredClone(input)));
+        if(observation.student.displayName!==input.displayName||observation.prestudyKey!==input.prestudyKey||observation.sourceRecord?.prestudyKey!==input.prestudyKey)throw Error('prestudy_report_scope_conflict');
+        const availableSectionTitles=observation.sections.map(section=>section.title);
+        const requested=input.sectionTitles??availableSectionTitles;
+        if(input.sectionTitles&&requested.some(title=>availableSectionTitles.filter(t=>t===title).length>1))throw Error('prestudy_report_section_ambiguous');
+        const missingSectionTitles=requested.filter(title=>!availableSectionTitles.includes(title));
+        const sections=input.sectionTitles?observation.sections.filter(section=>requested.includes(section.title)):observation.sections;
+        const view={mode:input.sectionTitles?'selected' as const:'full' as const,
+          requestedSectionTitles:input.sectionTitles??null,availableSectionTitles,returnedSectionTitles:sections.map(section=>section.title),missingSectionTitles,
+          completeRequestedView:missingSectionTitles.length===0,completeSourceReport:sections.length===observation.sections.length};
+        return {...base,...observation,status:missingSectionTitles.length?'partial' as const:'observed' as const,sections,view};
+      });
+      // Budget is UTF-8 JSON payload bytes, excluding the MCP envelope. Never clip source blocks.
+      const budget=input.maxOutputBytes??(input.sectionTitles?32*1024:512*1024);
+      if(Buffer.byteLength(JSON.stringify(result),'utf8')>budget||toolResultBytes(result)>512*1024)throw Error('prestudy_report_result_too_large');
+      return freezeLabelData(result);
+    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'prestudy_report_unqualified_no_automatic_retry')};}
+  }
   async textbookSectionsByName(value:unknown){
     const input=textbookSectionResultsGetSchema.parse(value);
     const base={purpose:input.purpose,currentRequestRef:input.currentRequestRef,displayName:input.displayName,
@@ -369,6 +440,10 @@ export class DailyRecordService {
       const result=await this.#serial(async()=>{
         const observation=await this.backend!.readTextbookSectionsByName!(freezeLabelData(structuredClone(input)));
         if(observation.student.displayName!==input.displayName)throw Error('textbook_section_scope_conflict');
+        if('kind' in observation){
+          if(observation.kind!=='interview_required'||!Array.isArray(observation.bindings)||observation.bindings.length<2)throw Error('textbook_section_scope_conflict');
+          return {...base,status:'interview_required' as const,...observation};
+        }
         if(input.sourceTitles){
           const records=(observation as TextbookSectionObservation).records;
           if(!Array.isArray(records)||records.length!==input.sourceTitles.length
@@ -379,7 +454,54 @@ export class DailyRecordService {
       });
       if(toolResultBytes(result)>512*1024)throw Error('textbook_section_result_too_large');
       return freezeLabelData(result);
-    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
+    }catch(error){if(isTextbookSectionNotInEither(error))return textbookSectionNotInEither(base,input.displayName);return {...base,status:'unavailable' as const,...readFailureResult(error,'textbook_section_unqualified_no_automatic_retry')};}
+  }
+  async clinicPaperStatus(value:unknown){
+    const input=clinicPaperStatusGetSchema.parse(value);
+    const base={purpose:input.purpose,currentRequestRef:input.currentRequestRef,displayName:input.displayName,
+      academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only' as const};
+    if(!this.backend?.readTextbookSectionsByName)return {...base,status:'unavailable' as const,reasonCode:'clinic_paper_backend_not_configured'};
+    const slots={printed:'teacher_report_required' as const,handedOut:'teacher_report_required' as const,
+      solved:'teacher_judged_only_no_server_score_input' as const,scored:'teacher_judged_only_no_server_score_input' as const,
+      teacherReviewed:'teacher_report_required' as const};
+    try{
+      const result=await this.#serial(async()=>{
+        const backend=this.backend!;
+        const first=await backend.readTextbookSectionsByName!(freezeLabelData(structuredClone(
+          input.sourceTitles?{displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,bookLabel:input.bookLabel,sourceTitles:input.sourceTitles}
+            :{displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,bookLabel:input.bookLabel})));
+        if(first.student.displayName!==input.displayName)throw Error('clinic_paper_scope_conflict');
+        if('kind' in first){
+          if(first.kind!=='interview_required'||!Array.isArray(first.bindings)||first.bindings.length<2)throw Error('clinic_paper_scope_conflict');
+          return {...base,status:'interview_required' as const,...first};
+        }
+        let sections:ClinicPaperStatusObservation['sections'];let observedAt:string;let coverage:string;let indexBasis:string|undefined;
+        if(input.sourceTitles){
+          const grading=first as TextbookSectionObservation;
+          if(!Array.isArray(grading.records)||grading.records.length!==input.sourceTitles.length
+            ||grading.records.some(r=>!input.sourceTitles!.includes(r.sourceTitle)))throw Error('clinic_paper_scope_conflict');
+          sections=grading.records.map(r=>{
+            const wrongItems=r.items.filter(i=>i.scoring==='X').map(i=>({ordinal:i.ordinal,lectureKey:i.lectureKey,outerLectureKey:i.outerLectureKey}));
+            return {sourceTitle:r.sourceTitle,originalAttempt:'observed_original_attempt' as const,score:r.score,
+              correctCount:r.correctCount,itemCount:r.itemCount,wrongItems,clinicEligible:wrongItems.length>0,sourceDate:r.sourceDate};
+          });
+          observedAt=grading.observedAt;coverage=grading.coverage;
+        }else{
+          const indexObs=first as TextbookSectionIndexObservation;
+          if(!Array.isArray(indexObs.index))throw Error('clinic_paper_scope_conflict');
+          sections=indexObs.index.map(r=>({sourceTitle:r.sourceTitle,originalAttempt:'paper_row_observed' as const,score:null,
+            correctCount:null,itemCount:null,wrongItems:null,clinicEligible:null,sourceDate:r.sourceDate}));
+          observedAt=indexObs.observedAt;coverage=indexObs.coverage;indexBasis=indexObs.indexBasis;
+        }
+        const observation:ClinicPaperStatusObservation={student:first.student,courseKey:first.courseKey,bookNo:first.bookNo,
+          bookLabel:(first as TextbookSectionIndexObservation).bookLabel??'',sections,
+          generatedMembership:'unqualified',clinicGeneration:'unqualified',teacherJudgmentSlots:slots,
+          observedAt,coverage,...(indexBasis?{indexBasis}:{})};
+        return {...base,status:'observed' as const,...observation};
+      });
+      if(toolResultBytes(result)>512*1024)throw Error('clinic_paper_result_too_large');
+      return freezeLabelData(result);
+    }catch(error){if(isTextbookSectionNotInEither(error))return textbookSectionNotInEither(base,input.displayName);return {...base,status:'unavailable' as const,...readFailureResult(error,'clinic_paper_unqualified_no_automatic_retry')};}
   }
   async itemSectionTrace(value:unknown){
     const input=itemSectionTraceSchema.parse(value);

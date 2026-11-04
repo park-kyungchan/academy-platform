@@ -1,5 +1,5 @@
 import {expect,test} from 'bun:test';
-import {DailyRecordService,type DailyRecordReadBackend,type PrestudyObservation,type TextbookSectionObservation,type TextbookSectionIndexObservation} from '../src/dailyrecord.ts';
+import {DailyRecordService,type DailyRecordReadBackend,type PrestudyObservation,type PrestudyReportObservation,type TextbookSectionObservation,type TextbookSectionIndexObservation} from '../src/dailyrecord.ts';
 import {NativeDailyRecordBackend} from '../src/native-dailyrecord-backend.ts';
 
 const prestudyRequest={displayName:'Invented Student',purpose:'Read fictional prestudy state',currentRequestRef:'synthetic-prestudy-request'};
@@ -15,6 +15,21 @@ test('prestudy get projects waiting/completed/summary with teacher judgment sepa
   expect(result).toMatchObject({status:'observed',academyWrites:0,parentSends:0,teacherJudgment:null,waiting:[{prestudyKey:'12345'}]});
   expect(await new DailyRecordService().prestudyGet(prestudyRequest))
     .toMatchObject({status:'unavailable',reasonCode:'prestudy_backend_not_configured',academyWrites:0});
+});
+
+const reportObservation:PrestudyReportObservation={student:{studentId:'77001',displayName:'Invented Student'},prestudyKey:'12345',
+  sourceRecord:{prestudyKey:'12345',unitLabel:null,dateLiteral:null},
+  sections:[{title:'개념 이해',subtitle:'개념을 정확히 이해하고 설명하는가?',blocks:[{heading:'포함된 핵심 개념',text:'Fictional narrative'}]}],
+  scores:[77,80],encodingResult:'success',observedAt:'2040-01-16T09:00:00.000Z',coverage:'fictional_coverage'};
+
+test('prestudy report get returns teacher-only sections for the exact record and nothing without a backend',async()=>{
+  const backend:DailyRecordReadBackend={readDailyRecord:async()=>({status:'unavailable',reasonCode:'not_used'}),
+    readPrestudyReportByName:async input=>{expect(input).toMatchObject({displayName:'Invented Student',prestudyKey:'12345'});return reportObservation;}};
+  const result=await new DailyRecordService(backend).prestudyReportGet({...prestudyRequest,prestudyKey:'12345'});
+  expect(result).toMatchObject({status:'observed',academyWrites:0,parentSends:0,studentContent:'teacher_only_do_not_store_or_relay',
+    sections:[{title:'개념 이해'}],scores:[77,80]});
+  expect(await new DailyRecordService().prestudyReportGet({...prestudyRequest,prestudyKey:'12345'}))
+    .toMatchObject({status:'unavailable',reasonCode:'prestudy_report_backend_not_configured',academyWrites:0});
 });
 
 test('section get by name without titles returns the owner-discovered index; with titles returns grading',async()=>{

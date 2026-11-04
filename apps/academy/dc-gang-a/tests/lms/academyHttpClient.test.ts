@@ -261,9 +261,64 @@ test('textbook index exposes existing subject-bound headers without generation o
  });
  const method=(client as unknown as {inspectTextbookIndex?: (input:unknown)=>Promise<unknown>}).inspectTextbookIndex;
  expect(typeof method).toBe('function');await client.authenticate({username:'inventedUser',password:'inventedPassword'});
- const result=await method!.call(client,{family:'textbook',teacherLabel:'Invented Teacher',studentKey:'77001',studentName:'Invented Learner',courseKey:'5',bookNo:'6',sourceTitles:['Invented existing section'],gradeViewAdmission:true});
- expect(result).toMatchObject({rows:[{sourceTitle:'Invented existing section',paperKey:'81001',attemptKey:'82001'}],sourceHandlersInvoked:false,generatedPaperMembership:'unqualified'});
+ // The pinned paper-search wire cannot be fixture-reproduced; stub the qualified
+ // method (same pattern as the printed-paper lookup tests) with real row shapes.
+ (client as any).searchStudentPaperMetadata=async()=>({rows:[
+   {studentKey:'77001',studentName:'Invented Learner',paperKey:'81001',attemptKey:'82001',sourceRowId:null,sourceScore:50,fieldNames:[],questionMetadata:{},titles:{testingName:'[필수예제] [가우스] 5-3 진분수의 뺄셈 - Invented Learner',applyDate:'2026-11-03 10:00:00'}},
+   {studentKey:'77001',studentName:'Invented Learner',paperKey:'81002',attemptKey:'82002',sourceRowId:null,sourceScore:100,fieldNames:[],questionMetadata:{},titles:{testingName:'[필수예제] [가우스] 5-4 대분수의 뺄셈 - Invented Learner',applyDate:'2026-11-03 10:05:00'}},
+ ],operation:'UserBySearchTestResult',page:1,sourcePeriod:{from:'2026-11-01',to:'2026-11-30'},observedAt:'2099-01-05T00:00:00.000Z',coverage:'one_observed_student_search_page_not_complete_history',generatedMembership:'unqualified'});
+ const result=await method!.call(client,{family:'textbook',teacherLabel:'Invented Teacher',studentKey:'77001',studentName:'Invented Learner',courseKey:'5',bookNo:'6',sourceTitles:['Invented existing section'],gradeViewAdmission:true}) as any;
+ // The legacy wrong-note title carries no bracket template, so no paper row joins this book.
+ expect(result).toMatchObject({rows:[{sourceTitle:'Invented existing section',paperKey:'81001',attemptKey:'82001'}],sourceHandlersInvoked:false,generatedPaperMembership:'unqualified',indexBasis:'wrong_answer_note_only'});
+ expect(result.paperSearch.status).toBe('no_derivable_section_title_pattern');
  expect(JSON.stringify(result)).not.toContain('withheld answer');expect(count).toBe(5);client.close();
+});
+test('textbook index merges an all-correct paper-search section the wrong-note index omits',async()=>{
+ const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');let count=0;
+ const perfect='[필수예제] [가우스] 5-4 대분수의 뺄셈 - Invented Learner',wrong='[필수예제] [가우스] 5-3 진분수의 뺄셈 - Invented Learner';
+ const progress='<button onclick="createBookIncorrectPapers(693,2517,77001)">Existing book</button>';
+ const notes={result:'ok',noteResultList:[{pri_no:77001,name:'Invented Learner',p_no:81003,testing_no:82003,testing_name:wrong,apply_date:'11-03'}]};
+ const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},async(url,init)=>{
+  count++;if(count<=3)return new Response(count===1?login:principal);
+  const body=new URLSearchParams(init.body as string);
+  if(count===4)return new Response(progress);
+  expect(body.get('p_process')).toBe('getWrongAnswerNoteResult');return new Response(JSON.stringify(notes));
+ });
+ await client.authenticate({username:'inventedUser',password:'inventedPassword'});
+ (client as any).searchStudentPaperMetadata=async()=>({rows:[
+   {studentKey:'77001',studentName:'Invented Learner',paperKey:'81004',attemptKey:'82004',sourceRowId:null,sourceScore:100,fieldNames:[],questionMetadata:{},titles:{testingName:perfect,applyDate:'2026-11-03 10:05:00'}},
+   {studentKey:'77001',studentName:'Invented Learner',paperKey:'81009',attemptKey:'82009',sourceRowId:null,sourceScore:100,fieldNames:[],questionMetadata:{},titles:{testingName:'[필수예제] [다른책] 9-9 다른 책 - Invented Learner',applyDate:'2026-11-03 10:06:00'}},
+ ],operation:'UserBySearchTestResult',page:1,sourcePeriod:{from:'2026-11-01',to:'2026-11-30'},observedAt:'2099-01-05T00:00:00.000Z',coverage:'one_observed_student_search_page_not_complete_history',generatedMembership:'unqualified'});
+ const result=await client.inspectTextbookIndex({family:'textbook',teacherLabel:'Invented Teacher',studentKey:'77001',studentName:'Invented Learner',courseKey:'693',bookNo:'2517',sourceTitles:['index'],gradeViewAdmission:true}) as any;
+ expect(result.indexBasis).toBe('wrong_answer_note_plus_student_paper_search');
+ expect(result.coverage).toBe('wrong_answer_note_index_plus_one_observed_student_paper_search_page_not_complete_history');
+ expect(result.rows.map((r:any)=>r.sourceTitle)).toEqual([wrong,perfect]);
+ expect(result.rows[1]).toMatchObject({paperKey:'81004',attemptKey:'82004',sources:['student_paper_search']});
+ expect(JSON.stringify(result)).not.toContain('다른책');client.close();
+});
+test('textbook grading through the HTTP client grades an all-correct section found only in paper search',async()=>{
+ const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');let count=0;
+ const perfect='[필수예제] [가우스] 5-4 대분수의 뺄셈 - Invented Learner',wrong='[필수예제] [가우스] 5-3 진분수의 뺄셈 - Invented Learner';
+ const progress='<button onclick="createBookIncorrectPapers(693,2517,77001)">Existing book</button>';
+ const notes={result:'ok',noteResultList:[{pri_no:77001,name:'Invented Learner',p_no:81003,testing_no:82003,testing_name:wrong,apply_date:'11-03'}]};
+ const details:Record<string,unknown>={'82003':{result:'OK',print_list:[{pri_no:77001,student_name:'Invented Learner',sub_title:wrong,score:84,exam_list:[{exam_no:1,scoring_result:'O'},{exam_no:2,scoring_result:'X'}]}]},
+  '82004':{result:'OK',print_list:[{pri_no:77001,student_name:'Invented Learner',sub_title:perfect,score:100,exam_list:[{exam_no:1,scoring_result:'O'},{exam_no:2,scoring_result:'O'}]}]}};
+ const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},async(url,init)=>{
+  count++;if(count<=3)return new Response(count===1?login:principal);
+  const body=new URLSearchParams(init.body as string);
+  if(url.includes('getTextBookProgress'))return new Response(progress);
+  if(body.get('p_process')==='getWrongAnswerNoteResult')return new Response(JSON.stringify(notes));
+  return new Response(JSON.stringify(details[String(JSON.parse(body.get('condition')!).testing_no)]));
+ });
+ await client.authenticate({username:'inventedUser',password:'inventedPassword'});
+ (client as any).searchStudentPaperMetadata=async()=>({rows:[
+   {studentKey:'77001',studentName:'Invented Learner',paperKey:'81004',attemptKey:'82004',sourceRowId:null,sourceScore:100,fieldNames:[],questionMetadata:{},titles:{testingName:perfect,applyDate:'2026-11-03 10:05:00'}},
+ ],operation:'UserBySearchTestResult',page:1,sourcePeriod:{from:'2026-11-01',to:'2026-11-30'},observedAt:'2099-01-05T00:00:00.000Z',coverage:'one_observed_student_search_page_not_complete_history',generatedMembership:'unqualified'});
+ const result=await client.execute({family:'textbook',teacherLabel:'Invented Teacher',studentKey:'77001',studentName:'Invented Learner',courseKey:'693',bookNo:'2517',sourceTitles:[perfect,wrong],gradeViewAdmission:true});
+ expect(result.records.find(r=>r.sourceTitle===perfect)).toMatchObject({score:100,attemptKey:'82004'});
+ expect(result.records.find(r=>r.sourceTitle===wrong)).toMatchObject({score:84,attemptKey:'82003'});
+ await expect(client.execute({family:'textbook',teacherLabel:'Invented Teacher',studentKey:'77001',studentName:'Invented Learner',courseKey:'693',bookNo:'2517',sourceTitles:['[필수예제] [가우스] 9-9 없는 단원 - Invented Learner'],gradeViewAdmission:true})).rejects.toThrow('textbook_section_not_in_either_observed_source');
+ client.close();
 });
 test('HTTP failure exposes only safe status and operation metadata, not source content or credentials',async()=>{
  const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');
