@@ -797,7 +797,7 @@ export class AcademyHttpClient {
       paperSearch={status:'no_derivable_section_title_pattern',coverage:TEXTBOOK_PAPER_SEARCH_COVERAGE,matchedRowCount:0};
     }else{
       try{
-        const paper=await this.searchStudentPaperMetadata({teacherLabel:request.teacherLabel,studentName:request.studentName,studentKey:request.studentKey});
+        const paper=await this.searchStudentPaperMetadata({teacherLabel:request.teacherLabel,studentName:request.studentName,studentKey:request.studentKey,includeAllPaperTypes:true});
         const paperRows:TextbookPaperSearchRow[]=paper.rows.flatMap(r=>typeof r.titles.testingName==='string'
           ?[{testingName:r.titles.testingName,paperKey:r.paperKey,attemptKey:r.attemptKey,applyDateLiteral:typeof r.titles.applyDate==='string'?r.titles.applyDate:null}]:[]);
         const merged=mergeTextbookSectionRows(wrongRows.map(r=>({sourceTitle:r.sourceTitle,paperKey:r.paperKey,attemptKey:r.attemptKey,sourceDateLiteral:r.sourceDate.literal})),paperRows,pattern);
