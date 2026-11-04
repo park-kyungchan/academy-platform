@@ -530,18 +530,22 @@ impl Scene {
         assert_eq!(digest(&bytes), expected);
         let bridge = install.join("bridge");
         put(&bridge, &bytes);
-        // Package only this fresh fixture copy before creating any release pins.
-        // Cargo's debug executable may exceed the existing 64 MiB artifact cap.
-        // This build utility never runs the endpoint or changes the Lead's input.
-        let strip_tool = Path::new("/usr/bin/strip");
-        let stripped = std::process::Command::new(strip_tool)
-            .arg("--strip-debug")
-            .arg(&bridge)
-            .output()
-            .expect("fixture packaging requires the host strip utility");
-        put(&state.join("strip.stdout"), &stripped.stdout);
-        put(&state.join("strip.stderr"), &stripped.stderr);
-        assert!(stripped.status.success(), "fixture debug stripping failed");
+        // Package only oversized fresh fixture copies, before creating pins.
+        // Release children fitting the cap retain their exact input bytes.
+        let (strip_tool, strip_exit) = if bytes.len() > edu_academy_mcp::release::ARTIFACT_BYTES {
+            let tool = Path::new("/usr/bin/strip");
+            let stripped = std::process::Command::new(tool)
+                .arg("--strip-debug")
+                .arg(&bridge)
+                .output()
+                .expect("oversized fixture packaging requires the host strip utility");
+            put(&state.join("strip.stdout"), &stripped.stdout);
+            put(&state.join("strip.stderr"), &stripped.stderr);
+            assert!(stripped.status.success(), "fixture debug stripping failed");
+            (Some(pin(tool)), stripped.status.code())
+        } else {
+            (None, None)
+        };
         let packaged = fs::read(&bridge).unwrap();
         assert!(
             packaged.len() <= edu_academy_mcp::release::ARTIFACT_BYTES,
@@ -552,8 +556,9 @@ impl Scene {
             &state.join("child-packaging.json"),
             json!({"input":pin(&executable),"inputBytes":bytes.len(),
                 "packaged":pin(&bridge),"packagedBytes":packaged.len(),
-                "stripTool":pin(strip_tool),"stripArgument":"--strip-debug",
-                "exitCode":stripped.status.code(),
+                "stripInvoked":strip_tool.is_some(),"stripTool":strip_tool,
+                "stripArgument":if strip_exit.is_some() {Some("--strip-debug")} else {None},
+                "exitCode":strip_exit,
                 "artifactLimitBytes":edu_academy_mcp::release::ARTIFACT_BYTES}),
         );
         fs::set_permissions(&bridge, fs::Permissions::from_mode(0o700)).unwrap();

@@ -65,8 +65,8 @@ After allocation, from this worktree, using Lead-owned paths:
 source /home/palantirkc/work/ws-replan/preparation/final-review/execution-env.sh
 : "${CARGO_TARGET_DIR:?Lead must select the absolute build target}"
 : "${S11_HISTORY_TEST_ROOT:?Lead must create the canonical absolute evidence root}"
-cargo build --locked -j1 -p edu-academy-mcp --example fictional_paper_endpoint
-export S11_HISTORY_CHILD_EXECUTABLE="$(realpath "$CARGO_TARGET_DIR/debug/examples/fictional_paper_endpoint")"
+cargo build --release --locked --offline -j1 -p edu-academy-mcp --example fictional_paper_endpoint
+export S11_HISTORY_CHILD_EXECUTABLE="$(realpath "$CARGO_TARGET_DIR/release/examples/fictional_paper_endpoint")"
 export S11_HISTORY_CHILD_SHA256="$(sha256sum "$S11_HISTORY_CHILD_EXECUTABLE" | cut -d ' ' -f1)"
 cargo test --locked -j1 -p edu-academy-mcp --test history_headers --no-run
 cargo test --locked -j1 -p edu-academy-mcp --test history_headers -- --test-threads=1
@@ -91,3 +91,16 @@ packaged copy must fit the unchanged limit. Each scene retains strip stdout and
 stderr and `state/child-packaging.json` with input/package/tool hashes and sizes.
 This is fixture packaging only; release.rs, production code, limits, profiles,
 Cargo manifests and lockfiles remain unchanged.
+
+
+## Release-child timing repair
+
+The two child integration tests require the normal release-profile fictional
+child (opt-level 3, debug-assertions false, overflow-checks false), as explicitly
+selected by the Lead after debug-child handshake timeouts. The parent test
+binary remains in Cargo's test profile. The existing 10-second work budget,
+all supervisor/graph checks and every cap remain unchanged. Fixture packaging
+now invokes strip only when the supplied executable exceeds ARTIFACT_BYTES;
+a release executable already fitting the cap is copied and pinned byte-for-byte.
+The packaging receipt records whether strip was invoked. This qualifies only
+the explicitly selected release child, not default debug-child performance.
