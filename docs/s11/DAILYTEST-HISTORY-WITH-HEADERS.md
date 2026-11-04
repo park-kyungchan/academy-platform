@@ -78,3 +78,16 @@ before calls/spawn, UTF-16/date edges, ordered selection pins and pagination,
 scope and identity conflicts, raw/absent fields, the dual-result cap, bounded
 failure counters and source latches, real child route selection and independently
 qualified cleanup before the next child acquires the fictional lock.
+
+
+## Fixture executable packaging repair
+
+Cargo debug executables can exceed the existing release artifact limit of
+64 MiB (`release::ARTIFACT_BYTES`). The history fixture verifies the Lead-supplied
+executable hash, copies it into its fresh install root, and uses the host
+`/usr/bin/strip --strip-debug` on that copy before creating any release pins.
+The original Cargo executable is unchanged and its hash is rechecked. The
+packaged copy must fit the unchanged limit. Each scene retains strip stdout and
+stderr and `state/child-packaging.json` with input/package/tool hashes and sizes.
+This is fixture packaging only; release.rs, production code, limits, profiles,
+Cargo manifests and lockfiles remain unchanged.

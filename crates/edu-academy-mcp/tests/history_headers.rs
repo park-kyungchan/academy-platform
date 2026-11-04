@@ -526,10 +526,36 @@ impl Scene {
         assert_eq!(fs::canonicalize(&executable).unwrap(), executable);
         let expected =
             std::env::var("S11_HISTORY_CHILD_SHA256").expect("Lead must pin child SHA256");
-        let bytes = fs::read(executable).unwrap();
+        let bytes = fs::read(&executable).unwrap();
         assert_eq!(digest(&bytes), expected);
         let bridge = install.join("bridge");
         put(&bridge, &bytes);
+        // Package only this fresh fixture copy before creating any release pins.
+        // Cargo's debug executable may exceed the existing 64 MiB artifact cap.
+        // This build utility never runs the endpoint or changes the Lead's input.
+        let strip_tool = Path::new("/usr/bin/strip");
+        let stripped = std::process::Command::new(strip_tool)
+            .arg("--strip-debug")
+            .arg(&bridge)
+            .output()
+            .expect("fixture packaging requires the host strip utility");
+        put(&state.join("strip.stdout"), &stripped.stdout);
+        put(&state.join("strip.stderr"), &stripped.stderr);
+        assert!(stripped.status.success(), "fixture debug stripping failed");
+        let packaged = fs::read(&bridge).unwrap();
+        assert!(
+            packaged.len() <= edu_academy_mcp::release::ARTIFACT_BYTES,
+            "packaged fixture bridge exceeds the unchanged release artifact cap"
+        );
+        assert_eq!(digest(&fs::read(&executable).unwrap()), expected);
+        document(
+            &state.join("child-packaging.json"),
+            json!({"input":pin(&executable),"inputBytes":bytes.len(),
+                "packaged":pin(&bridge),"packagedBytes":packaged.len(),
+                "stripTool":pin(strip_tool),"stripArgument":"--strip-debug",
+                "exitCode":stripped.status.code(),
+                "artifactLimitBytes":edu_academy_mcp::release::ARTIFACT_BYTES}),
+        );
         fs::set_permissions(&bridge, fs::Permissions::from_mode(0o700)).unwrap();
         let launcher = install.join("launcher");
         put(&launcher, b"fictional launcher, never executed");
