@@ -2,7 +2,7 @@
   {
     "pattern": "_ask_teacher$|^interview_required$",
     "action": "teacher_interview",
-    "guidance": "For unverified or ambiguous parent book notation, ask the teacher for the exact edition/unit/section binding of this activity and record the answer as a scoped correction for this student, edition and activity only."
+    "guidance": "Ask the teacher for the exact edition/unit/section binding of this activity and record the answer as a scoped correction for this student, edition and activity only. This includes unverified or ambiguous parent book notation."
   },
   {
     "pattern": "^count_rendering_must_preserve_count$",

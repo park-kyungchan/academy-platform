@@ -1232,10 +1232,9 @@ fn historical_parent_codes_remain_readable_but_new_wording_requires_admission() 
         let mut source = Source::observed();
         let mut observed = source.result.get("observation").clone();
         let mut fields = observed.get("fields").clone();
-        fields.set(
-            "progress",
-            obj(&[("state", "known".into()), ("value", old.into())]),
-        );
+        let mut progress = fields.get("progress").clone();
+        progress.set("value", old.into());
+        fields.set("progress", progress);
         observed.set("fields", fields);
         set_observation(&mut source, observed.clone());
         let policy = Policy::new(true);
@@ -1254,7 +1253,11 @@ fn historical_parent_codes_remain_readable_but_new_wording_requires_admission() 
             runtime: &clock,
         };
         let intake = svc.intake(&obj(&[("context", context.clone())])).unwrap();
-        assert!(intake.get("status").is("ready_for_review"), "{intake:?}");
+        assert!(
+            intake.get("status").is("ready_for_review"),
+            "{}",
+            stringify(&intake).unwrap()
+        );
         let before = store
             .get(
                 Kind::Observation,
@@ -1272,14 +1275,15 @@ fn historical_parent_codes_remain_readable_but_new_wording_requires_admission() 
                 true,
             )
             .unwrap();
-        let row = &review.get("fields").array()[0];
+        let row = &review.get("rows").array()[0];
         assert_eq!(
             row.get("blockers")
                 .array()
                 .iter()
                 .any(|v| v.is("parent_internal_language_excluded")),
             blocked,
-            "{review:?}"
+            "{}",
+            stringify(&review).unwrap()
         );
         assert_eq!(
             store
