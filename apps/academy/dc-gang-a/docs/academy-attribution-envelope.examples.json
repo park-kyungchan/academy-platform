@@ -1,0 +1,70 @@
+{
+  "note": "Fictional examples only. No real session ids, student data or credentials.",
+  "valid": [
+    {
+      "schemaVersion": "academy.attribution-envelope/1",
+      "runtime": "muse",
+      "runtimeSessionId": "example-session-0001",
+      "requestRef": "example-event-0001",
+      "requestTextSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "currentUserEventRef": "example-event-0001",
+      "issuedAt": "2026-10-26T00:00:00+09:00",
+      "expiresAt": "2026-10-26T01:00:00+09:00",
+      "actionDigests": [
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      ]
+    },
+    {
+      "schemaVersion": "academy.attribution-envelope/1",
+      "runtime": "codex",
+      "runtimeSessionId": "example-session-0002",
+      "requestRef": "example-event-0002",
+      "requestTextSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "currentUserEventRef": "example-event-0002",
+      "issuedAt": "2026-10-26T00:00:00+09:00",
+      "expiresAt": "2026-10-26T01:00:00+09:00",
+      "actionDigests": [
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      ]
+    },
+    {
+      "schemaVersion": "academy.attribution-envelope/1",
+      "runtime": "hermes",
+      "runtimeSessionId": "example-session-0003",
+      "requestRef": "example-event-0003",
+      "requestTextSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "currentUserEventRef": "example-event-0003",
+      "issuedAt": "2026-10-26T00:00:00+09:00",
+      "expiresAt": "2026-10-26T01:00:00+09:00",
+      "actionDigests": [
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      ]
+    }
+  ],
+  "invalid": [
+    {
+      "why": "unknown runtime",
+      "value": {
+        "schemaVersion": "academy.attribution-envelope/1",
+        "runtime": "other",
+        "runtimeSessionId": "x",
+        "requestRef": "x",
+        "requestTextSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "currentUserEventRef": "x",
+        "issuedAt": "2026-10-26T00:00:00+09:00"
+      }
+    },
+    {
+      "why": "hash not sha256 hex",
+      "value": {
+        "schemaVersion": "academy.attribution-envelope/1",
+        "runtime": "muse",
+        "runtimeSessionId": "x",
+        "requestRef": "x",
+        "requestTextSha256": "XYZ",
+        "currentUserEventRef": "x",
+        "issuedAt": "2026-10-26T00:00:00+09:00"
+      }
+    }
+  ]
+}

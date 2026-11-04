@@ -21,8 +21,8 @@
   },
   {
     "path": "index.html",
-    "bytes": 13420,
-    "sha256": "ecfb7ea1f1cd7d9b12bc4df6aef1b58b80f968223e05f8c03bf355d2a8e6add6"
+    "bytes": 13407,
+    "sha256": "216a5b96fc0e9bed3656cbef9b187dbb9e8e7ff56281bdc68b28ab9739b70b13"
   },
   {
     "path": "ko/404.html",
@@ -31,8 +31,8 @@
   },
   {
     "path": "ko/index.html",
-    "bytes": 14421,
-    "sha256": "9725b5574a194da11019542f14912c42b223b1b4808d350e020f004f889714ba"
+    "bytes": 14408,
+    "sha256": "799079e6fe2d9b6a74cb78fdf4dd19cbe686b3afb7b28d481be70fecb79efc73"
   },
   {
     "path": "ko/privacy.html",

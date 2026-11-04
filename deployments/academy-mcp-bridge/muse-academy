@@ -1,0 +1,3 @@
+#!/bin/sh
+cd /home/palantirkc/projects/education-platform || exit 1
+exec /usr/local/bin/muse --yolo --workspace /home/palantirkc/projects/education-platform "$@"

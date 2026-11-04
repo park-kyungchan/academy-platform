@@ -1282,36 +1282,6 @@
     },
     {
       "module": "apps/academy/dc-gang-a",
-      "path": "tests/architecture/applicationIngressStorageDesign.test.ts",
-      "sha256": "0892526098af8f7e8bee3c8950c81af0e626d09562d126e726c8cf49daa2745d",
-      "bytes": 6578
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/architecture/classroomCycleEntry.test.ts",
-      "sha256": "62fcd263141092b35f97b31d8eb4aef0a40bc6070e23307cf91c73291dc6e652",
-      "bytes": 1195
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/architecture/studentEvidenceContracts.test.ts",
-      "sha256": "752b6e43c2a317b24771ee025e3817eb47a4569a7d7236a7955109910d343fa9",
-      "bytes": 10053
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/architecture/teacherWorkDirection.test.ts",
-      "sha256": "a9a1981fda0cf0d04bf89ecb19cb7f373b9b68999e91e0b7324faaf45edf2d36",
-      "bytes": 7403
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/architecture/teacherWorkspaceContracts.test.ts",
-      "sha256": "0082ef984c7abf426133dad96fe263afdaa4765867f6a0e82eefdd68f5ca1688",
-      "bytes": 11268
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
       "path": "tests/assessment/appGradingFixtures.ts",
       "sha256": "afdc61d79760c666818b7add68ea3311fce9cbb4ec7beed4f430aeb49de685ee",
       "bytes": 2208
@@ -1354,33 +1324,9 @@
     },
     {
       "module": "apps/academy/dc-gang-a",
-      "path": "tests/canonical/canonicalEntities.test.ts",
-      "sha256": "9cff1782c995d84d995a44afb7418fdebbf01df07b33e3da3fe0d0e9437c448e",
-      "bytes": 10328
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/canonical/rosterRecovery.test.ts",
-      "sha256": "cc8d18a28f843ed074511d715dc2cfdaac11edf29693ec9862e4e57ce313e599",
-      "bytes": 3172
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/canonical/syntheticRegistry.test.ts",
-      "sha256": "6d79c6354231f67fb8f5e47ea33accda494a8f9f0ec68f152bb5a8b6ba88f924",
-      "bytes": 1898
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
       "path": "tests/fixtures/synthetic-roster.json",
       "sha256": "daaf49ac3471f55017731123be43fc0588ea4b5b3b1f061432c8dcc789d51f0f",
       "bytes": 1834
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/academyBrowserRehearsal.test.ts",
-      "sha256": "549bcc8b9248157a9853bbeb9e4c7f75f029cca962eb8d52e98bd4e6562d9be9",
-      "bytes": 2286
     },
     {
       "module": "apps/academy/dc-gang-a",
@@ -1408,129 +1354,15 @@
     },
     {
       "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/atomicContext.test.ts",
-      "sha256": "3d805d5e381c99ba252eda25b257197f887834245cff28386020497edae52c54",
-      "bytes": 14081
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/botDialogue.test.ts",
-      "sha256": "412c6924a52f8d8744fd232ea1e8b680fa642de679086fdf5071002efaec5d33",
-      "bytes": 17376
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
       "path": "tests/harness/botGovernance.test.ts",
       "sha256": "fedeaf1a460e1359671900caa9afe9f55e754d77ed275e8790e0619e4442d327",
       "bytes": 40448
     },
     {
       "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/chromeDevtoolsSession.test.ts",
-      "sha256": "22f962548d85cf2ef9fa9e07155b65fad98a0ba9c8b61ba2d022ce3f851b4aa5",
-      "bytes": 2586
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/cli.test.ts",
-      "sha256": "4bb9c73fbd52ac86ce5a4ace02b0c322c302debfca894d0ba40f01ad0556a42d",
-      "bytes": 15430
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/cloudEnvironment.test.ts",
-      "sha256": "060a570c1a06187bb08a7fd7dc521aae92010d638c2827ecd3dc2c9ecbb1edf7",
-      "bytes": 9468
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/codexFullAccess.test.ts",
-      "sha256": "0b2c42d0338830c1ec2cc188aff446d028aed80b4a25cb09aa109fbded2ab5fc",
-      "bytes": 2068
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/codexModelConfig.test.ts",
-      "sha256": "ca9eeb55db65724dfb08d67e0e0ab548f93d2ccc46ec79d80214cddb59ae90fd",
-      "bytes": 8133
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/contextRouting.test.ts",
-      "sha256": "3cf15954080ec643309b7e4d0a570a943425f632636c6ffee0c507f6b2d3773e",
-      "bytes": 18056
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/directResume.test.ts",
-      "sha256": "104375a159e9972cb4955ae8608066fa523d2fe6b59d544010dc3af2d312cb46",
-      "bytes": 2340
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/feedbackCoverage.test.ts",
-      "sha256": "3e62e226acd468756ac977046816316e90cf66b28406d951d1022c5370ed3587",
-      "bytes": 1484
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
       "path": "tests/harness/fixtures/workflowFixedClock.ts",
       "sha256": "fb3fbff246c3b0916d48c02c5f76062bf6670aa7bb0e3ac0b4d01f39dc43691d",
       "bytes": 453
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/hermesBackendProfile.test.ts",
-      "sha256": "93800dd8f11df9ccc5f448ffd9068f946029d85f428ebc115dc03a6c143c3938",
-      "bytes": 7187
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/lead.test.ts",
-      "sha256": "08615399dee24c48571ff8a703378b8159cb78b75f3aefca359b50e8dfdea4d1",
-      "bytes": 4736
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/operationalEntryContract.test.ts",
-      "sha256": "5aa91eb925c0f002a674b0738b75fcefaf67202d21376ed3d5b5708ea376b7fb",
-      "bytes": 2743
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/profileOntologyDisposition.test.ts",
-      "sha256": "df81641b6f7cf0e9c27b742da86634751cec13d622d310bb22e27cfc81ae06cf",
-      "bytes": 7137
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/repositoryBindings.test.ts",
-      "sha256": "678b668d01dbb6fceb22dd60bc12d7e72f5a9d1ba36fc28807bb127873fc6275",
-      "bytes": 4141
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/resume.test.ts",
-      "sha256": "fe002c08431e4df81903cba0434a254313fff71b6e2fd69720394d71e064cb70",
-      "bytes": 5583
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/runtimePreflight.test.ts",
-      "sha256": "bb50dd4936ee722fb3df1a3389da5678cf55dfb24ba4f3208a533042a613cbf8",
-      "bytes": 2663
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/workflowCheckpoint.test.ts",
-      "sha256": "0b0e76d28b1f77b379cb884e584e4f461791be965217889cb5aac01dfbab4100",
-      "bytes": 26116
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/harness/workspaceEntry.test.ts",
-      "sha256": "4fb9dea9ffe5f33b29e4f4c3780b9fcee99462714f846f24b9f7a3a016f82781",
-      "bytes": 6919
     },
     {
       "module": "apps/academy/dc-gang-a",
@@ -1570,12 +1402,6 @@
     },
     {
       "module": "apps/academy/dc-gang-a",
-      "path": "tests/lms/academyReadProtocol.test.ts",
-      "sha256": "710541e93eebaee6a5ba6fba2f30319e006182e8efa562d58a3af3d46c6709b0",
-      "bytes": 14370
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
       "path": "tests/lms/academySourceAudit.test.ts",
       "sha256": "6fb5e5ebe116aed6fd52bf0588956e404f9b09547508af19febc20b62e1e6bbd",
       "bytes": 9662
@@ -1585,12 +1411,6 @@
       "path": "tests/lms/assessmentReadProtocol.test.ts",
       "sha256": "483e7b3416359739bc5708664235b216bb1c676fc894877d846e32d731ab95a6",
       "bytes": 11246
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/lms/backendCoverage.test.ts",
-      "sha256": "e237c04ea4a8af718d79512643af35e404d7224840d214efa9d08144004029f5",
-      "bytes": 5221
     },
     {
       "module": "apps/academy/dc-gang-a",
@@ -1621,12 +1441,6 @@
       "path": "tests/lms/deterministicReadRepository.test.ts",
       "sha256": "4c618ab6cb487d130d2c3c43537b7ab7eb7b254b32f80450bc02c2662f3bd14d",
       "bytes": 3739
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/lms/endpointCatalog.test.ts",
-      "sha256": "04c9ac12e2ec26c3ea2ad530034e6b3491b62d20caa227a599e450741a7e5446",
-      "bytes": 13970
     },
     {
       "module": "apps/academy/dc-gang-a",
@@ -1690,12 +1504,6 @@
     },
     {
       "module": "apps/academy/dc-gang-a",
-      "path": "tests/lms/lmsRouteRegistry.test.ts",
-      "sha256": "715a3208c92e43f3f643e8d143dd0082dc5fe24f2a1f341dabebe18805259c71",
-      "bytes": 11257
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
       "path": "tests/lms/paperLineage.test.ts",
       "sha256": "bdb0ada3fb7721d1570707512b05600cce4ba76a46f49633680b9b7fb3c89b1d",
       "bytes": 2601
@@ -1708,12 +1516,6 @@
     },
     {
       "module": "apps/academy/dc-gang-a",
-      "path": "tests/lms/siteReadContracts.test.ts",
-      "sha256": "69c90dbdd32c42b9b375fffb40f670e936d709a6bb6da22368e94b5b15100321",
-      "bytes": 2302
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
       "path": "tests/lms/sourceFunctionText.test.ts",
       "sha256": "f5dbd360e32d149f141f0d205d3fc2e24bac836387591ed287002ca2d52381fc",
       "bytes": 695
@@ -1723,12 +1525,6 @@
       "path": "tests/lms/studentCourseRead.test.ts",
       "sha256": "486920f9b3271e752ab1548bc00e3e7bb4bc2bac139763641662cc53e84d238f",
       "bytes": 3052
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/lms/textbookSamplePdf.test.ts",
-      "sha256": "915f163d808d71f6977f70b2823ede9e6724e0aa34014e5eddbdb568e69e7309",
-      "bytes": 2951
     },
     {
       "module": "apps/academy/dc-gang-a",
@@ -1768,12 +1564,6 @@
     },
     {
       "module": "apps/academy/dc-gang-a",
-      "path": "tests/sheets/learningViewProjection.test.ts",
-      "sha256": "e3846ac800c454bac034540a4429ee7c38670282560fac2f0b3663258fbc5a1b",
-      "bytes": 32943
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
       "path": "tests/sheets/nativePreservationPreview.test.ts",
       "sha256": "7246647fd27658c025af200a1c1353b582818af93183f10f9d5fade8cfb8b22d",
       "bytes": 4107
@@ -1798,27 +1588,9 @@
     },
     {
       "module": "apps/academy/dc-gang-a",
-      "path": "tests/sheets/parkMainTopMigrationAudit.test.ts",
-      "sha256": "c32ccec5d22a0a9459892d5f46c546519347934bbe0cfc2cb3618cd7428703e1",
-      "bytes": 8537
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/sheets/rowGroupedSheet.test.ts",
-      "sha256": "7f67e642b4b436cd720b2afa432a7712853cbc7a9bc8554653daeb9c71a92e08",
-      "bytes": 807
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
       "path": "tests/storage/syntheticLearningSqlite.test.ts",
       "sha256": "eb58ef4e8637a6c4961d3f9f894f2c83f24a9df2dafc5f495bb56616cdded04f",
       "bytes": 13574
-    },
-    {
-      "module": "apps/academy/dc-gang-a",
-      "path": "tests/textbooks/bookCatalog.test.ts",
-      "sha256": "8619591b6da43c9a2b39d025533b4fa2a44e69ecec2f265fd8d88740a37e7ace",
-      "bytes": 828
     },
     {
       "module": "apps/academy/dc-gang-a",
@@ -2797,234 +2569,6 @@
       "path": "tests/vision.test.ts",
       "sha256": "1273be1c1dbdecef1e1c79a66ef9f57d46ad45846c59008742208755a4ff5816",
       "bytes": 2870
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": ".github/workflows/check.yml",
-      "sha256": "f6fdbc22474145490360020094e34014f0a4a7d217f8444ff0b2a552dd4cf50d",
-      "bytes": 345
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": ".gitignore",
-      "sha256": "a98486a0709b7b7ae3901e4639f9888919e4dde8ecd7401a81843d0f6ae40a21",
-      "bytes": 38
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "README.md",
-      "sha256": "138418efe11b0ce33c82345fc67dfe277dbe6bbb781cebb2196672b73efe1624",
-      "bytes": 9707
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "bun.lock",
-      "sha256": "1a36ec99d3fb9ee83246db7532235b878221d971f790eafb9f2bbdea998f9e9d",
-      "bytes": 8411
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "package.json",
-      "sha256": "afd97ad8f0a00dbf21e7c500a073dbfac90288c550e11e16957fcbab942ca039",
-      "bytes": 804
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "scripts/build.ts",
-      "sha256": "fa6932e33c9864e75301ab97a160f4d9779a03f8d3e9c5c6f8c2f342688079ff",
-      "bytes": 349
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "scripts/checkBundle.ts",
-      "sha256": "d3451a59fc67b6d2fca8ab7c6eb1d07cca3c9442ec314ca8a4feb1475a6c58e2",
-      "bytes": 674
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "scripts/demo.ts",
-      "sha256": "0ffa0b0c05ab1d6573058ae4cd1169ad5bdf59dd1e56a2291accd0e60d0da412",
-      "bytes": 1050
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/academy/classroomCyclePolicy.ts",
-      "sha256": "6f9faf3542bf8172e562cb0509e6aec55bcd864e2e9b7c875cb88a40a992cc00",
-      "bytes": 2313
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/academy/clinicIdentity.ts",
-      "sha256": "2de3d68511635b62f04d64f429c6ceb2bc4ccef33ef94405f6aa4fb01c7e08d1",
-      "bytes": 2304
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/academy/contracts/storageRecords.ts",
-      "sha256": "3a34a02f659f6776cdbae90ad3cbe34766f871efa7e55c7ede952234552aa28e",
-      "bytes": 1595
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/academy/domain.ts",
-      "sha256": "c99a9a9b74899117156e7dd165dbdf3763a0eb050f6ae4d3d619d2d19a6c8607",
-      "bytes": 5249
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/academy/learningWork.ts",
-      "sha256": "7598a30b6c3ad9e3c6cb9c9f1cb78753e18ca202349ec8660f033ed350c065ea",
-      "bytes": 10514
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/academy/learningWorkProjection.ts",
-      "sha256": "b4c753549229a0d90baf190e8029ab229d5b8d242f6bda494d97b7d06fcfb64a",
-      "bytes": 5567
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/adapters/syntheticClinicStore.ts",
-      "sha256": "2ae1c970c4e2a9766508f00a9ce3ea94321871be3091fbc90894904072dea258",
-      "bytes": 5382
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/application/clinicWorkbench.ts",
-      "sha256": "0fdc57ce011b66d5b0d5a4f8d42ad7312691b2bf62ff0530ed5b67f2c7447b84",
-      "bytes": 5245
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/demo/synthetic.ts",
-      "sha256": "d3cf68c3f3913031a6ae7f9dd912752cbf2dd7ba2a6c774841c1d48165a4ebdf",
-      "bytes": 5333
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/index.ts",
-      "sha256": "7e2fcc4ba8dae6676074fa3ae9d95bae51adbabd7dc4c0194be4da280913d67e",
-      "bytes": 474
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/learning/model.ts",
-      "sha256": "9b56bf190a0fc0bfdb1ddcd4f9fab3c787fe64a54422fdc625eea6b8c28917ce",
-      "bytes": 6614
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/ports/clinicStore.ts",
-      "sha256": "37b957acadf21fe29894ea086cfc4b6e78fa965a39c4bdc2a29ad75b2c81ae88",
-      "bytes": 5736
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/reference/domain/decision.ts",
-      "sha256": "e53601e359ac9f42e9ba96ea288f9588b0097da217966d8bdafee03da67d01eb",
-      "bytes": 2728
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/reference/domain/evidence.ts",
-      "sha256": "92c087d2a877fdd02200e2383d8279aafd769ed639a36aea962760bb88676f85",
-      "bytes": 3269
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/reference/domain/ids.ts",
-      "sha256": "4c543f6c21f2d23cdf3532950a9890bf6065aef61d30077ef058edc2f9a3aea6",
-      "bytes": 1330
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/reference/domain/scope.ts",
-      "sha256": "1c847eb87a8ea56412a87ed7ab9d3ac11840677601382e582a34d5713a8ddd43",
-      "bytes": 765
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/ui/teacherRails.ts",
-      "sha256": "ba1a002ad6a179a2072df1f2ee3c27cfca37c58f1a8b30348ff94bb4e03e683e",
-      "bytes": 2186
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "src/ui/workbench.ts",
-      "sha256": "1dc6dc0c84a30a0164bd82de657883aa0b7e73534b6bd8d8fb6b3b76ffe750f5",
-      "bytes": 1872
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "tests/architecture.test.ts",
-      "sha256": "bd95915c5e11fd1413e2fe249061a0b2aca8c94b56a49950efe9e79ef863cbc8",
-      "bytes": 1238
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "tests/integration.test.ts",
-      "sha256": "322ac11f91f1b9b2bcb1fdb025f5abab787ced9ea1d372f0427c95acc6639167",
-      "bytes": 25923
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "tests/r4-admission.test.ts",
-      "sha256": "103904b91e3755e0c1f0302a6925afb54a2c46544afd198077abf22690469617",
-      "bytes": 13986
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "third-party-notices.json",
-      "sha256": "c985473785333d34b26124bab9ad903e0056b45ff732bc06553aa1d00d860102",
-      "bytes": 1260
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "third-party/types-bun-LICENSE",
-      "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
-      "bytes": 1141
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "third-party/types-node-LICENSE",
-      "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
-      "bytes": 1141
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "third-party/typescript-LICENSE",
-      "sha256": "a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47",
-      "bytes": 9197
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "third-party/typescript-NOTICE.txt",
-      "sha256": "f5c708b59114507b8b27b48181b6883d106bbca0c1634bbee45b5e344237b66b",
-      "bytes": 48860
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "third-party/typescript-typescript-linux-x64-LICENSE",
-      "sha256": "a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47",
-      "bytes": 9197
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "third-party/undici-types-LICENSE",
-      "sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27",
-      "bytes": 1090
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "third-party/zod-LICENSE",
-      "sha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8",
-      "bytes": 1072
-    },
-    {
-      "module": "examples/clinic-workbench",
-      "path": "tsconfig.json",
-      "sha256": "4ea14af744fd4197c94a5600a43d8cb288e6de68a98a110125233272279b2139",
-      "bytes": 329
     },
     {
       "module": "packages/curriculum",
@@ -5317,6 +4861,96 @@
       "path": "tsconfig.json",
       "sha256": "f01cda3796fd73635935513df24bc323746650c6023ad607c5a2f991aa5a5b3f",
       "bytes": 556
+    },
+    {
+      "module": "modules/academy-workbench",
+      "path": "app/offline-import-adapter/src/printed-code.ts",
+      "sha256": "5d11ee75292b57aa9913a8d5b061f1b7476e6dd552b04dcc9f40b48ad827ab83",
+      "bytes": 1296,
+      "sourceRepository": "park-kyungchan/academy-workbench",
+      "sourceCommit": "dd98e33a5f3d7f9157ae8beba1e41bdf9b7e1eef",
+      "sourcePath": "app/offline-import-adapter/src/printed-code.ts"
+    },
+    {
+      "module": "modules/academy-workbench",
+      "path": "app/offline-import-adapter/tests/printed-code.test.ts",
+      "sha256": "945c7ea1948184d2360e31ce177b197dc3f13aba05bc980cae8d6cebfa5e0b92",
+      "bytes": 1112,
+      "sourceRepository": "park-kyungchan/academy-workbench",
+      "sourceCommit": "dd98e33a5f3d7f9157ae8beba1e41bdf9b7e1eef",
+      "sourcePath": "app/offline-import-adapter/tests/printed-code.test.ts"
+    },
+    {
+      "module": "modules/academy-workbench",
+      "path": "app/offline-import-adapter/src/class-day-guard.ts",
+      "sha256": "743abd02087f5c65997ccb5f14a7b702f2b5a99e4bb1be0a4f620714d4950120",
+      "bytes": 2211,
+      "sourceRepository": "park-kyungchan/academy-workbench",
+      "sourceCommit": "ec58b81483d0d64063416d275a6131bb4bc61da4",
+      "sourcePath": "app/offline-import-adapter/src/class-day-guard.ts"
+    },
+    {
+      "module": "modules/academy-workbench",
+      "path": "app/offline-import-adapter/tests/class-day-guard.test.ts",
+      "sha256": "ab0d4db7ce855e0e05b30341282631ba0ec318c7019a83f50272703d3ff38879",
+      "bytes": 1450,
+      "sourceRepository": "park-kyungchan/academy-workbench",
+      "sourceCommit": "ec58b81483d0d64063416d275a6131bb4bc61da4",
+      "sourcePath": "app/offline-import-adapter/tests/class-day-guard.test.ts"
+    },
+    {
+      "module": "apps/academy/dc-gang-a",
+      "path": "docs/academy-mcp-runtime-agnostic-problems.md",
+      "sha256": "f40589819eeef00726be52e266c24bef4627cf89151f28122ba53995e50a44ab",
+      "bytes": 4481,
+      "sourceRepository": "park-kyungchan/dc-gang-a",
+      "sourceCommit": "f0cd747ec11899b1d8cd6ed5fb77c7316f80b24b",
+      "sourcePath": "docs/academy-mcp-runtime-agnostic-problems.md"
+    },
+    {
+      "module": "apps/academy/dc-gang-a",
+      "path": "docs/academy-attribution-envelope.schema.json",
+      "sha256": "f09c78355d5ea3c08d24848c0c563deb9f89b4f03b5e8f083db69c08f5e47e34",
+      "bytes": 1420,
+      "sourceRepository": "park-kyungchan/dc-gang-a",
+      "sourceCommit": "af524de625e19f8398c0d8494610ff8a1800038a",
+      "sourcePath": "docs/academy-attribution-envelope.schema.json"
+    },
+    {
+      "module": "apps/academy/dc-gang-a",
+      "path": "docs/academy-attribution-envelope.examples.json",
+      "sha256": "5bbc42a970ed7ca7744f9a87c0d3fbc7f19e0d511a7f3e623c2bd23fa21b7317",
+      "bytes": 2476,
+      "sourceRepository": "park-kyungchan/dc-gang-a",
+      "sourceCommit": "af524de625e19f8398c0d8494610ff8a1800038a",
+      "sourcePath": "docs/academy-attribution-envelope.examples.json"
+    },
+    {
+      "module": "apps/academy/dc-gang-a",
+      "path": "context/private-students/schemas/context-event.schema.json",
+      "sha256": "0774bbdb84ea26f7f0ef4cff54cf56d9e520bd81fa92327d7895d6b487664b7d",
+      "bytes": 1387,
+      "sourceRepository": "park-kyungchan/dc-gang-a",
+      "sourceCommit": "8437017de525fcadd09da5fcf822d8ddaf743c1b",
+      "sourcePath": "context/private-students/schemas/context-event.schema.json"
+    },
+    {
+      "module": "apps/academy/dc-gang-a",
+      "path": "context/private-students/schemas/student-state.schema.json",
+      "sha256": "535a43bde9a3401296f7b9d8df13f908857023dd990e5081df28ef1ba551be47",
+      "bytes": 1080,
+      "sourceRepository": "park-kyungchan/dc-gang-a",
+      "sourceCommit": "8437017de525fcadd09da5fcf822d8ddaf743c1b",
+      "sourcePath": "context/private-students/schemas/student-state.schema.json"
+    },
+    {
+      "module": "apps/academy/dc-gang-a",
+      "path": "context/private-students/tools/validate.mjs",
+      "sha256": "32a52c756a9b8ba09c1ac0787ba657f87d59940bb8e13d076965eafcafc1a968",
+      "bytes": 3126,
+      "sourceRepository": "park-kyungchan/dc-gang-a",
+      "sourceCommit": "8437017de525fcadd09da5fcf822d8ddaf743c1b",
+      "sourcePath": "context/private-students/tools/validate.mjs"
     }
   ]
 }

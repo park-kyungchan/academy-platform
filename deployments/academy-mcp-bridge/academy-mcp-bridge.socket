@@ -1,0 +1,13 @@
+[Unit]
+Description=Academy owner bridge socket for Hermes stdio
+
+[Socket]
+ListenStream=/docker/hermes-agent-2q3y/data/academy-mcp-relay/bridge.sock
+# Host has no passwd/group entry for the container UID. The containing
+# directory is owned by UID 10000 and mode 0700; it provides the access bound.
+SocketMode=0666
+Accept=yes
+MaxConnections=32
+
+[Install]
+WantedBy=sockets.target

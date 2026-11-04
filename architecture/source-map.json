@@ -87,32 +87,6 @@
       "runtimePin": "1.4.3"
     },
     {
-      "id": "clinic-workbench",
-      "root": "examples/clinic-workbench",
-      "projectId": "hermes-profile-dc-gang-a-dev",
-      "sourceKind": "github-public-synthetic-snapshot",
-      "commit": "a99605e9ea4bcbfa28130456e0d1ab8e41e7001a",
-      "runtime": "bun",
-      "dependsOn": [
-        "academy"
-      ],
-      "checks": [
-        "check"
-      ],
-      "entrypoints": [
-        "src/index.ts",
-        "scripts/demo.ts"
-      ],
-      "native": {
-        "ownerProfile": "dc-gang-a-dev",
-        "projectId": null,
-        "projectRoot": null,
-        "workIssueIds": [],
-        "authority": "none"
-      },
-      "runtimePin": "1.4.3"
-    },
-    {
       "id": "mathcrew",
       "root": "apps/mathcrew",
       "projectId": "hermes-profile-default",

@@ -36,11 +36,7 @@
         ],
         "mode": "owner-only"
       },
-      "work": {
-        "domainId": "education",
-        "projectId": "education-platform",
-        "workId": "academy-repository-integration-20261023"
-      }
+      "work": null
     },
     {
       "repository": "academy-workbench",
@@ -216,9 +212,9 @@
       ],
       "routes": [
         {
-          "scope": "Current source maintenance in the integrated repository; domain and native runtime ownership retained",
+          "scope": "Academy source successor after retirement of the synthetic clinic demo",
           "repository": "education-platform",
-          "path": "examples/clinic-workbench",
+          "path": "apps/academy",
           "relationship": "maintained"
         }
       ],

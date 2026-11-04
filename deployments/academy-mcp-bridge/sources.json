@@ -1,0 +1,82 @@
+{
+  "schema": "education.academy-deployment-sources.v1",
+  "capturedAt": "2026-11-04",
+  "basis": "Read-only byte copies of the task-selected host sources; no runtime activation",
+  "credentialLiteralScan": {
+    "files": 10,
+    "findings": 0,
+    "scope": "private-key blocks, provider token literals, assigned quoted secret literals; not a general security audit"
+  },
+  "files": [
+    {
+      "sourceHostPath": "/etc/systemd/system/academy-mcp-bridge.socket",
+      "path": "deployments/academy-mcp-bridge/academy-mcp-bridge.socket",
+      "sha256": "0289638b21b1d4481960e9a6d4b813efbba5212c69f4a5b512e5c445a0d50b62",
+      "bytes": 378,
+      "mode": "0o644"
+    },
+    {
+      "sourceHostPath": "/etc/systemd/system/academy-mcp-bridge@.service",
+      "path": "deployments/academy-mcp-bridge/academy-mcp-bridge@.service",
+      "sha256": "51daef65832d52515a04b7c59fc272d67a5afbf88d465f7d2aeb6d136af0c213",
+      "bytes": 342,
+      "mode": "0o644"
+    },
+    {
+      "sourceHostPath": "/root/.local/share/academy-mcp-scoped-20261030/launcher.mjs",
+      "path": "deployments/academy-mcp-bridge/launcher.mjs",
+      "sha256": "a788dec3f0433b04b8781e8308af600e13f29fc3aa9800e6095f30d10e382544",
+      "bytes": 3309,
+      "mode": "0o600"
+    },
+    {
+      "sourceHostPath": "/root/.local/bin/muse-academy",
+      "path": "deployments/academy-mcp-bridge/muse-academy",
+      "sha256": "a098b03ea9590ad59df9044c9793aa653b219f9f23b7a94bf87c8a6f80311db7",
+      "bytes": 162,
+      "mode": "0o700"
+    },
+    {
+      "sourceHostPath": "/root/.agents/skills/academy-runtime-routing/SKILL.md",
+      "path": "content/skills/academy-runtime-routing/SKILL.md",
+      "sha256": "fe1a92fcd10bf08087ef95326c01a969ec36c0e1ca7611010e86fd4a5f3e20f8",
+      "bytes": 2911,
+      "mode": "0o644"
+    },
+    {
+      "sourceHostPath": "/root/.agents/skills/academy-student-context/SKILL.md",
+      "path": "content/skills/academy-student-context/SKILL.md",
+      "sha256": "eca82d626c84b061aad97984f39dfb30c57d59c6919d8caf78b88797b664ccc2",
+      "bytes": 2896,
+      "mode": "0o644"
+    },
+    {
+      "sourceHostPath": "/root/.agents/skills/academy-student-context/agents/openai.yaml",
+      "path": "content/skills/academy-student-context/agents/openai.yaml",
+      "sha256": "896baa331e5f995d17aa80613a32f39cac684b23dc07b39708ec77b88eadb0bd",
+      "bytes": 442,
+      "mode": "0o644"
+    },
+    {
+      "sourceHostPath": "/root/.agents/skills/academy-student-context/references/evidence-and-stages.md",
+      "path": "content/skills/academy-student-context/references/evidence-and-stages.md",
+      "sha256": "f355d7a5d13a053e73cd48787f21e7b6c81f0f2ddca32acc9bf15258349a9445",
+      "bytes": 6543,
+      "mode": "0o644"
+    },
+    {
+      "sourceHostPath": "/root/.agents/skills/academy-student-context/references/full-report.md",
+      "path": "content/skills/academy-student-context/references/full-report.md",
+      "sha256": "14bc80ed1864b356a55e8ab7c3d5406f21818f61e882ae7a182638d679831166",
+      "bytes": 1924,
+      "mode": "0o644"
+    },
+    {
+      "sourceHostPath": "/root/.agents/skills/academy-student-context/references/report-example.md",
+      "path": "content/skills/academy-student-context/references/report-example.md",
+      "sha256": "c239720dc7db474fd6e4b63eb10549dd5826a3330cf006c6046adac04efc5110",
+      "bytes": 3053,
+      "mode": "0o644"
+    }
+  ]
+}

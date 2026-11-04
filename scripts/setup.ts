@@ -21,7 +21,7 @@ const sums=await(await get(nodeBase+'SHASUMS256.txt')).text();const expected=sum
 const node=await unpack('node-26.7.0',nodeBase+nodeArchive,'sha256',expected,'hex');
 const npm=await npmTool('npm','11.17.0','npm-11.17.0');
 const bun=resolve(integration,'bin/bun'),env={...process.env,PATH:resolve(integration,'bin')+':'+resolve(node,'bin')+':'+process.env.PATH};
-for(const relative of ['.','packages/curriculum','apps/academy/gang-a','apps/academy/dc-gang-a','examples/clinic-workbench','modules/academy-workbench','modules/academy-workbench/tools/academy-mcp','modules/math-research-module']){const p=Bun.spawn([bun,'install','--frozen-lockfile','--ignore-scripts'],{cwd:resolve(projectRoot,relative),env,stdout:'inherit',stderr:'inherit'});if(await p.exited!==0)throw Error('module_dependency_install_failed:'+relative);}
+for(const relative of ['.','packages/curriculum','apps/academy/gang-a','apps/academy/dc-gang-a','modules/academy-workbench','modules/academy-workbench/tools/academy-mcp','modules/math-research-module']){const p=Bun.spawn([bun,'install','--frozen-lockfile','--ignore-scripts'],{cwd:resolve(projectRoot,relative),env,stdout:'inherit',stderr:'inherit'});if(await p.exited!==0)throw Error('module_dependency_install_failed:'+relative);}
 const teacherFixture=Bun.spawn([bun,'--no-env-file','scripts/setup-academy-teacher-fixture.ts'],{cwd:projectRoot,env,stdout:'inherit',stderr:'inherit'});
 if(await teacherFixture.exited!==0)throw Error('academy_teacher_fixture_preparation_failed');
 const commonSnapshot=Bun.spawn([bun,'--no-env-file','run','setup:ci'],{cwd:resolve(projectRoot,'modules/academy-workbench'),env,stdout:'inherit',stderr:'inherit'});

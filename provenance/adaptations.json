@@ -427,21 +427,6 @@
       "sourceSha256": "9dd5cce97d0267e2d155830c2a6fdfe8df35670d5a59e1dad9af727063a32fcd"
     },
     {
-      "path": "examples/clinic-workbench/.github/workflows/check.yml",
-      "reason": "Align the adjacent standalone module CI runtime with its maintained exact Bun1.4.3 contract found during follow-up template inspection; preserve the original workflow and intentional root Actions bootstrap compatibility pins.",
-      "sourceSha256": "f6fdbc22474145490360020094e34014f0a4a7d217f8444ff0b2a552dd4cf50d"
-    },
-    {
-      "path": "examples/clinic-workbench/package.json",
-      "reason": "Align maintained executable runtime with Bun1.4.3; preserve historical evidence, original import bytes and compile-time dependencies",
-      "sourceSha256": "afd97ad8f0a00dbf21e7c500a073dbfac90288c550e11e16957fcbab942ca039"
-    },
-    {
-      "path": "examples/clinic-workbench/README.md",
-      "reason": "Align maintained executable runtime with Bun1.4.3; preserve historical evidence, original import bytes and compile-time dependencies",
-      "sourceSha256": "138418efe11b0ce33c82345fc67dfe277dbe6bbb781cebb2196672b73efe1624"
-    },
-    {
       "path": "packages/curriculum/.github/workflows/validate.yml",
       "reason": "Align maintained executable runtime with Bun1.4.3; preserve historical evidence, original import bytes and compile-time dependencies",
       "sourceSha256": "adc4d4a3503c910145071724d33bda716c2aa3ab902262e1e9db4475c75e16d3"
@@ -504,11 +489,6 @@
       "path": "apps/academy/gang-a/bun.lock",
       "reason": "Lock compile-time Bun types (@types/bun, bun-types) at 1.4.3 to unify the repository on Bun 1.4.3 (user direction 2026-10-30).",
       "sourceSha256": "8e83adfc345d885345ffb18007184ab31c5bbad03d4796c1a9a981e5cc612efb"
-    },
-    {
-      "path": "examples/clinic-workbench/bun.lock",
-      "reason": "Lock compile-time Bun types (@types/bun, bun-types) at 1.4.3 to unify the repository on Bun 1.4.3 (user direction 2026-10-30).",
-      "sourceSha256": "1a36ec99d3fb9ee83246db7532235b878221d971f790eafb9f2bbdea998f9e9d"
     },
     {
       "path": "packages/curriculum/bun.lock",
