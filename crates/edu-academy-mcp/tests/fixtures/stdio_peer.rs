@@ -310,9 +310,9 @@ pub mod setup {
     }
     pub fn wait_file(path: &Path, timeout: Duration) {
         let deadline = Instant::now() + timeout;
-        while !fs::read(path)
+        while fs::read(path)
             .ok()
-            .is_some_and(|bytes| parse(&bytes).is_ok())
+            .is_none_or(|bytes| parse(&bytes).is_err())
         {
             assert!(Instant::now() < deadline, "fictional marker deadline");
             std::thread::sleep(Duration::from_millis(5));
@@ -374,7 +374,7 @@ pub mod setup {
             .parse::<u64>()
             .unwrap();
         assert!(
-            !process::Identity::read(*pid as u32).is_some_and(|v| v.start == start),
+            process::Identity::read(*pid as u32).is_none_or(|v| v.start != start),
             "owned identity remains"
         );
     }
@@ -426,13 +426,22 @@ pub mod setup {
             let out = child.stdout.as_ref().unwrap();
             let flags = rustix::fs::fcntl_getfl(out).unwrap();
             rustix::fs::fcntl_setfl(out, flags | rustix::fs::OFlags::NONBLOCK).unwrap();
-            Self {
+            let mut bridge = Self {
                 child,
                 pending: vec![],
                 capture: scene.evidence.clone(),
                 sequence: 0,
                 finished: false,
-            }
+            };
+            // Observe the native bridge's initialized I/O and signal handlers
+            // before starting marker/cancellation/graph-switch assertions.
+            bridge.send(&request("fixture-ready".into(), "ping", obj(&[])));
+            let ready = bridge.receive();
+            assert!(
+                ready.get("id").is("fixture-ready") && ready.has("result"),
+                "{ready:?}"
+            );
+            bridge
         }
         pub fn send(&mut self, message: &Js) {
             edu_academy_mcp::framing::write_message(self.child.stdin.as_mut().unwrap(), message)
@@ -460,10 +469,7 @@ pub mod setup {
                         if matches!(
                             e.kind(),
                             io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
-                        ) =>
-                    {
-                        ()
-                    }
+                        ) => {}
                     Err(e) => panic!("fictional pipe error: {e}"),
                 }
                 assert!(

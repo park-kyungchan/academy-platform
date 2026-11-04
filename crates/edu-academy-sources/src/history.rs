@@ -388,6 +388,8 @@ pub fn project_page(raw: &Js, student: &Js, selector: &Js) -> Result<Js> {
         "student_search_list_rejected",
     )?;
     let mut rows = vec![];
+    // Membership only: output retains original row order and exact identities.
+    let mut attempts = std::collections::BTreeSet::new();
     for r in list.array() {
         require(object(r), "invalid_capture_shape")?;
         if source_key(r.get("priNo"))? != *student.get("studentKey") {
@@ -401,9 +403,7 @@ pub fn project_page(raw: &Js, student: &Js, selector: &Js) -> Result<Js> {
         let paper = key(&source_key(r.get("pNo"))?)?;
         let attempt = key(&source_key(r.get("testingNo"))?)?;
         require(
-            !rows
-                .iter()
-                .any(|v: &Js| v.get("paperKey") == &paper && v.get("attemptKey") == &attempt),
+            attempts.insert((paper.units().to_vec(), attempt.units().to_vec())),
             "duplicate_student_search_row",
         )?;
         let raw_id = r.get("_id");

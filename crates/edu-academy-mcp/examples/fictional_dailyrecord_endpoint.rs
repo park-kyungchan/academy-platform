@@ -250,7 +250,12 @@ fn main() {
             .get("name")
             .is("academy_dailyrecord_intake");
         if intake && config.get("mode").is("stall_intake") {
-            std::thread::sleep(std::time::Duration::from_secs(2));
+            // Signal the exact semantic boundary. Startup and graph hashing are
+            // not part of this fictional stalled-intake observation interval.
+            append(&state.join("intake-ready.json"), &request);
+            loop {
+                std::thread::park();
+            }
         }
         let response = session.handle_business(&request, &mut driver).unwrap();
         if intake && config.get("mode").is("close_after_intake") {

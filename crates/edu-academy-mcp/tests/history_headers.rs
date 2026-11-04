@@ -1,5 +1,7 @@
 //! SOURCE-ONLY: all tests are UNEXECUTED by the source author.
 //! Lead supplies canonical absolute roots and hash-pinned finite child executable.
+#[path = "common/isolated.rs"]
+mod isolated;
 use edu_academy_mcp::{
     Js,
     dailytest_history::{self as history, Source},
@@ -735,6 +737,9 @@ fn lines(path: &Path) -> Vec<Js> {
 }
 #[test]
 fn actual_source_drivers_route_independently_and_close_before_open() {
+    if isolated::run("actual_source_drivers_route_independently_and_close_before_open") {
+        return;
+    }
     process::install_binary_subreaper().unwrap();
     for selected in ["paper1", "paper2"] {
         let scene = Scene::new(&format!("normal-{selected}"), selected);
@@ -795,8 +800,8 @@ fn actual_source_drivers_route_independently_and_close_before_open() {
                 _ => panic!("owned pid required"),
             };
             assert!(
-                !process::Identity::read(pid)
-                    .is_some_and(|p| p.start.to_string() == c.get("startTicks").code_units())
+                process::Identity::read(pid)
+                    .is_none_or(|p| p.start.to_string() != c.get("startTicks").code_units())
             );
         }
         let pure = run(input(), metadata(), |h| {
@@ -817,6 +822,9 @@ fn actual_source_drivers_route_independently_and_close_before_open() {
 }
 #[test]
 fn actual_denials_and_strict_input_do_not_retry_or_open_extra_children() {
+    if isolated::run("actual_denials_and_strict_input_do_not_retry_or_open_extra_children") {
+        return;
+    }
     process::install_binary_subreaper().unwrap();
     for (mode, source, count, children) in [
         ("metadata-denied", "metadata", 0.0, 1),
@@ -943,6 +951,9 @@ fn actual_source_dated_identity_selector_and_row_checks_latch_failures() {
 
 #[test]
 fn actual_oversized_child_results_keep_exact_source_failure_envelopes() {
+    if isolated::run("actual_oversized_child_results_keep_exact_source_failure_envelopes") {
+        return;
+    }
     process::install_binary_subreaper().unwrap();
     for (mode, source_name, expected_code, expected_locator, count) in [
         (
@@ -1076,6 +1087,9 @@ fn actual_oversized_child_results_keep_exact_source_failure_envelopes() {
 
 #[test]
 fn malformed_upstream_contracts_have_exact_source_classification() {
+    if isolated::run("malformed_upstream_contracts_have_exact_source_classification") {
+        return;
+    }
     let root = root("malformed-vectors");
     for path in [
         "/status",
