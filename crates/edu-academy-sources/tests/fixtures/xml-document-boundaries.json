@@ -1,0 +1,248 @@
+[
+  {
+    "id": "bare",
+    "source": "<root><record>한글 &amp; 😀</record></root>",
+    "outcome": "returned",
+    "record": "한글 & 😀"
+  },
+  {
+    "id": "space-before",
+    "source": " <root><record>한글 &amp; 😀</record></root>",
+    "outcome": "returned",
+    "record": "한글 & 😀"
+  },
+  {
+    "id": "space-after",
+    "source": "<root><record>한글 &amp; 😀</record></root> ",
+    "outcome": "returned",
+    "record": "한글 & 😀"
+  },
+  {
+    "id": "xml-whitespace-before",
+    "source": " \t\r\n<root><record>한글 &amp; 😀</record></root>",
+    "outcome": "returned",
+    "record": "한글 & 😀"
+  },
+  {
+    "id": "xml-whitespace-after",
+    "source": "<root><record>한글 &amp; 😀</record></root> \t\r\n",
+    "outcome": "returned",
+    "record": "한글 & 😀"
+  },
+  {
+    "id": "decimal-space-before",
+    "source": "&#32;<root><record>한글 &amp; 😀</record></root>",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:1: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "decimal-space-after",
+    "source": "<root><record>한글 &amp; 😀</record></root>&#32;",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:41: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "hex-space-before",
+    "source": "&#x20;<root><record>한글 &amp; 😀</record></root>",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:1: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "hex-space-after",
+    "source": "<root><record>한글 &amp; 😀</record></root>&#x20;",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:41: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "decimal-tab-before",
+    "source": "&#9;<root><record>한글 &amp; 😀</record></root>",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:1: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "decimal-tab-after",
+    "source": "<root><record>한글 &amp; 😀</record></root>&#9;",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:41: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "hex-lf-before",
+    "source": "&#xA;<root><record>한글 &amp; 😀</record></root>",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:1: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "hex-lf-after",
+    "source": "<root><record>한글 &amp; 😀</record></root>&#xA;",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:41: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "decimal-cr-before",
+    "source": "&#13;<root><record>한글 &amp; 😀</record></root>",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:1: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "decimal-cr-after",
+    "source": "<root><record>한글 &amp; 😀</record></root>&#13;",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:41: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "named-entity-before",
+    "source": "&amp;<root><record>한글 &amp; 😀</record></root>",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:1: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "named-entity-after",
+    "source": "<root><record>한글 &amp; 😀</record></root>&amp;",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:41: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "non-xml-nbsp-before",
+    "source": " <root><record>한글 &amp; 😀</record></root>",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:2: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "non-xml-nbsp-after",
+    "source": "<root><record>한글 &amp; 😀</record></root> ",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:41: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "raw-letter-before",
+    "source": "x<root><record>한글 &amp; 😀</record></root>",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:2: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "raw-letter-after",
+    "source": "<root><record>한글 &amp; 😀</record></root>x",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:41: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "reported-counterexample",
+    "source": "<root><record>ok</record></root>&#32;",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:33: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "entity-before-with-raw-space",
+    "source": " \t&#32;<root><record>한글 &amp; 😀</record></root>",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:3: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "entity-after-cr",
+    "source": "<root><record>한글 &amp; 😀</record></root>\r&#32;",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:2:1: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "entity-after-crlf",
+    "source": "<root><record>한글 &amp; 😀</record></root>\r\n&#32;",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:2:1: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "raw-word-before",
+    "source": "abc<root><record>한글 &amp; 😀</record></root>",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:4: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "raw-word-after",
+    "source": "<root><record>한글 &amp; 😀</record></root>abc",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:43: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "entity-after-raw-space",
+    "source": "<root><record>한글 &amp; 😀</record></root> \t&#32;",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:1:43: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "entity-after-newline",
+    "source": "<root><record>한글 &amp; 😀</record></root>\n&#32;",
+    "outcome": "threw",
+    "name": "SyntaxError",
+    "message": "about:blank:2:1: text data outside of root node.",
+    "code": 12
+  },
+  {
+    "id": "inside-root-whitespace-entity",
+    "source": "<root>&#32;<record>한글 &amp; 😀</record>&#9;</root>",
+    "outcome": "returned",
+    "record": "한글 & 😀"
+  },
+  {
+    "id": "inside-record-whitespace-entity",
+    "source": "<root><record>&#32;한글 &amp; 😀&#9;</record></root>",
+    "outcome": "returned",
+    "record": " 한글 & 😀\t"
+  },
+  {
+    "id": "comments-around-root",
+    "source": "<!--before--><root><record>한글 &amp; 😀</record></root><!--after-->",
+    "outcome": "returned",
+    "record": "한글 & 😀"
+  },
+  {
+    "id": "processing-instructions-around-root",
+    "source": "<?before data?><root><record>한글 &amp; 😀</record></root><?after data?>",
+    "outcome": "returned",
+    "record": "한글 & 😀"
+  }
+]

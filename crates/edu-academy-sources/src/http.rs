@@ -2127,14 +2127,11 @@ fn xml_record_observation(s: &str) -> Result<(String, bool)> {
     let mut roots = 0;
     let b = s.as_bytes();
     let syntax = |pos: usize, message: String| {
-        let prefix = &s[..pos];
+        // Match Saxes: XML line endings normalize CR/CRLF, and columns count
+        // Unicode scalar values (an astral character occupies one column).
+        let prefix = s[..pos].replace("\r\n", "\n").replace('\r', "\n");
         let line = prefix.bytes().filter(|c| *c == b'\n').count() + 1;
-        let col = prefix
-            .rsplit('\n')
-            .next()
-            .unwrap_or("")
-            .encode_utf16()
-            .count();
+        let col = prefix.rsplit('\n').next().unwrap_or("").chars().count();
         let mut e = Error::new(
             "SyntaxError",
             format!("about:blank:{line}:{col}: {message}"),
@@ -2149,6 +2146,21 @@ fn xml_record_observation(s: &str) -> Result<(String, bool)> {
         if b[i] != b'<' {
             let end = s[i..].find('<').map_or(s.len(), |n| i + n);
             let text = &s[i..end];
+            if stack.is_empty() {
+                // Document-level Misc permits raw XML whitespace, not character
+                // references that happen to decode to whitespace. Match the TS
+                // sourceDomParser before applying element text/entity semantics.
+                if !text.chars().all(xml_space) {
+                    // Saxes reports after scanning to '&', '<', or end-of-input.
+                    let pos = text.find('&').map_or_else(
+                        || if end < s.len() { end + 1 } else { end },
+                        |at| i + at + 1,
+                    );
+                    return Err(syntax(pos, "text data outside of root node.".into()));
+                }
+                i = end;
+                continue;
+            }
             if text.contains("]]>") {
                 return Err(syntax(
                     end,
@@ -2158,8 +2170,6 @@ fn xml_record_observation(s: &str) -> Result<(String, bool)> {
             let text = xml_entities(text).map_err(|_| syntax(end, "undefined entity.".into()))?;
             if let Some(r) = &mut record {
                 r.push_str(&text);
-            } else if stack.is_empty() && !text.chars().all(xml_space) {
-                return Err(syntax(i, "text data outside of root node.".into()));
             }
             i = end;
             continue;
@@ -2574,6 +2584,41 @@ mod review_fixes_fictional_journal {
         wire.set("rows", Js::Arr(rows));
     }
     #[test]
+    fn matching_journal_occurrence_cannot_hide_entities_outside_the_xml_root() {
+        for outside in ["&#32;", "&#x20;", "&#9;", "&#xA;", "&#13;"] {
+            for before in [true, false] {
+                let (target, row, wire, source) = fixture();
+                let source = if before {
+                    format!("{outside}{source}")
+                } else {
+                    format!("{source}{outside}")
+                };
+                let principal = obj(&[
+                    ("teacherLabel", "Fictional Teacher".into()),
+                    ("teacherKey", "99001".into()),
+                    ("collegeKey", "88001".into()),
+                ]);
+                let mut client = Client::new(
+                    principal,
+                    Fake {
+                        source,
+                        calls: vec![],
+                    },
+                )
+                .unwrap();
+                client.authenticated = true;
+                let error = client
+                    .journal_after_qualification(&target, &row, &wire, "fictional-structural-only")
+                    .unwrap_err();
+                assert_eq!(error.name, "SyntaxError");
+                assert_eq!(error.properties.get("code"), &Js::Num(12.0));
+                assert_eq!(client.transport.calls.len(), 1);
+                assert_eq!(client.transport.calls[0].method, "GET");
+                assert_eq!(client.transport.calls[0].path, SELECTED);
+            }
+        }
+    }
+    #[test]
     fn rejected_requests_never_reach_transport() {
         let principal = parse(
             r#"{"teacherLabel":"Fictional Teacher","teacherKey":"99001","collegeKey":"88001"}"#,
@@ -2936,6 +2981,45 @@ mod review_fixes_fictional_journal {
 #[cfg(test)]
 mod xml_well_formed_tests {
     use super::*;
+    #[test]
+    fn document_boundary_matches_the_typescript_source_dom_parser() {
+        let cases = parse(include_str!(
+            "../tests/fixtures/xml-document-boundaries.json"
+        ))
+        .unwrap();
+        for case in cases.array() {
+            let source = string(case.get("source"));
+            let result = xml_record(&source);
+            if case.get("outcome").is("returned") {
+                assert_eq!(
+                    result.unwrap(),
+                    string(case.get("record")),
+                    "{}",
+                    string(case.get("id"))
+                );
+            } else {
+                let error = result.unwrap_err();
+                assert_eq!(
+                    error.name,
+                    string(case.get("name")),
+                    "{}",
+                    string(case.get("id"))
+                );
+                assert_eq!(
+                    error.message,
+                    string(case.get("message")),
+                    "{}",
+                    string(case.get("id"))
+                );
+                assert_eq!(
+                    error.properties.get("code"),
+                    case.get("code"),
+                    "{}",
+                    string(case.get("id"))
+                );
+            }
+        }
+    }
     #[test]
     fn malformed_opening_tags_and_duplicate_attributes_never_return_record_text() {
         for source in [
