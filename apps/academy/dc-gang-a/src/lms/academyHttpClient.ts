@@ -710,9 +710,10 @@ export class AcademyHttpClient {
       filterContracts:{functions,controls,scriptSources,forms,navigation},displayRows,gradingPresence:'source_score_alone_not_teacher_review' as const,
       expectedPaperDefinitions:'not_observed' as const,handlersInvoked:false as const,academyWrites:0 as const,parentSends:0 as const};
   }
-  async searchStudentPaperMetadata(input:{teacherLabel:string;studentName:string;studentKey:string;period?:StudentPaperSearchPeriod}){
-    const hasPeriod=Object.hasOwn(input,'period');
-    assertExactKeys(input,['teacherLabel','studentName','studentKey',...(hasPeriod?['period']:[])]);readLiteralName(input.studentName);readLiteralKey(input.studentKey);
+  async searchStudentPaperMetadata(input:{teacherLabel:string;studentName:string;studentKey:string;period?:StudentPaperSearchPeriod;includeAllPaperTypes?:boolean}){
+    const hasPeriod=Object.hasOwn(input,'period'),hasAllTypes=Object.hasOwn(input,'includeAllPaperTypes');
+    assertExactKeys(input,['teacherLabel','studentName','studentKey',...(hasPeriod?['period']:[]),...(hasAllTypes?['includeAllPaperTypes']:[])]);readLiteralName(input.studentName);readLiteralKey(input.studentKey);
+    if(hasAllTypes&&input.includeAllPaperTypes!==true)throw Error('student_paper_type_scope_rejected');
     const period=hasPeriod?qualifyStudentPaperSearchPeriod(input.period):undefined;
     if(input.teacherLabel!==this.#principal.teacherLabel)throw Error('student_paper_principal_conflict');if(!this.#authenticated)throw Error('authentication_required');
     const path='/servlet/controller.tutor.base.TestPageListServlet';
@@ -725,7 +726,14 @@ export class AcademyHttpClient {
     const body=new URLSearchParams();
     for(const name of ['clg_no','cls_no','p_pageno','check_da_test','check_fa_test','check_na_test','stu_name','chioce_cls','sort_date1','sort_date2']){
       const nodes=form.querySelectorAll<HTMLInputElement|HTMLSelectElement>('[name='+name+']');if(nodes.length!==1)throw Error('student_paper_filter_drift');const node=nodes[0]!;
-      if(node.getAttribute('type')==='checkbox'&&!(node as HTMLInputElement).checked)continue;body.set(name,node.value);
+      if(node.getAttribute('type')==='checkbox'&&!(node as HTMLInputElement).checked){
+        // The search form checks only one paper type by default, which
+        // silently drops textbook section attempts of the other types.
+        // Callers that need every recorded attempt (textbook section
+        // index) opt in to all three source type values explicitly.
+        if(!hasAllTypes)continue;
+      }
+      body.set(name,node.value);
     }
     if(body.get('clg_no')!==this.#principal.collegeKey||input.studentName.length<2)throw Error('student_paper_college_scope_conflict');
     body.set('stu_name',input.studentName);body.set('p_pageno','1');body.set('cls_no',body.get('chioce_cls')!);
@@ -856,7 +864,7 @@ export class AcademyHttpClient {
       textbookPaperSearch:async()=>{
         if(plan.family!=='textbook')return {status:'unavailable',rows:[]};
         try{
-          const paper=await this.searchStudentPaperMetadata({teacherLabel:plan.request.teacherLabel,studentName:plan.request.studentName,studentKey:plan.request.studentKey});
+          const paper=await this.searchStudentPaperMetadata({teacherLabel:plan.request.teacherLabel,studentName:plan.request.studentName,studentKey:plan.request.studentKey,includeAllPaperTypes:true});
           return {status:'observed' as const,rows:paper.rows.flatMap(r=>typeof r.titles.testingName==='string'
             ?[{testingName:r.titles.testingName,paperKey:r.paperKey,attemptKey:r.attemptKey,applyDateLiteral:typeof r.titles.applyDate==='string'?r.titles.applyDate:null}]:[])};
         }catch{return {status:'unavailable' as const,rows:[] as never[]};}
