@@ -10,6 +10,7 @@
     "registration": "local-design-record-not-native-or-global-registration"
   },
   "status": "accepted-direction_design-not-activated",
+  "currentSourceStatus": {"noticeRef": "CURRENT-SOURCE-STATUS.md", "catalogRecordId": "CTX-U3-RETIREMENT-20261105", "supersedes": "Pre-#78 implementation/maintenance and current-entrypoint guidance in this dated plan; original observations remain preserved.", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "driveRecovery": "gdrive:vps-archive/2026-11/education-platform-*__ec0d220__20261105.tar.zst", "guidance": "No U3 directory is a current complete implementation. apps/academy/gang-a retains only 29 dependency-closure files required by dc-gang-a source and tests. The other six directories are removed. Use the current task and supported Rust owner; requalify archived locators before use. Prior findings and stages do not authorize work against removed implementations."},
   "decisionBasis": {
     "source": "current-user-interview-as-relayed-by-parent-orchestrator-20261021",
     "acceptedDirection": "Preserve current repository, code, semantic, data and native owners. Unify the common context entrypoint and execution contract first; do not perform an education monorepo migration.",
@@ -41,6 +42,7 @@
     },
     {
       "id": "education-platform",
+      "currentSourceStatus": {"status": "supersedes_pre_deletion_guidance", "supersedesFields": ["observedRole", "phaseOneRole"], "noticeRef": "CURRENT-SOURCE-STATUS.md", "guidance": "Maintained Rust Cargo workspace. Gang-a is only a 29-file retained dependency closure; month-end and the mathematical/curriculum U3 implementations are archived, not maintained at head."},
       "observedLocalHead": "cb7e571",
       "observedRole": "Maintained mathematical, curriculum and academy source integration; existing dc-gang-a/gang-a and month-end backend/frontend owners remain module-local.",
       "phaseOneRole": "Expose accurate module/capability verification and source-ownership references to context packets; retain its current application owners.",
@@ -49,6 +51,7 @@
     },
     {
       "id": "math-research-module",
+      "currentSourceStatus": {"status": "supersedes_pre_deletion_guidance", "supersedesFields": ["observedRole", "phaseOneRole"], "noticeRef": "CURRENT-SOURCE-STATUS.md", "guidance": "Archived research source only; modules/math-research-module is removed and is not a current implementation or improvement target."},
       "observedLocalHead": "7b58fe3",
       "observedRole": "Independent research source, mathematical education semantics, research object identities, provenance, historical context and correction proposals.",
       "phaseOneRole": "Supply selected source-backed research and dated decisions through revision-qualified references. Preserve independent repo and immutable originals.",
@@ -57,6 +60,7 @@
     },
     {
       "id": "math-education",
+      "currentSourceStatus": {"status": "supersedes_pre_deletion_guidance", "supersedesFields": ["observedRole", "phaseOneRole"], "noticeRef": "CURRENT-SOURCE-STATUS.md", "guidance": "Archived curriculum export/provenance only; packages/curriculum is removed and is not maintained at head."},
       "observedLocalHead": "4a666ef",
       "observedRole": "Preserved curriculum export/runtime source; maintained integrated curriculum module resides in education-platform/packages/curriculum.",
       "phaseOneRole": "Retain predecessor/provenance custody; expose missing-original inventory and scope-qualified curriculum references. UI envelopes cannot substitute for canonical originals.",
@@ -65,6 +69,7 @@
     },
     {
       "id": "gang-a",
+      "currentSourceStatus": {"status": "supersedes_pre_deletion_guidance", "supersedesFields": ["observedRole", "phaseOneRole"], "noticeRef": "CURRENT-SOURCE-STATUS.md", "guidance": "No current implementation claim. apps/academy/gang-a retains only 29 files required by dc-gang-a source and tests; use the full archived implementation only after source requalification."},
       "observedLocalHead": "c447551",
       "observedRole": "Retained code/spec compatibility repository. Maintained implementation is education-platform/apps/academy/gang-a; historical native reference differs from the imported upstream baseline.",
       "phaseOneRole": "Preserve frozen source, historical contract and policy lineage. Consume the maintained owner when implementing; do not create a parallel implementation or retire the predecessor.",

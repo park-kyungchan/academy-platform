@@ -75,6 +75,34 @@ describe('metadata catalog validation and selection', () => {
     expect(current.items.some(x=>x.kind==='source' && x.value.sha256===null)).toBe(true);
     expect(JSON.stringify(historical)).toContain('HISTORICAL-EXCLUDED-TEXT'); expect(historical.closure.referenceCount).toBe(0);
   });
+  test('explicit current successors retire transitive current claims without changing stored records', () => {
+    const catalog = fixture();
+    const old = catalog.records.find(row => row.id === 'old-choice')!;
+    old.status = 'current';
+    catalog.records.push({...catalog.records[0]!,id:'new-choice',text:'CURRENT-SUCCESSOR',supersedes:['current-choice']});
+    const before = JSON.stringify(catalog);
+    const full = selectContext(catalog,{...query,maxBytes:100_000});
+    expect(full.items.filter(item => item.kind === 'record').map(item => item.value.id)).toEqual(['new-choice','conflict-a','conflict-b']);
+    expect(full.items.filter(item => item.kind === 'reference').map(item => item.value.id)).toEqual(['current-choice','old-choice']);
+    expect(JSON.stringify(full)).not.toContain('HISTORICAL-EXCLUDED-TEXT');
+    expect(allPages(catalog,2200).flatMap(page => page.items)).toEqual(full.items);
+    const history = selectContext(catalog,{...query,includeHistory:true,maxBytes:100_000});
+    for (const id of ['current-choice','old-choice']) expect(history.items.find(item => item.kind === 'record' && item.value.id === id)).toMatchObject({kind:'record',value:{status:'historical'}});
+    expect(history.closure.referenceCount).toBe(0);
+    expect(JSON.stringify(catalog)).toBe(before);
+  });
+  test('proposed, unresolved and unrelated current successors cannot retire a scoped current decision', () => {
+    for (const status of ['proposed','unresolved','current'] as const) {
+      const catalog = fixture();
+      catalog.records.push({...catalog.records[0]!,id:'successor',status,topicIds:status === 'current' ? ['academy.unrelated'] : ['academy.preparation'],supersedes:['current-choice']});
+      expect(selectContext(catalog,query).items.some(item => item.kind === 'record' && item.value.id === 'current-choice')).toBe(true);
+    }
+  });
+  test('supersession cannot hide a reference across the excluded scope boundary', () => {
+    const catalog = fixture();
+    catalog.records[0]!.supersedes.push('excluded-record');
+    for (const includeHistory of [false,true]) expect(() => selectContext(catalog,{...query,includeHistory})).toThrow('historical-reference-outside-scope');
+  });
   test('dependency into excluded scope refuses and excluded descendants cannot be queried', () => {
     expect(()=>selectContext(fixture(),{topicId:'academy.counseling.detail'})).toThrow('topic-outside-scope');
     const catalog=fixture(); catalog.topics.find(x=>x.id===query.topicId)!.dependsOn.push('academy.counseling');

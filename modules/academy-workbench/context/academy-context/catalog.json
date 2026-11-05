@@ -101,6 +101,24 @@
   ],
   "sources": [
     {
+      "id": "SRC-U3-RETIREMENT-20261105",
+      "repositoryId": "academy-workbench",
+      "path": "context/academy-context/CURRENT-SOURCE-STATUS.md",
+      "sha256": "ee625a75af5fd6276e542ea84730fdcd26ff2898bcc1b7102fddc34b74458f4f",
+      "byteLength": 3507,
+      "classification": "current-owner",
+      "readPolicy": "selected-design",
+      "ownerId": "education-platform",
+      "topicIds": [
+        "foundation",
+        "foundation.harness",
+        "foundation.research",
+        "foundation.curriculum",
+        "academy.assessment-preparation"
+      ],
+      "note": "Current superseding notice for the seven U3 directories after PR #78. Earlier repository roles and source-owner guidance are dated observations, not current implementation claims. No source or operational effect is authorized."
+    },
+    {
       "id": "SRC-CLASS-TIMETABLE-GUIDE",
       "repositoryId": "academy-workbench",
       "path": "context/class-timetable/README.ko.md",
@@ -1133,6 +1151,27 @@
     }
   ],
   "records": [
+    {
+      "id": "CTX-U3-RETIREMENT-20261105",
+      "kind": "source-owner-decision",
+      "status": "current",
+      "title": "U3 implementations are archived; gang-a retains only a dependency closure",
+      "text": "After education-platform PR #78, apps/academy/gang-a contains only the retained dependency closure: 29 excluded files required by dc-gang-a source and tests. There is no current or complete gang-a implementation claim. The full implementation and the other six U3 directories (modules/math-research-module, packages/curriculum, packages/mathematics-core, apps/mathcrew, apps/academy/month-end-web, apps/academy/month-end-workbench) are archived at tag archive/education-platform-pre-delw1-C-20261105, commit a81006644762446839970ff6d6e0069efb17f1d4 (a81006), and on Drive. They are unavailable as complete implementations at head. This notice supersedes prior catalog repository-role maintenance claims and dated repository-plan guidance for gang-a, curriculum, research and month-end, including ACX-VERIFY-001/ACX-DECISION-001 current-entrypoint guidance. Qualify a supported current owner and exact source before implementation; archived locators grant no runtime authority.",
+      "topicIds": [
+        "foundation",
+        "foundation.harness",
+        "foundation.research",
+        "foundation.curriculum",
+        "academy.assessment-preparation"
+      ],
+      "sourceIds": [
+        "SRC-U3-RETIREMENT-20261105"
+      ],
+      "originalIds": [],
+      "supersedes": [
+        "CTX-ED-MAINTENANCE"
+      ]
+    },
     {
       "id": "CTX-SCOPE",
       "kind": "actual-user-decision",

@@ -20,18 +20,22 @@ Current user decisions and unresolved issues precede supporting source lists. Th
 
 ## Ownership and structure
 
+Current source status after #78 is defined by [CURRENT-SOURCE-STATUS.md](CURRENT-SOURCE-STATUS.md). It supersedes pre-deletion maintenance/implementation claims in dated catalog repository roles, findings and repository-plan observations. Existing catalog records retain their bytes; explicit current `supersedes` links make earlier claims historical in selection output. Default selection includes only their revision metadata; `--history` includes their prose with effective historical status. Proposed successors do not retire current decisions.
+
 | Owner | Retained responsibility |
 | --- | --- |
 | `dc-gang-a` / `dc-gang-a-dev` | Operational policy, teacher interpretation, qualified academy access and native/domain data |
-| `education-platform` | Existing maintained education integration and `apps/academy/gang-a` implementation |
+| `education-platform` | Maintained Rust Cargo workspace; `apps/academy/gang-a` retains only 29 dependency-closure files for dc-gang-a, with no current implementation claim |
 | `academy-workbench` | Preserved context, synthetic/offline consumer and this metadata entrypoint |
-| `math-research-module` | Research meaning, assessment chronology and research object identity |
+| `math-research-module` | Archived research meaning, assessment chronology and research object identity; no current implementation at head |
 | `agent-platform` | Canonical Work/Memory/Recall algorithms and shared contracts |
 | Native Codex/Hermes | Sessions, tools, dispatch, authentication, retries and actual effects |
 
 Book-edition containment, task dependencies, semantic relationships, revision/provenance and repeating classroom cycles are different typed structures. The validator checks acyclic dimensions separately; semantic and workflow cycles can be valid. Repository build dependencies describe verification order and do not establish semantic parenthood or data custody.
 
 `execution-contracts.ts` designs seven internal workflows with separate preparation, qualification, native/domain execution, readback, verification, teacher review and scoped acceptance. It defines inputs, evidence clocks, edition/section joins and unknown states. It imports no runtime and activates nothing. `repository-plan.json` gives phased source improvements without moving repositories or student originals.
+
+The full gang-a implementation and the other six U3 directories are archived at tag `archive/education-platform-pre-delw1-C-20261105` (commit `a81006644762446839970ff6d6e0069efb17f1d4`, `a81006`) and on Drive. Removed curriculum, research and month-end paths are archived locators, not current implementation owners. Qualify a current supported owner before using old improvement guidance.
 
 ## Work, findings and verification
 
