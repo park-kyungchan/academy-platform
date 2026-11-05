@@ -946,13 +946,7 @@ fn css_hiding(property: &str, value: &str) -> Option<bool> {
             }
         }
         // Expressions affecting hiding are not evaluated by this static reader.
-        "transform" | "translate" => {
-            if value == "none" {
-                false
-            } else {
-                return None;
-            }
-        }
+        "transform" | "translate" if value == "none" => false,
         // Explicitly qualified harmless presentation; unsupported properties
         // may affect visibility (filter/mask/vendor/future forms). They are
         // unqualified, never guessed harmless from an unknown property name.
