@@ -4111,3 +4111,73 @@ fn fix3_cross_box_hazards_are_rejected_even_in_empty_unselected_siblings() {
     assert_eq!(records.len(), hazards.len() * 8);
     fix1_evidence("fix3-flow-hazards", &records);
 }
+
+#[test]
+fn fix3_column_and_column_group_rejections_protect_non_descendant_cells() {
+    let mut records = vec![];
+    // Exact connector trigger: the collapsed first column is the canary cell.
+    let exact = "<table><colgroup><col style=\"visibility:collapse\"></colgroup><tr><td>5-1 COLUMN_PRIVATE</td><td>12</td></tr></table>";
+    let result = fix1_page(PaperScope::Paper1, "definitions", exact, &[]);
+    let exported = result
+        .as_ref()
+        .is_ok_and(|v| json(v).contains("COLUMN_PRIVATE"));
+    fix1_evidence(
+        "fix3-column-exact",
+        &[obj(&[
+            ("accepted", result.is_ok().into()),
+            ("exported", exported.into()),
+        ])],
+    );
+    assert!(
+        !exported,
+        "column-hidden text exported outside the col subtree"
+    );
+    assert_code(result, "contract_drift");
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for family in ["header", "inventory", "definitions", "batch"] {
+            for tag in ["col", "colgroup"] {
+                for css in [
+                    "visibility:collapse",
+                    "VISIBILITY:COLLAPSE!important",
+                    "visibility:coll\\61&#13;&#10;pse",
+                    "visibility:inherit",
+                    "display:none",
+                ] {
+                    let cols = if tag == "col" {
+                        format!("<colgroup><col style='{css}'></colgroup>")
+                    } else {
+                        format!("<colgroup style='{css}'><col></colgroup>")
+                    };
+                    let body = format!(
+                        "<h1>VISIBLE_CONTROL</h1><table>{cols}<tr id=fictional-row><td>5-1 COLUMN_PRIVATE</td><td>12</td></tr></table>"
+                    );
+                    let body = if family == "inventory" {
+                        daily(scope, vec![row("77001", "Fictional One", "3", "81001")]) + &body
+                    } else {
+                        body
+                    };
+                    assert_code(fix1_page(scope, family, &body, &[]), "contract_drift");
+                    records.push(obj(&[
+                        ("scope", scope.as_str().into()),
+                        ("family", family.into()),
+                        ("tag", tag.into()),
+                        ("css", css.into()),
+                        ("confirmedDisclosure", false.into()),
+                    ]));
+                }
+                let cols = if tag == "col" {
+                    "<colgroup><col style='visibility:visible'></colgroup>"
+                } else {
+                    "<colgroup style='visibility:visible'><col></colgroup>"
+                };
+                let body = fix3_body(scope, family, "COLUMN_VISIBLE")
+                    .replace("<table>", &format!("<table>{cols}"));
+                assert!(
+                    json(&fix1_page(scope, family, &body, &[]).unwrap()).contains("COLUMN_VISIBLE")
+                );
+            }
+        }
+    }
+    assert_eq!(records.len(), 80);
+    fix1_evidence("fix3-column-80", &records);
+}

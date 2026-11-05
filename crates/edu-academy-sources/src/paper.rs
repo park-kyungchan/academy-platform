@@ -1264,9 +1264,17 @@ fn css_declarations(source: &str) -> Option<bool> {
 // outside the rejecting tokenizer's grammar (e.g. width:calc(...)). Unknown
 // declaration names also fail closed. Comments/strings cannot hide a later
 // declaration, and quoted data is never treated as a property name.
-fn css_inline_rejection_is_local(source: &str) -> bool {
+fn css_inline_rejection_is_local(element: scraper::ElementRef<'_>) -> bool {
+    let source = element.value().attr("style").expect("selected style");
     if css_declarations(source) == Some(false) {
         return true;
+    }
+    // Table columns style cells that are not their DOM descendants. Any
+    // unqualified column/group declaration therefore affects other subtrees,
+    // including inherited or escaped visibility:collapse. Keep qualified
+    // visible typography/layout on columns, but never isolate their rejection.
+    if matches!(element.value().name(), "col" | "colgroup") {
+        return false;
     }
     let Some(chars) = css_preprocess(source) else {
         return false;
@@ -1386,10 +1394,7 @@ fn stylesheet_hiding(source: &str) -> Option<bool> {
 }
 fn display_text_contract(d: &crate::dom::Document, pins: &PaperPins) -> Result<()> {
     for element in d.select("[style]") {
-        require(
-            css_inline_rejection_is_local(element.value().attr("style").expect("selected style")),
-            "contract_drift",
-        )?;
+        require(css_inline_rejection_is_local(element), "contract_drift")?;
     }
     let styles = d.select("style");
     require(styles.len() <= 64, "contract_drift")?;
