@@ -38,11 +38,34 @@ impl Query {
         // live shape before deserialization or any batch source read.
         match string(v.get("kind")).as_str() {
             "daily_metadata" | "daily_inventory" => exact(v, &["kind"])?,
-            "daily_history" => exact(v, &["kind", "periods"])?,
-            "student_papers" => exact(v, &["kind", "period"])?,
-            "printed_paper_metadata" => exact(v, &["kind", "paperCode", "period"])?,
+            "daily_history" => {
+                exact(v, &["kind", "periods"])?;
+                let periods = v.get("periods");
+                require(
+                    array(periods)
+                        && (1..=6).contains(&periods.array().len())
+                        && periods.array().iter().all(Js::string),
+                    "tool_input_invalid",
+                )?;
+            }
+            "student_papers" | "printed_paper_metadata" => {
+                if v.get("kind").is("student_papers") {
+                    exact(v, &["kind", "period"])?;
+                } else {
+                    exact(v, &["kind", "paperCode", "period"])?;
+                    require(v.get("paperCode").string(), "tool_input_invalid")?;
+                }
+                let period = v.get("period");
+                exact(period, &["from", "through"])?;
+                require(
+                    period.get("from").string() && period.get("through").string(),
+                    "tool_input_invalid",
+                )?;
+            }
             _ => return Err(Error::refusal("tool_input_invalid")),
         }
+        // Every admitted field is now scalar or a bounded flat collection.
+        // Never recursively stringify arbitrary caller data to validate it.
         let q: Self =
             serde_json::from_str(&json(v)).map_err(|_| Error::refusal("tool_input_invalid"))?;
         match &q {

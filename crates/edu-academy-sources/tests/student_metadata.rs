@@ -1583,6 +1583,7 @@ fn fix1_course_principal_form_ownership_is_also_checked() {
 #[test]
 fn fix1_metadata_parser_depth_and_resource_bounds_in_isolated_processes() {
     for case in [
+        "query4097",
         "json4097",
         "js8192",
         "unary8192",
@@ -1618,6 +1619,50 @@ fn fix1_metadata_parser_child() {
     let Ok(case) = std::env::var("E09A_FIX1_PARSER_CASE") else {
         return;
     };
+    if case == "query4097" {
+        for field in ["period", "from", "periods", "paperCode"] {
+            let mut nested = 0.into();
+            for _ in 0..4097 {
+                nested = Js::Arr(vec![nested]);
+            }
+            let mut q = if field == "periods" {
+                js(r#"{"kind":"daily_history","periods":[]}"#)
+            } else {
+                period_query("printed_paper_metadata")
+            };
+            q.set("paperCode", "#5".into());
+            if field == "periods" {
+                q = obj(&[
+                    ("kind", "daily_history".into()),
+                    ("periods", Js::Arr(vec![nested])),
+                ]);
+            } else if field == "from" {
+                let period = obj(&[("from", nested), ("through", DATE.into())]);
+                q.set("period", period);
+            } else {
+                q.set(field, nested);
+            }
+            let input = request(q, false);
+            let (mut src, count, _) = source(vec![]);
+            assert_code(
+                src.metadata("academy_student_metadata", &input, NOW),
+                "tool_input_invalid",
+            );
+            assert_eq!(count.get(), 0);
+            // Caller-built invalid Js can itself have an unbounded destructor.
+            // Dispose iteratively so this child tests the adapter boundary.
+            let mut pending = vec![input];
+            while let Some(value) = pending.pop() {
+                match value {
+                    Js::Arr(mut values) => pending.append(&mut values),
+                    Js::Obj(values) => pending.extend(values.into_iter().map(|(_, v)| v)),
+                    _ => {}
+                }
+            }
+        }
+        eprintln!("isolated parser case query4097: PASS");
+        return;
+    }
     let (script, positive) = match case.as_str() {
         "json4097" => (
             format!(
