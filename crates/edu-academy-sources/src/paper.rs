@@ -1822,20 +1822,20 @@ impl<P: ReadPort> PaperSource<P> {
                 ("cells", Js::Arr(cells)),
                 ("columns", Js::Arr(columns.clone())),
                 (
-                    "handlers",
+                    "handlerHashes",
                     Js::Arr(
                         columns
                             .iter()
-                            .flat_map(|c| c.get("handlers").array().to_vec())
+                            .flat_map(|c| c.get("handlerHashes").array().to_vec())
                             .collect(),
                     ),
                 ),
                 (
-                    "links",
+                    "linkHashes",
                     Js::Arr(
                         columns
                             .iter()
-                            .flat_map(|c| c.get("links").array().to_vec())
+                            .flat_map(|c| c.get("linkHashes").array().to_vec())
                             .collect(),
                     ),
                 ),
@@ -2002,20 +2002,26 @@ fn table_cell(cell: scraper::ElementRef<'_>) -> Result<Js> {
         ("text", bounded_text(&normalized(cell), 4000)?),
         ("tag", cell.value().name().to_ascii_uppercase().into()),
         (
-            "handlers",
+            "handlerHashes",
             Js::Arr(
                 handlers
                     .iter()
-                    .map(|e| bounded_text(e.value().attr("onclick").unwrap_or(""), 4096))
+                    .map(|e| {
+                        bounded_text(e.value().attr("onclick").unwrap_or(""), 4096)
+                            .map(|value| hash(string(&value).as_bytes()).into())
+                    })
                     .collect::<Result<_>>()?,
             ),
         ),
         (
-            "links",
+            "linkHashes",
             Js::Arr(
                 links
                     .iter()
-                    .map(|e| bounded_text(e.value().attr("href").unwrap_or(""), 4096))
+                    .map(|e| {
+                        bounded_text(e.value().attr("href").unwrap_or(""), 4096)
+                            .map(|value| hash(string(&value).as_bytes()).into())
+                    })
                     .collect::<Result<_>>()?,
             ),
         ),

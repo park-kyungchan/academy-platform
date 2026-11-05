@@ -1914,3 +1914,69 @@ fn review_document_base_overrides_refuse_before_child_read_on_both_scopes() {
         assert_eq!(count.get(), 3);
     }
 }
+
+#[test]
+fn review_definition_attributes_are_hashed_across_grid_fallback_and_row_copies() {
+    let handler = "viewPaper('SYNTHETIC_SECRET')";
+    let child_handler = "child('SYNTHETIC_SECRET')";
+    let href = "/definition?session=SYNTHETIC_SECRET";
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for (kind, unit) in [
+            ("middle1_definitions", "5-1"),
+            ("elementary5_fraction_definitions", "2-2"),
+        ] {
+            for grid in [false, true] {
+                let heading = if grid {
+                    "<tr><th>숙제수행도DT</th><th>Level</th><th>Count</th></tr>"
+                } else {
+                    ""
+                };
+                let span = if grid { "rowspan=2 colspan=2" } else { "" };
+                let tail = if grid { "<tr><td>13</td></tr>" } else { "" };
+                let table = format!(
+                    r#"<table>{heading}<tr><td {span} onclick="{handler}">{unit} Fictional definition<a href="{href}" onclick="{child_handler}">Fictional link</a></td><td>12</td></tr>{tail}</table>"#
+                );
+                let (mut src, count, _) = source(
+                    scope,
+                    vec![("paper.catalog", catalog()), ("paper.definitions", table)],
+                );
+                let mut request = input(scope);
+                request.set("kind", kind.into());
+                if kind == "middle1_definitions" {
+                    request.set("unitCodes", strings(&[unit]));
+                }
+                let output = call(&mut src, "academy_source_read_contracts", &request).unwrap();
+                assert!(!json(&output).contains("SYNTHETIC_SECRET"));
+                let rows = output.get("observation").get("rows").array();
+                assert_eq!(rows.len(), if grid { 2 } else { 1 });
+                for row in rows {
+                    assert_eq!(row.get("matchedUnitCodes").array(), &[unit.into()]);
+                    assert!(string(&row.get("cells").array()[0]).contains("Fictional definition"));
+                    let column = &row.get("columns").array()[0];
+                    assert!(!column.has("handlers") && !column.has("links"));
+                    assert_eq!(
+                        column.get("handlerHashes").array(),
+                        &[
+                            hash(handler.as_bytes()).into(),
+                            hash(child_handler.as_bytes()).into()
+                        ]
+                    );
+                    assert_eq!(
+                        column.get("linkHashes").array(),
+                        &[hash(href.as_bytes()).into()]
+                    );
+                    assert!(!row.has("handlers") && !row.has("links"));
+                    assert_eq!(
+                        row.get("handlerHashes").array().len(),
+                        if grid { 4 } else { 2 }
+                    );
+                    assert_eq!(
+                        row.get("linkHashes").array().len(),
+                        if grid { 2 } else { 1 }
+                    );
+                }
+                assert_eq!(count.get(), 2);
+            }
+        }
+    }
+}
