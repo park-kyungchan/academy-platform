@@ -89,6 +89,9 @@ fn pins() -> PaperPins {
     pins_with_context(&reader_shell(PaperScope::Paper1))
 }
 fn pins_with_context(reference: &str) -> PaperPins {
+    pins_for_pages(reference, &catalog(), &pool())
+}
+fn pins_for_pages(reference: &str, catalog_page: &str, pool_page: &str) -> PaperPins {
     PaperPins::parse(&obj(&[
         ("schemaVersion", "academy.paper-pins/1".into()),
         (
@@ -102,9 +105,12 @@ fn pins_with_context(reference: &str) -> PaperPins {
         ("view", hash(b"function(){return 'fictional-view';}").into()),
         (
             "catalog",
-            paper::contract_fingerprint(&catalog()).unwrap().into(),
+            paper::contract_fingerprint(catalog_page).unwrap().into(),
         ),
-        ("pool", paper::contract_fingerprint(&pool()).unwrap().into()),
+        (
+            "pool",
+            paper::contract_fingerprint(pool_page).unwrap().into(),
+        ),
         ("converter", hash(converter_program().as_bytes()).into()),
     ]))
     .unwrap()
@@ -1702,7 +1708,9 @@ fn review_inventory_exports_only_qualified_selector_values_on_both_scopes() {
                     .get("forms")
                     .array()
                     .iter()
-                    .find(|f| f.get("name").is("extra"))
+                    .find(|f| {
+                        f.get("nameSha256") == &hash(json(&Js::from("extra")).as_bytes()).into()
+                    })
                     .unwrap();
                 assert!(!form.has("action"));
                 assert_eq!(
@@ -1978,5 +1986,430 @@ fn review_definition_attributes_are_hashed_across_grid_fallback_and_row_copies()
                 assert_eq!(count.get(), 2);
             }
         }
+    }
+}
+
+#[test]
+fn review_definition_text_excludes_non_displayed_code() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for (kind, unit) in [
+            ("middle1_definitions", "5-1"),
+            ("elementary5_fraction_definitions", "2-2"),
+        ] {
+            for grid in [false, true] {
+                let heading = if grid {
+                    "<tr><th>숙제수행도DT<script>HEADER_SECRET</script></th><th>Count</th></tr>"
+                } else {
+                    ""
+                };
+                let table = format!(
+                    "<table>{heading}<tr><td>{unit} Fictional definition<script>var page_session='SYNTHETIC_SECRET';</script><style>STYLE_SECRET</style><template>TEMPLATE_SECRET</template><noscript>NOSCRIPT_SECRET</noscript></td><td>12</td></tr></table>"
+                );
+                let (mut src, count, _) = source(
+                    scope,
+                    vec![("paper.catalog", catalog()), ("paper.definitions", table)],
+                );
+                let mut request = input(scope);
+                request.set("kind", kind.into());
+                if kind == "middle1_definitions" {
+                    request.set("unitCodes", strings(&[unit]));
+                }
+                let output = call(&mut src, "academy_source_read_contracts", &request).unwrap();
+                let serialized = json(&output);
+                assert!(
+                    !serialized.contains("SECRET"),
+                    "non-displayed source text exported"
+                );
+                let rows = output.get("observation").get("rows").array();
+                assert_eq!(rows.len(), 1);
+                assert_eq!(
+                    string(&rows[0].get("cells").array()[0]),
+                    format!("{unit} Fictional definition")
+                );
+                assert_eq!(count.get(), 2);
+            }
+        }
+    }
+}
+
+#[test]
+fn review_reader_context_pins_html_event_and_embedded_code() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for extra in [
+            "<body onload=\"testInfoDialogManager.ready=function(){}\">",
+            "<img src=missing onerror=\"testInfoDialogManager.ready=function(){}\">",
+            "<svg onload=\"testInfoDialogManager.ready=function(){}\"></svg>",
+            "<iframe srcdoc=\"<script>parent.testInfoDialogManager.ready=function(){}</script>\"></iframe>",
+            "<a href=\"javascript:testInfoDialogManager.ready=function(){}\">link</a>",
+        ] {
+            let html = reader_shell(scope) + extra;
+            let (mut src, count, _) = source(
+                scope,
+                vec![
+                    ("metadata.paper.initial", html),
+                    ("paper.definition", definition_xml()),
+                ],
+            );
+            assert_code(
+                call(
+                    &mut src,
+                    "academy_paper_definition_lookup",
+                    &paper_input(scope),
+                ),
+                "contract_drift",
+            );
+            assert_eq!(count.get(), 1);
+        }
+        let reference = reader_shell(scope) + "<button onclick=\"return false\">Fictional</button>";
+        let admitted = owner_with_context(scope, &reference);
+        let (port, count, _) = fake(
+            scope,
+            vec![
+                ("metadata.paper.initial", reference),
+                ("paper.definition", definition_xml()),
+            ],
+        );
+        let mut src = PaperSource::new(port, admitted, admission(scope)).unwrap();
+        assert!(
+            call(
+                &mut src,
+                "academy_paper_definition_lookup",
+                &paper_input(scope)
+            )
+            .is_ok()
+        );
+        assert_eq!(count.get(), 2);
+    }
+}
+
+#[test]
+fn review_contract_select_values_and_labels_are_opaque() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        let shell = reader_shell(scope)
+            + "<select name=timezone id=SYNTHETIC_SECRET><option value=SYNTHETIC_SECRET selected>SYNTHETIC_SECRET</option></select>";
+        let admitted = owner_with_context(scope, &shell);
+        let (port, count, _) = fake(
+            scope,
+            vec![("metadata.paper.initial", shell), ("paper.pool", pool())],
+        );
+        let mut src = PaperSource::new(port, admitted, admission(scope)).unwrap();
+        let output = call(&mut src, "academy_paper_read_contracts", &input(scope)).unwrap();
+        assert!(!json(&output).contains("SYNTHETIC_SECRET"));
+        assert_eq!(count.get(), 2);
+        let selects = output
+            .get("observation")
+            .get("studentPaperForm")
+            .get("selects")
+            .array();
+        let select = selects
+            .iter()
+            .find(|s| s.get("nameSha256") == &hash(json(&Js::from("timezone")).as_bytes()).into())
+            .unwrap();
+        assert_eq!(select.get("optionCount"), &1.into());
+        assert_eq!(string(select.get("contractSha256")).len(), 64);
+    }
+}
+
+#[test]
+fn review_borrowed_daily_refuses_non_displayed_selector_code() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for code in [
+            "<script>var page_session='SYNTHETIC_SECRET';</script>",
+            "<style>STYLE_SECRET</style>",
+        ] {
+            let html = daily(scope, vec![]).replace("Recent", &format!("Recent{code}"));
+            let (mut src, count, _) = source(scope, vec![("metadata.daily", html)]);
+            assert_code(
+                call(&mut src, "academy_daily_test_inventory", &input(scope)),
+                "contract_drift",
+            );
+            assert_eq!(count.get(), 1);
+        }
+    }
+}
+
+#[test]
+fn review_inert_allowlist_never_exports_attribute_or_value_canaries() {
+    // Each concrete slot is independently mutated. Unknown attributes also
+    // exercise the default projection rather than a name-specific denylist.
+    fn public_bytes(result: Result<Js>, canary: &str) -> Option<Js> {
+        match result {
+            Ok(output) => {
+                assert!(!json(&output).contains(canary));
+                Some(output)
+            }
+            Err(error) => {
+                assert!(!format!("{error:?}").contains(canary));
+                None
+            }
+        }
+    }
+    let mut admitted = [0usize; 5];
+    let elements = [
+        (
+            "form",
+            vec![
+                "name",
+                "id",
+                "action",
+                "method",
+                "data-session",
+                "style",
+                "title",
+                "onload",
+            ],
+        ),
+        (
+            "input",
+            vec![
+                "name",
+                "id",
+                "type",
+                "value",
+                "form",
+                "checked",
+                "disabled",
+                "required",
+                "data-token",
+                "style",
+                "onchange",
+            ],
+        ),
+        (
+            "select",
+            vec![
+                "name",
+                "id",
+                "value",
+                "form",
+                "multiple",
+                "data-token",
+                "style",
+                "onchange",
+            ],
+        ),
+        (
+            "option",
+            vec![
+                "value",
+                "label",
+                "id",
+                "selected",
+                "disabled",
+                "data-token",
+                "style",
+                "onclick",
+            ],
+        ),
+        (
+            "a",
+            vec![
+                "href",
+                "target",
+                "name",
+                "id",
+                "data-token",
+                "style",
+                "onclick",
+            ],
+        ),
+        ("img", vec!["src", "srcset", "alt", "onerror", "data-token"]),
+        ("iframe", vec!["src", "srcdoc", "name", "sandbox", "onload"]),
+        (
+            "div",
+            vec![
+                "id",
+                "class",
+                "data-token",
+                "style",
+                "title",
+                "unknown-future-attribute",
+            ],
+        ),
+        (
+            "textarea",
+            vec!["name", "value", "placeholder", "data-token"],
+        ),
+        ("button", vec!["name", "value", "formaction", "onclick"]),
+    ];
+    let mut cases = vec![];
+    for (tag, attrs) in elements {
+        for attr in attrs {
+            let canary = format!("e09b_canary_{}", cases.len());
+            let element = format!("<{tag} {attr}=\"{canary}\">Visible</{tag}>");
+            cases.push((
+                canary,
+                if tag == "option" {
+                    format!("<select>{element}</select>")
+                } else {
+                    element
+                },
+            ));
+        }
+        let canary = format!("e09b_canary_{}", cases.len());
+        cases.push((
+            canary.clone(),
+            format!("<{tag} {canary}=opaque>Visible</{tag}>"),
+        ));
+    }
+    for source in [
+        "<script>function SLOT(){return 'Visible';}</script>",
+        "<script>var opaqueValue='SLOT';</script>",
+    ] {
+        let canary = format!("e09b_canary_{}", cases.len());
+        cases.push((canary.clone(), source.replace("SLOT", &canary)));
+    }
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for (canary, extra) in &cases {
+            // Current/history copies, all inert helper fields, and source script identifiers.
+            let html = daily(scope, vec![]) + extra;
+            let (mut src, _, _) = source(
+                scope,
+                vec![("metadata.daily", html.clone()), ("metadata.daily", html)],
+            );
+            let mut request = input(scope);
+            request.set("periods", strings(&["11"]));
+            if let Some(output) = public_bytes(
+                call(&mut src, "academy_daily_test_inventory", &request),
+                canary,
+            ) {
+                admitted[0] += 1;
+                assert!(
+                    !json(&output).contains(canary),
+                    "daily slot leaked: {canary}"
+                );
+            }
+            for grid in [false, true] {
+                let heading = if grid {
+                    "<tr><th>숙제수행도DT</th><th>Count</th></tr>"
+                } else {
+                    ""
+                };
+                let table = format!(
+                    "<table>{heading}<tr><td>5-1 Visible{extra}</td><td>12</td></tr></table>"
+                );
+                let (mut src, _, _) = source(
+                    scope,
+                    vec![("paper.catalog", catalog()), ("paper.definitions", table)],
+                );
+                let mut request = input(scope);
+                request.set("kind", "middle1_definitions".into());
+                request.set("unitCodes", strings(&["5-1"]));
+                if let Some(output) = public_bytes(
+                    call(&mut src, "academy_source_read_contracts", &request),
+                    canary,
+                ) {
+                    admitted[1] += 1;
+                    assert!(
+                        !json(&output).contains(canary),
+                        "definition slot leaked: {canary}"
+                    );
+                }
+            }
+            let (mut src, _, _) = source(
+                scope,
+                vec![
+                    ("metadata.paper.initial", reader_shell(scope)),
+                    ("paper.header", header("3")),
+                    ("paper.content", content_header() + extra),
+                ],
+            );
+            let mut request = paper_input(scope);
+            request.set("view", "header".into());
+            if let Some(output) = public_bytes(
+                call(&mut src, "academy_paper_definition_lookup", &request),
+                canary,
+            ) {
+                admitted[2] += 1;
+                assert!(
+                    !json(&output).contains(canary),
+                    "header slot leaked: {canary}"
+                );
+            }
+            let shell = reader_shell(scope) + extra;
+            let catalog_page = catalog() + extra;
+            let pool_page = pool() + extra;
+            if paper::reader_context_fingerprint(&shell).is_err()
+                || paper::contract_fingerprint(&catalog_page).is_err()
+                || paper::contract_fingerprint(&pool_page).is_err()
+            {
+                continue; // Explicit ownership/budget refusal; no public bytes.
+            }
+            let pins = pins_for_pages(&shell, &catalog_page, &pool_page);
+            let admitted_owner = PaperOwner::parse(
+                scope,
+                &routes(),
+                &owner_value(scope),
+                &policy_value(scope),
+                &remap_js(form_value(), scope),
+                pins,
+            )
+            .unwrap();
+            let (port, _, _) = fake(
+                scope,
+                vec![
+                    ("metadata.paper.initial", shell),
+                    ("paper.pool", pool_page),
+                    ("paper.catalog", catalog_page),
+                ],
+            );
+            let mut src = PaperSource::new(port, admitted_owner, admission(scope)).unwrap();
+            if let Some(output) = public_bytes(
+                call(&mut src, "academy_paper_read_contracts", &input(scope)),
+                canary,
+            ) {
+                admitted[3] += 1;
+                assert!(
+                    !json(&output).contains(canary),
+                    "contracts slot leaked: {canary}"
+                );
+                let mut request = input(scope);
+                request.set("kind", "daily_test_catalog".into());
+                let output = public_bytes(
+                    call(&mut src, "academy_source_read_contracts", &request),
+                    canary,
+                )
+                .unwrap();
+                admitted[4] += 1;
+                assert!(
+                    !json(&output).contains(canary),
+                    "catalog slot leaked: {canary}"
+                );
+            }
+        }
+    }
+    assert!(
+        admitted.iter().all(|count| *count >= cases.len()),
+        "each public family must actually admit the canaries: {admitted:?}"
+    );
+}
+
+#[test]
+fn review_reader_context_pins_svg_animation_and_unknown_attributes() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        let reference = reader_shell(scope) + "<svg><a href='#safe'>Visible</a></svg>";
+        let changed = reference.replace("Visible</a>", "Visible<animate attributeName='href' values='javascript:testInfoDialogManager.ready=function(){}'/></a>");
+        assert_ne!(
+            paper::reader_context_fingerprint(&reference).unwrap(),
+            paper::reader_context_fingerprint(&changed).unwrap()
+        );
+        let admitted = owner_with_context(scope, &reference);
+        let (port, count, _) = fake(
+            scope,
+            vec![
+                ("metadata.paper.initial", changed),
+                ("paper.definition", definition_xml()),
+            ],
+        );
+        let mut src = PaperSource::new(port, admitted, admission(scope)).unwrap();
+        assert_code(
+            call(
+                &mut src,
+                "academy_paper_definition_lookup",
+                &paper_input(scope),
+            ),
+            "contract_drift",
+        );
+        assert_eq!(count.get(), 1);
     }
 }

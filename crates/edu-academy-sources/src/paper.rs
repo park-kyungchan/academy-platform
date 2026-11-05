@@ -296,6 +296,53 @@ impl<P: ReadPort> PaperSource<P> {
             }
             observation.set("observations", Js::Arr(pages));
         }
+        // Explicit row schema: identities were canonicalized by E09a; titles
+        // are the enumerated visible source fields. Opaque source ids never
+        // become caller-visible identifiers, including history/printed copies.
+        fn rows(page: &mut Js) {
+            if page.has("rows") {
+                page.set(
+                    "rows",
+                    Js::Arr(
+                        page.get("rows")
+                            .array()
+                            .iter()
+                            .map(|row| {
+                                let mut output = obj(&[]);
+                                for name in [
+                                    "studentKey",
+                                    "studentName",
+                                    "paperKey",
+                                    "attemptKey",
+                                    "sourceScore",
+                                    "titles",
+                                ] {
+                                    output.set(name, row.get(name).clone());
+                                }
+                                output.set(
+                                    "sourceRowIdSha256",
+                                    hash(json(row.get("sourceRowId")).as_bytes()).into(),
+                                );
+                                output
+                            })
+                            .collect(),
+                    ),
+                );
+            }
+        }
+        rows(&mut observation);
+        if observation.has("currentFilterQualification") {
+            let mut current = observation.get("currentFilterQualification").clone();
+            rows(&mut current);
+            observation.set("currentFilterQualification", current);
+        }
+        if observation.has("observations") {
+            let mut pages = observation.get("observations").array().to_vec();
+            for page in &mut pages {
+                rows(page);
+            }
+            observation.set("observations", Js::Arr(pages));
+        }
         self.daily_pages.clear();
         Ok(observation)
     }
@@ -469,8 +516,37 @@ fn bounded_text(value: &str, max: usize) -> Result<Js> {
     )?;
     Ok(value.into())
 }
+// Read displayed text without copying executable or non-displayed subtrees.
+// Keep script parsing and owner form fingerprints on their original raw source.
+fn passive_text(e: scraper::ElementRef<'_>) -> String {
+    let hidden = |e: scraper::ElementRef<'_>| {
+        matches!(
+            e.value().name(),
+            "script" | "style" | "template" | "noscript"
+        )
+    };
+    if hidden(e)
+        || e.ancestors()
+            .filter_map(scraper::ElementRef::wrap)
+            .any(hidden)
+    {
+        return String::new();
+    }
+    let mut text = String::new();
+    let mut pending = e.children().rev().collect::<Vec<_>>();
+    while let Some(node) = pending.pop() {
+        if scraper::ElementRef::wrap(node).is_some_and(hidden) {
+            continue;
+        }
+        if let scraper::node::Node::Text(value) = node.value() {
+            text.push_str(value);
+        }
+        pending.extend(node.children().rev());
+    }
+    text
+}
 fn normalized(e: scraper::ElementRef<'_>) -> String {
-    crate::dom::content(e)
+    passive_text(e)
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
@@ -491,6 +567,11 @@ fn document(html: &str) -> Result<crate::dom::Document> {
             && !html.contains("세션이 만료")
             && !html.contains("normal_session_error.jsp"),
         "authentication_required",
+    )?;
+    require(
+        d.select("select script,select style,select template,select noscript")
+            .is_empty(),
+        "contract_drift",
     )?;
     Ok(d)
 }
@@ -521,12 +602,17 @@ fn reader_context(d: &crate::dom::Document) -> Result<String> {
     let scripts = d.select("script");
     require(scripts.len() <= 64, "paper_contract_limit")?;
     let mut context = vec![];
-    for script in scripts {
+    // Pin every element and attribute by default: SVG animation, embedded
+    // contexts and future attributes cannot bypass an execution-attribute list.
+    // The independent owner pin must qualify any real dynamic compatibility.
+    let elements = d.select("*");
+    for script in elements {
         let mut attributes = script.value().attrs().collect::<Vec<_>>();
-        require(attributes.len() <= 32, "paper_contract_limit")?;
+        require(attributes.len() <= 64, "paper_contract_limit")?;
         attributes.sort_unstable_by_key(|(name, _)| *name);
         let mut attrs = vec![];
         for (name, value) in attributes {
+            bounded_text(name, 256)?;
             attrs.push(obj(&[
                 ("name", name.into()),
                 ("value", bounded_text(value, 4096)?),
@@ -538,11 +624,16 @@ fn reader_context(d: &crate::dom::Document) -> Result<String> {
             ancestors.push(ancestor.value().name().into());
         }
         context.push(obj(&[
+            ("tag", script.value().name().into()),
             ("attributes", Js::Arr(attrs)),
             ("ancestors", Js::Arr(ancestors)),
             (
                 "sourceSha256",
-                hash(crate::dom::content(script).as_bytes()).into(),
+                if matches!(script.value().name(), "script" | "style") {
+                    hash(crate::dom::content(script).as_bytes()).into()
+                } else {
+                    Js::Null
+                },
             ),
         ]));
     }
@@ -967,6 +1058,24 @@ impl<P: ReadPort> PaperSource<P> {
                 now,
             )?);
             value.set("contentHeader", header);
+            let mut information = value.get("information").clone();
+            information.set(
+                "frames",
+                Js::Arr(
+                    information
+                        .get("frames")
+                        .array()
+                        .iter()
+                        .map(|frame| {
+                            obj(&[
+                                ("tag", frame.get("tag").clone()),
+                                ("srcSha256", hash(json(frame.get("src")).as_bytes()).into()),
+                            ])
+                        })
+                        .collect(),
+                ),
+            );
+            value.set("information", information);
         } else {
             value.set(
                 "sourceOperation",
@@ -1259,6 +1368,16 @@ fn inert_page(d: &crate::dom::Document) -> Result<Js> {
     // Validate ownership and all recursive JavaScript boundaries even though
     // values/scripts are intentionally absent from exported page metadata.
     let structure = page_structure(d)?;
+    let mut attribute_count = 0usize;
+    for element in d.select("*") {
+        let attributes = element.value().attrs().collect::<Vec<_>>();
+        require(attributes.len() <= 64, "paper_contract_limit")?;
+        for (name, value) in attributes {
+            bounded_text(name, 256)?;
+            bounded_text(value, 4096)?;
+            attribute_count += 1;
+        }
+    }
     let forms = structure
         .get("forms")
         .array()
@@ -1272,7 +1391,7 @@ fn inert_page(d: &crate::dom::Document) -> Result<Js> {
                 _ => "unqualified".into(),
             };
             obj(&[
-                ("name", form.get("name").clone()),
+                ("nameSha256", hash(json(form.get("name")).as_bytes()).into()),
                 (
                     "actionSha256",
                     if form.get("action").string() {
@@ -1283,12 +1402,12 @@ fn inert_page(d: &crate::dom::Document) -> Result<Js> {
                 ),
                 ("method", method),
                 (
-                    "fieldNames",
+                    "fieldNameHashes",
                     Js::Arr(
                         form.get("controls")
                             .array()
                             .iter()
-                            .map(|c| c.get("name").clone())
+                            .map(|c| hash(json(c.get("name")).as_bytes()).into())
                             .collect(),
                     ),
                 ),
@@ -1307,14 +1426,15 @@ fn inert_page(d: &crate::dom::Document) -> Result<Js> {
                 continue;
             };
             require(
-                !functions.has(&id) && functions.props().len() < 64,
+                !functions.has(&hash(id.as_bytes())) && functions.props().len() < 64,
                 "paper_contract_limit",
             )?;
             let raw = source
                 .get(n.start..n.end)
                 .ok_or_else(|| Error::refusal("contract_drift"))?;
+            bounded_text(&id, 4096)?;
             functions.set(
-                &id,
+                &hash(id.as_bytes()),
                 obj(&[
                     ("sourceSha256", hash(raw.as_bytes()).into()),
                     ("classification", "inert_source_not_executed".into()),
@@ -1326,19 +1446,22 @@ fn inert_page(d: &crate::dom::Document) -> Result<Js> {
         .get("selects")
         .array()
         .iter()
-        .filter(|s| {
-            let name =
-                format!("{} {}", string(s.get("name")), string(s.get("id"))).to_ascii_lowercase();
-            ![
-                "student", "stu_", "pri_", "teacher", "password", "cookie", "session",
-            ]
-            .iter()
-            .any(|n| name.contains(n))
+        .map(|select| {
+            obj(&[
+                ("tag", select.get("tag").clone()),
+                (
+                    "nameSha256",
+                    hash(json(select.get("name")).as_bytes()).into(),
+                ),
+                ("optionCount", select.get("options").array().len().into()),
+                ("contractSha256", hash(json(select).as_bytes()).into()),
+            ])
         })
-        .cloned()
         .collect();
     Ok(obj(&[
-        ("schemaVersion", 1.into()),
+        ("schemaVersion", 2.into()),
+        ("attributeCount", attribute_count.into()),
+        ("unknownAttributes", "opaque_in_source_sha256".into()),
         ("forms", Js::Arr(forms)),
         ("selects", Js::Arr(selects)),
         ("functions", functions),
@@ -1609,7 +1732,7 @@ fn inspect_header(source: &str, key: &Js) -> Result<Js> {
     ];
     let mut rows = vec![];
     for th in d.select("th") {
-        let label = dom::content(th).trim().to_string();
+        let label = passive_text(th).trim().to_string();
         if !labels.contains(&label.as_str()) {
             continue;
         }
@@ -1642,7 +1765,7 @@ fn inspect_header(source: &str, key: &Js) -> Result<Js> {
             bounded_text(
                 &d.select("title")
                     .first()
-                    .map(|e| dom::content(*e))
+                    .map(|e| passive_text(*e))
                     .unwrap_or_default(),
                 1000,
             )?,
@@ -1761,7 +1884,7 @@ impl<P: ReadPort> PaperSource<P> {
             grades.len() == 1
                 && crate::dom::select(grades[0], "option").iter().any(|o| {
                     crate::dom::value(*o) == grade
-                        && crate::dom::content(*o) == label
+                        && passive_text(*o) == label
                         && o.value().attr("disabled").is_none()
                 }),
             "contract_drift",
@@ -1848,7 +1971,7 @@ impl<P: ReadPort> PaperSource<P> {
             ("status", "observed".into()),
             ("gradeSourceKey", grade.into()),
             ("gradeSourceLabel", label.into()),
-            ("assessmentFilter", category.into()),
+            ("assessmentFilterSha256", hash(category.as_bytes()).into()),
             ("requestedUnitCodes", Js::Arr(units)),
             ("rows", Js::Arr(rows)),
             (
@@ -1900,7 +2023,7 @@ fn definition_table_rows(d: &crate::dom::Document) -> Result<Vec<Vec<Js>>> {
         .filter(|t| {
             dom::select(*t, "th").iter().any(|th| {
                 dom::closest(*th, "table").is_some_and(|p| p.id() == t.id()) && {
-                    let label = dom::content(*th).split_whitespace().collect::<String>();
+                    let label = passive_text(*th).split_whitespace().collect::<String>();
                     label.contains("숙제수행도DT") || label.contains("수업이해도DT")
                 }
             })
@@ -2066,7 +2189,7 @@ fn inventory_detail(d: &crate::dom::Document, student: &Student) -> Result<Js> {
             }
             options.push(obj(&[
                 ("value", value.into()),
-                ("label", bounded_text(&dom::content(option), 200)?),
+                ("label", bounded_text(&passive_text(option), 200)?),
             ]));
         }
         controls.push(obj(&[
@@ -2107,7 +2230,10 @@ fn inventory_detail(d: &crate::dom::Document, student: &Student) -> Result<Js> {
         let value = obj(&[
             ("paperKey", row.get("paperKey").clone()),
             ("attemptKey", row.get("attemptKey").clone()),
-            ("sourceRowId", row.get("sourceRowId").clone()),
+            (
+                "sourceRowIdSha256",
+                hash(json(row.get("sourceRowId")).as_bytes()).into(),
+            ),
             (
                 "cells",
                 Js::Arr(
