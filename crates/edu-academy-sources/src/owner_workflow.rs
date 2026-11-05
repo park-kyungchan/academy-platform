@@ -456,6 +456,10 @@ impl<'a, T: Transport> NativeSession<'a, T> {
         }
         result
     }
+    /// Read-only source binding; this policy contains no session/credential data.
+    pub fn transport_admission(&self) -> &crate::owner_admission::TransportAdmission {
+        &self.admission
+    }
     pub fn read(
         &mut self,
         scope: &crate::owner_admission::TransportScope,
