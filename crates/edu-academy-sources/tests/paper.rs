@@ -2899,9 +2899,17 @@ fn fix1_css_hiding_declarations_and_conservative_grammar() {
         "color:#1230",
         "color:rgb(0 0 0 / 0)",
         "position:absolute;left:100000px",
+        "position:fixed;top:100vh",
+        "position:fixed;left:100vw",
     ];
     let invalid = [
         "not a declaration",
+        "position:fixed;top:1vh",
+        "left:12em",
+        "clip-path:inset(100000px)",
+        "margin-left:100vw",
+        "padding-left:100vw",
+        "margin:-100vmin 0",
         "display:var(--private)",
         "color:red;broken",
         "color:red;/*",
@@ -2929,6 +2937,9 @@ fn fix1_css_hiding_declarations_and_conservative_grammar() {
         }
         for css in [
             "font-size:12px;color:#123456",
+            "position:fixed;top:0vh;left:12px",
+            "margin:0;padding:2px",
+            "clip:auto;clip-path:none",
             "font-family:sans-serif; border:1px solid black",
             "display:block;visibility:visible;opacity:1",
             "width:100%;height:auto",

@@ -898,52 +898,26 @@ fn css_hiding(property: &str, value: &str) -> Option<bool> {
                 None => return None,
             }
         }
-        "clip" | "clip-path" => {
-            if value == "auto" || value == "none" {
-                false
-            } else if compact.starts_with("rect(")
-                || compact.starts_with("inset(")
-                || compact.starts_with("circle(")
-            {
-                let args = value.split_once('(')?.1.strip_suffix(')')?;
-                let numbers = args
-                    .split(|c: char| c == ',' || c.is_ascii_whitespace())
-                    .filter(|s| !s.is_empty())
-                    .map(css_number)
-                    .collect::<Option<Vec<_>>>()?;
-                match compact.split_once('(')?.0 {
-                    "rect" if numbers.len() == 4 => {
-                        numbers[1] <= numbers[3] || numbers[2] <= numbers[0]
-                    }
-                    "circle" if numbers.len() == 1 => numbers[0] <= 0.0,
-                    "inset" if (1..=4).contains(&numbers.len()) => {
-                        let (top, right, bottom, left) = match numbers.as_slice() {
-                            [all] => (*all, *all, *all, *all),
-                            [vertical, horizontal] => {
-                                (*vertical, *horizontal, *vertical, *horizontal)
-                            }
-                            [top, horizontal, bottom] => (*top, *horizontal, *bottom, *horizontal),
-                            [top, right, bottom, left] => (*top, *right, *bottom, *left),
-                            _ => return None,
-                        };
-                        // Unit conversion is deliberately not inferred. The
-                        // standard zero and percentage empty forms are opaque.
-                        numbers.iter().all(|v| *v == 0.0)
-                            || (args.contains('%')
-                                && (top + bottom >= 100.0 || left + right >= 100.0))
-                    }
-                    _ => return None,
+        // Nontrivial clips require box/unit geometry. Do not call a shape
+        // harmless after stripping units from its coordinates. None/auto are
+        // the only statically qualified non-hiding clipping declarations.
+        "clip" | "clip-path" if matches!(value, "auto" | "none") => false,
+        "left" | "right" | "top" | "bottom" | "text-indent" | "padding" | "padding-top"
+        | "padding-right" | "padding-bottom" | "padding-left" | "margin" | "margin-top"
+        | "margin-right" | "margin-bottom" | "margin-left" => {
+            let mut hiding = false;
+            let mut count = 0;
+            for dimension in value.split_ascii_whitespace() {
+                count += 1;
+                if count > 4 {
+                    return None;
                 }
-            } else {
+                hiding |= css_offset_hiding(dimension)?;
+            }
+            if count == 0 {
                 return None;
             }
-        }
-        "left" | "right" | "top" | "bottom" | "text-indent" => {
-            if matches!(value, "auto" | "inherit" | "initial" | "unset" | "revert") {
-                false
-            } else {
-                css_number(value)?.abs() >= 1000.0
-            }
+            hiding
         }
         // Expressions affecting hiding are not evaluated by this static reader.
         "transform" | "translate" if value == "none" => false,
@@ -995,16 +969,6 @@ fn css_hiding(property: &str, value: &str) -> Option<bool> {
         | "box-sizing"
         | "box-shadow"
         | "position"
-        | "padding"
-        | "padding-top"
-        | "padding-right"
-        | "padding-bottom"
-        | "padding-left"
-        | "margin"
-        | "margin-top"
-        | "margin-right"
-        | "margin-bottom"
-        | "margin-left"
         | "border"
         | "border-top"
         | "border-right"
@@ -1037,6 +1001,25 @@ fn css_hiding(property: &str, value: &str) -> Option<bool> {
         | "accent-color" => false,
         _ => return None,
     })
+}
+// Do not discard units or emulate viewport/font/container conversion.
+// Nonzero non-pixel offsets are unqualified; zero is unit-independent. Large
+// signed pixel/unitless offsets retain the explicit static hiding boundary.
+fn css_offset_hiding(value: &str) -> Option<bool> {
+    if matches!(value, "auto" | "inherit" | "initial" | "unset" | "revert") {
+        return Some(false);
+    }
+    let number = css_number(value)?;
+    if number == 0.0 {
+        return Some(false);
+    }
+    let end = value
+        .find(|c: char| !(c.is_ascii_digit() || matches!(c, '.' | '-' | '+')))
+        .unwrap_or(value.len());
+    match &value[end..] {
+        "" | "px" => Some(number.abs() >= 1000.0),
+        _ => None,
+    }
 }
 fn css_color_hiding(value: &str) -> Option<bool> {
     if value == "transparent" {
