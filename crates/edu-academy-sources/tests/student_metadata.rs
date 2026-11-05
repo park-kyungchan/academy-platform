@@ -1583,6 +1583,8 @@ fn fix1_course_principal_form_ownership_is_also_checked() {
 #[test]
 fn fix1_metadata_parser_depth_and_resource_bounds_in_isolated_processes() {
     for case in [
+        "scope_ids65536",
+        "scope_names65536",
         "query4097",
         "json4097",
         "js8192",
@@ -1619,6 +1621,33 @@ fn fix1_metadata_parser_child() {
     let Ok(case) = std::env::var("E09A_FIX1_PARSER_CASE") else {
         return;
     };
+    if case == "scope_ids65536" || case == "scope_names65536" {
+        let nested = || {
+            let mut value = Js::Null;
+            for _ in 0..65_536 {
+                value = Js::Arr(vec![value]);
+            }
+            value
+        };
+        let mut input = obj(&[
+            ("operation", "day_record".into()),
+            ("date", DATE.into()),
+            ("groupIds", Js::Arr(vec!["5".into()])),
+            ("studentNames", Js::Arr(vec!["Fictional One".into()])),
+        ]);
+        let (field, code) = if case == "scope_ids65536" {
+            ("groupIds", "student_read_source_key_invalid")
+        } else {
+            ("studentNames", "student_read_name_invalid")
+        };
+        input.set(field, Js::Arr(vec![nested(), nested()]));
+        let (mut src, count, _) = source(vec![]);
+        assert_code(src.observe(&input, DATE, NOW), code);
+        assert_eq!(count.get(), 0);
+        drop(input);
+        eprintln!("isolated scope case {case}: PASS");
+        return;
+    }
     if case == "query4097" {
         for field in ["period", "from", "periods", "paperCode"] {
             let mut nested = 0.into();
@@ -1814,4 +1843,28 @@ fn fix1_daily_selector_explicit_form_owner_refuses() {
         "contract_drift",
     );
     assert_eq!(count.get(), 1);
+}
+
+#[test]
+fn fix1_valid_scalar_scope_duplicates_keep_their_typed_refusal() {
+    for (groups, names) in [
+        (vec!["5".into(), "5".into()], vec!["Fictional One".into()]),
+        (
+            vec!["5".into()],
+            vec!["Fictional One".into(), "Fictional One".into()],
+        ),
+    ] {
+        let input = obj(&[
+            ("operation", "day_record".into()),
+            ("date", DATE.into()),
+            ("groupIds", Js::Arr(groups)),
+            ("studentNames", Js::Arr(names)),
+        ]);
+        let (mut src, count, _) = source(vec![]);
+        assert_code(
+            src.observe(&input, DATE, NOW),
+            "student_read_duplicate_scope",
+        );
+        assert_eq!(count.get(), 0);
+    }
 }

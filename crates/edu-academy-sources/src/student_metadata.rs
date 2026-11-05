@@ -981,19 +981,21 @@ impl<P: ReadPort> StudentSource<P> {
                     && (1..=64).contains(&ns.array().len()),
                 "student_read_scope_size_invalid",
             )?;
+            // Js equality is recursive. Qualify every element as a bounded
+            // scalar before duplicate checks can compare caller-built values.
+            for id in ids.array() {
+                key(id)?;
+            }
+            let student_names = ns.array().iter().map(name).collect::<Result<Vec<_>>>()?;
             require(
                 edu_academy_core::js::unique(ids.array()).len() == ids.array().len()
                     && edu_academy_core::js::unique(ns.array()).len() == ns.array().len(),
                 "student_read_duplicate_scope",
             )?;
-            for id in ids.array() {
-                key(id)?;
-            }
             groups = ids.array().to_vec();
-            students = ns
-                .array()
+            students = student_names
                 .iter()
-                .map(|n| self.owner.student(&name(n)?).cloned())
+                .map(|n| self.owner.student(n).cloned())
                 .collect::<Result<Vec<_>>>()?;
             require(
                 self.requests + students.len() * groups.len() * 2 <= 256,
