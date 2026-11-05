@@ -305,6 +305,7 @@ impl<P: ReadPort> PaperSource<P> {
 /// Page hashes cover inert form/control/options/script structure. Real values
 /// remain an R12 owner-assembly prerequisite, as with E09a PaperFormPin.
 pub struct PaperPins {
+    reader_context: String,
     ready: String,
     view: String,
     catalog: String,
@@ -317,6 +318,7 @@ impl PaperPins {
             v,
             &[
                 "schemaVersion",
+                "readerContext",
                 "ready",
                 "view",
                 "catalog",
@@ -328,13 +330,21 @@ impl PaperPins {
             v.get("schemaVersion").is("academy.paper-pins/1"),
             "contract_drift",
         )?;
-        for field in ["ready", "view", "catalog", "pool", "converter"] {
+        for field in [
+            "readerContext",
+            "ready",
+            "view",
+            "catalog",
+            "pool",
+            "converter",
+        ] {
             require(
                 v.get(field).string() && sha_valid(v.get(field)),
                 "contract_drift",
             )?;
         }
         Ok(Self {
+            reader_context: string(v.get("readerContext")),
             ready: string(v.get("ready")),
             view: string(v.get("view")),
             catalog: string(v.get("catalog")),
@@ -500,6 +510,44 @@ fn script_tree(source: &str) -> Result<crate::script::Node> {
 pub fn contract_fingerprint(html: &str) -> Result<String> {
     Ok(hash(json(&page_structure(&document(html)?)?).as_bytes()))
 }
+/// Independently supplied owner pin for the complete observed script context.
+/// Method hashes alone cannot qualify preceding abrupt completion or later
+/// indirect mutations. Include source order, attributes and HTML ancestry;
+/// never learn/update this pin from a dispatched response.
+pub fn reader_context_fingerprint(html: &str) -> Result<String> {
+    reader_context(&document(html)?)
+}
+fn reader_context(d: &crate::dom::Document) -> Result<String> {
+    let scripts = d.select("script");
+    require(scripts.len() <= 64, "paper_contract_limit")?;
+    let mut context = vec![];
+    for script in scripts {
+        let mut attributes = script.value().attrs().collect::<Vec<_>>();
+        require(attributes.len() <= 32, "paper_contract_limit")?;
+        attributes.sort_unstable_by_key(|(name, _)| *name);
+        let mut attrs = vec![];
+        for (name, value) in attributes {
+            attrs.push(obj(&[
+                ("name", name.into()),
+                ("value", bounded_text(value, 4096)?),
+            ]));
+        }
+        let mut ancestors = vec![];
+        for ancestor in script.ancestors().filter_map(scraper::ElementRef::wrap) {
+            require(ancestors.len() < 64, "paper_contract_limit")?;
+            ancestors.push(ancestor.value().name().into());
+        }
+        context.push(obj(&[
+            ("attributes", Js::Arr(attrs)),
+            ("ancestors", Js::Arr(ancestors)),
+            (
+                "sourceSha256",
+                hash(crate::dom::content(script).as_bytes()).into(),
+            ),
+        ]));
+    }
+    Ok(hash(json(&Js::Arr(context)).as_bytes()))
+}
 fn page_structure(d: &crate::dom::Document) -> Result<Js> {
     use crate::dom;
     let forms = d.select("form");
@@ -655,6 +703,10 @@ impl<P: ReadPort> PaperSource<P> {
         require(
             course::field(&d, "form[name=search] [name=clg_no]")? == self.owner.owner.college_key,
             "student_paper_college_scope_conflict",
+        )?;
+        require(
+            reader_context(&d)? == self.owner.pins.reader_context,
+            "contract_drift",
         )?;
         Ok(d)
     }
@@ -1110,6 +1162,14 @@ fn reader_method(d: &crate::dom::Document, method: &str, expected: &str) -> Resu
     for script in scripts {
         let source = crate::dom::content(script);
         let ast = script_tree(&source)?;
+        let active = ast
+            .children
+            .iter()
+            .filter(|n| n.kind == "VariableDeclaration")
+            .flat_map(|n| &n.children)
+            .filter(|n| n.kind == "VariableDeclarator")
+            .map(|n| (n.start, n.end))
+            .collect::<HashSet<_>>();
         for n in crate::script::walk(&ast)? {
             // The projection retains assignment targets and source spans.
             // Refuse unresolved/computed writes too, without evaluating keys.
@@ -1142,6 +1202,19 @@ fn reader_method(d: &crate::dom::Document, method: &str, expected: &str) -> Resu
             {
                 continue;
             }
+            require(
+                active.contains(&(n.start, n.end))
+                    && script.value().attr("type").is_none_or(|t| {
+                        matches!(
+                            t.trim().to_ascii_lowercase().as_str(),
+                            "" | "text/javascript" | "application/javascript"
+                        )
+                    })
+                    && script.value().attr("nomodule").is_none()
+                    && crate::dom::closest(script, "template").is_none()
+                    && crate::dom::closest(script, "noscript").is_none(),
+                "contract_drift",
+            )?;
             bindings += 1;
             let object = n
                 .children
@@ -1529,7 +1602,10 @@ fn inspect_header(source: &str, key: &Js) -> Result<Js> {
         ]));
     }
     let frames = d.select("iframe,frame");
-    require(frames.len() <= 64, "printed_paper_frame_unqualified")?;
+    require(
+        frames.len() <= 64 && frames.iter().all(|f| f.value().attr("srcdoc").is_none()),
+        "printed_paper_frame_unqualified",
+    )?;
     Ok(obj(&[
         (
             "documentTitle",
@@ -1930,23 +2006,39 @@ fn inventory_detail(d: &crate::dom::Document, student: &Student) -> Result<Js> {
     use crate::dom;
     let page = inert_page(d)?;
     let mut controls = vec![];
-    for control in d.select("input[name],select[name]") {
-        let n = control.value().attr("name").unwrap_or("");
-        let lower = n.to_ascii_lowercase();
-        if !["sort_date", "date", "page"]
-            .iter()
-            .any(|k| lower.contains(k))
-        {
-            continue;
-        }
+    // Only the named relative-period SELECT is a public filter capability.
+    // Do not reuse owner-pin control_structure: it intentionally retains raw
+    // values/IDs for fingerprinting and must never project arbitrary controls.
+    let allowed = |value: &str| matches!(value, "1" | "11" | "12" | "13" | "14" | "15" | "16");
+    for control in d.select("select[name=sort_date]") {
         require(
-            controls.len() < 64 && control.value().attr("form").is_none(),
+            controls.is_empty() && control.value().attr("form").is_none(),
             "contract_drift",
         )?;
         if let Some(form) = dom::closest(control, "form") {
             course::verify_form_ownership(d, form)?;
         }
-        controls.push(control_structure(control)?);
+        let value = dom::value(control);
+        require(allowed(&value), "daily_history_selector_drift")?;
+        let source_options = dom::select(control, "option");
+        require(source_options.len() <= 64, "paper_contract_limit")?;
+        let mut options = vec![];
+        for option in source_options {
+            let value = dom::value(option);
+            if option.value().attr("disabled").is_some() || !allowed(&value) {
+                continue;
+            }
+            options.push(obj(&[
+                ("value", value.into()),
+                ("label", bounded_text(&dom::content(option), 200)?),
+            ]));
+        }
+        controls.push(obj(&[
+            ("tag", "select".into()),
+            ("name", "sort_date".into()),
+            ("value", value.into()),
+            ("options", Js::Arr(options)),
+        ]));
     }
     let rows = crate::student_metadata::metadata_rows(&d.source, student)?;
     let mut display = vec![];

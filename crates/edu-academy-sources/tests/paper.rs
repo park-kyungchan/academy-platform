@@ -86,8 +86,15 @@ fn converter_program() -> String {
     "const alphabet='23456789ABCDEFGHJKLMNPQRSTUVWXYZ';function keyToCode(n){return n;}function codeToKey(n){return n;}".into()
 }
 fn pins() -> PaperPins {
+    pins_with_context(&reader_shell(PaperScope::Paper1))
+}
+fn pins_with_context(reference: &str) -> PaperPins {
     PaperPins::parse(&obj(&[
         ("schemaVersion", "academy.paper-pins/1".into()),
+        (
+            "readerContext",
+            paper::reader_context_fingerprint(reference).unwrap().into(),
+        ),
         (
             "ready",
             hash(b"function(){return 'fictional-ready';}").into(),
@@ -103,13 +110,16 @@ fn pins() -> PaperPins {
     .unwrap()
 }
 fn owner(scope: PaperScope) -> PaperOwner {
+    owner_with_context(scope, &reader_shell(scope))
+}
+fn owner_with_context(scope: PaperScope, reference: &str) -> PaperOwner {
     PaperOwner::parse(
         scope,
         &routes(),
         &owner_value(scope),
         &policy_value(scope),
         &remap_js(form_value(), scope),
-        pins(),
+        pins_with_context(reference),
     )
     .unwrap()
 }
@@ -1336,13 +1346,15 @@ fn every_middle1_unit_code_and_explicit_class2_contract_alias_are_supported() {
 fn reader_static_quoted_keys_work_and_computed_member_writes_refuse() {
     let scope = PaperScope::Paper1;
     let shell = reader_shell(scope).replace("ready:function", "'ready':function");
-    let (mut src, count, _) = source(
+    let admitted_owner = owner_with_context(scope, &shell);
+    let (port, count, _) = fake(
         scope,
         vec![
             ("metadata.paper.initial", shell),
             ("paper.definition", definition_xml()),
         ],
     );
+    let mut src = PaperSource::new(port, admitted_owner, admission(scope)).unwrap();
     assert!(
         call(
             &mut src,
@@ -1643,4 +1655,197 @@ fn printed_code_validation_at_the_paper_boundary_is_a_typed_zero_io_refusal() {
         "invalid_printed_paper_code",
     );
     assert_eq!(count.get(), 0);
+}
+
+#[test]
+fn review_inventory_exports_only_qualified_selector_values_on_both_scopes() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for history in [false, true] {
+            let html = daily(scope, vec![])
+                .replace(
+                    "<select name=sort_date>",
+                    "<select name=sort_date id=SYNTHETIC_SECRET value=SYNTHETIC_SECRET>",
+                )
+                .replace(
+                    "</select>",
+                    "<option value=SYNTHETIC_SECRET>Unqualified option</option></select>",
+                )
+                + "<input type=hidden name=page_session value=SYNTHETIC_SECRET><input type=hidden name=updated_nonce value=SYNTHETIC_SECRET><input type=hidden name=sort_date value=SYNTHETIC_SECRET><select name=page_token><option value=SYNTHETIC_SECRET>Extra</option></select>";
+            let mut replies = vec![("metadata.daily", html.clone())];
+            if history {
+                replies.push(("metadata.daily", html));
+            }
+            let (mut src, count, _) = source(scope, replies);
+            let mut request = input(scope);
+            if history {
+                request.set("periods", strings(&["11"]));
+            }
+            let output = call(&mut src, "academy_daily_test_inventory", &request).unwrap();
+            assert!(!json(&output).contains("SYNTHETIC_SECRET"));
+            let observation = output.get("observation");
+            let pages = if history {
+                vec![
+                    observation.get("currentFilterQualification"),
+                    &observation.get("observations").array()[0],
+                ]
+            } else {
+                vec![observation]
+            };
+            for page in pages {
+                let controls = page.get("filterContracts").get("controls").array();
+                assert_eq!(controls.len(), 1);
+                assert_eq!(controls[0].get("name"), &"sort_date".into());
+                assert_eq!(controls[0].get("options").array().len(), 7);
+                assert_eq!(controls[0].get("value"), &"1".into());
+                assert!(!controls[0].has("id"));
+            }
+            if history {
+                assert_eq!(
+                    observation.get("observations").array()[0].get("label"),
+                    &"Fictional 11".into()
+                );
+            }
+            assert_eq!(count.get(), if history { 2 } else { 1 });
+        }
+    }
+}
+
+#[test]
+fn review_reader_requires_an_unconditional_active_program_binding() {
+    let scope = PaperScope::Paper1;
+    let original = reader_shell(scope);
+    let declaration = original
+        .rsplit("<script>")
+        .next()
+        .unwrap()
+        .strip_suffix("</script>")
+        .unwrap();
+    for wrapped in [
+        format!("function dormant(){{{declaration}}}"),
+        format!("if(false){{{declaration}}}"),
+        format!("(()=>{{{declaration}}})();"),
+        format!("{{{}}}", declaration.replace("var ", "let ")),
+    ] {
+        let html = original.replace(declaration, &wrapped);
+        let admitted_owner = owner_with_context(scope, &html);
+        let (port, count, _) = fake(
+            scope,
+            vec![
+                ("metadata.paper.initial", html),
+                ("paper.definition", definition_xml()),
+            ],
+        );
+        let mut src = PaperSource::new(port, admitted_owner, admission(scope)).unwrap();
+        assert_code(
+            call(
+                &mut src,
+                "academy_paper_definition_lookup",
+                &paper_input(scope),
+            ),
+            "contract_drift",
+        );
+        assert_eq!(count.get(), 1);
+    }
+    for attr in [
+        "type=module",
+        "type=text/plain",
+        "nomodule",
+        "type=application/json",
+    ] {
+        let html = original.replace(
+            &format!("<script>{declaration}"),
+            &format!("<script {attr}>{declaration}"),
+        );
+        let admitted_owner = owner_with_context(scope, &html);
+        let (port, count, _) = fake(
+            scope,
+            vec![
+                ("metadata.paper.initial", html),
+                ("paper.definition", definition_xml()),
+            ],
+        );
+        let mut src = PaperSource::new(port, admitted_owner, admission(scope)).unwrap();
+        assert_code(
+            call(
+                &mut src,
+                "academy_paper_definition_lookup",
+                &paper_input(scope),
+            ),
+            "contract_drift",
+        );
+        assert_eq!(count.get(), 1);
+    }
+}
+
+#[test]
+fn review_srcdoc_overrides_refuse_before_child_read_and_latch_native_history() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for attr in ["srcdoc=''", "SrCdOc='<h1>Unqualified</h1>'"] {
+            let (mut src, count, _) = source(
+                scope,
+                vec![
+                    ("metadata.paper.initial", reader_shell(scope)),
+                    (
+                        "paper.header",
+                        header("3").replace("<iframe ", &format!("<iframe {attr} ")),
+                    ),
+                    ("paper.content", content_header()),
+                ],
+            );
+            assert_code(
+                src.history_header(input(scope).get("studentId"), &"#5".into(), DATE, NOW),
+                "printed_paper_frame_unqualified",
+            );
+            assert_eq!(count.get(), 2);
+            assert_code(
+                call(&mut src, "academy_daily_test_inventory", &input(scope)),
+                "source_failure_latched_no_retry",
+            );
+            assert_eq!(count.get(), 2);
+        }
+    }
+}
+
+#[test]
+fn review_reader_context_refuses_abrupt_prefix_and_indirect_mutation() {
+    let scope = PaperScope::Paper1;
+    let original = reader_shell(scope);
+    let declaration = original
+        .rsplit("<script>")
+        .next()
+        .unwrap()
+        .strip_suffix("</script>")
+        .unwrap();
+    let mut violations = vec![];
+    for (case, html) in [
+        (
+            "abrupt_prefix",
+            original.replace(declaration, &format!("throw 0;{declaration}")),
+        ),
+        (
+            "indirect_mutation",
+            original.clone()
+                + "<script>var alias=testInfoDialogManager;alias.ready=function(){};</script>",
+        ),
+    ] {
+        let (mut src, count, _) = source(
+            scope,
+            vec![
+                ("metadata.paper.initial", html),
+                ("paper.definition", definition_xml()),
+            ],
+        );
+        let result = call(
+            &mut src,
+            "academy_paper_definition_lookup",
+            &paper_input(scope),
+        );
+        if result.is_ok() || count.get() != 1 {
+            violations.push(case);
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "unqualified reader contexts: {violations:?}"
+    );
 }
