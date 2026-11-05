@@ -464,7 +464,7 @@ pub(crate) fn verify_form_ownership(d: &Document, form: scraper::ElementRef<'_>)
     require(
         d.select("[form]").iter().all(|e| {
             !e.ancestors().any(|a| a.id() == form.id())
-                && !id.is_some_and(|id| e.value().attr("form") == Some(id))
+                && id.is_none_or(|id| e.value().attr("form") != Some(id))
         }),
         "contract_drift",
     )
