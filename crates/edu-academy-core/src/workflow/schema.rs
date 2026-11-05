@@ -94,6 +94,7 @@ fn optional(out: &mut Js, v: &Js, key: &str, parse: fn(&Js) -> Result<Js>) -> Re
 }
 pub fn validate(name: &str, v: &Js) -> Result<Js> {
     match name {
+        "attributionEnvelopeSchema" => Ok(crate::attribution::Envelope::parse(v)?.value().clone()),
         "dailyRecordSaveSchema" => {
             strict(
                 v,

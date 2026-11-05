@@ -86,6 +86,33 @@ pub trait CurrentUser {
 pub trait ConsumeOwner {
     fn consume_once(&mut self, key: &str, record: &Js) -> Result<bool>;
 }
+/// The actual owner supplies current session/source evidence and its own clock.
+pub trait AttributionCurrent {
+    fn lookup(&mut self, request_ref: &str) -> Result<Option<crate::attribution::Instruction>>;
+    fn now_ms(&self) -> i64;
+}
+/// Reuses the existing consume-once store. The caller must hold the owner's
+/// existing account/session serialization boundary across this callback, so
+/// source/instruction replacement cannot race comparison and consumption.
+pub struct AttributionOwner<'a> {
+    pub current: &'a mut dyn AttributionCurrent,
+    pub owner: &'a mut dyn ConsumeOwner,
+}
+impl crate::attribution::Owner for AttributionOwner<'_> {
+    fn lookup(&mut self, request_ref: &str) -> Result<Option<crate::attribution::Instruction>> {
+        self.current.lookup(request_ref)
+    }
+    fn compare_and_consume(&mut self, claim: &crate::attribution::Claim<'_>) -> Result<bool> {
+        let Some(actual) = self.current.lookup(claim.request_ref())? else {
+            return Ok(false);
+        };
+        if !claim.matches(&actual, self.current.now_ms()) {
+            return Ok(false);
+        }
+        self.owner
+            .consume_once(&claim.consumption_key(), &claim.record())
+    }
+}
 pub struct DurableConsume<'a> {
     pub root: &'a Path,
 }
