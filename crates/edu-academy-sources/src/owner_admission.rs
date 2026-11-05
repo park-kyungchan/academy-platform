@@ -312,6 +312,8 @@ pub struct OperationContract {
     pub method: String,
     pub path: String,
     pub effect: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mirrored_parameters: Vec<String>,
     pub query: Vec<TransportParameter>,
     pub body: Vec<TransportParameter>,
 }
@@ -402,9 +404,63 @@ impl TransportAdmission {
             {
                 return Err(transport_refused());
             }
+            let mirrored = operation
+                .mirrored_parameters
+                .iter()
+                .collect::<std::collections::HashSet<_>>();
+            if mirrored.len() != operation.mirrored_parameters.len() {
+                return Err(transport_refused());
+            }
+            for name in &mirrored {
+                // Lead DECISION-1: this is a pinned StudyCourse exception, never
+                // a generic permission to duplicate fields on arbitrary routes.
+                if operation.id != "student.course.search"
+                    || operation.source_namespace != "academy.lms.student_course"
+                    || operation.method != "POST"
+                    || operation.effect
+                    || operation.path != "/servlet/controller.coursemanage.CourseManageServlet"
+                    || !["reqCmd", "student_name", "cls_no", "grade_no"].contains(&name.as_str())
+                {
+                    return Err(transport_refused());
+                }
+                let a = operation
+                    .query
+                    .iter()
+                    .find(|p| &p.name == *name)
+                    .ok_or_else(transport_refused)?;
+                let b = operation
+                    .body
+                    .iter()
+                    .find(|p| &p.name == *name)
+                    .ok_or_else(transport_refused)?;
+                if serde_json::to_value(&a.value).ok() != serde_json::to_value(&b.value).ok() {
+                    return Err(transport_refused());
+                }
+            }
+            let selector_ok = |parameters: &[TransportParameter]| {
+                parameters.iter().any(|p| p.name == "reqCmd" && matches!(&p.value, ParameterValue::Literal { value } if value == "StudyCourse"))
+            };
+            if !mirrored.is_empty() {
+                if !selector_ok(&operation.query) {
+                    return Err(transport_refused());
+                }
+                if !selector_ok(&operation.body) {
+                    return Err(transport_refused());
+                }
+            }
             let mut keys = std::collections::HashSet::new();
-            for parameter in operation.query.iter().chain(&operation.body) {
-                if !transport_identifier(&parameter.name) || !keys.insert(&parameter.name) {
+            for (placement, parameter) in operation
+                .query
+                .iter()
+                .map(|p| (false, p))
+                .chain(operation.body.iter().map(|p| (true, p)))
+            {
+                if !transport_identifier(&parameter.name)
+                    || !keys.insert((placement, &parameter.name))
+                    || placement
+                        && operation.query.iter().any(|p| p.name == parameter.name)
+                        && !mirrored.contains(&parameter.name)
+                {
                     return Err(transport_refused());
                 }
                 match &parameter.value {
@@ -491,6 +547,19 @@ impl TransportAdmission {
         };
         let query = render(&operation.query)?;
         let body = render(&operation.body)?;
+        for name in &operation.mirrored_parameters {
+            let a = query
+                .iter()
+                .find(|(key, _)| key == name)
+                .ok_or_else(transport_refused)?;
+            let b = body
+                .iter()
+                .find(|(key, _)| key == name)
+                .ok_or_else(transport_refused)?;
+            if a.1.as_bytes() != b.1.as_bytes() {
+                return Err(transport_refused());
+            }
+        }
         if used.len() != arguments.len() {
             return Err(transport_refused());
         }
