@@ -1057,8 +1057,6 @@ const CSS_PROPERTIES: &[(&str, CssGrammar)] = &[
     ("translate", CssGrammar::Keywords(&["none"])),
     ("clip", CssGrammar::Keywords(&["auto"])),
     ("clip-path", CssGrammar::Keywords(&["none"])),
-    ("background-color", CssGrammar::Color(true)),
-    ("background", CssGrammar::Color(true)),
     ("border-color", CssGrammar::Colors),
     ("outline-color", CssGrammar::Color(true)),
     ("margin", CssGrammar::Lengths(4)),
@@ -1127,17 +1125,60 @@ fn css_length(token: &CssToken, positive: bool) -> bool {
         _ => false,
     }
 }
-fn css_color(token: &CssToken, transparent: bool) -> bool {
+fn css_color(token: &CssToken, decorative: bool) -> bool {
     match token {
         CssToken::Ident(s) => {
-            [
-                "black", "silver", "gray", "white", "maroon", "red", "purple", "fuchsia", "green",
-                "lime", "olive", "yellow", "navy", "blue", "teal", "aqua", "orange",
-            ]
-            .contains(&s.as_str())
-                || transparent && s == "transparent"
+            // Background paints have no admitted property grammar. Restrict
+            // foreground paint to this dark palette; bright/white/transparent
+            // text cannot qualify against the ordinary light canvas. Legacy
+            // presentation attributes remain inert under the Lead's policy.
+            let names: &[&str] = if decorative {
+                &[
+                    "black",
+                    "silver",
+                    "gray",
+                    "white",
+                    "maroon",
+                    "red",
+                    "purple",
+                    "fuchsia",
+                    "green",
+                    "lime",
+                    "olive",
+                    "yellow",
+                    "navy",
+                    "blue",
+                    "teal",
+                    "aqua",
+                    "orange",
+                    "transparent",
+                ]
+            } else {
+                &[
+                    "black", "gray", "maroon", "red", "purple", "fuchsia", "green", "olive",
+                    "navy", "blue", "teal",
+                ]
+            };
+            names.contains(&s.as_str())
         }
-        CssToken::Hash(s) => matches!(s.len(), 3 | 6) && s.bytes().all(|c| c.is_ascii_hexdigit()),
+        CssToken::Hash(s) => {
+            if !matches!(s.len(), 3 | 6) || !s.bytes().all(|c| c.is_ascii_hexdigit()) {
+                return false;
+            }
+            if decorative {
+                return true;
+            }
+            let rgb = if s.len() == 3 {
+                s.chars().flat_map(|c| [c, c]).collect::<String>()
+            } else {
+                s.clone()
+            };
+            let channel = |i| u32::from_str_radix(&rgb[i..i + 2], 16).expect("qualified hex");
+            // Closed foreground value bound: weighted encoded RGB <=128/255.
+            // This deliberately refuses light paints; it does not simulate CSS
+            // cascade, a device theme, or owner-pinned external stylesheets.
+            2126 * channel(0) + 7152 * channel(2) + 722 * channel(4) <= 1_280_000
+        }
         _ => false,
     }
 }
@@ -1166,8 +1207,10 @@ fn css_value_qualified(grammar: CssGrammar, tokens: &[CssToken]) -> bool {
             !tokens.is_empty() && tokens.len() <= 4 && tokens.iter().all(|t| css_color(t, true))
         }
         CssGrammar::Opacity => {
-            matches!(tokens, [CssToken::Number(n)] if *n > 0.0 && *n <= 1.0)
-                || matches!(tokens, [CssToken::Percentage(n)] if *n > 0.0 && *n <= 100.0)
+            // Only fully opaque text qualifies; arbitrarily small nonzero
+            // alpha must not recreate foreground erasure through compositing.
+            matches!(tokens, [CssToken::Number(n)] if *n == 1.0)
+                || matches!(tokens, [CssToken::Percentage(n)] if *n == 100.0)
         }
         CssGrammar::Weight => {
             css_keyword(tokens, &["normal", "bold", "bolder", "lighter"])
@@ -1261,14 +1304,17 @@ fn css_inline_chain_geometry(e: scraper::ElementRef<'_>) -> Option<f64> {
     }
     Some(geometry)
 }
-fn css_stylesheet_geometry(source: &str, matches: impl Fn(&[CssToken]) -> usize) -> Option<f64> {
+fn css_stylesheet_geometry(
+    source: &str,
+    matches: impl Fn(&[CssToken]) -> usize,
+    total_rules: &mut usize,
+) -> Option<f64> {
     let tokens = css_tokens(source)?;
     let mut remaining = tokens.as_slice();
-    let mut count = 0;
     let mut geometry = 0.0;
     while !remaining.is_empty() {
-        count += 1;
-        if count > 1024 {
+        *total_rules += 1;
+        if *total_rules > 1024 {
             return None;
         }
         let open = remaining.iter().position(|t| *t == CssToken::Punct('{'))?;
@@ -1299,32 +1345,47 @@ fn css_stylesheet_geometry(source: &str, matches: impl Fn(&[CssToken]) -> usize)
 }
 #[cfg(test)]
 fn stylesheet_hiding(source: &str) -> Option<bool> {
-    css_stylesheet_geometry(source, |_| 1).map(|_| false)
+    css_stylesheet_geometry(source, |_| 1, &mut 0).map(|_| false)
 }
 fn display_text_contract(d: &crate::dom::Document, pins: &PaperPins) -> Result<()> {
     let elements = d.select("*");
+    let styles = d.select("style");
+    require(styles.len() <= 64, "contract_drift")?;
+    let sources = styles
+        .iter()
+        .map(|style| crate::dom::content(*style))
+        .collect::<Vec<_>>();
+    require(
+        sources.iter().map(String::len).sum::<usize>() <= 32_768,
+        "contract_drift",
+    )?;
+    // Index tags exactly once. Rule matching must not multiply document size
+    // by rule/style counts. Shared bytes/rules/styles budgets bound all blocks.
+    let mut tag_counts = std::collections::BTreeMap::<String, usize>::new();
+    for e in &elements {
+        *tag_counts
+            .entry(e.value().name().to_ascii_lowercase())
+            .or_default() += 1;
+    }
     let mut stylesheet_geometry = 0.0;
-    for style in d.select("style") {
-        // A single tag selector can be counted exactly. For every more complex
-        // admitted selector, charge every element as an upper bound: never
-        // undercount case-sensitive classes or assume a rule applies once.
-        let geometry = css_stylesheet_geometry(&crate::dom::content(style), |selector| {
-            if let [CssToken::Ident(tag)] = selector {
-                elements
-                    .iter()
-                    .filter(|e| e.value().name().eq_ignore_ascii_case(tag))
-                    .count()
-            } else {
-                elements.len()
-            }
-        })
+    let mut total_rules = 0;
+    for source in sources {
+        let geometry = css_stylesheet_geometry(
+            &source,
+            |selector| {
+                if let [CssToken::Ident(tag)] = selector {
+                    tag_counts.get(tag).copied().unwrap_or(0)
+                } else {
+                    elements.len()
+                }
+            },
+            &mut total_rules,
+        )
         .ok_or_else(|| Error::refusal("contract_drift"))?;
         stylesheet_geometry += geometry;
         require(stylesheet_geometry <= 128.0, "contract_drift")?;
     }
     if stylesheet_geometry > 0.0 {
-        // Account for inline/STYLE composition as well. An invalid inline
-        // declaration is already opaque; only qualified chains add geometry.
         let inline_geometry: f64 = elements
             .iter()
             .filter_map(|e| css_element_geometry(*e))

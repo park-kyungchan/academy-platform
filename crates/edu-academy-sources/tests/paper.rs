@@ -3699,3 +3699,83 @@ fn fix2_geometry_composition_cannot_bypass_the_shared_bound() {
         }
     }
 }
+
+#[test]
+fn fix2_security_foreground_and_background_combinations_are_unqualified() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for family in ["header", "inventory", "definitions", "batch"] {
+            for css in [
+                "color:white;background:white",
+                "color:red;background-color:red",
+                "color:#fff",
+                "color:#ffffff",
+                "color:#fefefe",
+                "color:yellow",
+                "opacity:0.1",
+                "opacity:1e-300",
+                "background:black;color:black",
+            ] {
+                let payload = format!("<div style='{css}'>FIX2_CONTRAST_PRIVATE</div>");
+                let output =
+                    fix1_page(scope, family, &fix2_body(scope, family, &payload), &[]).unwrap();
+                assert!(!json(&output).contains("FIX2_CONTRAST_PRIVATE"));
+                assert!(json(&output).contains("VISIBLE_CONTROL"));
+                let body = format!("<style>div{{{css}}}</style>")
+                    + &fix2_body(scope, family, "<div>FIX2_CONTRAST_PRIVATE</div>");
+                assert_code(fix1_page(scope, family, &body, &[]), "contract_drift");
+            }
+            for css in ["color:red", "color:black", "color:#123456"] {
+                let payload = format!("<div style='{css}'>FIX2_CONTRAST_VISIBLE</div>");
+                let body =
+                    format!("<style>div{{{css}}}</style>") + &fix2_body(scope, family, &payload);
+                assert!(
+                    json(&fix1_page(scope, family, &body, &[]).unwrap())
+                        .contains("FIX2_CONTRAST_VISIBLE")
+                );
+            }
+        }
+    }
+}
+#[test]
+fn fix2_security_stylesheet_work_is_bounded_across_the_document() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for family in ["header", "inventory", "definitions", "batch"] {
+            let normal = fix2_body(scope, family, "STYLE_BOUND_VISIBLE");
+            for (prefix, admitted) in [
+                ("<style>div{font-weight:bold}</style>".repeat(64), true),
+                ("<style>div{font-weight:bold}</style>".repeat(65), false),
+                (
+                    format!(
+                        "<style>{}</style><style>{}</style>",
+                        "div{}".repeat(512),
+                        "div{}".repeat(512)
+                    ),
+                    true,
+                ),
+                (
+                    format!(
+                        "<style>{}</style><style>{}</style>",
+                        "div{}".repeat(512),
+                        "div{}".repeat(513)
+                    ),
+                    false,
+                ),
+                (format!("<style>/*{}*/</style>", "a".repeat(32764)), true),
+                (
+                    format!(
+                        "<style>/*{}*/</style><style>/**/</style>",
+                        "a".repeat(32764)
+                    ),
+                    false,
+                ),
+            ] {
+                let output = fix1_page(scope, family, &(prefix + &normal), &[]);
+                if admitted {
+                    assert!(json(&output.unwrap()).contains("STYLE_BOUND_VISIBLE"));
+                } else {
+                    assert_code(output, "contract_drift");
+                }
+            }
+        }
+    }
+}
