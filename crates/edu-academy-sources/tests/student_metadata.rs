@@ -1742,9 +1742,7 @@ fn fix1_metadata_parser_child() {
         let rows = metadata_rows(&html, &student).unwrap();
         assert_eq!(rows.len(), usize::from(case == "json_positive"));
     } else {
-        let err = metadata_rows(&html, &student)
-            .err()
-            .expect("bounded refusal");
+        let err = metadata_rows(&html, &student).expect_err("bounded refusal");
         assert_eq!(err.message, "metadata_parser_resource_limit");
         assert_eq!(
             err.properties.get("code"),
