@@ -86,6 +86,51 @@ pub trait CurrentUser {
 pub trait ConsumeOwner {
     fn consume_once(&mut self, key: &str, record: &Js) -> Result<bool>;
 }
+/// An owner-issued transaction handle. Its lifetime holds the same transaction
+/// used for *all* instruction/session/source/grant mutations, including
+/// revocation. Reading and existing consume-once share this one handle.
+pub trait AttributionTransaction: ConsumeOwner {
+    fn lookup(&mut self, request_ref: &str) -> Result<Option<crate::attribution::Instruction>>;
+    fn now_ms(&self) -> i64;
+}
+/// The actual owner begins its existing mutation transaction and returns its
+/// guard. Dropping the handle ends the transaction. No split current/store
+/// adapter or fallback serialization is provided by core.
+pub trait AttributionStore {
+    type Transaction<'a>: AttributionTransaction
+    where
+        Self: 'a;
+    fn transaction(&mut self) -> Result<Self::Transaction<'_>>;
+}
+
+pub struct AttributionOwner<'a, S: AttributionStore> {
+    store: &'a mut S,
+}
+impl<'a, S: AttributionStore> AttributionOwner<'a, S> {
+    pub fn new(store: &'a mut S) -> Self {
+        Self { store }
+    }
+}
+impl<S: AttributionStore> crate::attribution::Owner for AttributionOwner<'_, S> {
+    fn compare_and_consume(
+        &mut self,
+        claim: &crate::attribution::Claim<'_>,
+    ) -> Result<crate::attribution::Consumption> {
+        use crate::attribution::{Consumption, Rejection};
+        let mut transaction = self.store.transaction()?;
+        let actual = transaction.lookup(&claim.request_ref())?;
+        if let Err(reason) = claim.check(actual.as_ref(), transaction.now_ms()) {
+            return Ok(Consumption::Refused(reason));
+        }
+        Ok(
+            if transaction.consume_once(&claim.consumption_key(), &claim.record())? {
+                Consumption::Consumed
+            } else {
+                Consumption::Refused(Rejection::Replay)
+            },
+        )
+    }
+}
 pub struct DurableConsume<'a> {
     pub root: &'a Path,
 }

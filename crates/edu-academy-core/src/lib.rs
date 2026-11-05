@@ -1,5 +1,6 @@
 //! Retained source semantics. No source transport, durable store or runtime authority.
 pub mod admission;
+pub mod attribution;
 pub mod cism;
 pub mod decision;
 pub mod evidence;
