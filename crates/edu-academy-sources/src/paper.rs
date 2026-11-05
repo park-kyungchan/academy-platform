@@ -1543,6 +1543,12 @@ fn inspect_header(source: &str, key: &Js) -> Result<Js> {
         "printed_paper_view_response_limit",
     )?;
     let d = document(source)?;
+    // A document base can change even root-relative frame URLs to a foreign
+    // origin. Fixed dispatch must not qualify a different observed resource.
+    require(
+        d.select("base[href]").is_empty(),
+        "printed_paper_frame_unqualified",
+    )?;
     let echoes = d.select("input[name=p_testno]");
     require(echoes.len() <= 1, "dailytest_header_identity_conflict")?;
     for input in echoes {

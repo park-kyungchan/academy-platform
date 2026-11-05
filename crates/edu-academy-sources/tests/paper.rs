@@ -1849,3 +1849,50 @@ fn review_reader_context_refuses_abrupt_prefix_and_indirect_mutation() {
         "unqualified reader contexts: {violations:?}"
     );
 }
+
+#[test]
+fn review_document_base_overrides_refuse_before_child_read_on_both_scopes() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for base in [
+            "<base href='https://unqualified.example/'>",
+            "<base HREF='//unqualified.example/'>",
+            "<base href=''><base href='https://unqualified.example/'>",
+            "<base href='/servlet/'>",
+        ] {
+            let (mut src, count, _) = source(
+                scope,
+                vec![
+                    ("metadata.paper.initial", reader_shell(scope)),
+                    ("paper.header", format!("{base}{}", header("3"))),
+                    ("paper.content", content_header()),
+                ],
+            );
+            assert_code(
+                src.history_header(input(scope).get("studentId"), &"#5".into(), DATE, NOW),
+                "printed_paper_frame_unqualified",
+            );
+            assert_eq!(count.get(), 2);
+            assert_code(
+                call(&mut src, "academy_daily_test_inventory", &input(scope)),
+                "source_failure_latched_no_retry",
+            );
+            assert_eq!(count.get(), 2);
+        }
+        let (mut src, count, _) = source(
+            scope,
+            vec![
+                ("metadata.paper.initial", reader_shell(scope)),
+                (
+                    "paper.header",
+                    format!("<base target='_self'>{}", header("3")),
+                ),
+                ("paper.content", content_header()),
+            ],
+        );
+        assert!(
+            src.history_header(input(scope).get("studentId"), &"#5".into(), DATE, NOW)
+                .is_ok()
+        );
+        assert_eq!(count.get(), 3);
+    }
+}
