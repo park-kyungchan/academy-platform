@@ -1,5 +1,12 @@
 # S11 Rust facade — immutable session and native transport
 
+> Current fixture ownership: [E02 fixture ownership](../fixture-ownership.md)
+> supersedes migration pathname and replay instructions below. The dated source
+> observations and acceptance statements retain their original historical scope.
+> Maintained tests read crate-owned copies; historical reproduction requires the
+> complete pinned recovery revision, not a partially retired current tree.
+
+
 Status at the session-source freeze on 2026-11-03: the first increment at f1e0554 was compiled by Root and its 15 bounded tests passed. Core intake at 05fd23a is independently accepted within its bounds: nine unique passing cases comprise eight unchanged 8f executions plus the one repaired exact-05 execution. The initial audit-fixture assertion failure is retained; no product behavior was changed to fit it. The lock at this base contains 157 package records / 147 distinct names, preserving all 156 old records / 146 names.
 
 This session increment is source-only, uncompiled and unexecuted. Root owns dependency-cache/lock resolution, compilation and finite test/effect grants after this freeze. Neither earlier acceptance nor this source establishes full S11, protocol parity, native graph admission or activation. The accepted original-only qualifier at051 is unchanged.

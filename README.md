@@ -21,3 +21,8 @@ cargo test --workspace --locked
 Use a disposable fixture directory and remove it afterwards. The build step supplies the fictional endpoint executables used by the tests. GitHub Actions requires the `rust` check; retired Bun integration and automated review workflows no longer define the maintained verification route.
 
 The former integration source and its historical evidence are recoverable from Git, including `archive/education-platform-pre-delw1-A-20261105`. Mathematical acceptance, human disposition, teacher acceptance and native activation remain separate decisions. Native profiles, credentials, sessions, databases and student originals retain their owners.
+
+Rust fixture ownership and historical replay recovery are documented in
+[docs/fixture-ownership.md](docs/fixture-ownership.md). Current Cargo checks read
+crate-owned fixtures; retained migration scripts require their complete original
+revision for historical reproduction.

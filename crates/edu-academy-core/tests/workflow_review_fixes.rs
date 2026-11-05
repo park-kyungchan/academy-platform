@@ -111,13 +111,13 @@ impl review::Policy for Policy {
 }
 fn cases() -> Js {
     codec::parse(include_bytes!(
-        "../../../migration/workflow-store-review-fixes-v2/CASES.json"
+        "fixtures/workflow-store-review-fixes-v2/CASES.json"
     ))
     .unwrap()
 }
 fn expected() -> Js {
     codec::parse(include_bytes!(
-        "../../../migration/workflow-store-review-fixes-v2/EXPECTED.json"
+        "fixtures/workflow-store-review-fixes-v2/EXPECTED.json"
     ))
     .unwrap()
 }

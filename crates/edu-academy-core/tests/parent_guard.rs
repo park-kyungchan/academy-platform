@@ -2,21 +2,16 @@ use edu_academy_core::{
     js::{Js, sha},
     templates::parent_internal,
 };
-use std::{fs, path::Path};
 
 #[test]
 fn parent_guard_matches_pinned_typescript_admission_vectors() {
-    let fixture: serde_json::Value =
-        serde_json::from_str(include_str!("fixtures/parent-guard-vectors.json")).unwrap();
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    for source in fixture["sources"].as_array().unwrap() {
-        let bytes = fs::read(root.join(source["path"].as_str().unwrap())).unwrap();
-        assert_eq!(
-            sha(std::str::from_utf8(&bytes).unwrap()),
-            source["sha256"].as_str().unwrap(),
-            "TS oracle source changed; regenerate vectors with Bun"
-        );
-    }
+    let raw = include_str!("fixtures/parent-guard-vectors-v2.json");
+    // Pin the frozen oracle decisions independently of retired TypeScript paths.
+    assert_eq!(
+        sha(raw),
+        "5018e7d584b7806058f46a7412d70ea465774d73297419ed7c4baa38d2b96374"
+    );
+    let fixture: serde_json::Value = serde_json::from_str(raw).unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let text = case["text"].as_str().unwrap();
         assert_eq!(

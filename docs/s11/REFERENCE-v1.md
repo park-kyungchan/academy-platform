@@ -1,5 +1,12 @@
 # S11 unchanged-original protocol/runtime reference
 
+> Current fixture ownership: [E02 fixture ownership](../fixture-ownership.md)
+> supersedes migration pathname and replay instructions below. The dated source
+> observations and acceptance statements retain their original historical scope.
+> Maintained tests read crate-owned copies; historical reproduction requires the
+> complete pinned recovery revision, not a partially retired current tree.
+
+
 Source-only reference preparation on offline join
 `00b239a2ae956816e47904d5a1001d6c4c147b61`, with exact accepted S09/S10 parents.
 No Rust facade, Cargo/interface change, installation or live/native cutover.
