@@ -442,7 +442,32 @@ pub(crate) fn response_text(r: Response) -> Result<String> {
 pub(crate) fn field(d: &Document, selector: &str) -> Result<String> {
     let nodes = d.select(selector);
     require(nodes.len() == 1, "student_read_source_identity_conflict")?;
+    if let Some(form) = dom::closest(nodes[0], "form") {
+        verify_form_ownership(d, form)?;
+    }
     Ok(dom::value(nodes[0]))
+}
+/// The source contracts qualify ancestor-owned controls only. Explicit HTML
+/// ownership overrides (including external associated controls) need a new pin.
+pub(crate) fn verify_form_ownership(d: &Document, form: scraper::ElementRef<'_>) -> Result<()> {
+    let id = form.value().attr("id");
+    if let Some(id) = id {
+        require(
+            d.select("[id]")
+                .iter()
+                .filter(|e| e.value().attr("id") == Some(id))
+                .count()
+                == 1,
+            "contract_drift",
+        )?;
+    }
+    require(
+        d.select("[form]").iter().all(|e| {
+            !e.ancestors().any(|a| a.id() == form.id())
+                && !id.is_some_and(|id| e.value().attr("form") == Some(id))
+        }),
+        "contract_drift",
+    )
 }
 pub(crate) fn course_principal(d: &Document, owner: &Owner) -> Result<String> {
     require(

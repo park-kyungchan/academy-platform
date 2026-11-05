@@ -1479,3 +1479,304 @@ fn native_owner_path_and_operation_set_mismatch_refuse_with_zero_loopback_reques
         fs::remove_dir_all(path).unwrap();
     }
 }
+
+#[test]
+fn fix1_static_metadata_property_keys_and_unresolved_keys() {
+    let student = Student {
+        student_key: "77001".into(),
+        student_name: "Fictional One".into(),
+    };
+    for key in ["testResultList", "'testResultList'", "['testResultList']"] {
+        let html = format!("<script>const data={{{key}:JSON.parse('[]')}};</script>");
+        assert!(metadata_rows(&html, &student).unwrap().is_empty());
+    }
+    for key in [
+        "[testResultList]",
+        "[unknown]",
+        "[1]",
+        "[pick()]",
+        "['test'+'ResultList']",
+    ] {
+        let script = format!(
+            "<script>const testResultList='unrelated';const data={{{key}:JSON.parse('[]')}};</script>"
+        );
+        assert_code(
+            metadata_rows(&script, &student),
+            "result_list_missing_or_ambiguous",
+        );
+        let (mut src, count, _) = source(vec![
+            ("metadata.paper.initial", paper_form()),
+            ("metadata.paper.search.1", principal() + &script),
+        ]);
+        let mut q = period_query("printed_paper_metadata");
+        q.set("paperCode", "#5".into());
+        assert_code(invoke(&mut src, q), "result_list_missing_or_ambiguous");
+        assert_eq!(
+            count.get(),
+            2,
+            "unresolved key must not trigger daily fallback"
+        );
+        assert_code(
+            invoke(&mut src, js(r#"{"kind":"daily_metadata"}"#)),
+            "source_failure_latched_no_retry",
+        );
+        assert_eq!(count.get(), 2);
+    }
+    // An unresolved property cannot be ignored merely because a valid one exists.
+    assert_code(
+        metadata_rows(
+            "<script>const data={testResultList:JSON.parse('[]'),[unknown]:0};</script>",
+            &student,
+        ),
+        "result_list_missing_or_ambiguous",
+    );
+}
+
+#[test]
+fn fix1_form_ownership_overrides_refuse_before_search_and_latch() {
+    let base = paper_form();
+    let identified = base.replace("name=\"search\"", "id=\"reviewer-search\" name=\"search\"");
+    for html in [
+        identified.clone()
+            + "<input form=reviewer-search name=extra_required required value=required-filter>",
+        identified.clone()
+            + "<select form=reviewer-search name=extra><option>extra</option></select>",
+        base.replace("name=\"clg_no\"", "form=foreign-form name=\"clg_no\""),
+        identified.replace("name=\"clg_no\"", "form=reviewer-search name=\"clg_no\""),
+        base.replace("name=pri_no", "form=foreign-form name=pri_no"),
+    ] {
+        let (mut src, count, _) = source(vec![("metadata.paper.initial", html)]);
+        let mut q = period_query("printed_paper_metadata");
+        q.set("paperCode", "#5".into());
+        assert_code(invoke(&mut src, q), "contract_drift");
+        assert_eq!(count.get(), 1);
+        assert_code(
+            invoke(&mut src, js(r#"{"kind":"daily_metadata"}"#)),
+            "source_failure_latched_no_retry",
+        );
+        assert_eq!(count.get(), 1);
+    }
+}
+
+#[test]
+fn fix1_course_principal_form_ownership_is_also_checked() {
+    for html in [
+        principal().replace("name=g_pri_no", "form=foreign-form name=g_pri_no"),
+        principal().replace("name=form1", "id=course-owner name=form1")
+            + "<input form=course-owner name=extra_required required>",
+    ] {
+        // Ensure the intended fixture mutation happened.
+        assert!(html.contains("form=foreign-form") || html.contains("id=course-owner"));
+        let (mut src, count, _) = source(vec![("student.course.initial", html)]);
+        assert_code(
+            src.observe(
+                &js(r#"{"operation":"student_course","studentName":"Fictional One"}"#),
+                DATE,
+                NOW,
+            ),
+            "contract_drift",
+        );
+        assert_eq!(count.get(), 1);
+    }
+}
+
+#[test]
+fn fix1_metadata_parser_depth_and_resource_bounds_in_isolated_processes() {
+    for case in [
+        "json4097",
+        "js8192",
+        "unary8192",
+        "members8192",
+        "regexp8192",
+        "template8192",
+        "tokens",
+        "json_values",
+        "json_positive",
+        "js_positive",
+        "unary_positive",
+        "binary_positive",
+        "members_positive",
+        "html_positive",
+    ] {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "fix1_metadata_parser_child", "--nocapture"])
+            .env("E09A_FIX1_PARSER_CASE", case)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "isolated case {case} failed: status={} stdout={} stderr={}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
+fn fix1_metadata_parser_child() {
+    let Ok(case) = std::env::var("E09A_FIX1_PARSER_CASE") else {
+        return;
+    };
+    let (script, positive) = match case.as_str() {
+        "json4097" => (
+            format!(
+                "const x={{testResultList:JSON.parse('{}0{}')}};",
+                "[".repeat(4097),
+                "]".repeat(4097)
+            ),
+            false,
+        ),
+        "js8192" => (
+            format!(
+                "const unused={}0{};const x={{testResultList:JSON.parse('[]')}};",
+                "[".repeat(8192),
+                "]".repeat(8192)
+            ),
+            false,
+        ),
+        "unary8192" => (
+            format!(
+                "const unused={}0;const x={{testResultList:JSON.parse('[]')}};",
+                "!".repeat(8192)
+            ),
+            false,
+        ),
+        "members8192" => (
+            format!(
+                "const unused=x{};const x={{testResultList:JSON.parse('[]')}};",
+                ".x".repeat(8192)
+            ),
+            false,
+        ),
+        "regexp8192" => (
+            format!(
+                "const unused=/{}0{}/;const x={{testResultList:JSON.parse('[]')}};",
+                "(".repeat(8192),
+                ")".repeat(8192)
+            ),
+            false,
+        ),
+        "template8192" => (
+            format!(
+                "const unused={}0{};const x={{testResultList:JSON.parse('[]')}};",
+                "`${".repeat(8192),
+                "}`".repeat(8192)
+            ),
+            false,
+        ),
+        "tokens" => (
+            format!(
+                "{}const x={{testResultList:JSON.parse('[]')}};",
+                ";".repeat(257)
+            ),
+            false,
+        ),
+        "json_values" => (
+            format!(
+                "const x={{testResultList:JSON.parse('[{}0]')}};",
+                "0,".repeat(100_001)
+            ),
+            false,
+        ),
+        "json_positive" => {
+            // Outer array + row object + 29 arrays = 31, one below limit 32.
+            let mut r = row("77001", "Fictional One", "3", "81001");
+            let mut nested = 0.into();
+            for _ in 0..29 {
+                nested = Js::Arr(vec![nested]);
+            }
+            r.set("unselected", nested);
+            let text = json(&Js::Arr(vec![r]));
+            (
+                format!(
+                    "const x={{testResultList:JSON.parse({})}};",
+                    json(&text.as_str().into())
+                ),
+                true,
+            )
+        }
+        "js_positive" => (
+            format!(
+                "const unused={}0{};const x={{testResultList:JSON.parse('[]')}};",
+                "[".repeat(31),
+                "]".repeat(31)
+            ),
+            true,
+        ),
+        "unary_positive" => (
+            format!(
+                "const unused={}0;const x={{testResultList:JSON.parse('[]')}};",
+                "!".repeat(220)
+            ),
+            true,
+        ),
+        "binary_positive" => (
+            format!(
+                "const unused={}0;const x={{testResultList:JSON.parse('[]')}};",
+                "0+".repeat(110)
+            ),
+            true,
+        ),
+        "members_positive" => (
+            format!(
+                "const unused=x{};const x={{testResultList:JSON.parse('[]')}};",
+                ".x".repeat(110)
+            ),
+            true,
+        ),
+        "html_positive" => ("const x={testResultList:JSON.parse('[]')};".into(), true),
+        _ => panic!("unknown isolated parser case"),
+    };
+    let script = format!("<script>{script}</script>");
+    let html = if case == "html_positive" {
+        format!("{}{script}{}", "<div>".repeat(4096), "</div>".repeat(4096))
+    } else {
+        script
+    };
+    let student = Student {
+        student_key: "77001".into(),
+        student_name: "Fictional One".into(),
+    };
+    if positive {
+        let rows = metadata_rows(&html, &student).unwrap();
+        assert_eq!(rows.len(), usize::from(case == "json_positive"));
+    } else {
+        let err = metadata_rows(&html, &student)
+            .err()
+            .expect("bounded refusal");
+        assert_eq!(err.message, "metadata_parser_resource_limit");
+        assert_eq!(
+            err.properties.get("code"),
+            &"metadata_parser_resource_limit".into()
+        );
+        for value in ["Fictional One", "77001", "testResultList"] {
+            assert!(!format!("{err:?}").contains(value));
+        }
+        let (mut src, count, _) = source(vec![
+            ("metadata.paper.initial", paper_form()),
+            ("metadata.paper.search.1", principal() + &html),
+        ]);
+        let mut q = period_query("printed_paper_metadata");
+        q.set("paperCode", "#5".into());
+        assert_code(invoke(&mut src, q), "metadata_parser_resource_limit");
+        assert_eq!(count.get(), 2);
+        assert_code(
+            invoke(&mut src, js(r#"{"kind":"daily_metadata"}"#)),
+            "source_failure_latched_no_retry",
+        );
+        assert_eq!(count.get(), 2);
+    }
+    eprintln!("isolated parser case {case}: PASS");
+}
+
+#[test]
+fn fix1_daily_selector_explicit_form_owner_refuses() {
+    let html = daily().replace("name=sort_date", "form=foreign-form name=sort_date");
+    let (mut src, count, _) = source(vec![("metadata.daily", html)]);
+    assert_code(
+        invoke(&mut src, js(r#"{"kind":"daily_history","periods":["11"]}"#)),
+        "contract_drift",
+    );
+    assert_eq!(count.get(), 1);
+}

@@ -302,6 +302,7 @@ impl PaperFormPin {
         let forms = d.select("form[name=search]");
         require(forms.len() == 1, "contract_drift")?;
         let form = forms[0];
+        verify_form_ownership(d, form)?;
         require(
             dom::select(form, "fieldset[disabled],optgroup[disabled]").is_empty(),
             "contract_drift",
@@ -591,6 +592,10 @@ impl<P: ReadPort> StudentSource<P> {
         require(controls.len() <= 1, "daily_history_selector_drift")?;
         let mut selectors = vec![];
         if let Some(control) = controls.first() {
+            require(control.value().attr("form").is_none(), "contract_drift")?;
+            if let Some(form) = dom::closest(*control, "form") {
+                verify_form_ownership(&d, form)?;
+            }
             for option in dom::select(*control, "option") {
                 if option.value().attr("disabled").is_some() {
                     continue;
@@ -1054,6 +1059,104 @@ fn search_summary(page: &Js, family: &str, period: bool) -> Js {
         ("observedAt", page.get("observedAt").clone()),
     ])
 }
+// These bounds precede recursive parsing, AST projection and recursive drops.
+// A token budget also bounds unary/binary/member chains without delimiters.
+const METADATA_MAX_DEPTH: usize = 32;
+const METADATA_MAX_SCRIPT_TOKENS: usize = 256;
+const METADATA_MAX_JSON_VALUES: usize = 100_000;
+
+fn metadata_script_budget(source: &str) -> Result<()> {
+    use swc_common::BytePos;
+    use swc_ecma_ast::EsVersion;
+    use swc_ecma_parser::{StringInput, Syntax, lexer::Lexer};
+    let lexer = Lexer::new(
+        Syntax::Es(Default::default()),
+        EsVersion::Es2022,
+        StringInput::new(source, BytePos(1), BytePos(source.len() as u32 + 1)),
+        None,
+    );
+    let mut delimiters = Vec::new();
+    for (count, token) in lexer.enumerate() {
+        require(
+            count < METADATA_MAX_SCRIPT_TOKENS,
+            "metadata_parser_resource_limit",
+        )?;
+        let raw = source
+            .get((token.span.lo.0 - 1) as usize..(token.span.hi.0 - 1) as usize)
+            .ok_or_else(|| Error::refusal("metadata_parser_resource_limit"))?;
+        // Regexp and template subgrammars can hide recursive expressions from
+        // this standalone lexer. Refuse them rather than guess parser context.
+        // Ordinary quoted strings and comments remain lexically inert.
+        require(
+            !raw.starts_with(['/', '`']),
+            "metadata_parser_resource_limit",
+        )?;
+        match raw {
+            "(" | "[" | "{" => {
+                require(
+                    delimiters.len() < METADATA_MAX_DEPTH,
+                    "metadata_parser_resource_limit",
+                )?;
+                delimiters.push(raw);
+            }
+            ")" | "]" | "}" => {
+                let expected = match raw {
+                    ")" => "(",
+                    "]" => "[",
+                    _ => "{",
+                };
+                require(
+                    delimiters.pop() == Some(expected),
+                    "metadata_parser_resource_limit",
+                )?;
+            }
+            _ => {}
+        }
+    }
+    require(delimiters.is_empty(), "metadata_parser_resource_limit")
+}
+
+fn metadata_json_budget(source: &str) -> Result<()> {
+    let mut depth = 0usize;
+    let mut values = 0usize;
+    let mut quoted = false;
+    let mut escaped = false;
+    for c in source.bytes() {
+        if quoted {
+            if escaped {
+                escaped = false;
+            } else if c == b'\\' {
+                escaped = true;
+            } else if c == b'"' {
+                quoted = false;
+            }
+            continue;
+        }
+        match c {
+            b'"' => quoted = true,
+            b'[' | b'{' => {
+                depth += 1;
+                require(
+                    depth <= METADATA_MAX_DEPTH,
+                    "metadata_parser_resource_limit",
+                )?;
+            }
+            b']' | b'}' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+        // Bound potential values/properties as well as recursive depth. String
+        // contents are excluded; the existing response-size bound covers them.
+        if matches!(c, b'[' | b'{' | b',' | b':') {
+            values += 1;
+            require(
+                values <= METADATA_MAX_JSON_VALUES,
+                "metadata_parser_resource_limit",
+            )?;
+        }
+    }
+    Ok(())
+}
+
 /// Inert ECMAScript AST selection, never evaluation. A comment, string, external
 /// script or dynamically constructed JSON is not a metadata source record.
 pub fn metadata_rows(html: &str, student: &Student) -> Result<Vec<Js>> {
@@ -1067,17 +1170,17 @@ pub fn metadata_rows(html: &str, student: &Student) -> Result<Vec<Js>> {
     let mut lists = vec![];
     for script in d.select("script:not([src])") {
         let source = dom::content(script);
+        metadata_script_budget(&source)?;
         let ast = crate::script::Parser::new(&source)?.program()?;
         for n in crate::script::walk(&ast)? {
             if n.kind != "Property" {
                 continue;
             }
-            let Some(k) = n.children.first() else {
-                continue;
-            };
-            if k.reference().as_deref() != Some("testResultList")
-                && !k.scalar().is_some_and(|s| s.is("testResultList"))
-            {
+            require(
+                !n.computed || !n.name.is_empty(),
+                "result_list_missing_or_ambiguous",
+            )?;
+            if n.name != "testResultList" {
                 continue;
             }
             let v = n.children.last().expect("property");
@@ -1093,7 +1196,8 @@ pub fn metadata_rows(html: &str, student: &Student) -> Result<Vec<Js>> {
                 .ok_or_else(|| Error::refusal("result_list_missing_or_ambiguous"))?;
             let text = String::from_utf16(literal.units())
                 .map_err(|_| Error::refusal("student_search_list_rejected"))?;
-            lists.push(parse(&text)?);
+            metadata_json_budget(&text)?;
+            lists.push(parse(&text).map_err(|_| Error::refusal("student_search_list_rejected"))?);
         }
     }
     require(lists.len() == 1, "result_list_missing_or_ambiguous")?;
