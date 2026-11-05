@@ -1,5 +1,0 @@
-{
-  "extends": "../../apps/academy/dc-gang-a/tsconfig.json",
-  "include": ["boundary-*.ts"],
-  "exclude": []
-}
