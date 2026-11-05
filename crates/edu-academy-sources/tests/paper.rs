@@ -2541,3 +2541,111 @@ fn review_hidden_roots_ancestors_and_css_pages_never_export_text() {
         assert!(json(&output).contains("Fictional class title"));
     }
 }
+
+#[test]
+fn review_display_text_requires_safe_per_tag_attributes_by_default() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for (kind, unit) in [
+            ("middle1_definitions", "5-1"),
+            ("elementary5_fraction_definitions", "2-2"),
+        ] {
+            for (attrs, content) in [
+                ("", "5-1 Visible<title>SYNTHETIC_SECRET</title>"),
+                (
+                    "bgcolor=white",
+                    "5-1 <font color=white>SYNTHETIC_SECRET</font>",
+                ),
+                ("", "5-1 Visible<font color=white>SYNTHETIC_SECRET</font>"),
+                (
+                    "",
+                    "5-1 Visible<span background=opaque>SYNTHETIC_SECRET</span>",
+                ),
+                (
+                    "",
+                    "5-1 Visible<span data-future-hint=opaque>SYNTHETIC_SECRET</span>",
+                ),
+                (
+                    "",
+                    "5-1 Visible<span unknown-presentation=opaque>SYNTHETIC_SECRET</span>",
+                ),
+            ] {
+                for grid in [false, true] {
+                    let heading = if grid {
+                        "<tr><th>숙제수행도DT</th><th>Count</th></tr>"
+                    } else {
+                        ""
+                    };
+                    let content = content.replace("5-1", unit);
+                    let table = format!(
+                        "<table>{heading}<tr><td {attrs}>{content}</td><td>12</td></tr></table>"
+                    );
+                    let (mut src, _, _) = source(
+                        scope,
+                        vec![("paper.catalog", catalog()), ("paper.definitions", table)],
+                    );
+                    let mut request = input(scope);
+                    request.set("kind", kind.into());
+                    if kind == "middle1_definitions" {
+                        request.set("unitCodes", strings(&[unit]));
+                    }
+                    let output = call(&mut src, "academy_source_read_contracts", &request).unwrap();
+                    assert!(!json(&output).contains("SYNTHETIC_SECRET"));
+                    if attrs.is_empty() {
+                        assert!(json(&output).contains(&format!("{unit} Visible")));
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn review_document_title_is_separate_unambiguous_head_metadata() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        let (mut src, _, _) = source(
+            scope,
+            vec![
+                ("metadata.paper.initial", reader_shell(scope)),
+                ("paper.header", header("3")),
+                ("paper.content", content_header()),
+            ],
+        );
+        let mut request = paper_input(scope);
+        request.set("view", "header".into());
+        let output = call(&mut src, "academy_paper_definition_lookup", &request).unwrap();
+        assert_eq!(
+            output
+                .get("observation")
+                .get("information")
+                .get("documentTitle"),
+            &"Fictional header".into()
+        );
+        assert_eq!(
+            output
+                .get("observation")
+                .get("contentHeader")
+                .get("documentTitle"),
+            &"".into()
+        );
+        for child in [
+            "<h1>Visible</h1><title>SYNTHETIC_SECRET</title>",
+            "<title>Visible</title><title>SYNTHETIC_SECRET</title>",
+            "<table><tr><td><title>SYNTHETIC_SECRET</title></td></tr></table>",
+            "<svg><title>SYNTHETIC_SECRET</title></svg>",
+        ] {
+            let (mut src, count, _) = source(
+                scope,
+                vec![
+                    ("metadata.paper.initial", reader_shell(scope)),
+                    ("paper.header", header("3")),
+                    ("paper.content", child.into()),
+                ],
+            );
+            assert_code(
+                call(&mut src, "academy_paper_definition_lookup", &request),
+                "contract_drift",
+            );
+            assert_eq!(count.get(), 3);
+        }
+    }
+}

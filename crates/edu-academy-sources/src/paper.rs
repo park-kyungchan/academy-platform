@@ -525,6 +525,33 @@ fn bounded_text(value: &str, max: usize) -> Result<Js> {
 }
 // Read displayed text without copying executable or non-displayed subtrees.
 // Keep script parsing and owner form fingerprints on their original raw source.
+fn text_attributes_qualified(e: scraper::ElementRef<'_>) -> bool {
+    let element = e.value();
+    element.attrs().all(|(name, value)| {
+        // Text is qualified only by these explicit, non-presentational
+        // attributes. Unknown/legacy/future attributes are opaque by
+        // default, including their effects on descendant text.
+        match name {
+            "id" => true,
+            "class" => value
+                .split_ascii_whitespace()
+                .all(|class| matches!(class, "test-title" | "test_title")),
+            "aria-hidden" => value.trim().eq_ignore_ascii_case("false"),
+            _ => match element.name() {
+                "form" => matches!(name, "name" | "action" | "method"),
+                "select" => matches!(name, "name" | "value" | "disabled" | "multiple"),
+                "option" => matches!(name, "value" | "selected" | "disabled"),
+                "optgroup" => name == "disabled",
+                "td" | "th" => matches!(name, "colspan" | "rowspan" | "onclick"),
+                "a" => matches!(name, "href" | "onclick" | "target"),
+                "button" => matches!(name, "name" | "type" | "value" | "disabled" | "onclick"),
+                "textarea" => matches!(name, "name" | "readonly" | "disabled"),
+                "details" | "dialog" => name == "open",
+                _ => false,
+            },
+        }
+    })
+}
 fn passive_text(e: scraper::ElementRef<'_>) -> String {
     let hidden = |e: scraper::ElementRef<'_>| {
         let element = e.value();
@@ -533,9 +560,7 @@ fn passive_text(e: scraper::ElementRef<'_>) -> String {
         !matches!(
             element.name(),
             "html"
-                | "head"
                 | "body"
-                | "title"
                 | "main"
                 | "article"
                 | "section"
@@ -594,31 +619,8 @@ fn passive_text(e: scraper::ElementRef<'_>) -> String {
                 | "details"
                 | "summary"
                 | "dialog"
-        ) || [
-            "hidden",
-            "inert",
-            "style",
-            "popover",
-            "display",
-            "visibility",
-            "opacity",
-        ]
-        .iter()
-        .any(|name| element.attr(name).is_some())
-            || element.name() == "option" && element.attr("label").is_some()
-            || element.attr("class").is_some_and(|classes| {
-                classes
-                    .split_ascii_whitespace()
-                    .any(|class| !matches!(class, "test-title" | "test_title"))
-            })
-            || element
-                .attr("aria-hidden")
-                .is_some_and(|value| !value.trim().eq_ignore_ascii_case("false"))
+        ) || !text_attributes_qualified(e)
             || matches!(element.name(), "dialog" | "details") && element.attr("open").is_none()
-            || element.name() == "input"
-                && element
-                    .attr("type")
-                    .is_some_and(|value| value.eq_ignore_ascii_case("hidden"))
     };
     if e.value().name() == "select"
         || hidden(e)
@@ -642,6 +644,32 @@ fn passive_text(e: scraper::ElementRef<'_>) -> String {
         pending.extend(node.children().rev());
     }
     text
+}
+fn document_title(d: &crate::dom::Document) -> Result<Js> {
+    let titles = d.select("title");
+    let qualified = d.select(":root > head > title");
+    require(
+        titles.len() <= 1 && titles.len() == qualified.len(),
+        "contract_drift",
+    )?;
+    let Some(title) = qualified.first() else {
+        return Ok("".into());
+    };
+    require(
+        title
+            .ancestors()
+            .filter_map(scraper::ElementRef::wrap)
+            .chain(std::iter::once(*title))
+            .all(|e| {
+                let namespace: &str = e.value().name.ns.as_ref();
+                namespace == "http://www.w3.org/1999/xhtml" && text_attributes_qualified(e)
+            })
+            && title
+                .children()
+                .all(|node| matches!(node.value(), scraper::node::Node::Text(_))),
+        "contract_drift",
+    )?;
+    bounded_text(&crate::dom::content(*title), 1000)
 }
 fn display_text_contract(d: &crate::dom::Document) -> Result<()> {
     // This source adapter does not execute CSS. A stylesheet can hide plain
@@ -1873,16 +1901,7 @@ fn inspect_header(source: &str, key: &Js) -> Result<Js> {
         "printed_paper_frame_unqualified",
     )?;
     Ok(obj(&[
-        (
-            "documentTitle",
-            bounded_text(
-                &d.select("title")
-                    .first()
-                    .map(|e| passive_text(*e))
-                    .unwrap_or_default(),
-                1000,
-            )?,
-        ),
+        ("documentTitle", document_title(&d)?),
         ("headings", Js::Arr(headings)),
         ("metadataRows", Js::Arr(rows)),
         (
