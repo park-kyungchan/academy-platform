@@ -1264,10 +1264,24 @@ fn inert_page(d: &crate::dom::Document) -> Result<Js> {
         .array()
         .iter()
         .map(|form| {
+            let method = string(form.get("method")).to_ascii_lowercase();
+            let method = match method.as_str() {
+                "get" => "get".into(),
+                "post" => "post".into(),
+                _ if form.get("method") == &Js::Null => Js::Null,
+                _ => "unqualified".into(),
+            };
             obj(&[
                 ("name", form.get("name").clone()),
-                ("action", form.get("action").clone()),
-                ("method", form.get("method").clone()),
+                (
+                    "actionSha256",
+                    if form.get("action").string() {
+                        hash(string(form.get("action")).as_bytes()).into()
+                    } else {
+                        Js::Null
+                    },
+                ),
+                ("method", method),
                 (
                     "fieldNames",
                     Js::Arr(
@@ -1329,7 +1343,17 @@ fn inert_page(d: &crate::dom::Document) -> Result<Js> {
         ("selects", Js::Arr(selects)),
         ("functions", functions),
         ("sourceSha256", hash(d.source.as_bytes()).into()),
-        ("scriptSources", structure.get("externalScripts").clone()),
+        (
+            "scriptSourceHashes",
+            Js::Arr(
+                structure
+                    .get("externalScripts")
+                    .array()
+                    .iter()
+                    .map(|src| hash(string(src).as_bytes()).into())
+                    .collect(),
+            ),
+        ),
         ("sourceHandlersExecuted", false.into()),
         ("accountValuesExported", false.into()),
         ("sourceStudentRowsRetained", 0.into()),
@@ -2099,7 +2123,7 @@ fn inventory_detail(d: &crate::dom::Document, student: &Student) -> Result<Js> {
                 ("forms", page.get("forms").clone()),
                 ("functions", page.get("functions").clone()),
                 ("controls", Js::Arr(controls)),
-                ("scriptSources", page.get("scriptSources").clone()),
+                ("scriptSourceHashes", page.get("scriptSourceHashes").clone()),
             ]),
         ),
         ("displayRows", Js::Arr(display)),

@@ -1670,7 +1670,7 @@ fn review_inventory_exports_only_qualified_selector_values_on_both_scopes() {
                     "</select>",
                     "<option value=SYNTHETIC_SECRET>Unqualified option</option></select>",
                 )
-                + "<input type=hidden name=page_session value=SYNTHETIC_SECRET><input type=hidden name=updated_nonce value=SYNTHETIC_SECRET><input type=hidden name=sort_date value=SYNTHETIC_SECRET><select name=page_token><option value=SYNTHETIC_SECRET>Extra</option></select>";
+                + "<input type=hidden name=page_session value=SYNTHETIC_SECRET><input type=hidden name=updated_nonce value=SYNTHETIC_SECRET><input type=hidden name=sort_date value=SYNTHETIC_SECRET><select name=page_token><option value=SYNTHETIC_SECRET>Extra</option></select><form name=extra method=SYNTHETIC_SECRET action='/unqualified?token=SYNTHETIC_SECRET'><input name=other value=SYNTHETIC_SECRET></form><script src='/unqualified.js?token=SYNTHETIC_SECRET'></script>";
             let mut replies = vec![("metadata.daily", html.clone())];
             if history {
                 replies.push(("metadata.daily", html));
@@ -1692,7 +1692,25 @@ fn review_inventory_exports_only_qualified_selector_values_on_both_scopes() {
                 vec![observation]
             };
             for page in pages {
-                let controls = page.get("filterContracts").get("controls").array();
+                let contract = page.get("filterContracts");
+                assert!(!contract.has("scriptSources"));
+                assert_eq!(
+                    contract.get("scriptSourceHashes").array(),
+                    &[hash(b"/unqualified.js?token=SYNTHETIC_SECRET").into()]
+                );
+                let form = contract
+                    .get("forms")
+                    .array()
+                    .iter()
+                    .find(|f| f.get("name").is("extra"))
+                    .unwrap();
+                assert!(!form.has("action"));
+                assert_eq!(
+                    form.get("actionSha256"),
+                    &hash(b"/unqualified?token=SYNTHETIC_SECRET").into()
+                );
+                assert_eq!(form.get("method"), &"unqualified".into());
+                let controls = contract.get("controls").array();
                 assert_eq!(controls.len(), 1);
                 assert_eq!(controls[0].get("name"), &"sort_date".into());
                 assert_eq!(controls[0].get("options").array().len(), 7);
