@@ -2003,7 +2003,7 @@ fn review_definition_text_excludes_non_displayed_code() {
                     ""
                 };
                 let table = format!(
-                    "<table>{heading}<tr><td>{unit} Fictional definition<script>var page_session='SYNTHETIC_SECRET';</script><style>STYLE_SECRET</style><template>TEMPLATE_SECRET</template><noscript>NOSCRIPT_SECRET</noscript></td><td>12</td></tr></table>"
+                    "<table>{heading}<tr><td>{unit} Fictional definition<script>var page_session='SYNTHETIC_SECRET';</script><template>TEMPLATE_SECRET</template><noscript>NOSCRIPT_SECRET</noscript></td><td>12</td></tr></table>"
                 );
                 let (mut src, count, _) = source(
                     scope,
@@ -2411,5 +2411,133 @@ fn review_reader_context_pins_svg_animation_and_unknown_attributes() {
             "contract_drift",
         );
         assert_eq!(count.get(), 1);
+    }
+}
+
+#[test]
+fn review_visible_text_excludes_hidden_and_unqualified_visibility_contexts() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for grid in [false, true] {
+            for content in [
+                "5-1 Visible<span hidden>SYNTHETIC_SECRET</span>",
+                "5-1 Visible<span hidden=false>SYNTHETIC_SECRET</span>",
+                "5-1 Visible<span hidden=until-found>SYNTHETIC_SECRET</span>",
+                "5-1 Visible<span aria-hidden=TRUE>SYNTHETIC_SECRET</span>",
+                "5-1 Visible<span inert>SYNTHETIC_SECRET</span>",
+                "5-1 Visible<span style='display: none !important'>SYNTHETIC_SECRET</span>",
+                "5-1 Visible<span class=unknown>SYNTHETIC_SECRET</span>",
+                "5-1 Visible<dialog>SYNTHETIC_SECRET</dialog>",
+                "5-1 Visible<span popover>SYNTHETIC_SECRET</span>",
+                "5-1 Visible<canvas>SYNTHETIC_SECRET</canvas>",
+                "5-1 Visible<svg width=0 height=0><text>SYNTHETIC_SECRET</text></svg>",
+                "5-1 Visible<object>SYNTHETIC_SECRET</object>",
+                "5-1 Visible<x-unknown>SYNTHETIC_SECRET</x-unknown>",
+                "5-1 Visible<details>SYNTHETIC_SECRET</details>",
+                "5-1 Visible<select><option label=Public>SYNTHETIC_SECRET</option></select>",
+                "5-1 Visible<select><option>Public</option><option>SYNTHETIC_SECRET</option></select>",
+                "5-1 Visible<svg><text visibility=hidden>SYNTHETIC_SECRET</text></svg>",
+            ] {
+                let heading = if grid {
+                    "<tr><th>숙제수행도DT</th><th>Count</th></tr>"
+                } else {
+                    ""
+                };
+                let table =
+                    format!("<table>{heading}<tr><td>{content}</td><td>12</td></tr></table>");
+                let (mut src, _, _) = source(
+                    scope,
+                    vec![("paper.catalog", catalog()), ("paper.definitions", table)],
+                );
+                let mut request = input(scope);
+                request.set("kind", "middle1_definitions".into());
+                request.set("unitCodes", strings(&["5-1"]));
+                let output = call(&mut src, "academy_source_read_contracts", &request).unwrap();
+                assert!(!json(&output).contains("SYNTHETIC_SECRET"));
+                assert!(json(&output).contains("5-1 Visible"));
+            }
+        }
+    }
+}
+
+#[test]
+fn review_hidden_roots_ancestors_and_css_pages_never_export_text() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for table in [
+            "<table><tr><td hidden>5-1 SYNTHETIC_SECRET</td><td>12</td></tr></table>",
+            "<table><tr hidden><td>5-1 SYNTHETIC_SECRET</td><td>12</td></tr></table>",
+            "<table hidden><tr><td>5-1 SYNTHETIC_SECRET</td><td>12</td></tr></table>",
+        ] {
+            let (mut src, _, _) = source(
+                scope,
+                vec![
+                    ("paper.catalog", catalog()),
+                    ("paper.definitions", table.into()),
+                ],
+            );
+            let mut request = input(scope);
+            request.set("kind", "middle1_definitions".into());
+            request.set("unitCodes", strings(&["5-1"]));
+            let output = call(&mut src, "academy_source_read_contracts", &request).unwrap();
+            assert!(!json(&output).contains("SYNTHETIC_SECRET"));
+        }
+        for css in [
+            "<style>td{display:none}</style>",
+            "<link rel='alternate StyleSheet' href='/opaque.css'>",
+        ] {
+            let table =
+                format!("{css}<table><tr><td>5-1 SYNTHETIC_SECRET</td><td>12</td></tr></table>");
+            let (mut src, count, _) = source(
+                scope,
+                vec![("paper.catalog", catalog()), ("paper.definitions", table)],
+            );
+            let mut request = input(scope);
+            request.set("kind", "middle1_definitions".into());
+            request.set("unitCodes", strings(&["5-1"]));
+            assert_code(
+                call(&mut src, "academy_source_read_contracts", &request),
+                "contract_drift",
+            );
+            assert_eq!(count.get(), 2);
+            let (mut src, count, _) =
+                source(scope, vec![("metadata.daily", daily(scope, vec![]) + css)]);
+            assert_code(
+                call(&mut src, "academy_daily_test_inventory", &input(scope)),
+                "contract_drift",
+            );
+            assert_eq!(count.get(), 1);
+        }
+        let html = daily(scope, vec![]).replace(
+            "<option value=1>Recent",
+            "<option value=1 label=Recent>SYNTHETIC_SECRET",
+        );
+        let (mut src, count, _) = source(scope, vec![("metadata.daily", html)]);
+        assert_code(
+            call(&mut src, "academy_daily_test_inventory", &input(scope)),
+            "contract_drift",
+        );
+        assert_eq!(count.get(), 1);
+        let html = daily(scope, vec![]).replace("<option value=1>", "<option hidden value=1>");
+        let (mut src, count, _) = source(scope, vec![("metadata.daily", html)]);
+        assert_code(
+            call(&mut src, "academy_daily_test_inventory", &input(scope)),
+            "contract_drift",
+        );
+        assert_eq!(count.get(), 1);
+        let child = content_header()
+            + "<div class=test-title>Fictional class title</div><h1 hidden>SYNTHETIC_SECRET</h1><div hidden><h2>SYNTHETIC_SECRET</h2></div>";
+        let (mut src, _, _) = source(
+            scope,
+            vec![
+                ("metadata.paper.initial", reader_shell(scope)),
+                ("paper.header", header("3")),
+                ("paper.content", child),
+            ],
+        );
+        let mut request = paper_input(scope);
+        request.set("view", "header".into());
+        let output = call(&mut src, "academy_paper_definition_lookup", &request).unwrap();
+        assert!(!json(&output).contains("SYNTHETIC_SECRET"));
+        assert!(json(&output).contains("Fictional title"));
+        assert!(json(&output).contains("Fictional class title"));
     }
 }

@@ -156,6 +156,13 @@ impl<P: ReadPort> ReadPort for BorrowedPort<'_, P> {
             script_tree(&crate::dom::content(script))?;
         }
         if operation == "metadata.daily" {
+            display_text_contract(&d)?;
+            for option in d.select("select[name=sort_date] option") {
+                require(
+                    passive_text(option) == crate::dom::content(option),
+                    "contract_drift",
+                )?;
+            }
             require(self.daily_pages.len() < 7, "paper_contract_limit")?;
             let student = self
                 .student
@@ -520,12 +527,101 @@ fn bounded_text(value: &str, max: usize) -> Result<Js> {
 // Keep script parsing and owner form fingerprints on their original raw source.
 fn passive_text(e: scraper::ElementRef<'_>) -> String {
     let hidden = |e: scraper::ElementRef<'_>| {
-        matches!(
-            e.value().name(),
-            "script" | "style" | "template" | "noscript"
-        )
+        let element = e.value();
+        // Only ordinary text containers participate. Embedded/media/foreign
+        // and unknown elements have unqualified fallback/rendering semantics.
+        !matches!(
+            element.name(),
+            "html"
+                | "head"
+                | "body"
+                | "title"
+                | "main"
+                | "article"
+                | "section"
+                | "header"
+                | "footer"
+                | "nav"
+                | "aside"
+                | "div"
+                | "span"
+                | "p"
+                | "a"
+                | "b"
+                | "i"
+                | "em"
+                | "strong"
+                | "u"
+                | "s"
+                | "small"
+                | "sub"
+                | "sup"
+                | "font"
+                | "h1"
+                | "h2"
+                | "h3"
+                | "h4"
+                | "h5"
+                | "h6"
+                | "br"
+                | "hr"
+                | "pre"
+                | "code"
+                | "blockquote"
+                | "ul"
+                | "ol"
+                | "li"
+                | "dl"
+                | "dt"
+                | "dd"
+                | "table"
+                | "caption"
+                | "thead"
+                | "tbody"
+                | "tfoot"
+                | "tr"
+                | "th"
+                | "td"
+                | "form"
+                | "fieldset"
+                | "legend"
+                | "label"
+                | "button"
+                | "select"
+                | "option"
+                | "optgroup"
+                | "textarea"
+                | "details"
+                | "summary"
+                | "dialog"
+        ) || [
+            "hidden",
+            "inert",
+            "style",
+            "popover",
+            "display",
+            "visibility",
+            "opacity",
+        ]
+        .iter()
+        .any(|name| element.attr(name).is_some())
+            || element.name() == "option" && element.attr("label").is_some()
+            || element.attr("class").is_some_and(|classes| {
+                classes
+                    .split_ascii_whitespace()
+                    .any(|class| !matches!(class, "test-title" | "test_title"))
+            })
+            || element
+                .attr("aria-hidden")
+                .is_some_and(|value| !value.trim().eq_ignore_ascii_case("false"))
+            || matches!(element.name(), "dialog" | "details") && element.attr("open").is_none()
+            || element.name() == "input"
+                && element
+                    .attr("type")
+                    .is_some_and(|value| value.eq_ignore_ascii_case("hidden"))
     };
-    if hidden(e)
+    if e.value().name() == "select"
+        || hidden(e)
         || e.ancestors()
             .filter_map(scraper::ElementRef::wrap)
             .any(hidden)
@@ -535,7 +631,9 @@ fn passive_text(e: scraper::ElementRef<'_>) -> String {
     let mut text = String::new();
     let mut pending = e.children().rev().collect::<Vec<_>>();
     while let Some(node) = pending.pop() {
-        if scraper::ElementRef::wrap(node).is_some_and(hidden) {
+        if scraper::ElementRef::wrap(node)
+            .is_some_and(|element| element.value().name() == "select" || hidden(element))
+        {
             continue;
         }
         if let scraper::node::Node::Text(value) = node.value() {
@@ -544,6 +642,20 @@ fn passive_text(e: scraper::ElementRef<'_>) -> String {
         pending.extend(node.children().rev());
     }
     text
+}
+fn display_text_contract(d: &crate::dom::Document) -> Result<()> {
+    // This source adapter does not execute CSS. A stylesheet can hide plain
+    // descendants without attributes; never guess their computed visibility.
+    require(
+        d.select("style").is_empty()
+            && !d.select("link").iter().any(|link| {
+                link.value().attr("rel").is_some_and(|rel| {
+                    rel.split_ascii_whitespace()
+                        .any(|token| token.eq_ignore_ascii_case("stylesheet"))
+                })
+            }),
+        "contract_drift",
+    )
 }
 fn normalized(e: scraper::ElementRef<'_>) -> String {
     passive_text(e)
@@ -1690,6 +1802,7 @@ fn inspect_header(source: &str, key: &Js) -> Result<Js> {
         "printed_paper_view_response_limit",
     )?;
     let d = document(source)?;
+    display_text_contract(&d)?;
     // A document base can change even root-relative frame URLs to a foreign
     // origin. Fixed dispatch must not qualify a different observed resource.
     require(
@@ -1864,6 +1977,7 @@ impl<P: ReadPort> PaperSource<P> {
             "contract_drift",
         )?;
         let d = document(&html)?;
+        display_text_contract(&d)?;
         let forms = d.select("form[name=form1]");
         require(
             forms.len() == 1
@@ -1898,6 +2012,7 @@ impl<P: ReadPort> PaperSource<P> {
             ],
         )?;
         let selected = document(&text)?;
+        display_text_contract(&selected)?;
         let echoes = selected.select("[name=frm_cl1]");
         require(
             echoes.len() <= 1 && echoes.iter().all(|e| crate::dom::value(*e) == grade),
@@ -2162,6 +2277,7 @@ fn append_inventory_detail(page: &mut Js, detail: &Js) {
     }
 }
 fn inventory_detail(d: &crate::dom::Document, student: &Student) -> Result<Js> {
+    display_text_contract(d)?;
     use crate::dom;
     let page = inert_page(d)?;
     let mut controls = vec![];
