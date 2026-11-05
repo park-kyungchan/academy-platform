@@ -602,7 +602,7 @@ impl Scene {
         }
         let endpoints = document(&install.join("endpoints.json"), Value::Object(endpoints));
         let original: Value = serde_json::from_slice(include_bytes!(
-            "../../../migration/mcp-runtime-reference-v1/frozen/inventory/registry.json"
+            "fixtures/mcp-runtime-reference-v1/frozen/inventory/registry.json"
         ))
         .unwrap();
         let entries = original

@@ -1,5 +1,12 @@
 # S10 independent review corrections v2
 
+> Current fixture ownership: [E02 fixture ownership](../fixture-ownership.md)
+> supersedes migration pathname and replay instructions below. The dated source
+> observations and acceptance statements retain their original historical scope.
+> Maintained tests read crate-owned copies; historical reproduction requires the
+> complete pinned recovery revision, not a partially retired current tree.
+
+
 Base: `1245660d0899c0e644d1fbec6ae1d3d59b877207`. This candidate corrects
 F1/F2 and the source-backed learning suggestion omission. Root owns fresh
 independent review and acceptance; these changes grant no native authority.

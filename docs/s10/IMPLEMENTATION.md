@@ -1,5 +1,12 @@
 # Existing Education workflow/store Rust candidate
 
+> Current fixture ownership: [E02 fixture ownership](../fixture-ownership.md)
+> supersedes migration pathname and replay instructions below. The dated source
+> observations and acceptance statements retain their original historical scope.
+> Maintained tests read crate-owned copies; historical reproduction requires the
+> complete pinned recovery revision, not a partially retired current tree.
+
+
 This implements the adopted S10 EDU-07–16/26 boundary on accepted S08
 `39441f5d205b8a67e5c911da747d213a322d20da`, qualified original S10 reference
 `977613f0b70159280ad1af8a54b17c6efd3bf30d`, and allocated scaffold
@@ -65,7 +72,7 @@ installed native child tail.
 ## Migration executable and verification
 
 `edu-academy-workflow` is an offline migration participant, with its callback
-adapter under `migration/workflow-store-rust-v1/participant.rs`. A first bounded
+adapter under `crates/edu-academy-core/tests/fixtures/workflow-store-rust-v1/participant.rs`. A first bounded
 JSON line supplies operation, explicit root/ownerRoot, input, clock and owner-port
 bindings. Further `{port,input}` / `{value}` frames invoke the typed ports; the
 last frame is `{result}` or a finite error. Named operations cover store, ledger,

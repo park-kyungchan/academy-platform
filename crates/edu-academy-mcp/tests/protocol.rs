@@ -36,9 +36,7 @@ fn input_limit_is_lf_inclusive_without_changing_output_limit() {
 }
 #[test]
 fn public_schema_rejects_changed_name_extra_scope_and_33_labels() {
-    let raw = include_bytes!(
-        "../../../migration/mcp-runtime-reference-v1/frozen/inventory/registry.json"
-    );
+    let raw = include_bytes!("fixtures/mcp-runtime-reference-v1/frozen/inventory/registry.json");
     let registry = ToolRegistry::parse(raw).unwrap();
     assert_eq!(registry.entries().len(), 41);
     assert_eq!(registry.list().unwrap().len(), 42);

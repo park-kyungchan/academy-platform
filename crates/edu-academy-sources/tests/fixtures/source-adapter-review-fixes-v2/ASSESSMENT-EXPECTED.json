@@ -1,0 +1,155 @@
+{
+  "options": [
+    {
+      "field": "homework_radio",
+      "value": "0",
+      "label": "\ubbf8\uc2e4\uc2dc"
+    },
+    {
+      "field": "homework_radio",
+      "value": "1",
+      "label": "\uc219\uc81c \uc218\ud589\ub3c4 C"
+    },
+    {
+      "field": "homework_radio",
+      "value": "2",
+      "label": "\uc219\uc81c \uc218\ud589\ub3c4 B"
+    },
+    {
+      "field": "homework_radio",
+      "value": "3",
+      "label": "\uc219\uc81c \uc218\ud589\ub3c4 B\u207a"
+    },
+    {
+      "field": "homework_radio",
+      "value": "4",
+      "label": "\uc219\uc81c \uc218\ud589\ub3c4 A"
+    },
+    {
+      "field": "homework_radio",
+      "value": "5",
+      "label": "\uc219\uc81c \uc218\ud589\ub3c4 A\u207a"
+    },
+    {
+      "field": "homework_radio",
+      "value": "-1",
+      "label": "\ubbf8\ud655\uc778"
+    },
+    {
+      "field": "daily_test_radio",
+      "value": "0",
+      "label": "\ubbf8\uc2e4\uc2dc"
+    },
+    {
+      "field": "daily_test_radio",
+      "value": "1",
+      "label": "\uc77c\uc77c \ud14c\uc2a4\ud2b8 10\uc810"
+    },
+    {
+      "field": "daily_test_radio",
+      "value": "2",
+      "label": "\uc77c\uc77c \ud14c\uc2a4\ud2b8 20\uc810"
+    },
+    {
+      "field": "daily_test_radio",
+      "value": "3",
+      "label": "\uc77c\uc77c \ud14c\uc2a4\ud2b8 30\uc810"
+    },
+    {
+      "field": "daily_test_radio",
+      "value": "4",
+      "label": "\uc77c\uc77c \ud14c\uc2a4\ud2b8 40\uc810"
+    },
+    {
+      "field": "daily_test_radio",
+      "value": "5",
+      "label": "\uc77c\uc77c \ud14c\uc2a4\ud2b8 50\uc810"
+    },
+    {
+      "field": "daily_test_radio",
+      "value": "6",
+      "label": "\uc77c\uc77c \ud14c\uc2a4\ud2b8 60\uc810"
+    },
+    {
+      "field": "daily_test_radio",
+      "value": "7",
+      "label": "\uc77c\uc77c \ud14c\uc2a4\ud2b8 70\uc810"
+    },
+    {
+      "field": "daily_test_radio",
+      "value": "8",
+      "label": "\uc77c\uc77c \ud14c\uc2a4\ud2b8 80\uc810"
+    },
+    {
+      "field": "daily_test_radio",
+      "value": "9",
+      "label": "\uc77c\uc77c \ud14c\uc2a4\ud2b8 90\uc810"
+    },
+    {
+      "field": "daily_test_radio",
+      "value": "10",
+      "label": "\uc77c\uc77c \ud14c\uc2a4\ud2b8 100\uc810"
+    },
+    {
+      "field": "daily_test_radio",
+      "value": "-1",
+      "label": "\ubbf8\ud655\uc778"
+    }
+  ],
+  "results": [
+    {
+      "id": "exact",
+      "result": {
+        "outcome": "returned",
+        "value": null
+      }
+    },
+    {
+      "id": "reverse",
+      "result": {
+        "outcome": "returned",
+        "value": null
+      }
+    },
+    {
+      "id": "duplicate",
+      "result": {
+        "outcome": "threw",
+        "error": {
+          "name": "Error",
+          "message": "journal_assessment_options_drift"
+        }
+      }
+    },
+    {
+      "id": "missing",
+      "result": {
+        "outcome": "threw",
+        "error": {
+          "name": "Error",
+          "message": "journal_assessment_options_drift"
+        }
+      }
+    },
+    {
+      "id": "label",
+      "result": {
+        "outcome": "threw",
+        "error": {
+          "name": "Error",
+          "message": "journal_assessment_options_drift"
+        }
+      }
+    },
+    {
+      "id": "extra",
+      "result": {
+        "outcome": "threw",
+        "error": {
+          "name": "Error",
+          "message": "journal_assessment_options_drift"
+        }
+      }
+    }
+  ]
+}

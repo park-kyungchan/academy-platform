@@ -1,0 +1,2148 @@
+{
+  "schema": "edu.parent-guard-vectors.v2",
+  "provenance": {
+    "source_fixture": "parent-guard-vectors.json",
+    "source_fixture_sha256": "7f196bd1871473c362beeeccb4c7148d40879f98f4985a0c0a2fa3774f53427f",
+    "meaning": "Frozen TypeScript admission decisions. sources records historical provenance; they are not runtime inputs."
+  },
+  "sources": [
+    {
+      "path": "apps/academy/dc-gang-a/src/contracts/parentInternalLanguage.ts",
+      "sha256": "b54501c583df4454eda2608a002ab6d01b012690f2d9a86c370faf6d27a4b763"
+    },
+    {
+      "path": "apps/academy/dc-gang-a/tests/academy/parentDraftAdmission.test.ts",
+      "sha256": "c912898d36fb1292562e575f0ac5245c92e9cdb83b26c8d7de15d93bf382f6d9"
+    },
+    {
+      "path": "apps/academy/dc-gang-a/research/textbooks/edition-catalog-20261028-v1.json",
+      "sha256": "b6f52e492cc3703da9f1ee138c01d20a973a314901ac28dc3d0a4dfe8ded8bae"
+    },
+    {
+      "path": "apps/academy/dc-gang-a/research/textbooks/edition-catalog-20261028-v2.json",
+      "sha256": "72463789a1e8a11618c85f0bec134c278b4ffa300933431cd301bd707adc6caa"
+    },
+    {
+      "path": "apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md",
+      "sha256": "9aad384cd109e94c96229ae42fb38483abe7e8ebd8b5631a13761d0c94881d71"
+    }
+  ],
+  "cases": [
+    {
+      "text": "- 가우스 1SAG 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 다빈치 1SJ2 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1U0U 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 다빈치 1UFJ 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1N82 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1N87 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1N88 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 다빈치 1MHL 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1SAG 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 다빈치 1SJ2 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1U0U 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 다빈치 1UFJ 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1N82 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1N87 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1N88 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 다빈치 1MHL 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1P6A) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1P6A 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1p6a) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1p6a 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1p6A) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1p6A 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1U0T) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1U0T 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1u0t) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1u0t 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1u0T) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1u0T 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1SAG) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1SAG 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1sag) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1sag 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1sAG) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1sAG 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1SJ2) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1SJ2 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1sj2) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1sj2 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1sJ2) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1sJ2 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1U0U) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1U0U 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1u0u) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1u0u 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1u0U) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1u0U 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1UFJ) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1UFJ 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1ufj) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1ufj 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1uFJ) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1uFJ 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1N82) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1N82 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1n82) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1n82 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1n82) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1n82 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1N87) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1N87 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1n87) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1n87 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1n87) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1n87 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1N88) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1N88 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1n88) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1n88 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1n88) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1n88 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1MHL) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1MHL 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1mhl) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1mhl 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1mHL) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1mHL 준비",
+      "excluded": true
+    },
+    {
+      "text": "가우스 시리즈2 v1(1SAG) 준비",
+      "excluded": true
+    },
+    {
+      "text": "가우스 1-1-2 (1P6A) 준비",
+      "excluded": true
+    },
+    {
+      "text": "가우스 (1U0T) 준비",
+      "excluded": true
+    },
+    {
+      "text": "가우스 5-1-2 [1P6A] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 1-1-2 (1P6A) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 다빈치 1SJ2 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스플러스 (1U0T) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 교재 1P6A 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 초5-1 1SAG 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 교과서:1U0T 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 시리즈 (1P6A) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 교재v3(1P6A) 준비",
+      "excluded": true
+    },
+    {
+      "text": "Teacher REVIEW",
+      "excluded": true
+    },
+    {
+      "text": "Ungraded",
+      "excluded": true
+    },
+    {
+      "text": "NOT COMPLETED",
+      "excluded": true
+    },
+    {
+      "text": "Insufficient TIME",
+      "excluded": true
+    },
+    {
+      "text": "VERSION:3",
+      "excluded": true
+    },
+    {
+      "text": "V 3",
+      "excluded": true
+    },
+    {
+      "text": "(1p6A)",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 (2Q4Z) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 2Q4Z 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 (9Z0Q) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 9Z0Q 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 (2X3Y) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 2X3Y 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 단항식 2x3y를 간단히 하기",
+      "excluded": false
+    },
+    {
+      "text": "- 2x3y의 계산 연습",
+      "excluded": false
+    },
+    {
+      "text": "- (2x3y)의 계산 연습",
+      "excluded": false
+    },
+    {
+      "text": "- 다항식 3abc 계산",
+      "excluded": false
+    },
+    {
+      "text": "- x2y3를 간단히 하기",
+      "excluded": false
+    },
+    {
+      "text": "- 단항식 2X3Y를 간단히 하기",
+      "excluded": false
+    },
+    {
+      "text": "- 가우스 5-1-2 준비",
+      "excluded": false
+    },
+    {
+      "text": "- 2026-11-02까지 12문항 풀기",
+      "excluded": false
+    },
+    {
+      "text": "- 가우스 5-1-2 1P6A 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1P6A 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1P6A) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1P6A) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1P6A] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1P6A] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1P6A} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1P6A} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1P6A」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1P6A」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1P6A） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1P6A） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1P6A\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1P6A\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1P6A' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1P6A' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1P6A> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1P6A> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1P6A】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1P6A】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1p6a 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1p6a 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1p6a) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1p6a) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1p6a] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1p6a] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1p6a} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1p6a} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1p6a」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1p6a」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1p6a） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1p6a） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1p6a\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1p6a\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1p6a' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1p6a' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1p6a> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1p6a> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1p6a】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1p6a】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1U0T 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1U0T 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1U0T) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1U0T) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1U0T] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1U0T] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1U0T} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1U0T} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1U0T」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1U0T」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1U0T） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1U0T） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1U0T\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1U0T\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1U0T' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1U0T' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1U0T> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1U0T> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1U0T】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1U0T】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1u0t 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1u0t 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1u0t) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1u0t) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1u0t] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1u0t] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1u0t} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1u0t} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1u0t」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1u0t」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1u0t） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1u0t） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1u0t\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1u0t\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1u0t' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1u0t' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1u0t> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1u0t> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1u0t】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1u0t】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1SAG 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1SAG 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1SAG) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1SAG) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1SAG] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1SAG] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1SAG} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1SAG} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1SAG」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1SAG」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1SAG） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1SAG） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1SAG\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1SAG\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1SAG' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1SAG' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1SAG> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1SAG> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1SAG】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1SAG】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1sag 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1sag 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1sag) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1sag) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1sag] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1sag] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1sag} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1sag} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1sag」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1sag」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1sag） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1sag） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1sag\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1sag\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1sag' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1sag' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1sag> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1sag> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1sag】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1sag】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1SJ2 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1SJ2 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1SJ2) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1SJ2) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1SJ2] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1SJ2] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1SJ2} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1SJ2} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1SJ2」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1SJ2」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1SJ2） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1SJ2） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1SJ2\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1SJ2\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1SJ2' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1SJ2' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1SJ2> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1SJ2> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1SJ2】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1SJ2】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1sj2 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1sj2 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1sj2) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1sj2) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1sj2] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1sj2] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1sj2} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1sj2} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1sj2」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1sj2」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1sj2） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1sj2） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1sj2\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1sj2\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1sj2' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1sj2' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1sj2> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1sj2> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1sj2】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1sj2】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1U0U 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1U0U 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1U0U) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1U0U) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1U0U] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1U0U] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1U0U} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1U0U} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1U0U」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1U0U」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1U0U） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1U0U） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1U0U\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1U0U\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1U0U' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1U0U' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1U0U> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1U0U> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1U0U】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1U0U】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1u0u 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1u0u 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1u0u) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1u0u) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1u0u] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1u0u] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1u0u} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1u0u} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1u0u」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1u0u」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1u0u） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1u0u） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1u0u\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1u0u\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1u0u' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1u0u' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1u0u> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1u0u> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1u0u】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1u0u】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1UFJ 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1UFJ 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1UFJ) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1UFJ) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1UFJ] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1UFJ] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1UFJ} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1UFJ} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1UFJ」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1UFJ」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1UFJ） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1UFJ） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1UFJ\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1UFJ\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1UFJ' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1UFJ' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1UFJ> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1UFJ> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1UFJ】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1UFJ】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1ufj 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1ufj 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1ufj) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1ufj) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1ufj] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1ufj] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1ufj} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1ufj} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1ufj」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1ufj」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1ufj） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1ufj） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1ufj\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1ufj\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1ufj' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1ufj' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1ufj> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1ufj> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1ufj】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1ufj】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1N82 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1N82 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1N82) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1N82) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1N82] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1N82] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1N82} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1N82} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1N82」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1N82」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1N82） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1N82） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1N82\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1N82\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1N82' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1N82' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1N82> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1N82> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1N82】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1N82】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1n82 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1n82 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1n82) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1n82) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1n82] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1n82] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1n82} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1n82} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1n82」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1n82」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1n82） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1n82） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1n82\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1n82\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1n82' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1n82' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1n82> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1n82> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1n82】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1n82】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1N87 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1N87 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1N87) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1N87) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1N87] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1N87] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1N87} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1N87} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1N87」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1N87」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1N87） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1N87） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1N87\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1N87\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1N87' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1N87' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1N87> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1N87> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1N87】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1N87】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1n87 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1n87 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1n87) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1n87) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1n87] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1n87] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1n87} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1n87} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1n87」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1n87」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1n87） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1n87） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1n87\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1n87\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1n87' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1n87' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1n87> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1n87> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1n87】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1n87】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1N88 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1N88 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1N88) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1N88) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1N88] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1N88] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1N88} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1N88} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1N88」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1N88」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1N88） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1N88） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1N88\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1N88\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1N88' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1N88' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1N88> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1N88> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1N88】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1N88】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1n88 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1n88 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1n88) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1n88) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1n88] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1n88] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1n88} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1n88} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1n88」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1n88」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1n88） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1n88） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1n88\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1n88\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1n88' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1n88' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1n88> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1n88> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1n88】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1n88】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1MHL 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1MHL 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1MHL) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1MHL) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1MHL] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1MHL] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1MHL} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1MHL} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1MHL」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1MHL」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1MHL） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1MHL） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1MHL\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1MHL\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1MHL' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1MHL' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1MHL> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1MHL> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1MHL】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1MHL】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 1mhl 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 1mhl 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 (1mhl) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- (1mhl) 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 [1mhl] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- [1mhl] 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 {1mhl} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- {1mhl} 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 「1mhl」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 「1mhl」 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 （1mhl） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- （1mhl） 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 \"1mhl\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- \"1mhl\" 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 '1mhl' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- '1mhl' 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 <1mhl> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- <1mhl> 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 가우스 5-1-2 【1mhl】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 【1mhl】 준비",
+      "excluded": true
+    },
+    {
+      "text": "- 2x3y를 간단히 하기",
+      "excluded": false
+    },
+    {
+      "text": "- 3abc를 간단히 하기",
+      "excluded": false
+    },
+    {
+      "text": "- x2y3를 간단히 하기",
+      "excluded": false
+    },
+    {
+      "text": "- [2x3y]를 간단히 하기",
+      "excluded": false
+    },
+    {
+      "text": "- (2x3y)를 간단히 하기",
+      "excluded": false
+    },
+    {
+      "text": "- 단항식 2X3Y를 간단히 하기",
+      "excluded": false
+    },
+    {
+      "text": "A1SAG",
+      "excluded": false
+    },
+    {
+      "text": "1SAG2",
+      "excluded": false
+    },
+    {
+      "text": "a1p6ab",
+      "excluded": false
+    },
+    {
+      "text": "가우스 2q4z",
+      "excluded": false
+    },
+    {
+      "text": "교재 2Q4Za",
+      "excluded": false
+    },
+    {
+      "text": "가우스 2Q4Z0",
+      "excluded": false
+    },
+    {
+      "text": "v3",
+      "excluded": false
+    },
+    {
+      "text": "한글1sag한글",
+      "excluded": true
+    },
+    {
+      "text": "1SAG_",
+      "excluded": true
+    },
+    {
+      "text": "교재명:#1P6A",
+      "excluded": true
+    },
+    {
+      "text": "문제집:2Q4Z",
+      "excluded": true
+    },
+    {
+      "text": "가우스 초5-1-2 2Q4Z",
+      "excluded": true
+    },
+    {
+      "text": "v﻿3",
+      "excluded": true
+    },
+    {
+      "text": "교사 최종 완료판정 대기",
+      "excluded": true
+    }
+  ]
+}

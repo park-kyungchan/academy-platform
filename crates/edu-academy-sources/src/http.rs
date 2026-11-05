@@ -2537,7 +2537,7 @@ mod review_fixes_fictional_journal {
         let target = parse(r#"{"studentName":"Fictional 😀 Learner","date":"2040-01-04","groupId":"3","teacherKey":"99001","studentKey":"77001","courseKey":"5","recordKey":"13","membershipKey":"8"}"#).unwrap();
         let row = obj(&[("fields",parse(r#"{"progress":"Current","homework":"","lessonMemo":"Memo","attendance":"Y","persistentMemo":"preserved"}"#).unwrap())]);
         let options = parse(include_str!(
-            "../../../migration/source-adapter-review-fixes-v2/ASSESSMENT-EXPECTED.json"
+            "../tests/fixtures/source-adapter-review-fixes-v2/ASSESSMENT-EXPECTED.json"
         ))
         .unwrap()
         .get("options")

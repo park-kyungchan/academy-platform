@@ -97,7 +97,7 @@ impl Fixture {
             json!({"saved":{"executable":pin(&bridge),"identity":identity,"args":args}}),
         );
         let original = serde_json::from_slice::<Value>(include_bytes!(
-            "../../../../migration/mcp-runtime-reference-v1/frozen/inventory/registry.json"
+            "../fixtures/mcp-runtime-reference-v1/frozen/inventory/registry.json"
         ))
         .unwrap();
         let registry = document(

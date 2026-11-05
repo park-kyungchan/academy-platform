@@ -1,5 +1,12 @@
 # Recorded Academy source adapter
 
+> Current fixture ownership: [E02 fixture ownership](../fixture-ownership.md)
+> supersedes migration pathname and replay instructions below. The dated source
+> observations and acceptance statements retain their original historical scope.
+> Maintained tests read crate-owned copies; historical reproduction requires the
+> complete pinned recovery revision, not a partially retired current tree.
+
+
 `edu-academy-sources` is an explicit offline domain crate. Its named executable is
 `edu-academy-sources-offline`. Each stdin JSON line requests an operation; each stdout
 line is an observed return or error. `inventory` reports its actual selected operations.

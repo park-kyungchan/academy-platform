@@ -244,7 +244,7 @@ impl Scene {
         // The six actual pinned endpoint schemas, unchanged; the admission probe
         // is endpoint-local, just as in existing RpcSession inventory.
         let original: Value = serde_json::from_slice(include_bytes!(
-            "../../../migration/mcp-runtime-reference-v1/frozen/inventory/registry.json"
+            "fixtures/mcp-runtime-reference-v1/frozen/inventory/registry.json"
         ))
         .unwrap();
         let names = [
@@ -883,7 +883,7 @@ fn preserved_original_protocol_get_body_and_strict_rejection() {
     // unchanged-original intake execution or a same-child/public-Client proof.
     let root = case_root("original");
     let raw = include_bytes!(
-        "../../../migration/mcp-runtime-reference-v1/frozen/protocol/commands/neutral/stdout.bin"
+        "fixtures/mcp-runtime-reference-v1/frozen/protocol/commands/neutral/stdout.bin"
     );
     assert_eq!(
         digest(raw),
@@ -901,7 +901,7 @@ fn preserved_original_protocol_get_body_and_strict_rejection() {
         .get("result")
         .get("structuredContent");
     let stdin = include_bytes!(
-        "../../../migration/mcp-runtime-reference-v1/frozen/protocol/commands/neutral/stdin.bin"
+        "fixtures/mcp-runtime-reference-v1/frozen/protocol/commands/neutral/stdin.bin"
     );
     assert_eq!(
         digest(stdin),
