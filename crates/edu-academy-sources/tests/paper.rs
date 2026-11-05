@@ -735,7 +735,7 @@ fn unsupported_queries_shapes_and_scope_aliases_make_zero_requests() {
         request.set("view", "header".into());
         if let Js::Obj(props) = &mut request {
             props.push((
-                field.into(),
+                text(field),
                 if field == "view" {
                     "definition".into()
                 } else {
