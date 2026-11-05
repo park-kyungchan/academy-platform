@@ -639,9 +639,6 @@ fn passive_text(e: scraper::ElementRef<'_>) -> String {
         ) || !text_attributes_qualified(e)
             || matches!(element.name(), "dialog" | "details") && element.attr("open").is_none()
     };
-    let Some(chain_geometry) = css_inline_chain_geometry(e) else {
-        return String::new();
-    };
     if e.value().name() == "select"
         || hidden(e)
         || e.ancestors()
@@ -651,28 +648,19 @@ fn passive_text(e: scraper::ElementRef<'_>) -> String {
         return String::new();
     }
     let mut text = String::new();
-    // Carry the cumulative geometry while traversing, rather than reparsing
-    // every descendant's complete ancestor chain. An over-budget subtree is
-    // opaque even when each individual ancestor declaration is qualified.
-    let mut pending = e
-        .children()
-        .rev()
-        .map(|node| (node, chain_geometry))
-        .collect::<Vec<_>>();
-    while let Some((node, mut geometry)) = pending.pop() {
-        if let Some(element) = scraper::ElementRef::wrap(node) {
-            if element.value().name() == "select" || hidden(element) {
-                continue;
-            }
-            geometry += css_element_geometry(element).unwrap_or(f64::INFINITY);
-            if geometry > 128.0 {
-                continue;
-            }
+    // Each declaration is qualified independently. Normal-flow displacement
+    // remains reachable by document scrolling; it is not a geometry budget.
+    let mut pending = e.children().rev().collect::<Vec<_>>();
+    while let Some(node) = pending.pop() {
+        if let Some(element) = scraper::ElementRef::wrap(node)
+            && (element.value().name() == "select" || hidden(element))
+        {
+            continue;
         }
         if let scraper::node::Node::Text(value) = node.value() {
             text.push_str(value);
         }
-        pending.extend(node.children().rev().map(|node| (node, geometry)));
+        pending.extend(node.children().rev());
     }
     text
 }
@@ -687,15 +675,14 @@ fn document_title(d: &crate::dom::Document) -> Result<Js> {
         return Ok("".into());
     };
     require(
-        css_inline_chain_geometry(*title).is_some()
-            && title
-                .ancestors()
-                .filter_map(scraper::ElementRef::wrap)
-                .chain(std::iter::once(*title))
-                .all(|e| {
-                    let namespace: &str = e.value().name.ns.as_ref();
-                    namespace == "http://www.w3.org/1999/xhtml" && text_attributes_qualified(e)
-                })
+        title
+            .ancestors()
+            .filter_map(scraper::ElementRef::wrap)
+            .chain(std::iter::once(*title))
+            .all(|e| {
+                let namespace: &str = e.value().name.ns.as_ref();
+                namespace == "http://www.w3.org/1999/xhtml" && text_attributes_qualified(e)
+            })
             && title
                 .children()
                 .all(|node| matches!(node.value(), scraper::node::Node::Text(_))),
@@ -944,17 +931,17 @@ enum CssGrammar {
     Colors,
     Opacity,
     Weight,
+    Zero(bool),
 }
 // Closed property -> value grammars. Geometry policy: each nonzero absolute
 // length is nonnegative and <=128px (font size/line height also >=1px).
 // Unitless lengths only admit zero. Zero in known length units is equivalent
 // to zero, including the retained 0vh control. Relative nonzero lengths refuse.
 // Width/height allow auto or >0..100%; line-height allows 0.5..4 unitless.
-// The same 128px cap also bounds the sum in a declaration list and an inline
-// ancestor chain. STYLE geometry is charged per potentially matched element,
-// across all STYLE blocks and qualified inline declarations in the document.
-// No viewport displacement, negative length, function, inherited/global value,
-// font shorthand, shadow, or unknown property/value is guessed harmless.
+// Bounds apply per value, never across declarations, ancestors, matched
+// elements or siblings. Flow-only CSS cannot position or paint a box over
+// another box. Unsupported/inherited/global values and functions refuse.
+// Token/rule/tree-work limits separately bound parsing and projection cost.
 const CSS_PROPERTIES: &[(&str, CssGrammar)] = &[
     (
         "display",
@@ -1046,10 +1033,7 @@ const CSS_PROPERTIES: &[(&str, CssGrammar)] = &[
         ]),
     ),
     ("table-layout", CssGrammar::Keywords(&["auto", "fixed"])),
-    (
-        "position",
-        CssGrammar::Keywords(&["static", "relative", "absolute", "fixed", "sticky"]),
-    ),
+    ("position", CssGrammar::Keywords(&["static"])),
     ("overflow", CssGrammar::Keywords(&["visible"])),
     ("overflow-x", CssGrammar::Keywords(&["visible"])),
     ("overflow-y", CssGrammar::Keywords(&["visible"])),
@@ -1058,7 +1042,6 @@ const CSS_PROPERTIES: &[(&str, CssGrammar)] = &[
     ("clip", CssGrammar::Keywords(&["auto"])),
     ("clip-path", CssGrammar::Keywords(&["none"])),
     ("border-color", CssGrammar::Colors),
-    ("outline-color", CssGrammar::Color(true)),
     ("margin", CssGrammar::Lengths(4)),
     ("padding", CssGrammar::Lengths(4)),
     ("margin-top", CssGrammar::Lengths(1)),
@@ -1069,10 +1052,6 @@ const CSS_PROPERTIES: &[(&str, CssGrammar)] = &[
     ("padding-right", CssGrammar::Lengths(1)),
     ("padding-bottom", CssGrammar::Lengths(1)),
     ("padding-left", CssGrammar::Lengths(1)),
-    ("top", CssGrammar::Lengths(1)),
-    ("left", CssGrammar::Lengths(1)),
-    ("right", CssGrammar::Lengths(1)),
-    ("bottom", CssGrammar::Lengths(1)),
     ("text-indent", CssGrammar::Lengths(1)),
     ("width", CssGrammar::Size),
     ("height", CssGrammar::Size),
@@ -1095,15 +1074,21 @@ const CSS_PROPERTIES: &[(&str, CssGrammar)] = &[
     ("border-left-width", CssGrammar::Lengths(1)),
     ("border-radius", CssGrammar::Lengths(4)),
     ("border-spacing", CssGrammar::Lengths(2)),
-    ("outline", CssGrammar::Border),
-    ("outline-width", CssGrammar::Lengths(1)),
-    ("outline-offset", CssGrammar::Lengths(1)),
-    (
-        "outline-style",
-        CssGrammar::Keywords(&[
-            "none", "solid", "dotted", "dashed", "double", "groove", "ridge", "inset", "outset",
-        ]),
-    ),
+    ("outline", CssGrammar::Zero(true)),
+    ("outline-width", CssGrammar::Zero(false)),
+    ("outline-offset", CssGrammar::Zero(false)),
+    ("outline-style", CssGrammar::Keywords(&["none"])),
+    ("box-shadow", CssGrammar::Keywords(&["none"])),
+    ("text-shadow", CssGrammar::Keywords(&["none"])),
+    ("rotate", CssGrammar::Keywords(&["none"])),
+    ("scale", CssGrammar::Keywords(&["none"])),
+    ("filter", CssGrammar::Keywords(&["none"])),
+    ("backdrop-filter", CssGrammar::Keywords(&["none"])),
+    ("mix-blend-mode", CssGrammar::Keywords(&["normal"])),
+    ("mask", CssGrammar::Keywords(&["none"])),
+    ("mask-image", CssGrammar::Keywords(&["none"])),
+    ("overflow-block", CssGrammar::Keywords(&["visible"])),
+    ("overflow-inline", CssGrammar::Keywords(&["visible"])),
 ];
 fn css_keyword(tokens: &[CssToken], values: &[&str]) -> bool {
     matches!(tokens, [CssToken::Ident(value)] if values.contains(&value.as_str()))
@@ -1212,6 +1197,12 @@ fn css_value_qualified(grammar: CssGrammar, tokens: &[CssToken]) -> bool {
             matches!(tokens, [CssToken::Number(n)] if *n == 1.0)
                 || matches!(tokens, [CssToken::Percentage(n)] if *n == 100.0)
         }
+        CssGrammar::Zero(none) => {
+            none && css_keyword(tokens, &["none"])
+                || tokens.len() == 1
+                    && css_length(&tokens[0], false)
+                    && matches!(&tokens[0], CssToken::Number(n) | CssToken::Dimension(n, _) if *n == 0.0)
+        }
         CssGrammar::Weight => {
             css_keyword(tokens, &["normal", "bold", "bolder", "lighter"])
                 || matches!(tokens, [CssToken::Number(n)] if (100.0..=900.0).contains(n) && *n % 100.0 == 0.0)
@@ -1233,9 +1224,8 @@ fn css_value_qualified(grammar: CssGrammar, tokens: &[CssToken]) -> bool {
         }
     }
 }
-fn css_declaration_geometry(tokens: &[CssToken]) -> Option<f64> {
+fn css_declaration_tokens(tokens: &[CssToken]) -> Option<()> {
     let mut count = 0;
-    let mut geometry = 0.0;
     for declaration in tokens.split(|t| *t == CssToken::Punct(';')) {
         if declaration.is_empty() {
             continue;
@@ -1259,59 +1249,109 @@ fn css_declaration_geometry(tokens: &[CssToken]) -> Option<f64> {
         if !css_value_qualified(*grammar, value) {
             return None;
         }
-        if matches!(
-            grammar,
-            CssGrammar::Lengths(_)
-                | CssGrammar::PositiveLength
-                | CssGrammar::Size
-                | CssGrammar::LineHeight
-                | CssGrammar::Spacing
-                | CssGrammar::Border
-        ) {
-            geometry += value
-                .iter()
-                .filter_map(|token| match token {
-                    CssToken::Dimension(n, unit) if unit == "px" => Some(n),
-                    _ => None,
-                })
-                .sum::<f64>();
-            if geometry > 128.0 {
-                return None;
-            }
-        }
     }
-    Some(geometry)
+    Some(())
 }
 fn css_declarations(source: &str) -> Option<bool> {
-    css_declaration_geometry(&css_tokens(source)?).map(|_| false)
+    css_declaration_tokens(&css_tokens(source)?).map(|()| false)
 }
-fn css_element_geometry(e: scraper::ElementRef<'_>) -> Option<f64> {
-    e.value().attr("style").map_or(Some(0.0), |style| {
-        css_declaration_geometry(&css_tokens(style)?)
-    })
-}
-fn css_inline_chain_geometry(e: scraper::ElementRef<'_>) -> Option<f64> {
-    let mut geometry = 0.0;
-    for node in e
-        .ancestors()
-        .filter_map(scraper::ElementRef::wrap)
-        .chain(std::iter::once(e))
-    {
-        geometry += css_element_geometry(node)?;
-        if geometry > 128.0 {
-            return None;
+
+// An inline rejection normally makes only its subtree opaque. A rejected
+// positioning/paint declaration can also cover or displace OTHER subtrees,
+// including from an empty sibling. Such a document cannot qualify any text.
+// This scan grants no CSS admission: it uses the same preprocessing/identifier
+// escape rules solely to detect cross-box hazards even when another value is
+// outside the rejecting tokenizer's grammar (e.g. width:calc(...)). Unknown
+// declaration names also fail closed. Comments/strings cannot hide a later
+// declaration, and quoted data is never treated as a property name.
+fn css_inline_rejection_is_local(source: &str) -> bool {
+    if css_declarations(source) == Some(false) {
+        return true;
+    }
+    let Some(chars) = css_preprocess(source) else {
+        return false;
+    };
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] == '/' && chars.get(i + 1) == Some(&'*') {
+            i += 2;
+            while i < chars.len() && !(chars[i] == '*' && chars.get(i + 1) == Some(&'/')) {
+                i += 1;
+            }
+            i = (i + 2).min(chars.len());
+        } else if matches!(chars[i], '\'' | '"') {
+            let quote = chars[i];
+            i += 1;
+            while i < chars.len() && chars[i] != quote && chars[i] != '\n' {
+                if css_valid_escape(&chars, i) {
+                    let _ = css_escape(&chars, &mut i);
+                } else {
+                    i += 1;
+                }
+            }
+            i += usize::from(i < chars.len() && chars[i] == quote);
+        } else if css_ident_start(&chars, i) {
+            let Some(property) = css_ident(&chars, &mut i) else {
+                return false;
+            };
+            // Whitespace and complete comments can separate a property and :.
+            let mut end = i;
+            loop {
+                while chars.get(end).is_some_and(|c| css_whitespace(*c)) {
+                    end += 1;
+                }
+                if chars.get(end) != Some(&'/') || chars.get(end + 1) != Some(&'*') {
+                    break;
+                }
+                end += 2;
+                while end < chars.len() && !(chars[end] == '*' && chars.get(end + 1) == Some(&'/'))
+                {
+                    end += 1;
+                }
+                end = (end + 2).min(chars.len());
+            }
+            if chars.get(end) == Some(&':') {
+                let local = matches!(
+                    property.as_str(),
+                    "background" | "background-color" | "font"
+                ) || CSS_PROPERTIES.iter().any(|(name, _)| *name == property)
+                    && !matches!(
+                        property.as_str(),
+                        "position"
+                            | "transform"
+                            | "translate"
+                            | "rotate"
+                            | "scale"
+                            | "outline"
+                            | "outline-width"
+                            | "outline-offset"
+                            | "outline-style"
+                            | "box-shadow"
+                            | "text-shadow"
+                            | "filter"
+                            | "backdrop-filter"
+                            | "mix-blend-mode"
+                            | "margin"
+                            | "margin-top"
+                            | "margin-right"
+                            | "margin-bottom"
+                            | "margin-left"
+                            | "text-indent"
+                    );
+                if !local {
+                    return false;
+                }
+            }
+        } else {
+            i += 1;
         }
     }
-    Some(geometry)
+    true
 }
-fn css_stylesheet_geometry(
-    source: &str,
-    matches: impl Fn(&[CssToken]) -> usize,
-    total_rules: &mut usize,
-) -> Option<f64> {
+
+fn css_stylesheet_declarations(source: &str, total_rules: &mut usize) -> Option<()> {
     let tokens = css_tokens(source)?;
     let mut remaining = tokens.as_slice();
-    let mut geometry = 0.0;
     while !remaining.is_empty() {
         *total_rules += 1;
         if *total_rules > 1024 {
@@ -1335,20 +1375,22 @@ fn css_stylesheet_geometry(
         }
         let tail = &remaining[open + 1..];
         let close = tail.iter().position(|t| *t == CssToken::Punct('}'))?;
-        geometry += css_declaration_geometry(&tail[..close])? * matches(selector) as f64;
-        if geometry > 128.0 {
-            return None;
-        }
+        css_declaration_tokens(&tail[..close])?;
         remaining = &tail[close + 1..];
     }
-    Some(geometry)
+    Some(())
 }
 #[cfg(test)]
 fn stylesheet_hiding(source: &str) -> Option<bool> {
-    css_stylesheet_geometry(source, |_| 1, &mut 0).map(|_| false)
+    css_stylesheet_declarations(source, &mut 0).map(|()| false)
 }
 fn display_text_contract(d: &crate::dom::Document, pins: &PaperPins) -> Result<()> {
-    let elements = d.select("*");
+    for element in d.select("[style]") {
+        require(
+            css_inline_rejection_is_local(element.value().attr("style").expect("selected style")),
+            "contract_drift",
+        )?;
+    }
     let styles = d.select("style");
     require(styles.len() <= 64, "contract_drift")?;
     let sources = styles
@@ -1359,41 +1401,12 @@ fn display_text_contract(d: &crate::dom::Document, pins: &PaperPins) -> Result<(
         sources.iter().map(String::len).sum::<usize>() <= 32_768,
         "contract_drift",
     )?;
-    // Index tags exactly once. Rule matching must not multiply document size
-    // by rule/style counts. Shared bytes/rules/styles budgets bound all blocks.
-    let mut tag_counts = std::collections::BTreeMap::<String, usize>::new();
-    for e in &elements {
-        *tag_counts
-            .entry(e.value().name().to_ascii_lowercase())
-            .or_default() += 1;
-    }
-    let mut stylesheet_geometry = 0.0;
+    // Parse each rule once. There is no matching-element multiplier or layout
+    // arithmetic; shared bytes/rules/style limits remain work admission only.
     let mut total_rules = 0;
     for source in sources {
-        let geometry = css_stylesheet_geometry(
-            &source,
-            |selector| {
-                if let [CssToken::Ident(tag)] = selector {
-                    tag_counts.get(tag).copied().unwrap_or(0)
-                } else {
-                    elements.len()
-                }
-            },
-            &mut total_rules,
-        )
-        .ok_or_else(|| Error::refusal("contract_drift"))?;
-        stylesheet_geometry += geometry;
-        require(stylesheet_geometry <= 128.0, "contract_drift")?;
-    }
-    if stylesheet_geometry > 0.0 {
-        let inline_geometry: f64 = elements
-            .iter()
-            .filter_map(|e| css_element_geometry(*e))
-            .sum();
-        require(
-            stylesheet_geometry + inline_geometry <= 128.0,
-            "contract_drift",
-        )?;
+        css_stylesheet_declarations(&source, &mut total_rules)
+            .ok_or_else(|| Error::refusal("contract_drift"))?;
     }
     for link in d.select("link") {
         if link.value().attr("rel").is_some_and(|rel| {
@@ -3251,6 +3264,7 @@ mod css_tests {
                 CssGrammar::Color(_) | CssGrammar::Colors => ("#123456", "#12345"),
                 CssGrammar::Opacity => ("1", "1.01"),
                 CssGrammar::Weight => ("900", "901"),
+                CssGrammar::Zero(_) => ("0px", "1px"),
             };
             let mut cases = vec![
                 ("in-bound", format!("{property}:{good}"), true),
@@ -3417,7 +3431,7 @@ mod css_tests {
             "padding:0 128px",
             "padding:0e4px",
             "padding:1.28e2px",
-            "top:0vh",
+            "padding:0vh",
             "color:r\\65\r\nd",
             "color:red!im\\70\r\nortant",
         ] {

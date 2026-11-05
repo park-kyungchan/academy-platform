@@ -2901,6 +2901,7 @@ fn fix1_css_hiding_declarations_and_conservative_grammar() {
         "position:absolute;left:100000px",
         "position:fixed;top:100vh",
         "position:fixed;left:100vw",
+        "position:fixed;top:0vh;left:12px",
     ];
     let invalid = [
         "not a declaration",
@@ -2928,16 +2929,29 @@ fn fix1_css_hiding_declarations_and_conservative_grammar() {
                 } else {
                     body.clone()
                 };
-                let output = fix1_page(scope, family, &body, &[]).unwrap();
-                assert!(!json(&output).contains("CSS_PRIVATE_VALUE"), "{family}");
-                assert!(json(&output).contains("Visible"));
+                let result = fix1_page(scope, family, &body, &[]);
+                // FIX-3: cross-box effects cannot be isolated to this span;
+                // refusal also protects text outside the offending subtree.
+                let cross_box = css.starts_with("position:")
+                    || css.starts_with("left:")
+                    || css.starts_with("margin")
+                    || css.starts_with("text-indent:")
+                    || css.starts_with("filter:")
+                    || css.starts_with("-webkit-filter:");
+                if cross_box {
+                    assert_code(result, "contract_drift");
+                } else {
+                    let output = result.unwrap();
+                    assert!(!json(&output).contains("CSS_PRIVATE_VALUE"), "{family}");
+                    assert!(json(&output).contains("Visible"));
+                }
                 let blocked = format!("<style>h1{{{css}}}</style>{body}");
                 assert_code(fix1_page(scope, family, &blocked, &[]), "contract_drift");
             }
         }
         for css in [
             "font-size:12px;color:#123456",
-            "position:fixed;top:0vh;left:12px",
+            "position:static;padding:0vh 12px",
             "margin:0;padding:2px",
             "clip:auto;clip-path:none",
             "font-family:sans-serif; border:1px solid black",
@@ -3623,6 +3637,9 @@ fn fix2_css_encodings_roots_ancestors_descendants_and_title() {
                     // this independent guard must stay a sanitized refusal.
                     if result.is_err() && (css.contains('\u{c}') || css.contains("&#12;")) {
                         assert_code(result, "paper_output_budget_exceeded");
+                    } else if matches!(css, "outline:10000px solid black" | "position:unqualified")
+                    {
+                        assert_code(result, "contract_drift");
                     } else {
                         let output = result.unwrap();
                         assert!(!json(&output).contains("FIX2_PRIVATE"));
@@ -3660,7 +3677,7 @@ fn fix2_css_encodings_roots_ancestors_descendants_and_title() {
 }
 
 #[test]
-fn fix2_geometry_composition_cannot_bypass_the_shared_bound() {
+fn fix2_geometry_composition_obeys_disclosure_model_v2() {
     for scope in [PaperScope::Paper1, PaperScope::Paper2] {
         for family in ["header", "inventory", "definitions", "batch"] {
             for (css, depth) in [
@@ -3673,13 +3690,18 @@ fn fix2_geometry_composition_cannot_bypass_the_shared_bound() {
                     format!("<div style='{css}'>").repeat(depth),
                     "</div>".repeat(depth)
                 );
-                let result =
-                    fix1_page(scope, family, &fix2_body(scope, family, &payload), &[]).unwrap();
-                assert!(
-                    !json(&result).contains("FIX2_COMPOSED_PRIVATE"),
-                    "composed inline geometry"
-                );
-                assert!(json(&result).contains("VISIBLE_CONTROL"));
+                let result = fix1_page(scope, family, &fix2_body(scope, family, &payload), &[]);
+                // DECISION-DISCLOSURE-2 supersedes the old cumulative sum:
+                // only the positioned case is hidden; in-flow nested borders
+                // and padding remain visible by ordinary document scrolling.
+                let visible = !css.contains("position");
+                if visible {
+                    let output = result.unwrap();
+                    assert!(json(&output).contains("FIX2_COMPOSED_PRIVATE"));
+                    assert!(json(&output).contains("VISIBLE_CONTROL"));
+                } else {
+                    assert_code(result, "contract_drift");
+                }
                 let payload = format!(
                     "{}FIX2_COMPOSED_PRIVATE{}",
                     "<div>".repeat(depth),
@@ -3687,7 +3709,14 @@ fn fix2_geometry_composition_cannot_bypass_the_shared_bound() {
                 );
                 let body =
                     format!("<style>div{{{css}}}</style>") + &fix2_body(scope, family, &payload);
-                assert_code(fix1_page(scope, family, &body, &[]), "contract_drift");
+                if visible {
+                    assert!(
+                        json(&fix1_page(scope, family, &body, &[]).unwrap())
+                            .contains("FIX2_COMPOSED_PRIVATE")
+                    );
+                } else {
+                    assert_code(fix1_page(scope, family, &body, &[]), "contract_drift");
+                }
             }
             let payload = "<div style='border-top:1px solid black'><div style='padding-top:2px'>FIX2_COMPOSED_VISIBLE</div></div>";
             let body = "<style>div{margin-top:1px}</style>".to_owned()
@@ -3843,4 +3872,242 @@ fn fix2_security_raw_heading_occurrences_and_projection_work_are_bounded() {
         "source_failure_latched_no_retry",
     );
     assert_eq!(count.get(), 2);
+}
+
+// FIX-3 / DECISION-DISCLOSURE-2. These reproduce the reviewer's exact
+// invented v4 bodies; below-fold normal flow is now explicitly visible.
+fn fix3_body(scope: PaperScope, family: &str, payload: &str) -> String {
+    let body = format!(
+        "<h1>V3_VISIBLE{payload}</h1><table><tr id=fictional-row><th>시험지 제목</th><td>5-1 V3_VISIBLE{payload}</td><td>12 V3_ITEMS</td></tr></table>"
+    );
+    if family == "inventory" {
+        daily(scope, vec![row("77001", "Fictional One", "3", "81001")]) + &body
+    } else {
+        body
+    }
+}
+#[test]
+fn fix3_exact_32_ordinary_styled_pages_preserve_selected_fields_and_rows() {
+    let mut records = vec![];
+    let mut core_values = 0;
+    let mut core_bytes = 0;
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for family in ["header", "inventory", "definitions", "batch"] {
+            for mode in ["plain", "inline-padding", "style-padding", "style-font"] {
+                let css = if mode == "style-font" {
+                    "font-size:12px"
+                } else {
+                    "padding:2px"
+                };
+                let attr = if mode == "inline-padding" {
+                    " style='padding:2px'"
+                } else {
+                    ""
+                };
+                let prefix = if mode.starts_with("style-") {
+                    format!("<style>td{{{css}}}</style>")
+                } else {
+                    String::new()
+                };
+                let rows = (0..40).map(|i| format!("<tr><td{attr}>5-1 ORDINARY_ROW_{i}</td><td{attr}>12 ORDINARY_ITEMS_{i}</td></tr>")).collect::<String>();
+                let body = prefix + &fix3_body(scope, family, "") + "<table>" + &rows + "</table>";
+                let result = fix1_page(scope, family, &body, &[]);
+                let bytes = json(&result.unwrap());
+                for marker in ["V3_VISIBLE", "V3_ITEMS"] {
+                    assert!(bytes.contains(marker), "{family}/{mode}");
+                    core_values += 1;
+                    core_bytes += marker.len();
+                }
+                let mut row_values = 0;
+                if family == "definitions" {
+                    for i in 0..40 {
+                        for marker in [
+                            format!("5-1 ORDINARY_ROW_{i}"),
+                            format!("12 ORDINARY_ITEMS_{i}"),
+                        ] {
+                            assert!(bytes.contains(&marker), "{mode}/{marker}");
+                            row_values += 1;
+                        }
+                    }
+                    assert_eq!(row_values, 80);
+                }
+                records.push(obj(&[
+                    ("scope", scope.as_str().into()),
+                    ("family", family.into()),
+                    ("variant", mode.into()),
+                    ("coreValues", 2usize.into()),
+                    ("coreBytes", 18usize.into()),
+                    ("rowValues", row_values.into()),
+                ]));
+            }
+        }
+    }
+    assert_eq!(records.len(), 32);
+    assert_eq!((core_values, core_bytes), (64, 576));
+    fix1_evidence("fix3-ordinary-32", &records);
+}
+#[test]
+fn fix3_exact_16_overlays_do_not_export_covered_text() {
+    let mut records = vec![];
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for family in ["header", "inventory", "definitions", "batch"] {
+            for mode in ["inline", "block"] {
+                let css = "position:fixed;top:0;left:0;width:100%;border-top:128px solid black";
+                let overlay = if mode == "inline" {
+                    format!("<div style='{css}'></div>")
+                } else {
+                    format!("<style>div{{{css}}}</style><div id=cover></div>")
+                };
+                let body = fix3_body(scope, family, "<span>V4_COVERED_CANARY</span>") + &overlay;
+                let result = fix1_page(scope, family, &body, &[]);
+                match result {
+                    Ok(output) => assert!(
+                        !json(&output).contains("V4_COVERED_CANARY"),
+                        "{family}/{mode}"
+                    ),
+                    Err(error) => assert_eq!(error.message, "contract_drift"),
+                }
+                records.push(obj(&[
+                    ("scope", scope.as_str().into()),
+                    ("family", family.into()),
+                    ("mode", mode.into()),
+                    ("confirmedDisclosure", false.into()),
+                ]));
+            }
+        }
+    }
+    assert_eq!(records.len(), 16);
+    fix1_evidence("fix3-overlay-16", &records);
+}
+#[test]
+fn fix3_exact_24_sibling_spacers_remain_visible_by_scrolling() {
+    let mut records = vec![];
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for family in ["header", "inventory", "definitions", "batch"] {
+            for css in [
+                "height:128px",
+                "padding-top:128px",
+                "border-top:128px solid transparent",
+            ] {
+                let payload = format!(
+                    "{}<span>V4_SIBLING_CANARY</span>",
+                    format!("<div style='{css}'></div>").repeat(20)
+                );
+                let body = fix3_body(scope, family, &payload);
+                let output = fix1_page(scope, family, &body, &[]).unwrap();
+                assert!(json(&output).contains("V4_SIBLING_CANARY"));
+                assert!(json(&output).contains("V3_VISIBLE"));
+                records.push(obj(&[
+                    ("scope", scope.as_str().into()),
+                    ("family", family.into()),
+                    ("css", css.into()),
+                    ("expectedVisible", true.into()),
+                ]));
+            }
+        }
+    }
+    assert_eq!(records.len(), 24);
+    fix1_evidence("fix3-spacer-24", &records);
+}
+
+#[test]
+fn fix3_cross_box_hazards_are_rejected_even_in_empty_unselected_siblings() {
+    let hazards = [
+        "position:relative",
+        "position:absolute",
+        "position:fixed",
+        "position:sticky",
+        "top:0",
+        "right:0",
+        "bottom:0",
+        "left:0",
+        "inset:0",
+        "inset-inline-start:0",
+        "z-index:0",
+        "float:left",
+        "margin:-1px",
+        "margin-left:-1px",
+        "text-indent:-1px",
+        "text-indent:129px",
+        "transform:translateX(1px)",
+        "translate:1px",
+        "rotate:1deg",
+        "scale:2",
+        "outline:1px solid black",
+        "outline-width:1px",
+        "outline-offset:1px",
+        "outline-style:solid",
+        "box-shadow:0 0 1px black",
+        "text-shadow:0 0 1px black",
+        "filter:blur(1px)",
+        "backdrop-filter:blur(1px)",
+        "mix-blend-mode:multiply",
+        "-webkit-transform:translateX(1px)",
+        "animation:cover 1s",
+        "all:initial",
+        // Same lexer rules apply even if an earlier/later value is unsupported.
+        "width:calc(1px);position:fixed",
+        "position:fixed;width:var(--x)",
+        "/*;*/p\\6f&#13;&#10;sition/**/:/**/fixed!important",
+        "color:'inert;';position:fixed",
+        "position:fixed;/*",
+    ];
+    let mut records = vec![];
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for family in ["header", "inventory", "definitions", "batch"] {
+            for css in hazards {
+                let body = fix3_body(scope, family, "FLOW_CANARY")
+                    + &format!("<div style=\"{css}\"></div>");
+                assert_code(fix1_page(scope, family, &body, &[]), "contract_drift");
+                let body = format!("<style>div{{{css}}}</style>")
+                    + &fix3_body(scope, family, "FLOW_CANARY");
+                assert_code(fix1_page(scope, family, &body, &[]), "contract_drift");
+                records.push(obj(&[
+                    ("scope", scope.as_str().into()),
+                    ("family", family.into()),
+                    ("css", css.into()),
+                    ("confirmedDisclosure", false.into()),
+                ]));
+            }
+            for css in [
+                "position:static",
+                "padding:128px 128px 128px 128px;border:128px solid black",
+                "margin:128px;text-indent:128px",
+                "outline:none;outline-width:0;outline-offset:0px;outline-style:none",
+                "box-shadow:none;text-shadow:none;transform:none;translate:none;rotate:none;scale:none",
+                "clip:auto;clip-path:none;mask:none;mask-image:none;filter:none;backdrop-filter:none;mix-blend-mode:normal",
+                "overflow:visible;overflow-x:visible;overflow-y:visible;height:128px;max-height:128px",
+            ] {
+                let body = format!("<style>div{{{css}}}</style>")
+                    + &fix3_body(
+                        scope,
+                        family,
+                        &format!("<div style='{css}'>FLOW_VISIBLE</div>"),
+                    );
+                assert!(
+                    json(&fix1_page(scope, family, &body, &[]).unwrap()).contains("FLOW_VISIBLE")
+                );
+            }
+            // Self-hidden CSS still omits only its own subtree.
+            for css in [
+                "display:none",
+                "opacity:0",
+                "height:1px;overflow:hidden",
+                "height:128px;max-height:128px;overflow-y:hidden",
+                "clip-path:inset(50%)",
+                "mask-image:linear-gradient(transparent,transparent)",
+            ] {
+                let body = fix3_body(
+                    scope,
+                    family,
+                    &format!("<span style='{css}'>SELF_HIDDEN</span>"),
+                );
+                let output = json(&fix1_page(scope, family, &body, &[]).unwrap());
+                assert!(output.contains("V3_VISIBLE"));
+                assert!(!output.contains("SELF_HIDDEN"));
+            }
+        }
+    }
+    assert_eq!(records.len(), hazards.len() * 8);
+    fix1_evidence("fix3-flow-hazards", &records);
 }
