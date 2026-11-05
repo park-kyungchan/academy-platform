@@ -277,3 +277,230 @@ pub fn admission_blocker(date: &Js, owner: Option<&OwnerAdmission>) -> Option<&'
         Some("lesson_date_out_of_admitted_scope")
     }
 }
+
+/// Installed-owner transport policy, independent of the frozen DailyRecord schemas.
+/// It selects exact namespaces and wire templates, never caller-supplied URLs or
+/// an inferred read/write classification (some Academy writes use GET).
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TransportAdmission {
+    pub schema_version: String,
+    pub owner_id: String,
+    pub teacher_id: String,
+    pub teacher_label: String,
+    pub college_id: String,
+    pub allowed_from: String,
+    pub allowed_through: String,
+    pub student_ids: Vec<String>,
+    pub source_namespaces: Vec<String>,
+    pub operations: Vec<OperationContract>,
+}
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TransportScope {
+    pub owner_id: String,
+    pub source_namespace: String,
+    pub teacher_id: String,
+    pub student_id: String,
+    pub date: String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OperationContract {
+    pub id: String,
+    pub source_namespace: String,
+    pub method: String,
+    pub path: String,
+    pub effect: bool,
+    pub query: Vec<TransportParameter>,
+    pub body: Vec<TransportParameter>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TransportParameter {
+    pub name: String,
+    pub value: ParameterValue,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ParameterValue {
+    Literal { value: String },
+    Scope { field: ScopeField },
+    Argument { name: String, max_bytes: usize },
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ScopeField {
+    TeacherId,
+    StudentId,
+    Date,
+}
+fn transport_refused() -> Error {
+    Error::error("native_transport_scope_refused")
+}
+fn transport_identifier(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 100
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
+}
+impl TransportAdmission {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let value: Self = serde_json::from_slice(bytes).map_err(|_| transport_refused())?;
+        value.validate()?;
+        Ok(value)
+    }
+    pub fn validate(&self) -> Result<()> {
+        if self.schema_version != "academy.transport-admission/1"
+            || !transport_identifier(&self.owner_id)
+            || crate::native::literal_key(&self.teacher_id.as_str().into()).is_err()
+            || crate::native::literal_key(&self.college_id.as_str().into()).is_err()
+            || crate::native::literal_name(&self.teacher_label.as_str().into()).is_err()
+            || !valid_date(&self.allowed_from.as_str().into())
+            || !valid_date(&self.allowed_through.as_str().into())
+            || self.allowed_from > self.allowed_through
+            || self.student_ids.is_empty()
+            || self.student_ids.len() > 200
+            || self
+                .student_ids
+                .iter()
+                .any(|id| crate::native::literal_key(&id.as_str().into()).is_err())
+            || self.source_namespaces.is_empty()
+            || self.source_namespaces.len() > 32
+            || self
+                .source_namespaces
+                .iter()
+                .any(|v| !transport_identifier(v) || !v.starts_with("academy."))
+            || self.operations.is_empty()
+            || self.operations.len() > 128
+        {
+            return Err(transport_refused());
+        }
+        for values in [&self.student_ids, &self.source_namespaces] {
+            if values
+                .iter()
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+                != values.len()
+            {
+                return Err(transport_refused());
+            }
+        }
+        let mut ids = std::collections::HashSet::new();
+        for operation in &self.operations {
+            if !ids.insert(&operation.id)
+                || !transport_identifier(&operation.id)
+                || !self.source_namespaces.contains(&operation.source_namespace)
+                || !matches!(operation.method.as_str(), "GET" | "POST")
+                || !operation.path.starts_with('/')
+                || operation.path.starts_with("//")
+                || operation.path.contains(['?', '#', '\\', '\r', '\n', '%'])
+                || operation.path.split('/').any(|v| matches!(v, "." | ".."))
+                || (operation.method == "GET" && !operation.body.is_empty())
+                || operation.query.len() + operation.body.len() > 64
+            {
+                return Err(transport_refused());
+            }
+            let mut keys = std::collections::HashSet::new();
+            for parameter in operation.query.iter().chain(&operation.body) {
+                if !transport_identifier(&parameter.name) || !keys.insert(&parameter.name) {
+                    return Err(transport_refused());
+                }
+                match &parameter.value {
+                    ParameterValue::Literal { value } if value.len() > 8192 => {
+                        return Err(transport_refused());
+                    }
+                    ParameterValue::Argument { name, max_bytes }
+                        if !transport_identifier(name) || *max_bytes == 0 || *max_bytes > 65536 =>
+                    {
+                        return Err(transport_refused());
+                    }
+                    _ => (),
+                }
+            }
+        }
+        Ok(())
+    }
+    pub fn authorize(&self, scope: &TransportScope) -> Result<()> {
+        if scope.owner_id != self.owner_id
+            || scope.teacher_id != self.teacher_id
+            || !self.student_ids.contains(&scope.student_id)
+            || !self.source_namespaces.contains(&scope.source_namespace)
+            || !valid_date(&scope.date.as_str().into())
+            || scope.date < self.allowed_from
+            || scope.date > self.allowed_through
+        {
+            Err(transport_refused())
+        } else {
+            Ok(())
+        }
+    }
+    pub(crate) fn request(
+        &self,
+        scope: &TransportScope,
+        id: &str,
+        arguments: &[(String, String)],
+        effect: bool,
+    ) -> Result<crate::http::Request> {
+        self.authorize(scope)?;
+        let operation = self
+            .operations
+            .iter()
+            .find(|op| {
+                op.id == id && op.source_namespace == scope.source_namespace && op.effect == effect
+            })
+            .ok_or_else(transport_refused)?;
+        if arguments.len() > 64
+            || arguments
+                .iter()
+                .map(|(k, _)| k)
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+                != arguments.len()
+        {
+            return Err(transport_refused());
+        }
+        let mut used = std::collections::HashSet::new();
+        let mut render = |parameters: &[TransportParameter]| -> Result<Vec<(String, String)>> {
+            parameters
+                .iter()
+                .map(|p| {
+                    let value = match &p.value {
+                        ParameterValue::Literal { value } => value.clone(),
+                        ParameterValue::Scope { field } => match field {
+                            ScopeField::TeacherId => scope.teacher_id.clone(),
+                            ScopeField::StudentId => scope.student_id.clone(),
+                            ScopeField::Date => scope.date.clone(),
+                        },
+                        ParameterValue::Argument { name, max_bytes } => {
+                            let (_, value) = arguments
+                                .iter()
+                                .find(|(k, _)| k == name)
+                                .ok_or_else(transport_refused)?;
+                            if value.len() > *max_bytes {
+                                return Err(transport_refused());
+                            }
+                            used.insert(name.clone());
+                            value.clone()
+                        }
+                    };
+                    Ok((p.name.clone(), value))
+                })
+                .collect()
+        };
+        let query = render(&operation.query)?;
+        let body = render(&operation.body)?;
+        if used.len() != arguments.len() {
+            return Err(transport_refused());
+        }
+        Ok(crate::http::Request {
+            method: operation.method.clone(),
+            path: operation.path.clone(),
+            query,
+            body,
+            headers: vec![],
+            timeout: std::time::Duration::from_secs(20),
+        })
+    }
+}

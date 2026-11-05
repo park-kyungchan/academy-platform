@@ -1,4 +1,5 @@
-//! Explicit recorded Education sources. No transport default or runtime authority.
+//! Education sources with explicit native owner inputs and bounded transport.
+//! Construction grants no runtime activation or business/source-write authority.
 #![forbid(unsafe_code)]
 pub mod data;
 pub mod dom;

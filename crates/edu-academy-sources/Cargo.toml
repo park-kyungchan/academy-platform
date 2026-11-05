@@ -22,6 +22,7 @@ swc_ecma_visit.workspace = true
 swc_ecma_regexp.workspace = true
 swc_ecma_regexp_visit.workspace = true
 url.workspace = true
+ureq.workspace = true
 
 [lints]
 workspace = true

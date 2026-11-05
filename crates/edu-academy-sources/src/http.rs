@@ -1,4 +1,4 @@
-//! Recorded HTTP compatibility. Injected transport only; no network implementation.
+//! Bounded native HTTP and recorded compatibility. No default runtime activation.
 #[path = "name_search.rs"]
 mod name_search;
 
@@ -38,11 +38,6 @@ impl Response {
             .map(|(_, v)| v.as_str())
     }
     fn text(&self) -> String {
-        if self.stalled {
-            loop {
-                std::thread::park();
-            }
-        }
         let s = String::from_utf8_lossy(&self.bytes);
         s.strip_prefix('\u{feff}').unwrap_or(&s).to_string()
     }
@@ -308,10 +303,25 @@ impl<T: Transport> Client<T> {
             headers,
             timeout: Duration::from_secs(20),
         };
-        let response = self
-            .transport
-            .dispatch(&request)
-            .map_err(|_| err("academy_transport_failed"))?;
+        let response = self.transport.dispatch(&request).map_err(|error| {
+            if matches!(
+                error.message.as_str(),
+                "native_transport_timeout"
+                    | "native_owner_credential_expired"
+                    | "native_transport_cancelled"
+            ) {
+                err(&error.message)
+            } else {
+                err("academy_transport_failed")
+            }
+        })?;
+        // Every family, including login/discovery, is bounded before parsing.
+        if response.stalled {
+            return Err(err("source_response_timeout"));
+        }
+        if response.bytes.len() > MAX_RESPONSE_BYTES {
+            return Err(err("source_response_too_large"));
+        }
         for (_, raw) in response
             .headers
             .iter()
@@ -384,6 +394,9 @@ impl<T: Transport> Client<T> {
             );
         }
         if !(200..300).contains(&response.status) {
+            if matches!(response.status, 401 | 403) {
+                self.close();
+            }
             let mut e = Error::new("AcademyHttpFailure", "source_http_failed");
             let op = operation.unwrap_or(match path {
                 "/c_login.jsp" => "login_document",
@@ -395,6 +408,58 @@ impl<T: Transport> Client<T> {
                 ("httpStatus", Js::Num(f64::from(response.status))),
             ]);
             return Err(e);
+        }
+        Ok(response)
+    }
+    pub(crate) fn scoped_request(&mut self, request: Request) -> Result<Response> {
+        if !self.authenticated {
+            return Err(err("authentication_required"));
+        }
+        let response = match self.request(
+            &request.method,
+            &request.path,
+            request.query,
+            request.body,
+            false,
+            None,
+        ) {
+            Ok(response) => response,
+            Err(error) => {
+                // Any abnormal scoped exchange permanently invalidates this
+                // session, regardless of redirect/status/cookie/size/I/O cause.
+                self.close();
+                return Err(error);
+            }
+        };
+        if self.authenticated {
+            let text = String::from_utf8_lossy(&response.bytes);
+            // Generic HTML handling must accept valid unquoted/case-insensitive
+            // attributes. The narrow name-search helper preserves a different
+            // historical wire contract and must not be broadened globally.
+            let document = Document::parse(&text);
+            let password = document.select("input").iter().any(|input| {
+                input
+                    .value()
+                    .attr("type")
+                    .is_some_and(|kind| kind.eq_ignore_ascii_case("password"))
+            });
+            let login_form = document.select("form").iter().any(|form| {
+                ["id", "name"].iter().any(|key| {
+                    form.value()
+                        .attr(key)
+                        .is_some_and(|value| value.eq_ignore_ascii_case("loginForm"))
+                })
+            });
+            if text.contains("webUserPass")
+                || text.contains("세션이 만료")
+                || text.contains("normal_session_error.jsp")
+                || text.contains("popup_session_error.jsp")
+                || password
+                || login_form
+            {
+                self.close();
+                return Err(err("authentication_required"));
+            }
         }
         Ok(response)
     }
@@ -553,12 +618,6 @@ impl<T: Transport> Client<T> {
                 return Err(e);
             }
         };
-        // Deliberately preserve legacy stalled-body lifetime: header timeout is not a body deadline.
-        if response.stalled {
-            loop {
-                std::thread::park();
-            }
-        }
         if response.bytes.len() > 2_000_000 {
             return Err(err("source_response_too_large"));
         }
@@ -3051,5 +3110,452 @@ mod xml_well_formed_tests {
         ] {
             assert_eq!(xml_record(source).unwrap(), "한글 & 😀");
         }
+    }
+}
+
+/// Upper bounds apply before encoding/dispatch and while reading the body.
+pub const MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
+pub const MAX_REQUEST_BYTES: usize = 256 * 1024;
+#[derive(Clone, Copy)]
+pub struct TransportLimits {
+    pub request_bytes: usize,
+    pub response_bytes: usize,
+    pub timeout: Duration,
+}
+impl Default for TransportLimits {
+    fn default() -> Self {
+        Self {
+            request_bytes: MAX_REQUEST_BYTES,
+            response_bytes: MAX_RESPONSE_BYTES,
+            timeout: Duration::from_secs(20),
+        }
+    }
+}
+impl TransportLimits {
+    fn validate(self) -> Result<Self> {
+        if self.request_bytes == 0
+            || self.request_bytes > MAX_REQUEST_BYTES
+            || self.response_bytes == 0
+            || self.response_bytes > MAX_RESPONSE_BYTES
+            || self.timeout.is_zero()
+            || self.timeout > Duration::from_secs(20)
+        {
+            return Err(err("native_transport_limits_invalid"));
+        }
+        Ok(self)
+    }
+}
+/// Cancellation is sticky. An in-flight blocking call ends by its overall deadline;
+/// no request worker, child process, automatic retry or persistent cookie jar exists.
+/// ureq may leave a timed-out DNS lookup thread until libc returns. It holds no
+/// credentials or account flock, cannot issue a request, and dies with the owner
+/// process. Dropping NativeSession releases the flock independently of DNS.
+#[derive(Clone, Default)]
+pub struct Cancellation(std::sync::Arc<std::sync::atomic::AtomicBool>);
+impl Cancellation {
+    pub fn cancel(&self) {
+        self.0.store(true, std::sync::atomic::Ordering::Release);
+    }
+    pub fn check(&self) -> Result<()> {
+        if self.0.load(std::sync::atomic::Ordering::Acquire) {
+            Err(err("native_transport_cancelled"))
+        } else {
+            Ok(())
+        }
+    }
+}
+/// Fixed Academy origin in production. The only alternate target is a literal
+/// loopback SocketAddr for synthetic qualification; it cannot name a remote host.
+/// No environment/proxy/credential discovery and no executable invocation.
+pub struct NativeTransport {
+    destination: url::Url,
+    limits: TransportLimits,
+    cancellation: Cancellation,
+    agent: ureq::Agent,
+    deadline: std::sync::Arc<SocketDeadline>,
+}
+impl NativeTransport {
+    pub fn new(limits: TransportLimits, cancellation: Cancellation) -> Result<Self> {
+        Self::configured(
+            url::Url::parse(ORIGIN).expect("fixed origin"),
+            limits,
+            cancellation,
+            ureq::unversioned::resolver::DefaultResolver::default(),
+        )
+    }
+    /// Resolver injection for deterministic offline timeout qualification. Origin,
+    /// certificate verification, transport bounds and no-proxy policy stay fixed.
+    pub fn with_resolver(
+        limits: TransportLimits,
+        cancellation: Cancellation,
+        resolver: impl ureq::unversioned::resolver::Resolver,
+    ) -> Result<Self> {
+        Self::configured(
+            url::Url::parse(ORIGIN).expect("fixed origin"),
+            limits,
+            cancellation,
+            resolver,
+        )
+    }
+    pub fn synthetic_loopback(
+        address: std::net::SocketAddr,
+        limits: TransportLimits,
+        cancellation: Cancellation,
+    ) -> Result<Self> {
+        if !address.ip().is_loopback() || address.port() == 0 {
+            return Err(err("synthetic_loopback_required"));
+        }
+        let destination = url::Url::parse(&format!("http://{address}"))
+            .map_err(|_| err("synthetic_loopback_required"))?;
+        Self::configured(
+            destination,
+            limits,
+            cancellation,
+            ureq::unversioned::resolver::DefaultResolver::default(),
+        )
+    }
+    fn configured(
+        destination: url::Url,
+        limits: TransportLimits,
+        cancellation: Cancellation,
+        resolver: impl ureq::unversioned::resolver::Resolver,
+    ) -> Result<Self> {
+        let limits = limits.validate()?;
+        // A fresh socket per operation removes pooled-connection replay paths.
+        // Disable library redirects: Client alone permits one login redirect.
+        let agent = ureq::Agent::config_builder()
+            .proxy(None)
+            .https_only(destination.scheme() == "https")
+            .max_redirects(0)
+            .max_redirects_will_error(false)
+            .http_status_as_error(false)
+            .max_idle_connections(0)
+            .max_idle_connections_per_host(0)
+            .max_response_header_size(16 * 1024)
+            .timeout_global(Some(limits.timeout))
+            .timeout_resolve(Some(limits.timeout))
+            .timeout_connect(Some(limits.timeout))
+            .timeout_send_request(Some(limits.timeout))
+            .timeout_send_body(Some(limits.timeout))
+            .timeout_recv_response(Some(limits.timeout))
+            .timeout_recv_body(Some(limits.timeout))
+            .build();
+        let deadline = std::sync::Arc::new(SocketDeadline {
+            at: std::sync::Mutex::new(Instant::now()),
+            cancellation: cancellation.clone(),
+        });
+        use ureq::unversioned::transport::Connector;
+        let connector = DeadlineConnector(std::sync::Arc::clone(&deadline))
+            .chain(ureq::unversioned::transport::RustlsConnector::default());
+        let agent = ureq::Agent::with_parts(agent, connector, resolver);
+        Ok(Self {
+            destination,
+            limits,
+            cancellation,
+            agent,
+            deadline,
+        })
+    }
+    fn transport_error(&self, error: ureq::Error) -> Error {
+        if self.cancellation.check().is_err() {
+            return err("native_transport_cancelled");
+        }
+        if matches!(error, ureq::Error::Timeout(_)) || self.deadline.expired() {
+            err("native_transport_timeout")
+        } else {
+            err("academy_transport_failed")
+        }
+    }
+}
+impl Transport for NativeTransport {
+    fn dispatch(&mut self, request: &Request) -> Result<Response> {
+        self.cancellation.check()?;
+        if !matches!(request.method.as_str(), "GET" | "POST")
+            || !request.path.starts_with('/')
+            || request.path.starts_with("//")
+            || request.path.contains(['?', '#', '\\', '\r', '\n'])
+            || request.timeout.is_zero()
+            || (request.method == "GET" && !request.body.is_empty())
+        {
+            return Err(err("native_transport_request_refused"));
+        }
+        let raw_size = request.path.len().saturating_add(
+            request
+                .query
+                .iter()
+                .chain(&request.body)
+                .chain(&request.headers)
+                .fold(0usize, |n, (k, v)| {
+                    n.saturating_add(k.len()).saturating_add(v.len())
+                }),
+        );
+        if raw_size > self.limits.request_bytes {
+            return Err(err("native_request_too_large"));
+        }
+        let mut url = self
+            .destination
+            .join(&request.path)
+            .map_err(|_| err("native_transport_request_refused"))?;
+        if url.origin() != self.destination.origin() || url.path() != request.path {
+            return Err(err("native_transport_request_refused"));
+        }
+        url.query_pairs_mut().extend_pairs(request.query.iter());
+        let body = url::form_urlencoded::Serializer::new(String::new())
+            .extend_pairs(request.body.iter())
+            .finish();
+        if url
+            .as_str()
+            .len()
+            .saturating_add(body.len())
+            .saturating_add(raw_size)
+            > self.limits.request_bytes
+        {
+            return Err(err("native_request_too_large"));
+        }
+        let mut builder = ureq::http::Request::builder()
+            .method(request.method.as_str())
+            .uri(url.as_str());
+        for (key, value) in &request.headers {
+            if !matches!(
+                key.to_ascii_lowercase().as_str(),
+                "origin" | "referer" | "cookie" | "content-type" | "accept" | "x-requested-with"
+            ) || value.contains(['\r', '\n'])
+            {
+                return Err(err("native_transport_header_refused"));
+            }
+            builder = builder.header(key.as_str(), value.as_str());
+        }
+        let wire = builder
+            .header("Connection", "close")
+            .body(body.as_bytes())
+            .map_err(|_| err("native_transport_request_refused"))?;
+        let started = Instant::now();
+        let timeout = self.limits.timeout.min(request.timeout);
+        self.deadline.arm(started + timeout)?;
+        let wire = self
+            .agent
+            .configure_request(wire)
+            .timeout_global(Some(timeout))
+            .build();
+        let mut response = self
+            .agent
+            .run(wire)
+            .map_err(|error| self.transport_error(error))?;
+        self.cancellation.check()?;
+        if response
+            .headers()
+            .get("content-encoding")
+            .is_some_and(|v| v != "identity")
+        {
+            return Err(err("native_content_encoding_refused"));
+        }
+        if response.headers().get("content-length").is_some_and(|v| {
+            v.to_str()
+                .ok()
+                .and_then(|v| v.parse::<u64>().ok())
+                .is_none_or(|n| n > self.limits.response_bytes as u64)
+        }) {
+            return Err(err("source_response_too_large"));
+        }
+        let status = response.status().as_u16();
+        // Keep only protocol headers. Never stringify a client error or response.
+        let headers = response
+            .headers()
+            .iter()
+            .filter(|(k, _)| matches!(k.as_str(), "set-cookie" | "location" | "content-type"))
+            .map(|(k, v)| {
+                v.to_str()
+                    .map(|v| (k.to_string(), v.to_string()))
+                    .map_err(|_| err("native_response_header_refused"))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let bytes = response
+            .body_mut()
+            .with_config()
+            .limit(self.limits.response_bytes as u64)
+            .read_to_vec()
+            .map_err(|error| {
+                if self.deadline.expired() || self.cancellation.check().is_err() {
+                    self.transport_error(error)
+                } else {
+                    err("native_response_read_failed")
+                }
+            })?;
+        self.cancellation.check()?;
+        if started.elapsed() > timeout {
+            return Err(err("source_response_timeout"));
+        }
+        Ok(Response {
+            status,
+            headers,
+            bytes,
+            url: format!("{ORIGIN}{}", request.path),
+            stalled: false,
+        })
+    }
+}
+
+/// Armed before resolution. ureq's Rustls adapter reuses relative timeouts in
+/// complete_io; this lower TCP boundary clamps every read/partial write to the
+/// remaining absolute wall time, including TLS handshake. No credential/lease.
+struct SocketDeadline {
+    at: std::sync::Mutex<Instant>,
+    cancellation: Cancellation,
+}
+impl SocketDeadline {
+    fn arm(&self, at: Instant) -> Result<()> {
+        *self
+            .at
+            .lock()
+            .map_err(|_| err("native_transport_deadline_failed"))? = at;
+        Ok(())
+    }
+    fn expired(&self) -> bool {
+        self.at.lock().map_or(true, |at| Instant::now() >= *at)
+    }
+    fn remaining(
+        &self,
+        timeout: &ureq::unversioned::transport::NextTimeout,
+    ) -> std::result::Result<Duration, ureq::Error> {
+        self.cancellation
+            .check()
+            .map_err(|_| ureq::Error::Io(std::io::Error::other("native_transport_cancelled")))?;
+        let at = *self.at.lock().map_err(|_| ureq::Error::ConnectionFailed)?;
+        let remaining = at
+            .checked_duration_since(Instant::now())
+            .filter(|value| !value.is_zero())
+            .ok_or(ureq::Error::Timeout(ureq::Timeout::Global))?;
+        Ok(timeout
+            .not_zero()
+            .map_or(remaining, |relative| remaining.min(*relative)))
+    }
+}
+struct DeadlineConnector(std::sync::Arc<SocketDeadline>);
+struct DeadlineTcp {
+    stream: std::net::TcpStream,
+    buffers: ureq::unversioned::transport::LazyBuffers,
+    deadline: std::sync::Arc<SocketDeadline>,
+}
+impl std::fmt::Debug for DeadlineConnector {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("DeadlineConnector")
+    }
+}
+impl std::fmt::Debug for DeadlineTcp {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("DeadlineTcp")
+    }
+}
+impl ureq::unversioned::transport::Connector for DeadlineConnector {
+    type Out = DeadlineTcp;
+    fn connect(
+        &self,
+        details: &ureq::unversioned::transport::ConnectionDetails,
+        _: Option<()>,
+    ) -> std::result::Result<Option<Self::Out>, ureq::Error> {
+        for address in &details.addrs {
+            let remaining = self.0.remaining(&details.timeout)?;
+            let stream = match std::net::TcpStream::connect_timeout(address, remaining) {
+                Ok(stream) => stream,
+                Err(error) if error.kind() == std::io::ErrorKind::ConnectionRefused => continue,
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                    ) =>
+                {
+                    return Err(ureq::Error::Timeout(details.timeout.reason));
+                }
+                Err(error) => return Err(error.into()),
+            };
+            self.0.remaining(&details.timeout)?;
+            stream.set_nodelay(details.config.no_delay())?;
+            return Ok(Some(DeadlineTcp {
+                stream,
+                buffers: ureq::unversioned::transport::LazyBuffers::new(
+                    details.config.input_buffer_size(),
+                    details.config.output_buffer_size(),
+                ),
+                deadline: std::sync::Arc::clone(&self.0),
+            }));
+        }
+        Err(ureq::Error::ConnectionFailed)
+    }
+}
+impl ureq::unversioned::transport::Transport for DeadlineTcp {
+    fn buffers(&mut self) -> &mut dyn ureq::unversioned::transport::Buffers {
+        &mut self.buffers
+    }
+    fn transmit_output(
+        &mut self,
+        amount: usize,
+        timeout: ureq::unversioned::transport::NextTimeout,
+    ) -> std::result::Result<(), ureq::Error> {
+        use std::io::Write;
+        use ureq::unversioned::transport::Buffers;
+        let mut offset = 0;
+        while offset < amount {
+            let remaining = self.deadline.remaining(&timeout)?;
+            self.stream.set_write_timeout(Some(remaining))?;
+            match self.stream.write(&self.buffers.output()[offset..amount]) {
+                Ok(0) => return Err(std::io::Error::from(std::io::ErrorKind::WriteZero).into()),
+                Ok(written) => offset += written,
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                    ) =>
+                {
+                    return Err(ureq::Error::Timeout(timeout.reason));
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
+        self.deadline.remaining(&timeout)?;
+        Ok(())
+    }
+    fn maybe_await_input(
+        &mut self,
+        timeout: ureq::unversioned::transport::NextTimeout,
+    ) -> std::result::Result<bool, ureq::Error> {
+        use ureq::unversioned::transport::Buffers;
+        self.deadline.remaining(&timeout)?;
+        if self.buffers.can_use_input() {
+            Ok(true)
+        } else {
+            self.await_input(timeout)
+        }
+    }
+    fn await_input(
+        &mut self,
+        timeout: ureq::unversioned::transport::NextTimeout,
+    ) -> std::result::Result<bool, ureq::Error> {
+        use std::io::Read;
+        use ureq::unversioned::transport::Buffers;
+        loop {
+            let remaining = self.deadline.remaining(&timeout)?;
+            self.stream.set_read_timeout(Some(remaining))?;
+            let amount = match self.stream.read(self.buffers.input_append_buf()) {
+                Ok(amount) => amount,
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                    ) =>
+                {
+                    return Err(ureq::Error::Timeout(timeout.reason));
+                }
+                Err(error) => return Err(error.into()),
+            };
+            self.deadline.remaining(&timeout)?;
+            self.buffers.input_appended(amount);
+            return Ok(amount > 0);
+        }
+    }
+    // Never return a socket to a pool or permit request replay.
+    fn is_open(&mut self) -> bool {
+        false
     }
 }
