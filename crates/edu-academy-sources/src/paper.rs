@@ -133,6 +133,7 @@ struct BorrowedPort<'a, P: ReadPort> {
     requests: &'a mut usize,
     daily_pages: &'a mut Vec<Js>,
     student: Option<Student>,
+    pins: &'a PaperPins,
 }
 impl<P: ReadPort> ReadPort for BorrowedPort<'_, P> {
     fn transport_admission(&self) -> &TransportAdmission {
@@ -156,7 +157,7 @@ impl<P: ReadPort> ReadPort for BorrowedPort<'_, P> {
             script_tree(&crate::dom::content(script))?;
         }
         if operation == "metadata.daily" {
-            display_text_contract(&d)?;
+            display_text_contract(&d, self.pins)?;
             for option in d.select("select[name=sort_date] option") {
                 require(
                     passive_text(option) == crate::dom::content(option),
@@ -168,7 +169,8 @@ impl<P: ReadPort> ReadPort for BorrowedPort<'_, P> {
                 .student
                 .as_ref()
                 .ok_or_else(|| Error::refusal("read_scope_not_admitted"))?;
-            self.daily_pages.push(inventory_detail(&d, student)?);
+            self.daily_pages
+                .push(inventory_detail(&d, student, self.pins)?);
         }
         Ok(response)
     }
@@ -205,6 +207,7 @@ impl<P: ReadPort> PaperSource<P> {
                 requests: &mut self.requests,
                 daily_pages: &mut self.daily_pages,
                 student,
+                pins: &self.owner.pins,
             },
             Owner::parse(&self.owner.owner_value)?,
             serde_json::from_value(
@@ -365,21 +368,23 @@ pub struct PaperPins {
     catalog: String,
     pool: String,
     converter: String,
+    stylesheet_urls: HashSet<String>,
 }
 impl PaperPins {
     pub fn parse(v: &Js) -> Result<Self> {
-        exact(
-            v,
-            &[
-                "schemaVersion",
-                "readerContext",
-                "ready",
-                "view",
-                "catalog",
-                "pool",
-                "converter",
-            ],
-        )?;
+        let mut fields = vec![
+            "schemaVersion",
+            "readerContext",
+            "ready",
+            "view",
+            "catalog",
+            "pool",
+            "converter",
+        ];
+        if v.has("stylesheetUrls") {
+            fields.push("stylesheetUrls");
+        }
+        exact(v, &fields)?;
         require(
             v.get("schemaVersion").is("academy.paper-pins/1"),
             "contract_drift",
@@ -397,7 +402,20 @@ impl PaperPins {
                 "contract_drift",
             )?;
         }
+        // Optional for existing owners: omission admits no external stylesheets.
+        // Publication belongs to R12, never to a page response or fingerprint.
+        let mut stylesheet_urls = HashSet::new();
+        if v.has("stylesheetUrls") {
+            let urls = v.get("stylesheetUrls");
+            require(array(urls) && urls.array().len() <= 64, "contract_drift")?;
+            for value in urls.array() {
+                require(value.string(), "contract_drift")?;
+                let url = stylesheet_url(&string(value))?;
+                require(stylesheet_urls.insert(url), "contract_drift")?;
+            }
+        }
         Ok(Self {
+            stylesheet_urls,
             reader_context: string(v.get("readerContext")),
             ready: string(v.get("ready")),
             view: string(v.get("view")),
@@ -528,14 +546,14 @@ fn bounded_text(value: &str, max: usize) -> Result<Js> {
 fn text_attributes_qualified(e: scraper::ElementRef<'_>) -> bool {
     let element = e.value();
     element.attrs().all(|(name, value)| {
-        // Text is qualified only by these explicit, non-presentational
-        // attributes. Unknown/legacy/future attributes are opaque by
-        // default, including their effects on descendant text.
+        // Presentation attributes are inert under the reference textContent
+        // contract. Their values never enter public text/structural projections.
         match name {
-            "id" => true,
-            "class" => value
-                .split_ascii_whitespace()
-                .all(|class| matches!(class, "test-title" | "test_title")),
+            "id" | "class" | "border" | "cellpadding" | "cellspacing" | "width" | "height"
+            | "align" | "valign" | "bgcolor" | "color" | "face" | "size" | "lang" | "dir"
+            | "nowrap" | "colspan" | "rowspan" | "background" | "title" | "hspace" | "vspace"
+            | "frame" | "rules" | "cellborder" => true,
+            "style" => css_declarations(value).is_some_and(|hiding| !hiding),
             "aria-hidden" => value.trim().eq_ignore_ascii_case("false"),
             _ => match element.name() {
                 "form" => matches!(name, "name" | "action" | "method"),
@@ -615,7 +633,6 @@ fn passive_text(e: scraper::ElementRef<'_>) -> String {
                 | "select"
                 | "option"
                 | "optgroup"
-                | "textarea"
                 | "details"
                 | "summary"
                 | "dialog"
@@ -671,19 +688,353 @@ fn document_title(d: &crate::dom::Document) -> Result<Js> {
     )?;
     bounded_text(&crate::dom::content(*title), 1000)
 }
-fn display_text_contract(d: &crate::dom::Document) -> Result<()> {
-    // This source adapter does not execute CSS. A stylesheet can hide plain
-    // descendants without attributes; never guess their computed visibility.
+// Canonical absolute URL identity, using the fixed source origin solely as a
+// base. This parses strings; it never fetches a stylesheet or follows a redirect.
+fn stylesheet_url(value: &str) -> Result<String> {
+    require(value.len() <= 4096, "contract_drift")?;
+    // All displayed source templates (VIEW_PATH and course::DAILY_PATH) are
+    // documents in /servlet/. Document-relative hrefs must use that directory,
+    // not the origin root. BASE overrides are separately refused before use.
+    let base = url::Url::parse(crate::http::ORIGIN)
+        .expect("fixed origin")
+        .join(VIEW_PATH)
+        .expect("fixed paper document path");
+    let mut url = base
+        .join(value)
+        .map_err(|_| Error::refusal("contract_drift"))?;
     require(
-        d.select("style").is_empty()
-            && !d.select("link").iter().any(|link| {
-                link.value().attr("rel").is_some_and(|rel| {
-                    rel.split_ascii_whitespace()
-                        .any(|token| token.eq_ignore_ascii_case("stylesheet"))
-                })
-            }),
+        matches!(url.scheme(), "https" | "http")
+            && url.username().is_empty()
+            && url.password().is_none(),
         "contract_drift",
-    )
+    )?;
+    url.set_fragment(None);
+    Ok(url.into())
+}
+
+// Bounded, non-recursive CSS subset. Decode escapes and remove comments before
+// classification, so spellings such as d\69splay and n/**/one cannot bypass it.
+// Unsupported grammar is opaque for an inline attribute and refuses a STYLE
+// block. No selector, URL, declaration value or stylesheet text is exported.
+fn css_source(source: &str) -> Option<String> {
+    if source.len() > 32_768 {
+        return None;
+    }
+    let mut chars = source.chars().peekable();
+    let mut result = String::new();
+    while let Some(c) = chars.next() {
+        if c == '/' && chars.peek() == Some(&'*') {
+            chars.next();
+            let mut closed = false;
+            while let Some(c) = chars.next() {
+                if c == '*' && chars.peek() == Some(&'/') {
+                    chars.next();
+                    closed = true;
+                    break;
+                }
+            }
+            if !closed {
+                return None;
+            }
+        } else if c == '\\' {
+            let mut hex = String::new();
+            while hex.len() < 6 && chars.peek().is_some_and(char::is_ascii_hexdigit) {
+                hex.push(chars.next()?);
+            }
+            if hex.is_empty() {
+                let escaped = chars.next()?;
+                if escaped.is_control() {
+                    return None;
+                }
+                result.push(escaped);
+            } else {
+                let decoded = char::from_u32(u32::from_str_radix(&hex, 16).ok()?)?;
+                if decoded.is_control() {
+                    return None;
+                }
+                result.push(decoded);
+                if chars.peek().is_some_and(char::is_ascii_whitespace) {
+                    chars.next();
+                }
+            }
+        } else if c.is_ascii_control() && !c.is_ascii_whitespace() {
+            return None;
+        } else {
+            result.push(c);
+        }
+    }
+    Some(result.to_ascii_lowercase())
+}
+fn css_declarations(source: &str) -> Option<bool> {
+    css_declarations_decoded(&css_source(source)?)
+}
+fn css_declarations_decoded(source: &str) -> Option<bool> {
+    // Quoted/function values can contain separators. Unsupported separators
+    // conservatively make the chain unqualified instead of guessing CSS.
+    let mut depth = 0_usize;
+    let mut quote = None;
+    let mut start = 0;
+    let mut hiding = false;
+    let mut count = 0;
+    for (i, c) in source
+        .char_indices()
+        .chain(std::iter::once((source.len(), ';')))
+    {
+        if let Some(q) = quote {
+            if c == q {
+                quote = None;
+            }
+            if i == source.len() {
+                return None;
+            }
+            continue;
+        }
+        match c {
+            '\'' | '"' => quote = Some(c),
+            '(' => {
+                depth += 1;
+                if depth > 16 {
+                    return None;
+                }
+            }
+            ')' => {
+                depth = depth.checked_sub(1)?;
+            }
+            '{' | '}' | '@' | '\\' => return None,
+            ';' if depth == 0 => {
+                let declaration = source[start..i].trim();
+                start = i.saturating_add(1);
+                if declaration.is_empty() {
+                    continue;
+                }
+                count += 1;
+                if count > 1024 {
+                    return None;
+                }
+                let (property, raw) = declaration.split_once(':')?;
+                let property = property.trim();
+                if property.is_empty()
+                    || !property
+                        .bytes()
+                        .all(|c| c.is_ascii_alphabetic() || c == b'-')
+                {
+                    return None;
+                }
+                let raw = raw.trim();
+                let value = raw.strip_suffix("important").map_or(Some(raw), |v| {
+                    v.trim_end().strip_suffix('!').map(str::trim_end)
+                })?;
+                if value.is_empty() || value.contains('!') {
+                    return None;
+                }
+                hiding |= css_hiding(property, value)?;
+            }
+            _ => {}
+        }
+    }
+    if depth != 0 || quote.is_some() {
+        return None;
+    }
+    Some(hiding)
+}
+fn css_number(value: &str) -> Option<f64> {
+    let end = value
+        .find(|c: char| !(c.is_ascii_digit() || matches!(c, '.' | '-' | '+')))
+        .unwrap_or(value.len());
+    let (number, unit) = value.split_at(end);
+    if !unit.bytes().all(|c| c.is_ascii_alphabetic() || c == b'%') {
+        return None;
+    }
+    let n: f64 = number.parse().ok()?;
+    n.is_finite().then_some(n)
+}
+fn css_hiding(property: &str, value: &str) -> Option<bool> {
+    let compact = value.split_ascii_whitespace().collect::<String>();
+    if ["var(", "env(", "attr(", "calc("]
+        .iter()
+        .any(|token| compact.contains(token))
+    {
+        return None;
+    }
+    Some(match property {
+        "display" => value == "none",
+        "visibility" => matches!(value, "hidden" | "collapse"),
+        "content-visibility" => value == "hidden",
+        "opacity" | "font-size" => {
+            if let Some(number) = css_number(value) {
+                number <= 0.0
+            } else if matches!(
+                value,
+                "inherit"
+                    | "initial"
+                    | "unset"
+                    | "revert"
+                    | "small"
+                    | "medium"
+                    | "large"
+                    | "smaller"
+                    | "larger"
+            ) {
+                false
+            } else {
+                return None;
+            }
+        }
+        "color" => css_color_hiding(value)?,
+        "font" => {
+            // The size in a font shorthand is the first dimension before its
+            // optional /line-height. Weight/variant words are not dimensions.
+            let size = value.split_ascii_whitespace().find_map(|token| {
+                let dimension = token.split('/').next()?;
+                let number = css_number(dimension)?;
+                // Numeric weight (100..900) precedes the size in a shorthand.
+                (dimension.ends_with('%')
+                    || dimension.bytes().any(|c| c.is_ascii_alphabetic())
+                    || number == 0.0)
+                    .then_some(number)
+            });
+            match size {
+                Some(number) => number <= 0.0,
+                None => return None,
+            }
+        }
+        "clip" | "clip-path" => {
+            if value == "auto" || value == "none" {
+                false
+            } else if compact.starts_with("rect(")
+                || compact.starts_with("inset(")
+                || compact.starts_with("circle(")
+            {
+                let args = value.split_once('(')?.1.strip_suffix(')')?;
+                let numbers = args
+                    .split(|c: char| c == ',' || c.is_ascii_whitespace())
+                    .filter(|s| !s.is_empty())
+                    .map(css_number)
+                    .collect::<Option<Vec<_>>>()?;
+                match compact.split_once('(')?.0 {
+                    "rect" if numbers.len() == 4 => {
+                        numbers[1] <= numbers[3] || numbers[2] <= numbers[0]
+                    }
+                    "circle" if numbers.len() == 1 => numbers[0] <= 0.0,
+                    "inset" if (1..=4).contains(&numbers.len()) => {
+                        let (top, right, bottom, left) = match numbers.as_slice() {
+                            [all] => (*all, *all, *all, *all),
+                            [vertical, horizontal] => {
+                                (*vertical, *horizontal, *vertical, *horizontal)
+                            }
+                            [top, horizontal, bottom] => (*top, *horizontal, *bottom, *horizontal),
+                            [top, right, bottom, left] => (*top, *right, *bottom, *left),
+                            _ => return None,
+                        };
+                        // Unit conversion is deliberately not inferred. The
+                        // standard zero and percentage empty forms are opaque.
+                        numbers.iter().all(|v| *v == 0.0)
+                            || (args.contains('%')
+                                && (top + bottom >= 100.0 || left + right >= 100.0))
+                    }
+                    _ => return None,
+                }
+            } else {
+                return None;
+            }
+        }
+        "left" | "right" | "top" | "bottom" | "text-indent" => {
+            if matches!(value, "auto" | "inherit" | "initial" | "unset" | "revert") {
+                false
+            } else {
+                css_number(value)?.abs() >= 1000.0
+            }
+        }
+        // Expressions affecting hiding are not evaluated by this static reader.
+        "transform" | "translate" => {
+            if value == "none" {
+                false
+            } else {
+                return None;
+            }
+        }
+        _ => false,
+    })
+}
+fn css_color_hiding(value: &str) -> Option<bool> {
+    if value == "transparent" {
+        return Some(true);
+    }
+    if let Some(hex) = value.strip_prefix('#') {
+        if !matches!(hex.len(), 3 | 4 | 6 | 8) || !hex.bytes().all(|c| c.is_ascii_hexdigit()) {
+            return None;
+        }
+        return Some(hex.len() == 4 && hex.ends_with('0') || hex.len() == 8 && hex.ends_with("00"));
+    }
+    if let Some((name, args)) = value.split_once('(') {
+        if !matches!(
+            name,
+            "rgb" | "rgba" | "hsl" | "hsla" | "hwb" | "lab" | "lch" | "oklab" | "oklch" | "color"
+        ) {
+            return None;
+        }
+        let args = args.strip_suffix(')')?;
+        let alpha = if let Some((_, alpha)) = args.split_once('/') {
+            if alpha.contains('/') {
+                return None;
+            }
+            Some(alpha.trim())
+        } else if args.split(',').count() == 4 {
+            args.rsplit(',').next().map(str::trim)
+        } else {
+            None
+        };
+        return alpha.map_or(Some(false), |alpha| css_number(alpha).map(|v| v <= 0.0));
+    }
+    value
+        .bytes()
+        .all(|c| c.is_ascii_alphabetic() || c == b'-')
+        .then_some(false)
+}
+fn stylesheet_hiding(source: &str) -> Option<bool> {
+    let decoded = css_source(source)?;
+    let mut remaining = decoded.trim();
+    let mut hiding = false;
+    let mut count = 0;
+    while !remaining.is_empty() {
+        count += 1;
+        if count > 1024 {
+            return None;
+        }
+        let (selector, tail) = remaining.split_once('{')?;
+        if selector.trim().is_empty() || selector.contains(['@', '}', ';']) {
+            return None;
+        }
+        let (declarations, rest) = tail.split_once('}')?;
+        hiding |= css_declarations_decoded(declarations)?;
+        remaining = rest.trim();
+    }
+    Some(hiding)
+}
+fn display_text_contract(d: &crate::dom::Document, pins: &PaperPins) -> Result<()> {
+    for style in d.select("style") {
+        require(
+            stylesheet_hiding(&crate::dom::content(style)) == Some(false),
+            "contract_drift",
+        )?;
+    }
+    for link in d.select("link") {
+        if link.value().attr("rel").is_some_and(|rel| {
+            rel.split_ascii_whitespace()
+                .any(|t| t.eq_ignore_ascii_case("stylesheet"))
+        }) {
+            require(d.select("base[href]").is_empty(), "contract_drift")?;
+            let href = link
+                .value()
+                .attr("href")
+                .ok_or_else(|| Error::refusal("contract_drift"))?;
+            require(
+                pins.stylesheet_urls.contains(&stylesheet_url(href)?),
+                "contract_drift",
+            )?;
+        }
+    }
+    Ok(())
 }
 fn normalized(e: scraper::ElementRef<'_>) -> String {
     passive_text(e)
@@ -1162,7 +1513,7 @@ impl<P: ReadPort> PaperSource<P> {
         ];
         let text = self.read_page(scope, id, args)?;
         let information = if view {
-            inspect_header(&text, &key)?
+            inspect_header(&text, &key, &self.owner.pins)?
         } else {
             parse_definition(&text)?
         };
@@ -1185,7 +1536,7 @@ impl<P: ReadPort> PaperSource<P> {
                 "paper.content",
                 vec![("p_testno".into(), string(&key))],
             )?;
-            let header = inspect_header(&child, &key)?;
+            let header = inspect_header(&child, &key, &self.owner.pins)?;
             require(
                 header.get("frames").array().is_empty(),
                 "printed_paper_frame_unqualified",
@@ -1629,6 +1980,7 @@ fn converter(source: &str) -> Result<Js> {
     let mut functions = obj(&[]);
     let mut names = std::collections::BTreeSet::new();
     let mut alphabets = std::collections::BTreeSet::new();
+    let mut opaque_functions = vec![];
     for n in crate::script::walk(&ast)? {
         let name = if n.kind == "Property"
             && n.children
@@ -1642,25 +1994,32 @@ fn converter(source: &str) -> Result<Js> {
             None
         };
         if let Some(name) = name {
-            let lower = name.to_ascii_lowercase();
-            if lower.contains("code") || lower.contains("key") || lower.contains("32") {
+            // These are the only source-backed semantic names. A source pin
+            // grants integrity, not permission to export arbitrary identifiers.
+            if matches!(name.as_str(), "codeToKey" | "keyToCode") {
                 names.insert(name.clone());
-                if ["codeToKey", "keyToCode"].contains(&name.as_str()) || name.contains("32") {
-                    require(
-                        !functions.has(&name) && n.end - n.start <= 10_000,
-                        "printed_code_program_ambiguous",
-                    )?;
-                    functions.set(
-                        &name,
-                        obj(&[
-                            (
-                                "sourceSha256",
-                                hash(&source.as_bytes()[n.start..n.end]).into(),
-                            ),
-                            ("classification", "inert_source_not_executed".into()),
-                        ]),
-                    );
-                }
+                require(
+                    !functions.has(&name) && n.end - n.start <= 10_000,
+                    "printed_code_program_ambiguous",
+                )?;
+                functions.set(
+                    &name,
+                    obj(&[
+                        (
+                            "sourceSha256",
+                            hash(&source.as_bytes()[n.start..n.end]).into(),
+                        ),
+                        ("classification", "inert_source_not_executed".into()),
+                    ]),
+                );
+            } else {
+                opaque_functions.push(obj(&[
+                    ("nameSha256", hash(name.as_bytes()).into()),
+                    (
+                        "sourceSha256",
+                        hash(&source.as_bytes()[n.start..n.end]).into(),
+                    ),
+                ]));
             }
         }
         if let Some(Js::Str(ref u)) = n.scalar()
@@ -1669,19 +2028,30 @@ fn converter(source: &str) -> Result<Js> {
                 .all(|c| (*c as u8).is_ascii_alphanumeric() && *c < 128)
             && u.iter().collect::<HashSet<_>>().len() == 32
         {
-            alphabets.insert(String::from_utf16(u).expect("ASCII"));
+            alphabets.insert(hash(String::from_utf16(u).expect("ASCII").as_bytes()));
         }
     }
     Ok(obj(&[
         ("sourceSha256", hash(source.as_bytes()).into()),
         ("functions", functions),
+        ("opaqueFunctions", Js::Arr(opaque_functions)),
         (
             "relatedFunctionNames",
             Js::Arr(names.iter().map(|n| n.as_str().into()).collect()),
         ),
         (
             "alphabetCandidates",
-            Js::Arr(alphabets.iter().map(|n| n.as_str().into()).collect()),
+            Js::Arr(
+                alphabets
+                    .iter()
+                    .map(|digest| {
+                        obj(&[
+                            ("sourceSha256", digest.as_str().into()),
+                            ("classification", "opaque_alphabet_candidate".into()),
+                        ])
+                    })
+                    .collect(),
+            ),
         ),
         ("sourceHandlersExecuted", false.into()),
     ]))
@@ -1823,20 +2193,20 @@ pub fn parse_definition(source: &str) -> Result<Js> {
         ("studentScore", "unobserved".into()),
     ]))
 }
-fn inspect_header(source: &str, key: &Js) -> Result<Js> {
+fn inspect_header(source: &str, key: &Js, pins: &PaperPins) -> Result<Js> {
     use crate::dom;
     require(
         source.len() <= 2_000_000,
         "printed_paper_view_response_limit",
     )?;
     let d = document(source)?;
-    display_text_contract(&d)?;
     // A document base can change even root-relative frame URLs to a foreign
     // origin. Fixed dispatch must not qualify a different observed resource.
     require(
         d.select("base[href]").is_empty(),
         "printed_paper_frame_unqualified",
     )?;
+    display_text_contract(&d, pins)?;
     let echoes = d.select("input[name=p_testno]");
     require(echoes.len() <= 1, "dailytest_header_identity_conflict")?;
     for input in echoes {
@@ -1996,7 +2366,7 @@ impl<P: ReadPort> PaperSource<P> {
             "contract_drift",
         )?;
         let d = document(&html)?;
-        display_text_contract(&d)?;
+        display_text_contract(&d, &self.owner.pins)?;
         let forms = d.select("form[name=form1]");
         require(
             forms.len() == 1
@@ -2031,7 +2401,7 @@ impl<P: ReadPort> PaperSource<P> {
             ],
         )?;
         let selected = document(&text)?;
-        display_text_contract(&selected)?;
+        display_text_contract(&selected, &self.owner.pins)?;
         let echoes = selected.select("[name=frm_cl1]");
         require(
             echoes.len() <= 1 && echoes.iter().all(|e| crate::dom::value(*e) == grade),
@@ -2295,8 +2665,8 @@ fn append_inventory_detail(page: &mut Js, detail: &Js) {
         page.set(field, detail.get(field).clone());
     }
 }
-fn inventory_detail(d: &crate::dom::Document, student: &Student) -> Result<Js> {
-    display_text_contract(d)?;
+fn inventory_detail(d: &crate::dom::Document, student: &Student, pins: &PaperPins) -> Result<Js> {
+    display_text_contract(d, pins)?;
     use crate::dom;
     let page = inert_page(d)?;
     let mut controls = vec![];

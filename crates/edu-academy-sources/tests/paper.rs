@@ -2425,7 +2425,7 @@ fn review_visible_text_excludes_hidden_and_unqualified_visibility_contexts() {
                 "5-1 Visible<span aria-hidden=TRUE>SYNTHETIC_SECRET</span>",
                 "5-1 Visible<span inert>SYNTHETIC_SECRET</span>",
                 "5-1 Visible<span style='display: none !important'>SYNTHETIC_SECRET</span>",
-                "5-1 Visible<span class=unknown>SYNTHETIC_SECRET</span>",
+                "5-1 Visible<span class=unknown hidden>SYNTHETIC_SECRET</span>",
                 "5-1 Visible<dialog>SYNTHETIC_SECRET</dialog>",
                 "5-1 Visible<span popover>SYNTHETIC_SECRET</span>",
                 "5-1 Visible<canvas>SYNTHETIC_SECRET</canvas>",
@@ -2553,12 +2553,15 @@ fn review_display_text_requires_safe_per_tag_attributes_by_default() {
                 ("", "5-1 Visible<title>SYNTHETIC_SECRET</title>"),
                 (
                     "bgcolor=white",
-                    "5-1 <font color=white>SYNTHETIC_SECRET</font>",
+                    "5-1 <font color=white hidden>SYNTHETIC_SECRET</font>",
                 ),
-                ("", "5-1 Visible<font color=white>SYNTHETIC_SECRET</font>"),
                 (
                     "",
-                    "5-1 Visible<span background=opaque>SYNTHETIC_SECRET</span>",
+                    "5-1 Visible<font color=white hidden>SYNTHETIC_SECRET</font>",
+                ),
+                (
+                    "",
+                    "5-1 Visible<span background=opaque hidden>SYNTHETIC_SECRET</span>",
                 ),
                 (
                     "",
@@ -2646,6 +2649,857 @@ fn review_document_title_is_separate_unambiguous_head_metadata() {
                 "contract_drift",
             );
             assert_eq!(count.get(), 3);
+        }
+    }
+}
+
+// FIX-1: independently reconstructed review matrices; synthetic source only.
+fn fix1_source(
+    scope: PaperScope,
+    replies: Vec<(&str, String)>,
+    stylesheets: &[&str],
+    catalog_page: &str,
+    pool_page: &str,
+    program: &str,
+    shell: &str,
+) -> (PaperSource<Fake>, Rc<Cell<usize>>) {
+    let pins = PaperPins::parse(&obj(&[
+        ("schemaVersion", "academy.paper-pins/1".into()),
+        (
+            "readerContext",
+            paper::reader_context_fingerprint(shell).unwrap().into(),
+        ),
+        (
+            "ready",
+            hash(b"function(){return 'fictional-ready';}").into(),
+        ),
+        ("view", hash(b"function(){return 'fictional-view';}").into()),
+        (
+            "catalog",
+            paper::contract_fingerprint(catalog_page).unwrap().into(),
+        ),
+        (
+            "pool",
+            paper::contract_fingerprint(pool_page).unwrap().into(),
+        ),
+        ("converter", hash(program.as_bytes()).into()),
+        ("stylesheetUrls", strings(stylesheets)),
+    ]))
+    .unwrap();
+    let owner = PaperOwner::parse(
+        scope,
+        &routes(),
+        &owner_value(scope),
+        &policy_value(scope),
+        &remap_js(form_value(), scope),
+        pins,
+    )
+    .unwrap();
+    let (port, count, _) = fake(scope, replies);
+    (
+        PaperSource::new(port, owner, admission(scope)).unwrap(),
+        count,
+    )
+}
+fn fix1_page(scope: PaperScope, family: &str, body: &str, stylesheets: &[&str]) -> Result<Js> {
+    let replies = match family {
+        "header" | "batch" => vec![
+            ("metadata.paper.initial", reader_shell(scope)),
+            ("paper.header", header("3")),
+            ("paper.content", body.into()),
+        ],
+        "inventory" => vec![("metadata.daily", body.into())],
+        "definitions" => vec![
+            ("paper.catalog", catalog()),
+            ("paper.definitions", body.into()),
+        ],
+        _ => panic!("unknown synthetic family"),
+    };
+    let (mut src, count) = fix1_source(
+        scope,
+        replies,
+        stylesheets,
+        &catalog(),
+        &pool(),
+        &converter_program(),
+        &reader_shell(scope),
+    );
+    let mut q = input(scope);
+    let (tool, expected_requests) = match family {
+        "header" => {
+            q = paper_input(scope);
+            q.set("view", "header".into());
+            ("academy_paper_definition_lookup", 3)
+        }
+        "batch" => {
+            q.set("paperCodes", strings(&["#5"]));
+            ("academy_paper_headers", 3)
+        }
+        "inventory" => ("academy_daily_test_inventory", 1),
+        _ => {
+            q.set("kind", "middle1_definitions".into());
+            q.set("unitCodes", strings(&["5-1"]));
+            ("academy_source_read_contracts", 2)
+        }
+    };
+    let result = call(&mut src, tool, &q);
+    assert_eq!(count.get(), expected_requests);
+    if result.is_err() {
+        assert_code(
+            call(&mut src, "academy_daily_test_inventory", &input(scope)),
+            "source_failure_latched_no_retry",
+        );
+        assert_eq!(count.get(), expected_requests);
+    }
+    result
+}
+fn fix1_bytes(result: &Result<Js>) -> String {
+    match result {
+        Ok(v) => json(v),
+        Err(e) => format!("{} {}", e.message, json(&e.properties)),
+    }
+}
+fn fix1_evidence(name: &str, records: &[Js]) {
+    if let Ok(root) = std::env::var("E09B_FIX1_EVIDENCE") {
+        std::fs::write(
+            std::path::Path::new(&root).join(format!("{name}.json")),
+            json(&Js::Arr(records.to_vec())),
+        )
+        .unwrap();
+    }
+}
+fn fix1_decorate(body: &str, variant: &str) -> String {
+    let mut body = body.to_owned();
+    let (html, head, attrs) = match variant {
+        "plain" => ("", "", ""),
+        "known-heading-class" => {
+            body = body.replace("<h1>", "<h1 class=test-title>");
+            ("", "", "")
+        }
+        "table-border" => {
+            body = body.replace("<table>", "<table border=1>");
+            ("", "", "")
+        }
+        "table-padding" => {
+            body = body.replace("<table>", "<table cellpadding=2 cellspacing=0>");
+            ("", "", "")
+        }
+        "table-width" => {
+            body = body.replace("<table>", "<table width='100%'>");
+            ("", "", "")
+        }
+        "cell-align" => {
+            body = body.replace("<td>", "<td align=center>");
+            ("", "", "")
+        }
+        "body-inline-style" => ("", "", "style='font-family:sans-serif'"),
+        "body-class" => ("", "", "class=main-content"),
+        "html-lang" => ("lang=ko", "", ""),
+        "external-stylesheet" | "unpinned-link" => {
+            ("", "<link rel=stylesheet href='/fictional.css'>", "")
+        }
+        "inline-stylesheet" => (
+            "",
+            "<style>table {border-collapse:collapse} th {font-weight:bold}</style>",
+            "",
+        ),
+        "hiding-stylesheet" => ("", "<style>td{display:none}</style>", ""),
+        "body-bgcolor" => ("", "", "bgcolor='#ffffff'"),
+        _ => panic!("unknown synthetic presentation"),
+    };
+    format!(
+        "<!doctype html><html {html}><head><title>NORMAL_DOCUMENT</title>{head}</head><body {attrs}>{body}</body></html>"
+    )
+}
+#[test]
+fn fix1_usefulness_72_cases_and_explicit_stylesheet_refusals() {
+    let variants = [
+        "plain",
+        "known-heading-class",
+        "table-border",
+        "table-padding",
+        "table-width",
+        "cell-align",
+        "body-inline-style",
+        "body-class",
+        "html-lang",
+        "external-stylesheet",
+        "inline-stylesheet",
+        "body-bgcolor",
+    ];
+    let mut records = vec![];
+    let mut totals = [0_usize; 12];
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for (index, variant) in variants.iter().enumerate() {
+            for family in ["header", "inventory", "definitions"] {
+                let (body, wanted) = match family {
+                    "header" => ("<h1>NORMAL_HEADING</h1><table><tr><th>시험지 제목</th><td>NORMAL_PAPER_TITLE</td></tr><tr><th>총 문제수</th><td>12 NORMAL_COUNT</td></tr></table>".into(), vec!["NORMAL_DOCUMENT", "NORMAL_HEADING", "NORMAL_PAPER_TITLE", "12 NORMAL_COUNT", "시험지 제목", "총 문제수"]),
+                    "inventory" => (daily(scope, vec![row("77001", "Fictional One", "3", "81001")])+"<table><tr id=fictional-row><td>NORMAL_DT_TITLE</td><td>100 NORMAL_SCORE</td></tr></table>", vec!["NORMAL_DT_TITLE", "100 NORMAL_SCORE", if scope == PaperScope::Paper1 {"Fictional One"} else {"Fictional Two"}, "Fictional source title", "Recent", "Fictional 11", "Fictional 12", "Fictional 13", "Fictional 14", "Fictional 15", "Fictional 16"]),
+                    _ => ("<table><tr><td>5-1 NORMAL_DEFINITION</td><td>12 NORMAL_ITEMS</td></tr></table>".into(), vec!["5-1 NORMAL_DEFINITION", "12 NORMAL_ITEMS", "[22개정] 중1"]),
+                };
+                let output = fix1_page(
+                    scope,
+                    family,
+                    &fix1_decorate(&body, variant),
+                    &["/assets/../fictional.css#owner-pin"],
+                )
+                .unwrap();
+                let bytes = json(&output);
+                let kept = wanted.iter().filter(|text| bytes.contains(**text)).count();
+                assert_eq!(kept, wanted.len(), "{variant}/{family}");
+                totals[index] += kept;
+                records.push(obj(&[
+                    ("scope", scope.as_str().into()),
+                    ("variant", (*variant).into()),
+                    ("family", family.into()),
+                    ("expected", wanted.len().into()),
+                    ("kept", kept.into()),
+                ]));
+                if *variant == "plain" {
+                    for refusing in ["unpinned-link", "hiding-stylesheet"] {
+                        assert_code(
+                            fix1_page(scope, family, &fix1_decorate(&body, refusing), &[]),
+                            "contract_drift",
+                        );
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(records.len(), 72);
+    assert_eq!(totals, [40; 12]);
+    fix1_evidence("usefulness-72", &records);
+}
+#[test]
+fn fix1_css_hiding_declarations_and_conservative_grammar() {
+    let hiding = [
+        "display:none",
+        "DISPLAY : n\\6f ne !important",
+        "d\\69splay:n/**/one",
+        "visibility:hidden",
+        "visibility:collapse",
+        "content-visibility:hidden",
+        "opacity:0",
+        "opacity:0.00%",
+        "font-size:0px",
+        "clip:rect(0px,0px,0px,0px)",
+        "clip-path:circle(0px)",
+        "clip-path:inset(50%)",
+        "position:absolute;left:-10000px",
+        "position:fixed;top:-9999em",
+        "text-indent:-9999px",
+        "color:transparent",
+        "position:absolute;clip:rect(0px,0px,100px,0px)",
+        "font:0px serif",
+        "font:100 0px serif",
+        "color:rgba(255,0,0,0)",
+        "color:#1230",
+        "color:rgb(0 0 0 / 0)",
+        "position:absolute;left:100000px",
+    ];
+    let invalid = [
+        "not a declaration",
+        "display:var(--private)",
+        "color:red;broken",
+        "color:red;/*",
+        "display:none;{",
+        "opacity:calc(1 - 1)",
+        "font-size:0px!important!important",
+    ];
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for css in hiding.iter().chain(invalid.iter()) {
+            let body = format!(
+                "<h1>Visible<span style='{css}'>CSS_PRIVATE_VALUE</span></h1><table><tr id=fictional-row><td>5-1 Visible<span style='{css}'>CSS_PRIVATE_VALUE</span></td><td>12</td></tr></table>"
+            );
+            for family in ["header", "inventory", "definitions"] {
+                let body = if family == "inventory" {
+                    daily(scope, vec![row("77001", "Fictional One", "3", "81001")]) + &body
+                } else {
+                    body.clone()
+                };
+                let output = fix1_page(scope, family, &body, &[]).unwrap();
+                assert!(!json(&output).contains("CSS_PRIVATE_VALUE"), "{family}");
+                assert!(json(&output).contains("Visible"));
+                let blocked = format!("<style>h1{{{css}}}</style>{body}");
+                assert_code(fix1_page(scope, family, &blocked, &[]), "contract_drift");
+            }
+        }
+        for css in [
+            "font-size:12px;color:#123456",
+            "font-family:sans-serif; border:1px solid black",
+            "display:block;visibility:visible;opacity:1",
+            "width:100%;height:auto",
+            "/*safe*/ color: red !important",
+        ] {
+            let body = format!(
+                "<style>table{{{css}}}</style><h1 style='{css}'>SAFE_STYLE_TEXT</h1><table><tr id=fictional-row><td style='{css}'>5-1 SAFE_STYLE_TEXT</td><td>12</td></tr></table>"
+            );
+            for family in ["header", "inventory", "definitions"] {
+                let body = if family == "inventory" {
+                    daily(scope, vec![row("77001", "Fictional One", "3", "81001")]) + &body
+                } else {
+                    body.clone()
+                };
+                let output = fix1_page(scope, family, &body, &[]).unwrap();
+                assert!(json(&output).contains("SAFE_STYLE_TEXT"));
+                assert!(!json(&output).contains(css));
+            }
+        }
+    }
+}
+#[test]
+fn fix1_textarea_values_opaque_at_every_text_position_and_copy() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for value in ["TEXTAREA_PRIVATE_VALUE", "&#84;EXTAREA_PRIVATE_VALUE"] {
+            for payload in [
+                format!("<h1>Visible<textarea name=private>{value}</textarea></h1>"),
+                format!("<textarea name=private><h1>{value}</h1></textarea>"),
+                format!("<textarea name=private>{value}</textarea>"),
+            ] {
+                let body = format!(
+                    "<h1>Visible</h1><table><tr id=fictional-row><th>시험지 제목</th><td>5-1 Visible{payload}</td></tr></table>"
+                );
+                for family in ["header", "inventory", "definitions", "batch"] {
+                    let body = if family == "inventory" {
+                        daily(scope, vec![row("77001", "Fictional One", "3", "81001")]) + &body
+                    } else {
+                        body.clone()
+                    };
+                    let output = fix1_page(scope, family, &body, &[]).unwrap();
+                    assert!(!json(&output).contains("TEXTAREA_PRIVATE_VALUE"));
+                    assert!(json(&output).contains("Visible"));
+                }
+            }
+        }
+    }
+}
+#[test]
+fn fix1_converter_semantic_names_are_exact_and_every_other_name_is_opaque() {
+    let mut records = vec![];
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        let program = converter_program()
+            + "function REVIEW_CANARY_key_32(n){return n;}function codeToKey_REVIEW_CANARY(n){return n;}const x={REVIEW_CANARY_key32:function(n){return n;}};const candidate='0123456789ABCDEFGHIJKLMNOPQRSTUV';";
+        let (mut src, count) = fix1_source(
+            scope,
+            vec![("paper.converter", program.clone())],
+            &[],
+            &catalog(),
+            &pool(),
+            &program,
+            &reader_shell(scope),
+        );
+        let mut q = input(scope);
+        q.set("kind", "printed_code".into());
+        let output = call(&mut src, "academy_source_read_contracts", &q).unwrap();
+        assert_eq!(count.get(), 1);
+        assert!(!json(&output).contains("REVIEW_CANARY"));
+        assert!(!json(&output).contains("0123456789ABCDEFGHIJKLMNOPQRSTUV"));
+        assert!(json(&output).contains("codeToKey"));
+        assert!(json(&output).contains("keyToCode"));
+        records.push(obj(&[
+            ("scope", scope.as_str().into()),
+            ("accepted", true.into()),
+            ("disclosure", false.into()),
+        ]));
+    }
+    fix1_evidence("converter-canary", &records);
+}
+
+#[test]
+fn fix1_canary_matrix_8484_attributes_and_hidden_values() {
+    let attrs = [
+        "id",
+        "class",
+        "title",
+        "lang",
+        "dir",
+        "hidden",
+        "inert",
+        "aria-label",
+        "aria-hidden",
+        "data-secret",
+        "style",
+        "color",
+        "bgcolor",
+        "background",
+        "width",
+        "height",
+        "align",
+        "valign",
+        "border",
+        "cellpadding",
+        "cellspacing",
+        "nowrap",
+        "name",
+        "value",
+        "href",
+        "src",
+        "srcdoc",
+        "onclick",
+        "onload",
+        "action",
+        "method",
+        "form",
+        "type",
+        "placeholder",
+        "label",
+        "selected",
+        "checked",
+        "disabled",
+        "readonly",
+        "contenteditable",
+        "slot",
+        "part",
+        "popover",
+        "data-x",
+        "xmlns",
+    ];
+    let tags = [
+        "h1", "div", "span", "font", "table", "tr", "td", "th", "a", "form", "select", "option",
+        "textarea", "button", "details", "dialog", "svg", "math", "template", "iframe", "input",
+        "link", "script", "img", "object", "embed", "audio", "video", "canvas", "noscript",
+        "title",
+    ];
+    let mut records = vec![];
+    let mut admitted = 0;
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for tag in tags {
+            for attr in attrs {
+                let canary = format!("FIX1_PRIVATE_{}_{}", tag, attr.replace('-', "_"));
+                let element = format!("<{tag} {attr}='{canary}'>SAFE_VISIBLE</{tag}>");
+                let payload = match tag {
+                    "td" | "th" => format!("<table><tr>{element}</tr></table>"),
+                    "tr" => {
+                        format!("<table><tr {attr}='{canary}'><td>SAFE_VISIBLE</td></tr></table>")
+                    }
+                    _ => element,
+                };
+                for family in ["header", "inventory", "definitions"] {
+                    let body = format!(
+                        "<h1>VISIBLE_CONTROL</h1><table><tr><th>시험지 제목</th><td>5-1 VISIBLE_CONTROL {payload}</td></tr></table>"
+                    );
+                    let body = if family == "inventory" {
+                        daily(scope, vec![]) + &body
+                    } else {
+                        body
+                    };
+                    let output = fix1_page(scope, family, &body, &[]);
+                    admitted += usize::from(output.is_ok());
+                    assert!(
+                        !fix1_bytes(&output).contains(&canary),
+                        "{tag}/{attr}/{family}"
+                    );
+                    records.push(obj(&[
+                        ("scope", scope.as_str().into()),
+                        ("case", format!("{tag}/{attr}").into()),
+                        ("family", family.into()),
+                        ("accepted", output.is_ok().into()),
+                        ("confirmedDisclosure", false.into()),
+                    ]));
+                }
+            }
+        }
+        let values = [
+            ("hidden-root", "<h1 hidden>FIX1_TEXT_VALUE</h1>"),
+            (
+                "hidden-ancestor",
+                "<div hidden><h1>FIX1_TEXT_VALUE</h1></div>",
+            ),
+            (
+                "aria-hidden",
+                "<div aria-hidden=true><h1>FIX1_TEXT_VALUE</h1></div>",
+            ),
+            ("inert", "<div inert><h1>FIX1_TEXT_VALUE</h1></div>"),
+            ("script", "<script>const a='FIX1_TEXT_VALUE';</script>"),
+            ("style", "<style>/*FIX1_TEXT_VALUE*/</style>"),
+            ("template", "<template><h1>FIX1_TEXT_VALUE</h1></template>"),
+            ("comment", "<!--FIX1_TEXT_VALUE-->"),
+            ("cdata", "<![CDATA[FIX1_TEXT_VALUE]]>"),
+            ("svg-title", "<svg><title>FIX1_TEXT_VALUE</title></svg>"),
+            (
+                "svg-foreign",
+                "<svg><foreignObject><h1>FIX1_TEXT_VALUE</h1></foreignObject></svg>",
+            ),
+            // HTML5 reparents this H1 into the ordinary visible HTML TD.
+            (
+                "math-repair-visible-control",
+                "<math><annotation-xml encoding='text/html'><h1>FIX1_TEXT_VALUE</h1></annotation-xml></math>",
+            ),
+            (
+                "encoded-hidden",
+                "<h1 aria-hidden='tr&#117;e'>FIX1_TEXT_VALUE</h1>",
+            ),
+            // FIX-1(a) explicitly makes this presentation-only text exportable.
+            (
+                "inert-presentation-visible-control",
+                "<h1 color=white>FIX1_TEXT_VALUE</h1>",
+            ),
+            (
+                "textarea-value",
+                "<h1><textarea name=private_note>FIX1_TEXT_VALUE</textarea></h1>",
+            ),
+            (
+                "textarea-encoded",
+                "<h1><textarea name=private_note>&#70;IX1_TEXT_VALUE</textarea></h1>",
+            ),
+            (
+                "malformed-hidden",
+                "<div hidden><table><h1>FIX1_TEXT_VALUE</table></div>",
+            ),
+            ("unknown-tag", "<unknown><h1>FIX1_TEXT_VALUE</h1></unknown>"),
+            (
+                "hidden-details",
+                "<details><summary>FIX1_TEXT_VALUE</summary></details>",
+            ),
+        ];
+        for (case, payload) in values {
+            for family in ["header", "inventory", "definitions"] {
+                let body = format!(
+                    "<h1>VISIBLE_CONTROL</h1><table><tr id=fictional-row><th>시험지 제목</th><td>5-1 VISIBLE_CONTROL {payload}</td></tr></table>"
+                );
+                let body = if family == "inventory" {
+                    daily(scope, vec![row("77001", "Fictional One", "3", "81001")]) + &body
+                } else {
+                    body
+                };
+                let output = fix1_page(scope, family, &body, &[]);
+                admitted += usize::from(output.is_ok());
+                let visible_control = case.ends_with("visible-control");
+                let present = fix1_bytes(&output).contains("FIX1_TEXT_VALUE");
+                assert_eq!(present, visible_control, "{case}/{family}");
+                records.push(obj(&[
+                    ("scope", scope.as_str().into()),
+                    ("case", case.into()),
+                    ("family", family.into()),
+                    ("accepted", output.is_ok().into()),
+                    ("visibleControl", visible_control.into()),
+                    ("confirmedDisclosure", false.into()),
+                ]));
+            }
+        }
+    }
+    assert_eq!(records.len(), 8484);
+    assert!(
+        admitted >= 8200,
+        "matrix must actually admit ordinary pages"
+    );
+    fix1_evidence("canary-8484", &records);
+}
+#[test]
+fn fix1_inert_canary_matrix_120_cases() {
+    let attrs = [
+        "id",
+        "class",
+        "title",
+        "style",
+        "color",
+        "bgcolor",
+        "background",
+        "data-secret",
+        "name",
+        "value",
+        "href",
+        "src",
+        "onclick",
+        "onload",
+        "action",
+        "method",
+        "type",
+        "placeholder",
+        "label",
+        "form",
+    ];
+    let mut records = vec![];
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for attr in attrs {
+            let canary = format!("FIX1_INERT_{}", attr.replace('-', "_"));
+            let payload = format!(
+                "<div {attr}='{canary}'><form name='{canary}' action='/{canary}' method=post><input name='{canary}' value='{canary}'><textarea name='{canary}'>{canary}</textarea><select name='{canary}'><option value='{canary}'>{canary}</option></select><a href='/{canary}' onclick='{canary}()'>SAFE</a></form></div><script>function {canary}(){{return '{canary}';}}</script>"
+            );
+            for family in ["catalog", "pool", "shell"] {
+                let shell = reader_shell(scope) + if family == "shell" { &payload } else { "" };
+                let cat = catalog() + if family == "catalog" { &payload } else { "" };
+                let pool_page = pool() + if family == "pool" { &payload } else { "" };
+                let replies = if family == "catalog" {
+                    vec![("paper.catalog", cat.clone())]
+                } else {
+                    vec![
+                        ("metadata.paper.initial", shell.clone()),
+                        ("paper.pool", pool_page.clone()),
+                    ]
+                };
+                let (mut src, count) = fix1_source(
+                    scope,
+                    replies,
+                    &[],
+                    &cat,
+                    &pool_page,
+                    &converter_program(),
+                    &shell,
+                );
+                let mut q = input(scope);
+                let tool = if family == "catalog" {
+                    q.set("kind", "daily_test_catalog".into());
+                    "academy_source_read_contracts"
+                } else {
+                    "academy_paper_read_contracts"
+                };
+                let output = call(&mut src, tool, &q).unwrap();
+                assert_eq!(count.get(), if family == "catalog" { 1 } else { 2 });
+                assert!(!json(&output).contains(&canary));
+                records.push(obj(&[
+                    ("scope", scope.as_str().into()),
+                    ("case", attr.into()),
+                    ("family", family.into()),
+                    ("accepted", true.into()),
+                    ("confirmedDisclosure", false.into()),
+                ]));
+            }
+        }
+    }
+    assert_eq!(records.len(), 120);
+    fix1_evidence("inert-canary-120", &records);
+}
+#[test]
+fn fix1_copy_canary_matrix_8_cases() {
+    let mut records = vec![];
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        let c = "FIX1_COPIED_PRIVATE";
+        let mut record = row("77001", "Fictional One", "3", "81001");
+        record.set("_id", c.into());
+        record.set("privatePayload", c.into());
+        let (mut src, count, _) = source(
+            scope,
+            vec![
+                ("metadata.paper.initial", remap(&paper_form(), scope)),
+                (
+                    "metadata.paper.search.1",
+                    remap(&(principal() + &result(vec![record.clone()])), scope),
+                ),
+            ],
+        );
+        let printed = call(
+            &mut src,
+            "academy_printed_paper_lookup",
+            &printed_input(scope),
+        )
+        .unwrap();
+        assert_eq!(count.get(), 2);
+        assert!(!json(&printed).contains(c));
+        let page = daily(scope, vec![record])
+            + &format!(
+                "<table><tr id='{c}'><td>SAFE_DISPLAY</td><td><span hidden>{c}</span></td></tr></table>"
+            );
+        let (mut src, count, _) = source(
+            scope,
+            vec![("metadata.daily", page.clone()), ("metadata.daily", page)],
+        );
+        let mut q = input(scope);
+        q.set("periods", strings(&["11"]));
+        let history = call(&mut src, "academy_daily_test_inventory", &q).unwrap();
+        assert_eq!(count.get(), 2);
+        assert!(!json(&history).contains(c));
+        let (mut src, count, _) = source(
+            scope,
+            vec![
+                ("metadata.paper.initial", reader_shell(scope)),
+                (
+                    "paper.definition",
+                    definition_xml().replace("HIDDEN_FILE_LOCATION", c),
+                ),
+            ],
+        );
+        let definition = call(
+            &mut src,
+            "academy_paper_definition_lookup",
+            &paper_input(scope),
+        )
+        .unwrap();
+        assert_eq!(count.get(), 2);
+        assert!(!json(&definition).contains(c));
+        let page = format!(
+            "<h1>SAFE_HEADING</h1><table><tr><th>시험지 제목</th><td><textarea name=private_note>{c}</textarea></td></tr></table>"
+        );
+        let batch = fix1_page(scope, "batch", &page, &[]).unwrap();
+        assert!(!json(&batch).contains(c));
+        for family in [
+            "printed",
+            "daily-history",
+            "definition-xml",
+            "header-batch-textarea",
+        ] {
+            records.push(obj(&[
+                ("scope", scope.as_str().into()),
+                ("family", family.into()),
+                ("accepted", true.into()),
+                ("confirmedDisclosure", false.into()),
+            ]));
+        }
+    }
+    assert_eq!(records.len(), 8);
+    fix1_evidence("copy-canary-8", &records);
+}
+#[test]
+fn fix1_native_history_accepts_harmless_styles_and_preserves_child_hash() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for presentation in [
+            "<style>h1{font-weight:bold}</style>",
+            "<link rel=stylesheet href='/fictional.css'>",
+        ] {
+            let child = presentation.to_owned() + &content_header();
+            let (src, count) = fix1_source(
+                scope,
+                vec![
+                    ("metadata.paper.initial", reader_shell(scope)),
+                    ("paper.header", header("3")),
+                    ("paper.content", child.clone()),
+                ],
+                &["/fictional.css"],
+                &catalog(),
+                &pool(),
+                &converter_program(),
+                &reader_shell(scope),
+            );
+            let id = input(scope).get("studentId").clone();
+            let name: Js = if scope == PaperScope::Paper1 {
+                "Fictional One"
+            } else {
+                "Fictional Two"
+            }
+            .into();
+            let mut history = edu_academy_sources::history::History::new(
+                NativeHistoryLoan {
+                    source: src,
+                    fail: false,
+                },
+                obj(&[("teacherId", admission(scope).teacher_id.into())]),
+                policy_value(scope),
+                vec![obj(&[
+                    ("studentId", id.clone()),
+                    ("displayName", name.clone()),
+                ])],
+                vec![name],
+                vec![id.clone()],
+            )
+            .unwrap();
+            let output = history
+                .headers(&obj(&[("studentId", id), ("paperCodes", strings(&["#5"]))]))
+                .unwrap();
+            assert_eq!(count.get(), 3);
+            assert_eq!(
+                output.get("observation").get("rows").array()[0]
+                    .get("contentHeader")
+                    .get("sourceSha256"),
+                &hash(child.as_bytes()).into()
+            );
+            assert!(!json(&output).contains("NEVER_EXPORT_QUESTION"));
+            assert!(json(&output).contains("Fictional title"));
+        }
+    }
+}
+
+#[test]
+fn fix1_stylesheet_owner_publication_is_bounded_canonical_and_not_response_learned() {
+    fn pin_value(urls: Js) -> Js {
+        obj(&[
+            ("schemaVersion", "academy.paper-pins/1".into()),
+            ("readerContext", hash(b"shell").into()),
+            ("ready", hash(b"ready").into()),
+            ("view", hash(b"view").into()),
+            ("catalog", hash(b"catalog").into()),
+            ("pool", hash(b"pool").into()),
+            ("converter", hash(b"converter").into()),
+            ("stylesheetUrls", urls),
+        ])
+    }
+    for invalid in [
+        Js::Null,
+        "url".into(),
+        Js::Arr(vec![Js::Null]),
+        strings(&["/fictional.css", "/assets/../fictional.css#same"]),
+        strings(&["javascript:opaque"]),
+        strings(&["https://user:pass@fictional.invalid/style.css"]),
+        strings(&[&"x".repeat(4097)]),
+        Js::Arr(vec!["/fictional.css".into(); 65]),
+    ] {
+        assert!(PaperPins::parse(&pin_value(invalid)).is_err());
+    }
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for href in [
+            "/fictional.css",
+            "/assets/../fictional.css#page",
+            &format!("{}/fictional.css#page", http::ORIGIN),
+        ] {
+            let body =
+                format!("<link rel='alternate StyleSheet' href='{href}'><h1>VISIBLE_PINNED</h1>");
+            assert!(
+                json(&fix1_page(scope, "header", &body, &["/fictional.css"]).unwrap())
+                    .contains("VISIBLE_PINNED")
+            );
+            assert_code(fix1_page(scope, "header", &body, &[]), "contract_drift");
+        }
+        for body in [
+            "<link rel=stylesheet><h1>Visible</h1>",
+            "<link rel=stylesheet href=fictional.css><h1>Visible</h1>",
+            "<link rel=stylesheet href='/other.css'><h1>Visible</h1>",
+            "<base href='https://fictional.invalid/'><link rel=stylesheet href='/fictional.css'><h1>Visible</h1>",
+        ] {
+            assert_code(
+                fix1_page(
+                    scope,
+                    "definitions",
+                    &format!("{body}<table><tr><td>5-1 Visible</td><td>12</td></tr></table>"),
+                    &["/fictional.css"],
+                ),
+                "contract_drift",
+            );
+        }
+    }
+}
+#[test]
+fn fix1_presentation_and_hidden_style_apply_to_roots_ancestors_and_descendants() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for attribute in [
+            "border",
+            "cellpadding",
+            "cellspacing",
+            "width",
+            "height",
+            "align",
+            "valign",
+            "bgcolor",
+            "color",
+            "face",
+            "size",
+            "lang",
+            "dir",
+            "class",
+            "id",
+            "nowrap",
+            "background",
+        ] {
+            let body = format!(
+                "<div {attribute}=ATTR_PRIVATE><h1 {attribute}=ATTR_PRIVATE>Visible</h1><table {attribute}=ATTR_PRIVATE><tr id=fictional-row><td {attribute}=ATTR_PRIVATE>5-1 Visible<span {attribute}=ATTR_PRIVATE> Content</span></td><td>12</td></tr></table></div>"
+            );
+            for family in ["header", "inventory", "definitions"] {
+                let body = if family == "inventory" {
+                    daily(scope, vec![row("77001", "Fictional One", "3", "81001")]) + &body
+                } else {
+                    body.clone()
+                };
+                let bytes = json(&fix1_page(scope, family, &body, &[]).unwrap());
+                assert!(bytes.contains("Visible"));
+                assert!(!bytes.contains("ATTR_PRIVATE"));
+            }
+        }
+        for body in [
+            "<h1 style='display:none'>HIDDEN_CSS_VALUE</h1><h1>Visible</h1>",
+            "<div style='opacity:0'><h1>HIDDEN_CSS_VALUE</h1></div><h1>Visible</h1>",
+            "<h1>Visible<span style='visibility:hidden'>HIDDEN_CSS_VALUE</span></h1>",
+        ] {
+            let output = fix1_page(scope, "header", body, &[]).unwrap();
+            assert!(!json(&output).contains("HIDDEN_CSS_VALUE"));
+            assert!(json(&output).contains("Visible"));
         }
     }
 }
