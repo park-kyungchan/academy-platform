@@ -1419,13 +1419,77 @@ fn normalized(e: scraper::ElementRef<'_>) -> String {
         .collect::<Vec<_>>()
         .join(" ")
 }
-fn document(html: &str) -> Result<crate::dom::Document> {
+// Bound repeated text/visibility work across all projections before selecting
+// any output roots. One iterative tree pass charges node depth, text bytes and
+// attribute bytes in both ancestor and descendant directions. Thus many
+// overlapping roots cannot multiply an otherwise admitted document unchecked.
+fn document_projection_work(d: &scraper::Html, budget: usize) -> Result<()> {
+    let mut work = 0usize;
+    let mut pending = d
+        .tree
+        .root()
+        .children()
+        .rev()
+        .map(|node| (node, 1usize, 0usize))
+        .collect::<Vec<_>>();
+    while let Some((node, depth, ancestor_weight)) = pending.pop() {
+        let own_weight = match node.value() {
+            scraper::node::Node::Element(e) => e.attrs().fold(1usize, |weight, (name, value)| {
+                weight
+                    .saturating_add(name.len())
+                    .saturating_add(value.len())
+                    .saturating_add(1)
+            }),
+            scraper::node::Node::Text(text) => 1usize.saturating_add(text.len()),
+            // Comment contents are never read by display-text traversal; retain
+            // the existing two-million-unit inert-comment positive control.
+            _ => 1,
+        };
+        work = work.saturating_add(
+            depth
+                .saturating_mul(own_weight)
+                .saturating_add(ancestor_weight),
+        );
+        require(work <= budget, "paper_document_limit")?;
+        let ancestor_weight = ancestor_weight.saturating_add(own_weight);
+        pending.extend(
+            node.children()
+                .rev()
+                .map(|node| (node, depth.saturating_add(1), ancestor_weight)),
+        );
+    }
+    Ok(())
+}
+fn document_preflight(html: &str) -> Result<()> {
     require(
         html.len() <= 8_000_000 && html.encode_utf16().count() <= 2_000_000,
         "paper_source_size_limit",
     )?;
+    // Conservative source grammar bound before HTML parsing/raw-location
+    // binding, including markers inside comments/strings. Counting bytes is
+    // not another HTML parser and cannot miss an actual markup opener.
+    require(
+        html.bytes().filter(|b| *b == b'<').take(4097).count() <= 4096,
+        "paper_document_limit",
+    )?;
+    {
+        // Reuse the native HTML5 parser for a tree-only preflight. Reject costly
+        // shapes before Document's raw-location binding or any text projection.
+        // Qualified input is then parsed by the unchanged source-location owner.
+        let tree = scraper::Html::parse_document(html);
+        require(
+            tree.select(&scraper::Selector::parse("*").expect("fixed selector"))
+                .count()
+                <= 20_000,
+            "paper_document_limit",
+        )?;
+        document_projection_work(&tree, 1_000_000)?;
+    }
+    Ok(())
+}
+fn document(html: &str) -> Result<crate::dom::Document> {
+    document_preflight(html)?;
     let d = crate::dom::Document::parse(html);
-    require(d.select("*").len() <= 20_000, "paper_document_limit")?;
     require(
         !d.select("input").iter().any(|e| {
             e.value()
@@ -1647,7 +1711,19 @@ impl<P: ReadPort> PaperSource<P> {
         self.transport.request(scope, id, &args, false)?;
         require(self.requests < 256, "paper_request_budget_exceeded")?;
         self.requests += 1;
-        course::response_text(self.port.read(scope, id, &args)?)
+        let response = self.port.read(scope, id, &args)?;
+        // The existing response validator owns status/UTF-8/auth semantics, but
+        // also binds raw HTML locations. Preflight its qualified input first;
+        // preserve the existing error precedence for invalid transport input.
+        if response.status == 200
+            && !response.stalled
+            && response.bytes.len() <= 8_000_000
+            && let Ok(html) = std::str::from_utf8(&response.bytes)
+            && html.encode_utf16().count() <= 2_000_000
+        {
+            document_preflight(html)?;
+        }
+        course::response_text(response)
     }
     fn shell(&mut self, student: &Student, date: &str) -> Result<crate::dom::Document> {
         let scope = self.owner.owner.scope(student, date, course::METADATA_NS);
@@ -2596,10 +2672,12 @@ fn inspect_header(source: &str, key: &Js, pins: &PaperPins) -> Result<Js> {
             "dailytest_header_identity_conflict",
         )?;
     }
+    let heading_nodes =
+        d.select("h1,h2,h3,h4,h5,h6,.test-title,.test_title,#testTitle,#test-title");
+    require(heading_nodes.len() <= 64, "printed_paper_view_header_limit")?;
     let mut headings = vec![];
-    for node in d.select("h1,h2,h3,h4,h5,h6,.test-title,.test_title,#testTitle,#test-title") {
+    for node in heading_nodes {
         let value = normalized(node);
-        require(headings.len() < 64, "printed_paper_view_header_limit")?;
         let value = bounded_text(&value, 1000)?;
         if !value.units().is_empty() && !headings.contains(&value) {
             headings.push(value);
@@ -3257,6 +3335,27 @@ mod css_tests {
             )
             .unwrap();
         }
+    }
+
+    #[test]
+    fn document_projection_work_has_exact_and_composed_bounds() {
+        let plain = crate::dom::Document::parse("<div>X</div>");
+        assert!(document_projection_work(&plain.tree, 23).is_ok());
+        assert!(document_projection_work(&plain.tree, 22).is_err());
+        let attribute = crate::dom::Document::parse("<div class=x>X</div>");
+        assert!(document_projection_work(&attribute.tree, 51).is_ok());
+        assert!(document_projection_work(&attribute.tree, 50).is_err());
+        assert!(document_projection_work(&attribute.tree, 52).is_ok());
+        // Large inherited style text is charged for every potential descendant
+        // re-read, even when that CSS contains only otherwise harmless comments.
+        let large_attribute = crate::dom::Document::parse(&format!(
+            "<div style='/*{}*/'>{}</div>",
+            "a".repeat(4000),
+            "<span>X</span>".repeat(1000)
+        ));
+        assert!(document_projection_work(&large_attribute.tree, 1_000_000).is_err());
+        assert!(document(&"<!--".repeat(4096)).is_ok());
+        assert!(document(&"<!--".repeat(4097)).is_err());
     }
 
     #[test]

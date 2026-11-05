@@ -3779,3 +3779,68 @@ fn fix2_security_stylesheet_work_is_bounded_across_the_document() {
         }
     }
 }
+
+#[test]
+fn fix2_security_raw_heading_occurrences_and_projection_work_are_bounded() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for family in ["header", "batch"] {
+            for (payload, admitted) in [
+                (
+                    "<div class=test-title>OCCURRENCE_VISIBLE</div>".repeat(64),
+                    true,
+                ),
+                (
+                    "<div class=test-title>OCCURRENCE_VISIBLE</div>".repeat(65),
+                    false,
+                ),
+                ("<div class=test-title></div>".repeat(65), false),
+                (
+                    "<div class=test-title hidden>OPAQUE</div>".repeat(65),
+                    false,
+                ),
+                (
+                    format!(
+                        "{}X{}",
+                        "<div class=test-title>".repeat(65),
+                        "</div>".repeat(65)
+                    ),
+                    false,
+                ),
+            ] {
+                let output = fix1_page(scope, family, &payload, &[]);
+                if admitted {
+                    assert!(json(&output.unwrap()).contains("OCCURRENCE_VISIBLE"));
+                } else {
+                    assert_code(output, "printed_paper_view_header_limit");
+                }
+            }
+        }
+    }
+    // The reported shape stays below the original byte/element caps. It must
+    // fail at the shared work preflight before any overlapping text walk.
+    let payload = format!(
+        "{}X{}",
+        "<div class=test-title border=1 cellpadding=2 cellspacing=0 width=100%>".repeat(19_990),
+        "</div>".repeat(19_990)
+    );
+    let scope = PaperScope::Paper1;
+    let (mut src, count, _) = source(
+        scope,
+        vec![
+            ("metadata.paper.initial", reader_shell(scope)),
+            ("paper.header", payload),
+        ],
+    );
+    let mut q = paper_input(scope);
+    q.set("view", "header".into());
+    assert_code(
+        call(&mut src, "academy_paper_definition_lookup", &q),
+        "paper_document_limit",
+    );
+    assert_eq!(count.get(), 2);
+    assert_code(
+        call(&mut src, "academy_daily_test_inventory", &input(scope)),
+        "source_failure_latched_no_retry",
+    );
+    assert_eq!(count.get(), 2);
+}
