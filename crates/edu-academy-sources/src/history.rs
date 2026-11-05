@@ -49,13 +49,55 @@ fn instant(v: &Js) -> Result<Js> {
     )?;
     Ok(v.clone())
 }
+/// Opaque native observation. Only the qualified source reader can construct it;
+/// transport/session authority and question bodies are never exported with it.
+pub struct QualifiedHeader {
+    teacher_id: String,
+    raw: Js,
+    source_sha256: String,
+}
+impl QualifiedHeader {
+    pub(crate) fn from_page(
+        scope: &crate::owner_admission::TransportScope,
+        code: &Js,
+        rows: &Js,
+        source: &str,
+        now: &str,
+    ) -> Result<Self> {
+        let paper = decode_code(code)?;
+        require(source.len() <= 2_000_000, "source_headers_read_failed")?;
+        Ok(Self {
+            teacher_id: scope.teacher_id.clone(),
+            raw: obj(&[
+                ("studentId", scope.student_id.as_str().into()),
+                ("paperKey", paper),
+                ("paperCode", code.clone()),
+                ("metadataRows", rows.clone()),
+                ("observedAt", now.into()),
+            ]),
+            source_sha256: hash(source.as_bytes()),
+        })
+    }
+}
 /// Explicit source boundary. Implementations own authentication/transport and must
 /// return the actual dated rows, raw embedded DT list and raw header observation.
-/// This task provides finite fictional ports only; no live implementation exists.
+/// Native header loans expose their immutable admission before construction.
+/// Historical raw ports remain available for synthetic compatibility.
 pub trait Port {
     fn dated_students(&mut self, input: &Js) -> Result<Js>;
     fn daily_page(&mut self, student: &Js, selector: &Js) -> Result<Js>;
     fn paper_header(&mut self, student: &Js, paper_code: &Js) -> Result<Js>;
+    /// None declares the original raw capability, not a failed native read.
+    fn paper_admission(&self) -> Option<&crate::owner_admission::TransportAdmission> {
+        None
+    }
+    fn qualified_paper_header(
+        &mut self,
+        _student: &Js,
+        _paper_code: &Js,
+    ) -> Option<Result<QualifiedHeader>> {
+        None
+    }
 }
 /// Separately admitted source loan. Private fields prevent request arguments from
 /// replacing its namespace policy, managed-name set or paper-student scope.
@@ -159,6 +201,16 @@ impl<P: Port> History<P> {
         }
         for s in &paper_students {
             key(s)?;
+        }
+        if let Some(native) = port.paper_admission() {
+            native.validate()?;
+            crate::student_course::require(
+                native.teacher_id == string(p.get("teacherId"))
+                    && paper_students
+                        .iter()
+                        .all(|id| native.student_ids.contains(&string(id))),
+                "native_metadata_scope_refused",
+            )?;
         }
         Ok(Self {
             port,
@@ -312,7 +364,19 @@ impl<P: Port> History<P> {
         let mut rows = vec![];
         for code in input.get("paperCodes").array() {
             self.requests += 1;
-            let raw = self.port.paper_header(input.get("studentId"), code)?;
+            let (raw, native_hash) = if self.port.paper_admission().is_some() {
+                let header = self
+                    .port
+                    .qualified_paper_header(input.get("studentId"), code)
+                    .ok_or_else(|| Error::refusal("source_headers_read_failed"))??;
+                crate::student_course::require(
+                    header.teacher_id == string(self.metadata_admission.get("teacherId")),
+                    "native_metadata_scope_refused",
+                )?;
+                (header.raw, Some(header.source_sha256))
+            } else {
+                (self.port.paper_header(input.get("studentId"), code)?, None)
+            };
             let expected = decode_code(code)?;
             require(
                 raw.get("paperKey") == &expected
@@ -332,10 +396,16 @@ impl<P: Port> History<P> {
                     }),
                 "source_headers_read_failed",
             )?;
-            // Hash the raw source text, never a reserialized projected header.
-            require(raw.get("sourceText").string(), "source_headers_read_failed")?;
-            let source_text = String::from_utf16(raw.get("sourceText").units())
-                .map_err(|_| Error::error("source_headers_read_failed"))?;
+            // Native loans already hash the exact raw response at its qualified
+            // source boundary. Never hash a reserialized header projection.
+            let source_sha256 = if let Some(hash) = native_hash {
+                hash
+            } else {
+                require(raw.get("sourceText").string(), "source_headers_read_failed")?;
+                let source_text = String::from_utf16(raw.get("sourceText").units())
+                    .map_err(|_| Error::error("source_headers_read_failed"))?;
+                hash(source_text.as_bytes())
+            };
             rows.push(obj(&[
                 ("status", "observed".into()),
                 ("paperCode", code.clone()),
@@ -344,7 +414,7 @@ impl<P: Port> History<P> {
                 (
                     "contentHeader",
                     obj(&[
-                        ("sourceSha256", hash(source_text.as_bytes()).into()),
+                        ("sourceSha256", source_sha256.into()),
                         (
                             "metadataRows",
                             Js::Arr(
@@ -476,4 +546,29 @@ pub fn decode_code(code: &Js) -> Result<Js> {
         "unsafe_printed_paper_key",
     )?;
     Ok(value.to_string().into())
+}
+
+/// Canonical display conversion only; it grants no paper/student lookup authority.
+pub fn encode_code(value: &Js) -> Result<Js> {
+    let key = crate::data::string(value);
+    if !value.string()
+        || !(1..=16).contains(&key.len())
+        || key.starts_with('0')
+        || !key.bytes().all(|b| b.is_ascii_digit())
+    {
+        return Err(Error::refusal("invalid_printed_paper_key"));
+    }
+    let mut number: u64 = key.parse().expect("validated decimal grammar");
+    if number > 9_007_199_254_740_991 {
+        return Err(Error::refusal("unsafe_printed_paper_key"));
+    }
+    let alphabet = b"23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+    let mut digits = Vec::new();
+    while number > 0 {
+        digits.push(alphabet[(number % 32) as usize]);
+        number /= 32;
+    }
+    digits.reverse();
+    let digits = String::from_utf8(digits).expect("ASCII alphabet");
+    Ok(format!("#{digits}").into())
 }

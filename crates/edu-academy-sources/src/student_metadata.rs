@@ -321,7 +321,7 @@ impl PaperFormPin {
         }
         Ok(Self { value: v.clone() })
     }
-    fn verify(&self, d: &Document) -> Result<()> {
+    pub(crate) fn verify(&self, d: &Document) -> Result<()> {
         let forms = d.select("form[name=search]");
         require(forms.len() == 1, "contract_drift")?;
         let form = forms[0];
@@ -1090,7 +1090,7 @@ const METADATA_MAX_DEPTH: usize = 32;
 const METADATA_MAX_SCRIPT_TOKENS: usize = 256;
 const METADATA_MAX_JSON_VALUES: usize = 100_000;
 
-fn metadata_script_budget(source: &str) -> Result<()> {
+pub(crate) fn metadata_script_budget(source: &str) -> Result<()> {
     use swc_common::BytePos;
     use swc_ecma_ast::EsVersion;
     use swc_ecma_parser::{StringInput, Syntax, lexer::Lexer};
@@ -1141,7 +1141,7 @@ fn metadata_script_budget(source: &str) -> Result<()> {
     require(delimiters.is_empty(), "metadata_parser_resource_limit")
 }
 
-fn metadata_json_budget(source: &str) -> Result<()> {
+pub(crate) fn metadata_json_budget(source: &str) -> Result<()> {
     let mut depth = 0usize;
     let mut values = 0usize;
     let mut quoted = false;
