@@ -587,12 +587,7 @@ fn uncertain_effect_fences_repeated_and_reopened_sessions_until_actual_readback(
     assert_eq!(server.finish().len(), 4);
     drop(owner);
     let mut replies = login();
-    replies.extend([
-        reply("/synthetic/read", "Before"),
-        reply("/synthetic/read", "After"),
-        reply("/synthetic/write", "accepted"),
-        reply("/synthetic/read", "After again"),
-    ]);
+    replies.push(reply("/synthetic/read", "Before"));
     let server = Server::new(replies);
     let mut owner = NativeSession::open(
         root.root(),
@@ -609,6 +604,31 @@ fn uncertain_effect_fences_repeated_and_reopened_sessions_until_actual_readback(
     wrong.source_namespace = "academy.lms.dayrecord".into();
     assert!(owner.reconcile(&wrong, "dayread", &[]).is_err());
     assert!(owner.reconcile(&scope, "read", &[]).is_err());
+    assert!(owner.reconciliation_required().unwrap());
+    assert_eq!(
+        owner.reconcile(&scope, "read", &[]).err().unwrap().message,
+        "native_owner_session_expired"
+    );
+    assert_eq!(server.finish().len(), 4);
+    drop(owner);
+    // A rejected readback closes the session. Only a new owner may authenticate
+    // and reconcile the retained fence; the failed session never retries.
+    let mut replies = login();
+    replies.extend([
+        reply("/synthetic/read", "After"),
+        reply("/synthetic/write", "accepted"),
+        reply("/synthetic/read", "After again"),
+    ]);
+    let server = Server::new(replies);
+    let mut owner = NativeSession::open(
+        root.root(),
+        policy(),
+        server.transport(),
+        credentials,
+        Cancellation::default(),
+        &clock,
+    )
+    .unwrap();
     assert!(owner.reconciliation_required().unwrap());
     assert_eq!(
         owner.reconcile(&scope, "read", &[]).unwrap().bytes,
@@ -629,7 +649,7 @@ fn uncertain_effect_fences_repeated_and_reopened_sessions_until_actual_readback(
         b"After again"
     );
     assert!(!owner.reconciliation_required().unwrap());
-    assert_eq!(server.finish().len(), 7);
+    assert_eq!(server.finish().len(), 6);
 }
 #[test]
 fn account_child() {
@@ -1515,5 +1535,219 @@ fn fix2_live_login_redirect_reuses_the_single_authenticated_session() {
             .filter(|line| line.ends_with("/c_login.jsp"))
             .count(),
         1
+    );
+}
+
+#[test]
+fn review_source_login_redirect_closes_before_later_reads_or_effect_consumption() {
+    for location in [
+        "/c_login.jsp",
+        "/normal_session_error.jsp",
+        "/popup_session_error.jsp",
+    ] {
+        let fixture = Fixture::new();
+        let clock = Clock(Cell::new(1000));
+        let mut replies = login();
+        let mut redirect = reply("/synthetic/read", "");
+        redirect.status = 302;
+        redirect.headers.push(("Location".into(), location.into()));
+        replies.push(redirect);
+        let server = Server::new(replies);
+        let mut owner = session(&fixture, &clock, &server);
+        assert!(owner.read(&scope(), "read", &[]).is_err());
+        assert_eq!(
+            owner.read(&scope(), "read", &[]).err().unwrap().message,
+            "native_owner_session_expired"
+        );
+        let scope = scope();
+        let after = vec![("after".into(), "After".into())];
+        let expected = hash(b"After");
+        let intent = effect(&scope, &after, &expected);
+        let action = owner.effect_action(&intent).unwrap();
+        let source = hash(b"Synthetic inspected source");
+        let (mut store, envelope) = attribution_fixture(&action, &source);
+        let mut proof = EffectAttribution::new(&envelope, &source, &mut store).unwrap();
+        assert_eq!(
+            owner.effect(intent, &mut proof).err().unwrap().message,
+            "native_owner_session_expired"
+        );
+        assert_eq!(store.transactions, 0);
+        assert!(store.consumed.is_empty());
+        assert!(!owner.reconciliation_required().unwrap());
+        assert_eq!(server.finish().len(), 4);
+    }
+}
+
+struct AbnormalResponses {
+    responses: std::collections::VecDeque<Result<Response>>,
+    calls: Rc<Cell<usize>>,
+}
+fn synthetic_response(reply: Reply) -> Response {
+    Response {
+        status: reply.status,
+        headers: reply.headers,
+        bytes: reply.body,
+        url: format!("{}{}", edu_academy_sources::http::ORIGIN, reply.path),
+        stalled: false,
+    }
+}
+impl Transport for AbnormalResponses {
+    fn dispatch(&mut self, _: &Request) -> Result<Response> {
+        self.calls.set(self.calls.get() + 1);
+        self.responses
+            .pop_front()
+            .unwrap_or_else(|| Ok(synthetic_response(reply("/synthetic/read", "After"))))
+    }
+}
+fn abnormal_probe(case: &str, stage: &str) -> bool {
+    let fixture = Fixture::new();
+    let clock = Clock(Cell::new(1000));
+    let mut response = synthetic_response(reply("/synthetic/read", "not expected"));
+    match case {
+        "login_redirect" => {
+            response.status = 302;
+            response
+                .headers
+                .push(("Location".into(), "/c_login.jsp".into()));
+        }
+        "foreign_redirect" => {
+            response.status = 302;
+            response
+                .headers
+                .push(("Location".into(), "https://foreign.invalid/path".into()));
+        }
+        "malformed_redirect" => response.status = 302,
+        "server_error" => response.status = 500,
+        "unauthorized" => response.status = 401,
+        "forbidden" => response.status = 403,
+        "stalled" => response.stalled = true,
+        "overflow" => {
+            response.bytes = vec![b'x'; edu_academy_sources::http::MAX_RESPONSE_BYTES + 1]
+        }
+        "cookie_error" => response.headers.push((
+            "Set-Cookie".into(),
+            format!("JSESSIONID={}; Domain=foreign.invalid", random()),
+        )),
+        "timeout" | "transport_error" | "readback_mismatch" => (),
+        _ => panic!("unknown synthetic abnormal case"),
+    }
+    let abnormal = match case {
+        "timeout" => Err(Error::error("native_transport_timeout")),
+        "transport_error" => Err(Error::error("synthetic_transport_failure")),
+        _ => Ok(response),
+    };
+    let mut responses: std::collections::VecDeque<_> = login()
+        .into_iter()
+        .map(|r| Ok(synthetic_response(r)))
+        .collect();
+    if stage == "readback" {
+        responses.push_back(Ok(synthetic_response(reply(
+            "/synthetic/write",
+            "accepted",
+        ))));
+    }
+    responses.push_back(abnormal);
+    let calls = Rc::new(Cell::new(0));
+    let transport = AbnormalResponses {
+        responses,
+        calls: Rc::clone(&calls),
+    };
+    let mut owner = NativeSession::open(
+        fixture.root(),
+        policy(),
+        transport,
+        fixture.credential(&clock, 100_000),
+        Cancellation::default(),
+        &clock,
+    )
+    .unwrap();
+    let scope = scope();
+    let after = vec![("after".into(), "After".into())];
+    let expected = hash(b"After");
+    if stage == "read" {
+        assert!(owner.read(&scope, "read", &[]).is_err());
+    } else {
+        assert!(attributed_effect(&mut owner, effect(&scope, &after, &expected)).is_err());
+    }
+    let before = calls.get();
+    let later_read = owner.read(&scope, "read", &[]);
+    // A separately valid, fresh grant must refuse BEFORE transaction consumption.
+    let intent = effect(&scope, &after, &expected);
+    let action = owner.effect_action(&intent).unwrap();
+    let source = hash(b"Synthetic inspected source");
+    let (mut store, envelope) = attribution_fixture(&action, &source);
+    let mut proof = EffectAttribution::new(&envelope, &source, &mut store).unwrap();
+    let later_effect = owner.effect(intent, &mut proof);
+    let pending = owner.reconciliation_required().unwrap();
+    let passed = later_read.is_err()
+        && later_effect.is_err()
+        && calls.get() == before
+        && store.transactions == 0
+        && store.consumed.is_empty()
+        && pending == (stage != "read");
+    println!(
+        "abnormal_case={case} stage={stage} later_starts={} later_transactions={} pending={pending}",
+        calls.get() - before,
+        store.transactions
+    );
+    passed
+}
+#[test]
+fn fix3_foreign_redirect_closes_session() {
+    assert!(abnormal_probe("foreign_redirect", "read"));
+}
+#[test]
+fn fix3_malformed_redirect_closes_session() {
+    assert!(abnormal_probe("malformed_redirect", "read"));
+}
+#[test]
+fn fix3_http_500_closes_session() {
+    assert!(abnormal_probe("server_error", "read"));
+}
+#[test]
+fn fix3_timeout_closes_session() {
+    assert!(abnormal_probe("timeout", "read"));
+}
+#[test]
+fn fix3_size_overflow_closes_session() {
+    assert!(abnormal_probe("overflow", "read"));
+}
+#[test]
+fn fix3_cookie_error_closes_session() {
+    assert!(abnormal_probe("cookie_error", "read"));
+}
+#[test]
+fn fix3_transport_error_closes_session() {
+    assert!(abnormal_probe("transport_error", "read"));
+}
+#[test]
+fn fix3_readback_mismatch_closes_session_and_retains_fence() {
+    assert!(abnormal_probe("readback_mismatch", "readback"));
+}
+#[test]
+fn fix3_abnormal_source_effect_and_readback_table_closes_without_later_dispatch() {
+    let mut failures = vec![];
+    for case in [
+        "login_redirect",
+        "foreign_redirect",
+        "malformed_redirect",
+        "server_error",
+        "unauthorized",
+        "forbidden",
+        "stalled",
+        "overflow",
+        "cookie_error",
+        "timeout",
+        "transport_error",
+    ] {
+        for stage in ["read", "effect", "readback"] {
+            if !abnormal_probe(case, stage) {
+                failures.push((case, stage));
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "abnormal sessions remained open: {failures:?}"
     );
 }

@@ -415,14 +415,22 @@ impl<T: Transport> Client<T> {
         if !self.authenticated {
             return Err(err("authentication_required"));
         }
-        let response = self.request(
+        let response = match self.request(
             &request.method,
             &request.path,
             request.query,
             request.body,
             false,
             None,
-        )?;
+        ) {
+            Ok(response) => response,
+            Err(error) => {
+                // Any abnormal scoped exchange permanently invalidates this
+                // session, regardless of redirect/status/cookie/size/I/O cause.
+                self.close();
+                return Err(error);
+            }
+        };
         if self.authenticated {
             let text = String::from_utf8_lossy(&response.bytes);
             // Generic HTML handling must accept valid unquoted/case-insensitive

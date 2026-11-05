@@ -466,6 +466,14 @@ pub struct AccountLease {
     name: String,
     identity: Identity,
 }
+impl Drop for AccountLease {
+    fn drop(&mut self) {
+        // CLOEXEC does not close an unrelated child's inherited descriptor until
+        // exec. Explicitly release our shared open-file-description lock rather
+        // than making owner Drop wait for that child's scheduling. Never unlink.
+        while let Err(rustix::io::Errno::INTR) = fs::flock(&self.fd, fs::FlockOperation::Unlock) {}
+    }
+}
 impl OwnerRoot {
     pub fn account(self: &std::rc::Rc<Self>, account_sha256: &str) -> Result<AccountLease> {
         if !sha_valid(&account_sha256.into()) {
@@ -593,4 +601,36 @@ impl AccountLease {
     pub(crate) fn reconciled(&self) -> Result<()> {
         self.store(b"0\n")
     }
+}
+
+#[cfg(test)]
+#[test]
+fn account_drop_releases_flock_with_retained_file_description() {
+    use std::os::unix::fs::DirBuilderExt;
+    let path = std::path::PathBuf::from(std::env::var("S09_NATIVE_FIXTURE_ROOT").unwrap())
+        .join(format!("lease-alias-{}", std::process::id()));
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&path)
+        .unwrap();
+    let root = std::rc::Rc::new(OwnerRoot::open(&path).unwrap());
+    let key = hash(b"synthetic-retained-description");
+    let lease = root.account(&key).unwrap();
+    // dup retains the same open file description, as an unrelated fork does
+    // before CLOEXEC takes effect. No unsafe code, child or credential is needed.
+    let inherited = rustix::io::dup(&lease.fd).unwrap();
+    drop(lease);
+    let reacquired = root.account(&key);
+    let released = reacquired.is_ok();
+    drop(inherited);
+    if released {
+        assert!(root.account(&key).is_err());
+    }
+    drop(reacquired);
+    drop(root);
+    std::fs::remove_dir_all(path).unwrap();
+    assert!(
+        released,
+        "owner Drop must release its flock before an inherited descriptor closes"
+    );
 }

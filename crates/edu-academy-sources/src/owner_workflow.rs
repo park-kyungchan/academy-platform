@@ -444,11 +444,17 @@ impl<'a, T: Transport> NativeSession<'a, T> {
         Ok(())
     }
     fn dispatch(&mut self, request: crate::http::Request) -> Result<crate::http::Response> {
-        self.authenticate()?;
-        self.cancellation.check()?;
-        let response = self.client.scoped_request(request)?;
-        self.cancellation.check()?;
-        Ok(response)
+        let result = (|| {
+            self.authenticate()?;
+            self.cancellation.check()?;
+            let response = self.client.scoped_request(request)?;
+            self.cancellation.check()?;
+            Ok(response)
+        })();
+        if result.is_err() {
+            self.client.close();
+        }
+        result
     }
     pub fn read(
         &mut self,
@@ -554,9 +560,13 @@ impl<'a, T: Transport> NativeSession<'a, T> {
         }
         let response = self.dispatch(request)?;
         if hash(&response.bytes) != pending.expected {
+            self.client.close();
             return Err(Error::error("native_reconciliation_readback_mismatch"));
         }
-        self.lease.reconciled()?;
+        if let Err(error) = self.lease.reconciled() {
+            self.client.close();
+            return Err(error);
+        }
         Ok(response)
     }
 }
