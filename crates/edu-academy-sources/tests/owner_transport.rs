@@ -1005,3 +1005,77 @@ fn account_lock_inode_is_retained_and_replacement_links_or_corrupt_markers_refus
         "owner_account_reconciliation_required"
     );
 }
+#[test]
+fn review_unquoted_password_and_empty_login_form_challenges_close_the_session() {
+    for challenge in [
+        "<input type=password>",
+        "<input TYPE = PaSsWoRd>",
+        "<form id=loginForm></form>",
+    ] {
+        let fixture = Fixture::new();
+        let clock = Clock(Cell::new(1000));
+        let mut replies = login();
+        replies.push(reply("/synthetic/read", challenge));
+        let server = Server::new(replies);
+        let mut owner = session(&fixture, &clock, &server);
+        assert_eq!(
+            owner
+                .read(&scope(), "read", &[])
+                .err()
+                .expect("login challenge must be refused")
+                .message,
+            "authentication_required"
+        );
+        assert_eq!(
+            owner.read(&scope(), "read", &[]).err().unwrap().message,
+            "native_owner_session_expired"
+        );
+        assert_eq!(server.finish().len(), 4);
+    }
+}
+struct ExpireOnAuthentication<'a> {
+    transport: NativeTransport,
+    clock: &'a Clock,
+    calls: Rc<Cell<usize>>,
+}
+impl Transport for ExpireOnAuthentication<'_> {
+    fn dispatch(&mut self, request: &Request) -> Result<Response> {
+        self.calls.set(self.calls.get() + 1);
+        let response = self.transport.dispatch(request)?;
+        if request.path == "/servlet/controller.coursemanage.CourseManageServlet" {
+            self.clock.0.set(100_000);
+        }
+        Ok(response)
+    }
+}
+#[test]
+fn review_credential_expiry_during_login_refuses_before_source_dispatch() {
+    let fixture = Fixture::new();
+    let clock = Clock(Cell::new(1000));
+    let server = Server::new(login());
+    let calls = Rc::new(Cell::new(0));
+    let transport = ExpireOnAuthentication {
+        transport: server.transport(),
+        clock: &clock,
+        calls: Rc::clone(&calls),
+    };
+    let mut owner = NativeSession::open(
+        fixture.root(),
+        policy(),
+        transport,
+        fixture.credential(&clock, 100_000),
+        Cancellation::default(),
+        &clock,
+    )
+    .unwrap();
+    assert_eq!(
+        owner.read(&scope(), "read", &[]).err().unwrap().message,
+        "native_owner_credential_expired"
+    );
+    assert_eq!(calls.get(), 3, "no source dispatch after credential expiry");
+    assert_eq!(
+        owner.read(&scope(), "read", &[]).err().unwrap().message,
+        "native_owner_credential_expired"
+    );
+    assert_eq!(server.finish().len(), 3);
+}

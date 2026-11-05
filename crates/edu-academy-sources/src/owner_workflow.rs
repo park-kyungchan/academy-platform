@@ -364,13 +364,17 @@ impl<'a, T: Transport> NativeSession<'a, T> {
             runtime,
         })
     }
-    fn authenticate(&mut self) -> Result<()> {
-        self.cancellation.check()?;
+    fn check_credential_lifetime(&mut self) -> Result<()> {
         if self.runtime.epoch_ms() >= self.expires_at_ms {
             self.client.close();
             self.credential.take();
             return Err(Error::error("native_owner_credential_expired"));
         }
+        Ok(())
+    }
+    fn authenticate(&mut self) -> Result<()> {
+        self.cancellation.check()?;
+        self.check_credential_lifetime()?;
         if self.authentication.is_none() {
             let credential = self
                 .credential
@@ -393,6 +397,9 @@ impl<'a, T: Transport> NativeSession<'a, T> {
             .expect("assigned authentication")
             .as_ref()
             .map_err(Clone::clone)?;
+        // Login includes several blocking exchanges. Expiry must be rechecked
+        // after them, before any new source request can be dispatched.
+        self.check_credential_lifetime()?;
         if !self.client.authenticated {
             return Err(Error::error("native_owner_session_expired"));
         }

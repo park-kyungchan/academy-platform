@@ -420,11 +420,29 @@ impl<T: Transport> Client<T> {
         )?;
         if self.authenticated {
             let text = String::from_utf8_lossy(&response.bytes);
+            // Generic HTML handling must accept valid unquoted/case-insensitive
+            // attributes. The narrow name-search helper preserves a different
+            // historical wire contract and must not be broadened globally.
+            let document = Document::parse(&text);
+            let password = document.select("input").iter().any(|input| {
+                input
+                    .value()
+                    .attr("type")
+                    .is_some_and(|kind| kind.eq_ignore_ascii_case("password"))
+            });
+            let login_form = document.select("form").iter().any(|form| {
+                ["id", "name"].iter().any(|key| {
+                    form.value()
+                        .attr(key)
+                        .is_some_and(|value| value.eq_ignore_ascii_case("loginForm"))
+                })
+            });
             if text.contains("webUserPass")
                 || text.contains("세션이 만료")
                 || text.contains("normal_session_error.jsp")
                 || text.contains("popup_session_error.jsp")
-                || name_search::password_input(&text)
+                || password
+                || login_form
             {
                 self.close();
                 return Err(err("authentication_required"));
