@@ -150,13 +150,16 @@ pub struct Instruction {
 }
 
 pub trait Owner {
-    fn lookup(&mut self, request_ref: &str) -> Result<Option<Instruction>>;
-    /// Under the owner's existing serialization/transaction boundary, re-read
-    /// instruction/source/time, call claim.matches, then consume the action key
-    /// once. Persist with the existing store; do not introduce a second ledger.
-    /// False means refusal/replay. Errors may follow durable consumption and
-    /// must never cause an automatic retry.
-    fn compare_and_consume(&mut self, claim: &Claim<'_>) -> Result<bool>;
+    /// One atomic operation under the owner's mutation transaction: re-read all
+    /// instruction/session/grant/source/time bindings, check the claim, then
+    /// consume once. There is deliberately no independent owner lookup API.
+    /// Errors may follow durable consumption and must not trigger a retry.
+    fn compare_and_consume(&mut self, claim: &Claim<'_>) -> Result<Consumption>;
+}
+
+pub enum Consumption {
+    Consumed,
+    Refused(Rejection),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -181,7 +184,6 @@ pub enum Verdict {
 /// Only verification constructs a claim; it is not a reusable approval token.
 pub struct Claim<'a> {
     envelope: &'a Envelope,
-    instruction: Instruction,
     action_digest: String,
     source_sha256: &'a str,
 }
@@ -189,16 +191,13 @@ impl Claim<'_> {
     pub fn action_digest(&self) -> &str {
         &self.action_digest
     }
-    pub fn request_ref(&self) -> &str {
-        &self.instruction.request_ref
+    pub fn request_ref(&self) -> String {
+        self.envelope.request_ref()
     }
     /// Action-digest scope deliberately survives envelope reissue, session
     /// recreation and process restart; timestamps cannot reset consumption.
     pub fn consumption_key(&self) -> String {
         format!("academy-attribution-{}", self.action_digest)
-    }
-    pub fn matches(&self, actual: &Instruction, now_ms: i64) -> bool {
-        actual == &self.instruction && self.check(actual, now_ms).is_ok()
     }
     pub fn record(&self) -> Js {
         obj(&[
@@ -207,7 +206,13 @@ impl Claim<'_> {
             ("sourceSha256", self.source_sha256.into()),
         ])
     }
-    fn check(&self, actual: &Instruction, now_ms: i64) -> std::result::Result<(), Rejection> {
+    /// Call only on fresh evidence while holding the owner-issued transaction
+    /// through consumption. Success here alone is never a write approval.
+    pub fn check(
+        &self,
+        actual: Option<&Instruction>,
+        now_ms: i64,
+    ) -> std::result::Result<(), Rejection> {
         if !self.envelope.fresh(now_ms) {
             return Err(Rejection::Expired);
         }
@@ -220,6 +225,9 @@ impl Claim<'_> {
         {
             return Err(Rejection::ActionNotBound);
         }
+        let Some(actual) = actual else {
+            return Err(Rejection::RequestNotFound);
+        };
         if actual.superseded {
             return Err(Rejection::Superseded);
         }
@@ -289,26 +297,18 @@ impl Approval {
         {
             return Ok(Verdict::Rejected(Rejection::ActionNotBound));
         }
-        let Some(instruction) = owner.lookup(&self.envelope.request_ref())? else {
-            return Ok(Verdict::Rejected(Rejection::RequestNotFound));
-        };
         let claim = Claim {
             envelope: &self.envelope,
-            instruction,
             action_digest: digest.clone(),
             source_sha256,
         };
-        if let Err(reason) = claim.check(&claim.instruction, now_ms) {
-            return Ok(Verdict::Rejected(reason));
-        }
         // Fence before dispatch: an owner error can follow a durable write.
         self.attempted.insert(digest.clone());
-        Ok(if owner.compare_and_consume(&claim)? {
-            Verdict::Verified {
+        Ok(match owner.compare_and_consume(&claim)? {
+            Consumption::Consumed => Verdict::Verified {
                 action_digest: digest,
-            }
-        } else {
-            Verdict::Rejected(Rejection::Replay)
+            },
+            Consumption::Refused(reason) => Verdict::Rejected(reason),
         })
     }
 }

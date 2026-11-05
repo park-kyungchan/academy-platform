@@ -4,7 +4,10 @@ use edu_academy_core::{
     js::{Fault, Js, Result, obj, strings, text},
     templates::from_json,
     workflow::{
-        approval::{AttributionCurrent, AttributionOwner, ConsumeOwner, DurableConsume},
+        approval::{
+            AttributionOwner, AttributionStore, AttributionTransaction, ConsumeOwner,
+            DurableConsume,
+        },
         codec, schema,
     },
 };
@@ -73,16 +76,14 @@ impl Default for Current {
         }
     }
 }
-impl AttributionCurrent for Current {
+impl Current {
     fn lookup(&mut self, request_ref: &str) -> Result<Option<Instruction>> {
         assert_eq!(request_ref, "synthetic:request:1");
         self.reads += 1;
         if self.fail {
             return Err(Fault::error("synthetic_lookup_failure"));
         }
-        if self.reads == 2
-            && let Some(value) = &self.second
-        {
+        if let Some(value) = &self.second {
             return Ok(value.clone());
         }
         Ok(self.value.clone())
@@ -112,6 +113,39 @@ impl ConsumeOwner for Consume {
         }
     }
 }
+struct LocalStore<'a> {
+    current: &'a mut Current,
+    owner: &'a mut dyn ConsumeOwner,
+}
+struct LocalTransaction<'a> {
+    current: &'a mut Current,
+    owner: &'a mut dyn ConsumeOwner,
+}
+impl AttributionStore for LocalStore<'_> {
+    type Transaction<'a>
+        = LocalTransaction<'a>
+    where
+        Self: 'a;
+    fn transaction(&mut self) -> Result<Self::Transaction<'_>> {
+        Ok(LocalTransaction {
+            current: self.current,
+            owner: self.owner,
+        })
+    }
+}
+impl AttributionTransaction for LocalTransaction<'_> {
+    fn lookup(&mut self, request_ref: &str) -> Result<Option<Instruction>> {
+        self.current.lookup(request_ref)
+    }
+    fn now_ms(&self) -> i64 {
+        self.current.now_ms()
+    }
+}
+impl ConsumeOwner for LocalTransaction<'_> {
+    fn consume_once(&mut self, key: &str, record: &Js) -> Result<bool> {
+        self.owner.consume_once(key, record)
+    }
+}
 fn consume(
     approval: &mut Approval,
     current: &mut Current,
@@ -121,10 +155,10 @@ fn consume(
         &action(),
         &source(),
         1,
-        &mut AttributionOwner {
+        &mut AttributionOwner::new(&mut LocalStore {
             current,
             owner: store,
-        },
+        }),
     )
 }
 
@@ -343,7 +377,7 @@ fn all_three_runtimes_require_actual_owner_identity() {
         let mut store = Consume::default();
         let result = consume(&mut Approval::new(&e).unwrap(), &mut c, &mut store).unwrap();
         assert!(matches!(result, Verdict::Verified { .. }));
-        assert_eq!(c.reads, 2);
+        assert_eq!(c.reads, 1);
         c.value.as_mut().unwrap().runtime = "fictional-other-runtime".into();
         c.reads = 0;
         assert_eq!(
@@ -454,10 +488,10 @@ fn freshness_is_inclusive_at_issue_exclusive_at_expiry_and_checked_at_consume() 
                 &action(),
                 &source(),
                 now,
-                &mut AttributionOwner {
+                &mut AttributionOwner::new(&mut LocalStore {
                     current: &mut c,
                     owner: &mut store,
-                },
+                }),
             )
             .unwrap();
         assert_eq!(matches!(result, Verdict::Verified { .. }), verified);
@@ -474,7 +508,7 @@ fn freshness_is_inclusive_at_issue_exclusive_at_expiry_and_checked_at_consume() 
         let mut store = Consume::default();
         assert_eq!(
             consume(&mut Approval::new(&envelope()).unwrap(), &mut c, &mut store).unwrap(),
-            Verdict::Rejected(Rejection::Replay)
+            Verdict::Rejected(Rejection::Expired)
         );
         assert!(store.records.is_empty());
     }
@@ -514,10 +548,10 @@ fn changed_action_or_source_cannot_use_an_existing_grant() {
             &changed,
             &source(),
             1,
-            &mut AttributionOwner {
+            &mut AttributionOwner::new(&mut LocalStore {
                 current: &mut c,
                 owner: &mut store
-            }
+            })
         )
         .unwrap(),
         Verdict::Rejected(Rejection::ActionNotBound)
@@ -527,10 +561,10 @@ fn changed_action_or_source_cannot_use_an_existing_grant() {
             &action(),
             &"b".repeat(64),
             1,
-            &mut AttributionOwner {
+            &mut AttributionOwner::new(&mut LocalStore {
                 current: &mut c,
                 owner: &mut store
-            }
+            })
         )
         .unwrap(),
         Verdict::Rejected(Rejection::ActionNotBound)
@@ -540,22 +574,43 @@ fn changed_action_or_source_cannot_use_an_existing_grant() {
 }
 
 #[test]
-fn fresh_comparison_rejects_owner_change_between_lookup_and_consume() {
-    let mut variants = vec![None];
+fn fresh_transaction_rejects_owner_change_before_consumption() {
+    let mut variants = vec![(None, Rejection::RequestNotFound)];
     for i in 0..7 {
         let mut changed = instruction();
-        match i {
-            0 => changed.runtime = "hermes".into(),
-            1 => changed.runtime_session_id = "other-session".into(),
-            2 => changed.request_ref = "other-request".into(),
-            3 => changed.current_user_event_ref = "other-event".into(),
-            4 => changed.text_blocks.push("cancel".into()),
-            5 => changed.superseded = true,
-            _ => changed.source_sha256 = Some("b".repeat(64)),
-        }
-        variants.push(Some(changed));
+        let reason = match i {
+            0 => {
+                changed.runtime = "hermes".into();
+                Rejection::OwnerMismatch
+            }
+            1 => {
+                changed.runtime_session_id = "other-session".into();
+                Rejection::OwnerMismatch
+            }
+            2 => {
+                changed.request_ref = "other-request".into();
+                Rejection::OwnerMismatch
+            }
+            3 => {
+                changed.current_user_event_ref = "other-event".into();
+                Rejection::CurrentEventMismatch
+            }
+            4 => {
+                changed.text_blocks.push("cancel".into());
+                Rejection::HashMismatch
+            }
+            5 => {
+                changed.superseded = true;
+                Rejection::Superseded
+            }
+            _ => {
+                changed.source_sha256 = Some("b".repeat(64));
+                Rejection::SourceMismatch
+            }
+        };
+        variants.push((Some(changed), reason));
     }
-    for second in variants {
+    for (second, reason) in variants {
         let mut c = Current {
             second: Some(second),
             ..Current::default()
@@ -563,9 +618,9 @@ fn fresh_comparison_rejects_owner_change_between_lookup_and_consume() {
         let mut store = Consume::default();
         assert_eq!(
             consume(&mut Approval::new(&envelope()).unwrap(), &mut c, &mut store).unwrap(),
-            Verdict::Rejected(Rejection::Replay)
+            Verdict::Rejected(reason)
         );
-        assert_eq!(c.reads, 2);
+        assert_eq!(c.reads, 1);
         assert!(store.records.is_empty());
     }
 }
@@ -583,7 +638,7 @@ fn single_use_survives_new_approval_and_envelope_reissue() {
         consume(&mut a, &mut c, &mut store).unwrap(),
         Verdict::Rejected(Rejection::Replay)
     );
-    assert_eq!(c.reads, 2);
+    assert_eq!(c.reads, 1);
     let mut reissued = envelope();
     reissued.set("expiresAt", "1970-01-01T00:02:00Z".into());
     assert_eq!(
@@ -628,10 +683,10 @@ fn distinct_action_grants_are_consumed_independently() {
             &other,
             &source(),
             1,
-            &mut AttributionOwner {
+            &mut AttributionOwner::new(&mut LocalStore {
                 current: &mut c,
                 owner: &mut store
-            }
+            })
         )
         .unwrap(),
         Verdict::Verified { .. }
@@ -657,7 +712,7 @@ fn adapter_cannot_invent_an_action_grant_from_a_real_user_event() {
     };
     assert_eq!(
         consume(&mut Approval::new(&envelope()).unwrap(), &mut c, &mut store).unwrap(),
-        Verdict::Rejected(Rejection::Replay)
+        Verdict::Rejected(Rejection::ActionNotBound)
     );
     assert!(store.records.is_empty());
 }
@@ -691,6 +746,11 @@ fn owner_errors_propagate_and_ambiguous_consume_is_locally_fenced() {
     );
     assert!(store.records.is_empty());
     c.fail = false;
+    assert_eq!(
+        consume(&mut a, &mut c, &mut store).unwrap(),
+        Verdict::Rejected(Rejection::Replay)
+    );
+    let mut a = Approval::new(&envelope()).unwrap();
     store.fail_after_write = true;
     assert_eq!(
         consume(&mut a, &mut c, &mut store).unwrap_err().message,
@@ -785,4 +845,190 @@ fn existing_durable_consume_store_refuses_replay_after_reopen_and_concurrently()
     );
     std::fs::remove_file(&files[0]).unwrap();
     std::fs::remove_dir(&root).unwrap();
+}
+
+// A synthetic actual owner: all instruction/grant mutations and consumption
+// use the same state mutex. The transaction owns its guard until after commit.
+struct Gate {
+    reached: std::sync::mpsc::SyncSender<()>,
+    resume: std::sync::mpsc::Receiver<()>,
+}
+impl Gate {
+    fn pause(self) {
+        self.reached.send(()).unwrap();
+        self.resume
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+    }
+}
+struct SharedState {
+    current: Instruction,
+    store: Consume,
+    before_consume: Option<Gate>,
+    events: Vec<&'static str>,
+}
+impl Default for SharedState {
+    fn default() -> Self {
+        Self {
+            current: instruction(),
+            store: Consume::default(),
+            before_consume: None,
+            events: vec![],
+        }
+    }
+}
+struct SharedStore {
+    state: std::sync::Arc<std::sync::Mutex<SharedState>>,
+    before_transaction: Option<Gate>,
+}
+struct SharedTransaction<'a>(std::sync::MutexGuard<'a, SharedState>);
+impl AttributionStore for SharedStore {
+    type Transaction<'a> = SharedTransaction<'a>;
+    fn transaction(&mut self) -> Result<Self::Transaction<'_>> {
+        if let Some(gate) = self.before_transaction.take() {
+            // Advisory old-style state observation: reproduce the old valid
+            // comparison -> mutation -> consume order, then acquire the actual
+            // owner transaction. Core must freshly check inside this handle.
+            assert_eq!(self.state.lock().unwrap().current, instruction());
+            gate.pause();
+        }
+        Ok(SharedTransaction(self.state.lock().unwrap()))
+    }
+}
+impl AttributionTransaction for SharedTransaction<'_> {
+    fn lookup(&mut self, request_ref: &str) -> Result<Option<Instruction>> {
+        assert_eq!(request_ref, "synthetic:request:1");
+        Ok(Some(self.0.current.clone()))
+    }
+    fn now_ms(&self) -> i64 {
+        1
+    }
+}
+impl ConsumeOwner for SharedTransaction<'_> {
+    fn consume_once(&mut self, key: &str, record: &Js) -> Result<bool> {
+        // This hook is exactly after core's final claim.check and immediately
+        // before the existing consume-once sink; the owner guard is still held.
+        if let Some(gate) = self.0.before_consume.take() {
+            gate.pause();
+        }
+        let consumed = self.0.store.consume_once(key, record)?;
+        if consumed {
+            self.0.events.push("consume");
+        }
+        Ok(consumed)
+    }
+}
+
+fn former_interval_change_must_refuse(changed: Instruction, reason: Rejection) {
+    use std::sync::{Arc, Mutex, mpsc};
+    let state = Arc::new(Mutex::new(SharedState::default()));
+    let (compared_tx, compared_rx) = mpsc::sync_channel(0);
+    let (changed_tx, changed_rx) = mpsc::sync_channel(0);
+    let mutation_state = state.clone();
+    let mutation = std::thread::spawn(move || {
+        compared_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        {
+            let mut transaction = mutation_state.lock().unwrap();
+            transaction.current = changed;
+            transaction.events.push("mutation");
+        }
+        changed_tx.send(()).unwrap();
+    });
+    let mut store = SharedStore {
+        state: state.clone(),
+        before_transaction: Some(Gate {
+            reached: compared_tx,
+            resume: changed_rx,
+        }),
+    };
+    let verdict = Approval::new(&envelope())
+        .unwrap()
+        .consume(
+            &action(),
+            &source(),
+            1,
+            &mut AttributionOwner::new(&mut store),
+        )
+        .unwrap();
+    mutation.join().unwrap();
+    assert_eq!(verdict, Verdict::Rejected(reason));
+    let state = state.lock().unwrap();
+    assert!(state.store.keys.is_empty());
+    assert!(state.store.records.is_empty());
+    assert_eq!(state.events, ["mutation"]);
+}
+
+#[test]
+fn former_interval_rejects_revocation_before_consumption() {
+    let mut revoked = instruction();
+    revoked.action_digests.clear();
+    former_interval_change_must_refuse(revoked, Rejection::ActionNotBound);
+}
+
+#[test]
+fn former_interval_rejects_instruction_change_before_consumption() {
+    let mut changed = instruction();
+    changed.current_user_event_ref = "synthetic:replacement-event".into();
+    changed.text_blocks = vec!["Synthetic replacement instruction".into()];
+    former_interval_change_must_refuse(changed, Rejection::CurrentEventMismatch);
+}
+
+#[test]
+fn transaction_blocks_revocation_between_final_comparison_and_consume() {
+    use std::sync::{Arc, Mutex, TryLockError, mpsc};
+    let (compared_tx, compared_rx) = mpsc::sync_channel(0);
+    let (attempted_tx, attempted_rx) = mpsc::sync_channel(0);
+    let state = Arc::new(Mutex::new(SharedState {
+        before_consume: Some(Gate {
+            reached: compared_tx,
+            resume: attempted_rx,
+        }),
+        ..SharedState::default()
+    }));
+    let mutation_state = state.clone();
+    let mutation = std::thread::spawn(move || {
+        compared_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        // We are in the old dangerous interval. A revoker using the owner
+        // boundary cannot commit until the comparison+consume transaction ends.
+        assert!(matches!(
+            mutation_state.try_lock(),
+            Err(TryLockError::WouldBlock)
+        ));
+        attempted_tx.send(()).unwrap();
+        let mut transaction = mutation_state.lock().unwrap();
+        transaction.current.action_digests.clear();
+        transaction.events.push("revoke");
+    });
+    let mut store = SharedStore {
+        state: state.clone(),
+        before_transaction: None,
+    };
+    let verdict = Approval::new(&envelope())
+        .unwrap()
+        .consume(
+            &action(),
+            &source(),
+            1,
+            &mut AttributionOwner::new(&mut store),
+        )
+        .unwrap();
+    mutation.join().unwrap();
+    assert!(matches!(verdict, Verdict::Verified { .. }));
+    assert_eq!(state.lock().unwrap().events, ["consume", "revoke"]);
+    // Once revocation commits, even a new Approval cannot report Verified.
+    let verdict = Approval::new(&envelope())
+        .unwrap()
+        .consume(
+            &action(),
+            &source(),
+            1,
+            &mut AttributionOwner::new(&mut store),
+        )
+        .unwrap();
+    assert_eq!(verdict, Verdict::Rejected(Rejection::ActionNotBound));
+    assert_eq!(state.lock().unwrap().store.records.len(), 1);
 }
