@@ -1649,16 +1649,8 @@ fn fix1_metadata_parser_child() {
                 "tool_input_invalid",
             );
             assert_eq!(count.get(), 0);
-            // Caller-built invalid Js can itself have an unbounded destructor.
-            // Dispose iteratively so this child tests the adapter boundary.
-            let mut pending = vec![input];
-            while let Some(value) = pending.pop() {
-                match value {
-                    Js::Arr(mut values) => pending.append(&mut values),
-                    Js::Obj(values) => pending.extend(values.into_iter().map(|(_, v)| v)),
-                    _ => {}
-                }
-            }
+            // Js already drains nested data iteratively in its native Drop.
+            drop(input);
         }
         eprintln!("isolated parser case query4097: PASS");
         return;
