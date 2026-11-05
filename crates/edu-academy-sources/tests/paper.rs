@@ -3517,3 +3517,185 @@ fn fix1_presentation_and_hidden_style_apply_to_roots_ancestors_and_descendants()
         }
     }
 }
+
+fn fix2_body(scope: PaperScope, family: &str, payload: &str) -> String {
+    let body = format!(
+        "<h1>VISIBLE_CONTROL{payload}</h1><table><tr id=fictional-row><th>시험지 제목</th><td>5-1 VISIBLE_CONTROL{payload}</td><td>12</td></tr></table>"
+    );
+    if family == "inventory" {
+        daily(scope, vec![row("77001", "Fictional One", "3", "81001")]) + &body
+    } else {
+        body
+    }
+}
+#[test]
+fn fix2_exact_reviewer_32_crlf_and_48_border_cases() {
+    let mut crlf_records = vec![];
+    for encoded in [
+        "display:\\6e&#13;&#10;one",
+        "display:\\6e&#xD;&#xA;one",
+        "display:n\\6f&#13;&#10;ne",
+        "display:no\\6e&#13;&#10;e",
+    ] {
+        for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+            for family in ["header", "inventory", "definitions", "batch"] {
+                let payload = format!("<span style=\"{encoded}\">FIX2_CRLF_CANARY</span>");
+                let output =
+                    fix1_page(scope, family, &fix2_body(scope, family, &payload), &[]).unwrap();
+                assert!(!json(&output).contains("FIX2_CRLF_CANARY"));
+                assert!(json(&output).contains("VISIBLE_CONTROL"));
+                crlf_records.push(obj(&[
+                    ("scope", scope.as_str().into()),
+                    ("family", family.into()),
+                    ("case", encoded.into()),
+                    ("disclosure", false.into()),
+                ]));
+            }
+        }
+    }
+    assert_eq!(crlf_records.len(), 32);
+    fix1_evidence("fix2-reviewer-crlf-32", &crlf_records);
+    let mut border_records = vec![];
+    for css in [
+        "border-top:10000px solid transparent",
+        "border:10000px solid transparent",
+        "border-width:10000px;border-style:solid",
+    ] {
+        for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+            for family in ["header", "inventory", "definitions", "batch"] {
+                for mode in ["inline", "block"] {
+                    if mode == "inline" {
+                        let payload = format!("<div style='{css}'>FIX2_BORDER_CANARY</div>");
+                        let output =
+                            fix1_page(scope, family, &fix2_body(scope, family, &payload), &[])
+                                .unwrap();
+                        assert!(!json(&output).contains("FIX2_BORDER_CANARY"));
+                        assert!(json(&output).contains("VISIBLE_CONTROL"));
+                    } else {
+                        let body = format!("<style>div{{{css}}}</style>")
+                            + &fix2_body(scope, family, "<div>FIX2_BORDER_CANARY</div>");
+                        assert_code(fix1_page(scope, family, &body, &[]), "contract_drift");
+                    }
+                    border_records.push(obj(&[
+                        ("scope", scope.as_str().into()),
+                        ("family", family.into()),
+                        ("mode", mode.into()),
+                        ("css", css.into()),
+                        ("disclosure", false.into()),
+                    ]));
+                }
+            }
+        }
+    }
+    assert_eq!(border_records.len(), 48);
+    fix1_evidence("fix2-reviewer-border-48", &border_records);
+}
+#[test]
+fn fix2_css_encodings_roots_ancestors_descendants_and_title() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for css in [
+            "display:\\6e&#10;one",
+            "display:\\6e&#13;one",
+            "display:\\6e&#12;one",
+            "display:\\6e\r\none",
+            "display:\\6e\rone",
+            "display:\\6e\u{c}one",
+            "d\\69&#13;&#10;splay:none",
+            "border:1e4px solid transparent",
+            "border:10000\\70&#13;&#10;x solid black",
+            "line-height:10000px",
+            "letter-spacing:10000px",
+            "word-spacing:10000px",
+            "width:10000px",
+            "outline:10000px solid black",
+            "font-size:10000px",
+            "position:unqualified",
+        ] {
+            for family in ["header", "inventory", "definitions", "batch"] {
+                for payload in [
+                    format!("<div style=\"{css}\"><h1>FIX2_PRIVATE</h1></div>"),
+                    format!("<h1 style=\"{css}\">FIX2_PRIVATE</h1>"),
+                    format!("<span style=\"{css}\">FIX2_PRIVATE</span>"),
+                ] {
+                    let result = fix1_page(scope, family, &fix2_body(scope, family, &payload), &[]);
+                    // Inert structural inspection has an earlier control-byte
+                    // guard. FF is also tested directly at the CSS boundary;
+                    // this independent guard must stay a sanitized refusal.
+                    if result.is_err() && (css.contains('\u{c}') || css.contains("&#12;")) {
+                        assert_code(result, "paper_output_budget_exceeded");
+                    } else {
+                        let output = result.unwrap();
+                        assert!(!json(&output).contains("FIX2_PRIVATE"));
+                        assert!(json(&output).contains("VISIBLE_CONTROL"));
+                    }
+                }
+            }
+            let title =
+                format!("<title style=\"{css}\">FIX2_TITLE_PRIVATE</title><h1>Visible</h1>");
+            assert_code(fix1_page(scope, "header", &title, &[]), "contract_drift");
+        }
+        for css in [
+            "border-top:1px solid red",
+            "border:0 solid transparent",
+            "border-width:1px;border-style:solid",
+            "font-size:12px",
+            "padding:2px",
+            "line-height:1.5",
+            "letter-spacing:1px",
+            "width:100%;height:auto",
+            "color:r\\65&#13;&#10;d!important",
+        ] {
+            let payload = format!("<div style=\"{css}\">FIX2_VISIBLE</div>");
+            for family in ["header", "inventory", "definitions", "batch"] {
+                let body = format!(
+                    "<style>div{{{}}}</style>",
+                    css.replace("&#13;&#10;", "\r\n")
+                ) + &fix2_body(scope, family, &payload);
+                assert!(
+                    json(&fix1_page(scope, family, &body, &[]).unwrap()).contains("FIX2_VISIBLE")
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn fix2_geometry_composition_cannot_bypass_the_shared_bound() {
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for family in ["header", "inventory", "definitions", "batch"] {
+            for (css, depth) in [
+                ("border-top:128px solid transparent", 16),
+                ("border-top:128px solid transparent;padding-top:128px", 40),
+                ("left:128px;position:relative", 16),
+            ] {
+                let payload = format!(
+                    "{}FIX2_COMPOSED_PRIVATE{}",
+                    format!("<div style='{css}'>").repeat(depth),
+                    "</div>".repeat(depth)
+                );
+                let result =
+                    fix1_page(scope, family, &fix2_body(scope, family, &payload), &[]).unwrap();
+                assert!(
+                    !json(&result).contains("FIX2_COMPOSED_PRIVATE"),
+                    "composed inline geometry"
+                );
+                assert!(json(&result).contains("VISIBLE_CONTROL"));
+                let payload = format!(
+                    "{}FIX2_COMPOSED_PRIVATE{}",
+                    "<div>".repeat(depth),
+                    "</div>".repeat(depth)
+                );
+                let body =
+                    format!("<style>div{{{css}}}</style>") + &fix2_body(scope, family, &payload);
+                assert_code(fix1_page(scope, family, &body, &[]), "contract_drift");
+            }
+            let payload = "<div style='border-top:1px solid black'><div style='padding-top:2px'>FIX2_COMPOSED_VISIBLE</div></div>";
+            let body = "<style>div{margin-top:1px}</style>".to_owned()
+                + &fix2_body(scope, family, payload);
+            assert!(
+                json(&fix1_page(scope, family, &body, &[]).unwrap())
+                    .contains("FIX2_COMPOSED_VISIBLE")
+            );
+        }
+    }
+}

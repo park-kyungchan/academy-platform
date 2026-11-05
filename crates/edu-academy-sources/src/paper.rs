@@ -639,6 +639,9 @@ fn passive_text(e: scraper::ElementRef<'_>) -> String {
         ) || !text_attributes_qualified(e)
             || matches!(element.name(), "dialog" | "details") && element.attr("open").is_none()
     };
+    let Some(chain_geometry) = css_inline_chain_geometry(e) else {
+        return String::new();
+    };
     if e.value().name() == "select"
         || hidden(e)
         || e.ancestors()
@@ -648,17 +651,28 @@ fn passive_text(e: scraper::ElementRef<'_>) -> String {
         return String::new();
     }
     let mut text = String::new();
-    let mut pending = e.children().rev().collect::<Vec<_>>();
-    while let Some(node) = pending.pop() {
-        if scraper::ElementRef::wrap(node)
-            .is_some_and(|element| element.value().name() == "select" || hidden(element))
-        {
-            continue;
+    // Carry the cumulative geometry while traversing, rather than reparsing
+    // every descendant's complete ancestor chain. An over-budget subtree is
+    // opaque even when each individual ancestor declaration is qualified.
+    let mut pending = e
+        .children()
+        .rev()
+        .map(|node| (node, chain_geometry))
+        .collect::<Vec<_>>();
+    while let Some((node, mut geometry)) = pending.pop() {
+        if let Some(element) = scraper::ElementRef::wrap(node) {
+            if element.value().name() == "select" || hidden(element) {
+                continue;
+            }
+            geometry += css_element_geometry(element).unwrap_or(f64::INFINITY);
+            if geometry > 128.0 {
+                continue;
+            }
         }
         if let scraper::node::Node::Text(value) = node.value() {
             text.push_str(value);
         }
-        pending.extend(node.children().rev());
+        pending.extend(node.children().rev().map(|node| (node, geometry)));
     }
     text
 }
@@ -673,14 +687,15 @@ fn document_title(d: &crate::dom::Document) -> Result<Js> {
         return Ok("".into());
     };
     require(
-        title
-            .ancestors()
-            .filter_map(scraper::ElementRef::wrap)
-            .chain(std::iter::once(*title))
-            .all(|e| {
-                let namespace: &str = e.value().name.ns.as_ref();
-                namespace == "http://www.w3.org/1999/xhtml" && text_attributes_qualified(e)
-            })
+        css_inline_chain_geometry(*title).is_some()
+            && title
+                .ancestors()
+                .filter_map(scraper::ElementRef::wrap)
+                .chain(std::iter::once(*title))
+                .all(|e| {
+                    let namespace: &str = e.value().name.ns.as_ref();
+                    namespace == "http://www.w3.org/1999/xhtml" && text_attributes_qualified(e)
+                })
             && title
                 .children()
                 .all(|node| matches!(node.value(), scraper::node::Node::Text(_))),
@@ -712,374 +727,610 @@ fn stylesheet_url(value: &str) -> Result<String> {
     Ok(url.into())
 }
 
-// Bounded, non-recursive CSS subset. Decode escapes and remove comments before
-// classification, so spellings such as d\69splay and n/**/one cannot bypass it.
-// Unsupported grammar is opaque for an inline attribute and refuses a STYLE
-// block. No selector, URL, declaration value or stylesheet text is exported.
-fn css_source(source: &str) -> Option<String> {
+// CSS Syntax Level 3 sections 3.3/4: preprocess before consuming escapes,
+// then retain token identity. This is a rejecting subset, not a CSS renderer.
+// Strings, functions, at-rules and unsupported tokens never enter a grammar.
+// Comments are consumed BETWEEN tokens, never by concatenating token spellings.
+// Budgets: 32768 input bytes, 8192 tokens, 1024 declarations/rules; no recursion.
+#[derive(Clone, Debug, PartialEq)]
+enum CssToken {
+    Ident(String),
+    Number(f64),
+    Dimension(f64, String),
+    Percentage(f64),
+    Hash(String),
+    Punct(char),
+}
+fn css_preprocess(source: &str) -> Option<Vec<char>> {
     if source.len() > 32_768 {
         return None;
     }
     let mut chars = source.chars().peekable();
-    let mut result = String::new();
+    let mut result = Vec::new();
     while let Some(c) = chars.next() {
-        if c == '/' && chars.peek() == Some(&'*') {
-            chars.next();
-            let mut closed = false;
-            while let Some(c) = chars.next() {
-                if c == '*' && chars.peek() == Some(&'/') {
-                    chars.next();
-                    closed = true;
-                    break;
-                }
-            }
-            if !closed {
-                return None;
-            }
-        } else if c == '\\' {
-            let mut hex = String::new();
-            while hex.len() < 6 && chars.peek().is_some_and(char::is_ascii_hexdigit) {
-                hex.push(chars.next()?);
-            }
-            if hex.is_empty() {
-                let escaped = chars.next()?;
-                if escaped.is_control() {
-                    return None;
-                }
-                result.push(escaped);
-            } else {
-                let decoded = char::from_u32(u32::from_str_radix(&hex, 16).ok()?)?;
-                if decoded.is_control() {
-                    return None;
-                }
-                result.push(decoded);
-                if chars.peek().is_some_and(char::is_ascii_whitespace) {
+        result.push(match c {
+            '\r' => {
+                if chars.peek() == Some(&'\n') {
                     chars.next();
                 }
+                '\n'
             }
-        } else if c.is_ascii_control() && !c.is_ascii_whitespace() {
-            return None;
+            '\u{c}' => '\n',
+            '\0' => '\u{fffd}',
+            // Rust str cannot contain surrogate code points. Escaped surrogate
+            // values are replaced in css_escape, just like NULL/out-of-range.
+            _ => c,
+        });
+    }
+    Some(result)
+}
+fn css_whitespace(c: char) -> bool {
+    matches!(c, ' ' | '\t' | '\n')
+}
+fn css_name_start(c: char) -> bool {
+    c.is_ascii_alphabetic() || c == '_' || !c.is_ascii()
+}
+fn css_name(c: char) -> bool {
+    css_name_start(c) || c.is_ascii_digit() || c == '-'
+}
+fn css_valid_escape(chars: &[char], i: usize) -> bool {
+    chars.get(i) == Some(&'\\') && chars.get(i + 1) != Some(&'\n')
+}
+fn css_ident_start(chars: &[char], i: usize) -> bool {
+    match chars.get(i).copied() {
+        Some('-') => {
+            chars
+                .get(i + 1)
+                .is_some_and(|c| css_name_start(*c) || *c == '-')
+                || css_valid_escape(chars, i + 1)
+        }
+        Some(c) if css_name_start(c) => true,
+        Some('\\') => css_valid_escape(chars, i),
+        _ => false,
+    }
+}
+fn css_escape(chars: &[char], i: &mut usize) -> Option<char> {
+    if !css_valid_escape(chars, *i) {
+        return None;
+    }
+    *i += 1;
+    let mut n = 0;
+    let mut digits = 0;
+    while digits < 6 {
+        let Some(digit) = chars.get(*i).and_then(|c| c.to_digit(16)) else {
+            break;
+        };
+        n = n * 16 + digit;
+        digits += 1;
+        *i += 1;
+    }
+    if digits != 0 {
+        if chars.get(*i).is_some_and(|c| css_whitespace(*c)) {
+            *i += 1;
+        }
+        return Some(if n == 0 {
+            '\u{fffd}'
         } else {
-            result.push(c);
+            char::from_u32(n).unwrap_or('\u{fffd}')
+        });
+    }
+    let c = chars.get(*i).copied().unwrap_or('\u{fffd}');
+    *i += usize::from(*i < chars.len());
+    Some(c)
+}
+fn css_ident(chars: &[char], i: &mut usize) -> Option<String> {
+    let mut value = String::new();
+    while let Some(c) = chars.get(*i).copied() {
+        if css_name(c) {
+            value.push(c);
+            *i += 1;
+        } else if css_valid_escape(chars, *i) {
+            value.push(css_escape(chars, i)?);
+        } else {
+            break;
         }
     }
-    Some(result.to_ascii_lowercase())
+    Some(value.to_ascii_lowercase())
 }
-fn css_declarations(source: &str) -> Option<bool> {
-    css_declarations_decoded(&css_source(source)?)
+fn css_number_start(chars: &[char], i: usize) -> bool {
+    let mut j = i;
+    if matches!(chars.get(j), Some('+' | '-')) {
+        j += 1;
+    }
+    chars.get(j).is_some_and(char::is_ascii_digit)
+        || chars.get(j) == Some(&'.') && chars.get(j + 1).is_some_and(char::is_ascii_digit)
 }
-fn css_declarations_decoded(source: &str) -> Option<bool> {
-    // Quoted/function values can contain separators. Unsupported separators
-    // conservatively make the chain unqualified instead of guessing CSS.
-    let mut depth = 0_usize;
-    let mut quote = None;
-    let mut start = 0;
-    let mut hiding = false;
-    let mut count = 0;
-    for (i, c) in source
-        .char_indices()
-        .chain(std::iter::once((source.len(), ';')))
-    {
-        if let Some(q) = quote {
-            if c == q {
-                quote = None;
-            }
-            if i == source.len() {
-                return None;
-            }
-            continue;
-        }
-        match c {
-            '\'' | '"' => quote = Some(c),
-            '(' => {
-                depth += 1;
-                if depth > 16 {
-                    return None;
-                }
-            }
-            ')' => {
-                depth = depth.checked_sub(1)?;
-            }
-            '{' | '}' | '@' | '\\' => return None,
-            ';' if depth == 0 => {
-                let declaration = source[start..i].trim();
-                start = i.saturating_add(1);
-                if declaration.is_empty() {
-                    continue;
-                }
-                count += 1;
-                if count > 1024 {
-                    return None;
-                }
-                let (property, raw) = declaration.split_once(':')?;
-                let property = property.trim();
-                if property.is_empty()
-                    || !property
-                        .bytes()
-                        .all(|c| c.is_ascii_alphabetic() || c == b'-')
-                {
-                    return None;
-                }
-                let raw = raw.trim();
-                let value = raw.strip_suffix("important").map_or(Some(raw), |v| {
-                    v.trim_end().strip_suffix('!').map(str::trim_end)
-                })?;
-                if value.is_empty() || value.contains('!') {
-                    return None;
-                }
-                hiding |= css_hiding(property, value)?;
-            }
-            _ => {}
+fn css_numeric(chars: &[char], i: &mut usize) -> Option<f64> {
+    let start = *i;
+    if matches!(chars.get(*i), Some('+' | '-')) {
+        *i += 1;
+    }
+    while chars.get(*i).is_some_and(char::is_ascii_digit) {
+        *i += 1;
+    }
+    if chars.get(*i) == Some(&'.') && chars.get(*i + 1).is_some_and(char::is_ascii_digit) {
+        *i += 1;
+        while chars.get(*i).is_some_and(char::is_ascii_digit) {
+            *i += 1;
         }
     }
-    if depth != 0 || quote.is_some() {
-        return None;
+    if matches!(chars.get(*i), Some('e' | 'E')) {
+        let mut j = *i + 1;
+        if matches!(chars.get(j), Some('+' | '-')) {
+            j += 1;
+        }
+        if chars.get(j).is_some_and(char::is_ascii_digit) {
+            *i = j + 1;
+            while chars.get(*i).is_some_and(char::is_ascii_digit) {
+                *i += 1;
+            }
+        }
     }
-    Some(hiding)
-}
-fn css_number(value: &str) -> Option<f64> {
-    let end = value
-        .find(|c: char| !(c.is_ascii_digit() || matches!(c, '.' | '-' | '+')))
-        .unwrap_or(value.len());
-    let (number, unit) = value.split_at(end);
-    if !unit.bytes().all(|c| c.is_ascii_alphabetic() || c == b'%') {
-        return None;
-    }
-    let n: f64 = number.parse().ok()?;
+    let n: f64 = chars[start..*i].iter().collect::<String>().parse().ok()?;
     n.is_finite().then_some(n)
 }
-fn css_hiding(property: &str, value: &str) -> Option<bool> {
-    let compact = value.split_ascii_whitespace().collect::<String>();
-    if ["var(", "env(", "attr(", "calc("]
-        .iter()
-        .any(|token| compact.contains(token))
-    {
-        return None;
-    }
-    Some(match property {
-        "display" => value == "none",
-        "visibility" => matches!(value, "hidden" | "collapse"),
-        "content-visibility" => value == "hidden",
-        "opacity" | "font-size" => {
-            if let Some(number) = css_number(value) {
-                number <= 0.0
-            } else if matches!(
-                value,
-                "inherit"
-                    | "initial"
-                    | "unset"
-                    | "revert"
-                    | "small"
-                    | "medium"
-                    | "large"
-                    | "smaller"
-                    | "larger"
-            ) {
-                false
+fn css_tokens(source: &str) -> Option<Vec<CssToken>> {
+    let chars = css_preprocess(source)?;
+    let mut tokens = Vec::new();
+    let mut i = 0;
+    while i < chars.len() {
+        if css_whitespace(chars[i]) {
+            i += 1;
+            continue;
+        }
+        if chars[i] == '/' && chars.get(i + 1) == Some(&'*') {
+            i += 2;
+            while i < chars.len() && !(chars[i] == '*' && chars.get(i + 1) == Some(&'/')) {
+                i += 1;
+            }
+            if i == chars.len() {
+                return None;
+            }
+            i += 2;
+            continue;
+        }
+        let token = if css_number_start(&chars, i) {
+            let n = css_numeric(&chars, &mut i)?;
+            if css_ident_start(&chars, i) {
+                CssToken::Dimension(n, css_ident(&chars, &mut i)?)
+            } else if chars.get(i) == Some(&'%') {
+                i += 1;
+                CssToken::Percentage(n)
             } else {
+                CssToken::Number(n)
+            }
+        } else if css_ident_start(&chars, i) {
+            let ident = css_ident(&chars, &mut i)?;
+            // Function/url tokens have no admitted value grammar. Do not
+            // reinterpret their contents or their escaped name as punctuation.
+            if chars.get(i) == Some(&'(') {
+                return None;
+            }
+            CssToken::Ident(ident)
+        } else if chars[i] == '#'
+            && (chars.get(i + 1).is_some_and(|c| css_name(*c)) || css_valid_escape(&chars, i + 1))
+        {
+            i += 1;
+            CssToken::Hash(css_ident(&chars, &mut i)?)
+        } else {
+            let c = chars[i];
+            i += 1;
+            if !matches!(
+                c,
+                ':' | ';' | '{' | '}' | '!' | ',' | '.' | '>' | '+' | '~' | '*'
+            ) {
+                return None;
+            }
+            CssToken::Punct(c)
+        };
+        tokens.push(token);
+        if tokens.len() > 8192 {
+            return None;
+        }
+    }
+    Some(tokens)
+}
+
+#[derive(Clone, Copy)]
+enum CssGrammar {
+    Keywords(&'static [&'static str]),
+    Lengths(usize),
+    PositiveLength,
+    Size,
+    LineHeight,
+    Spacing,
+    Border,
+    Color(bool),
+    Colors,
+    Opacity,
+    Weight,
+}
+// Closed property -> value grammars. Geometry policy: each nonzero absolute
+// length is nonnegative and <=128px (font size/line height also >=1px).
+// Unitless lengths only admit zero. Zero in known length units is equivalent
+// to zero, including the retained 0vh control. Relative nonzero lengths refuse.
+// Width/height allow auto or >0..100%; line-height allows 0.5..4 unitless.
+// The same 128px cap also bounds the sum in a declaration list and an inline
+// ancestor chain. STYLE geometry is charged per potentially matched element,
+// across all STYLE blocks and qualified inline declarations in the document.
+// No viewport displacement, negative length, function, inherited/global value,
+// font shorthand, shadow, or unknown property/value is guessed harmless.
+const CSS_PROPERTIES: &[(&str, CssGrammar)] = &[
+    (
+        "display",
+        CssGrammar::Keywords(&[
+            "block",
+            "inline",
+            "inline-block",
+            "table",
+            "table-row",
+            "table-cell",
+            "table-caption",
+            "table-row-group",
+            "table-header-group",
+            "table-footer-group",
+            "list-item",
+            "flow-root",
+            "flex",
+            "inline-flex",
+            "grid",
+            "inline-grid",
+        ]),
+    ),
+    ("visibility", CssGrammar::Keywords(&["visible"])),
+    ("content-visibility", CssGrammar::Keywords(&["visible"])),
+    ("opacity", CssGrammar::Opacity),
+    ("color", CssGrammar::Color(false)),
+    ("font-size", CssGrammar::PositiveLength),
+    (
+        "font-family",
+        CssGrammar::Keywords(&[
+            "serif",
+            "sans-serif",
+            "monospace",
+            "cursive",
+            "fantasy",
+            "system-ui",
+        ]),
+    ),
+    ("font-weight", CssGrammar::Weight),
+    (
+        "font-style",
+        CssGrammar::Keywords(&["normal", "italic", "oblique"]),
+    ),
+    (
+        "font-variant",
+        CssGrammar::Keywords(&["normal", "small-caps"]),
+    ),
+    (
+        "text-align",
+        CssGrammar::Keywords(&["left", "right", "center", "justify", "start", "end"]),
+    ),
+    (
+        "text-transform",
+        CssGrammar::Keywords(&["none", "capitalize", "uppercase", "lowercase"]),
+    ),
+    (
+        "white-space",
+        CssGrammar::Keywords(&[
+            "normal",
+            "nowrap",
+            "pre",
+            "pre-wrap",
+            "pre-line",
+            "break-spaces",
+        ]),
+    ),
+    (
+        "word-break",
+        CssGrammar::Keywords(&["normal", "break-all", "keep-all"]),
+    ),
+    (
+        "overflow-wrap",
+        CssGrammar::Keywords(&["normal", "break-word", "anywhere"]),
+    ),
+    ("direction", CssGrammar::Keywords(&["ltr", "rtl"])),
+    (
+        "box-sizing",
+        CssGrammar::Keywords(&["content-box", "border-box"]),
+    ),
+    (
+        "border-collapse",
+        CssGrammar::Keywords(&["collapse", "separate"]),
+    ),
+    (
+        "border-style",
+        CssGrammar::Keywords(&[
+            "none", "hidden", "solid", "dotted", "dashed", "double", "groove", "ridge", "inset",
+            "outset",
+        ]),
+    ),
+    ("table-layout", CssGrammar::Keywords(&["auto", "fixed"])),
+    (
+        "position",
+        CssGrammar::Keywords(&["static", "relative", "absolute", "fixed", "sticky"]),
+    ),
+    ("overflow", CssGrammar::Keywords(&["visible"])),
+    ("overflow-x", CssGrammar::Keywords(&["visible"])),
+    ("overflow-y", CssGrammar::Keywords(&["visible"])),
+    ("transform", CssGrammar::Keywords(&["none"])),
+    ("translate", CssGrammar::Keywords(&["none"])),
+    ("clip", CssGrammar::Keywords(&["auto"])),
+    ("clip-path", CssGrammar::Keywords(&["none"])),
+    ("background-color", CssGrammar::Color(true)),
+    ("background", CssGrammar::Color(true)),
+    ("border-color", CssGrammar::Colors),
+    ("outline-color", CssGrammar::Color(true)),
+    ("margin", CssGrammar::Lengths(4)),
+    ("padding", CssGrammar::Lengths(4)),
+    ("margin-top", CssGrammar::Lengths(1)),
+    ("margin-right", CssGrammar::Lengths(1)),
+    ("margin-bottom", CssGrammar::Lengths(1)),
+    ("margin-left", CssGrammar::Lengths(1)),
+    ("padding-top", CssGrammar::Lengths(1)),
+    ("padding-right", CssGrammar::Lengths(1)),
+    ("padding-bottom", CssGrammar::Lengths(1)),
+    ("padding-left", CssGrammar::Lengths(1)),
+    ("top", CssGrammar::Lengths(1)),
+    ("left", CssGrammar::Lengths(1)),
+    ("right", CssGrammar::Lengths(1)),
+    ("bottom", CssGrammar::Lengths(1)),
+    ("text-indent", CssGrammar::Lengths(1)),
+    ("width", CssGrammar::Size),
+    ("height", CssGrammar::Size),
+    ("min-width", CssGrammar::Size),
+    ("max-width", CssGrammar::Size),
+    ("min-height", CssGrammar::Size),
+    ("max-height", CssGrammar::Size),
+    ("line-height", CssGrammar::LineHeight),
+    ("letter-spacing", CssGrammar::Spacing),
+    ("word-spacing", CssGrammar::Spacing),
+    ("border", CssGrammar::Border),
+    ("border-top", CssGrammar::Border),
+    ("border-right", CssGrammar::Border),
+    ("border-bottom", CssGrammar::Border),
+    ("border-left", CssGrammar::Border),
+    ("border-width", CssGrammar::Lengths(4)),
+    ("border-top-width", CssGrammar::Lengths(1)),
+    ("border-right-width", CssGrammar::Lengths(1)),
+    ("border-bottom-width", CssGrammar::Lengths(1)),
+    ("border-left-width", CssGrammar::Lengths(1)),
+    ("border-radius", CssGrammar::Lengths(4)),
+    ("border-spacing", CssGrammar::Lengths(2)),
+    ("outline", CssGrammar::Border),
+    ("outline-width", CssGrammar::Lengths(1)),
+    ("outline-offset", CssGrammar::Lengths(1)),
+    (
+        "outline-style",
+        CssGrammar::Keywords(&[
+            "none", "solid", "dotted", "dashed", "double", "groove", "ridge", "inset", "outset",
+        ]),
+    ),
+];
+fn css_keyword(tokens: &[CssToken], values: &[&str]) -> bool {
+    matches!(tokens, [CssToken::Ident(value)] if values.contains(&value.as_str()))
+}
+fn css_length(token: &CssToken, positive: bool) -> bool {
+    let minimum = if positive { 1.0 } else { 0.0 };
+    match token {
+        CssToken::Number(n) => !positive && *n == 0.0,
+        CssToken::Dimension(n, unit) if unit == "px" => (minimum..=128.0).contains(n),
+        CssToken::Dimension(n, unit) => {
+            !positive
+                && *n == 0.0
+                && [
+                    "em", "rem", "ex", "ch", "vw", "vh", "vmin", "vmax", "cm", "mm", "q", "in",
+                    "pt", "pc",
+                ]
+                .contains(&unit.as_str())
+        }
+        _ => false,
+    }
+}
+fn css_color(token: &CssToken, transparent: bool) -> bool {
+    match token {
+        CssToken::Ident(s) => {
+            [
+                "black", "silver", "gray", "white", "maroon", "red", "purple", "fuchsia", "green",
+                "lime", "olive", "yellow", "navy", "blue", "teal", "aqua", "orange",
+            ]
+            .contains(&s.as_str())
+                || transparent && s == "transparent"
+        }
+        CssToken::Hash(s) => matches!(s.len(), 3 | 6) && s.bytes().all(|c| c.is_ascii_hexdigit()),
+        _ => false,
+    }
+}
+fn css_value_qualified(grammar: CssGrammar, tokens: &[CssToken]) -> bool {
+    match grammar {
+        CssGrammar::Keywords(values) => css_keyword(tokens, values),
+        CssGrammar::Lengths(max) => {
+            !tokens.is_empty() && tokens.len() <= max && tokens.iter().all(|t| css_length(t, false))
+        }
+        CssGrammar::PositiveLength => tokens.len() == 1 && css_length(&tokens[0], true),
+        CssGrammar::Size => {
+            css_keyword(tokens, &["auto"])
+                || matches!(tokens, [CssToken::Percentage(n)] if *n > 0.0 && *n <= 100.0)
+                || tokens.len() == 1 && css_length(&tokens[0], true)
+        }
+        CssGrammar::LineHeight => {
+            css_keyword(tokens, &["normal"])
+                || matches!(tokens, [CssToken::Number(n)] if (0.5..=4.0).contains(n))
+                || tokens.len() == 1 && css_length(&tokens[0], true)
+        }
+        CssGrammar::Spacing => {
+            css_keyword(tokens, &["normal"]) || tokens.len() == 1 && css_length(&tokens[0], false)
+        }
+        CssGrammar::Color(transparent) => tokens.len() == 1 && css_color(&tokens[0], transparent),
+        CssGrammar::Colors => {
+            !tokens.is_empty() && tokens.len() <= 4 && tokens.iter().all(|t| css_color(t, true))
+        }
+        CssGrammar::Opacity => {
+            matches!(tokens, [CssToken::Number(n)] if *n > 0.0 && *n <= 1.0)
+                || matches!(tokens, [CssToken::Percentage(n)] if *n > 0.0 && *n <= 100.0)
+        }
+        CssGrammar::Weight => {
+            css_keyword(tokens, &["normal", "bold", "bolder", "lighter"])
+                || matches!(tokens, [CssToken::Number(n)] if (100.0..=900.0).contains(n) && *n % 100.0 == 0.0)
+        }
+        // Require exactly width/style/color. This avoids implicit medium widths,
+        // omitted terms and shorthand parsing ambiguities; transparent border
+        // color does not hide its text, but width still obeys the geometry bound.
+        CssGrammar::Border => {
+            tokens.len() == 3
+                && css_length(&tokens[0], false)
+                && css_keyword(
+                    &tokens[1..2],
+                    &[
+                        "none", "solid", "dotted", "dashed", "double", "groove", "ridge", "inset",
+                        "outset",
+                    ],
+                )
+                && css_color(&tokens[2], true)
+        }
+    }
+}
+fn css_declaration_geometry(tokens: &[CssToken]) -> Option<f64> {
+    let mut count = 0;
+    let mut geometry = 0.0;
+    for declaration in tokens.split(|t| *t == CssToken::Punct(';')) {
+        if declaration.is_empty() {
+            continue;
+        }
+        count += 1;
+        if count > 1024 {
+            return None;
+        }
+        let [CssToken::Ident(property), CssToken::Punct(':'), rest @ ..] = declaration else {
+            return None;
+        };
+        let value = if let [value @ .., CssToken::Punct('!'), CssToken::Ident(important)] = rest {
+            if important != "important" {
+                return None;
+            }
+            value
+        } else {
+            rest
+        };
+        let (_, grammar) = CSS_PROPERTIES.iter().find(|(name, _)| *name == property)?;
+        if !css_value_qualified(*grammar, value) {
+            return None;
+        }
+        if matches!(
+            grammar,
+            CssGrammar::Lengths(_)
+                | CssGrammar::PositiveLength
+                | CssGrammar::Size
+                | CssGrammar::LineHeight
+                | CssGrammar::Spacing
+                | CssGrammar::Border
+        ) {
+            geometry += value
+                .iter()
+                .filter_map(|token| match token {
+                    CssToken::Dimension(n, unit) if unit == "px" => Some(n),
+                    _ => None,
+                })
+                .sum::<f64>();
+            if geometry > 128.0 {
                 return None;
             }
         }
-        "color" => css_color_hiding(value)?,
-        "font" => {
-            // The size in a font shorthand is the first dimension before its
-            // optional /line-height. Weight/variant words are not dimensions.
-            let size = value.split_ascii_whitespace().find_map(|token| {
-                let dimension = token.split('/').next()?;
-                let number = css_number(dimension)?;
-                // Numeric weight (100..900) precedes the size in a shorthand.
-                (dimension.ends_with('%')
-                    || dimension.bytes().any(|c| c.is_ascii_alphabetic())
-                    || number == 0.0)
-                    .then_some(number)
-            });
-            match size {
-                Some(number) => number <= 0.0,
-                None => return None,
-            }
-        }
-        // Nontrivial clips require box/unit geometry. Do not call a shape
-        // harmless after stripping units from its coordinates. None/auto are
-        // the only statically qualified non-hiding clipping declarations.
-        "clip" | "clip-path" if matches!(value, "auto" | "none") => false,
-        "left" | "right" | "top" | "bottom" | "text-indent" | "padding" | "padding-top"
-        | "padding-right" | "padding-bottom" | "padding-left" | "margin" | "margin-top"
-        | "margin-right" | "margin-bottom" | "margin-left" => {
-            let mut hiding = false;
-            let mut count = 0;
-            for dimension in value.split_ascii_whitespace() {
-                count += 1;
-                if count > 4 {
-                    return None;
-                }
-                hiding |= css_offset_hiding(dimension)?;
-            }
-            if count == 0 {
-                return None;
-            }
-            hiding
-        }
-        // Expressions affecting hiding are not evaluated by this static reader.
-        "transform" | "translate" if value == "none" => false,
-        // Explicitly qualified harmless presentation; unsupported properties
-        // may affect visibility (filter/mask/vendor/future forms). They are
-        // unqualified, never guessed harmless from an unknown property name.
-        "font-family"
-        | "font-weight"
-        | "font-style"
-        | "font-variant"
-        | "font-stretch"
-        | "font-kerning"
-        | "font-feature-settings"
-        | "letter-spacing"
-        | "word-spacing"
-        | "line-height"
-        | "text-align"
-        | "text-align-last"
-        | "text-decoration"
-        | "text-decoration-line"
-        | "text-decoration-style"
-        | "text-decoration-color"
-        | "text-transform"
-        | "text-shadow"
-        | "text-overflow"
-        | "vertical-align"
-        | "white-space"
-        | "word-break"
-        | "overflow-wrap"
-        | "word-wrap"
-        | "hyphens"
-        | "direction"
-        | "unicode-bidi"
-        | "background"
-        | "background-color"
-        | "background-image"
-        | "background-position"
-        | "background-repeat"
-        | "background-size"
-        | "background-attachment"
-        | "background-origin"
-        | "background-clip"
-        | "width"
-        | "height"
-        | "min-width"
-        | "max-width"
-        | "min-height"
-        | "max-height"
-        | "box-sizing"
-        | "box-shadow"
-        | "position"
-        | "border"
-        | "border-top"
-        | "border-right"
-        | "border-bottom"
-        | "border-left"
-        | "border-width"
-        | "border-style"
-        | "border-color"
-        | "border-radius"
-        | "border-collapse"
-        | "border-spacing"
-        | "outline"
-        | "outline-color"
-        | "outline-style"
-        | "outline-width"
-        | "outline-offset"
-        | "table-layout"
-        | "caption-side"
-        | "empty-cells"
-        | "list-style"
-        | "list-style-type"
-        | "list-style-position"
-        | "list-style-image"
-        | "float"
-        | "clear"
-        | "cursor"
-        | "user-select"
-        | "resize"
-        | "appearance"
-        | "accent-color" => false,
-        _ => return None,
+    }
+    Some(geometry)
+}
+fn css_declarations(source: &str) -> Option<bool> {
+    css_declaration_geometry(&css_tokens(source)?).map(|_| false)
+}
+fn css_element_geometry(e: scraper::ElementRef<'_>) -> Option<f64> {
+    e.value().attr("style").map_or(Some(0.0), |style| {
+        css_declaration_geometry(&css_tokens(style)?)
     })
 }
-// Do not discard units or emulate viewport/font/container conversion.
-// Nonzero non-pixel offsets are unqualified; zero is unit-independent. Large
-// signed pixel/unitless offsets retain the explicit static hiding boundary.
-fn css_offset_hiding(value: &str) -> Option<bool> {
-    if matches!(value, "auto" | "inherit" | "initial" | "unset" | "revert") {
-        return Some(false);
-    }
-    let number = css_number(value)?;
-    if number == 0.0 {
-        return Some(false);
-    }
-    let end = value
-        .find(|c: char| !(c.is_ascii_digit() || matches!(c, '.' | '-' | '+')))
-        .unwrap_or(value.len());
-    match &value[end..] {
-        "" | "px" => Some(number.abs() >= 1000.0),
-        _ => None,
-    }
-}
-fn css_color_hiding(value: &str) -> Option<bool> {
-    if value == "transparent" {
-        return Some(true);
-    }
-    if let Some(hex) = value.strip_prefix('#') {
-        if !matches!(hex.len(), 3 | 4 | 6 | 8) || !hex.bytes().all(|c| c.is_ascii_hexdigit()) {
+fn css_inline_chain_geometry(e: scraper::ElementRef<'_>) -> Option<f64> {
+    let mut geometry = 0.0;
+    for node in e
+        .ancestors()
+        .filter_map(scraper::ElementRef::wrap)
+        .chain(std::iter::once(e))
+    {
+        geometry += css_element_geometry(node)?;
+        if geometry > 128.0 {
             return None;
         }
-        return Some(hex.len() == 4 && hex.ends_with('0') || hex.len() == 8 && hex.ends_with("00"));
     }
-    if let Some((name, args)) = value.split_once('(') {
-        if !matches!(
-            name,
-            "rgb" | "rgba" | "hsl" | "hsla" | "hwb" | "lab" | "lch" | "oklab" | "oklch" | "color"
-        ) {
-            return None;
-        }
-        let args = args.strip_suffix(')')?;
-        let alpha = if let Some((_, alpha)) = args.split_once('/') {
-            if alpha.contains('/') {
-                return None;
-            }
-            Some(alpha.trim())
-        } else if args.split(',').count() == 4 {
-            args.rsplit(',').next().map(str::trim)
-        } else {
-            None
-        };
-        return alpha.map_or(Some(false), |alpha| css_number(alpha).map(|v| v <= 0.0));
-    }
-    value
-        .bytes()
-        .all(|c| c.is_ascii_alphabetic() || c == b'-')
-        .then_some(false)
+    Some(geometry)
 }
-fn stylesheet_hiding(source: &str) -> Option<bool> {
-    let decoded = css_source(source)?;
-    let mut remaining = decoded.trim();
-    let mut hiding = false;
+fn css_stylesheet_geometry(source: &str, matches: impl Fn(&[CssToken]) -> usize) -> Option<f64> {
+    let tokens = css_tokens(source)?;
+    let mut remaining = tokens.as_slice();
     let mut count = 0;
+    let mut geometry = 0.0;
     while !remaining.is_empty() {
         count += 1;
         if count > 1024 {
             return None;
         }
-        let (selector, tail) = remaining.split_once('{')?;
-        if selector.trim().is_empty() || selector.contains(['@', '}', ';']) {
+        let open = remaining.iter().position(|t| *t == CssToken::Punct('{'))?;
+        let selector = &remaining[..open];
+        // Closed simple-selector subset. Unsupported selectors refuse even if
+        // a renderer might ignore them. Escaped braces stay Ident data.
+        if selector.is_empty()
+            || !selector.iter().all(|t| {
+                matches!(
+                    t,
+                    CssToken::Ident(_)
+                        | CssToken::Hash(_)
+                        | CssToken::Punct('.' | ':' | ',' | '>' | '+' | '~' | '*')
+                )
+            })
+        {
             return None;
         }
-        let (declarations, rest) = tail.split_once('}')?;
-        hiding |= css_declarations_decoded(declarations)?;
-        remaining = rest.trim();
+        let tail = &remaining[open + 1..];
+        let close = tail.iter().position(|t| *t == CssToken::Punct('}'))?;
+        geometry += css_declaration_geometry(&tail[..close])? * matches(selector) as f64;
+        if geometry > 128.0 {
+            return None;
+        }
+        remaining = &tail[close + 1..];
     }
-    Some(hiding)
+    Some(geometry)
+}
+#[cfg(test)]
+fn stylesheet_hiding(source: &str) -> Option<bool> {
+    css_stylesheet_geometry(source, |_| 1).map(|_| false)
 }
 fn display_text_contract(d: &crate::dom::Document, pins: &PaperPins) -> Result<()> {
+    let elements = d.select("*");
+    let mut stylesheet_geometry = 0.0;
     for style in d.select("style") {
+        // A single tag selector can be counted exactly. For every more complex
+        // admitted selector, charge every element as an upper bound: never
+        // undercount case-sensitive classes or assume a rule applies once.
+        let geometry = css_stylesheet_geometry(&crate::dom::content(style), |selector| {
+            if let [CssToken::Ident(tag)] = selector {
+                elements
+                    .iter()
+                    .filter(|e| e.value().name().eq_ignore_ascii_case(tag))
+                    .count()
+            } else {
+                elements.len()
+            }
+        })
+        .ok_or_else(|| Error::refusal("contract_drift"))?;
+        stylesheet_geometry += geometry;
+        require(stylesheet_geometry <= 128.0, "contract_drift")?;
+    }
+    if stylesheet_geometry > 0.0 {
+        // Account for inline/STYLE composition as well. An invalid inline
+        // declaration is already opaque; only qualified chains add geometry.
+        let inline_geometry: f64 = elements
+            .iter()
+            .filter_map(|e| css_element_geometry(*e))
+            .sum();
         require(
-            stylesheet_hiding(&crate::dom::content(style)) == Some(false),
+            stylesheet_geometry + inline_geometry <= 128.0,
             "contract_drift",
         )?;
     }
@@ -2835,4 +3086,190 @@ fn inventory_detail(d: &crate::dom::Document, student: &Student, pins: &PaperPin
         ),
         ("handlersInvoked", false.into()),
     ]))
+}
+
+#[cfg(test)]
+mod css_tests {
+    use super::*;
+
+    fn escaped_first(value: &str, whitespace: &str) -> String {
+        let c = value.chars().next().unwrap();
+        format!("\\{:x}{whitespace}{}", c as u32, &value[c.len_utf8()..])
+    }
+
+    #[test]
+    fn every_allowlisted_property_has_a_bounded_token_grammar() {
+        let mut records = Vec::new();
+        for (property, grammar) in CSS_PROPERTIES {
+            let (good, bad) = match grammar {
+                CssGrammar::Keywords(words) => (words[0], "unqualified"),
+                CssGrammar::Lengths(_) => ("128px", "128.01px"),
+                CssGrammar::PositiveLength => ("128px", "0px"),
+                CssGrammar::Size => ("100%", "100.01%"),
+                CssGrammar::LineHeight => ("4", "4.01"),
+                CssGrammar::Spacing => ("128px", "128.01px"),
+                CssGrammar::Border => ("128px solid transparent", "128.01px solid transparent"),
+                CssGrammar::Color(_) | CssGrammar::Colors => ("#123456", "#12345"),
+                CssGrammar::Opacity => ("1", "1.01"),
+                CssGrammar::Weight => ("900", "901"),
+            };
+            let mut cases = vec![
+                ("in-bound", format!("{property}:{good}"), true),
+                ("out-of-bound", format!("{property}:{bad}"), false),
+                (
+                    "escaped",
+                    format!("{}:{good}", escaped_first(property, " ")),
+                    true,
+                ),
+                (
+                    "uppercase",
+                    format!(
+                        "{}:{}",
+                        property.to_ascii_uppercase(),
+                        good.to_ascii_uppercase()
+                    ),
+                    true,
+                ),
+                ("important", format!("{property}:{good}!IMPORTANT"), true),
+                (
+                    "comments-between-tokens",
+                    format!("{property}/**/:/**/{good}/**/!/**/important"),
+                    true,
+                ),
+                (
+                    "comments-inside-identifier",
+                    format!("{}/**/{}:{good}", &property[..1], &property[1..]),
+                    false,
+                ),
+                (
+                    "extra-token",
+                    format!("{property}:{good} unexpected"),
+                    false,
+                ),
+            ];
+            for (name, newline) in [
+                ("CR", "\r"),
+                ("LF", "\n"),
+                ("FF", "\u{c}"),
+                ("CRLF", "\r\n"),
+            ] {
+                cases.push((
+                    name,
+                    format!("{}:{good}", escaped_first(property, newline)),
+                    true,
+                ));
+            }
+            // Exercise escaped value identifiers, hash digits and units too.
+            let encoded_value = if let Some(hex) = good.strip_prefix('#') {
+                format!("#{}", escaped_first(hex, "\r\n"))
+            } else if good.starts_with(|c: char| c.is_ascii_alphabetic()) {
+                escaped_first(good, "\r\n")
+            } else if good.contains("px") {
+                good.replace("px", "\\70\r\nx")
+            } else {
+                good.to_owned()
+            };
+            cases.push(("escaped-value", format!("{property}:{encoded_value}"), true));
+            for (case, css, admitted) in cases {
+                assert_eq!(
+                    css_declarations(&css) == Some(false),
+                    admitted,
+                    "{property}/{case}"
+                );
+                assert_eq!(
+                    stylesheet_hiding(&format!("h1{{{css}}}")) == Some(false),
+                    admitted,
+                    "STYLE {property}/{case}"
+                );
+                records.push(obj(&[
+                    ("property", (*property).into()),
+                    ("case", case.into()),
+                    ("admitted", admitted.into()),
+                ]));
+            }
+        }
+        assert_eq!(records.len(), CSS_PROPERTIES.len() * 13);
+        if let Ok(root) = std::env::var("E09B_FIX1_EVIDENCE") {
+            std::fs::write(
+                std::path::Path::new(&root).join("css-property-matrix.json"),
+                json(&Js::Arr(records)),
+            )
+            .unwrap();
+        }
+    }
+
+    #[test]
+    fn css_syntax_preprocessing_and_token_identity_are_preserved() {
+        assert_eq!(
+            css_preprocess("a\r\nb\rc\u{c}d\0"),
+            Some("a\nb\nc\nd\u{fffd}".chars().collect())
+        );
+        for escape in ["\\0 ", "\\d800 ", "\\110000 ", "\\"] {
+            let tokens = css_tokens(escape).unwrap();
+            assert_eq!(tokens, vec![CssToken::Ident("\u{fffd}".into())]);
+        }
+        assert_eq!(
+            css_tokens("n/**/one"),
+            Some(vec![
+                CssToken::Ident("n".into()),
+                CssToken::Ident("one".into())
+            ])
+        );
+        assert_eq!(
+            css_tokens("b\\3b order"),
+            Some(vec![CssToken::Ident("b;order".into())])
+        );
+        for source in [
+            "display:\\6e\r\none",
+            "display:\\00006e\r\none",
+            "d\\69\r\nsplay:none",
+            "display:n\\6f\u{c}ne",
+            "display:bl/**/ock",
+            "d/**/isplay:block",
+            "padding:1/**/px",
+            "border:1e4px solid black",
+            "border:10000\\70 x solid black",
+            "width:calc(1px)",
+            "width:var(--x)",
+            "left:1vh",
+            "left:-1px",
+            "font-size:1e999px",
+            "font-size:0px",
+            "unknown:0",
+            "color:red\\;display\\:none",
+            "display:block;\\7d x\\7b display:none",
+            "color:'red'",
+            "color:red;/*",
+            "color:red\u{b}",
+            "color:red\0",
+            "opacity:1!important!important",
+        ] {
+            assert_ne!(
+                css_declarations(source),
+                Some(false),
+                "unqualified syntax admitted"
+            );
+            assert_ne!(stylesheet_hiding(&format!("h1{{{source}}}")), Some(false));
+        }
+        for source in [
+            "border:128px solid black",
+            "width:128px",
+            "padding:0 128px",
+            "padding:0e4px",
+            "padding:1.28e2px",
+            "top:0vh",
+            "color:r\\65\r\nd",
+            "color:red!im\\70\r\nortant",
+        ] {
+            assert_eq!(
+                css_declarations(source),
+                Some(false),
+                "positive syntax refused"
+            );
+        }
+        assert!(css_tokens(&"x".repeat(32769)).is_none());
+        assert!(css_tokens(&";".repeat(8193)).is_none());
+        assert!(css_declarations(&"color:red;".repeat(1025)).is_none());
+        assert!(stylesheet_hiding(&"h1{color:red}".repeat(1025)).is_none());
+    }
 }
