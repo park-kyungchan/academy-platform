@@ -8,7 +8,12 @@ use crate::{
 };
 use edu_academy_core::{
     js::{Fault, Result as CoreResult},
-    workflow::{Runtime, approval::Approval, native::SourcePort as WritePort, service::Source},
+    workflow::{
+        Runtime,
+        approval::{Approval, AttributionOwner, AttributionStore},
+        native::SourcePort as WritePort,
+        service::Source,
+    },
 };
 use std::{
     cell::{RefCell, RefMut},
@@ -281,7 +286,7 @@ impl CredentialProvider for FileCredentialProvider<'_> {
 /// implementation, production qualification, or permission to call Academy.
 /// A single Client and account lease span login, reads, effects and readbacks.
 pub struct NativeSession<'a, T: Transport> {
-    client: Client<T>,
+    client: Client<CredentialTransport<'a, T>>,
     admission: crate::owner_admission::TransportAdmission,
     lease: crate::owner_root::AccountLease,
     credential: Option<Credentials>,
@@ -289,6 +294,25 @@ pub struct NativeSession<'a, T: Transport> {
     expires_at_ms: u64,
     cancellation: crate::http::Cancellation,
     runtime: &'a dyn Runtime,
+}
+/// The guard is beneath Client so every actual request, including recursive
+/// login redirects and discovery, rechecks the owner clock before network I/O.
+struct CredentialTransport<'a, T: Transport> {
+    inner: T,
+    runtime: &'a dyn Runtime,
+    expires_at_ms: u64,
+    expired: bool,
+    cancellation: crate::http::Cancellation,
+}
+impl<T: Transport> Transport for CredentialTransport<'_, T> {
+    fn dispatch(&mut self, request: &crate::http::Request) -> Result<crate::http::Response> {
+        self.cancellation.check()?;
+        if self.expired || self.runtime.epoch_ms() >= self.expires_at_ms {
+            self.expired = true;
+            return Err(Error::error("native_owner_credential_expired"));
+        }
+        self.inner.dispatch(request)
+    }
 }
 impl<'a> NativeSession<'a, crate::http::NativeTransport> {
     pub fn installed(
@@ -354,7 +378,16 @@ impl<'a, T: Transport> NativeSession<'a, T> {
             ("collegeKey", admission.college_id.as_str().into()),
         ]);
         Ok(Self {
-            client: Client::new(principal, transport)?,
+            client: Client::new(
+                principal,
+                CredentialTransport {
+                    inner: transport,
+                    runtime,
+                    expires_at_ms,
+                    expired: false,
+                    cancellation: cancellation.clone(),
+                },
+            )?,
             admission,
             lease,
             credential: Some(credential),
@@ -384,7 +417,12 @@ impl<'a, T: Transport> NativeSession<'a, T> {
                 self.client
                     .authenticate(&credential.username, &credential.password)
                     .map_err(|error| {
-                        if error.message == "native_transport_timeout" {
+                        if matches!(
+                            error.message.as_str(),
+                            "native_transport_timeout"
+                                | "native_owner_credential_expired"
+                                | "native_transport_cancelled"
+                        ) {
                             error
                         } else {
                             Error::error("native_owner_authentication_failed")
@@ -424,69 +462,82 @@ impl<'a, T: Transport> NativeSession<'a, T> {
     pub fn reconciliation_required(&self) -> Result<bool> {
         self.lease.reconciliation_required()
     }
-    /// `expected_sha256` is an exact source readback body, never an acknowledgement.
-    /// The installed family owner must obtain its expected document from its
-    /// reviewed source contract. Dynamic pages require a future family projection.
-    /// Any error after begin is uncertain and leaves the durable account fence.
-    pub fn effect(
-        &mut self,
-        intent: EffectIntent<'_>,
-        approval: &mut dyn Approval,
-    ) -> Result<crate::http::Response> {
-        let EffectIntent {
-            scope,
-            operation,
-            arguments,
-            readback_operation,
-            readback_arguments,
-            expected_sha256,
-        } = intent;
-        let request = self.admission.request(scope, operation, arguments, true)?;
-        let readback =
+    fn prepare_effect(&self, intent: &EffectIntent<'_>) -> Result<PreparedEffect> {
+        let request =
             self.admission
-                .request(scope, readback_operation, readback_arguments, false)?;
-        if !sha_valid(&expected_sha256.into()) {
+                .request(intent.scope, intent.operation, intent.arguments, true)?;
+        let readback = self.admission.request(
+            intent.scope,
+            intent.readback_operation,
+            intent.readback_arguments,
+            false,
+        )?;
+        if !sha_valid(&intent.expected_sha256.into()) {
             return Err(Error::error("native_readback_digest_required"));
         }
+        let pending = crate::owner_root::PendingEffect {
+            scope: scope_digest(intent.scope)?,
+            operation: request_digest(&request),
+            readback: request_digest(&readback),
+            expected: intent.expected_sha256.into(),
+        };
+        let authorization = obj(&[
+            (
+                "sourceNamespace",
+                intent.scope.source_namespace.as_str().into(),
+            ),
+            ("ownerId", intent.scope.owner_id.as_str().into()),
+            ("teacherId", intent.scope.teacher_id.as_str().into()),
+            ("studentId", intent.scope.student_id.as_str().into()),
+            ("date", intent.scope.date.as_str().into()),
+            ("operationDigest", pending.operation.as_str().into()),
+            ("readbackDigest", pending.readback.as_str().into()),
+            ("expectedSha256", intent.expected_sha256.into()),
+        ]);
+        Ok(PreparedEffect {
+            request,
+            pending,
+            authorization,
+        })
+    }
+    /// Exact transport action for the private owner's independent E06 review/grant.
+    /// This creates no approval, consumes nothing and performs no network I/O.
+    pub fn effect_action(&self, intent: &EffectIntent<'_>) -> Result<Js> {
+        Ok(self.prepare_effect(intent)?.authorization)
+    }
+    /// Effects REQUIRE E06 verification and the actual owner's atomic
+    /// compare-and-consume. An older Approval callback cannot authorize this API.
+    /// expected_sha256 is an exact readback body, never an acknowledgement;
+    /// dynamic documents still require a reviewed family projection/contract.
+    pub fn effect<S: AttributionStore>(
+        &mut self,
+        intent: EffectIntent<'_>,
+        attribution: &mut EffectAttribution<'_, S>,
+    ) -> Result<crate::http::Response> {
+        let PreparedEffect {
+            request,
+            pending,
+            authorization,
+        } = self.prepare_effect(&intent)?;
         if self.lease.reconciliation_required()? {
             return Err(Error::error("owner_account_reconciliation_required"));
         }
         self.authenticate()?;
-        let pending = crate::owner_root::PendingEffect {
-            scope: scope_digest(scope)?,
-            operation: request_digest(&request),
-            readback: request_digest(&readback),
-            expected: expected_sha256.into(),
-        };
-        let authorization = obj(&[
-            ("sourceNamespace", scope.source_namespace.as_str().into()),
-            ("ownerId", scope.owner_id.as_str().into()),
-            ("teacherId", scope.teacher_id.as_str().into()),
-            ("studentId", scope.student_id.as_str().into()),
-            ("date", scope.date.as_str().into()),
-            ("operationDigest", pending.operation.as_str().into()),
-            ("readbackDigest", pending.readback.as_str().into()),
-            ("expectedSha256", expected_sha256.into()),
-        ]);
-        let decision = approval
-            .consume(&authorization)
-            .map_err(|_| Error::error("native_effect_approval_refused"))?;
-        let canonical =
-            edu_academy_core::workflow::canonical(&authorization).map_err(error_from_fault)?;
-        if !decision.get("status").is("verified")
-            || !decision.get("actionDigest").is(&hash(canonical.as_bytes()))
-        {
-            return Err(Error::error("native_effect_approval_refused"));
-        }
+        attribution.consume(&authorization, self.runtime.epoch_ms())?;
         self.cancellation.check()?;
         self.lease.begin(&pending)?;
-        // Dispatch exactly once. Both transport errors and acknowledgements require
-        // reconciliation; no retry, including GET mutations or a later process.
+        // Exactly one effect dispatch after durable fencing. Errors stay uncertain.
         self.dispatch(request)
             .map_err(|_| Error::error("native_effect_uncertain"))?;
-        self.reconcile(scope, readback_operation, readback_arguments)
-            .map_err(|_| Error::error("native_effect_uncertain"))
+        self.reconcile(
+            intent.scope,
+            intent.readback_operation,
+            intent.readback_arguments,
+        )
+        .map_err(|_| Error::error("native_effect_uncertain"))
     }
+    /// READ/reconcile deliberately use TransportAdmission + scope, not instruction
+    /// attribution. R12 supplies private owner identity; no effect is granted here.
     pub fn reconcile(
         &mut self,
         scope: &crate::owner_admission::TransportScope,
@@ -513,6 +564,53 @@ impl<T: Transport> Drop for NativeSession<'_, T> {
     fn drop(&mut self) {
         self.client.close();
         self.credential.take();
+    }
+}
+struct PreparedEffect {
+    request: crate::http::Request,
+    pending: crate::owner_root::PendingEffect,
+    authorization: Js,
+}
+/// Mandatory E06 effect authorization. The installed owner supplies its existing
+/// transaction store; this wrapper cannot accept a caller-generated Verified flag
+/// or a legacy Approval callback. E06 rechecks fresh instruction/session/source/
+/// grant/time under that store's transaction before consuming once.
+pub struct EffectAttribution<'a, S: AttributionStore> {
+    approval: edu_academy_core::attribution::Approval,
+    source_sha256: String,
+    store: &'a mut S,
+}
+impl<'a, S: AttributionStore> EffectAttribution<'a, S> {
+    pub fn new(envelope: &Js, source_sha256: &str, store: &'a mut S) -> Result<Self> {
+        if !sha_valid(&source_sha256.into()) {
+            return Err(Error::error("native_effect_attribution_refused"));
+        }
+        let approval = edu_academy_core::attribution::Approval::new(envelope)
+            .map_err(|_| Error::error("native_effect_attribution_refused"))?;
+        Ok(Self {
+            approval,
+            source_sha256: source_sha256.into(),
+            store,
+        })
+    }
+    fn consume(&mut self, action: &Js, now_ms: u64) -> Result<()> {
+        let now_ms =
+            i64::try_from(now_ms).map_err(|_| Error::error("native_effect_attribution_refused"))?;
+        let verdict = self
+            .approval
+            .consume(
+                action,
+                &self.source_sha256,
+                now_ms,
+                &mut AttributionOwner::new(&mut *self.store),
+            )
+            .map_err(|_| Error::error("native_effect_attribution_refused"))?;
+        match verdict {
+            edu_academy_core::attribution::Verdict::Verified { .. } => Ok(()),
+            edu_academy_core::attribution::Verdict::Rejected(_) => {
+                Err(Error::error("native_effect_attribution_refused"))
+            }
+        }
     }
 }
 pub struct EffectIntent<'a> {

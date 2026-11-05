@@ -1,17 +1,14 @@
 //! R03 synthetic native qualification. All sockets are literal loopback; random
 //! disposable credential bytes never appear in fixtures, diagnostics or traces.
-use edu_academy_core::{
-    js::Result as CoreResult,
-    workflow::{Runtime, approval::Approval, canonical},
-};
+use edu_academy_core::{js::Result as CoreResult, workflow::Runtime};
 use edu_academy_sources::{
     data::*,
     http::{Cancellation, NativeTransport, Request, Response, Transport, TransportLimits},
     owner_admission::{TransportAdmission, TransportScope},
     owner_root::OwnerRoot,
     owner_workflow::{
-        CredentialProvider, Credentials, EffectIntent, FileCredentialProvider, NativeOwnerInputs,
-        NativeSession, PinnedInput,
+        CredentialProvider, Credentials, EffectAttribution, EffectIntent, FileCredentialProvider,
+        NativeOwnerInputs, NativeSession, PinnedInput,
     },
 };
 use std::{
@@ -326,20 +323,95 @@ fn session<'a>(
     )
     .unwrap()
 }
-struct Approve;
-impl Approval for Approve {
-    fn consume(&mut self, a: &Js) -> CoreResult<Js> {
-        Ok(obj(&[
-            ("status", "verified".into()),
-            ("actionDigest", hash(canonical(a)?.as_bytes()).into()),
-        ]))
+struct AttributionFixture {
+    actual: Option<edu_academy_core::attribution::Instruction>,
+    consumed: std::collections::HashSet<String>,
+    now: i64,
+    transactions: usize,
+}
+struct AttributionTx<'a>(&'a mut AttributionFixture);
+impl edu_academy_core::workflow::approval::AttributionStore for AttributionFixture {
+    type Transaction<'a> = AttributionTx<'a>;
+    fn transaction(&mut self) -> CoreResult<Self::Transaction<'_>> {
+        self.transactions += 1;
+        Ok(AttributionTx(self))
     }
 }
-struct Reject;
-impl Approval for Reject {
-    fn consume(&mut self, _: &Js) -> CoreResult<Js> {
-        Ok(obj(&[("status", "rejected".into())]))
+impl edu_academy_core::workflow::approval::AttributionTransaction for AttributionTx<'_> {
+    fn lookup(
+        &mut self,
+        request: &str,
+    ) -> CoreResult<Option<edu_academy_core::attribution::Instruction>> {
+        assert_eq!(request, "synthetic:effect-request");
+        Ok(self.0.actual.clone())
     }
+    fn now_ms(&self) -> i64 {
+        self.0.now
+    }
+}
+impl edu_academy_core::workflow::approval::ConsumeOwner for AttributionTx<'_> {
+    fn consume_once(&mut self, key: &str, _: &Js) -> CoreResult<bool> {
+        Ok(self.0.consumed.insert(key.into()))
+    }
+}
+fn attribution_fixture(action: &Js, source: &str) -> (AttributionFixture, Js) {
+    use edu_academy_core::attribution;
+    let digest = attribution::action_digest(action, source).unwrap();
+    let blocks = vec!["Synthetic effect instruction".into()];
+    let envelope = obj(&[
+        ("schemaVersion", attribution::SCHEMA_VERSION.into()),
+        ("runtime", "codex".into()),
+        ("runtimeSessionId", "synthetic:effect-session".into()),
+        ("requestRef", "synthetic:effect-request".into()),
+        ("currentUserEventRef", "synthetic:effect-event".into()),
+        (
+            "requestTextSha256",
+            attribution::normalized_request_text_hash(&blocks).into(),
+        ),
+        ("issuedAt", "1970-01-01T00:00:00Z".into()),
+        ("expiresAt", "1970-01-01T00:01:00Z".into()),
+        ("actionDigests", Js::Arr(vec![digest.clone().into()])),
+    ]);
+    let actual = attribution::Instruction {
+        runtime: "codex".into(),
+        runtime_session_id: "synthetic:effect-session".into(),
+        request_ref: "synthetic:effect-request".into(),
+        current_user_event_ref: "synthetic:effect-event".into(),
+        text_blocks: blocks,
+        superseded: false,
+        source_sha256: Some(source.into()),
+        action_digests: vec![digest],
+    };
+    (
+        AttributionFixture {
+            actual: Some(actual),
+            consumed: Default::default(),
+            now: 1000,
+            transactions: 0,
+        },
+        envelope,
+    )
+}
+fn attributed_effect<T: Transport>(
+    owner: &mut NativeSession<'_, T>,
+    intent: EffectIntent<'_>,
+) -> Result<Response> {
+    let action = owner.effect_action(&intent)?;
+    let source = hash(b"Synthetic inspected source");
+    let (mut store, envelope) = attribution_fixture(&action, &source);
+    let mut proof = EffectAttribution::new(&envelope, &source, &mut store)?;
+    owner.effect(intent, &mut proof)
+}
+fn rejected_effect<T: Transport>(
+    owner: &mut NativeSession<'_, T>,
+    intent: EffectIntent<'_>,
+) -> Result<Response> {
+    let action = owner.effect_action(&intent)?;
+    let source = hash(b"Synthetic inspected source");
+    let (mut store, envelope) = attribution_fixture(&action, &source);
+    store.actual.as_mut().unwrap().superseded = true;
+    let mut proof = EffectAttribution::new(&envelope, &source, &mut store)?;
+    owner.effect(intent, &mut proof)
 }
 fn effect<'a>(
     scope: &'a TransportScope,
@@ -501,26 +573,17 @@ fn uncertain_effect_fences_repeated_and_reopened_sessions_until_actual_readback(
         &clock,
     )
     .unwrap();
-    assert!(
-        owner
-            .effect(effect(&scope, &after, &expected), &mut Reject)
-            .is_err()
-    );
+    assert!(rejected_effect(&mut owner, effect(&scope, &after, &expected)).is_err());
     assert!(!owner.reconciliation_required().unwrap());
     assert_eq!(
-        owner
-            .effect(effect(&scope, &after, &expected), &mut Approve)
+        attributed_effect(&mut owner, effect(&scope, &after, &expected))
             .err()
             .unwrap()
             .message,
         "native_effect_uncertain"
     );
     assert!(owner.reconciliation_required().unwrap());
-    assert!(
-        owner
-            .effect(effect(&scope, &after, &expected), &mut Approve)
-            .is_err()
-    );
+    assert!(attributed_effect(&mut owner, effect(&scope, &after, &expected)).is_err());
     assert_eq!(server.finish().len(), 4);
     drop(owner);
     let mut replies = login();
@@ -528,7 +591,7 @@ fn uncertain_effect_fences_repeated_and_reopened_sessions_until_actual_readback(
         reply("/synthetic/read", "Before"),
         reply("/synthetic/read", "After"),
         reply("/synthetic/write", "accepted"),
-        reply("/synthetic/read", "After"),
+        reply("/synthetic/read", "After again"),
     ]);
     let server = Server::new(replies);
     let mut owner = NativeSession::open(
@@ -540,11 +603,7 @@ fn uncertain_effect_fences_repeated_and_reopened_sessions_until_actual_readback(
         &clock,
     )
     .unwrap();
-    assert!(
-        owner
-            .effect(effect(&scope, &after, &expected), &mut Approve)
-            .is_err()
-    );
+    assert!(attributed_effect(&mut owner, effect(&scope, &after, &expected)).is_err());
     assert!(server.seen.lock().unwrap().is_empty());
     let mut wrong = scope.clone();
     wrong.source_namespace = "academy.lms.dayrecord".into();
@@ -557,11 +616,17 @@ fn uncertain_effect_fences_repeated_and_reopened_sessions_until_actual_readback(
     );
     assert!(!owner.reconciliation_required().unwrap());
     assert_eq!(
-        owner
-            .effect(effect(&scope, &after, &expected), &mut Approve)
-            .unwrap()
-            .bytes,
-        b"After"
+        attributed_effect(
+            &mut owner,
+            effect(
+                &scope,
+                &[("after".into(), "After again".into())],
+                &hash(b"After again")
+            )
+        )
+        .unwrap()
+        .bytes,
+        b"After again"
     );
     assert!(!owner.reconciliation_required().unwrap());
     assert_eq!(server.finish().len(), 7);
@@ -896,13 +961,13 @@ fn effect_child() {
         &clock,
     )
     .unwrap();
-    let _ = owner.effect(
+    let _ = attributed_effect(
+        &mut owner,
         effect(
             &scope(),
             &[("after".into(), "After".into())],
             &hash(b"After"),
         ),
-        &mut Approve,
     );
 }
 #[test]
@@ -961,16 +1026,15 @@ fn killed_inflight_effect_keeps_durable_fence_and_releases_socket_and_account() 
     .unwrap();
     assert!(owner.reconciliation_required().unwrap());
     assert!(
-        owner
-            .effect(
-                effect(
-                    &scope(),
-                    &[("after".into(), "After".into())],
-                    &hash(b"After")
-                ),
-                &mut Approve
+        attributed_effect(
+            &mut owner,
+            effect(
+                &scope(),
+                &[("after".into(), "After".into())],
+                &hash(b"After")
             )
-            .is_err()
+        )
+        .is_err()
     );
     assert!(server.seen.lock().unwrap().is_empty());
     owner.reconcile(&scope(), "read", &[]).unwrap();
@@ -1078,4 +1142,378 @@ fn review_credential_expiry_during_login_refuses_before_source_dispatch() {
         "native_owner_credential_expired"
     );
     assert_eq!(server.finish().len(), 3);
+}
+#[derive(Debug)]
+struct LoopbackResolver(SocketAddr, Duration);
+impl ureq::unversioned::resolver::Resolver for LoopbackResolver {
+    fn resolve(
+        &self,
+        _: &ureq::http::Uri,
+        _: &ureq::config::Config,
+        _: ureq::unversioned::transport::NextTimeout,
+    ) -> std::result::Result<ureq::unversioned::resolver::ResolvedSocketAddrs, ureq::Error> {
+        thread::sleep(self.1);
+        let mut addresses = self.empty();
+        addresses.push(self.0);
+        Ok(addresses)
+    }
+}
+#[test]
+fn fix2_tls_slow_progress_obeys_absolute_deadline_closes_socket_and_releases_owner() {
+    for (budget, cancel_after) in [(100u64, None), (500, Some(50u64))] {
+        let cancellation = Cancellation::default();
+        let peer_cancellation = cancellation.clone();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(1)))
+                .unwrap();
+            assert!(stream.read(&mut [0u8; 4096]).unwrap() > 0);
+            stream.write_all(&[22, 3, 3, 0x40, 0]).unwrap();
+            stream.set_nonblocking(true).unwrap();
+            let started = Instant::now();
+            let mut closed = false;
+            while started.elapsed() < Duration::from_millis(900) {
+                if cancel_after
+                    .is_some_and(|delay| started.elapsed() >= Duration::from_millis(delay))
+                {
+                    peer_cancellation.cancel();
+                }
+                if stream.write_all(&[0u8]).is_err() {
+                    closed = true;
+                    break;
+                }
+                match stream.read(&mut [0u8; 256]) {
+                    Ok(0) => {
+                        closed = true;
+                        break;
+                    }
+                    Err(e)
+                        if matches!(
+                            e.kind(),
+                            std::io::ErrorKind::ConnectionReset | std::io::ErrorKind::BrokenPipe
+                        ) =>
+                    {
+                        closed = true;
+                        break;
+                    }
+                    _ => (),
+                }
+                thread::sleep(Duration::from_millis(25));
+            }
+            let _ = stream.shutdown(std::net::Shutdown::Both);
+            closed
+        });
+        let fixture = Fixture::new();
+        let root = fixture.root();
+        let clock = Clock(Cell::new(1000));
+        let username = random();
+        let password = random();
+        let account =
+            hash(format!("{}\0{}", edu_academy_sources::http::ORIGIN, username).as_bytes());
+        let transport = NativeTransport::with_resolver(
+            TransportLimits {
+                timeout: Duration::from_millis(budget),
+                ..TransportLimits::default()
+            },
+            cancellation.clone(),
+            LoopbackResolver(
+                address,
+                if cancel_after.is_none() {
+                    Duration::from_millis(40)
+                } else {
+                    Duration::ZERO
+                },
+            ),
+        )
+        .unwrap();
+        let mut owner = NativeSession::open(
+            Rc::clone(&root),
+            policy(),
+            transport,
+            || Ok(Credentials::new(username.clone(), password.clone())),
+            cancellation,
+            &clock,
+        )
+        .unwrap();
+        let started = Instant::now();
+        let result = owner.read(&scope(), "read", &[]);
+        let elapsed = started.elapsed();
+        drop(owner);
+        let lease = root.account(&account).unwrap();
+        assert!(!lease.reconciliation_required().unwrap());
+        drop(lease);
+        let closed = server.join().unwrap();
+        println!(
+            "TLS budget_ms={budget} cancellation_after_ms={cancel_after:?} elapsed_ms={} peer_closed={closed}",
+            elapsed.as_millis()
+        );
+        assert_eq!(
+            result.err().unwrap().message,
+            if cancel_after.is_some() {
+                "native_transport_cancelled"
+            } else {
+                "native_transport_timeout"
+            }
+        );
+        assert!(
+            elapsed < Duration::from_millis(300),
+            "TLS absolute deadline/cancellation exceeded: {}ms",
+            elapsed.as_millis()
+        );
+        assert!(closed, "peer must observe EOF/reset after refusal");
+    }
+}
+struct ExpireAtStep<'a> {
+    inner: NativeTransport,
+    clock: &'a Clock,
+    at: usize,
+    calls: Rc<Cell<usize>>,
+    expired_starts: Rc<Cell<usize>>,
+}
+impl Transport for ExpireAtStep<'_> {
+    fn dispatch(&mut self, request: &Request) -> Result<Response> {
+        if self.clock.epoch_ms() >= 100_000 {
+            self.expired_starts.set(self.expired_starts.get() + 1);
+        }
+        self.calls.set(self.calls.get() + 1);
+        let result = self.inner.dispatch(request);
+        if self.calls.get() == self.at {
+            self.clock.0.set(100_000);
+        }
+        result
+    }
+}
+#[test]
+fn fix2_expiry_after_every_login_step_stops_every_later_network_start() {
+    let mut observed = vec![];
+    for step in [0, 1, 2, 3] {
+        let fixture = Fixture::new();
+        let clock = Clock(Cell::new(1000));
+        let mut replies = login();
+        replies.truncate(step);
+        let server = Server::new(replies);
+        let calls = Rc::new(Cell::new(0));
+        let expired = Rc::new(Cell::new(0));
+        let transport = ExpireAtStep {
+            inner: server.transport(),
+            clock: &clock,
+            at: step,
+            calls: Rc::clone(&calls),
+            expired_starts: Rc::clone(&expired),
+        };
+        let mut owner = NativeSession::open(
+            fixture.root(),
+            policy(),
+            transport,
+            fixture.credential(&clock, 100_000),
+            Cancellation::default(),
+            &clock,
+        )
+        .unwrap();
+        if step == 0 {
+            clock.0.set(100_000);
+        }
+        let error = owner.read(&scope(), "read", &[]).err().unwrap();
+        observed.push(expired.get());
+        assert_eq!(server.finish().len(), step);
+        assert!(owner.read(&scope(), "read", &[]).is_err());
+        if expired.get() == 0 {
+            assert_eq!(error.message, "native_owner_credential_expired");
+            assert_eq!(calls.get(), step);
+        }
+    }
+    assert_eq!(
+        observed,
+        vec![0, 0, 0, 0],
+        "no expired login network starts"
+    );
+}
+#[test]
+fn fix2_expiry_before_and_after_login_redirect_stops_every_later_network_start() {
+    let mut observed = vec![];
+    for step in [2, 3] {
+        let fixture = Fixture::new();
+        let clock = Clock(Cell::new(1000));
+        let mut replies = login();
+        replies[1].status = 302;
+        replies[1]
+            .headers
+            .push(("Location".into(), "/synthetic/login-next".into()));
+        replies.insert(2, reply("/synthetic/login-next", "accepted"));
+        replies.truncate(step);
+        let server = Server::new(replies);
+        let calls = Rc::new(Cell::new(0));
+        let expired = Rc::new(Cell::new(0));
+        let transport = ExpireAtStep {
+            inner: server.transport(),
+            clock: &clock,
+            at: step,
+            calls: Rc::clone(&calls),
+            expired_starts: Rc::clone(&expired),
+        };
+        let mut owner = NativeSession::open(
+            fixture.root(),
+            policy(),
+            transport,
+            fixture.credential(&clock, 100_000),
+            Cancellation::default(),
+            &clock,
+        )
+        .unwrap();
+        let error = owner.read(&scope(), "read", &[]).err().unwrap();
+        observed.push(expired.get());
+        assert_eq!(server.finish().len(), step);
+        assert!(owner.read(&scope(), "read", &[]).is_err());
+        if expired.get() == 0 {
+            assert_eq!(error.message, "native_owner_credential_expired");
+            assert_eq!(calls.get(), step);
+        }
+    }
+    assert_eq!(
+        observed,
+        vec![0, 0],
+        "no expired redirect/discovery network starts"
+    );
+}
+#[test]
+fn fix2_effect_requires_e06_missing_expired_superseded_wrong_source_and_session_refuse() {
+    for variant in [
+        "missing",
+        "expired",
+        "owner_expired",
+        "missing_source",
+        "wrong_event",
+        "superseded",
+        "wrong_source",
+        "wrong_session",
+        "missing_current",
+    ] {
+        let fixture = Fixture::new();
+        let clock = Clock(Cell::new(1000));
+        let server = Server::new(if variant == "missing" {
+            vec![]
+        } else {
+            login()
+        });
+        let mut owner = session(&fixture, &clock, &server);
+        let scope = scope();
+        let after = vec![("after".into(), "After".into())];
+        let expected = hash(b"After");
+        let intent = effect(&scope, &after, &expected);
+        let action = owner.effect_action(&intent).unwrap();
+        let source = hash(b"Synthetic inspected source");
+        let (mut store, mut envelope) = attribution_fixture(&action, &source);
+        match variant {
+            "missing" => envelope = Js::Null,
+            "expired" => envelope.set("expiresAt", "1970-01-01T00:00:01Z".into()),
+            "owner_expired" => store.now = 60_000,
+            "missing_source" => store.actual.as_mut().unwrap().source_sha256 = None,
+            "wrong_event" => {
+                store.actual.as_mut().unwrap().current_user_event_ref = "replaced-event".into()
+            }
+            "superseded" => store.actual.as_mut().unwrap().superseded = true,
+            "wrong_source" => {
+                store.actual.as_mut().unwrap().source_sha256 = Some(hash(b"Changed source"))
+            }
+            "wrong_session" => {
+                store.actual.as_mut().unwrap().runtime_session_id = "foreign-session".into()
+            }
+            _ => store.actual = None,
+        }
+        if variant == "missing" {
+            assert!(EffectAttribution::new(&envelope, &source, &mut store).is_err());
+            assert!(server.seen.lock().unwrap().is_empty());
+        } else {
+            let mut proof = EffectAttribution::new(&envelope, &source, &mut store).unwrap();
+            assert_eq!(
+                owner.effect(intent, &mut proof).err().unwrap().message,
+                "native_effect_attribution_refused"
+            );
+            assert!(!owner.reconciliation_required().unwrap());
+            assert!(store.consumed.is_empty());
+            assert_eq!(store.transactions, if variant == "expired" { 0 } else { 1 });
+        }
+        assert_eq!(
+            server.finish().len(),
+            if variant == "missing" { 0 } else { 3 }
+        );
+    }
+}
+#[test]
+fn fix2_effect_e06_owner_store_replay_refuses_fresh_envelope_object_without_dispatch() {
+    let fixture = Fixture::new();
+    let clock = Clock(Cell::new(1000));
+    let mut replies = login();
+    replies.extend([
+        reply("/synthetic/write", "accepted"),
+        reply("/synthetic/read", "After"),
+    ]);
+    let server = Server::new(replies);
+    let mut owner = session(&fixture, &clock, &server);
+    let scope = scope();
+    let after = vec![("after".into(), "After".into())];
+    let expected = hash(b"After");
+    let action = owner
+        .effect_action(&effect(&scope, &after, &expected))
+        .unwrap();
+    let source = hash(b"Synthetic inspected source");
+    let (mut store, envelope) = attribution_fixture(&action, &source);
+    {
+        let mut proof = EffectAttribution::new(&envelope, &source, &mut store).unwrap();
+        assert_eq!(
+            owner
+                .effect(effect(&scope, &after, &expected), &mut proof)
+                .unwrap()
+                .bytes,
+            b"After"
+        );
+    }
+    assert!(!owner.reconciliation_required().unwrap());
+    assert_eq!(store.consumed.len(), 1);
+    {
+        // A fresh parsed envelope must still use the same owner consume-once store.
+        let mut proof = EffectAttribution::new(&envelope, &source, &mut store).unwrap();
+        assert_eq!(
+            owner
+                .effect(effect(&scope, &after, &expected), &mut proof)
+                .err()
+                .unwrap()
+                .message,
+            "native_effect_attribution_refused"
+        );
+    }
+    assert_eq!(store.transactions, 2);
+    assert_eq!(store.consumed.len(), 1);
+    assert!(!owner.reconciliation_required().unwrap());
+    assert_eq!(server.finish().len(), 5);
+}
+#[test]
+fn fix2_live_login_redirect_reuses_the_single_authenticated_session() {
+    let fixture = Fixture::new();
+    let clock = Clock(Cell::new(1000));
+    let mut replies = login();
+    replies[1].status = 302;
+    replies[1]
+        .headers
+        .push(("Location".into(), "/synthetic/login-next".into()));
+    replies.insert(2, reply("/synthetic/login-next", "accepted"));
+    replies.extend([
+        reply("/synthetic/read", "first"),
+        reply("/synthetic/read", "second"),
+    ]);
+    let server = Server::new(replies);
+    let mut owner = session(&fixture, &clock, &server);
+    assert_eq!(owner.read(&scope(), "read", &[]).unwrap().bytes, b"first");
+    assert_eq!(owner.read(&scope(), "read", &[]).unwrap().bytes, b"second");
+    let seen = server.finish();
+    assert_eq!(seen.len(), 6);
+    assert_eq!(
+        seen.iter()
+            .filter(|line| line.ends_with("/c_login.jsp"))
+            .count(),
+        1
+    );
 }

@@ -304,8 +304,13 @@ impl<T: Transport> Client<T> {
             timeout: Duration::from_secs(20),
         };
         let response = self.transport.dispatch(&request).map_err(|error| {
-            if error.message == "native_transport_timeout" {
-                err("native_transport_timeout")
+            if matches!(
+                error.message.as_str(),
+                "native_transport_timeout"
+                    | "native_owner_credential_expired"
+                    | "native_transport_cancelled"
+            ) {
+                err(&error.message)
             } else {
                 err("academy_transport_failed")
             }
@@ -3159,6 +3164,7 @@ pub struct NativeTransport {
     limits: TransportLimits,
     cancellation: Cancellation,
     agent: ureq::Agent,
+    deadline: std::sync::Arc<SocketDeadline>,
 }
 impl NativeTransport {
     pub fn new(limits: TransportLimits, cancellation: Cancellation) -> Result<Self> {
@@ -3226,17 +3232,31 @@ impl NativeTransport {
             .timeout_recv_response(Some(limits.timeout))
             .timeout_recv_body(Some(limits.timeout))
             .build();
-        let agent = ureq::Agent::with_parts(
-            agent,
-            ureq::unversioned::transport::DefaultConnector::default(),
-            resolver,
-        );
+        let deadline = std::sync::Arc::new(SocketDeadline {
+            at: std::sync::Mutex::new(Instant::now()),
+            cancellation: cancellation.clone(),
+        });
+        use ureq::unversioned::transport::Connector;
+        let connector = DeadlineConnector(std::sync::Arc::clone(&deadline))
+            .chain(ureq::unversioned::transport::RustlsConnector::default());
+        let agent = ureq::Agent::with_parts(agent, connector, resolver);
         Ok(Self {
             destination,
             limits,
             cancellation,
             agent,
+            deadline,
         })
+    }
+    fn transport_error(&self, error: ureq::Error) -> Error {
+        if self.cancellation.check().is_err() {
+            return err("native_transport_cancelled");
+        }
+        if matches!(error, ureq::Error::Timeout(_)) || self.deadline.expired() {
+            err("native_transport_timeout")
+        } else {
+            err("academy_transport_failed")
+        }
     }
 }
 impl Transport for NativeTransport {
@@ -3303,18 +3323,16 @@ impl Transport for NativeTransport {
             .map_err(|_| err("native_transport_request_refused"))?;
         let started = Instant::now();
         let timeout = self.limits.timeout.min(request.timeout);
+        self.deadline.arm(started + timeout)?;
         let wire = self
             .agent
             .configure_request(wire)
             .timeout_global(Some(timeout))
             .build();
-        let mut response = self.agent.run(wire).map_err(|error| {
-            if matches!(error, ureq::Error::Timeout(_)) {
-                err("native_transport_timeout")
-            } else {
-                err("academy_transport_failed")
-            }
-        })?;
+        let mut response = self
+            .agent
+            .run(wire)
+            .map_err(|error| self.transport_error(error))?;
         self.cancellation.check()?;
         if response
             .headers()
@@ -3348,7 +3366,13 @@ impl Transport for NativeTransport {
             .with_config()
             .limit(self.limits.response_bytes as u64)
             .read_to_vec()
-            .map_err(|_| err("native_response_read_failed"))?;
+            .map_err(|error| {
+                if self.deadline.expired() || self.cancellation.check().is_err() {
+                    self.transport_error(error)
+                } else {
+                    err("native_response_read_failed")
+                }
+            })?;
         self.cancellation.check()?;
         if started.elapsed() > timeout {
             return Err(err("source_response_timeout"));
@@ -3360,5 +3384,170 @@ impl Transport for NativeTransport {
             url: format!("{ORIGIN}{}", request.path),
             stalled: false,
         })
+    }
+}
+
+/// Armed before resolution. ureq's Rustls adapter reuses relative timeouts in
+/// complete_io; this lower TCP boundary clamps every read/partial write to the
+/// remaining absolute wall time, including TLS handshake. No credential/lease.
+struct SocketDeadline {
+    at: std::sync::Mutex<Instant>,
+    cancellation: Cancellation,
+}
+impl SocketDeadline {
+    fn arm(&self, at: Instant) -> Result<()> {
+        *self
+            .at
+            .lock()
+            .map_err(|_| err("native_transport_deadline_failed"))? = at;
+        Ok(())
+    }
+    fn expired(&self) -> bool {
+        self.at.lock().map_or(true, |at| Instant::now() >= *at)
+    }
+    fn remaining(
+        &self,
+        timeout: &ureq::unversioned::transport::NextTimeout,
+    ) -> std::result::Result<Duration, ureq::Error> {
+        self.cancellation
+            .check()
+            .map_err(|_| ureq::Error::Io(std::io::Error::other("native_transport_cancelled")))?;
+        let at = *self.at.lock().map_err(|_| ureq::Error::ConnectionFailed)?;
+        let remaining = at
+            .checked_duration_since(Instant::now())
+            .filter(|value| !value.is_zero())
+            .ok_or(ureq::Error::Timeout(ureq::Timeout::Global))?;
+        Ok(timeout
+            .not_zero()
+            .map_or(remaining, |relative| remaining.min(*relative)))
+    }
+}
+struct DeadlineConnector(std::sync::Arc<SocketDeadline>);
+struct DeadlineTcp {
+    stream: std::net::TcpStream,
+    buffers: ureq::unversioned::transport::LazyBuffers,
+    deadline: std::sync::Arc<SocketDeadline>,
+}
+impl std::fmt::Debug for DeadlineConnector {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("DeadlineConnector")
+    }
+}
+impl std::fmt::Debug for DeadlineTcp {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("DeadlineTcp")
+    }
+}
+impl ureq::unversioned::transport::Connector for DeadlineConnector {
+    type Out = DeadlineTcp;
+    fn connect(
+        &self,
+        details: &ureq::unversioned::transport::ConnectionDetails,
+        _: Option<()>,
+    ) -> std::result::Result<Option<Self::Out>, ureq::Error> {
+        for address in &details.addrs {
+            let remaining = self.0.remaining(&details.timeout)?;
+            let stream = match std::net::TcpStream::connect_timeout(address, remaining) {
+                Ok(stream) => stream,
+                Err(error) if error.kind() == std::io::ErrorKind::ConnectionRefused => continue,
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                    ) =>
+                {
+                    return Err(ureq::Error::Timeout(details.timeout.reason));
+                }
+                Err(error) => return Err(error.into()),
+            };
+            self.0.remaining(&details.timeout)?;
+            stream.set_nodelay(details.config.no_delay())?;
+            return Ok(Some(DeadlineTcp {
+                stream,
+                buffers: ureq::unversioned::transport::LazyBuffers::new(
+                    details.config.input_buffer_size(),
+                    details.config.output_buffer_size(),
+                ),
+                deadline: std::sync::Arc::clone(&self.0),
+            }));
+        }
+        Err(ureq::Error::ConnectionFailed)
+    }
+}
+impl ureq::unversioned::transport::Transport for DeadlineTcp {
+    fn buffers(&mut self) -> &mut dyn ureq::unversioned::transport::Buffers {
+        &mut self.buffers
+    }
+    fn transmit_output(
+        &mut self,
+        amount: usize,
+        timeout: ureq::unversioned::transport::NextTimeout,
+    ) -> std::result::Result<(), ureq::Error> {
+        use std::io::Write;
+        use ureq::unversioned::transport::Buffers;
+        let mut offset = 0;
+        while offset < amount {
+            let remaining = self.deadline.remaining(&timeout)?;
+            self.stream.set_write_timeout(Some(remaining))?;
+            match self.stream.write(&self.buffers.output()[offset..amount]) {
+                Ok(0) => return Err(std::io::Error::from(std::io::ErrorKind::WriteZero).into()),
+                Ok(written) => offset += written,
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                    ) =>
+                {
+                    return Err(ureq::Error::Timeout(timeout.reason));
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
+        self.deadline.remaining(&timeout)?;
+        Ok(())
+    }
+    fn maybe_await_input(
+        &mut self,
+        timeout: ureq::unversioned::transport::NextTimeout,
+    ) -> std::result::Result<bool, ureq::Error> {
+        use ureq::unversioned::transport::Buffers;
+        self.deadline.remaining(&timeout)?;
+        if self.buffers.can_use_input() {
+            Ok(true)
+        } else {
+            self.await_input(timeout)
+        }
+    }
+    fn await_input(
+        &mut self,
+        timeout: ureq::unversioned::transport::NextTimeout,
+    ) -> std::result::Result<bool, ureq::Error> {
+        use std::io::Read;
+        use ureq::unversioned::transport::Buffers;
+        loop {
+            let remaining = self.deadline.remaining(&timeout)?;
+            self.stream.set_read_timeout(Some(remaining))?;
+            let amount = match self.stream.read(self.buffers.input_append_buf()) {
+                Ok(amount) => amount,
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                    ) =>
+                {
+                    return Err(ureq::Error::Timeout(timeout.reason));
+                }
+                Err(error) => return Err(error.into()),
+            };
+            self.deadline.remaining(&timeout)?;
+            self.buffers.input_appended(amount);
+            return Ok(amount > 0);
+        }
+    }
+    // Never return a socket to a pool or permit request replay.
+    fn is_open(&mut self) -> bool {
+        false
     }
 }
