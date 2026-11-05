@@ -4,8 +4,31 @@ import { selectContext } from './select.ts';
 import { validateCatalog } from './validate.ts';
 import { readingPlan } from './reading-plan.ts';
 import { runContextCli } from './cli.ts';
+import type { SelectionPage } from './types.ts';
 
 describe('actual academy metadata integration', () => {
+  test('foundation.harness CLI returns the U3 successor and only revision metadata for the old maintained claim', async () => {
+    const before = JSON.stringify(catalogJson);
+    const items: SelectionPage['items'] = [];
+    let cursor: string | null = null;
+    do {
+      const page = await runContextCli(['select', '--topic', 'foundation.harness', '--max-bytes', '24576', ...(cursor ? ['--cursor', cursor] : [])]) as SelectionPage;
+      expect(page.usedBytes).toBeLessThanOrEqual(24576);
+      items.push(...page.items);
+      cursor = page.nextCursor;
+    } while (cursor);
+    const successor = items.find(item => item.kind === 'record' && item.value.id === 'CTX-U3-RETIREMENT-20261105');
+    expect(successor?.kind).toBe('record');
+    if (successor?.kind !== 'record') throw Error('Missing U3 successor');
+    expect(successor.value).toMatchObject({status:'current',kind:'source-owner-decision',supersedes:['CTX-ED-MAINTENANCE']});
+    for (const text of ['29 excluded files', 'no current or complete gang-a implementation claim', 'archive/education-platform-pre-delw1-C-20261105', 'a810066', 'Drive']) expect(successor.value.text).toContain(text);
+    expect(items.find(item => item.value.id === 'CTX-ED-MAINTENANCE')).toMatchObject({kind:'reference',value:{status:'historical'}});
+    expect(JSON.stringify(items)).not.toContain('is the maintained gang-a code path');
+    const history = selectContext(catalogJson, {topicId:'foundation.harness',includeHistory:true,maxBytes:100_000});
+    const original = catalogJson.records.find(row => row.id === 'CTX-ED-MAINTENANCE')!;
+    expect(history.items.find(item => item.kind === 'record' && item.value.id === original.id)).toMatchObject({kind:'record',value:{...original,status:'historical'}});
+    expect(JSON.stringify(catalogJson)).toBe(before);
+  });
   test('every in-scope workflow has complete, bounded and duplicate-free continuation', () => {
     const catalog = validateCatalog(catalogJson);
     for (const topic of catalog.topics.filter(row => row.kind === 'workflow' && !catalog.scope.excluded.includes(row.id))) {

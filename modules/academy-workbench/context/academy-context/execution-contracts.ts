@@ -20,6 +20,9 @@ export interface SourceLocator {
   path: string;
   line: number;
   revision: string | null;
+  /** Archived locators cannot resolve against the current checkout. */
+  availability?: 'unavailable_at_head';
+  archiveTag?: string;
   /** A locator is discovery metadata; actual consumption requires a selected immutable revision. */
   consumption: 'locator_only_requalify_before_use';
 }
@@ -198,10 +201,11 @@ export interface WorkflowDesign<K extends WorkflowKey> {
   operationalCompletionClaimed: false;
 }
 const workbenchDecisions = { owner: 'academy-workbench', repository: 'academy-workbench', path: 'context/business-decisions.json', line: 1, revision: null, consumption: 'locator_only_requalify_before_use' } as const;
-const gangSemantics = { owner: 'education-platform/academy-gang', repository: 'education-platform', path: 'apps/academy/gang-a/docs/ACADEMY_OPERATING_CONTEXT.md', line: 5, revision: null, consumption: 'locator_only_requalify_before_use' } as const;
+const archivedU3Source = { revision: 'a81006644762446839970ff6d6e0069efb17f1d4', archiveTag: 'archive/education-platform-pre-delw1-C-20261105', availability: 'unavailable_at_head', consumption: 'locator_only_requalify_before_use' } as const;
+const gangSemantics = { owner: 'education-platform/academy-gang', repository: 'education-platform', path: 'apps/academy/gang-a/docs/ACADEMY_OPERATING_CONTEXT.md', line: 5, ...archivedU3Source } as const;
 const dailyRecordPolicy = { owner: 'education-platform/academy-dc', repository: 'education-platform', path: 'apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md', line: 5, revision: null, consumption: 'locator_only_requalify_before_use' } as const;
-const assessmentContext = { owner: 'education-platform/month-end-workbench', repository: 'education-platform', path: 'apps/academy/month-end-workbench/docs/source-context.md', line: 1, revision: null, consumption: 'locator_only_requalify_before_use' } as const;
-const researchContext = { owner: 'math-research-module', repository: 'math-research-module', path: 'context/monthly-assessment-20261016/README.md', line: 1, revision: null, consumption: 'locator_only_requalify_before_use' } as const;
+const assessmentContext = { owner: 'education-platform/month-end-workbench', repository: 'education-platform', path: 'apps/academy/month-end-workbench/docs/source-context.md', line: 1, ...archivedU3Source } as const;
+const researchContext = { owner: 'math-research-module', repository: 'education-platform', path: 'modules/math-research-module/context/monthly-assessment-20261016/README.md', line: 1, ...archivedU3Source } as const;
 
 /** Complete seven-workflow catalog. Field names are checked against each workflow's input type. */
 export const WORKFLOW_DESIGNS = {

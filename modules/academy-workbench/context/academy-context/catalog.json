@@ -101,6 +101,24 @@
   ],
   "sources": [
     {
+      "id": "SRC-U3-RETIREMENT-20261105",
+      "repositoryId": "academy-workbench",
+      "path": "context/academy-context/CURRENT-SOURCE-STATUS.md",
+      "sha256": "ee625a75af5fd6276e542ea84730fdcd26ff2898bcc1b7102fddc34b74458f4f",
+      "byteLength": 3507,
+      "classification": "current-owner",
+      "readPolicy": "selected-design",
+      "ownerId": "education-platform",
+      "topicIds": [
+        "foundation",
+        "foundation.harness",
+        "foundation.research",
+        "foundation.curriculum",
+        "academy.assessment-preparation"
+      ],
+      "note": "Current superseding notice for the seven U3 directories after PR #78. Earlier repository roles and source-owner guidance are dated observations, not current implementation claims. No source or operational effect is authorized."
+    },
+    {
       "id": "SRC-CLASS-TIMETABLE-GUIDE",
       "repositoryId": "academy-workbench",
       "path": "context/class-timetable/README.ko.md",
@@ -467,14 +485,14 @@
       "path": "apps/academy/month-end-workbench/docs/source-context.md",
       "sha256": "2669b79ca4b93f7584d8744d3ce6f02e787f34dd2f7d0b7897d23f727f378f2a",
       "byteLength": 9086,
-      "classification": "current-owner",
-      "readPolicy": "selected-design",
+      "classification": "historical-summary",
+      "readPolicy": "metadata-only",
       "ownerId": "education-platform",
       "topicIds": [
         "academy.assessment-preparation",
         "foundation.research"
       ],
-      "note": "Current month-end intent/chronology, later scoped selection choices and native launch holds. Earlier prototype acceptance was not whole-work acceptance."
+      "note": "unavailable_at_head; archived at archive/education-platform-pre-delw1-C-20261105 (commit a81006644762446839970ff6d6e0069efb17f1d4), path apps/academy/month-end-workbench/docs/source-context.md; locator_only_requalify_before_use. Original dated observation: sha256=2669b79ca4b93f7584d8744d3ce6f02e787f34dd2f7d0b7897d23f727f378f2a, byteLength=9086, repository=education-platform, path=apps/academy/month-end-workbench/docs/source-context.md. Current month-end intent/chronology, later scoped selection choices and native launch holds. Earlier prototype acceptance was not whole-work acceptance."
     },
     {
       "id": "SRC-ED-DAILY-INTERNAL",
@@ -538,13 +556,13 @@
       "path": "apps/academy/gang-a/docs/ACADEMY_OPERATING_CONTEXT.md",
       "sha256": "7d18e8f46f0ee50dc32d507e3791c8af43fae8106914bdda856837ea2535d864",
       "byteLength": 15681,
-      "classification": "current-owner",
-      "readPolicy": "selected-design",
+      "classification": "historical-summary",
+      "readPolicy": "metadata-only",
       "ownerId": "education-platform",
       "topicIds": [
         "academy"
       ],
-      "note": "Policy hierarchy with roles/artifacts/concepts, typed dependencies and preserved unavailable history."
+      "note": "unavailable_at_head; archived at archive/education-platform-pre-delw1-C-20261105 (commit a81006644762446839970ff6d6e0069efb17f1d4), path apps/academy/gang-a/docs/ACADEMY_OPERATING_CONTEXT.md; locator_only_requalify_before_use. Original dated observation: sha256=7d18e8f46f0ee50dc32d507e3791c8af43fae8106914bdda856837ea2535d864, byteLength=15681, repository=education-platform, path=apps/academy/gang-a/docs/ACADEMY_OPERATING_CONTEXT.md. Policy hierarchy with roles/artifacts/concepts, typed dependencies and preserved unavailable history."
     },
     {
       "id": "SRC-GANG-SELECTOR",
@@ -562,77 +580,77 @@
     },
     {
       "id": "SRC-RESEARCH-OWNERS",
-      "repositoryId": "math-research-module",
-      "path": "docs/ownership-and-identity.md",
+      "repositoryId": "education-platform",
+      "path": "modules/math-research-module/docs/ownership-and-identity.md",
       "sha256": "3ab3e47d3194d1e7b174430c6c7825e6bc755c1453f4186b54e00190fc2b192a",
       "byteLength": 3645,
-      "classification": "current-owner",
-      "readPolicy": "selected-design",
+      "classification": "historical-summary",
+      "readPolicy": "metadata-only",
       "ownerId": "math-research-module",
       "topicIds": [
         "foundation.research",
         "foundation.identity"
       ],
-      "note": "Research object IDs are distinct from common Work execution IDs and module-local context keys."
+      "note": "unavailable_at_head; archived at archive/education-platform-pre-delw1-C-20261105 (commit a81006644762446839970ff6d6e0069efb17f1d4), path modules/math-research-module/docs/ownership-and-identity.md; locator_only_requalify_before_use. Original dated observation: sha256=3ab3e47d3194d1e7b174430c6c7825e6bc755c1453f4186b54e00190fc2b192a, byteLength=3645, repository=math-research-module, path=docs/ownership-and-identity.md. Research object IDs are distinct from common Work execution IDs and module-local context keys."
     },
     {
       "id": "SRC-RESEARCH-COVERAGE",
-      "repositoryId": "math-research-module",
-      "path": "context/monthly-assessment-20261016/coverage.json",
+      "repositoryId": "education-platform",
+      "path": "modules/math-research-module/context/monthly-assessment-20261016/coverage.json",
       "sha256": "48caf06c4436cd5cb59733f0f7379de491dfb6f95ef036dfc4a14ea1013f65d8",
       "byteLength": 1685,
-      "classification": "current-owner",
-      "readPolicy": "selected-design",
+      "classification": "historical-summary",
+      "readPolicy": "metadata-only",
       "ownerId": "math-research-module",
       "topicIds": [
         "foundation.research",
         "foundation.provenance"
       ],
-      "note": "Monthly source coverage is partial and overlaps the selected user-context population; do not add counts as independent evidence."
+      "note": "unavailable_at_head; archived at archive/education-platform-pre-delw1-C-20261105 (commit a81006644762446839970ff6d6e0069efb17f1d4), path modules/math-research-module/context/monthly-assessment-20261016/coverage.json; locator_only_requalify_before_use. Original dated observation: sha256=48caf06c4436cd5cb59733f0f7379de491dfb6f95ef036dfc4a14ea1013f65d8, byteLength=1685, repository=math-research-module, path=context/monthly-assessment-20261016/coverage.json. Monthly source coverage is partial and overlaps the selected user-context population; do not add counts as independent evidence."
     },
     {
       "id": "SRC-RESEARCH-CHRONOLOGY",
-      "repositoryId": "math-research-module",
-      "path": "context/monthly-assessment-20261016/README.md",
+      "repositoryId": "education-platform",
+      "path": "modules/math-research-module/context/monthly-assessment-20261016/README.md",
       "sha256": "9aa0ab291a18657ce844c5b64d28e351c1e31713942c1032933ebbef66421541",
       "byteLength": 3930,
-      "classification": "original-reference",
-      "readPolicy": "selected-design",
+      "classification": "historical-summary",
+      "readPolicy": "metadata-only",
       "ownerId": "math-research-module",
       "topicIds": [
         "academy.assessment-preparation",
         "foundation.research"
       ],
-      "note": "Retained monthly assessment dossier and original selection chronology; user/assistant/hypothesis distinctions retained."
+      "note": "unavailable_at_head; archived at archive/education-platform-pre-delw1-C-20261105 (commit a81006644762446839970ff6d6e0069efb17f1d4), path modules/math-research-module/context/monthly-assessment-20261016/README.md; locator_only_requalify_before_use. Original dated observation: sha256=9aa0ab291a18657ce844c5b64d28e351c1e31713942c1032933ebbef66421541, byteLength=3930, repository=math-research-module, path=context/monthly-assessment-20261016/README.md. Retained monthly assessment dossier and original selection chronology; user/assistant/hypothesis distinctions retained."
     },
     {
       "id": "SRC-RESEARCH-TYPES",
-      "repositoryId": "math-research-module",
-      "path": "research/identity-pilot/src/model.ts",
+      "repositoryId": "education-platform",
+      "path": "modules/math-research-module/research/identity-pilot/src/model.ts",
       "sha256": "bbad4517466a47aa675809f4d8b646084a5c6f55a3372478e7ce9857343c325d",
       "byteLength": 5082,
-      "classification": "current-owner",
-      "readPolicy": "selected-design",
+      "classification": "historical-summary",
+      "readPolicy": "metadata-only",
       "ownerId": "math-research-module",
       "topicIds": [
         "foundation.research",
         "foundation.identity"
       ],
-      "note": "DATA/LOGIC/ACTION/GOVERNANCE types and relation endpoint/cycle rules belong to research owner."
+      "note": "unavailable_at_head; archived at archive/education-platform-pre-delw1-C-20261105 (commit a81006644762446839970ff6d6e0069efb17f1d4), path modules/math-research-module/research/identity-pilot/src/model.ts; locator_only_requalify_before_use. Original dated observation: sha256=bbad4517466a47aa675809f4d8b646084a5c6f55a3372478e7ce9857343c325d, byteLength=5082, repository=math-research-module, path=research/identity-pilot/src/model.ts. DATA/LOGIC/ACTION/GOVERNANCE types and relation endpoint/cycle rules belong to research owner."
     },
     {
       "id": "SRC-CURRICULUM-GAPS",
-      "repositoryId": "math-education",
-      "path": "canonical/README.md",
+      "repositoryId": "education-platform",
+      "path": "packages/curriculum/canonical/README.md",
       "sha256": "c4d0134908f0f486033313478f395d0335e9cd285570f386137ff3cbfc222ea5",
       "byteLength": 1211,
-      "classification": "current-owner",
-      "readPolicy": "selected-design",
+      "classification": "historical-summary",
+      "readPolicy": "metadata-only",
       "ownerId": "math-education",
       "topicIds": [
         "foundation.curriculum"
       ],
-      "note": "Five canonical inputs are absent and boundary hash conflict is unresolved; preserved UI is not complete curriculum corpus."
+      "note": "unavailable_at_head; archived at archive/education-platform-pre-delw1-C-20261105 (commit a81006644762446839970ff6d6e0069efb17f1d4), path packages/curriculum/canonical/README.md; locator_only_requalify_before_use. Original dated observation: sha256=c4d0134908f0f486033313478f395d0335e9cd285570f386137ff3cbfc222ea5, byteLength=1211, repository=math-education, path=canonical/README.md. Five canonical inputs are absent and boundary hash conflict is unresolved; preserved UI is not complete curriculum corpus."
     },
     {
       "id": "SRC-LEGACY-SSOT",
@@ -1133,6 +1151,27 @@
     }
   ],
   "records": [
+    {
+      "id": "CTX-U3-RETIREMENT-20261105",
+      "kind": "source-owner-decision",
+      "status": "current",
+      "title": "U3 implementations are archived; gang-a retains only a dependency closure",
+      "text": "After education-platform PR #78, apps/academy/gang-a contains only the retained dependency closure: 29 excluded files required by dc-gang-a source and tests. There is no current or complete gang-a implementation claim. The full implementation and the other six U3 directories (modules/math-research-module, packages/curriculum, packages/mathematics-core, apps/mathcrew, apps/academy/month-end-web, apps/academy/month-end-workbench) are archived at tag archive/education-platform-pre-delw1-C-20261105, commit a81006644762446839970ff6d6e0069efb17f1d4 (a81006), and on Drive. They are unavailable as complete implementations at head. This notice supersedes prior catalog repository-role maintenance claims and dated repository-plan guidance for gang-a, curriculum, research and month-end, including ACX-VERIFY-001/ACX-DECISION-001 current-entrypoint guidance. Qualify a supported current owner and exact source before implementation; archived locators grant no runtime authority.",
+      "topicIds": [
+        "foundation",
+        "foundation.harness",
+        "foundation.research",
+        "foundation.curriculum",
+        "academy.assessment-preparation"
+      ],
+      "sourceIds": [
+        "SRC-U3-RETIREMENT-20261105"
+      ],
+      "originalIds": [],
+      "supersedes": [
+        "CTX-ED-MAINTENANCE"
+      ]
+    },
     {
       "id": "CTX-SCOPE",
       "kind": "actual-user-decision",

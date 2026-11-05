@@ -10,6 +10,7 @@
     "registration": "local-design-record-not-native-or-global-registration"
   },
   "status": "accepted-direction_design-not-activated",
+  "currentSourceStatus": {"noticeRef": "CURRENT-SOURCE-STATUS.md", "catalogRecordId": "CTX-U3-RETIREMENT-20261105", "supersedes": "Pre-#78 implementation/maintenance and current-entrypoint guidance in this dated plan; original observations remain preserved.", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "driveRecovery": "gdrive:vps-archive/2026-11/education-platform-*__ec0d220__20261105.tar.zst", "guidance": "No U3 directory is a current complete implementation. apps/academy/gang-a retains only 29 dependency-closure files required by dc-gang-a source and tests. The other six directories are removed. Use the current task and supported Rust owner; requalify archived locators before use. Prior findings and stages do not authorize work against removed implementations."},
   "decisionBasis": {
     "source": "current-user-interview-as-relayed-by-parent-orchestrator-20261021",
     "acceptedDirection": "Preserve current repository, code, semantic, data and native owners. Unify the common context entrypoint and execution contract first; do not perform an education monorepo migration.",
@@ -36,46 +37,50 @@
       "id": "academy-workbench",
       "observedRole": "Academy context and private continuity consumer; synthetic standalone/offline surfaces and dedicated Academy MCP source owner.",
       "phaseOneRole": "Own the shared academy-context entrypoint and seven workflow design packets; reference external source owners without copying real student payloads or assuming operational custody.",
-      "evidence": [{"path": "harness/module.json", "line": 1}, {"path": "docs/harness/README.ko.md", "line": 40}, {"repository": "education-platform", "path": "apps/academy/month-end-workbench/docs/source-context.md", "line": 17}],
+      "evidence": [{"path": "harness/module.json", "line": 1}, {"path": "docs/harness/README.ko.md", "line": 40}, {"repository": "education-platform", "path": "apps/academy/month-end-workbench/docs/source-context.md", "line": 17, "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}],
       "ownershipChangeProposed": false
     },
     {
       "id": "education-platform",
+      "currentSourceStatus": {"status": "supersedes_pre_deletion_guidance", "supersedesFields": ["observedRole", "phaseOneRole"], "noticeRef": "CURRENT-SOURCE-STATUS.md", "guidance": "Maintained Rust Cargo workspace. Gang-a is only a 29-file retained dependency closure; month-end and the mathematical/curriculum U3 implementations are archived, not maintained at head."},
       "observedLocalHead": "cb7e571",
       "observedRole": "Maintained mathematical, curriculum and academy source integration; existing dc-gang-a/gang-a and month-end backend/frontend owners remain module-local.",
       "phaseOneRole": "Expose accurate module/capability verification and source-ownership references to context packets; retain its current application owners.",
-      "evidence": [{"path": "README.md", "line": 21}, {"path": "architecture/source-map.json", "line": 188}, {"path": "apps/academy/month-end-workbench/docs/source-context.md", "line": 35}],
+      "evidence": [{"path": "README.md", "line": 21}, {"path": "architecture/source-map.json", "line": 188}, {"path": "apps/academy/month-end-workbench/docs/source-context.md", "line": 35, "repository": "education-platform", "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}],
       "ownershipChangeProposed": false
     },
     {
       "id": "math-research-module",
+      "currentSourceStatus": {"status": "supersedes_pre_deletion_guidance", "supersedesFields": ["observedRole", "phaseOneRole"], "noticeRef": "CURRENT-SOURCE-STATUS.md", "guidance": "Archived research source only; modules/math-research-module is removed and is not a current implementation or improvement target."},
       "observedLocalHead": "7b58fe3",
       "observedRole": "Independent research source, mathematical education semantics, research object identities, provenance, historical context and correction proposals.",
       "phaseOneRole": "Supply selected source-backed research and dated decisions through revision-qualified references. Preserve independent repo and immutable originals.",
-      "evidence": [{"path": "docs/ownership-and-identity.md", "line": 5}, {"path": "context/user-context/README.md", "line": 23}, {"path": "research/identity-pilot/src/model.ts", "line": 38}],
+      "evidence": [{"path": "modules/math-research-module/docs/ownership-and-identity.md", "line": 5, "repository": "education-platform", "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}, {"path": "modules/math-research-module/context/user-context/README.md", "line": 23, "repository": "education-platform", "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}, {"path": "modules/math-research-module/research/identity-pilot/src/model.ts", "line": 38, "repository": "education-platform", "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}],
       "ownershipChangeProposed": false
     },
     {
       "id": "math-education",
+      "currentSourceStatus": {"status": "supersedes_pre_deletion_guidance", "supersedesFields": ["observedRole", "phaseOneRole"], "noticeRef": "CURRENT-SOURCE-STATUS.md", "guidance": "Archived curriculum export/provenance only; packages/curriculum is removed and is not maintained at head."},
       "observedLocalHead": "4a666ef",
       "observedRole": "Preserved curriculum export/runtime source; maintained integrated curriculum module resides in education-platform/packages/curriculum.",
       "phaseOneRole": "Retain predecessor/provenance custody; expose missing-original inventory and scope-qualified curriculum references. UI envelopes cannot substitute for canonical originals.",
-      "evidence": [{"path": "README.md", "line": 3}, {"path": "canonical/README.md", "line": 3}, {"repository": "education-platform", "path": "architecture/source-map.json", "line": 35}],
+      "evidence": [{"path": "packages/curriculum/README.md", "line": 3, "repository": "education-platform", "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}, {"path": "packages/curriculum/canonical/README.md", "line": 3, "repository": "education-platform", "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}, {"repository": "education-platform", "path": "architecture/source-map.json", "line": 35}],
       "ownershipChangeProposed": false
     },
     {
       "id": "gang-a",
+      "currentSourceStatus": {"status": "supersedes_pre_deletion_guidance", "supersedesFields": ["observedRole", "phaseOneRole"], "noticeRef": "CURRENT-SOURCE-STATUS.md", "guidance": "No current implementation claim. apps/academy/gang-a retains only 29 files required by dc-gang-a source and tests; use the full archived implementation only after source requalification."},
       "observedLocalHead": "c447551",
       "observedRole": "Retained code/spec compatibility repository. Maintained implementation is education-platform/apps/academy/gang-a; historical native reference differs from the imported upstream baseline.",
       "phaseOneRole": "Preserve frozen source, historical contract and policy lineage. Consume the maintained owner when implementing; do not create a parallel implementation or retire the predecessor.",
-      "evidence": [{"path": "README.md", "line": 7}, {"repository": "education-platform", "path": "architecture/source-map.json", "line": 188}],
+      "evidence": [{"path": "apps/academy/gang-a/README.md", "line": 7, "repository": "education-platform", "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}, {"repository": "education-platform", "path": "architecture/source-map.json", "line": 188}],
       "ownershipChangeProposed": false
     },
     {
       "id": "agent-platform",
       "observedRole": "Existing pinned canonical shared contract/validator owner; native Codex/Hermes remains the runtime owner.",
       "phaseOneRole": "Reference canonical Work/Memory/context and verification identities; preserve existing dependency pins and do not invent another executor or memory store.",
-      "evidence": [{"repository": "academy-workbench", "path": "docs/harness/README.ko.md", "line": 3}, {"repository": "math-research-module", "path": "docs/ownership-and-identity.md", "line": 5}],
+      "evidence": [{"repository": "academy-workbench", "path": "docs/harness/README.ko.md", "line": 3}, {"repository": "education-platform", "path": "modules/math-research-module/docs/ownership-and-identity.md", "line": 5, "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}],
       "ownershipChangeProposed": false
     }
   ],
@@ -95,7 +100,7 @@
       "status": "observed_missing_originals",
       "topicIds": ["foundation.curriculum", "foundation.provenance"],
       "finding": "Four full canonical domain workpacks and curriculum-boundary original bytes are absent from the export; the declared boundary pin/hash-method discrepancy remains unresolved.",
-      "evidence": [{"repository": "math-education", "path": "canonical/README.md", "line": 3}, {"repository": "math-education", "path": "docs/EXPORT_NOTES.md", "line": 7}, {"repository": "education-platform", "path": "packages/curriculum/integration.ts", "line": 3}],
+      "evidence": [{"repository": "education-platform", "path": "packages/curriculum/canonical/README.md", "line": 3, "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}, {"repository": "education-platform", "path": "packages/curriculum/docs/EXPORT_NOTES.md", "line": 7, "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}, {"repository": "education-platform", "path": "packages/curriculum/integration.ts", "line": 3, "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}],
       "impact": "UI/source-envelope preservation cannot establish complete curriculum semantics, prerequisites or whole-curriculum audit coverage.",
       "nextImprovement": "Keep source inventory and explicit unknowns visible; identify the original supported acquisition owner and exact revisions before any separately scoped import proposal. Do not ask for a duplicate upload solely because canonical/ is empty.",
       "acceptanceEvidenceNeeded": "Verified original identity, byte length, declared serialization/hash method, revision and bindings; explicit updated inventory and bounded semantic audit."
@@ -105,7 +110,7 @@
       "status": "observed_cross_repository_dated_decisions",
       "topicIds": ["foundation.currentness", "foundation.provenance", "academy.assessment-preparation"],
       "finding": "Older research history retains proposed 9/9/6 allocation and unselected questions; later Education Work records confirmed 8/8/8 preparation, then a later exact teacher selection and explicit two-questions-under-one-type exception. General 100-minute policy and specific 80-minute assessment have different scopes.",
-      "evidence": [{"repository": "math-research-module", "path": "docs/next-work.md", "line": 10}, {"repository": "education-platform", "path": "apps/academy/month-end-workbench/docs/source-context.md", "line": 15}, {"repository": "education-platform", "path": "apps/academy/month-end-workbench/docs/source-context.md", "line": 19}, {"repository": "education-platform", "path": "apps/academy/month-end-workbench/docs/source-context.md", "line": 29}],
+      "evidence": [{"repository": "education-platform", "path": "modules/math-research-module/docs/next-work.md", "line": 10, "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}, {"repository": "education-platform", "path": "apps/academy/month-end-workbench/docs/source-context.md", "line": 15, "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}, {"repository": "education-platform", "path": "apps/academy/month-end-workbench/docs/source-context.md", "line": 19, "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}, {"repository": "education-platform", "path": "apps/academy/month-end-workbench/docs/source-context.md", "line": 29, "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}],
       "impact": "Reading a short retained exam specification or choosing the newest entire document can reintroduce superseded uncertainty or falsely accept an earlier ranking.",
       "nextImprovement": "Resolve current claims by assessment identity, field, source revision and explicit corrects/supersedes relation; retain every historical proposal and its scope.",
       "acceptanceEvidenceNeeded": "A context packet shows current decisions and excluded history together, preserves the explicit selection exception, and never infers exam date, edition, timezone, mathematical acceptance or native activation."
@@ -115,7 +120,7 @@
       "status": "observed_multiple_identity_dimensions",
       "topicIds": ["foundation.identity", "foundation.research", "foundation.harness"],
       "finding": "Containment, is-a, prerequisite, evidence support, workflow order, source supersession and repository verification dependencies already have different meanings and cycle rules. Domain object IDs, classification paths, native IDs and Work/Task/Run IDs are separate.",
-      "evidence": [{"repository": "math-research-module", "path": "research/identity-pilot/src/model.ts", "line": 38}, {"repository": "math-research-module", "path": "docs/ownership-and-identity.md", "line": 27}, {"repository": "education-platform", "path": "architecture/source-map.json", "line": 5}, {"repository": "gang-a", "path": "packages/domain/operational-context.ts", "line": 47}],
+      "evidence": [{"repository": "education-platform", "path": "modules/math-research-module/research/identity-pilot/src/model.ts", "line": 38, "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}, {"repository": "education-platform", "path": "modules/math-research-module/docs/ownership-and-identity.md", "line": 27, "revision": "a81006644762446839970ff6d6e0069efb17f1d4", "archiveTag": "archive/education-platform-pre-delw1-C-20261105", "availability": "unavailable_at_head", "consumption": "locator_only_requalify_before_use"}, {"repository": "education-platform", "path": "architecture/source-map.json", "line": 5}, {"repository": "gang-a", "path": "packages/domain/operational-context.ts", "line": 47}],
       "impact": "A single parent tree or shared string ID would collapse source meaning, workflow sequencing, identity and evidence into unjustified equivalences.",
       "nextImprovement": "Use a topic hierarchy for navigation, explicit typed edges for cross-topic relations and revision-qualified crosswalks for source identity. Keep local/native identity joins evidence-backed and preserve unknown/conflicting states.",
       "acceptanceEvidenceNeeded": "Contract checks reject label-only joins, invalid relation endpoints, unintended containment/dependency cycles and Work/domain identity substitution without imposing acyclicity on all relatedness."
@@ -157,7 +162,7 @@
     {"repository": "academy-workbench", "workingDirectory": ".", "command": "bun run check", "source": "package.json scripts.check", "observation": "Script inspected; not executed by ACX-T04."},
     {"repository": "academy-workbench", "workingDirectory": ".", "command": "bun run check:ci", "source": "package.json scripts.check:ci", "observation": "Script inspected; not executed by ACX-T04."},
     {"repository": "education-platform", "workingDirectory": ".", "command": "bun run check", "source": "package.json scripts.check", "observation": "Script inspected; known aggregate coverage is bounded by ACX-VERIFY-001; not executed by ACX-T04."},
-    {"repository": "education-platform", "workingDirectory": "apps/academy/month-end-workbench", "command": "bun run check", "source": "apps/academy/month-end-workbench/README.md:9", "observation": "Documented package-local source/synthetic check; intended sibling source ownership must be selected; not executed by ACX-T04."},
+    {"repository": "education-platform", "workingDirectory": "apps/academy/month-end-workbench", "command": "bun run check", "source": "apps/academy/month-end-workbench/README.md:9", "observation": "unavailable_at_head; archived at archive/education-platform-pre-delw1-C-20261105 (commit a81006644762446839970ff6d6e0069efb17f1d4); locator_only_requalify_before_use. Documented package-local source/synthetic check; intended sibling source ownership must be selected; not executed by ACX-T04."},
     {"repository": "math-research-module", "workingDirectory": ".", "command": "bun run verify", "source": "AGENTS.md:3 and docs/CONTINUE.ko.md:63", "observation": "Source-declared portable verification route; not executed by ACX-T04."}
   ],
   "validationBoundary": "Only the new design artifact's syntax/type/reference checks may be reported for ACX-T04. Existing historical test receipts do not verify these changed artifacts, and no live request, actual student read, native invocation, print, send or operational completion is implied."

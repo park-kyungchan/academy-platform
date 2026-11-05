@@ -57,15 +57,29 @@ export function selectContext(input: unknown, request: SelectionQuery): Selectio
   expand(query.topicId);
   const relevant = (topicIds: string[]): boolean => topicIds.some(id => topicClosure.has(id)) && topicIds.every(allowed);
   const records = new Map(catalog.records.map(row => [row.id,row]));
+  const relevantRecords = catalog.records.filter(row => relevant(row.topicIds));
+  // A current scoped successor retires earlier claims without rewriting stored observations.
+  // Proposed/unresolved successors do not retire a current decision.
+  const superseded = new Set<string>();
+  const retire = (id: string): void => {
+    if (superseded.has(id)) return;
+    superseded.add(id);
+    for (const target of records.get(id)!.supersedes) retire(target);
+  };
+  for (const row of relevantRecords.filter(row => row.status === 'current')) for (const target of row.supersedes) retire(target);
+  const historical = (row: ContextRecord): boolean => row.status === 'historical' || superseded.has(row.id);
   const byId = (a: {id:string}, b: {id:string}): number => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   const recordPriority = (row: ContextRecord): number => {
+    if (historical(row)) return 5;
     if (row.status === 'current' && row.kind === 'actual-user-decision') return 0;
     if (row.status === 'current' && row.kind === 'source-owner-decision') return 1;
     if (row.status === 'unresolved') return 2;
     if (row.status === 'current') return 3;
-    return row.status === 'historical' ? 5 : 4;
+    return 4;
   };
-  const selectedRecords = catalog.records.filter(row => relevant(row.topicIds) && (query.includeHistory || row.status !== 'historical')).sort((a,b) => recordPriority(a)-recordPriority(b) || byId(a,b));
+  const selectedRecords = relevantRecords.filter(row => query.includeHistory || !historical(row))
+    .map(row => superseded.has(row.id) ? {...row,status:'historical' as const} : row)
+    .sort((a,b) => recordPriority(a)-recordPriority(b) || byId(a,b));
   const selectedFindings = catalog.findings.filter(row => relevant(row.topicIds)).sort((a,b) => a.priority < b.priority ? -1 : a.priority > b.priority ? 1 : byId(a,b));
   const sourceById = new Map(catalog.sources.map(row => [row.id,row]));
   const sourceIds = new Set<string>();
@@ -84,8 +98,8 @@ export function selectContext(input: unknown, request: SelectionQuery): Selectio
     if (sourceById.has(id)) { addSource(id); selectedIds.add(id); return; }
     if (selectedIds.has(id) || references.has(id)) return;
     const row = records.get(id); if (!row) return;
-    if (!row.topicIds.every(allowed)) fail(row.status === 'historical' ? 'historical-reference-outside-scope' : 'referenced-record-outside-scope', {recordId:id});
-    if (row.status !== 'historical') return;
+    if (!row.topicIds.every(allowed)) fail(historical(row) ? 'historical-reference-outside-scope' : 'referenced-record-outside-scope', {recordId:id});
+    if (!historical(row)) return;
     references.set(id,row);
     for (const source of row.sourceIds) { addSource(source); selectedIds.add(source); }
     for (const target of row.supersedes) reference(target);
