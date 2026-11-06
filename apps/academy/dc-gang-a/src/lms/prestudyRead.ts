@@ -208,6 +208,7 @@ export function isTextbookBookLabel(value: string): boolean {
   if (/^[\d\s.,]+$/.test(v)) return false;
   if (/^\d{4}[-./]\d{1,2}[-./]\d{1,2}([^\d]|$)/.test(v) || /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}([^\d]|$)/.test(v)) return false;
   if (/오답노트|incorrect|wrong/i.test(v)) return false;
+  if (/^(생성|보기|확인|닫기|수정|삭제|출력|인쇄|검색|등록|저장|취소)$/.test(v)) return false;
   return /[가-힣A-Za-z]/.test(v);
 }
 
@@ -230,7 +231,9 @@ export function parseTextbookBindings(html: string, parse: (html: string, mime: 
     const headers = table ? [...table.querySelectorAll('tr')].flatMap(r => [...r.querySelectorAll(':scope > th')].map(n => clean(n.textContent))) : [];
     const headerIndex = headers.findIndex(h => /교재|도서|책/.test(h));
     const fromHeader = headerIndex >= 0 ? cells[headerIndex] : undefined;
-    const bookLabel = fromHeader && isTextbookBookLabel(fromHeader) ? fromHeader : cells.slice(1).find(isTextbookBookLabel);
+    const qualified = cells.slice(1).filter(isTextbookBookLabel);
+    const branded = qualified.find(c => /가우스|다빈치|개념원리/.test(c));
+    const bookLabel = fromHeader && isTextbookBookLabel(fromHeader) ? fromHeader : branded ?? qualified[0];
     if (!row || !bookLabel) throw Error('textbook_binding_source_unqualified');
     const binding = { courseKey: call[1]!, bookNo: call[2]!, studentKey, bookLabel };
     const key = JSON.stringify([binding.courseKey, binding.bookNo]);

@@ -48,6 +48,9 @@ test('textbook binding labels reject percent variants, dates and numbers but kee
     expect(parseTextbookBindings(html,sourceDomParser.parseFromString,'77001'))
       .toEqual([{courseKey:'672',bookNo:'2199',studentKey:'77001',bookLabel:'22개정 Fictional Book'}]);
   }
+  const uiCells=`<table><tr><td>Invented Student</td><td>오</td><td>생성</td><td><p>(22개정) 다빈치 Fictional Book</p></td><td><button onclick="createBookIncorrectPapers(672, 2199, 77001);">오답노트</button></td></tr></table>`;
+  expect(parseTextbookBindings(uiCells,sourceDomParser.parseFromString,'77001'))
+    .toEqual([{courseKey:'672',bookNo:'2199',studentKey:'77001',bookLabel:'(22개정) 다빈치 Fictional Book'}]);
   const singleChar=`<table><tr><td>Invented Student</td><td>오</td><td><p>22개정 Fictional Book</p></td><td><button onclick="createBookIncorrectPapers(672, 2199, 77001);">오답노트</button></td></tr></table>`;
   expect(parseTextbookBindings(singleChar,sourceDomParser.parseFromString,'77001'))
     .toEqual([{courseKey:'672',bookNo:'2199',studentKey:'77001',bookLabel:'22개정 Fictional Book'}]);
