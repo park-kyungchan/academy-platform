@@ -208,7 +208,6 @@ export function isTextbookBookLabel(value: string): boolean {
   if (/^[\d\s.,]+$/.test(v)) return false;
   if (/^\d{4}[-./]\d{1,2}[-./]\d{1,2}([^\d]|$)/.test(v) || /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}([^\d]|$)/.test(v)) return false;
   if (/오답노트|incorrect|wrong/i.test(v)) return false;
-  if (/^(생성|보기|확인|닫기|수정|삭제|출력|인쇄|검색|등록|저장|취소)$/.test(v)) return false;
   return /[가-힣A-Za-z]/.test(v);
 }
 
