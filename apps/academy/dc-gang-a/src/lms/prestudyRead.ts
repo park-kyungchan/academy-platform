@@ -208,33 +208,69 @@ export function isTextbookBookLabel(value: string): boolean {
   if (/^[\d\s.,]+$/.test(v)) return false;
   if (/^\d{4}[-./]\d{1,2}[-./]\d{1,2}([^\d]|$)/.test(v) || /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}([^\d]|$)/.test(v)) return false;
   if (/오답노트|incorrect|wrong/i.test(v)) return false;
-  if (/^(생성|보기|확인|닫기|수정|삭제|출력|인쇄|검색|등록|저장|취소)$/.test(v)) return false;
   return /[가-힣A-Za-z]/.test(v);
 }
 
 /** getTextBookProgress renders one row per registered book; the wrong-note
  * button binds (courseKey, bookNo, studentKey) for that exact row. */
+interface GridCell { text: string; attrs: string[] }
+/** Logical table grid: rowspan/colspan are expanded so a shifted physical
+ * row (a carried cell from the row above) keeps its logical columns. */
+function tableGrid(table: Element): { grid: GridCell[][]; headerRow: number } {
+  const rows = [...table.querySelectorAll(':scope > tbody > tr, :scope > thead > tr, :scope > tr')];
+  const grid: GridCell[][] = [];
+  const carry = new Map<number, { cell: GridCell; left: number }>();
+  let headerRow = -1;
+  rows.forEach((tr, ri) => {
+    const out: GridCell[] = [];
+    let col = 0;
+    const placeCarried = () => { while (carry.has(col)) { const c = carry.get(col)!; out[col] = c.cell; if (--c.left <= 0) carry.delete(col); col++; } };
+    for (const node of tr.querySelectorAll(':scope > th, :scope > td')) {
+      placeCarried();
+      const attrs = [...node.querySelectorAll('input, img')].flatMap(n => [n.getAttribute('value') ?? '', n.getAttribute('title') ?? '', n.getAttribute('alt') ?? '']).map(clean).filter(Boolean);
+      const cell: GridCell = { text: clean(node.textContent), attrs };
+      const span = Math.max(1, Number(node.getAttribute('colspan') ?? 1) || 1);
+      const down = Math.max(1, Number(node.getAttribute('rowspan') ?? 1) || 1);
+      for (let k = 0; k < span; k++) { out[col] = cell; if (down > 1) carry.set(col, { cell, left: down - 1 }); col++; }
+      if (node.tagName === 'TH' && headerRow < 0) headerRow = ri;
+    }
+    placeCarried();
+    grid.push(out);
+  });
+  return { grid, headerRow };
+}
+
 export function parseTextbookBindings(html: string, parse: (html: string, mime: DOMParserSupportedType) => Document, studentKey: string): TextbookBinding[] {
   rejectExpired(html);
   const doc = parse(html, 'text/html');
   const bindings = new Map<string, TextbookBinding>();
+  const grids = new Map<Element, ReturnType<typeof tableGrid>>();
   for (const node of doc.querySelectorAll('[onclick]')) {
     const call = /createBookIncorrectPapers\(\s*['"]?([0-9]+)['"]?\s*,\s*['"]?([0-9]+)['"]?\s*,\s*['"]?([0-9]+)['"]?\s*\)/.exec(node.getAttribute('onclick') ?? '');
     if (!call || call[3] !== studentKey) continue;
     const row = node.closest('tr');
-    const cells = row ? [...row.querySelectorAll(':scope > td')].map(n => clean(n.textContent)) : [];
-    // Prefer the header-named book column when the table carries headers;
-    // otherwise take the first cell after the student cell that qualifies
-    // as a book title. A progress percent (observed live as "88.8 %"),
-    // date, number or button cell never qualifies.
     const table = row?.closest('table');
-    const headers = table ? [...table.querySelectorAll('tr')].flatMap(r => [...r.querySelectorAll(':scope > th')].map(n => clean(n.textContent))) : [];
-    const headerIndex = headers.findIndex(h => /교재|도서|책/.test(h));
-    const fromHeader = headerIndex >= 0 ? cells[headerIndex] : undefined;
-    const qualified = cells.slice(1).filter(isTextbookBookLabel);
+    if (!row || !table) throw Error('textbook_binding_source_unqualified');
+    if (!grids.has(table)) grids.set(table, tableGrid(table));
+    const { grid, headerRow } = grids.get(table)!;
+    const tableRows = [...table.querySelectorAll(':scope > tbody > tr, :scope > thead > tr, :scope > tr')];
+    const gridRow = grid[tableRows.indexOf(row)] ?? [];
+    // Book column from the header row when named; the label may live in
+    // cell text or in a nested input/image attribute.
+    const headerCells = headerRow >= 0 ? (grid[headerRow] ?? []) : [];
+    const bookCol = headerCells.findIndex(c => /교재|도서/.test(c.text));
+    const at = (c: GridCell | undefined): string | undefined => {
+      if (!c) return undefined;
+      if (isTextbookBookLabel(c.text)) return c.text;
+      return c.attrs.find(isTextbookBookLabel);
+    };
+    const fromHeader = bookCol >= 0 ? at(gridRow[bookCol]) : undefined;
+    const qualified = gridRow.slice(1).map(at).filter((v): v is string => !!v);
+    const uiWords = new Set(['생성', '보기', '확인', '닫기', '수정', '삭제', '출력', '인쇄', '검색', '등록', '저장', '취소']);
     const branded = qualified.find(c => /가우스|다빈치|개념원리/.test(c));
-    const bookLabel = fromHeader && isTextbookBookLabel(fromHeader) ? fromHeader : branded ?? qualified[0];
-    if (!row || !bookLabel) throw Error('textbook_binding_source_unqualified');
+    const titled = qualified.find(c => !uiWords.has(c));
+    const bookLabel = fromHeader ?? branded ?? titled ?? qualified[0];
+    if (!bookLabel) throw Error('textbook_binding_source_unqualified');
     const binding = { courseKey: call[1]!, bookNo: call[2]!, studentKey, bookLabel };
     const key = JSON.stringify([binding.courseKey, binding.bookNo]);
     const prior = bindings.get(key);

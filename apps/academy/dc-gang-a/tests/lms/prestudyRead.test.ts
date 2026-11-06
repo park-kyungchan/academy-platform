@@ -48,6 +48,9 @@ test('textbook binding labels reject percent variants, dates and numbers but kee
     expect(parseTextbookBindings(html,sourceDomParser.parseFromString,'77001'))
       .toEqual([{courseKey:'672',bookNo:'2199',studentKey:'77001',bookLabel:'22개정 Fictional Book'}]);
   }
+  const uiFirst=`<table><tr><td>Invented Student</td><td>생성</td><td>22개정 Fictional Book</td><td><button onclick="createBookIncorrectPapers(672, 2199, 77001);">오답노트</button></td></tr></table>`;
+  expect(parseTextbookBindings(uiFirst,sourceDomParser.parseFromString,'77001'))
+    .toEqual([{courseKey:'672',bookNo:'2199',studentKey:'77001',bookLabel:'22개정 Fictional Book'}]);
   const uiCells=`<table><tr><td>Invented Student</td><td>오</td><td>생성</td><td><p>(22개정) 다빈치 Fictional Book</p></td><td><button onclick="createBookIncorrectPapers(672, 2199, 77001);">오답노트</button></td></tr></table>`;
   expect(parseTextbookBindings(uiCells,sourceDomParser.parseFromString,'77001'))
     .toEqual([{courseKey:'672',bookNo:'2199',studentKey:'77001',bookLabel:'(22개정) 다빈치 Fictional Book'}]);
@@ -59,6 +62,15 @@ test('textbook binding labels reject percent variants, dates and numbers but kee
     .toEqual([{courseKey:'672',bookNo:'2199',studentKey:'77001',bookLabel:'1-1 Fictional Math'}]);
   const dup=`<table><tr><td>Invented Student</td><td>Book A</td><td><button onclick="createBookIncorrectPapers(672, 2199, 77001);">오답노트</button></td></tr><tr><td>Invented Student</td><td>Book B</td><td><button onclick="createBookIncorrectPapers(672, 2199, 77001);">오답노트</button></td></tr></table>`;
   expect(()=>parseTextbookBindings(dup,sourceDomParser.parseFromString,'77001')).toThrow('textbook_binding_source_unqualified');
+});
+
+test('textbook bindings use the logical grid: header column, rowspan carry and attribute labels',()=>{
+  const html=`<table><tr><th>학생</th><th>교재</th><th>진도율</th><th></th></tr>
+  <tr><td rowspan="2">Invented Student</td><td>가우스 Fictional One</td><td>50.0%</td><td><button onclick="createBookIncorrectPapers(672, 2198, 77001);">오답노트</button></td></tr>
+  <tr><td><input type="hidden" value="다빈치 Fictional Two"></td><td>88.8 %</td><td><button onclick="createBookIncorrectPapers(672, 2199, 77001);">오답노트</button></td></tr></table>`;
+  expect(parseTextbookBindings(html,sourceDomParser.parseFromString,'77001')).toEqual([
+    {courseKey:'672',bookNo:'2198',studentKey:'77001',bookLabel:'가우스 Fictional One'},
+    {courseKey:'672',bookNo:'2199',studentKey:'77001',bookLabel:'다빈치 Fictional Two'}]);
 });
 
 test('textbook bindings skip a progress-percent cell and keep the real book label',()=>{
