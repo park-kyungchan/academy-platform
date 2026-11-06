@@ -3085,10 +3085,19 @@ fn definition_table_rows(d: &crate::dom::Document) -> Result<Vec<Vec<Js>>> {
     }
     for table in tables {
         let mut carry = std::collections::BTreeMap::<usize, (Js, usize)>::new();
+        let mut previous_group = None;
         for tr in dom::select(table, "tr")
             .into_iter()
             .filter(|tr| dom::closest(*tr, "table").is_some_and(|p| p.id() == table.id()))
         {
+            // HTML rowspans cannot cross row groups. Compare native parent
+            // identity, including implicit TBODYs and distinct same-tag groups,
+            // before applying any carried cells to the next source row.
+            let group = tr.parent().map(|parent| parent.id());
+            if group != previous_group {
+                require(carry.is_empty(), "source_table_unterminated_rowspan")?;
+                previous_group = group;
+            }
             let mut row = std::collections::BTreeMap::new();
             for (&index, (cell, remaining)) in &mut carry {
                 row.insert(index, cell.clone());

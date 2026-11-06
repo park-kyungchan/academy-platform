@@ -4360,3 +4360,73 @@ fn fix3_native_dialog_overlays_refuse_the_document() {
     assert_eq!(records.len(), 128);
     fix1_evidence("fix3-dialog-128", &records);
 }
+
+#[test]
+fn fix3_rowspan_cannot_carry_into_a_different_row_group() {
+    let heading = "<thead><tr><th>숙제수행도DT</th><th>Count</th></tr></thead>";
+    let exact = format!(
+        "<table>{heading}<tbody><tr><td rowspan=2>5-1</td><td>12</td></tr></tbody><tbody><tr><td>6-1 WRONG_UNIT</td><td>13</td></tr></tbody></table>"
+    );
+    let result = fix1_page(PaperScope::Paper1, "definitions", &exact, &[]);
+    let wrong_unit = result
+        .as_ref()
+        .is_ok_and(|v| json(v).contains("WRONG_UNIT"));
+    fix1_evidence(
+        "fix3-rowgroup-exact",
+        &[obj(&[
+            ("accepted", result.is_ok().into()),
+            ("wrongUnitIncluded", wrong_unit.into()),
+        ])],
+    );
+    assert!(!wrong_unit, "rowspan matched a different group's unit");
+    assert_code(result, "source_table_unterminated_rowspan");
+    let mut records = vec![];
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for (first, second) in [
+            ("tbody", "tbody"),
+            ("thead", "tbody"),
+            ("tbody", "tfoot"),
+            ("tfoot", "tbody"),
+        ] {
+            for span in [2, 3, 4] {
+                let later = "<tr><td>6-1 WRONG_UNIT</td><td>13</td></tr>".repeat(span - 1);
+                let body = format!(
+                    "<table>{heading}<{first}><tr><td rowspan={span}>5-1</td><td>12</td></tr></{first}><{second}>{later}</{second}></table>"
+                );
+                assert_code(
+                    fix1_page(scope, "definitions", &body, &[]),
+                    "source_table_unterminated_rowspan",
+                );
+                records.push(obj(&[
+                    ("scope", scope.as_str().into()),
+                    ("first", first.into()),
+                    ("second", second.into()),
+                    ("span", span.into()),
+                ]));
+            }
+        }
+        // The native HTML parser inserts an implicit first TBODY here.
+        let body = format!(
+            "<table>{heading}<tr><td rowspan=2>5-1</td><td>12</td></tr><tbody><tr><td>6-1 WRONG_UNIT</td><td>13</td></tr></tbody></table>"
+        );
+        assert_code(
+            fix1_page(scope, "definitions", &body, &[]),
+            "source_table_unterminated_rowspan",
+        );
+        records.push(obj(&[
+            ("scope", scope.as_str().into()),
+            ("implicit", true.into()),
+        ]));
+        let body = format!(
+            "<table>{heading}<tbody><tr><td rowspan=2>5-1</td><td>12</td></tr><tr><td>13</td></tr></tbody><tbody><tr><td rowspan=2>6-1 WRONG_UNIT</td><td>14</td></tr><tr><td>15</td></tr></tbody></table>"
+        );
+        let output = fix1_page(scope, "definitions", &body, &[]).unwrap();
+        let rows = output.get("observation").get("rows").array();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].get("cells").array(), &["5-1".into(), "12".into()]);
+        assert_eq!(rows[1].get("cells").array(), &["5-1".into(), "13".into()]);
+        assert!(!json(&output).contains("WRONG_UNIT"));
+    }
+    assert_eq!(records.len(), 26);
+    fix1_evidence("fix3-rowgroup-26", &records);
+}
