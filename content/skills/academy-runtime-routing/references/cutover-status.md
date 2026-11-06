@@ -1,19 +1,21 @@
 # Academy cutover status
 
-## Current hold — 2026-11-05
+## Current state — 2026-11-06
 
-`academy_operations` is DISABLED in all four coding CLIs (Muse, Claude Code,
-Codex and Antigravity CLI) until the full-surface Rust cutover. The current
-execution authority and any later release are in
-`/home/palantirkc/work/ws-replan/STATE.md`; the confirmed strategy is
-`/home/palantirkc/work/ws-replan/STRATEGY.md`. These host locators are navigation,
-not dependencies of an external clone or permission to change host files.
+User decision 2026-11-06: the last TS release is restored host-native and
+`academy_operations` is ENABLED in **Muse and Claude Code** (Claude Code added at
+user scope on 2026-11-06 with the same launcher; generation
+`host-restore-20261106-v1`, current generation in `/root/.local/share/academy-mcp-host-20261106/release.json`, base `/root/.local/share/academy-mcp-host-20261106`,
+record `/home/palantirkc/work/edu-mcp-host-restore/STATE.md`). Live reads go
+through those registered tools only, from one lesson session at a time (one shared
+account). Save remains unconfigured. Codex and Antigravity CLI stay DISABLED until
+the full-surface Rust cutover.
+No browser access, direct HTTP probe, shell client or substitute MCP client.
+Do not modify the install base, `/opt/data` layout or release pointer; report
+failures with their code. Rust work continues separately; its later cutover
+replaces this route.
 
-No Academy call, browser access, direct HTTP probe, TS bundle, launcher, shell
-client or substitute MCP client is permitted during this hold. Exposed cached
-tools and old instructions do not release it. Use only supplied or explicitly
-authorized preserved evidence, with source/date/scope/coverage/freshness labels.
-Do not repair the retained TS deployment as a shortcut.
+Superseded hold (2026-11-05): all four CLIs disabled; retained for history.
 
 ## Future route release
 
