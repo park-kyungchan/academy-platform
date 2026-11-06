@@ -132,14 +132,14 @@ export const itemSectionTraceSchema=z.object({displayName:z.string().trim().min(
   bookLabel:z.string().trim().min(1).max(200).optional()}).strict();
 export type ItemSectionTrace=z.infer<typeof itemSectionTraceSchema>;
 export type ItemSectionTraceObservation=
-  |{kind:'interview_required';student:{studentId:string;displayName:string};bindings:{bookLabel:string}[];reason:'multiple_book_bindings_select_one';observedAt:string}
+  |{kind:'interview_required';student:{studentId:string;displayName:string};bindings:{bookLabel:string;bookNo:string}[];reason:'multiple_book_bindings_select_one';observedAt:string}
   |{kind:'traced';student:{studentId:string;displayName:string};
     books:{bookLabel:string;sectionsScanned:number;sectionsFailed:number}[];
     items:{label:string;matches:{bookLabel:string;sourceTitle:string;ordinal:string;matchedBy:'lectureKey'|'outerLectureKey';originalScoring:'O'|'X'}[]}[];
     unmatchedLabels:string[];ambiguousLabels:string[];sectionsScanned:number;sectionsFailed:number;observedAt:string;coverage:string};
 export type TextbookSectionIndexObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bookLabel:string;
   index:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];observedAt:string;coverage:string;indexBasis?:string};
-export type TextbookSectionInterviewObservation={kind:'interview_required';student:{studentId:string;displayName:string};bindings:{bookLabel:string;hint?:string}[];reason:'multiple_book_bindings_select_one';observedAt:string};
+export type TextbookSectionInterviewObservation={kind:'interview_required';student:{studentId:string;displayName:string};bindings:{bookLabel:string;bookNo:string;hint?:string}[];reason:'multiple_book_bindings_select_one';observedAt:string};
 export type TextbookSectionResultsByNameObservation=TextbookSectionObservation|TextbookSectionIndexObservation|TextbookSectionInterviewObservation;
 /** Implemented by the native/source owner, never by MCP arguments. All methods are read-only. */
 export interface DailyRecordReadBackend {

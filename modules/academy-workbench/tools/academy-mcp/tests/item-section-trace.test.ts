@@ -21,8 +21,8 @@ test('item section trace projects matches, unmatched labels and lineage limits',
 test('item section trace passes interview-required bindings through without guessing',async()=>{
   const backend:DailyRecordReadBackend={readDailyRecord:async()=>({status:'unavailable',reasonCode:'not_used'}),
     readItemSectionTrace:async()=>({kind:'interview_required',student:{studentId:'77001',displayName:'Invented Student'},
-      bindings:[{bookLabel:'Book One'},{bookLabel:'Book Two'}],reason:'multiple_book_bindings_select_one',observedAt:'2040-01-16T09:00:00.000Z'})};
-  expect(await new DailyRecordService(backend).itemSectionTrace(request)).toMatchObject({status:'interview_required',bindings:[{bookLabel:'Book One'},{bookLabel:'Book Two'}]});
+      bindings:[{bookLabel:'Book One',bookNo:'7'},{bookLabel:'Book Two',bookNo:'8'}],reason:'multiple_book_bindings_select_one',observedAt:'2040-01-16T09:00:00.000Z'})};
+  expect(await new DailyRecordService(backend).itemSectionTrace(request)).toMatchObject({status:'interview_required',bindings:[{bookLabel:'Book One',bookNo:'7'},{bookLabel:'Book Two',bookNo:'8'}]});
   expect(await new DailyRecordService().itemSectionTrace(request)).toMatchObject({status:'unavailable',reasonCode:'item_section_trace_backend_not_configured'});
 });
 

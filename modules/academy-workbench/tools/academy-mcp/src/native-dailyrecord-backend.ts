@@ -15,6 +15,7 @@ import {metadataAdmissionSchema,metadataDateAdmitted,type MetadataAdmission} fro
 import {AcademyReadFailure} from './read-failure.ts';
 import {StudentNameNotAdmitted} from './student-resolver.ts';
 import type {TextbookCatalogObservation,TextbookPdfObservation,TextbookSchoolLevel} from '../../../../../apps/academy/dc-gang-a/src/lms/textbookCatalogRead';
+import {isTextbookBookLabel} from '../../../../../apps/academy/dc-gang-a/src/lms/prestudyRead';
 import {itemAnswerLookupSchema} from './item-answer-lookup.ts';
 import type {DailyRecordReadAdmission} from './dailyrecord-read.ts';
 
@@ -239,6 +240,20 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     return {student:{studentId:student.studentId,displayName:student.displayName},prestudyKey:raw.prestudyKey,
       sourceRecord,sections,scores,encodingResult,observedAt:raw.observedAt,coverage:raw.coverage};
   }
+  /** Backend half of the textbook-binding contract: a binding whose label
+   * is not a qualified book title (percent/date/number/button cell) fails
+   * closed here, so a parser drift never reaches the candidate list. */
+  #assertTextbookBindings(bindings:{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[],studentId:string):void{
+    if(!bindings.length)throw Error('textbook_binding_source_unqualified');
+    const identities=new Set<string>();
+    for(const b of bindings){
+      if(b.studentKey!==studentId)throw Error('textbook_binding_scope_conflict');
+      if(!isTextbookBookLabel(b.bookLabel))throw Error('textbook_binding_source_unqualified');
+      const identity=JSON.stringify([b.courseKey,b.bookNo]);
+      if(identities.has(identity))throw Error('textbook_binding_source_unqualified');
+      identities.add(identity);
+    }
+  }
   /** Section grading/index with the binding discovered owner-side from the
    * live progress page. With several registered bindings and no exact
    * bookLabel the candidate labels are returned for caller selection; with
@@ -249,7 +264,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     if(!this.client.readTextbookBindings)throw Error('textbook_binding_source_port_unavailable');
     await this.#authenticate();
     const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
-    if(!bindings.length)throw Error('textbook_binding_source_unqualified');
+    this.#assertTextbookBindings(bindings,student.studentId);
     const selected=input.bookLabel?bindings.filter(b=>b.bookLabel===input.bookLabel):bindings;
     if(input.bookLabel&&selected.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
     if(!input.bookLabel&&bindings.length>1){
@@ -257,7 +272,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       // yield a percent literal), so attach each binding's first observed
       // section title as a selection hint. The hint never selects; the
       // caller still echoes the exact bookLabel on the second call.
-      const candidates:{bookLabel:string;hint?:string}[]=[];
+      const candidates:{bookLabel:string;bookNo:string;hint?:string}[]=[];
       for(const b of bindings){
         let hint:string|undefined;
         if(this.client.inspectTextbookIndex){
@@ -268,7 +283,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
             hint=rows[0]?.sourceTitle;
           }catch{hint=undefined;}
         }
-        candidates.push(hint?{bookLabel:b.bookLabel,hint}:{bookLabel:b.bookLabel});
+        candidates.push(hint?{bookLabel:b.bookLabel,bookNo:b.bookNo,hint}:{bookLabel:b.bookLabel,bookNo:b.bookNo});
       }
       return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
         bindings:candidates,reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
@@ -305,8 +320,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     if(!this.client.readTextbookBindings||!this.client.inspectTextbookIndex)throw Error('textbook_binding_source_port_unavailable');
     await this.#authenticate();
     const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
-    if(!bindings.length)throw Error('textbook_binding_source_unqualified');
-    for(const b of bindings)if(b.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
+    this.#assertTextbookBindings(bindings,student.studentId);
     const selected=input.bookLabel?bindings.filter(b=>b.bookLabel===input.bookLabel):bindings;
     if(input.bookLabel&&selected.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
     const indexes: {binding:(typeof bindings)[number];titles:string[]}[]=[];
@@ -319,7 +333,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     }
     if(totalTitles>64){
       if(selected.length>1&&!input.bookLabel)return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
-        bindings:selected.map(b=>({bookLabel:b.bookLabel})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
+        bindings:selected.map(b=>({bookLabel:b.bookLabel,bookNo:b.bookNo})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
       throw Error('textbook_section_scan_limit');
     }
     const wanted=new Set(input.labels);
