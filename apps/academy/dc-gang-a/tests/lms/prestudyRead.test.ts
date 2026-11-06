@@ -41,6 +41,25 @@ test('textbook bindings come only from the exact student row handler',()=>{
   expect(()=>parseTextbookBindings(progress,sourceDomParser.parseFromString,'77003')).toThrow('textbook_binding_source_unqualified');
 });
 
+test('textbook binding labels reject percent variants, dates and numbers but keep titles',()=>{
+  const variants=[`<td>진도율 88.8%</td>`,`<td>88,8%</td>`,`<td>2040-01-02</td>`,`<td>123</td>`];
+  for(const cell of variants){
+    const html=`<table><tr><td>Invented Student</td>${cell}<td><p>22개정 Fictional Book</p></td><td><button onclick="createBookIncorrectPapers(672, 2199, 77001);">오답노트</button></td></tr></table>`;
+    expect(parseTextbookBindings(html,sourceDomParser.parseFromString,'77001'))
+      .toEqual([{courseKey:'672',bookNo:'2199',studentKey:'77001',bookLabel:'22개정 Fictional Book'}]);
+  }
+  const dup=`<table><tr><td>Invented Student</td><td>Book A</td><td><button onclick="createBookIncorrectPapers(672, 2199, 77001);">오답노트</button></td></tr><tr><td>Invented Student</td><td>Book B</td><td><button onclick="createBookIncorrectPapers(672, 2199, 77001);">오답노트</button></td></tr></table>`;
+  expect(()=>parseTextbookBindings(dup,sourceDomParser.parseFromString,'77001')).toThrow('textbook_binding_source_unqualified');
+});
+
+test('textbook bindings skip a progress-percent cell and keep the real book label',()=>{
+  const shifted=`<table><tr><td>Invented Student</td><td>88.8 %</td><td><p>22개정 Fictional Book Two</p></td><td><button onclick="createBookIncorrectPapers(672, 2199, 77001);">오답노트</button></td></tr></table>`;
+  expect(parseTextbookBindings(shifted,sourceDomParser.parseFromString,'77001'))
+    .toEqual([{courseKey:'672',bookNo:'2199',studentKey:'77001',bookLabel:'22개정 Fictional Book Two'}]);
+  const percentOnly=`<table><tr><td>Invented Student</td><td>88.8 %</td><td><button onclick="createBookIncorrectPapers(672, 2199, 77001);">오답노트</button></td></tr></table>`;
+  expect(()=>parseTextbookBindings(percentOnly,sourceDomParser.parseFromString,'77001')).toThrow('textbook_binding_source_unqualified');
+});
+
 const detail=`<html><form name="form1"><input type="hidden" name="prestudy_key" value="12345"><input type="hidden" name="student_pri_no" value="77001"><input type="hidden" name="sunit_name" value="9-1 Fictional Unit(ver. 1)"><input type="hidden" name="create_datetime" value="2040-01-02 03:04:05"><input type="hidden" name="encoding_result" value="success"></form>
 <button onclick="viewAiReport('55501');">Ai 보고서 보기</button></html>`;
 const detailNoReport=`<html><form name="form1"><input type="hidden" name="prestudy_key" value="12345"><input type="hidden" name="student_pri_no" value="77001"><input type="hidden" name="encoding_result" value="success"></form></html>`;

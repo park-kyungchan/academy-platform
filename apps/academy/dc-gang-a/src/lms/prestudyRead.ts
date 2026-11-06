@@ -198,6 +198,19 @@ export interface TextbookBinding {
   courseKey: string; bookNo: string; studentKey: string; bookLabel: string;
 }
 
+/** A book label is a title, never a progress/date/number/button cell. This
+ * predicate is the client half of the textbook-binding contract; the MCP
+ * backend re-checks the same rule before exposing candidates. */
+export function isTextbookBookLabel(value: string): boolean {
+  const v = value.trim();
+  if (!v || v.length > 200) return false;
+  if (/%/.test(v)) return false;
+  if (/^[\d\s.,]+$/.test(v)) return false;
+  if (/^\d{4}[-./]\d{1,2}[-./]\d{1,2}/.test(v) || /^\d{1,2}[-./]\d{1,2}([^\d]|$)/.test(v)) return false;
+  if (/오답노트|incorrect|wrong/i.test(v)) return false;
+  return /[가-힣A-Za-z]/.test(v);
+}
+
 /** getTextBookProgress renders one row per registered book; the wrong-note
  * button binds (courseKey, bookNo, studentKey) for that exact row. */
 export function parseTextbookBindings(html: string, parse: (html: string, mime: DOMParserSupportedType) => Document, studentKey: string): TextbookBinding[] {
@@ -209,10 +222,21 @@ export function parseTextbookBindings(html: string, parse: (html: string, mime: 
     if (!call || call[3] !== studentKey) continue;
     const row = node.closest('tr');
     const cells = row ? [...row.querySelectorAll(':scope > td')].map(n => clean(n.textContent)) : [];
-    const bookLabel = cells[1];
+    // Prefer the header-named book column when the table carries headers;
+    // otherwise take the first cell after the student cell that qualifies
+    // as a book title. A progress percent (observed live as "88.8 %"),
+    // date, number or button cell never qualifies.
+    const table = row?.closest('table');
+    const headers = table ? [...table.querySelectorAll('tr')].flatMap(r => [...r.querySelectorAll(':scope > th')].map(n => clean(n.textContent))) : [];
+    const headerIndex = headers.findIndex(h => /교재|도서|책/.test(h));
+    const fromHeader = headerIndex >= 0 ? cells[headerIndex] : undefined;
+    const bookLabel = fromHeader && isTextbookBookLabel(fromHeader) ? fromHeader : cells.slice(1).find(isTextbookBookLabel);
     if (!row || !bookLabel) throw Error('textbook_binding_source_unqualified');
     const binding = { courseKey: call[1]!, bookNo: call[2]!, studentKey, bookLabel };
-    bindings.set(JSON.stringify([binding.courseKey, binding.bookNo]), binding);
+    const key = JSON.stringify([binding.courseKey, binding.bookNo]);
+    const prior = bindings.get(key);
+    if (prior && prior.bookLabel !== bookLabel) throw Error('textbook_binding_source_unqualified');
+    bindings.set(key, binding);
   }
   // No independently observed empty-progress contract is available. A generic
   // error document or rows for another student cannot establish zero books.

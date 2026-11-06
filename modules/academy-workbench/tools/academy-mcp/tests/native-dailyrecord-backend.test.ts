@@ -164,6 +164,16 @@ test('textbook sections by name: bookLabel with no exact match still throws text
  await expect(backend.readTextbookSectionsByName({...textbookRequest,bookLabel:'No Such Book'})).rejects.toThrow('textbook_binding_missing_or_ambiguous');
  expect(calls.inspect).toBe(0);expect(calls.execute).toBe(0);
 });
+test('textbook sections by name: unqualified book labels fail closed before candidates',async()=>{
+ const percent=textbookFixture([{courseKey:'5',bookNo:'7',studentKey:'77001',bookLabel:'88.8 %'},{...multiBindings[1]!}]);
+ await expect(percent.backend.readTextbookSectionsByName(textbookRequest)).rejects.toThrow('textbook_binding_source_unqualified');
+ expect(percent.calls.inspect).toBe(0);expect(percent.calls.execute).toBe(0);
+ const dupLabel=textbookFixture([{...multiBindings[0]!,bookLabel:'Same Book'},{...multiBindings[1]!,bookLabel:'Same Book'}]);
+ expect(await dupLabel.backend.readTextbookSectionsByName(textbookRequest)).toMatchObject({bindings:[{bookLabel:'Same Book',bookNo:'7'},{bookLabel:'Same Book',bookNo:'8'}]});
+ await expect(dupLabel.backend.readTextbookSectionsByName({...textbookRequest,bookLabel:'Same Book'})).rejects.toThrow('textbook_binding_missing_or_ambiguous');
+ const {backend}=textbookFixture(multiBindings);
+ expect(await backend.readTextbookSectionsByName(textbookRequest)).toMatchObject({bindings:[{bookLabel:'Book One',bookNo:'7'},{bookLabel:'Book Two',bookNo:'8'}]});
+});
 test('textbook sections by name: single binding without bookLabel is unchanged',async()=>{
  const {backend}=textbookFixture([multiBindings[0]!]);
  expect(await backend.readTextbookSectionsByName(textbookRequest))

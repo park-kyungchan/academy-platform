@@ -30,8 +30,8 @@ test('clinic bundle with titles marks eligibility from wrong items only',async()
 test('clinic bundle propagates binding interview and fails closed without backend',async()=>{
   const backend:DailyRecordReadBackend={readDailyRecord:async()=>({status:'unavailable',reasonCode:'not_used'}),
     readTextbookSectionsByName:async()=>({kind:'interview_required' as const,student:{studentId:'77001',displayName:'Invented Student'},
-      bindings:[{bookLabel:'A'},{bookLabel:'B'}],reason:'multiple_book_bindings_select_one' as const,observedAt:'2040-01-16T09:00:00.000Z'})};
-  expect(await new DailyRecordService(backend).clinicPaperStatus(request)).toMatchObject({status:'interview_required',bindings:[{bookLabel:'A'},{bookLabel:'B'}]});
+      bindings:[{bookLabel:'A',bookNo:'1'},{bookLabel:'B',bookNo:'2'}],reason:'multiple_book_bindings_select_one' as const,observedAt:'2040-01-16T09:00:00.000Z'})};
+  expect(await new DailyRecordService(backend).clinicPaperStatus(request)).toMatchObject({status:'interview_required',bindings:[{bookLabel:'A',bookNo:'1'},{bookLabel:'B',bookNo:'2'}]});
   expect(await new DailyRecordService().clinicPaperStatus(request))
     .toMatchObject({status:'unavailable',reasonCode:'clinic_paper_backend_not_configured',academyWrites:0});
 });
