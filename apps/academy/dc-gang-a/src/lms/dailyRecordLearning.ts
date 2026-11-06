@@ -96,19 +96,17 @@ export function createDailyRecordLearningReviewer(input:unknown){
     };
     const labels=new Map<string,string>();
     for(const d of display){const label=parentBook(d.book),prior=labels.get(label);if(prior&&prior!==d.book.bookRef)throw Error('book_parent_notation_ambiguous_ask_teacher');labels.set(label,d.book.bookRef);}
-    if(display.length===1)return '- '+[display[0]!.entry.deadline?`${display[0]!.entry.deadline}까지`:null,parentBook(display[0]!.book),detail(display[0]!)].filter(Boolean).join(' ');
     // Undated entries precede dated groups so no date can implicitly attach to
-    // an entry whose deadline has not been supplied. Each known date is shown once.
+    // an entry whose deadline has not been supplied. Each known date is shown once
+    // as its own first line above the entries it applies to.
     const dates=[...new Set(display.map(d=>d.entry.deadline))];
     const orderedDates=[...(dates.includes(null)?[null]:[]),...dates.filter((date):date is string=>date!==null)];
     const lines:string[]=[];
     for(const date of orderedDates){
       if(date)lines.push(`- ${date}까지`);
-      let currentBook:string|null=null;
-      for(const d of display.filter(g=>g.entry.deadline===date)){
-        if(currentBook!==d.book.bookRef){lines.push('- '+parentBook(d.book));currentBook=d.book.bookRef;}
-        lines.push('- '+detail(d));
-      }
+      // Teacher rule (2026-11-06): one hyphen line per content unit and every
+      // line names its book, so a line never depends on a header above it.
+      for(const d of display.filter(g=>g.entry.deadline===date))lines.push('- '+parentBook(d.book)+', '+detail(d));
     }
     return lines.join('\n');
   }
