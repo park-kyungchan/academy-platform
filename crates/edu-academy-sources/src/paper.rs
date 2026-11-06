@@ -1442,6 +1442,12 @@ fn display_text_contract(d: &crate::dom::Document, pins: &PaperPins) -> Result<(
         d.select("template[shadowrootmode]").is_empty(),
         "contract_drift",
     )?;
+    // Open dialogs are out of normal flow in the native HTML rendering model,
+    // even with no author position declaration. Their box can cover siblings;
+    // subtree omission cannot qualify those siblings. Do not infer a safe
+    // author override without cascade/rendering qualification. Closed dialogs
+    // remain self-hidden in passive_text.
+    require(d.select("dialog[open]").is_empty(), "contract_drift")?;
     for element in d.select("[style]") {
         require(css_inline_rejection_is_local(element), "contract_drift")?;
     }

@@ -4306,3 +4306,57 @@ fn fix3_declarative_shadow_roots_refuse_unslotted_light_dom_text() {
     assert_eq!(records.len(), 80);
     fix1_evidence("fix3-shadow-80", &records);
 }
+
+#[test]
+fn fix3_native_dialog_overlays_refuse_the_document() {
+    let exact = "<table><tr><td style=text-align:center><dialog open style=\"background:white;width:128px;height:128px\">cover</dialog>5-1 DIALOG_PRIVATE</td><td>12</td></tr></table>";
+    let result = fix1_page(PaperScope::Paper1, "definitions", exact, &[]);
+    let exported = result
+        .as_ref()
+        .is_ok_and(|v| json(v).contains("DIALOG_PRIVATE"));
+    fix1_evidence(
+        "fix3-dialog-exact",
+        &[obj(&[
+            ("accepted", result.is_ok().into()),
+            ("exported", exported.into()),
+        ])],
+    );
+    assert!(!exported, "native dialog covers exported sibling text");
+    assert_code(result, "contract_drift");
+    let mut records = vec![];
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for family in ["header", "inventory", "definitions", "batch"] {
+            for open in ["open", "open=''", "open=false", "OPEN=OPEN"] {
+                for css in [
+                    "",
+                    "background:white;width:128px;height:128px",
+                    "background-color:white;width:128px;height:128px",
+                    "position:static;background-color:white",
+                ] {
+                    let body = fix3_body(
+                        scope,
+                        family,
+                        &format!("<dialog {open} style='{css}'></dialog>DIALOG_PRIVATE"),
+                    );
+                    assert_code(fix1_page(scope, family, &body, &[]), "contract_drift");
+                    records.push(obj(&[
+                        ("scope", scope.as_str().into()),
+                        ("family", family.into()),
+                        ("open", open.into()),
+                        ("css", css.into()),
+                    ]));
+                }
+            }
+            let body = fix3_body(
+                scope,
+                family,
+                "<dialog>CLOSED_PRIVATE</dialog>DIALOG_VISIBLE",
+            );
+            let output = json(&fix1_page(scope, family, &body, &[]).unwrap());
+            assert!(output.contains("DIALOG_VISIBLE"));
+            assert!(!output.contains("CLOSED_PRIVATE"));
+        }
+    }
+    assert_eq!(records.len(), 128);
+    fix1_evidence("fix3-dialog-128", &records);
+}
