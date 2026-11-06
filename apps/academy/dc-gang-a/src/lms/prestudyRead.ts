@@ -203,7 +203,7 @@ export interface TextbookBinding {
  * backend re-checks the same rule before exposing candidates. */
 export function isTextbookBookLabel(value: string): boolean {
   const v = value.trim();
-  if (!v || v.length > 200) return false;
+  if (v.length < 2 || v.length > 200) return false;
   if (/%/.test(v)) return false;
   if (/^[\d\s.,]+$/.test(v)) return false;
   if (/^\d{4}[-./]\d{1,2}[-./]\d{1,2}([^\d]|$)/.test(v) || /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}([^\d]|$)/.test(v)) return false;
