@@ -266,8 +266,10 @@ export function parseTextbookBindings(html: string, parse: (html: string, mime: 
     };
     const fromHeader = bookCol >= 0 ? at(gridRow[bookCol]) : undefined;
     const qualified = gridRow.slice(1).map(at).filter((v): v is string => !!v);
+    const uiWords = new Set(['생성', '보기', '확인', '닫기', '수정', '삭제', '출력', '인쇄', '검색', '등록', '저장', '취소']);
     const branded = qualified.find(c => /가우스|다빈치|개념원리/.test(c));
-    const bookLabel = fromHeader ?? branded ?? qualified[0];
+    const titled = qualified.find(c => !uiWords.has(c));
+    const bookLabel = fromHeader ?? branded ?? titled ?? qualified[0];
     if (!bookLabel) throw Error('textbook_binding_source_unqualified');
     const binding = { courseKey: call[1]!, bookNo: call[2]!, studentKey, bookLabel };
     const key = JSON.stringify([binding.courseKey, binding.bookNo]);
