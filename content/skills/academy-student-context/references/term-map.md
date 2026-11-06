@@ -17,7 +17,7 @@ User decisions dated 2026-11-06 are marked **U**.
 | --- | --- | --- | --- | --- |
 | 가우스 / 다빈치 | Textbook series | Gauss, Davinci, 가우스, 다빈치 | `academy_textbook_section_results_get` with the exact `bookLabel` | `가우스 5-2-1` = grade 5, term 2, volume 1. Edition text such as `(22개정)` stays in the label. |
 | 대단원 / 소단원 / 단원 | Chapter / subunit | chapter, major unit, unit, subunit | section titles such as `3-1 ...` | Unit numbers are book-local. Never join two books by number alone. |
-| 기본 / 발전 / 심화 | (a) level words inside a book label; (b) DailyTest levels | basic, advanced | (a) `bookLabel`; (b) DailyTest rows | Same words, different objects. |
+| 기본 / 발전 / 심화 | (a) level words inside a book label; (b) DailyTest levels (기본, 발전) | basic, advanced, 심화 | (a) `bookLabel`; (b) DailyTest rows | Same words, different objects. |
 | PART A / 유형 N | A part or type range inside a section | PART A, type 10 | none (teacher scope) | Source titles do not carry PART boundaries. |
 
 ## Sections and assessments
@@ -32,7 +32,7 @@ User decisions dated 2026-11-06 are marked **U**.
 | 대단원총괄평가 (교재 내) | In-book chapter assessment section | chapter assessment (155), comprehensive assessment (35), 대단원총괄평가 (32), major-unit (16) | section index (`wrong_answer_note` source, per-item `lectureKey`) | **U**: the server `단원평가` row with the same score and date is this same exam entered on the server. Link the two records; do not count them as two exams. |
 | 단원평가 (서버 행) | Server paper attempt of the in-book chapter assessment | unit assessment (4), unit-assessment (7), 단원평가 (77) | student paper search (`paperKey`, `attemptKey`) | Same exam as the row above (**U**). |
 | 학원서버 프린트 | **Four kinds (U):** 대단원총괄평가 프린트, 오답·유사클리닉 프린트, DailyTest 프린트, 월말평가 프린트 | print, printed paper | `academy_printed_paper_lookup` by print code (for example `#839RF`) | Ask which kind when the teacher does not say. |
-| 대단원총괄평가 프린트 | Printed chapter assessment (for example 16 questions) | printed chapter assessment | print code | Distinct from the 20-question in-book section. It may have no attempt row; the teacher's report is the evidence. |
+| 대단원총괄평가 프린트 | Printed chapter assessment (for example 16 questions) | printed chapter assessment | print code | Distinct from the in-book section (20 questions in the observed book). It may have no attempt row; the teacher's report is the evidence. |
 | 오답클리닉 | Original-error clinic | error clinic (71), original-error clinic (60), 오답클리닉 (50), wrong-answer clinic (11) | `academy_clinic_paper_status_get` | The server has no clinic score input; completion comes from the teacher. |
 | 유사클리닉 | Similar-problem clinic | similar clinic (72), 유사클리닉 (36), similar-problem clinic (10) | `academy_clinic_paper_status_get` | Whether a similar clinic was generated is not visible on the server. |
 | 클리닉 프린트 | Printed 오답·유사 clinic papers | clinic print | as above | |
@@ -50,7 +50,7 @@ User decisions dated 2026-11-06 are marked **U**.
 | 하브루타 | Havruta (paired explanation) | 하브루타 (72), havruta (52) | none (teacher) | |
 | 등원 / 출석 | Arrival / attendance class | arrival, attendance | DailyRecord attendance field | Observed values: `Y`, `L` (late). |
 | 수업1부 / 2부 | Lesson session 1 / 2 | session1, session2 | business date + class | |
-| 진도 / 숙제 / 메모 | DailyRecord progress / homework / memo | progress, homework, memo | `academy_dailyrecord_get` → intake → review → save → readback | Save stays a separate, instructed effect. |
+| 진도 / 숙제 / 메모 | DailyRecord progress / homework / memo | progress, homework, memo | `academy_dailyrecord_get` → intake → review → save → readback | Save stays a separate, instructed effect; the save backend is currently unconfigured (`dailyrecord_save_backend_not_configured`, 2026-11-06). |
 | 이전 숙제 평가 | Previous-homework assessment option | previous-homework assessment | DailyRecord option | Observed codes: `5` = A+ (2026-11-02), `3` = B+ (October 30 evidence). |
 | DailyTest 평가 | DailyRecord DailyTest option | DailyTest assessment | DailyRecord option | Observed codes: `0` = 미실시, `9` = 90점대 (2026-11-02). |
 | 교재 카탈로그 | Textbook catalog and sample PDF | textbook catalog | `academy_textbook_catalog`, `academy_textbook_pdf` | A catalog row is not an assignment. |

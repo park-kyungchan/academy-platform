@@ -1,11 +1,11 @@
 ---
 name: academy-student-context
-description: For Korean student reports, use Muse academy_operations live reads (enabled 2026-11-06) or supplied evidence; preserve identities and teacher decisions.
+description: For Korean student reports, use academy_operations live reads in Muse or Claude Code (enabled 2026-11-06) or supplied evidence; preserve identities and teacher decisions.
 ---
 
 # Academy student context
 
-In Muse, `academy_operations` is enabled (user decision 2026-11-06, TS release `host-restore-20261106-v1`); use its live read tools for current records. Other CLIs stay disabled until the full Rust cutover. No browser, direct HTTP, shell client or replacement MCP client. Apply [academy-runtime-routing](../academy-runtime-routing/SKILL.md) and its [cutover status](../academy-runtime-routing/references/cutover-status.md). Requested formatting of user-supplied or explicitly authorized preserved evidence remains allowed; label its source, date, scope, coverage and freshness.
+In Muse and Claude Code, `academy_operations` is enabled (user decisions 2026-11-06, TS release `host-restore-20261106-v1`, current generation in `/root/.local/share/academy-mcp-host-20261106/release.json`); use its live read tools for current records. Codex and agy stay disabled until the full Rust cutover. No browser, direct HTTP, shell client or replacement MCP client. Apply [academy-runtime-routing](../academy-runtime-routing/SKILL.md) and its [cutover status](../academy-runtime-routing/references/cutover-status.md). Requested formatting of user-supplied or explicitly authorized preserved evidence remains allowed; label its source, date, scope, coverage and freshness.
 
 Answer the requested scope. For a short question or one correction, give a concise direct answer without a mandatory title, numbering, tutorial or staged wait. For a comprehensive lesson or student report, use [full-report.md](references/full-report.md); keep the requested students, books and material history rather than replacing them with a shallow checklist. The synthetic [report-example.md](references/report-example.md) is a formatting example, never real student evidence.
 

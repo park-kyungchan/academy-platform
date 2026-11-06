@@ -1,11 +1,11 @@
 ---
 name: academy-runtime-routing
-description: For Academy operations, use academy_operations in Muse (TS host-restore release, user decision 2026-11-06); other CLIs stay disabled until the full-surface Rust cutover.
+description: For Academy operations, use academy_operations in Muse or Claude Code (TS host-restore release, user decisions 2026-11-06); Codex and agy stay disabled until the full-surface Rust cutover.
 ---
 
 # Academy runtime routing
 
-`academy_operations` is **ENABLED in Muse only** (user decision 2026-11-06): the last TS release, restored host-native as generation `host-restore-20261106-v1` (install base `/root/.local/share/academy-mcp-host-20261106`; record `/home/palantirkc/work/edu-mcp-host-restore/STATE.md`). In Muse, make live Academy reads through these registered tools for current records; do not use a browser, direct HTTP, shell client or a substitute MCP client. Claude Code, Codex and Antigravity CLI remain DISABLED until the full-surface Rust cutover. The save tool is exposed but its backend is unconfigured (`dailyrecord_save_backend_not_configured`, academyWrites 0); saving, parent transmission, printing and paper generation stay unavailable/separate effects. Do not modify the install base, `/opt/data`, the release pointer or host configuration; report a failure with its exact code instead.
+`academy_operations` is **ENABLED in Muse and Claude Code** (user decisions 2026-11-06; Claude Code registered at user scope with the same launcher on 2026-11-06): the last TS release, restored host-native (generation `host-restore-20261106-v1`, current generation in `/root/.local/share/academy-mcp-host-20261106/release.json`) (install base `/root/.local/share/academy-mcp-host-20261106`; record `/home/palantirkc/work/edu-mcp-host-restore/STATE.md`). Make live Academy reads through these registered tools for current records; do not use a browser, direct HTTP, shell client or a substitute MCP client. Both CLIs share one academy account: run Academy calls from one lesson session at a time. Codex and Antigravity CLI remain DISABLED until the full-surface Rust cutover. The save tool is exposed but its backend is unconfigured (`dailyrecord_save_backend_not_configured`, academyWrites 0); saving, parent transmission, printing and paper generation stay unavailable/separate effects. Do not modify the install base, `/opt/data`, the release pointer or host configuration; report a failure with its exact code instead.
 
 Without a working tool result, use only user-supplied or explicitly authorized preserved evidence, labeled with source, date, scope, coverage and freshness. A saved snapshot is not current service state.
 

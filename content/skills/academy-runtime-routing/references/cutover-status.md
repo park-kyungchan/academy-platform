@@ -3,11 +3,13 @@
 ## Current state — 2026-11-06
 
 User decision 2026-11-06: the last TS release is restored host-native and
-`academy_operations` is ENABLED in **Muse only** (generation
-`host-restore-20261106-v1`, base `/root/.local/share/academy-mcp-host-20261106`,
+`academy_operations` is ENABLED in **Muse and Claude Code** (Claude Code added at
+user scope on 2026-11-06 with the same launcher; generation
+`host-restore-20261106-v1`, current generation in `/root/.local/share/academy-mcp-host-20261106/release.json`, base `/root/.local/share/academy-mcp-host-20261106`,
 record `/home/palantirkc/work/edu-mcp-host-restore/STATE.md`). Live reads go
-through those registered Muse tools only. Save remains unconfigured. Claude Code,
-Codex and Antigravity CLI stay DISABLED until the full-surface Rust cutover.
+through those registered tools only, from one lesson session at a time (one shared
+account). Save remains unconfigured. Codex and Antigravity CLI stay DISABLED until
+the full-surface Rust cutover.
 No browser access, direct HTTP probe, shell client or substitute MCP client.
 Do not modify the install base, `/opt/data` layout or release pointer; report
 failures with their code. Rust work continues separately; its later cutover

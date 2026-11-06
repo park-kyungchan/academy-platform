@@ -4,13 +4,13 @@ User decision, 2026-11-06: the academy server removes older rows after a while, 
 lessons cannot always re-read them. The shared Hindsight bank `coding-agent::shared` is the
 durable archive of Academy lesson records. This protocol is the same in every CLI (Muse,
 Claude Code, Codex, Antigravity CLI): it uses only native file editing and the Hindsight MCP
-tool `ingest_document`, which all four CLIs register. It needs no hook, and it does not depend
+tool `hindsight_ingest_document` (each CLI adds its own prefix), which all four CLIs register. It needs no hook, and it does not depend
 on session retention.
 
 ## What to archive
 
 - **Teacher statements.** Record each one verbatim with attribution and time, for example:
-  `14:43 KST teacher: "1단원 14/16이고 2단원은 13/16이며 오답까지 전부 완료했다"`. These cover
+  `- 14:43 KST [teacher] 박세은 — "1단원 14/16이고 2단원은 13/16이며 오답까지 전부 완료했다"`. These cover
   completions, judgments, corrections, assignments and plans. Mark a plan as a plan.
 - **Source observations.** Section scores, per-item O/X and wrong item numbers, DailyTest rows,
   prestudy rows, print codes, paperKey/attemptKey, the dates as the source shows them, and the
@@ -47,14 +47,18 @@ prestudy row into a completion. Ask the teacher when a decision depends on it.
 
 ## Step 1 — during the lesson: the local day log
 
-When the teacher gives a decision or says `기록해라`, append one entry to the day log:
+Append one entry when the teacher gives a decision or says `기록해라`, and when an Academy read
+(or a failed read) informs the lesson. Append it to the session log:
 
 `/home/palantirkc/work/edu-lessons/archive/<YYYY-MM-DD>-session<N>.md`
 
-Create the directory with mode 0700 and the file with 0600 if they are missing. Use the CLI's
-own file tool. The business date is the Asia/Seoul date. Entry format:
+`<N>` is the lesson session: 수업1부 = session1, 수업2부 = session2 (see term-map.md). Each session
+has its own file; "day log" below means that session file. If the session is unclear, ask.
+Create the directory with mode 0700 and the file with 0600 if they are missing; if the file tool
+cannot set the mode, run `chmod 600` once. Use the CLI's own file tool. The date is the
+Asia/Seoul calendar date of the lesson (host UTC is 9 hours behind). Entry format:
 
-`- <HH:MM KST> [teacher | source:<tool> observed <HH:MM UTC> | agent-report] <student name> — <statement>`
+`- <HH:MM KST> [teacher | source:<tool> observed <HH:MM UTC> | source:<tool> failed <code> | dailyrecord readback | agent-report] <student names | -> — <statement>`
 
 Say `기록했습니다` only after the write succeeded and a read of the file shows the entry. Write
 the prose in English and keep Korean labels and teacher quotes verbatim.
@@ -63,22 +67,31 @@ the prose in English and keep Korean labels and teacher quotes verbatim.
 
 Send to Hindsight once, after the lesson has ended: when the teacher says so, or when the teacher
 confirms the agent's question "수업이 끝났으면 Hindsight에 보낼까요?". Do not send during the
-lesson. If a session ends mid-lesson, the local log stays, and the next session continues the same
-log. The only re-send is a later correction to that day, which replaces the same document.
+lesson. If the CLI conversation ends mid-lesson, the local log stays, and the next CLI conversation
+appends to the same file. Ask the question when the teacher signals the end of the session (for
+example the DailyRecord review is done, or the teacher says goodbye). Never send without the
+teacher's confirmation.
 
-Call the Hindsight MCP `ingest_document` with:
+Call the Hindsight MCP `hindsight_ingest_document` with:
 
 - title exactly `Academy lesson archive <YYYY-MM-DD> session<N>`
-  (document id `academy-lesson-archive-<yyyy-mm-dd>-session<n>`)
+  (document id `academy-lesson-archive-<yyyy-mm-dd>-session<n>`; keep the title ASCII, because any
+  non-ASCII character appends a hash to the id)
 - content = the complete current day log
 
 The title fixes the document id. A same-id retain uses the server default
-`update_mode: replace`, so send the whole file every time, never a fragment. Run the call from
-`/home/palantirkc/work/edu-lessons` so that the stamped tag is `project:edu-lessons`. Verify
-that the returned `doc_id` matches, then check `sync_status` for pending work.
+`update_mode: replace`, so send the whole file every time, never a fragment. The MCP server
+stamps tags from the directory the CLI session was started in (or `HINDSIGHT_MCP_PROJECT_CWD`),
+not from a shell `cd`. Start the lesson session with cwd `/home/palantirkc/work/edu-lessons` so
+the stamped tag is `project:edu-lessons`. If the session started elsewhere, tell the teacher which
+project tag will be stamped and ask before sending. Verify that the returned `doc_id` matches,
+check `hindsight_sync_status` for pending work, then append `- ingested <HH:MM UTC> doc_id <id>`
+to the log. At the start of any later conversation, list logs whose last `ingested` line is
+missing or older than their last entry, and ask the teacher before sending them.
 
-A correction to an earlier day goes into that day's log, which is then re-ingested. Add a one-line
-pointer to the correction in today's log.
+A correction to an earlier day goes into that day's log immediately; re-ingest it after the
+current lesson ends, together with today's log. Add a one-line pointer to the correction in
+today's log.
 
 ## Reading the archive
 
