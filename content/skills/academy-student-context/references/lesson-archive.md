@@ -100,8 +100,15 @@ Search Hindsight with the student's real name plus the book, unit and activity. 
 **dated snapshot**: if the student re-solves a paper or the teacher corrects a score later, the
 server changes but the snapshot keeps the old value. That is what "stale" means. Rules:
 
-1. While the server still shows the row, a fresh Academy read wins. The archive explains history.
+Precedence applies only between competing values of the **same fact at the same stage** of the
+same occurrence (for example two observations of the same attempt's score). Facts about different
+stages (solving, grading, correction, teacher final judgment, app entry) all stay valid. A fresh
+source row showing the original score never reopens a teacher's later completion statement; see
+[evidence-and-stages.md](evidence-and-stages.md).
+
+1. Same fact and stage: while the server still shows the row, a fresh Academy read wins over an
+   archived snapshot. The archive explains history.
 2. Once the server no longer shows the row, the archived snapshot is the record. Cite its date.
-3. Between two snapshots, or a snapshot and a teacher statement, the later one wins for the same
-   occurrence. Keep the earlier one as dated history.
+3. Same fact and stage, two archived values: the later one wins. A later teacher correction of
+   the same statement supersedes the earlier one. Keep the earlier value as dated history.
 4. A missing archive entry does not prove that the work was not performed.
