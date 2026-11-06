@@ -2937,7 +2937,10 @@ fn fix1_css_hiding_declarations_and_conservative_grammar() {
                     || css.starts_with("margin")
                     || css.starts_with("text-indent:")
                     || css.starts_with("filter:")
-                    || css.starts_with("-webkit-filter:");
+                    || css.starts_with("-webkit-filter:")
+                    || css == &"d\\69splay:n/**/one"
+                    || css.starts_with("display:var(")
+                    || css == &"visibility:collapse";
                 if cross_box {
                     assert_code(result, "contract_drift");
                 } else {
@@ -4180,4 +4183,126 @@ fn fix3_column_and_column_group_rejections_protect_non_descendant_cells() {
     }
     assert_eq!(records.len(), 80);
     fix1_evidence("fix3-column-80", &records);
+}
+
+#[test]
+fn fix3_css_roles_are_qualified_independently_of_native_tag_names() {
+    let exact = "<table><tbody style='display:table-column;visibility:collapse'></tbody><tbody><tr><td>5-1 ROLE_PRIVATE</td><td>12</td></tr></tbody></table>";
+    let result = fix1_page(PaperScope::Paper1, "definitions", exact, &[]);
+    let exported = result
+        .as_ref()
+        .is_ok_and(|v| json(v).contains("ROLE_PRIVATE"));
+    fix1_evidence(
+        "fix3-role-exact",
+        &[obj(&[
+            ("accepted", result.is_ok().into()),
+            ("exported", exported.into()),
+        ])],
+    );
+    assert!(!exported, "CSS-created column hides sibling cells");
+    assert_code(result, "contract_drift");
+    let mut records = vec![];
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for family in ["header", "inventory", "definitions", "batch"] {
+            for tag in ["tbody", "thead", "tfoot", "tr", "div", "span"] {
+                for css in [
+                    "display:table-column;visibility:collapse",
+                    "display:table-column-group;visibility:collapse",
+                    "DISPLAY:TABLE-COLUMN!important;visibility:collapse",
+                    "d\\69splay:table-col\\75&#13;&#10;mn;visibility:collapse",
+                    "display:table-column;display:none",
+                    "display:none;display:table-column",
+                    "display:var(--role);visibility:collapse",
+                    "display:inherit;visibility:collapse",
+                    "display:n/**/one",
+                    "display:contents",
+                    "display:ruby",
+                    "visibility:collapse",
+                    "visibility:inherit",
+                    "visibility:var(--visibility)",
+                    "visibility:coll\\61&#13;&#10;pse",
+                ] {
+                    let role = format!("<{tag} style='{css}'></{tag}>");
+                    let body = fix3_body(scope, family, "ROLE_PRIVATE")
+                        .replace("<table>", &format!("<table>{role}"));
+                    assert_code(fix1_page(scope, family, &body, &[]), "contract_drift");
+                    records.push(obj(&[
+                        ("scope", scope.as_str().into()),
+                        ("family", family.into()),
+                        ("tag", tag.into()),
+                        ("css", css.into()),
+                        ("confirmedDisclosure", false.into()),
+                    ]));
+                }
+            }
+            for css in [
+                "visibility:hidden",
+                "display:none",
+                "display:n\\6f ne!important",
+                "font-size:0px;display:block",
+                "color:transparent;display:table-row",
+            ] {
+                let body = fix3_body(
+                    scope,
+                    family,
+                    &format!("<span style='{css}'>LOCAL_ROLE_PRIVATE</span>"),
+                );
+                let output = json(&fix1_page(scope, family, &body, &[]).unwrap());
+                assert!(output.contains("V3_VISIBLE"));
+                assert!(!output.contains("LOCAL_ROLE_PRIVATE"));
+            }
+        }
+    }
+    assert_eq!(records.len(), 720);
+    fix1_evidence("fix3-css-role-720", &records);
+}
+
+#[test]
+fn fix3_declarative_shadow_roots_refuse_unslotted_light_dom_text() {
+    let exact = "<table><tr><td>5-1 <div><template shadowrootmode=open><span>visible</span></template>SHADOW_PRIVATE</div></td><td>12</td></tr></table>";
+    let result = fix1_page(PaperScope::Paper1, "definitions", exact, &[]);
+    let exported = result
+        .as_ref()
+        .is_ok_and(|v| json(v).contains("SHADOW_PRIVATE"));
+    fix1_evidence(
+        "fix3-shadow-exact",
+        &[obj(&[
+            ("accepted", result.is_ok().into()),
+            ("exported", exported.into()),
+        ])],
+    );
+    assert!(!exported, "unslotted light-DOM text exported");
+    assert_code(result, "contract_drift");
+    let mut records = vec![];
+    for scope in [PaperScope::Paper1, PaperScope::Paper2] {
+        for family in ["header", "inventory", "definitions", "batch"] {
+            for mode in ["open", "closed", "OPEN", "", "unsupported"] {
+                for content in ["<span>VISIBLE</span>", "<slot></slot>"] {
+                    let body = fix3_body(
+                        scope,
+                        family,
+                        &format!(
+                            "<div><template shadowrootmode='{mode}'>{content}</template>SHADOW_PRIVATE</div>"
+                        ),
+                    );
+                    assert_code(fix1_page(scope, family, &body, &[]), "contract_drift");
+                    records.push(obj(&[
+                        ("scope", scope.as_str().into()),
+                        ("family", family.into()),
+                        ("mode", mode.into()),
+                    ]));
+                }
+            }
+            let body = fix3_body(
+                scope,
+                family,
+                "<div><template>TEMPLATE_PRIVATE</template>LIGHT_VISIBLE</div>",
+            );
+            let output = json(&fix1_page(scope, family, &body, &[]).unwrap());
+            assert!(output.contains("LIGHT_VISIBLE"));
+            assert!(!output.contains("TEMPLATE_PRIVATE"));
+        }
+    }
+    assert_eq!(records.len(), 80);
+    fix1_evidence("fix3-shadow-80", &records);
 }

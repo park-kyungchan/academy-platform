@@ -1224,6 +1224,20 @@ fn css_value_qualified(grammar: CssGrammar, tokens: &[CssToken]) -> bool {
         }
     }
 }
+fn css_declaration_parts(tokens: &[CssToken]) -> Option<(&str, &[CssToken])> {
+    let [CssToken::Ident(property), CssToken::Punct(':'), rest @ ..] = tokens else {
+        return None;
+    };
+    let value = if let [value @ .., CssToken::Punct('!'), CssToken::Ident(important)] = rest {
+        if important != "important" {
+            return None;
+        }
+        value
+    } else {
+        rest
+    };
+    Some((property.as_str(), value))
+}
 fn css_declaration_tokens(tokens: &[CssToken]) -> Option<()> {
     let mut count = 0;
     for declaration in tokens.split(|t| *t == CssToken::Punct(';')) {
@@ -1234,17 +1248,7 @@ fn css_declaration_tokens(tokens: &[CssToken]) -> Option<()> {
         if count > 1024 {
             return None;
         }
-        let [CssToken::Ident(property), CssToken::Punct(':'), rest @ ..] = declaration else {
-            return None;
-        };
-        let value = if let [value @ .., CssToken::Punct('!'), CssToken::Ident(important)] = rest {
-            if important != "important" {
-                return None;
-            }
-            value
-        } else {
-            rest
-        };
+        let (property, value) = css_declaration_parts(declaration)?;
         let (_, grammar) = CSS_PROPERTIES.iter().find(|(name, _)| *name == property)?;
         if !css_value_qualified(*grammar, value) {
             return None;
@@ -1279,6 +1283,38 @@ fn css_inline_rejection_is_local(element: scraper::ElementRef<'_>) -> bool {
     let Some(chars) = css_preprocess(source) else {
         return false;
     };
+    // CSS display roles are independent of the native tag. Unsupported roles
+    // can style non-descendant table cells or generate anonymous boxes. Admit
+    // local rejection only for known flow roles or explicit display:none; use
+    // the same declaration shape/important/value grammar as normal admission.
+    // Tokenize once, not once per display occurrence. Unsupported lexical forms
+    // cannot establish a local display role, regardless of declaration order.
+    let display_grammar = CSS_PROPERTIES
+        .iter()
+        .find(|(name, _)| *name == "display")
+        .expect("closed display grammar")
+        .1;
+    let visibility_grammar = CSS_PROPERTIES
+        .iter()
+        .find(|(name, _)| *name == "visibility")
+        .expect("closed visibility grammar")
+        .1;
+    let roles_are_local = css_tokens(source).is_some_and(|tokens| {
+        tokens.split(|t| *t == CssToken::Punct(';')).all(|declaration| {
+            if declaration.is_empty() { return true; }
+            let Some((property, value)) = css_declaration_parts(declaration) else {
+                return !matches!(declaration.first(), Some(CssToken::Ident(name)) if name == "display" || name == "visibility");
+            };
+            match property {
+                "display" => css_value_qualified(display_grammar, value) || css_keyword(value, &["none"]),
+                // Collapse can clip cells spanning into a different row/group,
+                // as well as column cells outside its DOM subtree (CSS2.2 17.5.5).
+                // Explicit hidden remains local; unknown/inherited roles refuse.
+                "visibility" => css_value_qualified(visibility_grammar, value) || css_keyword(value, &["hidden"]),
+                _ => true,
+            }
+        })
+    });
     let mut i = 0;
     while i < chars.len() {
         if chars[i] == '/' && chars.get(i + 1) == Some(&'*') {
@@ -1319,33 +1355,37 @@ fn css_inline_rejection_is_local(element: scraper::ElementRef<'_>) -> bool {
                 end = (end + 2).min(chars.len());
             }
             if chars.get(end) == Some(&':') {
-                let local = matches!(
-                    property.as_str(),
-                    "background" | "background-color" | "font"
-                ) || CSS_PROPERTIES.iter().any(|(name, _)| *name == property)
-                    && !matches!(
+                let local = if matches!(property.as_str(), "display" | "visibility") {
+                    roles_are_local
+                } else {
+                    matches!(
                         property.as_str(),
-                        "position"
-                            | "transform"
-                            | "translate"
-                            | "rotate"
-                            | "scale"
-                            | "outline"
-                            | "outline-width"
-                            | "outline-offset"
-                            | "outline-style"
-                            | "box-shadow"
-                            | "text-shadow"
-                            | "filter"
-                            | "backdrop-filter"
-                            | "mix-blend-mode"
-                            | "margin"
-                            | "margin-top"
-                            | "margin-right"
-                            | "margin-bottom"
-                            | "margin-left"
-                            | "text-indent"
-                    );
+                        "background" | "background-color" | "font"
+                    ) || CSS_PROPERTIES.iter().any(|(name, _)| *name == property)
+                        && !matches!(
+                            property.as_str(),
+                            "position"
+                                | "transform"
+                                | "translate"
+                                | "rotate"
+                                | "scale"
+                                | "outline"
+                                | "outline-width"
+                                | "outline-offset"
+                                | "outline-style"
+                                | "box-shadow"
+                                | "text-shadow"
+                                | "filter"
+                                | "backdrop-filter"
+                                | "mix-blend-mode"
+                                | "margin"
+                                | "margin-top"
+                                | "margin-right"
+                                | "margin-bottom"
+                                | "margin-left"
+                                | "text-indent"
+                        )
+                };
                 if !local {
                     return false;
                 }
@@ -1393,6 +1433,15 @@ fn stylesheet_hiding(source: &str) -> Option<bool> {
     css_stylesheet_declarations(source, &mut 0).map(|()| false)
 }
 fn display_text_contract(d: &crate::dom::Document, pins: &PaperPins) -> Result<()> {
+    // Declarative shadow roots replace the host's rendered light DOM. Omitting
+    // only TEMPLATE would still export unslotted host text; until projection
+    // understands shadow/slot composition, refuse the complete document.
+    // Reject any declared mode, including unsupported values, without learning
+    // browser-specific activation rules from an authenticated response.
+    require(
+        d.select("template[shadowrootmode]").is_empty(),
+        "contract_drift",
+    )?;
     for element in d.select("[style]") {
         require(css_inline_rejection_is_local(element), "contract_drift")?;
     }
