@@ -10,7 +10,7 @@ on session retention.
 ## What to archive
 
 - **Teacher statements.** Record each one verbatim with attribution and time, for example:
-  `- 14:43 KST [teacher] 박세은 — "1단원 14/16이고 2단원은 13/16이며 오답까지 전부 완료했다"`. These cover
+  `- 14:43 KST [teacher] <student name> — "1단원 프린트 15/20, 오답까지 전부 완료했다"` (synthetic example). These cover
   completions, judgments, corrections, assignments and plans. Mark a plan as a plan.
 - **Source observations.** Section scores, per-item O/X and wrong item numbers, DailyTest rows,
   prestudy rows, print codes, paperKey/attemptKey, the dates as the source shows them, and the
@@ -86,8 +86,8 @@ not from a shell `cd`. Start the lesson session with cwd `/home/palantirkc/work/
 the stamped tag is `project:edu-lessons`. If the session started elsewhere, tell the teacher which
 project tag will be stamped and ask before sending. Verify that the returned `doc_id` matches,
 check `hindsight_sync_status` for pending work, then append `- ingested <HH:MM UTC> doc_id <id>`
-to the log. At the start of any later conversation, list logs whose last `ingested` line is
-missing or older than their last entry, and ask the teacher before sending them.
+to the log. At the start of any later conversation, list logs that have no `- ingested` line, or
+that have an entry after their last `- ingested` line, and ask the teacher before sending them.
 
 A correction to an earlier day goes into that day's log immediately; re-ingest it after the
 current lesson ends, together with today's log. Add a one-line pointer to the correction in
