@@ -50,3 +50,29 @@ test('source failure codes are finite and never copy unexpected upstream text in
  expect(value.structuredContent).toMatchObject({status:'failed',code:'textbook_source_read_failed',automaticRetryAllowed:false});
  expect(JSON.stringify(value)).not.toContain('private_payload');
 });
+
+test('unit lookup reuses exact retained original with no source calls; refresh is explicit and bounded',async()=>{
+ const root=await mkdtemp(join(tmpdir(),'textbook-units-')),tools=new Map<string,any>();let reads=0,readerCalls=0;
+ const server={registerTool:(name:string,config:unknown,handler:unknown)=>tools.set(name,{config,handler})};
+ const backend={readTextbookCatalog:async()=>{throw Error('unused');},readTextbookPdf:async()=>{reads++;return observation;}};
+ const reader={read:async(path:string,sha:string,request:any)=>{readerCalls++;expect(path).toBe(join(root,sha256+'.pdf'));expect(sha).toBe(sha256);expect(request.pages).toEqual([10]);return {schemaVersion:1 as const,pdfSha256:sha,pageCount:12,scannedPages:[10],units:[{code:'4-3',title:'Fictional unit',majorTitle:null,middleTitle:'04. Fictional group',printedPage:12,pdfPage:10,qualification:'text_verified' as const}],missingUnitCodes:[],coverage:'selected_pages_only' as const,requiresVisualVerification:false,reasonCodes:['selected_pages_only'],textCandidates:[]};}};
+ try{
+  await preserveTextbookPdf(root,observation);registerTextbookSourceTools(server as any,backend,root,reader);
+  const t=tools.get('academy_textbook_units_get');
+  const input=t.config.inputSchema.parse({source:{kind:'retained_pdf',sha256},unitCodes:['4-3'],pages:[10]});
+  const a=(await t.handler(input)).structuredContent;expect(a).toMatchObject({status:'observed',sourceMode:'preserved_pdf_artifact',sourceObservedAt:null,catalogMembership:'not_refreshed',sourceRequests:0,pdfDownloads:0,imageReads:0,studentBinding:'not_established'});expect(reads).toBe(0);expect(readerCalls).toBe(1);
+  await t.handler(t.config.inputSchema.parse({source:{kind:'catalog_pdf',schoolLevel:'middle',documentRef},pages:[10]}));expect(reads).toBe(1);
+  for(const source of [{kind:'retained_pdf',sha256,path:'/etc/passwd'},{kind:'retained_pdf',sha256:'../escape'},{kind:'catalog_pdf',documentRef,url:'https://evil.example'}])expect(()=>t.config.inputSchema.parse({source})).toThrow();
+  expect(()=>t.config.inputSchema.parse({source:{kind:'retained_pdf',sha256},pages:[1,1]})).toThrow();
+  expect(()=>t.config.inputSchema.parse({source:{kind:'retained_pdf',sha256},scanPages:25})).toThrow();
+  await writeFile(join(root,sha256+'.pdf'),'corrupt');const b=(await t.handler(input)).structuredContent;expect(b.status).toBe('failed');expect(readerCalls).toBe(2);expect(reads).toBe(1);
+ }finally{await rm(root,{recursive:true,force:true});}
+});
+test('missing reader does not acquire a PDF, and glyph ambiguity is not completion',async()=>{
+ const root=await mkdtemp(join(tmpdir(),'textbook-reader-unavailable-')),tools=new Map<string,any>();let reads=0;
+ const server={registerTool:(n:string,c:any,h:any)=>tools.set(n,{config:c,handler:h})};
+ try{
+  registerTextbookSourceTools(server as any,{readTextbookCatalog:async()=>{throw Error('unused');},readTextbookPdf:async()=>{reads++;return observation;}},root);
+  const t=tools.get('academy_textbook_units_get');expect((await t.handler(t.config.inputSchema.parse({source:{kind:'catalog_pdf',documentRef}}))).structuredContent.code).toBe('textbook_pdf_reader_not_configured');expect(reads).toBe(0);
+ }finally{await rm(root,{recursive:true,force:true});}
+});

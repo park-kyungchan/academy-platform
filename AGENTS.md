@@ -1,5 +1,7 @@
 # Education platform
 
+For Academy classroom practice, use the [Hindsight knowledge entry](docs/academy-practical-entry.md). It locates the adopted current protocol and reminder records without duplicating them. Repository code and code-consumed contracts remain authoritative for implementation; current user instructions and task STATE govern effects.
+
 The maintained implementation is the Rust Cargo workspace. Read README.md and the relevant crate before changing behavior. Use the pinned toolchain and run formatting, Clippy, the binary/example build and synthetic tests described there. Do not restore the retired Bun integration harness, context gates, custom receipts or automated review workflow.
 
 On the managed VPS, current task authority is `/home/palantirkc/work/ws-replan/STATE.md`, `/home/palantirkc/work/ws-replan/CURRENT-PLAN.md` and the assigned TASK.md. New task worktrees follow the approved workspace layout. Host paths need not exist in an external clone and are not build dependencies. Current direct user instructions take precedence over historical module guidance.

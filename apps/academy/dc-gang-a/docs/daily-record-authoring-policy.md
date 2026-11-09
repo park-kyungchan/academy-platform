@@ -1,5 +1,7 @@
 # DailyRecord authoring policy
 
+Agent-procedure routing updated 2026-11-09: use the [Hindsight practical entry](../../../../docs/academy-practical-entry.md), exact document `academy-dailyrecord-protocol`, for the current teacher workflow. This retained file remains a code-consumed policy/definition artifact; do not load it as a second classroom checklist or infer current effects from it. New teacher decisions in the current Hindsight protocol supersede older procedural defaults; native schemas and definition pins still govern program execution.
+
 Revision: 2026-10-30. Owner: Academy DailyRecord workflow in this Education source checkout. This file records recurring user instructions; it is not a credential, effect approval, current student record or parent delivery receipt. It does not configure Hermes, Codex, Harness, a database or a global MCP client.
 
 ## Intake and field ownership
@@ -22,9 +24,9 @@ Always ask about **today's student-specific memo** when no current content or ex
 
 Before asking the teacher to identify an already mapped textbook, unit or printed section, consult the [printed textbook catalog and private binding entry](textbook-catalog.md). Reuse the qualified exact-edition result; ask only about a genuinely unresolved assignment or changed source binding. A book-level section guide is not a per-unit section inventory.
 
-For preparation-time notebook and activity checks, use the separate
-[class preparation checklist rubric](class-preparation-checklist-rubric.md).
-Its notebook requirements do not imply that a student's notebooks were inspected.
+For preparation-time notebook and activity checks, use Hindsight document
+`academy-practical-domain-rules` through the practical entry above. The former
+duplicated class-preparation rubric has been retired after verified recovery.
 
 Teacher correction dated 2026-10-28: assess homework against its actual assigned stages. When only solving was assigned, missing at-home grading or corrections is not incomplete homework. Corrections completed in class belong to that lesson's progress. Obtain the teacher's homework assessment code independently; this rule does not define an automatic grade or apply to an assignment that explicitly included corrections.
 
@@ -36,7 +38,7 @@ A unit code such as `2-1` means major unit2, subunit1. Do not introduce an inter
 
 Do not interpret an ambiguous historical three-component unit label by stripping a prefix or treating a suffix as a round. Preserve its original literal and obtain an exact teacher/source binding. Apply a correction only to its identified activity and scope; do not remap all of a student's textbook history. Different activities can legitimately belong to different series.
 
-Unless the teacher explicitly limits a DailyTest completion report to one round, it includes both basic and advanced rounds for each identified subunit. This default does not invent scores, a test date, physical print counts or completion of another activity. Correction of a previous DailyTest is separate from conducting a new DailyTest today. Class practice is separate from a homework assignment or an excluded homework activity.
+The previous automatic basic-and-advanced completion default is superseded. Establish the basic/advanced scope from the teacher's exact report and ask only if unresolved, as specified by `academy-dailyrecord-protocol`. Correction of a previous DailyTest remains separate from a new DailyTest today, class practice, and a homework assignment.
 
 A reported homework completion percentage does not establish a native letter grade. Obtain a teacher-bound grade for that case; do not turn one answer into a general conversion table. Keep internal conversion details out of the parent-facing memo unless the teacher explicitly requests them.
 
