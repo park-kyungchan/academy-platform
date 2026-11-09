@@ -4,7 +4,7 @@
 
 User requirement 2026-11-07: custom MCPs are CLI-agnostic. `academy_operations` is directly registered in **Muse, Claude Code, Codex, Antigravity CLI and Grok Build**. This supersedes the earlier Muse/Claude-only client-registration gate, while preserving task permissions and release qualification. The current backend remains the TS host-restore route at `/root/.local/share/academy-mcp-host-20261106`; its `release.json` selects the actual forward generation. The owning record is `/home/palantirkc/work/edu-mcp-host-restore/STATE.md`. Live reads go
 through those registered tools only, from one lesson session at a time (one shared
-account). Save remains unconfigured. Rust activation still requires the full-surface cutover gate below; enabling a native client is not Rust parity.
+account). Save readiness must be determined from the current native result; the earlier unconfigured-save observation is historical, not a permanent hold. Rust activation still requires the full-surface cutover gate below; enabling a native client is not Rust parity.
 No browser access, direct HTTP probe, shell client or substitute MCP client.
 Do not modify the install base, `/opt/data` layout or release pointer; report
 failures with their code. Rust work continues separately; its later cutover
