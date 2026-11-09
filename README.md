@@ -11,6 +11,8 @@ The Academy Rust replacement is not yet qualified for native activation. Retaine
 Run the pinned Rust checks from the repository root:
 
 ```sh
+# Match CI: large debug symbols can exceed the bounded synthetic artifact size.
+export CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo build --workspace --bins --examples --locked
