@@ -6,12 +6,14 @@ import {dailyRecordLearningConfiguration} from './dailyrecord-learning.ts';
 import {McpServer} from '@modelcontextprotocol/server';
 import {DailyRecordService} from './dailyrecord.ts';
 import {registerTextbookSourceTools} from './textbook-source-tools.ts';
+import {textbookPdfReaderConfiguration} from './textbook-pdf-reader.ts';
 import {dailyRecordToolConfiguration,registerDailyRecordTools} from './dailyrecord-tools.ts';
 import {nativeDailyRecordConfiguration,nativeOwnerArtifactsRoot} from './native-dailyrecord-backend.ts';
 import {createDailyRecordWorkflow,dailyRecordWorkflowConfiguration} from './dailyrecord-workflow.ts';
 
 const runtimeIdentity=await runtimeIdentityConfiguration(process.argv.slice(2));
-const learning=await dailyRecordLearningConfiguration(runtimeIdentity.remainingArgs);
+const textbookReader=await textbookPdfReaderConfiguration(runtimeIdentity.remainingArgs);
+const learning=await dailyRecordLearningConfiguration(textbookReader.remainingArgs);
 const config=await dailyRecordToolConfiguration(learning.remainingArgs);
 // Native launches always run the owner workflow with its store inside the owner
 // home, wherever the flags appear. The store is created only after the native
@@ -25,7 +27,7 @@ const server=new McpServer({name:'academy-dailyrecord-review',version:'0.1.0'});
 installToolAudit(server,{endpoint:'dailyrecord',...(nativeLaunch?{root:nativeOwnerArtifactsRoot+'mcp-tool-audit'}:{})});
 registerRuntimeIdentity(server,runtimeIdentity.identity);
 registerCismWeeklyTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'cism-weekly');
-registerTextbookSourceTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'textbook-samples');
+registerTextbookSourceTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'textbook-samples',textbookReader.reader);
 registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,config.parentSafeguard,Date.now,learning.learningPolicy,native?.backend??null,workflow));
 if(native)process.once('exit',native.close);
 installStdioDiagnostics(server.server);

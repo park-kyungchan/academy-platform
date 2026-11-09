@@ -90,7 +90,7 @@ test('real owner rendering with a shared deadline prepares an exact MCP review',
  const c=context();c.selectedFields=['homework'];c.facts=[{...fact('homework','2040-01-19까지 두 소단원 풀이.'),deadlines:[{date:'2040-01-19',rendering:'2040-01-19까지'}]}];
  const s=new DailyRecordService(backend(),safeguard,()=>clock,policy),i=await s.intake({context:c}),value=reviewer.render('fictional-retained',entries);
  const result=await s.review({context:c,observationHandle:i.observationHandle,proposals:[{field:'homework',value,factRefs:['user-fact:homework'],decision:{kind:'replace',requestRef:c.currentRequestRef},learningEntries:entries}]});
- expect(value.match(/2040-01-19/g)).toHaveLength(1);expect(value).toContain('1-1·1-2 풀이');expect(result.status).toBe('prepared');
+ expect(value.match(/2040-01-19/g)).toHaveLength(1);expect(value).toContain('1-1 가상 단원 풀이');expect(value).toContain('1-2 가상 단원 풀이');expect(value.split('\n')).toHaveLength(3);expect(result.status).toBe('prepared');
  expect(result.rows[0].blockers).toEqual([]);expect(result.patch[0].after).toBe(value);
 });
 test('non-hyphen historical samples are ignored as tone and structured refs enter the review digest',async()=>{

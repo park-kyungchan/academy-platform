@@ -33,11 +33,12 @@ test('shared deadline appears once, every line names its book, and distinct sect
  expect(text).toContain('가우스 5-1-1, 2-5 가상 단원 실력다지기 유사문제 클리닉');expect(text).not.toContain('원본');
  expect(parentDailyRecordLines.test(text)).toBe(true);expect(r.review('fictional-student',text,rows).blockers).toEqual([]);
 });
-test('whole minor units group only for the same book, activity and deadline',()=>{
+test('whole minor units retain separate full-title lines even with the same activity and deadline',()=>{
  const c=catalog();c.books[0]!.units.push(unit('second','2-5'),unit('third','2-6'));const r=createDailyRecordLearningReviewer(c);
  const base=entry({scope:'unit',sectionRefs:[],activity:'DailyTest 완료'});
  const text=r.render('fictional-student',[base,{...base,unitRef:'second'},{...base,unitRef:'third',activity:'오답 수정'}]);
- expect(text).toContain('가우스 5-1-1, 2-4·2-5 DailyTest 완료');expect(text).toContain('가우스 5-1-1, 2-6 가상 단원 오답 수정');
+ expect(text).toContain('가우스 5-1-1, 2-4 가상 단원 DailyTest 완료');expect(text).toContain('가우스 5-1-1, 2-5 가상 단원 DailyTest 완료');expect(text).toContain('가우스 5-1-1, 2-6 가상 단원 오답 수정');
+ expect(text.split('\n')).toHaveLength(3);
  expect(text).not.toContain('2-4·2-5·2-6');
 });
 test('different or unknown deadlines never inherit a shared date and track labels stay distinct',()=>{
@@ -89,4 +90,22 @@ test('different editions cannot silently collapse into one parent book name',()=
  expect(()=>r.render('fictional-student',[entry(),entry({bookRef:'other-edition',unitRef:'other-edition:unit',sectionRefs:['other-edition:unit:a']})])).toThrow('book_parent_notation_ambiguous_ask_teacher');
  const unknown=catalog();unknown.books[0]!.schoolLevel=null;
  expect(()=>createDailyRecordLearningReviewer(unknown).render('fictional-student',[entry()])).toThrow('book_parent_notation_unverified_ask_teacher');
+});
+
+// Fictional topic and identifiers; no live student/catalog payloads.
+test('an exact chapter topic already in the activity is rendered once without accepting other topics',()=>{
+ const c=catalog();c.books[0]!.units=[{...unit('chapter','3'),kind:'chapter_assessment',title:'가상 주제 대단원 총괄'}];
+ const r=createDailyRecordLearningReviewer(c),base=entry({unitRef:'chapter',scope:'unit',sectionRefs:[],activity:'가상주제 교재 내 대단원총괄평가 풀이'});
+ const expected='- 가우스 5-1-1, 3단원 가상주제 교재 내 대단원총괄평가 풀이';
+ expect(r.render('fictional-student',[base])).toBe(expected);expect(r.review('fictional-student',expected,[base]).blockers).toEqual([]);
+ expect(r.render('fictional-student',[{...base,activity:'다른 주제 교재 내 대단원총괄평가 풀이'}])).toContain('가상 주제 대단원 총괄 다른 주제');
+});
+
+test('chapter TEST and comprehensive labels cannot suppress one another',()=>{
+ for(const [catalogSuffix,activitySuffix] of [['TEST','총괄평가'],['총괄평가','TEST'],['총괄평가','총괄']]){
+  const c=catalog();c.books[0]!.units=[{...unit('chapter','3'),kind:'chapter_assessment',title:'가상 주제 대단원 '+catalogSuffix}];
+  const r=createDailyRecordLearningReviewer(c),e=entry({unitRef:'chapter',scope:'unit',sectionRefs:[],activity:'가상주제 교재 내 대단원'+activitySuffix+' 풀이'});
+  const incorrect='- 가우스 5-1-1, 3단원 '+e.activity;
+  expect(r.review('fictional-student',incorrect,[e]).blockers).toEqual(['learning_render_mismatch']);
+ }
 });

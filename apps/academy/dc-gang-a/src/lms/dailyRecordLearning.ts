@@ -71,18 +71,10 @@ export function createDailyRecordLearningReviewer(input:unknown){
       if(g){for(const s of sections)if(!g.sections.some(x=>x.sectionRef===s.sectionRef))g.sections.push(s);}
       else groups.set(key,{book:b,unit:u,entry:e,sections});
     }
-    // Keep the exact structured bindings above; only the parent-facing display
-    // is grouped. Whole minor units can share a line when the activity and
-    // deadline are identical. Section-scoped and chapter entries remain local.
+    // Each distinct unit is one content line, even with the same activity/deadline.
+    // Keep the title beside its exact code; do not hide it in a code-only group.
     type DisplayGroup={book:LearningBook;units:LearningUnit[];entry:LearningEntry;sections:LearningSection[]};
-    const display:DisplayGroup[]=[];
-    for(const g of groups.values()){
-      const match=g.entry.scope==='unit'&&g.unit.kind==='minor'
-        ?display.find(d=>d.book.bookRef===g.book.bookRef&&d.entry.scope==='unit'&&d.units.every(u=>u.kind==='minor')&&d.entry.activity===g.entry.activity&&d.entry.deadline===g.entry.deadline)
-        :undefined;
-      if(match)match.units.push(g.unit);
-      else display.push({book:g.book,units:[g.unit],entry:g.entry,sections:g.sections});
-    }
+    const display:DisplayGroup[]=[...groups.values()].map(g=>({book:g.book,units:[g.unit],entry:g.entry,sections:g.sections}));
     const shortActivity=(d:DisplayGroup)=>{
       const shortened=d.entry.activity.replace(/원본\s*(?=오답\s*클리닉)/g,'');
       // Do not collapse two distinct activity names into the same wording.
@@ -91,7 +83,16 @@ export function createDailyRecordLearningReviewer(input:unknown){
     };
     const detail=(d:DisplayGroup)=>{
       const unit=d.units[0]!;
-      const unitText=d.units.length>1?d.units.map(u=>u.code).join('·'):[unit.kind==='chapter_assessment'?`${unit.code}단원`:unit.code,unit.title].join(' ');
+      // A chapter-level activity can already spell out the exact catalog topic
+      // and assessment. Preserve that text once instead of duplicating its title.
+      const chapter=unit.kind==='chapter_assessment'?/^(.*?)\s*대단원\s*(총괄(?:평가)?|TEST)\s*$/i.exec(unit.title):null;
+      const topic=chapter?.[1]?.trim()??'';
+      const escaped=topic.split(/\s+/).map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('\\s*');
+      // The source shorthand 총괄 may be spelled 총괄평가 in a teacher activity.
+      // TEST is a different source label and never substitutes for either.
+      const suffix=chapter?.[2]?.toUpperCase()==='TEST'?'TEST':chapter?.[2]==='총괄평가'?'총괄평가':'총괄(?:평가)?';
+      const titledActivity=!!topic&&new RegExp('^'+escaped+'\\s+(?:교재\\s*내\\s*)?대단원\\s*'+suffix+'(?:\\s|$)','i').test(d.entry.activity);
+      const unitText=unit.kind==='chapter_assessment'&&titledActivity?`${unit.code}단원`:[unit.kind==='chapter_assessment'?`${unit.code}단원`:unit.code,unit.title].join(' ');
       return [unitText,d.sections.map(s=>s.label).join('·'),shortActivity(d)].filter(Boolean).join(' ');
     };
     const labels=new Map<string,string>();
