@@ -14,8 +14,9 @@ Superseded hold (2026-11-05): all four CLIs disabled; retained for history.
 
 ## Future route release
 
-Require full parity for all 44 live tools (or an explicit user-approved tool
-disposition), synthetic tests, independent review, green CI and verified rollback
+Require full parity for the complete current native tools/list inventory (or an
+explicit user-approved tool disposition), synthetic tests, independent review,
+green CI and verified rollback
 before a separately authorized cutover. A registered tool, bounded handler or
 successful build is not full parity. No tool drop or partial cutover is approved.
 Report Rust parity from the complete gate, never from registration/handler counts.
