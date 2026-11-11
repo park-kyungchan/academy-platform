@@ -678,6 +678,63 @@ fn stored_draft() -> edu_academy_teacher::record_data::Draft {
         "closed_at": null, "state": "open"
     })).unwrap()
 }
+fn rebind_attempt(d: &mut edu_academy_teacher::record_data::Draft) {
+    let a = d.pending_attempt.as_mut().unwrap();
+    a.request_ref = "p8s3:".to_owned()
+        + &edu_academy_teacher::record_data::content_hash(&(
+            &a.binding,
+            a.ordinal.get(),
+            &a.instruction_hash,
+        ))
+        .unwrap();
+}
+#[test]
+fn review_repairs_isolate_digest_calendar_and_ledger_filename_checks() {
+    for (hash, valid) in [
+        ("a".repeat(63), false),
+        ("a".repeat(64), true),
+        ("a".repeat(65), false),
+        ("x".repeat(64), false),
+    ] {
+        let mut d = stored_draft();
+        d.pending_attempt.as_mut().unwrap().instruction_hash = hash;
+        rebind_attempt(&mut d);
+        let result = validate_draft(&serde_json::to_vec(&d).unwrap(), &identity());
+        if valid {
+            assert!(result.is_ok());
+        } else {
+            assert_eq!(error(result), "record_store_corrupt");
+        }
+    }
+    let mut d = stored_draft();
+    let mut id = identity();
+    id.lesson_date = "2026-02-30".into();
+    d.identity = id.clone();
+    d.before.identity = id.clone();
+    d.before.requested_date = id.lesson_date.clone();
+    d.binding.as_mut().unwrap().identity = id.clone();
+    d.pending_attempt.as_mut().unwrap().binding.identity = id.clone();
+    d.failed_attempts.as_mut().unwrap().binding.identity = id.clone();
+    rebind_attempt(&mut d);
+    assert_eq!(
+        error(validate_draft(&serde_json::to_vec(&d).unwrap(), &id)),
+        "record_store_corrupt"
+    );
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    let scope = scope();
+    let key = seed_execution(&t, &scope, 0, true);
+    let original = history_dir(&t, &scope).join(sha(&key) + ".json");
+    let bytes = fs::read(&original).unwrap();
+    let wrong = history_dir(&t, &scope).join(sha("wrong-name") + ".json");
+    fs::rename(original, &wrong).unwrap();
+    assert_eq!(
+        error(a.preflight_executions(&scope, ExecutionAdmission::ReadOnly)),
+        "record_store_corrupt"
+    );
+    assert_eq!(fs::read(wrong).unwrap(), bytes);
+}
 #[test]
 fn stored_draft_validation_binds_structure_identity_content_questions_attempts_and_time() {
     let d = stored_draft();
@@ -720,6 +777,11 @@ fn stored_draft_validation_binds_structure_identity_content_questions_attempts_a
     ] {
         let mut changed = serde_json::to_value(&d).unwrap();
         *changed.pointer_mut(pointer).unwrap() = value;
+        if pointer == "/pending_attempt/instruction_hash" {
+            let mut bound = serde_json::from_value(changed).unwrap();
+            rebind_attempt(&mut bound);
+            changed = serde_json::to_value(bound).unwrap();
+        }
         let bytes = serde_json::to_vec(&changed).unwrap();
         assert_eq!(
             error(validate_draft(&bytes, &identity())),
@@ -787,4 +849,326 @@ fn stored_draft_validation_preserves_raw_source_and_historical_attempt_binding()
     d.state = DraftState::Expired;
     d.closed_at = Some(d.last_used.clone());
     assert!(validate_draft(&serde_json::to_vec(&d).unwrap(), &identity()).is_ok());
+}
+fn retained_draft(
+    student: &str,
+    index: usize,
+    open: bool,
+) -> edu_academy_teacher::record_data::Draft {
+    use edu_academy_teacher::record_data::*;
+    let mut d = stored_draft();
+    d.identity.student_key = student.into();
+    if open {
+        d.identity.lesson_date = (chrono::NaiveDate::from_ymd_opt(2026, 11, 11).unwrap()
+            + chrono::Duration::days(index as i64))
+        .to_string();
+    }
+    d.generation = format!("synthetic-generation-{index}");
+    d.before.identity = d.identity.clone();
+    d.before.requested_date = d.identity.lesson_date.clone();
+    d.binding.as_mut().unwrap().identity = d.identity.clone();
+    d.binding.as_mut().unwrap().generation = d.generation.clone();
+    d.pending_attempt = None;
+    d.failed_attempts = None;
+    if !open {
+        d.state = DraftState::Expired;
+        d.closed_at = Some(d.last_used.clone());
+    }
+    d
+}
+fn put_draft(t: &Scratch, d: &edu_academy_teacher::record_data::Draft) -> PathBuf {
+    let path = t
+        .root()
+        .join(draft_path(&d.identity, &d.generation).unwrap());
+    if !path.parent().unwrap().exists() {
+        DirBuilder::new()
+            .mode(0o700)
+            .create(path.parent().unwrap())
+            .unwrap();
+    }
+    put(&path, &serde_json::to_vec(d).unwrap());
+    path
+}
+fn clock_at(ms: i64) -> String {
+    chrono::DateTime::from_timestamp_millis(ms)
+        .unwrap()
+        .to_rfc3339()
+}
+#[test]
+fn draft_lookup_and_cleanup_256_boundaries() {
+    for count in [MAX_DRAFT_CANDIDATES, MAX_DRAFT_CANDIDATES + 1] {
+        let t = Scratch::new();
+        let s = t.open();
+        let a = s.lock_account().unwrap();
+        let mut paths = vec![];
+        for i in 0..count {
+            paths.push(put_draft(&t, &retained_draft("1001", i, false)));
+        }
+        if count == MAX_DRAFT_CANDIDATES {
+            assert_eq!(a.lookup_drafts("1001").unwrap().len(), count);
+            let clean = a
+                .cleanup_drafts(&scope(), "2026-11-19T18:10:00+09:00")
+                .unwrap();
+            assert_eq!((clean.examined, clean.removed), (count, count));
+            assert!(paths.iter().all(|p| !p.exists()));
+        } else {
+            assert_eq!(error(a.lookup_drafts("1001")), "record_store_capacity");
+            assert_eq!(
+                error(a.cleanup_drafts(&scope(), "2026-11-19T18:10:00+09:00")),
+                "record_store_capacity"
+            );
+            assert!(paths.iter().all(|p| p.exists()));
+        }
+    }
+}
+#[test]
+fn open_date_and_retained_generation_boundaries() {
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    for i in 0..MAX_OPEN_DATES {
+        put_draft(&t, &retained_draft("1001", i, true));
+    }
+    assert_eq!(a.lookup_drafts("1001").unwrap().len(), MAX_OPEN_DATES);
+    let next = retained_draft("1001", MAX_OPEN_DATES, true);
+    assert_eq!(
+        error(a.admit_draft_write(
+            &scope(),
+            "2026-11-12T18:10:00+09:00",
+            Some(&next.identity),
+            0,
+            10000
+        )),
+        "record_store_capacity"
+    );
+    assert!(
+        a.admit_draft_write(
+            &scope(),
+            "2026-11-12T18:10:00+09:00",
+            Some(&identity()),
+            0,
+            10000
+        )
+        .is_ok()
+    );
+    put_draft(&t, &next);
+    assert_eq!(error(a.lookup_drafts("1001")), "record_store_capacity");
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    for i in 0..MAX_RETAINED_GENERATIONS {
+        let student = ["1001", "1002", "1003", "1004"][i / MAX_DRAFT_CANDIDATES];
+        put_draft(&t, &retained_draft(student, i, false));
+    }
+    assert_eq!(a.retained_generations().unwrap(), MAX_RETAINED_GENERATIONS);
+    assert!(
+        a.admit_draft_write(&scope(), "2026-11-12T18:10:00+09:00", None, 0, 10000)
+            .is_ok()
+    );
+    assert_eq!(
+        error(a.admit_draft_write(
+            &scope(),
+            "2026-11-12T18:10:00+09:00",
+            Some(&identity()),
+            0,
+            10000
+        )),
+        "record_store_capacity"
+    );
+    put_draft(&t, &retained_draft("1005", MAX_RETAINED_GENERATIONS, false));
+    assert_eq!(error(a.retained_generations()), "record_store_capacity");
+}
+#[test]
+fn retention_uses_later_closure_or_last_use_at_seven_days_and_above() {
+    for over in [0, 1] {
+        let t = Scratch::new();
+        let s = t.open();
+        let a = s.lock_account().unwrap();
+        let mut d = retained_draft("1001", 0, false);
+        d.last_used = "2026-11-12T18:10:00+09:00".into();
+        let path = put_draft(&t, &d);
+        let bytes = fs::read(&path).unwrap();
+        let end = chrono::DateTime::parse_from_rfc3339(&d.last_used)
+            .unwrap()
+            .timestamp_millis()
+            + DRAFT_RETENTION_MS;
+        let clean = a.cleanup_drafts(&scope(), &clock_at(end - 1)).unwrap();
+        assert_eq!((clean.removed, clean.next_eligible_ms), (0, Some(end)));
+        assert_eq!(a.lookup_drafts("1001").unwrap()[0], d);
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        assert_eq!(
+            a.cleanup_drafts(&scope(), &clock_at(end + over))
+                .unwrap()
+                .removed,
+            1
+        );
+        assert!(!path.exists());
+    }
+}
+#[test]
+fn unresolved_execution_protects_its_generation_and_unknown_references_are_conservative() {
+    use edu_academy_teacher::record_data::DraftState;
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    let mut d = stored_draft();
+    d.state = DraftState::Expired;
+    d.closed_at = Some(d.last_used.clone());
+    let path = put_draft(&t, &d);
+    let other = put_draft(&t, &retained_draft("1001", 1, false));
+    let scope = scope();
+    let key = seed_execution(&t, &scope, 0, false);
+    let execution = core_path(&t, "execution", &key);
+    let mut record: Value = serde_json::from_slice(&fs::read(&execution).unwrap()).unwrap();
+    record["record"]["requestRef"] = d
+        .pending_attempt
+        .as_ref()
+        .unwrap()
+        .request_ref
+        .clone()
+        .into();
+    fs::write(&execution, serde_json::to_vec(&record).unwrap()).unwrap();
+    let original = fs::read(&execution).unwrap();
+    let clean = a
+        .cleanup_drafts(&scope, "2026-11-20T18:10:00+09:00")
+        .unwrap();
+    assert_eq!((clean.removed, clean.protected), (1, 1));
+    assert!(path.exists());
+    assert!(!other.exists());
+    assert_eq!(fs::read(&execution).unwrap(), original);
+    record["record"]["requestRef"] = "unknown-request".into();
+    fs::write(&execution, serde_json::to_vec(&record).unwrap()).unwrap();
+    assert_eq!(
+        a.cleanup_drafts(&scope, "2026-11-20T18:10:00+09:00")
+            .unwrap()
+            .protected,
+        1
+    );
+    put(
+        &core_path(&t, "outcome", &key),
+        &serde_json::to_vec(&json!({"kind":"outcome", "id": key, "record":{"status":"noop"}}))
+            .unwrap(),
+    );
+    assert_eq!(
+        a.cleanup_drafts(&scope, "2026-11-20T18:10:00+09:00")
+            .unwrap()
+            .removed,
+        1
+    );
+    assert!(execution.exists());
+    assert!(history_dir(&t, &scope).join(sha(&key) + ".json").exists());
+}
+#[test]
+fn prospective_bytes_are_checked_without_subtracting_old_payload_and_after_cleanup() {
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    put(&t.root().join("request/old"), b"existing payload");
+    let usage = a.usage(100).unwrap();
+    let space = MAX_ROOT_BYTES - usage.bytes;
+    assert_eq!(
+        a.admit_draft_write(&scope(), "2026-11-12T18:10:00+09:00", None, space, 100)
+            .unwrap(),
+        usage
+    );
+    for n in [space + 1, u64::MAX] {
+        assert_eq!(
+            error(a.admit_draft_write(&scope(), "2026-11-12T18:10:00+09:00", None, n, 100)),
+            "record_store_capacity"
+        );
+    }
+    let path = put_draft(&t, &retained_draft("1001", 0, false));
+    let f = file(&t.root().join("audit/sparse"));
+    f.set_len(MAX_ROOT_BYTES - a.usage(100).unwrap().bytes + 1)
+        .unwrap();
+    assert!(a.usage(100).is_err());
+    assert!(
+        a.admit_draft_write(&scope(), "2026-11-20T18:10:00+09:00", None, 0, 100)
+            .is_ok()
+    );
+    assert!(!path.exists());
+    assert_eq!(
+        fs::read(t.root().join("request/old")).unwrap(),
+        b"existing payload"
+    );
+}
+#[test]
+fn lookup_refuses_corruption_foreign_identity_path_aliases_and_links_before_cleanup() {
+    for damage in [
+        "corrupt",
+        "foreign",
+        "wrong-name",
+        "file-link",
+        "bucket-link",
+    ] {
+        let t = Scratch::new();
+        let s = t.open();
+        let a = s.lock_account().unwrap();
+        let d = retained_draft("1001", 0, false);
+        let path = put_draft(&t, &d);
+        let other = put_draft(&t, &retained_draft("1001", 1, false));
+        match damage {
+            "corrupt" => fs::write(&path, b"not JSON").unwrap(),
+            "foreign" => fs::write(
+                &path,
+                serde_json::to_vec(&retained_draft("1003", 0, false)).unwrap(),
+            )
+            .unwrap(),
+            "wrong-name" => fs::rename(&path, path.with_file_name("wrong.json")).unwrap(),
+            _ => {
+                let target = if damage == "bucket-link" {
+                    path.parent().unwrap()
+                } else {
+                    &path
+                };
+                let saved = t.0.join("saved");
+                fs::rename(target, &saved).unwrap();
+                symlink(&saved, target).unwrap();
+            }
+        }
+        assert!(a.lookup_drafts("1001").is_err());
+        assert!(
+            a.cleanup_drafts(&scope(), "2026-11-20T18:10:00+09:00")
+                .is_err()
+        );
+        assert!(other.exists());
+    }
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    let d = retained_draft("1001", 0, true);
+    put_draft(&t, &d);
+    let mut duplicate = d.clone();
+    duplicate.generation.push('x');
+    duplicate.binding.as_mut().unwrap().generation = duplicate.generation.clone();
+    put_draft(&t, &duplicate);
+    assert_eq!(error(a.lookup_drafts("1001")), "record_store_corrupt");
+}
+#[test]
+fn cleanup_takes_the_draft_lock_before_deleting_an_eligible_payload() {
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    let d = retained_draft("1001", 0, false);
+    let path = put_draft(&t, &d);
+    drop(a.lock_draft(&d.identity).unwrap());
+    let raw = File::open(
+        t.root()
+            .join(format!("locks/{}.flock", d.identity.key().unwrap())),
+    )
+    .unwrap();
+    raw.try_lock().unwrap();
+    assert_eq!(
+        error(a.cleanup_drafts(&scope(), "2026-11-20T18:10:00+09:00")),
+        "shared_writer_lock_busy"
+    );
+    assert!(path.exists());
+    raw.unlock().unwrap();
+    assert_eq!(
+        a.cleanup_drafts(&scope(), "2026-11-20T18:10:00+09:00")
+            .unwrap()
+            .removed,
+        1
+    );
+    assert!(!path.parent().unwrap().exists());
 }

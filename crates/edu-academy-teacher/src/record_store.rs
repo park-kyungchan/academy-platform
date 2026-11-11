@@ -14,6 +14,7 @@ use rustix::fs::{self as rfs, Dir, Mode, OFlags};
 use serde::{Deserialize, Serialize};
 use std::{
     cell::Cell,
+    collections::BTreeSet,
     ffi::{OsStr, OsString},
     fs::{File, Permissions},
     io::{Read, Write},
@@ -35,6 +36,23 @@ pub const LOCK_WAIT_MS: u64 = 2_000;
 pub const LOCK_POLL_MS: u64 = 20;
 pub const MAX_LOCK_WAITS: usize = (LOCK_WAIT_MS / LOCK_POLL_MS) as usize;
 pub const MAX_EXECUTION_RECORDS: usize = 4_096;
+pub const MAX_DRAFT_CANDIDATES: usize = 256;
+pub const MAX_OPEN_DATES: usize = 32;
+pub const MAX_RETAINED_GENERATIONS: usize = 1_024;
+pub const DRAFT_RETENTION_MS: i64 = 7 * 24 * 60 * 60 * 1_000;
+#[derive(Debug, Default)]
+pub struct DraftCleanup {
+    pub examined: usize,
+    pub removed: usize,
+    pub protected: usize,
+    pub next_eligible_ms: Option<i64>,
+}
+/// Relative payload path, not an index: owner/student bucket, identity/generation file.
+pub fn draft_path(identity: &RecordIdentity, generation: &str) -> Result<PathBuf> {
+    Ok(PathBuf::from("record-drafts")
+        .join(content_hash(&(&identity.owner, &identity.student_key))?)
+        .join(format!("{}-{}.json", identity.key()?, sha(generation))))
+}
 #[derive(Clone, Copy, Debug)]
 pub enum ExecutionAdmission {
     ReadOnly,
@@ -498,6 +516,210 @@ impl DraftStore {
     }
 }
 impl AccountGuard<'_> {
+    /// Read-only, at most 256 payloads for this owner/student; no expiry or deletion.
+    pub fn lookup_drafts(&self, student: &str) -> Result<Vec<Draft>> {
+        self.store.verify()?;
+        if student.is_empty() {
+            return Err(corrupt());
+        }
+        let bucket = content_hash(&(&self.store.owner, student))?;
+        let root = directory(&self.store.root, OsStr::new("record-drafts"), true)?;
+        let dir: File = match rfs::openat(
+            &root,
+            bucket.as_str(),
+            flags() | OFlags::DIRECTORY,
+            Mode::empty(),
+        ) {
+            Ok(fd) => fd.into(),
+            Err(rustix::io::Errno::NOENT) => return Ok(vec![]),
+            Err(e) => return Err(os_error(e)),
+        };
+        private(&dir, true)?;
+        let mut leaves = vec![];
+        for entry in entries(&dir)? {
+            let entry = syscall(entry)?;
+            if let Some(n) = name(&entry) {
+                if leaves.len() == MAX_DRAFT_CANDIDATES {
+                    return Err(capacity());
+                }
+                leaves.push(n.to_os_string());
+            }
+        }
+        let mut drafts = vec![];
+        let mut dates = BTreeSet::new();
+        let mut open = BTreeSet::new();
+        for leaf in leaves {
+            let bytes = read_at(&dir, &leaf)?.ok_or_else(corrupt)?;
+            let candidate: Draft = serde_json::from_slice(&bytes).map_err(|_| corrupt())?;
+            let identity = RecordIdentity {
+                owner: self.store.owner.clone(),
+                student_key: student.into(),
+                ..candidate.identity.clone()
+            };
+            let d = validate_draft(&bytes, &identity)?;
+            if draft_path(&identity, &d.generation)?.file_name() != Some(leaf.as_os_str()) {
+                return Err(corrupt());
+            }
+            if d.state == DraftState::Open {
+                if !open.insert(identity.key()?) {
+                    return Err(corrupt());
+                }
+                dates.insert(identity.lesson_date);
+                if dates.len() > MAX_OPEN_DATES {
+                    return Err(capacity());
+                }
+            }
+            drafts.push(d);
+        }
+        Ok(drafts)
+    }
+    /// Metadata-only global count; payload lookup and cleanup have their own 256 cap.
+    pub fn retained_generations(&self) -> Result<usize> {
+        self.store.verify()?;
+        let root = directory(&self.store.root, OsStr::new("record-drafts"), true)?;
+        let mut count = 0;
+        let mut buckets = 0;
+        for entry in entries(&root)? {
+            let entry = syscall(entry)?;
+            let Some(n) = name(&entry) else { continue };
+            buckets += 1;
+            if buckets > MAX_RETAINED_GENERATIONS {
+                return Err(capacity());
+            }
+            if !n.to_str().is_some_and(digest) {
+                return Err(corrupt());
+            }
+            let dir = directory(&root, n, true)?;
+            for entry in entries(&dir)? {
+                let entry = syscall(entry)?;
+                let Some(n) = name(&entry) else { continue };
+                count += 1;
+                if count > MAX_RETAINED_GENERATIONS {
+                    return Err(capacity());
+                }
+                regular(&dir, n, false)?.ok_or_else(corrupt)?;
+            }
+        }
+        Ok(count)
+    }
+    /// Only on an explicit write/open attempt. Unknown unresolved references retain
+    /// all candidates conservatively; the core owns execution classification.
+    /// A later error may follow deletions; inspect the inventory before retrying.
+    pub fn cleanup_drafts(&self, scope: &Js, now: &str) -> Result<DraftCleanup> {
+        self.preflight_executions(scope, ExecutionAdmission::ReadOnly)?;
+        let at = timestamp(now)?;
+        let student = String::from_utf16(scope.get("studentId").units()).map_err(|_| corrupt())?;
+        let drafts = self.lookup_drafts(&student)?;
+        let core =
+            edu_academy_core::workflow::store::Store::open(self.store.root(), self.store.root())?;
+        let unresolved = state::student_executions(&core, scope)?;
+        let refs: BTreeSet<_> = unresolved
+            .iter()
+            .filter(|e| e.state.needs_reconciliation())
+            .map(|e| e.record.get("requestRef").code_units())
+            .collect();
+        let known: BTreeSet<_> = drafts
+            .iter()
+            .filter_map(|d| d.pending_attempt.as_ref().map(|a| a.request_ref.clone()))
+            .collect();
+        let unknown = refs.iter().any(|r| !known.contains(r));
+        let mut result = DraftCleanup {
+            examined: drafts.len(),
+            ..Default::default()
+        };
+        for d in drafts {
+            if unknown
+                || d.pending_attempt
+                    .as_ref()
+                    .is_some_and(|a| refs.contains(&a.request_ref))
+            {
+                result.protected += 1;
+                continue;
+            }
+            let Some(closed) = &d.closed_at else { continue };
+            let eligible = timestamp(closed)?
+                .max(timestamp(&d.last_used)?)
+                .checked_add(DRAFT_RETENTION_MS)
+                .ok_or_else(corrupt)?;
+            if at < eligible {
+                result.next_eligible_ms = Some(
+                    result
+                        .next_eligible_ms
+                        .map_or(eligible, |old| old.min(eligible)),
+                );
+                continue;
+            }
+            let _draft = self.lock_draft(&d.identity)?;
+            let path = draft_path(&d.identity, &d.generation)?;
+            let (dir, leaf) = self.store.parent(&path)?;
+            let bytes = read_at(&dir, &leaf)?.ok_or_else(corrupt)?;
+            if validate_draft(&bytes, &d.identity)? != d {
+                return Err(corrupt());
+            }
+            syscall(rfs::unlinkat(&dir, &leaf, rfs::AtFlags::empty()))?;
+            io(dir.sync_all())?;
+            result.removed += 1;
+        }
+        if result.removed > 0 && result.removed == result.examined {
+            let root = directory(&self.store.root, OsStr::new("record-drafts"), true)?;
+            let bucket = content_hash(&(&self.store.owner, student.as_str()))?;
+            syscall(rfs::unlinkat(
+                &root,
+                bucket.as_str(),
+                rfs::AtFlags::REMOVEDIR,
+            ))?;
+            io(root.sync_all())?;
+        }
+        Ok(result)
+    }
+    /// Call before locking the write's target, retaining this account guard through
+    /// the subsequent draft lock/write. Include all new temp/archive bytes, without
+    /// subtracting old payloads: atomic replacement temporarily needs both copies.
+    pub fn admit_draft_write(
+        &self,
+        scope: &Js,
+        now: &str,
+        new_generation: Option<&RecordIdentity>,
+        bytes: u64,
+        entry_limit: usize,
+    ) -> Result<RootUsage> {
+        if let Some(id) = new_generation {
+            if id.owner != self.store.owner || !scope.get("studentId").is(&id.student_key) {
+                return Err(corrupt());
+            }
+            let date = chrono::NaiveDate::parse_from_str(&id.lesson_date, "%Y-%m-%d")
+                .map_err(|_| corrupt())?;
+            if date.format("%Y-%m-%d").to_string() != id.lesson_date {
+                return Err(corrupt());
+            }
+        }
+        self.cleanup_drafts(scope, now)?;
+        let count = self.retained_generations()?;
+        if count + usize::from(new_generation.is_some()) > MAX_RETAINED_GENERATIONS {
+            return Err(capacity());
+        }
+        if let Some(id) = new_generation {
+            let mut dates: BTreeSet<_> = self
+                .lookup_drafts(&id.student_key)?
+                .into_iter()
+                .filter(|d| d.state == DraftState::Open)
+                .map(|d| d.identity.lesson_date)
+                .collect();
+            dates.insert(id.lesson_date.clone());
+            if dates.len() > MAX_OPEN_DATES {
+                return Err(capacity());
+            }
+        }
+        let usage = self.usage(entry_limit)?;
+        if usage
+            .bytes
+            .checked_add(bytes)
+            .is_none_or(|n| n > MAX_ROOT_BYTES)
+        {
+            return Err(capacity());
+        }
+        Ok(usage)
+    }
     /// Read-only preflight of the files core student_executions will consume.
     /// Supply the server-resolved core scope; owner association is the caller's job.
     /// Keep this guard through core entry; Save reserves the entire field batch.
