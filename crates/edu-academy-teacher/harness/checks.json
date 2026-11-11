@@ -54,5 +54,15 @@
       "11월 9일",
       "2026-11-09"
     ]
+  },
+  "Q03": {
+    "request_text": "가상반Z 오늘 수업 준비해줘",
+    "target_calls": 1,
+    "max_academy_calls": 1,
+    "answer_labels": [
+      "가상반A",
+      "가상반B",
+      "가상반C"
+    ]
   }
 }

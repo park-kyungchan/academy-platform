@@ -16,7 +16,6 @@ ISOLATED_SYSTEM_PROMPT = "You are an assistant of a teacher. Use the tools you a
 DEFAULT_CLI_AGENTS = ("claude", "Explore", "general-purpose", "Plan", "statusline-setup", "web-fetch")
 
 
-
 def norm(text):
     return " ".join(text.split())
 
@@ -45,7 +44,8 @@ def received_text(content):
 
 def measure(events):
     calls, display, payload = [], None, {}
-    call_names, received_form = {}, "unknown"
+    call_names, call_details, received_form = {}, {}, "unknown"
+    received_bytes = None
     for event in events:
         if event.get("type") in ("assistant", "user"):
             blocks = event.get("message", {}).get("content", [])
@@ -61,9 +61,13 @@ def measure(events):
                     encoded = json.dumps(arguments, ensure_ascii=False, separators=(",", ":"))
                     calls.append({"name": block.get("name"), "arguments": encoded,
                                   "args_bytes": len(encoded.encode("utf-8")) if "input" in block else None})
+                    if isinstance(block.get("id"), str):
+                        call_details[block["id"]] = calls[-1]
                 elif block.get("type") == "tool_result" and str(
                         call_names.get(block.get("tool_use_id"), "")).startswith("mcp__academy__"):
                     display = received_text(block.get("content"))
+                    received_bytes = len(display.encode("utf-8")) if display is not None else None
+                    call_details[block["tool_use_id"]]["received_text_bytes"] = received_bytes
                     received_form = "unknown"
                     if display is not None:
                         received_form = "display_text"
@@ -86,12 +90,12 @@ def measure(events):
         verbatim = "pass" if present else "FAIL"
         extra = len(final) - len(shown) if present else len(final)
     return {"calls": calls, "display": display, "received_form": received_form, "answer": answer,
-            "verbatim": verbatim, "extra_chars": extra,
+            "verbatim": verbatim, "extra_chars": extra, "received_text_bytes": received_bytes,
             "usage": payload.get("usage") or {}, "cost_usd": payload.get("total_cost_usd", "unknown"),
             "result_received": bool(payload), "is_error": payload.get("is_error", "unknown")}
 
 
-def isolation(events, allowed_tools, malformed=0, hook_events_requested=False):
+def isolation(events, allowed_tools, malformed=0, hook_events_requested=False, mode="isolated"):
     """Fail closed on missing evidence, allowing only CLI builtin extensions."""
     reasons = []
     inits = [e for e in events if e.get("type") == "system" and e.get("subtype") == "init"]
@@ -114,7 +118,7 @@ def isolation(events, allowed_tools, malformed=0, hook_events_requested=False):
             reasons.append(f"{field}_invalid")
             continue
         if field == "tools":
-            if any(tool not in allowed_tools for tool in values):
+            if any(tool not in allowed_tools and not (mode == "installed" and tool == "Skill") for tool in values):
                 reasons.append("unexpected_tools")
         elif field == "plugins":
             if any(not isinstance(plugin, dict) or plugin.get("path") != "builtin" for plugin in values):
@@ -145,10 +149,15 @@ def isolation(events, allowed_tools, malformed=0, hook_events_requested=False):
         reasons.append("first_request_usage_missing")
     if malformed:
         reasons.append("malformed_stream")
-    status = "FAIL" if reasons else "pass (hooks unknown)" if hook_condition == "unknown" else "pass"
+    if mode == "installed":
+        reduced = {"init_missing", "multiple_init_events", "tools_missing", "tools_invalid",
+                   "unexpected_tools", "malformed_stream"}
+        reasons = [reason for reason in reasons if reason in reduced]
+    status = ("FAIL" if reasons else "not_applicable" if mode == "installed"
+              else "pass (hooks unknown)" if hook_condition == "unknown" else "pass")
     return {"status": status, "reasons": reasons, "hook_condition": hook_condition,
             "hook_events_requested": hook_events_requested,
-            "checked_init_fields": [field for field in snapshot if field != "memory_paths"],
+            "checked_init_fields": [field for field in snapshot if field == "tools" or (mode != "installed" and field != "memory_paths")],
             "observed_init_fields": list(snapshot), "init": snapshot,
             "default_cli_agents": list(DEFAULT_CLI_AGENTS), "hook_events": hooks,
             "first_request_usage": usage, "first_request_tokens": tokens}
@@ -182,10 +191,37 @@ def answer_checks(spec, answer):
         joined = "\n".join(lines)
         check(f"line{i}", bool(lines) and all(s in joined for s in lc["must_contain"])
               and not any(s in joined for s in lc["must_not_contain"]))
+    for label in spec.get("answer_labels", []):
+        check(f"option:{label}", label in text)
     return checks
 
 
-def score_stream(raw, spec, allowed_tools, hook_events_requested=False, mode="isolated"):
+def read_call_log(path):
+    try:
+        rows = [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines()]
+    except (OSError, ValueError):
+        return None
+    return rows if all(isinstance(row, dict) for row in rows) else None
+
+
+def delivery(calls, call_log):
+    """Match server calls and client tool uses in order, including repeated names."""
+    academy = [call for call in calls if str(call["name"]).startswith("mcp__academy__")]
+    if call_log is None or not academy or len(academy) != len(call_log):
+        return "unknown"
+    outcomes = []
+    for call, row in zip(academy, call_log):
+        size, received = row.get("display_bytes"), call.get("received_text_bytes")
+        if (call["name"] != "mcp__academy__" + str(row.get("tool"))
+                or type(size) is not int or type(received) is not int):
+            outcomes.append("unknown")
+        else:
+            outcomes.append("same" if size == received else "truncated_or_changed")
+    return ("truncated_or_changed" if "truncated_or_changed" in outcomes else
+            "unknown" if "unknown" in outcomes else "same")
+
+
+def score_stream(raw, spec, allowed_tools, hook_events_requested=False, mode="isolated", call_log=None):
     """Shared live/offline scoring; never launches a CLI or mutates evidence."""
     events, malformed = [], 0
     for line in raw.splitlines():
@@ -201,20 +237,23 @@ def score_stream(raw, spec, allowed_tools, hook_events_requested=False, mode="is
     if malformed:
         result.update(verbatim="unknown", extra_chars="unknown", received_form="unknown")
     result["malformed_stream_lines"] = malformed
-    result["isolation"] = isolation(events, allowed_tools, malformed, hook_events_requested)
-    if mode == "installed":
-        result["isolation"]["status"] = "not_applicable"
-        result["isolation"]["reasons"] = []
+    result["isolation"] = isolation(events, allowed_tools, malformed, hook_events_requested, mode)
+    result["delivery"] = "unknown" if malformed else delivery(result["calls"], call_log)
     result["checks"] = answer_checks(spec, result["answer"])
     result["call_count"] = len(result["calls"]) if result["result_received"] and not malformed else "unknown"
     result["args_bytes"] = sum(c["args_bytes"] for c in result["calls"]) if (
         result["call_count"] != "unknown" and all(c["args_bytes"] is not None for c in result["calls"])) else "unknown"
+    academy_count = sum(str(call["name"]).startswith("mcp__academy__") for call in result["calls"])
+    result["academy_calls"] = academy_count if result["call_count"] != "unknown" else "unknown"
+    if "max_academy_calls" in spec:
+        result["checks"]["academy_calls_before_answer"] = ("unknown" if result["academy_calls"] == "unknown"
+            else "pass" if academy_count == spec["target_calls"] and academy_count <= spec["max_academy_calls"] else "FAIL")
     return result
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("request", choices=["Q01", "Q02"])
+    ap.add_argument("request", choices=["Q01", "Q02", "Q03"])
     ap.add_argument("model")
     ap.add_argument("--mode", choices=["isolated", "installed"], required=True)
     ap.add_argument("--binary", default=os.environ.get("EDU_ACADEMY_TEACHER_BINARY", ""))
@@ -249,7 +288,7 @@ def main():
     except OSError as exc:
         raw, stderr = "", f"{type(exc).__name__}: CLI could not start"
     wall = time.monotonic() - started
-    result = score_stream(raw, spec, allowed.split(","), "--include-hook-events" in cli_command, args.mode)
+    result = score_stream(raw, spec, allowed.split(","), "--include-hook-events" in cli_command, args.mode, read_call_log(run / "run-log.jsonl"))
     result["command"] = cli_command
     result["system_prompt"] = ISOLATED_SYSTEM_PROMPT if args.mode == "isolated" else None
     result.update({"mode": args.mode, "request": args.request, "model": args.model,
@@ -265,7 +304,7 @@ def main():
     proof = result["isolation"]
     isolation_text = proof["status"] + (":" + ",".join(proof["reasons"]) if proof["reasons"] else "")
     print(f"{args.mode} | {args.request} | {args.model} | calls={result['call_count']}/{spec['target_calls']} | "
-          f"args_bytes={result['args_bytes']} | isolation={isolation_text} | received_form={result['received_form']} | verbatim={result['verbatim']} | extra_chars={result['extra_chars']} | "
+          f"args_bytes={result['args_bytes']} | received_text_bytes={result['received_text_bytes']} | delivery={result['delivery']} | isolation={isolation_text} | received_form={result['received_form']} | verbatim={result['verbatim']} | extra_chars={result['extra_chars']} | "
           f"checks={';'.join(f'{k}={v}' for k, v in result['checks'].items())} | wall_s={wall:.1f} | "
           f"tokens={tokens} | cost_usd={result['cost_usd']} | exit={exit_code} | run_dir={run}")
     if args.mode == "isolated" and "first_request_tokens_not_under_6000" in proof["reasons"]:

@@ -167,10 +167,60 @@ class HarnessTests(unittest.TestCase):
                     self.assertEqual(result["verbatim"], "pass" if display.strip() else "unknown")
                     self.assertEqual(result["extra_chars"], 0 if display.strip() else "unknown")
 
-    def test_installed_isolation_is_not_applicable(self):
-        raw = "\n".join(json.dumps(e) for e in self.isolated_events())
-        result = run.score_stream(raw, {}, [], True, "installed")
-        self.assertEqual(result["isolation"]["status"], "not_applicable")
+    def test_installed_isolation_reduced_fail_closed(self):
+        allowed = ["mcp__academy__academy_lesson_prepare"]
+        def score(events, prefix=""):
+            return run.score_stream(prefix + "\n".join(json.dumps(e) for e in events), {}, allowed, True, "installed")["isolation"]
+        events = self.isolated_events()
+        events[0]["tools"].append("Skill")
+        events[0]["skills"] = ["installed-skill"]
+        events += [{"type":"system", "subtype":"hook_response"}]
+        good = score(events)
+        self.assertEqual(good["status"], "not_applicable")
+        self.assertEqual(good["reasons"], [])
+        for tools, expected in [(["Read"], ["unexpected_tools"]), (None, ["tools_invalid"])]:
+            events[0]["tools"] = tools
+            bad = score(events)
+            self.assertEqual(bad["status"], "FAIL")
+            self.assertEqual(bad["reasons"], expected)
+        del events[0]["tools"]
+        self.assertEqual(score(events)["reasons"], ["tools_missing"])
+        self.assertEqual(score([])["reasons"], ["init_missing", "tools_missing"])
+        events = self.isolated_events()
+        self.assertEqual(score(events, "broken\n")["reasons"], ["malformed_stream"])
+        self.assertEqual(score(events + [events[0]])["reasons"], ["multiple_init_events"])
+
+    def test_delivery_compares_each_matching_call_in_utf8_bytes(self):
+        events = self.academy_exchange("질문") + [{"type":"result", "result":"질문"}]
+        raw = "\n".join(json.dumps(e) for e in events)
+        log = [{"tool":"academy_lesson_prepare", "display_bytes":len("질문".encode("utf-8"))}]
+        scored = run.score_stream(raw, {}, [], call_log=log)
+        self.assertEqual(scored["received_text_bytes"], 6)
+        self.assertEqual(scored["delivery"], "same")
+        log[0]["display_bytes"] += 1
+        self.assertEqual(run.score_stream(raw, {}, [], call_log=log)["delivery"], "truncated_or_changed")
+        log[0]["tool"] = "other"
+        self.assertEqual(run.score_stream(raw, {}, [], call_log=log)["delivery"], "unknown")
+        self.assertEqual(run.score_stream(raw, {}, [])["delivery"], "unknown")
+        calls = [{"name":"mcp__academy__academy_lesson_prepare", "received_text_bytes":n} for n in (6, 3)]
+        log = [{"tool":"academy_lesson_prepare", "display_bytes":n} for n in (6, 3)]
+        self.assertEqual(run.delivery(calls, log), "same")
+        log[0]["display_bytes"] = 3
+        self.assertEqual(run.delivery(calls, log), "truncated_or_changed")
+        self.assertEqual(run.delivery(calls, log[:1]), "unknown")
+
+    def test_q03_requires_labels_and_one_academy_call(self):
+        spec = json.loads((run.HERE / "checks.json").read_text())["Q03"]
+        text = "어느 반인가요?\n- 가상반A: 반 전체 준비\n- 가상반B: 반 전체 준비\n- 가상반C: 반 전체 준비"
+        events = self.academy_exchange(text) + [{"type":"result", "result":text}]
+        def score(events):
+            return run.score_stream("\n".join(json.dumps(e) for e in events), spec, [])
+        good = score(events)
+        self.assertEqual(good["verbatim"], "pass")
+        self.assertEqual(set(good["checks"].values()), {"pass"})
+        events[-1]["result"] = "어느 반인가요?"
+        self.assertEqual(score(events)["checks"]["option:가상반A"], "FAIL")
+        self.assertEqual(score(events + self.academy_exchange(text))["checks"]["academy_calls_before_answer"], "FAIL")
 
     def test_later_non_academy_result_is_ignored(self):
         events = self.academy_exchange("display field") + [
@@ -227,7 +277,7 @@ class HarnessTests(unittest.TestCase):
             (path / "measurement.json").write_text(metadata)
             (path / "claude.jsonl").write_text(stream)
             row = rescore.score_saved(path)
-            self.assertEqual(set(row), {"mode","request","model","received_form","verbatim","extra_chars","isolation"})
+            self.assertEqual(set(row), {"mode","request","model","received_form","verbatim","extra_chars","isolation","delivery"})
             self.assertEqual(row["received_form"], "envelope")
             self.assertEqual(row["verbatim"], "pass")
             self.assertEqual(row["extra_chars"], 0)

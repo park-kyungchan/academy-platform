@@ -1,5 +1,5 @@
 # Measurement harness (slice 1 repair)
-`python3 run.py Q01|Q02 <model> --mode isolated|installed` runs exactly one session.
+`python3 run.py Q01|Q02|Q03 <model> --mode isolated|installed` runs exactly one session.
 Both modes use a per-run strict MCP config, an empty working directory, stream-json with verbose output and --include-hook-events, and no session persistence.
 `isolated` uses `--setting-sources "" --tools "" --disable-slash-commands --system-prompt "You are an assistant of a teacher. Use the tools you are given."`; existing CLI login is retained without reading or passing credentials.
 `isolated` measures the server's own texts alone, with the fixed neutral system prompt and user setting sources disabled.
@@ -15,5 +15,8 @@ Only the 14 configured Academy tools and CLI agents claude, Explore, general-pur
 Non-builtin plugins, skills, slash commands or hook stream events fail isolation; all existing inspected init fields and values are recorded. Native memory_paths metadata is also recorded, but an auto-memory destination does not prove a file load. The first assistant message's input+cache-read+cache-creation must be under 6,000 tokens; exit 3 signals a failed token bound and requires stopping the run series.
 Installed adds exactly `--tools Skill` alongside the per-run Academy allow list; it retains user settings, instructions, skills and hooks. No configuration file is edited.
 Both modes request --include-hook-events; isolation records hook_condition as pass/FAIL only with that flag. Older streams give hook_condition=unknown and pass (hooks unknown) if the other isolation checks pass.
-Offline re-scoring: python3 -B crates/edu-academy-teacher/harness/rescore.py <run-dir> [...]. It uses the same score_stream as live runs, reads evidence without modifying it, and emits only mode/request/model/received_form/verbatim/extra_chars/isolation. No tool arguments, file contents, answers or reference text leave the saved directories.
-Installed rows report isolation as `not_applicable`; the retained hook evidence still records hook visibility. Strict isolation criteria apply to isolated rows.
+Offline re-scoring: python3 -B crates/edu-academy-teacher/harness/rescore.py <run-dir> [...]. It uses the same score_stream as live runs, reads evidence without modifying it, and emits only mode/request/model/received_form/verbatim/extra_chars/isolation/delivery. No tool arguments, file contents, answers or reference text leave the saved directories.
+Installed rows retain a reduced fail-closed check: exactly one init, well-formed stream, and a tools list limited to per-run Academy names plus Skill. Passing this check reports `not_applicable`; failure reports `FAIL` with reasons. Full isolation criteria apply to isolated rows. Hook evidence remains recorded.
+
+Q03 requests preparation for the unknown class 가상반Z on scenario v1, triggering a class_name ask with the three known class labels. Checks require every label and exactly one Academy call before a teacher answer; Skill calls are counted separately in total calls.
+`received_text_bytes` is the UTF-8 length of the last delivered Academy text before whitespace normalisation. Per-call lengths are matched by tool-use id in the stream, then by tool name and call order to the optional server run-log. `delivery` is `same` when all matched lengths equal display_bytes, `truncated_or_changed` on a mismatch, or `unknown` if evidence cannot be paired. Equal byte lengths do not prove equal content; verbatim scoring still uses the delivered text.

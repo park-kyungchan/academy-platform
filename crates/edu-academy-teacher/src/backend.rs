@@ -304,6 +304,26 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
         })
     }
 
+    fn ask_class(candidates: &[ResolvedStudent]) -> BackendError {
+        let mut options: Vec<AskOption> = Vec::new();
+        for candidate in candidates {
+            if let Some(class_name) = &candidate.class_name
+                && !options.iter().any(|option| option.value == *class_name)
+            {
+                options.push(AskOption {
+                    value: class_name.clone(),
+                    label_ko: class_name.clone(),
+                    meaning_ko: "그 학생이 속한 반".into(),
+                });
+            }
+        }
+        BackendError::Ask(Ask {
+            field: AskField::ClassName,
+            question_ko: "학생과 반이 일치하지 않습니다. 어느 반인가요?".into(),
+            options,
+        })
+    }
+
     fn disambiguate(
         &mut self,
         base: &str,
@@ -313,13 +333,14 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
         let candidates = self.candidates_from_keys(base, &keys);
         let filtered: Vec<ResolvedStudent> = match class_hint {
             Some(expected) => candidates
-                .into_iter()
+                .iter()
                 .filter(|c| c.class_name.as_deref() == Some(expected))
+                .cloned()
                 .collect(),
-            None => candidates,
+            None => candidates.clone(),
         };
         match filtered.as_slice() {
-            [] => Err(Self::student_not_found()),
+            [] => Err(Self::ask_class(&candidates)),
             [only] if class_hint.is_some() => Ok(only.clone()),
             _ => {
                 let options = self.candidate_options(base, &filtered)?;
@@ -338,7 +359,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
             NameSearch::Resolved(student) => {
                 return match class_hint {
                     Some(expected) if student.class_name.as_deref() != Some(expected) => {
-                        Err(Self::student_not_found())
+                        Err(Self::ask_class(std::slice::from_ref(&student)))
                     }
                     _ => Ok(student),
                 };
@@ -378,7 +399,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
             [] => Err(Self::student_not_found()),
             [only] => match class_hint {
                 Some(expected) if only.class_name.as_deref() != Some(expected) => {
-                    Err(Self::student_not_found())
+                    Err(Self::ask_class(std::slice::from_ref(only)))
                 }
                 _ => Ok(only.clone()),
             },

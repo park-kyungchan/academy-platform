@@ -12,7 +12,7 @@ def score_saved(path):
     directory = Path(path)
     saved = json.loads((directory / "measurement.json").read_text(encoding="utf-8"))
     mode, request, model = (saved[key] for key in ("mode", "request", "model"))
-    if mode not in ("isolated", "installed") or request not in ("Q01", "Q02") or model not in ("haiku", "sonnet"):
+    if mode not in ("isolated", "installed") or request not in ("Q01", "Q02", "Q03") or model not in ("haiku", "sonnet"):
         raise ValueError("unsupported row identity")
     specs = json.loads((run.HERE / "checks.json").read_text(encoding="utf-8"))
     tools = json.loads((run.CRATE / "tests/fixtures/tools-list.json").read_text(encoding="utf-8"))["tools"]
@@ -21,7 +21,7 @@ def score_saved(path):
     command = saved.get("command", [])
     hooks_requested = isinstance(command, list) and "--include-hook-events" in command
     result = run.score_stream((directory / "claude.jsonl").read_text(encoding="utf-8"),
-                              specs[request], allowed, hooks_requested, mode)
+                              specs[request], allowed, hooks_requested, mode, run.read_call_log(directory / "run-log.jsonl"))
     proof = result["isolation"]
     isolation_text = proof["status"]
     if isolation_text == "FAIL" and proof["hook_condition"] == "unknown":
@@ -30,7 +30,7 @@ def score_saved(path):
     # paths read by a measured model, or any other task/file content.
     return {"mode": mode, "request": request, "model": model,
             "received_form": result["received_form"], "verbatim": result["verbatim"],
-            "extra_chars": result["extra_chars"], "isolation": isolation_text}
+            "extra_chars": result["extra_chars"], "isolation": isolation_text, "delivery": result["delivery"]}
 
 
 def main():

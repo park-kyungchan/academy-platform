@@ -193,6 +193,13 @@ impl Envelope {
         if ask.options.is_empty() {
             return Err("ask_requires_options".into());
         }
+        let mut display = display;
+        for option in &ask.options {
+            display.push_str(&format!("\n- {}", option.label_ko));
+            if !option.meaning_ko.is_empty() {
+                display.push_str(&format!(": {}", option.meaning_ko));
+            }
+        }
         Self::new(Status::Ask, display, data, Some(ask), None, None, coverage)
     }
     pub fn stop(display: String, data: serde_json::Value, stop: Stop, coverage: Coverage) -> Self {
@@ -210,6 +217,7 @@ impl Envelope {
     pub fn unknown_tool() -> Self {
         let names = crate::tools::TOOLS
             .iter()
+            .filter(|tool| tool.handler == crate::tools::Handler::LessonPrepare)
             .map(|tool| tool.name)
             .collect::<Vec<_>>()
             .join(", ");

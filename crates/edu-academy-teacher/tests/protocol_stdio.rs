@@ -13,7 +13,7 @@ use std::{
 
 const DISPLAY_Q01: &str = include_str!("fixtures/display-q01.txt");
 const DISPLAY_Q02: &str = include_str!("fixtures/display-q02.txt");
-const INSTRUCTIONS: &str = "Each tool result of this server is finished Korean text for the teacher. Show that text to the teacher exactly as it is and in full. Add nothing before or after it: no summary, no rewording, no advice, no extra question. When the text ends with a question, stop there and wait for the teacher's answer. Call a tool again only when the teacher asks for something else or answers a question.";
+const INSTRUCTIONS: &str = "Each tool result of this server is finished Korean text for the teacher. Show that text to the teacher exactly as it is and in full, with nothing added before or after it: no summary, no rewording, no advice, no extra question. When the text asks the teacher something or lists choices, stop there and wait for the teacher's answer, then call the tool again with that answer. When the teacher later asks about a result already shown and no tool is needed, answer briefly in your own words from that result only. Call a tool again only when the teacher asks for something else or answers a question.";
 const TOOLS_FIXTURE: &[u8] = include_bytes!("fixtures/tools-list.json");
 
 struct Server {
@@ -219,6 +219,7 @@ fn stdio_protocol_end_to_end() {
             "그런 이름의 도구는 없습니다. 쓸 수 있는 도구: {}",
             edu_academy_teacher::tools::TOOLS
                 .iter()
+                .filter(|tool| tool.handler == edu_academy_teacher::tools::Handler::LessonPrepare)
                 .map(|tool| tool.name)
                 .collect::<Vec<_>>()
                 .join(", ")

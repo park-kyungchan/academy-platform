@@ -210,3 +210,32 @@ fn display_lint_accepts_fixtures_and_rejects_codes() {
     assert!(display_lint("hello world test").is_err());
     display_lint("진도: 가우스 5-1-2 1-2 유형다지기").unwrap();
 }
+
+#[test]
+fn ask_option_without_meaning_has_no_colon() {
+    let ask = Ask {
+        field: AskField::Student,
+        question_ko: "어느 학생인가요?".into(),
+        options: vec![AskOption {
+            value: "가상학생A".into(),
+            label_ko: "가상학생A".into(),
+            meaning_ko: String::new(),
+        }],
+    };
+    let result = Envelope::ask(
+        ask.question_ko.clone(),
+        empty_data(),
+        ask,
+        Default::default(),
+    )
+    .unwrap();
+    assert_eq!(result.display, "어느 학생인가요?\n- 가상학생A");
+}
+
+#[test]
+fn unknown_tool_lists_only_implemented_slice() {
+    assert_eq!(
+        Envelope::unknown_tool().display,
+        "그런 이름의 도구는 없습니다. 쓸 수 있는 도구: academy_lesson_prepare"
+    );
+}
