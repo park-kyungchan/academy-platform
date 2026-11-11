@@ -563,7 +563,7 @@ fn next(d: &UnitData) -> String {
     }
     l::unit_next_generic()
 }
-fn compose(d: &UnitData, coverage: &Coverage) -> String {
+fn compose(d: &UnitData, coverage: &Coverage, tree_scope: &[Leaf]) -> String {
     let who = cell(&d.student);
     let book = cell(&d.edition);
     let small = d.minors.len() == 1;
@@ -688,7 +688,7 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
             verdict(stage.verdict)
         ));
     }
-    lines.extend(unknown_lines(d, coverage));
+    lines.extend(unknown_lines(d, coverage, tree_scope));
     if let Some(omitted) = &d.first_omitted {
         lines.push(l::unit_truncation(&cell(omitted)));
     }
@@ -746,8 +746,9 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
     lines.join("\n")
 }
 pub fn render(data: &mut UnitData, coverage: &mut Coverage) -> String {
+    let tree_scope = data.minors.clone();
     loop {
-        let display = compose(data, coverage);
+        let display = compose(data, coverage, &tree_scope);
         if display.len() <= 6000 {
             if let Some(omitted) = &data.first_omitted {
                 coverage.unknowns.push(format!("first_omitted:{omitted}"));
@@ -1155,7 +1156,7 @@ fn unscoped_fact_lines(d: &UnitData) -> Vec<String> {
         .map(|(line, count)| l::unit_counted_unknown(&line, count))
         .collect()
 }
-fn unknown_lines(d: &UnitData, coverage: &Coverage) -> Vec<String> {
+fn unknown_lines(d: &UnitData, coverage: &Coverage, tree_scope: &[Leaf]) -> Vec<String> {
     let mut counts = std::collections::BTreeMap::new();
     for reason in &coverage.unknowns {
         let (code, scope) = reason.split_once(':').unwrap_or((reason.as_str(), ""));
@@ -1165,13 +1166,25 @@ fn unknown_lines(d: &UnitData, coverage: &Coverage) -> Vec<String> {
         ) {
             continue;
         }
-        let token = scope.split_whitespace().next().unwrap_or("");
-        let components: Vec<_> = token.split('-').collect();
-        if components.len() >= 2
-            && components
-                .iter()
-                .all(|c| !c.is_empty() && c.bytes().all(|b| b.is_ascii_digit()))
-            && !retained(d, token)
+        // Match the longest tree identifier, including identifiers containing
+        // spaces. Keep a parent scope while any of its descendants is retained.
+        let mut matches = Vec::new();
+        for leaf in tree_scope {
+            let major = format!("{} {}", l::CHAPTER_SCOPE, leaf.chapter);
+            for (id, level) in [
+                (Some(leaf.chapter.as_str()), 0), (Some(major.as_str()), 0),
+                (leaf.middle.as_deref(), 1), (leaf.middle_code.as_deref(), 1),
+                (Some(leaf.minor.code.as_str()), 2),
+            ] {
+                if let Some(id) = id.filter(|id| !id.is_empty())
+                    && (scope == id || scope.strip_prefix(id).is_some_and(|tail| tail.starts_with(char::is_whitespace)))
+                {
+                    matches.push(((id.len(), level), retained(d, &leaf.minor.code)));
+                }
+            }
+        }
+        if let Some(specificity) = matches.iter().map(|(key, _)| *key).max()
+            && !matches.iter().any(|(key, kept)| *key == specificity && *kept)
         {
             continue;
         }
