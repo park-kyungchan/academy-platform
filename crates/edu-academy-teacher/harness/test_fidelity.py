@@ -49,8 +49,11 @@ class AcceptanceTests(unittest.TestCase):
 
     def test_missing_empty_or_unconfigured_evidence_unknown(self):
         for server,answer,policy in [(None,self.TEXT,fidelity.configured_policy()),
-                                    (self.TEXT,'',fidelity.configured_policy()),(self.TEXT,self.TEXT,None)]:
+                                    (self.TEXT,self.TEXT,None)]:
             self.assertEqual(fidelity.evaluate(server,answer,policy)['facts_kept'],'unknown')
+
+    def test_empty_answer_is_failure_not_unsupported_reference(self):
+        self.assertEqual(self.result('')['facts_kept'],'FAIL')
 
     def test_ask_whole_lines_and_choices_not_vacuous_rows(self):
         text='Choose a class\n- ClassAlpha: explanation\n- ClassBeta: explanation'
