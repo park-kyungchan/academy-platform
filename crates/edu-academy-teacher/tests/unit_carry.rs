@@ -182,3 +182,36 @@ fn m23g_unsupported_server_codes_have_explicit_display_labels() {
     assert_eq!(l::unit_stage_name("invented_stage_739"), "미확인(지원하지 않는 단계)");
     assert_eq!(l::unit_source_name("invented_source_739"), "미확인 원천");
 }
+
+#[test]
+fn m23h_unread_grade_sentences_encode_names_for_one_and_many_students() {
+    use edu_academy_teacher::render::{self, Verdict};
+    for count in [1, 2] {
+        let (mut data, coverage) = lesson_data();
+        data.students[0].student = "가상학생A|가상학생B\n가상학생C".into();
+        for check in &mut data.students[0].checks {
+            if check.kind == "section" { check.verdict = Verdict::NotObserved; }
+        }
+        if count == 2 { data.students.push(data.students[0].clone()); }
+        let display = render::lesson_prepare(&data, &coverage);
+        let unknown = display.split("미확인 사항\n").nth(1).unwrap().split("다음 확인\n").next().unwrap();
+        assert!(unknown.contains("가상학생A｜가상학생B / 가상학생C"));
+        assert!(!unknown.contains('|'));
+        assert!(!display.lines().any(|line| line.starts_with("가상학생C")));
+        assert!(render::display_lint(&display).is_ok(), "{}", display);
+    }
+}
+
+#[test]
+fn m23h_source_time_and_date_slots_are_structurally_encoded() {
+    use edu_academy_teacher::render;
+    let (mut data, mut coverage) = lesson_data();
+    data.read_at = "x|y\nz".into();
+    data.reminders[0].at = "2026-11-11T1|2\n3".into();
+    for source in &mut coverage.sources { source.read_at = data.read_at.clone(); }
+    let display = render::lesson_prepare(&data, &coverage);
+    assert!(display.contains("x｜y / z"));
+    assert!(!display.lines().any(|line| line.starts_with("z")));
+    assert!(render::display_lint(&display).is_ok(), "{}", display);
+    assert_eq!(l::date("x|y\nz"), "x｜y / z");
+}
