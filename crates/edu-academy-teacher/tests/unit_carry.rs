@@ -234,9 +234,20 @@ fn m23e_only_cell_affecting_teacher_report_kinds_need_course_scope() {
                 "{kind}/{topic}"
             );
             if expected {
-                let scope = if kind == "clinic_stage" { "1-1 필수예제 오답클리닉 풀이" } else { "1-1 필수예제" };
-                assert_eq!(out.display.lines().find(|line| line.starts_with("읽지 못한 원천 또는 범위: ")).unwrap(),
-                    format!("읽지 못한 원천 또는 범위: {scope}·과정 연결이 기록되지 않음·해당 교사 기록에 교재 등록 과정을 지정해 주세요."));
+                let scope = if kind == "clinic_stage" {
+                    "1-1 필수예제 오답클리닉 풀이"
+                } else {
+                    "1-1 필수예제"
+                };
+                assert_eq!(
+                    out.display
+                        .lines()
+                        .find(|line| line.starts_with("읽지 못한 원천 또는 범위: "))
+                        .unwrap(),
+                    format!(
+                        "읽지 못한 원천 또는 범위: {scope}·과정 연결이 기록되지 않음·해당 교사 기록에 교재 등록 과정을 지정해 주세요."
+                    )
+                );
                 assert!(!out.display.contains(l::UNSUPPORTED_STAGE));
             }
             c.scenario.teacher_fact_reports[0].course_key = Some("101".into());
@@ -393,8 +404,13 @@ fn other_book_only_prestudy_minor_stays_unknown() {
     for topic in ["예습", "전체"] {
         c.request.topic = Some(topic.into());
         let out = c.run();
-        assert_eq!(out.display.lines().find(|line| line.starts_with("1-1 예습영상: ")).unwrap(),
-            "1-1 예습영상: 미확인(다른 교재에서만 단원 관측)");
+        assert_eq!(
+            out.display
+                .lines()
+                .find(|line| line.starts_with("1-1 예습영상: "))
+                .unwrap(),
+            "1-1 예습영상: 미확인(다른 교재에서만 단원 관측)"
+        );
     }
 }
 
@@ -461,7 +477,6 @@ fn m23a_unqualified_observation_and_unknown_codes_do_not_prescribe_retry() {
     }
 }
 
-
 #[test]
 fn r1_empty_optional_judgment_stage_prints_no_stage_label() {
     let mut c = Case::new(1);
@@ -469,8 +484,13 @@ fn r1_empty_optional_judgment_stage_prints_no_stage_label() {
     c.judgment("DailyTest", None, None, None);
     c.scenario.teacher_judgments[0].stage = Some(String::new());
     let out = c.run();
-    assert_eq!(out.display.lines().find(|line| line.contains("교사 판정: 완료 판정")).unwrap(),
-        "1-1 교사 판정: 완료 판정(기록 날짜 미확인)");
+    assert_eq!(
+        out.display
+            .lines()
+            .find(|line| line.contains("교사 판정: 완료 판정"))
+            .unwrap(),
+        "1-1 교사 판정: 완료 판정(기록 날짜 미확인)"
+    );
     assert!(!out.display.contains(l::UNSUPPORTED_STAGE));
     assert_eq!(l::unit_stage_name(""), "");
 }

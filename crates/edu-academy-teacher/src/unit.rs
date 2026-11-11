@@ -175,22 +175,37 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         .collect();
     let book_text = r.book.as_deref().unwrap_or("");
     let matches = |label: &str| {
-        book_text == label || book_text.strip_prefix(label)
-            .is_some_and(|tail| tail.starts_with(char::is_whitespace))
+        book_text == label
+            || book_text
+                .strip_prefix(label)
+                .is_some_and(|tail| tail.starts_with(char::is_whitespace))
     };
     // Resolve the registered book name before its course-choice decoration.
     // A shorter registered name must never consume the start of a longer one.
-    let matched_book = bindings.iter().map(|b| b.book_label.as_str())
-        .filter(|name| matches(name)).max_by_key(|name| name.len());
-    let label_match = labels.iter().enumerate()
-        .filter(|(i, label)| Some(bindings[*i].book_label.as_str()) == matched_book && matches(label))
-        .max_by_key(|(_, label)| label.len()).map(|(i, _)| i);
+    let matched_book = bindings
+        .iter()
+        .map(|b| b.book_label.as_str())
+        .filter(|name| matches(name))
+        .max_by_key(|name| name.len());
+    let label_match = labels
+        .iter()
+        .enumerate()
+        .filter(|(i, label)| {
+            Some(bindings[*i].book_label.as_str()) == matched_book && matches(label)
+        })
+        .max_by_key(|(_, label)| label.len())
+        .map(|(i, _)| i);
     let matched_label = label_match.map(|i| labels[i].as_str()).or(matched_book);
-    let book_suffix = matched_label.and_then(|label| book_text.strip_prefix(label)).unwrap_or("");
+    let book_suffix = matched_label
+        .and_then(|label| book_text.strip_prefix(label))
+        .unwrap_or("");
     let explicit: Vec<_> = if let Some(i) = label_match {
         vec![&bindings[i]]
     } else {
-        bindings.iter().filter(|b| Some(b.book_label.as_str()) == matched_book).collect()
+        bindings
+            .iter()
+            .filter(|b| Some(b.book_label.as_str()) == matched_book)
+            .collect()
     };
     if !book_text.is_empty() && explicit.is_empty() {
         return Err(stop(StopCode::BookNotFound, l::UNIT_BOOK_STOP));
@@ -716,12 +731,17 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
             && data.minors.iter().any(|leaf| leaf.minor.code == f.unit)
             && (all_topics || topic == l::UNIT_TOPICS[2])
     }) {
-        let mut scope: Vec<_> = [&f.unit, &f.activity].into_iter()
-            .filter(|value| !value.is_empty()).map(String::as_str).collect();
+        let mut scope: Vec<_> = [&f.unit, &f.activity]
+            .into_iter()
+            .filter(|value| !value.is_empty())
+            .map(String::as_str)
+            .collect();
         if f.kind == "clinic_stage" && !f.stage.is_empty() {
             scope.push(l::unit_stage_name(&f.stage));
         }
-        coverage.unknowns.push(format!("teacher_fact_course_unknown:{}", scope.join(" ")));
+        coverage
+            .unknowns
+            .push(format!("teacher_fact_course_unknown:{}", scope.join(" ")));
     }
     if data
         .judgments

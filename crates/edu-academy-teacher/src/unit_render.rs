@@ -659,9 +659,17 @@ fn compose(d: &UnitData, coverage: &Coverage, tree_scope: &[Leaf]) -> String {
                     cell(&stage.stage),
                     if stage.verdict != UnitVerdict::Unknown {
                         verdict(stage.verdict)
-                    } else if coverage.unknowns.iter().any(|u| u == "prestudy_unavailable") {
+                    } else if coverage
+                        .unknowns
+                        .iter()
+                        .any(|u| u == "prestudy_unavailable")
+                    {
                         l::UNIT_PRESTUDY_UNREAD
-                    } else if coverage.unknowns.iter().any(|u| u == "prestudy_name_ambiguous") {
+                    } else if coverage
+                        .unknowns
+                        .iter()
+                        .any(|u| u == "prestudy_name_ambiguous")
+                    {
                         l::UNIT_PRESTUDY_NAME_AMBIGUOUS
                     } else {
                         l::UNIT_PRESTUDY_OTHER_BOOK
@@ -1129,7 +1137,8 @@ fn daily_status(d: &UnitData, unit: &str, level: Option<&str>) -> String {
             l::UNIT_DAILY_MAPPING_UNKNOWN
         } else {
             l::UNIT_SOURCE_NOT_OBSERVED
-        }.into()
+        }
+        .into()
     } else {
         verdict(daily_state(d, unit, level)).into()
     }
