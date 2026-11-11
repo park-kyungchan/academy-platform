@@ -298,6 +298,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "edu-academy-teacher"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "edu-academy-core",
+ "edu-academy-sources",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ego-tree"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
