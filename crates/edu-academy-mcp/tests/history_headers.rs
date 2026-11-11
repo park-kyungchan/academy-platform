@@ -3,12 +3,13 @@
 #[path = "common/isolated.rs"]
 mod isolated;
 use edu_academy_mcp::{
-    Js,
+    Error, Js,
     dailytest_history::{self as history, Source},
     digest,
     dispatch::{self, Reply},
     encode, obj, parse,
     process::{self, Control, Limits},
+    registry::ToolRegistry,
     release::{ConnectionGate, ReleaseGraph},
 };
 use serde_json::{Value, json};
@@ -572,7 +573,13 @@ impl Scene {
         put(&launcher, b"fictional launcher, never executed");
         let admission_path = install.join("admission.json");
         put(&admission_path, &encode(&ordered_admission()).unwrap());
-        let paper_scopes = json!([{"endpoint":"paper1","studentIds":[if selected=="paper1" {"77001"}else{"77002"}]},{"endpoint":"paper2","studentIds":[if selected=="paper2" {"77001"}else{"77002"}]}]);
+        let paper_scopes = if mode == "scope-ambiguous" {
+            json!([{"endpoint":"paper1","studentIds":["77001"]},{"endpoint":"paper2","studentIds":["77001"]}])
+        } else if mode == "scope-missing" {
+            json!([{"endpoint":"paper1","studentIds":["77002"]},{"endpoint":"paper2","studentIds":["77002"]}])
+        } else {
+            json!([{"endpoint":"paper1","studentIds":[if selected=="paper1" {"77001"}else{"77002"}]},{"endpoint":"paper2","studentIds":[if selected=="paper2" {"77001"}else{"77002"}]}])
+        };
         let routing = document(
             &install.join("routing.json"),
             json!({"admissionPath":admission_path,"admissionSha256":pin(&admission_path)["sha256"],"paperScopes":paper_scopes}),
@@ -623,6 +630,9 @@ impl Scene {
         assert_eq!(entries.len(), 4);
         let registry = document(&install.join("registry.json"), json!(entries));
         let mut metadata_captures = captures();
+        if mode == "identity-teacher" {
+            metadata_captures[0]["raw"][0]["teacherKey"] = json!("99999");
+        }
         if mode == "metadata-failure" {
             metadata_captures[0]["error"] = json!("source_authentication_failed");
         }
@@ -1168,4 +1178,414 @@ fn malformed_upstream_contracts_have_exact_source_classification() {
     assert!(!data.has("sourceRequests"));
     assert!(!scene.state.join("history-events.jsonl").exists());
     assert!(scene.receipts("-cleanup.json").is_empty());
+}
+
+fn invoke_with(scene: &Scene, input: &Js, control: &mut dyn Control, limits: Limits) -> Js {
+    let mut gate = ConnectionGate::default();
+    match dispatch::call(
+        &scene.graph(),
+        &mut gate,
+        "academy_dailytest_history_with_headers",
+        input,
+        None,
+        &Js::Num(1.0),
+        control,
+        limits,
+    )
+    .unwrap()
+    {
+        Reply::Tool(v) => v,
+        Reply::ReceiptFailure { .. } => panic!("receipt evidence required"),
+    }
+}
+
+/// Cancels once the second upstream lifetime has opened, observed only
+/// through the fictional children's own event log.
+struct CancellingControl {
+    state: PathBuf,
+    fired: bool,
+}
+impl Control for CancellingControl {
+    fn poll(
+        &mut self,
+        _: &Js,
+        _: &mut dyn FnMut() -> edu_academy_mcp::Result<()>,
+    ) -> edu_academy_mcp::Result<()> {
+        if self.fired {
+            return Ok(());
+        }
+        let path = self.state.join("history-events.jsonl");
+        if let Ok(text) = fs::read_to_string(&path) {
+            let opens = text
+                .lines()
+                .filter_map(|s| parse(s.as_bytes()).ok())
+                .filter(|e| e.get("event").is("open"))
+                .count();
+            if opens >= 2 {
+                self.fired = true;
+                return Err(Error::new("request_cancelled"));
+            }
+        }
+        Ok(())
+    }
+    fn adopt_orphans(&self) -> bool {
+        true
+    }
+}
+
+fn lifecycle(scene: &Scene) -> Vec<(String, String)> {
+    lines(&scene.state.join("history-events.jsonl"))
+        .iter()
+        .filter(|e| !e.get("event").is("source"))
+        .map(|e| (e.get("event").code_units(), e.get("endpoint").code_units()))
+        .collect()
+}
+
+#[test]
+fn e09d_scope_unresolved_or_ambiguous_refuses_with_interview_and_no_paper_child() {
+    if isolated::run("e09d_scope_unresolved_or_ambiguous_refuses_with_interview_and_no_paper_child")
+    {
+        return;
+    }
+    process::install_binary_subreaper().unwrap();
+    for (mode, matches) in [("scope-ambiguous", 2.0), ("scope-missing", 0.0)] {
+        let scene = Scene::new(mode, "paper1");
+        let out = invoke(&scene, &js(input()));
+        retain(&scene.state, "parent-output", &out);
+        let data = out.get("structuredContent");
+        assert!(out.get("isError").truthy(), "{mode}: {out:?}");
+        assert!(
+            data.get("code").is("paper_scope_unresolved"),
+            "{mode}: {data:?}"
+        );
+        assert_eq!(
+            data.get("failure").get("code"),
+            data.get("code"),
+            "{mode}: {data:?}"
+        );
+        let diagnostic = data.get("paperScope");
+        assert!(diagnostic.get("studentId").is("77001"), "{mode}: {data:?}");
+        assert!(
+            diagnostic.get("upstreamName").is("academy_paper_headers"),
+            "{mode}: {data:?}"
+        );
+        assert_eq!(
+            diagnostic.get("matchCount"),
+            &Js::Num(matches),
+            "{mode}: {data:?}"
+        );
+        assert_eq!(
+            diagnostic.get("configuredEndpoints").array().len(),
+            2,
+            "{mode}: {data:?}"
+        );
+        assert!(data.get("interviewRequired").truthy(), "{mode}: {data:?}");
+        assert!(
+            data.get("interviewReason")
+                .is("paper_scope_admission_missing"),
+            "{mode}: {data:?}"
+        );
+        assert!(!data.get("automaticRetryAllowed").truthy());
+        // Metadata child only: no paper child was opened and none must close.
+        assert_eq!(scene.receipts("-cleanup.json").len(), 1, "{mode}");
+        assert_eq!(
+            lifecycle(&scene),
+            vec![
+                ("open".into(), "dailyrecord".into()),
+                ("close".into(), "dailyrecord".into())
+            ],
+            "{mode}"
+        );
+        assert!(!scene.state.join("paper1-requests.jsonl").exists());
+        assert!(!scene.state.join("paper2-requests.jsonl").exists());
+    }
+}
+
+#[test]
+fn e09d_wrong_identity_through_composition_stops_before_paper() {
+    if isolated::run("e09d_wrong_identity_through_composition_stops_before_paper") {
+        return;
+    }
+    process::install_binary_subreaper().unwrap();
+    let scene = Scene::new("identity-teacher", "paper1");
+    let out = invoke(&scene, &js(input()));
+    retain(&scene.state, "parent-output", &out);
+    let data = out.get("structuredContent");
+    assert!(out.get("isError").truthy(), "{out:?}");
+    assert!(data.get("failedSource").is("metadata"), "{data:?}");
+    assert_eq!(
+        data.get("failure").get("code"),
+        data.get("code"),
+        "{data:?}"
+    );
+    assert!(!data.get("automaticRetryAllowed").truthy());
+    // One metadata lifetime, each upstream tool exactly once, no paper child.
+    assert_eq!(scene.receipts("-cleanup.json").len(), 1);
+    assert_eq!(
+        lifecycle(&scene),
+        vec![
+            ("open".into(), "dailyrecord".into()),
+            ("close".into(), "dailyrecord".into())
+        ]
+    );
+    let requests = lines(&scene.state.join("dailyrecord-requests.jsonl"));
+    let tools = requests
+        .iter()
+        .filter(|r| r.get("method").is("tools/call"))
+        .map(|r| r.get("params").get("name").code_units())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        tools,
+        vec![
+            "academy_endpoint_identity",
+            "academy_runtime_read_admission",
+            "academy_student_metadata_get"
+        ]
+    );
+    assert!(!scene.state.join("paper1-requests.jsonl").exists());
+    assert!(!scene.state.join("paper2-requests.jsonl").exists());
+}
+
+#[test]
+fn e09d_cancellation_during_second_lifetime_closes_both_without_retry() {
+    if isolated::run("e09d_cancellation_during_second_lifetime_closes_both_without_retry") {
+        return;
+    }
+    process::install_binary_subreaper().unwrap();
+    let scene = Scene::new("cancel-second", "paper1");
+    let mut control = CancellingControl {
+        state: scene.state.clone(),
+        fired: false,
+    };
+    let out = invoke_with(
+        &scene,
+        &js(input()),
+        &mut control,
+        Limits {
+            work: Duration::from_secs(10),
+            ..Limits::default()
+        },
+    );
+    retain(&scene.state, "parent-output", &out);
+    assert!(
+        control.fired,
+        "cancellation must arrive in the second lifetime"
+    );
+    let data = out.get("structuredContent");
+    assert!(out.get("isError").truthy(), "{out:?}");
+    assert_eq!(
+        data.get("failure").get("code"),
+        data.get("code"),
+        "{data:?}"
+    );
+    assert!(!data.get("automaticRetryAllowed").truthy());
+    // First child closed before the second opened. A cancelled child cannot
+    // log its own close, so closure of the second is proven by the qualified
+    // cleanup receipts and the dead pids, as in the oversized test above.
+    let events = lifecycle(&scene);
+    assert_eq!(
+        events[..3],
+        [
+            ("open".into(), "dailyrecord".into()),
+            ("close".into(), "dailyrecord".into()),
+            ("open".into(), "paper1".into())
+        ]
+    );
+    let cleanup = scene.receipts("-cleanup.json");
+    assert_eq!(cleanup.len(), 2);
+    assert!(cleanup.iter().all(|c| c.get("qualified").truthy()));
+    for c in &cleanup {
+        let pid = match c.get("pid") {
+            Js::Num(n) => *n as u32,
+            _ => panic!("owned pid required"),
+        };
+        assert!(
+            process::Identity::read(pid)
+                .is_none_or(|p| p.start.to_string() != c.get("startTicks").code_units())
+        );
+    }
+    // No retry: the metadata tools ran once; the paper tools at most once.
+    for endpoint in ["dailyrecord", "paper1"] {
+        let requests = lines(&scene.state.join(format!("{endpoint}-requests.jsonl")));
+        let mut tools = requests
+            .iter()
+            .filter(|r| r.get("method").is("tools/call"))
+            .map(|r| r.get("params").get("name").code_units())
+            .collect::<Vec<_>>();
+        tools.sort();
+        tools.dedup();
+        let calls = requests
+            .iter()
+            .filter(|r| r.get("method").is("tools/call"))
+            .count();
+        assert_eq!(
+            calls,
+            tools.len(),
+            "{endpoint} retried a tool: {requests:?}"
+        );
+    }
+}
+
+#[test]
+fn e09d_registry_v2_matches_served_names_schemas_and_routes() {
+    let v2: Value =
+        serde_json::from_slice(include_bytes!("fixtures/tool-registry-v2.json")).unwrap();
+    let v1: Value = serde_json::from_slice(include_bytes!(
+        "fixtures/mcp-runtime-reference-v1/frozen/inventory/registry.json"
+    ))
+    .unwrap();
+    assert!(
+        v2["header"]["baseRevision"]
+            .as_str()
+            .unwrap()
+            .starts_with("ed1322c0")
+    );
+    assert_eq!(v2["header"]["generationCount"], json!(45));
+    let tools = v2["tools"].as_array().unwrap();
+    assert_eq!(tools.len(), 45);
+    let names = tools
+        .iter()
+        .map(|t| t["name"].as_str().unwrap().to_string())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(names.len(), 45, "tool names must be unique");
+    // The 41 frozen entries are carried over with unchanged input schemas.
+    let v1_schemas = v1
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            (
+                e["tool"]["name"].as_str().unwrap().to_string(),
+                e["tool"]["inputSchema"].clone(),
+            )
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(v1_schemas.len(), 41);
+    for t in tools {
+        if let Some(schema) = v1_schemas.get(t["name"].as_str().unwrap()) {
+            assert_eq!(&t["inputSchema"], schema, "{}", t["name"]);
+        }
+        assert!(
+            t["derivedFrom"].as_str().unwrap().contains(':'),
+            "{}",
+            t["name"]
+        );
+    }
+    // Served names/schemas: the Rust registry parses v2 (identity excluded,
+    // as ToolRegistry requires) and list() re-adds the identity tool.
+    let entries = tools
+        .iter()
+        .filter(|t| t["name"] != "academy_runtime_identity")
+        .map(|t| {
+            json!({"endpoint":t["endpoint"],"upstreamName":t["upstreamName"],
+                "tool":{"name":t["name"],"description":t["description"],
+                "inputSchema":t["inputSchema"]}})
+        })
+        .collect::<Vec<_>>();
+    let registry = ToolRegistry::parse(&serde_json::to_vec(&json!(entries)).unwrap()).unwrap();
+    let served = registry.list().unwrap();
+    let served_names = served
+        .iter()
+        .map(|t| t.get("name").code_units())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(served_names.len(), 45);
+    for name in &names {
+        assert!(served_names.contains(name), "{name}");
+    }
+    // E09d scope: composition, both paper scopes, full metadata query set.
+    let mut scope = vec![
+        "academy_dailytest_history_with_headers",
+        "academy_student_metadata_get",
+        "academy_student_metadata",
+    ];
+    for upstream in [
+        "academy_daily_test_inventory",
+        "academy_paper_definition_lookup",
+        "academy_paper_headers",
+        "academy_paper_read_contracts",
+        "academy_printed_paper_lookup",
+        "academy_source_read_contracts",
+    ] {
+        scope.push(upstream);
+        let class2: &'static str = Box::leak(format!("class2_{upstream}").into_boxed_str());
+        scope.push(class2);
+    }
+    assert_eq!(scope.len(), 15);
+    for name in scope {
+        let entry = tools.iter().find(|t| t["name"] == name).unwrap();
+        let tool = served
+            .iter()
+            .find(|t| t.get("name").is(name))
+            .unwrap_or_else(|| panic!("{name} not served"));
+        assert_eq!(
+            value(tool.get("inputSchema")),
+            entry["inputSchema"],
+            "{name} schema"
+        );
+    }
+    // Every entry's declared route equals what the Rust code does.
+    let dispatch_adapter = [
+        "academy_runtime_identity",
+        "academy_dailyrecord_get",
+        "academy_dailytest_history_with_headers",
+    ];
+    let absent = [
+        "academy_clinic_paper_status_get",
+        "academy_prestudy_report_get",
+        "academy_textbook_units_get",
+    ];
+    let session_loan = [
+        "academy_dailyrecord_intake",
+        "academy_dailyrecord_review",
+        "academy_dailyrecord_save",
+        "academy_dailyrecord_reconcile",
+        "academy_dailyrecord_execution_status",
+        "academy_student_resolve",
+        "academy_runtime_read_admission",
+        "academy_student_metadata_get",
+        "academy_student_metadata",
+        "academy_daily_test_inventory",
+        "academy_paper_definition_lookup",
+        "academy_paper_headers",
+        "academy_paper_read_contracts",
+        "academy_printed_paper_lookup",
+        "academy_source_read_contracts",
+        "class2_academy_daily_test_inventory",
+        "class2_academy_paper_definition_lookup",
+        "class2_academy_paper_headers",
+        "class2_academy_paper_read_contracts",
+        "class2_academy_printed_paper_lookup",
+        "class2_academy_source_read_contracts",
+    ];
+    for t in tools {
+        let name = t["name"].as_str().unwrap();
+        let expected = if dispatch_adapter.contains(&name) {
+            "dispatch_adapter"
+        } else if absent.contains(&name) {
+            "absent"
+        } else if session_loan.contains(&name) {
+            "session_loan"
+        } else {
+            "refusal_boundary"
+        };
+        assert_eq!(t["rustRoute"], json!(expected), "{name}");
+        if expected == "absent" {
+            assert!(
+                !v1_schemas.contains_key(name),
+                "{name} must stay absent from the frozen registry"
+            );
+        }
+    }
+    let dailytest = tools
+        .iter()
+        .find(|t| t["name"] == "academy_dailytest_history_with_headers")
+        .unwrap();
+    assert!(dailytest["outputShape"]["orderedKeys"].is_array());
+    assert!(
+        dailytest["errorCodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c == "paper_scope_unresolved")
+    );
 }
