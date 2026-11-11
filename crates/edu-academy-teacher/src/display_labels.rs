@@ -301,3 +301,299 @@ pub fn omitted_reminders(student: &str) -> String {
 
 pub const VALUE_BAR: &str = "｜";
 pub const VALUE_BREAK: &str = " / ";
+
+// Unit status words and complete sentence templates (slice 2).
+pub const UNIT_TOPICS: [&str; 5] = ["전체", "DailyTest", "클리닉", "섹션", "예습"];
+pub const UNIT_ACTIVITIES: [&str; 4] = ["필수예제", "유형다지기", "실력쌓기", "대단원총괄"];
+pub const UNIT_LEVELS: [&str; 2] = ["기본", "발전"];
+pub const UNIT_TOPIC_ASK: &str = "조회할 항목을 정하지 못했습니다.\n어느 항목을 볼까요?";
+pub const UNIT_TOPIC_MEANING: &str = "이 항목의 현황을 봅니다.";
+pub const UNIT_ASK: &str = "조회할 소단원 범위를 정하지 못했습니다.\n어느 소단원을 볼까요?";
+pub const UNIT_MEANING: &str = "이 소단원의 현황을 봅니다.";
+pub const UNIT_TREE_STOP: &str = "교재 판본 전체 목차를 확인하지 못했습니다. 교사에게 해당 판본의 전체 목차 등록을 요청해 주세요.";
+pub const UNIT_SCOPE_STOP: &str =
+    "조회할 소단원 후보가 없습니다. 교사에게 해당 판본의 소단원 등록을 요청해 주세요.";
+pub const UNIT_BOOK_STOP: &str =
+    "요청한 교재가 학생에게 등록되어 있지 않습니다. 등록된 교재의 판본 이름을 확인해 주세요.";
+pub const UNIT_BOOK_MEANING: &str = "이 교재의 클리닉 현황을 봅니다.";
+pub const UNIT_BOOK_OTHER_MEANING: &str = "이 교재의 현황을 봅니다.";
+pub const UNIT_DATE_UNKNOWN: &str = "미확인(날짜 미확인)";
+pub const UNIT_LEVEL_UNKNOWN: &str = "미확인(수준 표기 없음)";
+pub const UNIT_RECORDED_UNKNOWN: &str = "기록 날짜 미확인";
+pub const UNIT_CONFIRMED: &str = "완료 판정";
+pub const UNIT_TEACHER_ONLY: &str = "미확인(교사만 확인 가능)";
+pub const UNIT_NOT_EXPECTED: &str = "미확인(아직 확인할 단계 아님)";
+pub const UNIT_DASH: &str = "—";
+pub const UNIT_DASH_LEGEND: &str = "—: 미확인(읽은 섹션 결과에 없음)";
+pub const UNIT_CLINIC_TITLE: &str = "오답클리닉 대상 섹션";
+pub const UNIT_DAILY_TITLE: &str = "일일시험 현황";
+pub const UNIT_DAILY_GRID: &str = "소단원 | 일일시험 원천";
+pub const UNIT_CLINIC_GRID: &str = "소단원 | 필수예제 | 유형다지기 | 실력쌓기";
+pub const UNIT_SECTION_TITLE: &str = "섹션 결과";
+pub const UNIT_TREE_FACT: &str = "판본 전체 목차";
+pub const UNIT_SECTION_SCOPE: &str = "오답노트와 시험지 검색 각 첫 관측 페이지·관측 섹션 성적";
+pub const UNIT_TRUNCATION: &str = "표시 한도로 생략한 첫 소단원";
+pub const UNIT_SOURCE_UNKNOWN: &str = "읽지 못한 원천 또는 범위";
+pub const UNIT_SAME_ATTEMPT: &str = "같은 시험 시도인지: 미확인";
+pub const UNIT_STAGE_NAMES: [&str; 6] = [
+    "오답클리닉 풀이",
+    "오답클리닉 채점",
+    "유사클리닉",
+    "발전클리닉",
+    "CISM 지원",
+    "인쇄·배부",
+];
+pub fn unit_book_ask(who: &str, count: usize) -> String {
+    let count = if count == 2 {
+        "두 권".to_string()
+    } else {
+        format!("{count}권")
+    };
+    format!("{who}에게 등록된 교재가 {count}입니다.\n어느 교재의 클리닉을 볼까요?")
+}
+pub fn unit_book_other_ask(who: &str) -> String {
+    format!("{who}의 조회 교재를 정하지 못했습니다.\n어느 교재를 볼까요?")
+}
+pub fn unit_source(score: Option<f64>) -> String {
+    score.map_or_else(
+        || UNAVAILABLE.to_string(),
+        |s| format!("{SERVER}: 원천 점수 {s}"),
+    )
+}
+pub fn unit_judgment(j: &crate::unit_data::TeacherJudgment) -> String {
+    use crate::unit_data::UnitVerdict;
+    let at = j
+        .recorded_at
+        .as_deref()
+        .map(unit_date_literal)
+        .unwrap_or_else(|| UNIT_RECORDED_UNKNOWN.into());
+    match j.verdict {
+        UnitVerdict::Confirmed => format!("{UNIT_CONFIRMED}({at})"),
+        UnitVerdict::Deferred => format!("미확인(판정 보류·{at})"),
+        _ => UNJUDGED.into(),
+    }
+}
+pub fn unit_daily_range(from: &str, to: &str, selector: &str, page: &str) -> String {
+    format!(
+        "일일시험({}부터 {}까지의 {selector} {page}·전체 이력 아님)",
+        date(from),
+        date(to)
+    )
+}
+pub fn unit_fact_judgment(
+    unit: &str,
+    level: Option<&str>,
+    j: &crate::unit_data::TeacherJudgment,
+) -> String {
+    let scope = format!(
+        "{unit}{}",
+        level.map(|v| format!(" {v}")).unwrap_or_default()
+    );
+    match j.verdict {
+        crate::unit_data::UnitVerdict::Confirmed => format!(
+            "{scope} 완료 판정: {}",
+            j.recorded_at
+                .as_deref()
+                .map(unit_date_literal)
+                .unwrap_or_else(|| UNIT_RECORDED_UNKNOWN.into())
+        ),
+        crate::unit_data::UnitVerdict::Deferred => format!("{scope} 보류 판정"),
+        _ => format!("{scope} 판정 미기록"),
+    }
+}
+pub fn unit_expected(unit: &str, level: &str) -> String {
+    format!("{unit} {level} 당일 확인 대상")
+}
+pub fn unit_exclusion(unit: &str, activity: &str) -> String {
+    format!("{unit} {activity} 제외")
+}
+pub fn unit_source_line(scope: &str, value: &str) -> String {
+    format!("{scope} 원천: {value}")
+}
+pub fn unit_date_line(scope: &str, at: Option<&str>) -> String {
+    format!(
+        "{scope} 시험 날짜: {}",
+        at.map(unit_date_literal)
+            .unwrap_or_else(|| UNIT_DATE_UNKNOWN.into())
+    )
+}
+pub fn unit_level_line(scope: &str, level: Option<&str>) -> String {
+    format!("{scope} 시험 수준: {}", level.unwrap_or(UNIT_LEVEL_UNKNOWN))
+}
+pub fn unit_judgment_line(scope: &str, value: &str) -> String {
+    format!("{scope} 교사 판정: {value}")
+}
+pub fn unit_section_identity(chapter: &str, middle: Option<&str>, minor: &str) -> String {
+    format!(
+        "대단원 {chapter}{} 소단원 {minor}",
+        middle.map(|v| format!(" 중단원 {v}")).unwrap_or_default()
+    )
+}
+pub fn unit_section_details(
+    title: &str,
+    correct: usize,
+    total: usize,
+    score: f64,
+    source_date: &str,
+) -> Vec<String> {
+    vec![
+        format!("원문 섹션 제목: {title}"),
+        format!("정답 수/전체 문항 수: {correct}/{total}문항"),
+        format!("원천 점수: {score}"),
+        format!("원천 날짜: {source_date}"),
+    ]
+}
+pub fn unit_item(ordinal: &str, scoring: &str, label: &str) -> String {
+    format!("원문 문항 순번 {ordinal}: {scoring} · 문항 번호 {label}")
+}
+pub fn unit_source_date(literal: Option<&str>, precision: &str) -> String {
+    match literal {
+        Some(v) if precision == "month_day" => format!("{v}(월·일 표기·채점 시각 미확인)"),
+        Some(v) => format!("{v}(채점 시각 미확인)"),
+        None => UNIT_DATE_UNKNOWN.into(),
+    }
+}
+pub fn unit_absent(code: &str, value: &str) -> String {
+    format!("{code} 섹션: {value}")
+}
+pub fn unit_clinic_basis(code: &str, activity: &str, labels: &str) -> String {
+    format!("{code} {activity} 대상 근거: 원문 오답 문항 번호 {labels}")
+}
+pub fn unit_clinic_excluded(code: &str, activity: &str) -> String {
+    format!("{code} {activity}: 교사가 제외한 섹션")
+}
+pub fn unit_clinic_judgment(code: &str, value: &str) -> String {
+    format!("{code} 오답클리닉 교사 판정: {value}")
+}
+pub fn unit_next_daily_range(from: &str, to: &str) -> String {
+    format!("{from}부터 {to}까지의 시험 기록 확인.")
+}
+pub fn unit_next_daily(scope: &str, found: bool) -> String {
+    if found {
+        format!("{scope}의 새 원천 점수에 대한 교사 판정 확인.")
+    } else {
+        format!("{scope} 시험 기록의 다음 조회 결과 확인.")
+    }
+}
+pub fn unit_next_clinic(scopes: &str) -> String {
+    format!("{scopes}의 오답클리닉 교사 판정 확인.")
+}
+pub fn unit_next_clinic_judgments(scopes: &str) -> String {
+    format!("{scopes} 오답클리닉의 교사 판정 확인.")
+}
+pub fn unit_next_section(code: &str, activity: Option<&str>, absent: bool) -> String {
+    if absent {
+        format!("{code} 섹션 제목과 결과의 교사 확인.")
+    } else {
+        format!(
+            "{code}{} 원문 오답 문항의 교사 확인.",
+            activity.map(|v| format!(" {v}")).unwrap_or_default()
+        )
+    }
+}
+pub fn unit_next_generic() -> String {
+    "조회 범위의 원천 기록과 교사 판정 확인.".into()
+}
+pub fn unit_next_line(next: &str) -> String {
+    format!("다음 확인: {next}")
+}
+pub fn unit_footer(at: &str, source: &str, who: &str, facts: &str) -> String {
+    format!("읽은 원천 ({at}): {source},\n학생·교재 등록({who}), 교사 사실({facts}).")
+}
+pub fn unit_section_source(who: &str, book: &str, scope: &str, titles: bool) -> String {
+    format!(
+        "{}({who}·{book}·{scope})",
+        if titles { "섹션 제목" } else { "섹션" }
+    )
+}
+pub fn unit_section_absent_scope(code: &str) -> String {
+    format!("오답노트와 시험지 검색 각 첫 관측 페이지·{code} 제목 미관측")
+}
+pub fn unit_section_small_scope(code: &str, activity: Option<&str>) -> String {
+    match activity {
+        Some(a) => format!("{code} {a} 관측 성적·원문 순번과 문항 번호"),
+        None => format!("{code}의 관측 섹션 성적·원문 순번과 문항 번호"),
+    }
+}
+pub fn unit_cached_tree(at: &str) -> String {
+    format!("판본 전체 목차: 원래 읽은 시각 {at}")
+}
+pub fn unit_clinic_missing_facts(codes: &str) -> String {
+    format!("{codes} 판정 미기록")
+}
+pub fn unit_unknown_line(reason: &str) -> String {
+    format!("{UNIT_SOURCE_UNKNOWN}: {reason}.")
+}
+pub fn unit_truncation(code: &str) -> String {
+    format!("{UNIT_TRUNCATION}: {code}.")
+}
+pub fn unit_daily_heading(who: &str, book: &str, leaf: Option<&str>) -> String {
+    format!(
+        "{who} {book} {}{UNIT_DAILY_TITLE}",
+        leaf.map(|s| format!("{s} "))
+            .unwrap_or_else(|| "소단원별 ".into())
+    )
+}
+pub fn unit_unknown_reason(code: &str) -> &'static str {
+    match code {
+        "daily_header_unavailable" | "daily_mapping_unavailable" => {
+            "일일시험 제목·판본 연결 미확인"
+        }
+        "daily_unavailable" => "일일시험을 읽지 못함",
+        "daily_partial_page" => "일일시험의 일부 관측 페이지를 읽지 못함",
+        "section_grade_unavailable" => "섹션 성적을 읽지 못함",
+        "section_unavailable" => "섹션을 읽지 못함",
+        _ => "시험지 검색을 읽지 못했거나 제목 연결을 확인하지 못함",
+    }
+}
+
+pub const UNIT_SOURCE_NOT_OBSERVED: &str = "미확인(읽은 원천에 없음)";
+
+pub fn unit_stage_name(stage: &str) -> &str {
+    match stage {
+        "dailytest" => "일일시험",
+        "chapter_print" => "서버 대단원 인쇄",
+        "prestudy" => "예습",
+        "original_clinic_solving" => "오답클리닉 풀이",
+        "original_clinic_grading" => "오답클리닉 채점",
+        "similar_clinic" => "유사클리닉",
+        "advanced_clinic" => "발전클리닉",
+        "cism_support" => "CISM 지원",
+        "printed" => "인쇄",
+        "handout" => "배부",
+        _ => stage,
+    }
+}
+
+pub fn unit_source_name(name: &str) -> &str {
+    match name {
+        "dailytest" => "일일시험",
+        "dailytest_relative_page" => "일일시험 상대기간 관측 페이지",
+        "dailytest_header" => "일일시험 제목",
+        "section_index" => "섹션 제목",
+        "section_grades" => "섹션 성적",
+        "prestudy" => "예습 목록",
+        _ => name,
+    }
+}
+pub fn unit_source_observation(name: &str, at: &str, scope: &str) -> String {
+    format!("{name}({at}·{scope})")
+}
+
+/// Only recognized ISO dates are formatted; other native literals remain whole.
+pub fn unit_date_literal(value: &str) -> String {
+    if let Ok(at) = chrono::DateTime::parse_from_rfc3339(value) {
+        return date(&at.date_naive().format("%Y-%m-%d").to_string());
+    }
+    if chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok() {
+        date(value)
+    } else {
+        value.to_string()
+    }
+}
+
+pub const UNIT_RELATIVE_PAGE: &str = "상대기간 첫 관측 페이지·기간 범위 미확인";
+
+pub const UNIT_WRONG_NOTE_PAGE: &str = "오답노트 첫 관측 페이지";
+
+pub const UNIT_NEXT_SUPPLEMENTARY: &str = "교재 자체 평가와 교사 판정 확인.";

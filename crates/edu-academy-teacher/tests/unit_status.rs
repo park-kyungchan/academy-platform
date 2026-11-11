@@ -1,0 +1,679 @@
+use edu_academy_teacher::{
+    backend::SourceBackend,
+    facts::SeededFacts,
+    synthetic::{
+        Scenario, SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPort, TEACHER_ID,
+        load_scenario,
+    },
+    unit::status,
+    unit_data::UnitStatusRequest,
+    unit_fixture::{ReadClock, SharedFrameClock, SyntheticDailyTestPort},
+    unit_sources::DailyTestReader,
+};
+use serde_json::json;
+type Backend = SourceBackend<SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPort>;
+fn scenario() -> Scenario {
+    load_scenario(include_str!("fixtures/scenario-v3.json")).unwrap()
+}
+fn setup(
+    s: Scenario,
+) -> (
+    Backend,
+    SeededFacts,
+    DailyTestReader<SyntheticDailyTestPort>,
+    ReadClock,
+) {
+    let facts = SeededFacts::from_scenario(&s);
+    let clock = SharedFrameClock::new(s.dailytest_frames.clone());
+    let reader = DailyTestReader::new(
+        SyntheticDailyTestPort::new(s.clone(), clock.clone()),
+        clock,
+        TEACHER_ID,
+    );
+    let read = ReadClock {
+        read_at: s.unit_read_at.clone().unwrap(),
+    };
+    (Backend::synthetic(s, &read.read_at), facts, reader, read)
+}
+fn req(value: serde_json::Value) -> UnitStatusRequest {
+    serde_json::from_value(value).unwrap()
+}
+fn assert_display(value: serde_json::Value, target: &str) {
+    let (mut b, f, mut d, c) = setup(scenario());
+    let out = status(&mut b, &mut d, &f, &req(value), &c);
+    assert!(out.stop.is_none(), "{:?}", out.stop);
+    assert_eq!(out.display, target);
+}
+#[test]
+fn q11_enumerates_complete_tree_and_scoped_scores() {
+    assert_display(
+        json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"DailyTest"}),
+        include_str!("fixtures/display-q11.txt"),
+    );
+}
+#[test]
+fn q12_two_teacher_turns_latch_distinct_frames() {
+    let (mut b, f, mut d, c) = setup(scenario());
+    let request = req(json!({"student":"가상학생B","unit":"4-4","topic":"DailyTest"}));
+    let old = b.read_at().to_string();
+    let first = status(&mut b, &mut d, &f, &request, &c);
+    assert_eq!(
+        first.display,
+        include_str!("fixtures/display-q12-first.txt")
+    );
+    let second = status(&mut b, &mut d, &f, &request, &c);
+    assert_eq!(
+        second.display,
+        include_str!("fixtures/display-q12-later.txt")
+    );
+    assert_eq!(b.read_at(), old);
+    assert_eq!(d.clock.reads("1002"), 2);
+}
+#[test]
+fn q13_clinic_exclusion_and_independent_stages() {
+    assert_display(
+        json!({"student":"가상학생A","topic":"클리닉"}),
+        include_str!("fixtures/display-q13.txt"),
+    );
+}
+#[test]
+fn q14_book_ask_labels_round_trip() {
+    let (mut b, f, mut d, c) = setup(scenario());
+    let mut request = req(json!({"student":"가상학생B","topic":"클리닉"}));
+    let ask = status(&mut b, &mut d, &f, &request, &c);
+    assert_eq!(ask.display, include_str!("fixtures/display-q14-ask.txt"));
+    assert_eq!(d.clock.reads("1002"), 0);
+    request.book = Some("가우스 5-1-1".into());
+    let out = status(&mut b, &mut d, &f, &request, &c);
+    assert_eq!(out.display, include_str!("fixtures/display-q14-result.txt"));
+}
+#[test]
+fn q15_filtered_source_items_and_native_score() {
+    assert_display(
+        json!({"student":"가상학생A","unit":"1-2 필수예제","topic":"섹션"}),
+        include_str!("fixtures/display-q15.txt"),
+    );
+}
+#[test]
+fn q15_bare_unit_retains_all_observed_sections() {
+    assert_display(
+        json!({"student":"가상학생A","unit":"1-2","topic":"섹션"}),
+        include_str!("fixtures/display-q15-bare.txt"),
+    );
+}
+#[test]
+fn q16_both_sources_absent_is_qualified() {
+    assert_display(
+        json!({"student":"가상학생A","unit":"2-3","topic":"섹션"}),
+        include_str!("fixtures/display-q16.txt"),
+    );
+}
+
+fn run(s: Scenario, value: serde_json::Value) -> edu_academy_teacher::envelope::Envelope {
+    let (mut b, f, mut d, c) = setup(s);
+    status(&mut b, &mut d, &f, &req(value), &c)
+}
+#[test]
+fn exact_selection_replays_both_models() {
+    let common = [
+        json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"DailyTest"}),
+        json!({"student":"가상학생B","unit":"4-4","topic":"DailyTest"}),
+        json!({"student":"가상학생A","topic":"클리닉"}),
+        json!({"student":"가상학생B","topic":"클리닉"}),
+        json!({"student":"가상학생A","unit":"2-3","topic":"섹션"}),
+    ];
+    for _model in ["haiku", "ember"] {
+        for value in common.clone() {
+            let out = run(scenario(), value);
+            assert!(out.stop.is_none());
+        }
+    }
+    let filtered = run(
+        scenario(),
+        json!({"student":"가상학생A","unit":"1-2 필수예제","topic":"섹션"}),
+    );
+    let bare = run(
+        scenario(),
+        json!({"student":"가상학생A","unit":"1-2","topic":"섹션"}),
+    );
+    assert_eq!(
+        filtered.data["sections"]["records"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        bare.data["sections"]["records"].as_array().unwrap().len(),
+        2
+    );
+    assert_ne!(bare.display, filtered.display); // M17: scope_as_asked differs; both truthful outputs pass.
+}
+#[test]
+fn native_score_ordinal_date_and_value_encoding_are_lossless() {
+    let mut s = scenario();
+    let a = &mut s.sections.attempts[0];
+    a.source_score = 17.5;
+    a.source_date = None;
+    a.items[0].ordinal = "17".into();
+    a.items[0].label = Some("1002".into());
+    let out = run(
+        s,
+        json!({"student":"가상학생A","unit":"1-2 필수예제","topic":"섹션"}),
+    );
+    assert!(out.display.contains("원천 점수: 17.5"));
+    assert!(out.display.contains("원문 문항 순번 17: X"));
+    assert_eq!(
+        out.data["sections"]["records"][0]["source_date"],
+        json!(null)
+    );
+    let mut s = scenario();
+    s.edition_trees[0].chapters[0].minors[0].title = "가상|주제\nA".into();
+    let out = run(
+        s,
+        json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"DailyTest"}),
+    );
+    assert!(
+        out.display
+            .contains(&edu_academy_teacher::render::cell("가상|주제\nA"))
+    );
+    assert_eq!(out.data["minors"][0]["minor"]["title"], "가상|주제\nA");
+}
+#[test]
+fn tree_range_middle_unit_comprehensive_and_limits() {
+    let value = json!({"student":"가상학생B","book":"가우스 5-1-1","unit_from":"4-1","unit_to":"대단원 4 대단원총괄","topic":"클리닉"});
+    let out = run(scenario(), value);
+    assert!(out.stop.is_none());
+    assert_eq!(out.data["minors"].as_array().unwrap().len(), 5);
+    let reversed = run(
+        scenario(),
+        json!({"student":"가상학생A","unit_from":"2-3","unit_to":"1-1","topic":"섹션"}),
+    );
+    assert_eq!(
+        reversed.ask.unwrap().field,
+        edu_academy_teacher::envelope::AskField::Unit
+    );
+    let mut s = scenario();
+    let minor = &mut s.edition_trees[0].chapters[0].minors[1];
+    minor.code = "1-2-3".into();
+    let moved = s.edition_trees[0].chapters[0].minors.remove(1);
+    s.edition_trees[0].chapters[0]
+        .middles
+        .push(edu_academy_teacher::unit_data::Middle {
+            code: "1-2".into(),
+            title: "가상중단원".into(),
+            minors: vec![moved],
+        });
+    for a in &mut s.sections.attempts {
+        if a.student_key == "1001" {
+            a.title = a.title.replace(" 1-2 ", " 1-2-3 ");
+        }
+    }
+    let out = run(
+        s,
+        json!({"student":"가상학생A","unit":"1-2-3 필수예제","topic":"섹션"}),
+    );
+    assert!(out.display.contains("중단원 1-2 가상중단원 소단원 1-2-3"));
+    for width in [1, 80] {
+        let mut s = scenario();
+        let template = s.edition_trees[0].chapters[0].minors[0].clone();
+        s.edition_trees[0].chapters.truncate(1);
+        s.edition_trees[0].chapters[0].minors = (1..=90)
+            .map(|i| {
+                let mut m = template.clone();
+                m.code = format!("1-{i}");
+                m.title = "가".repeat(width);
+                m
+            })
+            .collect();
+        let out = run(
+            s,
+            json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"DailyTest"}),
+        );
+        assert!(out.stop.is_none(), "{:?}", out.stop);
+        assert!(out.display.len() <= 6000);
+        assert!(out.data["minors"].as_array().unwrap().len() <= 60);
+        let omitted = out.data["first_omitted"].as_str().unwrap();
+        assert!(out.display.contains(omitted));
+        assert!(out.coverage.unknowns.iter().any(|u| u.contains(omitted)));
+    }
+}
+#[test]
+fn seeded_judgments_never_write_or_replace_native_score() {
+    let mut s = scenario();
+    s.teacher_judgments[0].snapshot = Some("old-attempt".into());
+    let before = serde_json::to_value(&s.teacher_judgments).unwrap();
+    let (mut b, f, mut d, c) = setup(s.clone());
+    let r = req(json!({"student":"가상학생A","unit":"1-1","topic":"DailyTest"}));
+    for _ in 0..2 {
+        let out = status(&mut b, &mut d, &f, &r, &c);
+        assert!(out.display.contains("원천 점수 90"));
+        assert!(out.display.contains("미확인(판단 필요)"));
+        assert!(out.display.contains("완료 판정"));
+        assert!(out.ask.is_none());
+    }
+    use edu_academy_teacher::facts::TeacherFacts;
+    assert_eq!(
+        before,
+        serde_json::to_value(
+            f.unit_judgments("1001")
+                .into_iter()
+                .chain(f.unit_judgments("1002"))
+                .collect::<Vec<_>>()
+        )
+        .unwrap()
+    );
+    let out = run(
+        s,
+        json!({"student":"가상학생A","unit":"1-1","topic":"DailyTest"}),
+    );
+    assert_eq!(
+        out.data["daily"]["attempts"][0]["score"].as_f64(),
+        Some(90.0)
+    );
+}
+#[test]
+fn unit_asks_round_trip_and_stops_are_actionable() {
+    use edu_academy_teacher::envelope::{AskField, StopCode};
+    let out = run(
+        scenario(),
+        json!({"student":"가상학생없음","topic":"DailyTest"}),
+    );
+    assert_eq!(out.stop.unwrap().code, StopCode::StudentNotFound);
+    let out = run(
+        scenario(),
+        json!({"student":"가상학생A","book":"미등록 판본","topic":"DailyTest"}),
+    );
+    assert_eq!(out.stop.unwrap().code, StopCode::BookNotFound);
+    let mut s = scenario();
+    s.edition_trees.clear();
+    let out = run(s, json!({"student":"가상학생A","topic":"DailyTest"}));
+    assert_eq!(out.stop.unwrap().code, StopCode::EditionTreeUnavailable);
+    assert_eq!(out.display.matches('.').count(), 2);
+    let mut s = scenario();
+    s.edition_trees[0].chapters.clear();
+    let out = run(s, json!({"student":"가상학생A","topic":"DailyTest"}));
+    assert_eq!(out.stop.unwrap().code, StopCode::UnitScopeUnavailable);
+    let out = run(
+        scenario(),
+        json!({"student":"가상학생A","unit":"invalid","topic":"섹션"}),
+    );
+    let ask = out.ask.unwrap();
+    assert_eq!(ask.field, AskField::Unit);
+    for option in ask.options {
+        let answer = run(
+            scenario(),
+            json!({"student":"가상학생A","unit":option.value,"topic":"섹션"}),
+        );
+        assert!(answer.ask.is_none());
+    }
+    let out = run(
+        scenario(),
+        json!({"student":"가상학생A","unit":"1-2","topic":"invalid"}),
+    );
+    assert_eq!(out.ask.unwrap().field, AskField::Topic);
+    for value in [
+        json!({"student":"가상학생A","extra":1}),
+        json!({"student":2}),
+        json!({"student":"가상학생A","unit":null}),
+    ] {
+        assert!(serde_json::from_value::<UnitStatusRequest>(value).is_err());
+    }
+}
+#[test]
+fn same_name_and_empty_class_do_not_join_by_name_or_scan_class() {
+    let mut s = scenario();
+    s.students[2].name = s.students[0].name.clone();
+    s.classes[0].roster.clear();
+    let out = run(
+        s.clone(),
+        json!({"student":"가상학생A","topic":"DailyTest"}),
+    );
+    let ask = out.ask.unwrap();
+    assert_eq!(ask.options.len(), 2);
+    for option in ask.options {
+        let out = run(
+            s.clone(),
+            json!({"student":option.value,"book":if option.label_ko.contains("5-1-1"){"가우스 5-1-1"}else{"가우스 5-1-2"},"topic":"DailyTest"}),
+        );
+        assert!(out.ask.is_none());
+        assert!(out.stop.is_none());
+        let key = out.data["student_key"].as_str().unwrap();
+        assert!(
+            out.data["daily"]["attempts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|a| a["score"].as_f64() == Some(if key == "1001" { 90.0 } else { 70.0 }))
+        );
+    }
+}
+#[test]
+fn book_suffix_normalization_default_topics_and_unknown_rows() {
+    let out = run(
+        scenario(),
+        json!({"student":"가상학생A","book":"가우스 5-1-2 1-2 필수예제","topic":"섹션"}),
+    );
+    assert_eq!(out.display, include_str!("fixtures/display-q15.txt"));
+    let out = run(scenario(), json!({"student":"가상학생A","unit":"1-2"}));
+    assert_eq!(out.data["topic"], "전체");
+    assert!(out.data["daily"].is_object());
+    assert!(out.data["sections"].is_object());
+    assert!(out.data["clinic"].as_array().unwrap().len() > 1);
+    assert!(!out.data["prestudy"].as_array().unwrap().is_empty());
+    let out = run(
+        scenario(),
+        json!({"student":"가상학생A","unit":"1-2 필수예제"}),
+    );
+    assert_eq!(out.data["topic"], "섹션");
+    let out = run(
+        scenario(),
+        json!({"student":"가상학생A","unit":"1-2 DailyTest 클리닉"}),
+    );
+    assert_eq!(
+        out.ask.unwrap().field,
+        edu_academy_teacher::envelope::AskField::Topic
+    );
+    let mut s = scenario();
+    s.dailytest_frames[0].attempts.clear();
+    s.dailytest_frames[0].headers.clear();
+    let out = run(
+        s,
+        json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"DailyTest"}),
+    );
+    assert!(out.stop.is_none());
+    assert!(out.data["daily"]["attempts"].as_array().unwrap().is_empty());
+    assert!(out.display.contains("미확인(읽은 기간에 없음)"));
+}
+#[test]
+fn cached_tree_keeps_original_read_time() {
+    let mut s = scenario();
+    s.edition_trees[0].read_at = "2026-11-10T08:00:00+09:00".into();
+    let out = run(
+        s,
+        json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"DailyTest"}),
+    );
+    assert_eq!(
+        out.coverage
+            .sources
+            .iter()
+            .find(|s| s.name == "edition_tree")
+            .unwrap()
+            .read_at,
+        "2026-11-10T08:00:00+09:00"
+    );
+    assert!(
+        out.display
+            .contains("원래 읽은 시각 2026-11-10T08:00:00+09:00")
+    );
+}
+#[test]
+fn clinic_stage_applicability_matrix() {
+    use edu_academy_teacher::{unit::dependent_stage, unit_data::UnitVerdict};
+    assert_eq!(
+        dependent_stage(Some(false), true),
+        UnitVerdict::NotYetExpected
+    );
+    assert_eq!(
+        dependent_stage(None, true),
+        UnitVerdict::TeacherReportedNoServer
+    );
+    assert_eq!(dependent_stage(None, false), UnitVerdict::Unknown);
+    let mut s = scenario();
+    s.edition_trees[0].family = "supplementary".into();
+    let out = run(s, json!({"student":"가상학생A","book":"가우스 5-1-2"}));
+    assert!(
+        out.data["stages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|s| ["dailytest", "chapter_print", "prestudy"]
+                .contains(&s["stage"].as_str().unwrap()))
+            .all(|s| s["verdict"] == "not_applicable")
+    );
+    assert!(out.coverage.sources.iter().all(|s| s.name != "dailytest"));
+    let mut s = scenario();
+    for i in &mut s.sections.attempts[0].items {
+        i.scoring = "O".into();
+    }
+    let out = run(s, json!({"student":"가상학생A","topic":"클리닉"}));
+    assert!(
+        out.data["clinic"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["unit"] == "1-2"
+                && c["activity"] == "필수예제"
+                && c["verdict"] == "not_eligible")
+    );
+}
+
+#[test]
+fn unfinished_prerequisite_and_teacher_stages_remain_independent() {
+    let mut s = scenario();
+    let base = s.teacher_fact_reports[0].clone();
+    let mut f = base.clone();
+    f.kind = "original_work".into();
+    f.student_key = Some("1001".into());
+    f.unit = "1-2".into();
+    f.completed = Some(false);
+    s.teacher_fact_reports.push(f);
+    let out = run(
+        s.clone(),
+        json!({"student":"가상학생A","unit":"1-2","topic":"클리닉"}),
+    );
+    assert!(out.display.contains("미확인(아직 확인할 단계 아님)"));
+    assert!(
+        out.data["stages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|s| s["verdict"] == "not_yet_expected")
+    );
+    let mut f = base;
+    f.kind = "clinic_stage".into();
+    f.student_key = Some("1001".into());
+    f.unit = "1-2".into();
+    f.stage = "original_clinic_solving".into();
+    f.completed = Some(true);
+    s.teacher_fact_reports.push(f);
+    let out = run(
+        s,
+        json!({"student":"가상학생A","unit":"1-2","topic":"클리닉"}),
+    );
+    let stages = out.data["stages"].as_array().unwrap();
+    assert_eq!(
+        stages
+            .iter()
+            .find(|s| s["stage"] == "original_clinic_solving")
+            .unwrap()["verdict"],
+        "confirmed"
+    );
+    assert_eq!(
+        stages
+            .iter()
+            .find(|s| s["stage"] == "similar_clinic")
+            .unwrap()["verdict"],
+        "not_yet_expected"
+    );
+}
+#[test]
+fn clinic_empty_results_and_structural_values_remain_qualified() {
+    let mut s = scenario();
+    s.sections.attempts.clear();
+    s.sections.index_titles.clear();
+    s.sections.grades.clear();
+    s.excluded_sections.clear();
+    s.teacher_judgments.clear();
+    s.edition_trees[0].chapters[0].minors[1].title = "가상|주제\nB".into();
+    let out = run(s, json!({"student":"가상학생A","topic":"클리닉"}));
+    assert!(out.stop.is_none());
+    assert!(
+        out.data["clinic"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|c| c["verdict"] == "unknown")
+    );
+    assert!(
+        out.display
+            .contains(&edu_academy_teacher::render::cell("가상|주제\nB"))
+    );
+    assert!(!out.display.contains("대상 근거"));
+}
+
+#[test]
+fn scenario_v3_preserves_previous_roots_and_has_exact_target_bytes() {
+    let v2: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/scenario-v2.json")).unwrap();
+    let v3: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/scenario-v3.json")).unwrap();
+    for (key, value) in v2.as_object().unwrap() {
+        if key == "sections" {
+            for (k, v) in value.as_object().unwrap() {
+                assert_eq!(&v3[key][k], v);
+            }
+        } else {
+            assert_eq!(&v3[key], value);
+        }
+    }
+    for text in [
+        include_str!("fixtures/display-q11.txt"),
+        include_str!("fixtures/display-q12-first.txt"),
+        include_str!("fixtures/display-q12-later.txt"),
+        include_str!("fixtures/display-q13.txt"),
+        include_str!("fixtures/display-q14-ask.txt"),
+        include_str!("fixtures/display-q14-result.txt"),
+        include_str!("fixtures/display-q15.txt"),
+        include_str!("fixtures/display-q15-bare.txt"),
+        include_str!("fixtures/display-q16.txt"),
+    ] {
+        assert!(!text.ends_with('\n'));
+        assert!(text.len() <= 6000);
+    }
+}
+#[test]
+fn unequal_section_sets_use_one_tree_ordered_grid() {
+    let mut s = scenario();
+    let mut other = s.sections.attempts[0].clone();
+    other.paper_key = "8877".into();
+    other.attempt_key = "8878".into();
+    other.title = other.title.replace("1-2 가상주제B", "2-1 가상주제E");
+    s.sections.attempts.push(other);
+    s.edition_trees[0].chapters[1].minors[0]
+        .activities
+        .truncate(1);
+    let out = run(
+        s,
+        json!({"student":"가상학생A","unit_from":"1-2","unit_to":"2-1","topic":"섹션"}),
+    );
+    assert!(out.stop.is_none());
+    let rows = out
+        .display
+        .lines()
+        .filter(|line| line.contains(" | "))
+        .collect::<Vec<_>>();
+    assert!(rows.len() > 2);
+    let columns = rows[0].split(" | ").count();
+    assert!(rows.iter().all(|r| r.split(" | ").count() == columns));
+    let a = out.display.find("1-2 가상주제B |").unwrap();
+    let b = out.display.find("2-1 가상주제E |").unwrap();
+    assert!(a < b);
+}
+
+#[test]
+fn section_titles_and_teacher_judgment_values_are_encoded_without_changing_data() {
+    let mut s = scenario();
+    let original = s.sections.attempts[0]
+        .title
+        .replace("가상주제B", "가상|주제\nB");
+    s.sections.attempts[0].title = original.clone();
+    let out = run(
+        s,
+        json!({"student":"가상학생A","unit":"1-2 필수예제","topic":"섹션"}),
+    );
+    assert!(out.stop.is_none());
+    assert_eq!(out.data["sections"]["records"][0]["source_title"], original);
+    assert!(
+        out.display
+            .contains(&edu_academy_teacher::render::cell(&original))
+    );
+    assert_eq!(out.data["sections"]["records"][0]["course_key"], "101");
+    let mut s = scenario();
+    s.teacher_judgments[0].recorded_at = Some("가상|날짜\nA".into());
+    let out = run(
+        s,
+        json!({"student":"가상학생A","unit":"1-1","topic":"DailyTest"}),
+    );
+    assert!(
+        out.display
+            .contains(&edu_academy_teacher::render::cell("가상|날짜\nA"))
+    );
+    assert_eq!(out.data["judgments"][0]["recorded_at"], "가상|날짜\nA");
+}
+
+#[test]
+fn all_topics_keep_native_identifiers_in_metadata_and_supplementary_is_explicit() {
+    let out = run(scenario(), json!({"student":"가상학생A","unit":"1-1"}));
+    assert!(out.stop.is_none());
+    for internal in [
+        "9001",
+        "paper_search",
+        "paper_key",
+        "sourceScore",
+        "section_index",
+    ] {
+        assert!(
+            !out.display.contains(internal),
+            "{internal}: {}",
+            out.display
+        );
+    }
+    assert_eq!(out.data["daily"]["attempts"][0]["paper_key"], "9001");
+    let mut s = scenario();
+    s.edition_trees[0].family = "supplementary".into();
+    let out = run(
+        s,
+        json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"DailyTest"}),
+    );
+    assert!(out.stop.is_none());
+    assert!(out.display.contains("해당 없음"));
+    assert!(!out.display.contains("미확인(원천을 읽지 못함)"));
+    assert!(
+        out.coverage
+            .sources
+            .iter()
+            .all(|s| !s.name.starts_with("dailytest"))
+    );
+}
+
+#[test]
+fn all_topic_byte_limit_keeps_footer_and_names_omission() {
+    let mut s = scenario();
+    let template = s.edition_trees[0].chapters[0].minors[0].clone();
+    s.edition_trees[0].chapters.truncate(1);
+    s.edition_trees[0].chapters[0].minors = (1..=90)
+        .map(|i| {
+            let mut m = template.clone();
+            m.code = format!("1-{i}");
+            m
+        })
+        .collect();
+    let out = run(s, json!({"student":"가상학생A","book":"가우스 5-1-2"}));
+    assert!(out.stop.is_none(), "{:?}", out.stop);
+    assert!(out.display.len() <= 6000);
+    assert!(!out.data["minors"].as_array().unwrap().is_empty());
+    assert!(
+        out.display
+            .ends_with(edu_academy_teacher::display_labels::CLOSING)
+    );
+    assert!(out.data["first_omitted"].is_string());
+    assert!(
+        out.coverage
+            .sources
+            .iter()
+            .filter(|s| s.name == "prestudy")
+            .count()
+            == 60
+    );
+}

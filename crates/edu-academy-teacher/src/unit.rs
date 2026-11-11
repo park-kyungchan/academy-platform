@@ -1,0 +1,612 @@
+//! Resolve once, enumerate the reference tree, then read only the selected scope.
+use crate::{
+    backend::{BackendError, SourceBackend},
+    display_labels as l,
+    envelope::{Ask, AskField, AskOption, Coverage, Envelope, SourceRead, Stop, StopCode},
+    facts::TeacherFacts,
+    render::cell,
+    unit_data::*,
+    unit_fixture::ReadClock,
+    unit_sources::{self, DailyTestReader},
+};
+use edu_academy_sources::{
+    history::Port,
+    native::SourcePort,
+    prestudy::PrestudyPort,
+    textbook_index::{BookScope, TextbookSectionPort, TextbookStudent},
+};
+
+pub fn status<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
+    backend: &mut SourceBackend<D, P, T>,
+    daily: &mut DailyTestReader<H>,
+    facts: &dyn TeacherFacts,
+    request: &UnitStatusRequest,
+    clock: &ReadClock,
+) -> Envelope {
+    let lesson_at = backend.read_at().to_string();
+    backend.set_read_at(&clock.read_at);
+    let result = compute(backend, daily, facts, request, clock);
+    backend.set_read_at(&lesson_at);
+    match result {
+        Ok(result) => result,
+        Err(error) => error_envelope(error),
+    }
+}
+fn stop(code: StopCode, display: &str) -> BackendError {
+    BackendError::Stop(Stop::new(code, display))
+}
+fn ask(field: AskField, question: String, values: Vec<String>, meaning: &str) -> BackendError {
+    if values.is_empty() {
+        return stop(StopCode::UnitScopeUnavailable, l::UNIT_SCOPE_STOP);
+    }
+    BackendError::Ask(Ask {
+        field,
+        question_ko: question,
+        options: values
+            .into_iter()
+            .map(|v| AskOption {
+                value: v.clone(),
+                label_ko: cell(&v),
+                meaning_ko: meaning.into(),
+            })
+            .collect(),
+    })
+}
+fn error_envelope(error: BackendError) -> Envelope {
+    match error {
+        BackendError::Stop(stop) => Envelope::stop(
+            stop.message_ko.clone(),
+            serde_json::json!({}),
+            stop,
+            Coverage::default(),
+        ),
+        BackendError::Ask(ask) => Envelope::ask(
+            ask.question_ko.clone(),
+            serde_json::json!({}),
+            ask,
+            Coverage::default(),
+        )
+        .expect("nonempty options"),
+    }
+}
+fn unit_ask(leaves: &[Leaf]) -> BackendError {
+    ask(
+        AskField::Unit,
+        l::UNIT_ASK.into(),
+        leaves.iter().map(leaf_label).collect(),
+        l::UNIT_MEANING,
+    )
+}
+pub fn leaf_label(leaf: &Leaf) -> String {
+    format!("{} {}", leaf.minor.code, leaf.minor.title)
+}
+fn code_in<'a>(text: &str, leaves: &'a [Leaf]) -> Vec<&'a Leaf> {
+    leaves
+        .iter()
+        .filter(|leaf| {
+            text == leaf.minor.code
+                || text == leaf_label(leaf)
+                || text
+                    .split_whitespace()
+                    .any(|token| token == leaf.minor.code)
+        })
+        .collect()
+}
+fn infer_topic(request: &UnitStatusRequest) -> Result<String, BackendError> {
+    if let Some(topic) = &request.topic {
+        return if l::UNIT_TOPICS.contains(&topic.as_str()) {
+            Ok(topic.clone())
+        } else {
+            Err(ask(
+                AskField::Topic,
+                l::UNIT_TOPIC_ASK.into(),
+                l::UNIT_TOPICS.map(str::to_string).to_vec(),
+                l::UNIT_TOPIC_MEANING,
+            ))
+        };
+    }
+    let text = [
+        &request.book,
+        &request.unit,
+        &request.unit_from,
+        &request.unit_to,
+    ]
+    .into_iter()
+    .flatten()
+    .cloned()
+    .collect::<Vec<_>>()
+    .join(" ");
+    let mut signals = Vec::new();
+    for topic in &l::UNIT_TOPICS[1..] {
+        if text.contains(topic) {
+            signals.push(*topic);
+        }
+    }
+    if l::UNIT_ACTIVITIES.iter().any(|a| text.contains(a)) && signals.is_empty() {
+        signals.push(l::UNIT_TOPICS[3]);
+    }
+    match signals.as_slice() {
+        [] => Ok(l::UNIT_TOPICS[0].into()),
+        [one] => Ok((*one).into()),
+        _ => Err(ask(
+            AskField::Topic,
+            l::UNIT_TOPIC_ASK.into(),
+            l::UNIT_TOPICS.map(str::to_string).to_vec(),
+            l::UNIT_TOPIC_MEANING,
+        )),
+    }
+}
+fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
+    backend: &mut SourceBackend<D, P, T>,
+    daily: &mut DailyTestReader<H>,
+    facts: &dyn TeacherFacts,
+    r: &UnitStatusRequest,
+    clock: &ReadClock,
+) -> Result<Envelope, BackendError> {
+    let student = backend.resolve_student(&r.student, None)?;
+    let topic = infer_topic(r)?;
+    let bindings = backend.bindings_for(&student)?;
+    if bindings.is_empty() {
+        return Err(stop(StopCode::BookNotFound, l::UNIT_BOOK_STOP));
+    }
+    let book_text = r.book.as_deref().unwrap_or("");
+    let explicit: Vec<_> = bindings
+        .iter()
+        .filter(|b| {
+            book_text == b.book_label
+                || book_text
+                    .strip_prefix(&b.book_label)
+                    .is_some_and(|tail| tail.starts_with(char::is_whitespace))
+        })
+        .collect();
+    if !book_text.is_empty() && explicit.len() != 1 {
+        return Err(stop(StopCode::BookNotFound, l::UNIT_BOOK_STOP));
+    }
+    let mut text = [
+        r.unit.as_deref(),
+        r.unit_from.as_deref(),
+        r.unit_to.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" ");
+    if let [binding] = explicit.as_slice() {
+        text = format!(
+            "{} {text}",
+            book_text.strip_prefix(&binding.book_label).unwrap_or("")
+        );
+    }
+    let compatible: Vec<_> = bindings
+        .iter()
+        .filter(|b| {
+            facts
+                .edition_tree(&b.book_label)
+                .is_some_and(|t| !code_in(&text, &t.leaves()).is_empty())
+        })
+        .collect();
+    let binding = if let [one] = explicit.as_slice() {
+        *one
+    } else if let [one] = compatible.as_slice() {
+        *one
+    } else if let [one] = bindings.as_slice() {
+        one
+    } else {
+        // A clinic with two bindings always asks, even if homework names one.
+        let context = if topic != l::UNIT_TOPICS[2] {
+            facts
+                .reports()
+                .into_iter()
+                .filter(|f| {
+                    f.student_key.as_deref() == Some(&student.key)
+                        && bindings.iter().any(|b| b.book_label == f.book)
+                        && (text.trim().is_empty()
+                            || facts
+                                .edition_tree(&f.book)
+                                .is_some_and(|t| !code_in(&text, &t.leaves()).is_empty()))
+                })
+                .max_by(|a, b| a.assigned_on.cmp(&b.assigned_on))
+                .map(|f| f.book)
+        } else {
+            None
+        };
+        if let Some(context) = context {
+            bindings
+                .iter()
+                .find(|b| b.book_label == context)
+                .expect("bound fact")
+        } else {
+            return Err(ask(
+                AskField::Book,
+                if topic == l::UNIT_TOPICS[2] {
+                    l::unit_book_ask(&cell(&student.name), bindings.len())
+                } else {
+                    l::unit_book_other_ask(&cell(&student.name))
+                },
+                bindings.iter().map(|b| b.book_label.clone()).collect(),
+                if topic == l::UNIT_TOPICS[2] {
+                    l::UNIT_BOOK_MEANING
+                } else {
+                    l::UNIT_BOOK_OTHER_MEANING
+                },
+            ));
+        }
+    };
+    let tree = facts
+        .edition_tree(&binding.book_label)
+        .ok_or_else(|| stop(StopCode::EditionTreeUnavailable, l::UNIT_TREE_STOP))?;
+    let all = tree.leaves();
+    if all.is_empty() {
+        return Err(stop(StopCode::UnitScopeUnavailable, l::UNIT_SCOPE_STOP));
+    }
+    let mut activity_signals: Vec<_> = l::UNIT_ACTIVITIES
+        .iter()
+        .filter(|a| text.contains(**a))
+        .collect();
+    activity_signals.dedup();
+    // An explicit contradictory activity is an answerable unit ambiguity.
+    if activity_signals.len() > 1 {
+        return Err(unit_ask(&all));
+    }
+    let activity = activity_signals.first().map(|v| (**v).to_string());
+    let levels: Vec<_> = l::UNIT_LEVELS
+        .iter()
+        .filter(|level| text.contains(**level))
+        .collect();
+    let level = if let [level] = levels.as_slice() {
+        Some((**level).to_string())
+    } else {
+        None
+    };
+    let unit_text = r
+        .unit
+        .as_deref()
+        .or_else(|| (!book_text.is_empty()).then_some(text.trim()))
+        .filter(|s| !s.is_empty());
+    let mut minors = if r.unit_from.is_some() || r.unit_to.is_some() {
+        let from = r.unit_from.as_deref().and_then(|s| {
+            let found = code_in(s, &all);
+            if let [leaf] = found.as_slice() {
+                Some(leaf.minor.code.clone())
+            } else {
+                None
+            }
+        });
+        let to = r.unit_to.as_deref().and_then(|s| {
+            let found = code_in(s, &all);
+            if let [leaf] = found.as_slice() {
+                Some(leaf.minor.code.clone())
+            } else {
+                None
+            }
+        });
+        let (Some(from), Some(to)) = (from, to) else {
+            return Err(unit_ask(&all));
+        };
+        let start = all.iter().position(|l| l.minor.code == from).expect("leaf");
+        let end = all.iter().position(|l| l.minor.code == to).expect("leaf");
+        if start > end {
+            return Err(unit_ask(&all));
+        }
+        let range = all[start..=end].to_vec();
+        if r.unit.as_deref().is_some_and(|u| {
+            let codes = code_in(u, &all);
+            codes.len() != 1 || !range.contains(codes[0])
+        }) {
+            return Err(unit_ask(&all));
+        }
+        range
+    } else if let Some(unit) = unit_text {
+        let found = code_in(unit, &all);
+        if found.len() != 1 {
+            return Err(unit_ask(&all));
+        }
+        vec![found[0].clone()]
+    } else if !book_text.is_empty() || topic == l::UNIT_TOPICS[2] {
+        all.clone()
+    } else {
+        let reports = facts.reports();
+        let context = reports
+            .iter()
+            .filter(|f| {
+                f.student_key.as_deref() == Some(&student.key)
+                    && f.book == binding.book_label
+                    && f.kind == "assigned_stages"
+            })
+            .max_by(|a, b| a.assigned_on.cmp(&b.assigned_on));
+        let index = context
+            .and_then(|f| all.iter().position(|l| l.minor.code == f.unit))
+            .ok_or_else(|| unit_ask(&all))?;
+        all[index.saturating_sub(2)..=index].to_vec()
+    };
+    // Bound reads as well as output. Renderer may omit additional whole leaves for bytes.
+    let first_omitted = minors.get(60).map(leaf_label);
+    minors.truncate(60);
+    let mut data = UnitData {
+        student_key: student.key.clone(),
+        student: student.name.clone(),
+        edition: binding.book_label.clone(),
+        family: tree.family,
+        topic: topic.clone(),
+        default_read_at: clock.read_at.clone(),
+        read_at: clock.read_at.clone(),
+        tree_read_at: tree.read_at,
+        minors,
+        activity,
+        level,
+        daily: None,
+        sections: None,
+        judgments: facts
+            .unit_judgments(&student.key)
+            .into_iter()
+            .filter(|j| j.edition == binding.book_label)
+            .collect(),
+        excluded: facts
+            .excluded_sections(&student.key)
+            .into_iter()
+            .filter(|j| j.edition == binding.book_label && j.state == "active")
+            .collect(),
+        clinic: Vec::new(),
+        first_omitted,
+        stages: Vec::new(),
+        prestudy: Vec::new(),
+    };
+    let supplementary = data.family == "supplementary";
+    let all_topics = topic == l::UNIT_TOPICS[0];
+    let mut requested = 0;
+    let mut answered = 0;
+    let mut coverage = Coverage::default();
+    coverage.sources.push(SourceRead {
+        name: "student_book_bindings".into(),
+        read_at: clock.read_at.clone(),
+        scope: format!("{} / {}", student.key, data.edition),
+    });
+    coverage.sources.push(SourceRead {
+        name: "edition_tree".into(),
+        read_at: data.tree_read_at.clone(),
+        scope: data.edition.clone(),
+    });
+    if (all_topics || topic == l::UNIT_TOPICS[1]) && !supplementary {
+        requested += 1;
+        match daily.read(&student) {
+            Ok(mut read) => {
+                answered += 1;
+                read.attempts.retain(|a| {
+                    (a.edition_mapping.is_none()
+                        || a.edition_mapping.as_deref() == Some(&data.edition))
+                        && (a.unit_mapping.is_none()
+                            || data
+                                .minors
+                                .iter()
+                                .any(|l| Some(&l.minor.code) == a.unit_mapping.as_ref()))
+                        && data.level.as_ref().is_none_or(|level| {
+                            a.level.as_ref().is_none_or(|actual| actual == level)
+                        })
+                });
+                read.expected_today.retain(|e| {
+                    e.edition == data.edition
+                        && data.minors.iter().any(|l| l.minor.code == e.unit)
+                        && data.level.as_ref().is_none_or(|level| &e.level == level)
+                });
+                data.read_at = read.read_at.clone();
+                coverage.sources.extend(read.sources.clone());
+                coverage.unknowns.extend(read.unknowns.clone());
+                data.daily = Some(read);
+            }
+            Err(_) => coverage.unknowns.push("daily_unavailable".into()),
+        }
+    }
+    if all_topics || topic == l::UNIT_TOPICS[2] || topic == l::UNIT_TOPICS[3] {
+        requested += 1;
+        let ts = TextbookStudent::new(&student.key, &student.name)
+            .map_err(|_| BackendError::source_unavailable())?;
+        let scope = BookScope::new(&binding.course_key, &binding.book_no)
+            .map_err(|_| BackendError::source_unavailable())?;
+        match unit_sources::sections(
+            backend,
+            &ts,
+            &scope,
+            &data.edition,
+            &data.minors,
+            data.activity.as_deref(),
+        ) {
+            Ok(read) => {
+                answered += 1;
+                coverage.sources.push(SourceRead {
+                    name: "section_index".into(),
+                    read_at: clock.read_at.clone(),
+                    scope: format!(
+                        "{} / wrong-note observed / paper_search={}",
+                        data.edition, read.paper_observed
+                    ),
+                });
+                if !read.records.is_empty() {
+                    coverage.sources.push(SourceRead {
+                        name: "section_grades".into(),
+                        read_at: clock.read_at.clone(),
+                        scope: data.edition.clone(),
+                    });
+                }
+                coverage.unknowns.extend(read.unknowns.clone());
+                data.sections = Some(read);
+            }
+            Err(_) => coverage.unknowns.push("section_unavailable".into()),
+        }
+        data.clinic = clinic(&data);
+        let reports = facts.reports();
+        for leaf in &data.minors {
+            let prerequisite = reports
+                .iter()
+                .filter(|f| {
+                    f.student_key.as_deref() == Some(&data.student_key)
+                        && f.book == data.edition
+                        && f.unit == leaf.minor.code
+                        && f.kind == "original_work"
+                })
+                .max_by(|a, b| a.reported_on.cmp(&b.reported_on))
+                .and_then(|f| f.completed);
+            for (index, name) in [
+                "original_clinic_solving",
+                "original_clinic_grading",
+                "similar_clinic",
+                "advanced_clinic",
+                "cism_support",
+                "printed",
+                "handout",
+            ]
+            .iter()
+            .enumerate()
+            {
+                let teacher = reports
+                    .iter()
+                    .filter(|f| {
+                        f.student_key.as_deref() == Some(&data.student_key)
+                            && f.book == data.edition
+                            && f.unit == leaf.minor.code
+                            && f.kind == "clinic_stage"
+                            && f.stage == *name
+                    })
+                    .max_by(|a, b| a.reported_on.cmp(&b.reported_on));
+                let verdict = if teacher.is_some_and(|f| f.completed == Some(true)) {
+                    UnitVerdict::Confirmed
+                } else {
+                    dependent_stage(prerequisite, index < 2)
+                };
+                data.stages.push(Stage {
+                    unit: leaf.minor.code.clone(),
+                    stage: (*name).into(),
+                    verdict,
+                });
+            }
+        }
+    }
+    if all_topics || topic == l::UNIT_TOPICS[4] {
+        for leaf in &data.minors {
+            let verdict = if supplementary {
+                UnitVerdict::NotApplicable
+            } else {
+                requested += 1;
+                let v = backend.prestudy_verdict(&student.name, &data.edition, &leaf.minor.code);
+                if v != crate::render::Verdict::Unknown {
+                    answered += 1;
+                    coverage.sources.push(SourceRead {
+                        name: "prestudy".into(),
+                        read_at: clock.read_at.clone(),
+                        scope: format!("{} / {}", data.edition, leaf.minor.code),
+                    });
+                }
+                match v {
+                    crate::render::Verdict::Unknown => UnitVerdict::Unknown,
+                    crate::render::Verdict::NotObserved => UnitVerdict::NotObserved,
+                    crate::render::Verdict::Waiting => UnitVerdict::Waiting,
+                    crate::render::Verdict::Completed => UnitVerdict::Completed,
+                    _ => UnitVerdict::Found,
+                }
+            };
+            data.prestudy.push(Stage {
+                unit: leaf.minor.code.clone(),
+                stage: l::VIDEO.into(),
+                verdict,
+            });
+        }
+    }
+    for leaf in &data.minors {
+        for stage in ["dailytest", "chapter_print", "prestudy"] {
+            if supplementary {
+                data.stages.push(Stage {
+                    unit: leaf.minor.code.clone(),
+                    stage: stage.into(),
+                    verdict: UnitVerdict::NotApplicable,
+                });
+            }
+        }
+    }
+    if requested > 0 && answered == 0 {
+        return Err(BackendError::source_unavailable());
+    }
+    if data
+        .judgments
+        .iter()
+        .any(|j| data.minors.iter().any(|l| l.minor.code == j.unit))
+        || !data.excluded.is_empty()
+    {
+        coverage.sources.push(SourceRead {
+            name: "teacher_facts".into(),
+            read_at: facts.unit_read_at().unwrap_or(&clock.read_at).into(),
+            scope: student.key,
+        });
+    }
+    let display = crate::unit_render::render(&mut data, &mut coverage);
+    if !crate::unit_render::lint(&display) {
+        return Err(stop(StopCode::DisplayInvalid, l::UNIT_SCOPE_STOP));
+    }
+    Ok(Envelope::ok(
+        display,
+        serde_json::to_value(data).expect("unit data serializes"),
+        coverage,
+    ))
+}
+pub fn clinic(data: &UnitData) -> Vec<ClinicCell> {
+    let mut cells = Vec::new();
+    for leaf in &data.minors {
+        for activity in &leaf.minor.activities {
+            let records: Vec<_> = data
+                .sections
+                .as_ref()
+                .map(|s| {
+                    s.records
+                        .iter()
+                        .filter(|s| s.unit == leaf.minor.code && s.activity == *activity)
+                        .collect()
+                })
+                .unwrap_or_default();
+            let labels: Vec<_> = records
+                .iter()
+                .flat_map(|r| {
+                    r.items
+                        .iter()
+                        .filter(|i| i.scoring == "X")
+                        .filter_map(|i| i.label.clone())
+                })
+                .collect();
+            let wrong = records
+                .iter()
+                .any(|r| r.items.iter().any(|i| i.scoring == "X"));
+            let verdict = if data
+                .excluded
+                .iter()
+                .any(|e| e.unit == leaf.minor.code && e.activity == *activity)
+            {
+                UnitVerdict::Excluded
+            } else if wrong {
+                UnitVerdict::Eligible
+            } else if records.is_empty() {
+                UnitVerdict::Unknown
+            } else {
+                UnitVerdict::NotEligible
+            };
+            cells.push(ClinicCell {
+                unit: leaf.minor.code.clone(),
+                activity: activity.clone(),
+                verdict,
+                labels,
+            });
+        }
+    }
+    cells
+}
+#[derive(Clone, Debug, serde::Serialize, PartialEq)]
+pub struct Stage {
+    pub unit: String,
+    pub stage: String,
+    pub verdict: UnitVerdict,
+}
+pub fn dependent_stage(prerequisite_finished: Option<bool>, teacher_only: bool) -> UnitVerdict {
+    if prerequisite_finished == Some(false) {
+        UnitVerdict::NotYetExpected
+    } else if teacher_only {
+        UnitVerdict::TeacherReportedNoServer
+    } else {
+        UnitVerdict::Unknown
+    }
+}

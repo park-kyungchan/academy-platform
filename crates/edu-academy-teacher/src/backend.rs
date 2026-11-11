@@ -82,7 +82,7 @@ pub struct BackendIdentity {
 pub struct SourceBackend<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> {
     pub day: Backend<D>,
     pub prestudy: PrestudySource<P>,
-    pub sections: TextbookIndexSource<T>,
+    pub sections: TextbookIndexSource<crate::unit_sources::RetryingTextbookPort<T>>,
     directory: Vec<StudentEntry>,
     teacher_id: String,
     teacher_label: String,
@@ -134,7 +134,10 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                 teacher_label.clone(),
                 identity.teacher_key,
             ),
-            sections: TextbookIndexSource::new(textbook_port, teacher_label.clone()),
+            sections: TextbookIndexSource::new(
+                crate::unit_sources::RetryingTextbookPort(textbook_port),
+                teacher_label.clone(),
+            ),
             directory,
             teacher_id,
             teacher_label,
@@ -144,6 +147,55 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
             succeeded: 0,
             read_seq: 0,
         }
+    }
+
+    /// Lossless slice-2 accessors; logical counters include successful empty reads.
+    pub fn set_read_at(&mut self, at: &str) {
+        self.read_at = at.to_string();
+    }
+    pub fn bindings_for(
+        &mut self,
+        student: &ResolvedStudent,
+    ) -> Result<Vec<edu_academy_sources::textbook_index::TextbookBinding>, BackendError> {
+        self.source_reads += 1;
+        self.attempted += 1;
+        let student = TextbookStudent::new(&student.key, &student.name)
+            .map_err(|_| BackendError::source_unavailable())?;
+        let result = self
+            .sections
+            .bindings(&self.teacher_label, &student)
+            .map_err(|_| BackendError::source_unavailable())?;
+        self.succeeded += 1;
+        Ok(result)
+    }
+    pub fn observed_sections(
+        &mut self,
+        student: &TextbookStudent,
+        scope: &BookScope,
+    ) -> Result<edu_academy_sources::textbook_index::TextbookIndex, BackendError> {
+        self.source_reads += 1;
+        self.attempted += 1;
+        let result = self
+            .sections
+            .index(&self.teacher_label, student, scope)
+            .map_err(|_| BackendError::source_unavailable())?;
+        self.succeeded += 1;
+        Ok(result)
+    }
+    pub fn selected_sections(
+        &mut self,
+        student: &TextbookStudent,
+        scope: &BookScope,
+        titles: &[String],
+    ) -> Result<GradeOutcome, BackendError> {
+        self.source_reads += 1;
+        self.attempted += 1;
+        let result = self
+            .sections
+            .grade(&self.teacher_label, student, scope, titles)
+            .map_err(|_| BackendError::source_unavailable())?;
+        self.succeeded += 1;
+        Ok(result)
     }
 
     pub fn read_at(&self) -> &str {

@@ -24,6 +24,19 @@ pub struct NotBrought {
 }
 
 pub trait TeacherFacts {
+    fn unit_read_at(&self) -> Option<&str> {
+        self.read_at()
+    }
+    fn edition_tree(&self, _edition: &str) -> Option<crate::unit_data::EditionTree> {
+        None
+    }
+    fn unit_judgments(&self, _student_key: &str) -> Vec<crate::unit_data::TeacherJudgment> {
+        Vec::new()
+    }
+    fn excluded_sections(&self, _student_key: &str) -> Vec<crate::unit_data::ExcludedSection> {
+        Vec::new()
+    }
+
     fn read_at(&self) -> Option<&str> {
         None
     }
@@ -50,6 +63,10 @@ pub trait TeacherFacts {
 /// Seeded implementation from the scenario file's `classes` section.
 #[derive(Clone, Debug, Default)]
 pub struct SeededFacts {
+    unit_read_at: Option<String>,
+    trees: Vec<crate::unit_data::EditionTree>,
+    judgments: Vec<crate::unit_data::TeacherJudgment>,
+    excluded: Vec<crate::unit_data::ExcludedSection>,
     read_at: Option<String>,
     admitted_dates: Option<DateRange>,
     reports: Vec<TeacherFactReport>,
@@ -112,6 +129,10 @@ impl SeededFacts {
             })
             .collect();
         Self {
+            unit_read_at: scenario.unit_read_at.clone(),
+            trees: scenario.edition_trees.clone(),
+            judgments: scenario.teacher_judgments.clone(),
+            excluded: scenario.excluded_sections.clone(),
             read_at: scenario.read_at.clone(),
             admitted_dates: scenario.admitted_dates.clone(),
             reports: scenario
@@ -141,6 +162,27 @@ impl SeededFacts {
 }
 
 impl TeacherFacts for SeededFacts {
+    fn unit_read_at(&self) -> Option<&str> {
+        self.unit_read_at.as_deref().or(self.read_at.as_deref())
+    }
+    fn edition_tree(&self, edition: &str) -> Option<crate::unit_data::EditionTree> {
+        self.trees.iter().find(|t| t.edition == edition).cloned()
+    }
+    fn unit_judgments(&self, key: &str) -> Vec<crate::unit_data::TeacherJudgment> {
+        self.judgments
+            .iter()
+            .filter(|j| j.student_key == key)
+            .cloned()
+            .collect()
+    }
+    fn excluded_sections(&self, key: &str) -> Vec<crate::unit_data::ExcludedSection> {
+        self.excluded
+            .iter()
+            .filter(|j| j.student_key == key)
+            .cloned()
+            .collect()
+    }
+
     fn read_at(&self) -> Option<&str> {
         self.read_at.as_deref()
     }
