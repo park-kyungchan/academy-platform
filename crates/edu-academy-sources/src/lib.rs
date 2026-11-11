@@ -19,3 +19,4 @@ pub mod script;
 pub mod student_course;
 pub mod student_metadata;
 pub mod textbook;
+pub mod textbook_index;

@@ -909,13 +909,23 @@ fn catalog_span_attributes_use_html_integer_rule() {
     }
 }
 
-/// Declared difference (finding 6): Rust `split_whitespace` does not split
-/// on U+FEFF where JS `\s` does, so the character stays inside the label.
+/// Parity with JS `\s`: U+FEFF is whitespace, so it collapses to a space
+/// (textbookCatalogRead.ts:47,97).
 #[test]
-fn declared_difference_feff_stays_in_label() {
+fn feff_collapses_like_js() {
     let html = "<div class=\"tab tab-on\">중등부</div><table><tr><td>Invented\u{feff}Plus</td><td><button onclick=\"fullUrlDownloadFile('https://storage.studyq.net/data/answer/mi/book/g7_fictionalplus_sample_1_1.pdf')\">sample</button></td></tr></table>";
     let value = parse_catalog(html, SchoolLevel::Middle, NOW).unwrap();
-    assert!(value.entries[0].source_labels[0].contains('\u{feff}'));
+    let label = &value.entries[0].source_labels[0];
+    assert!(!label.contains('\u{feff}'));
+    assert!(label.contains("Invented Plus"));
+}
+
+/// Parity with JS `\s`: U+0085 is not whitespace, so it stays in the label.
+#[test]
+fn nel_stays_in_label_like_js() {
+    let html = "<div class=\"tab tab-on\">중등부</div><table><tr><td>Invented\u{85}Plus</td><td><button onclick=\"fullUrlDownloadFile('https://storage.studyq.net/data/answer/mi/book/g7_fictionalplus_sample_1_1.pdf')\">sample</button></td></tr></table>";
+    let value = parse_catalog(html, SchoolLevel::Middle, NOW).unwrap();
+    assert!(value.entries[0].source_labels[0].contains('\u{85}'));
 }
 
 /// P6: strict UTF-8 refuses invalid bytes; a BOM is preserved in the hash

@@ -170,6 +170,36 @@ pub fn operations() -> Js {
             ("selector", "GaStudyAnswer".into()),
             ("selectorPlacement", "query".into()),
         ]),
+        obj(&[
+            (
+                "path",
+                "/servlet/controller.coursemanage.TextBookManageServlet".into(),
+            ),
+            ("method", "POST".into()),
+            ("selectorKey", "reqCmd".into()),
+            ("selector", "getTextBookProgress".into()),
+            ("selectorPlacement", "query".into()),
+        ]),
+        obj(&[
+            (
+                "path",
+                "/servlet/controller.common.TestpageSelectExServlet".into(),
+            ),
+            ("method", "POST".into()),
+            ("selectorKey", "p_process".into()),
+            ("selector", "getWrongAnswerNoteResult".into()),
+            ("selectorPlacement", "body".into()),
+        ]),
+        obj(&[
+            (
+                "path",
+                "/servlet/controller.common.TestpageSelectExServlet".into(),
+            ),
+            ("method", "POST".into()),
+            ("selectorKey", "p_process".into()),
+            ("selector", "getStudyResultSingleTestingSingleUser".into()),
+            ("selectorPlacement", "body".into()),
+        ]),
     ])
 }
 pub fn admit_operation(

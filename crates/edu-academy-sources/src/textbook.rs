@@ -8,6 +8,7 @@
 use crate::{
     data::*,
     dom::{self, Document},
+    js_text::{js_collapse_whitespace, js_trim, utf16_len},
     owner_admission::TransportScope,
     student_course::{ReadPort, check_contract},
 };
@@ -448,9 +449,8 @@ pub fn bounded_body(response: TextbookResponse, maximum: usize, kind: BodyKind) 
         .unwrap_or("")
         .split(';')
         .next()
-        .unwrap_or("")
-        .trim()
-        .to_ascii_lowercase();
+        .unwrap_or("");
+    let mime = js_trim(mime).to_ascii_lowercase();
     let mime_ok = match kind {
         BodyKind::Catalog => mime == "text/html",
         BodyKind::Pdf => ["application/pdf", "application/octet-stream"].contains(&mime.as_str()),
@@ -580,7 +580,7 @@ fn closest_row<'a>(node: scraper::ElementRef<'a>) -> Option<scraper::ElementRef<
 }
 
 fn collapse(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
+    js_collapse_whitespace(text)
 }
 
 /// Rowspan-aware row labels: carried cells keep their logical columns, so a
@@ -673,9 +673,9 @@ pub fn parse_catalog(
     let selected: Vec<_> = doc
         .select(".tab.tab-on")
         .into_iter()
-        .filter(|node| level_labels.contains(&dom::content(*node).trim()))
+        .filter(|node| level_labels.contains(&js_trim(&dom::content(*node))))
         .collect();
-    if selected.len() != 1 || dom::content(selected[0]).trim() != school_level.label() {
+    if selected.len() != 1 || js_trim(&dom::content(selected[0])) != school_level.label() {
         return Err(Error::refusal("textbook_catalog_school_level_rejected"));
     }
     let labels = row_labels(&doc);
@@ -715,7 +715,7 @@ pub fn parse_catalog(
                         .map(|p| collapse(&dom::content(p)))
                         .unwrap_or_default(),
                 };
-                if label.is_empty() || label.encode_utf16().count() > 2000 {
+                if label.is_empty() || utf16_len(&label) > 2000 {
                     return Err(Error::refusal("textbook_catalog_row_unqualified"));
                 }
                 let filename = url.rsplit('/').next().unwrap_or_default().to_string();
@@ -765,8 +765,8 @@ pub fn page_catalog(
     }
     let query = match &request.query {
         Some(raw) => {
-            let trimmed = raw.trim();
-            if trimmed.is_empty() || trimmed.encode_utf16().count() > 200 {
+            let trimmed = js_trim(raw);
+            if trimmed.is_empty() || utf16_len(trimmed) > 200 {
                 return Err(Error::refusal("tool_input_invalid"));
             }
             Some(trimmed.to_lowercase())
