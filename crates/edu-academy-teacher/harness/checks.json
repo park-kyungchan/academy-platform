@@ -71,7 +71,9 @@
         "student_heading_suffix": " 학원 내 처리",
         "text_without_rows": "whole_lines",
         "student_heading_level": 2,
-        "answer_context": "reference_markers_only"
+        "answer_context": "reference_markers_only",
+        "plain_part_before_header": "shared_first_header_or_new_width",
+        "unmarked_cell_continuation": "last_cell"
       },
       "state_labels": {
         "path": "src/display_labels.rs",
@@ -194,7 +196,9 @@
         "student_heading_suffix": " 학원 내 처리",
         "text_without_rows": "whole_lines",
         "student_heading_level": 2,
-        "answer_context": "reference_markers_only"
+        "answer_context": "reference_markers_only",
+        "plain_part_before_header": "shared_first_header_or_new_width",
+        "unmarked_cell_continuation": "last_cell"
       },
       "state_labels": {
         "path": "src/display_labels.rs",
@@ -279,7 +283,9 @@
         "student_heading_suffix": " 학원 내 처리",
         "text_without_rows": "whole_lines",
         "student_heading_level": 2,
-        "answer_context": "reference_markers_only"
+        "answer_context": "reference_markers_only",
+        "plain_part_before_header": "shared_first_header_or_new_width",
+        "unmarked_cell_continuation": "last_cell"
       },
       "state_labels": {
         "path": "src/display_labels.rs",

@@ -52,3 +52,15 @@ class ReferenceUnitRegressions(unittest.TestCase):
         source=display()
         for answer in ['', '```', source+'\n| altered | row |', '# 서버 확인\n'+source]:
             self.check(source,answer,'FAIL')
+
+    def test_last_plain_cell_break_before_another_row_both_directions(self):
+        source='Title\nPart\nName | Action\nAlice | Review / book\nBob | Check'
+        wrapped=source.replace('Review / book','Review\nbook')
+        self.check(source,source,'pass')
+        self.check(source,wrapped,'pass')
+        self.check(wrapped,source,'pass')
+
+    def test_plain_part_between_same_width_headers_uses_reference_header(self):
+        source='Title\nPart A\nName | Action\nAlice | Review\nPart B\nName | State\nBob | Pending'
+        self.check(source,source,'pass')
+        self.check(source,source.replace('Part B\nName | State\nBob | Pending','Bob | Pending\nPart B\nName | State'),'FAIL')

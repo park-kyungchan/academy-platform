@@ -36,7 +36,9 @@ def validate(policy):
         'structure': {'tables': 'reference_spaced_headers', 'heading_markers': ['#','**'],
                       'list_marker': '- ', 'bullet_separator': ' · ',
                       'student_heading_suffix': ' 학원 내 처리',
-                      'student_heading_level': 2, 'answer_context': 'reference_markers_only', 'text_without_rows': 'whole_lines'},
+                      'student_heading_level': 2, 'answer_context': 'reference_markers_only', 'text_without_rows': 'whole_lines',
+                      'plain_part_before_header': 'shared_first_header_or_new_width',
+                      'unmarked_cell_continuation': 'last_cell'},
         'provenance': {'source_prefix': 'READ_SOURCES','closing': 'CLOSING'},
     }
     if not isinstance(policy, dict) or set(policy) != set(expected) | {'required_parts','commentary_max_lines','state_labels'}:
@@ -133,7 +135,7 @@ def parse_reference(text, policy):
         following=fields_of(lines[index+1],policy) if index+1<len(lines) else None
         return (clean in required or clean.startswith(prefix) or clean==closing
                 or line.startswith(('#','**')) or clean.endswith(policy['structure']['student_heading_suffix'])
-                or (following is not None and (not header or tuple(value(f,policy) for f in following)==header or len(following)!=len(header))))
+                or (following is not None and (not header or value(following[0],policy)==header[0] or len(following)!=len(header))))
     while i<len(lines):
         line=lines[i]; clean=heading(line,policy); f=fields_of(line,policy)
         if clean.startswith(prefix):
@@ -169,7 +171,6 @@ def parse_reference(text, policy):
             while not line.startswith(('|','｜')) and i<len(lines) and fields_of(lines[i],policy) is None and not boundary(i):
                 # An unmarked continuation belongs to the last cell. This same
                 # complete value is reconstructed by logical_lines on both sides.
-                if i+1<len(lines) and fields_of(lines[i+1],policy) is not None: break
                 f[-1]+='\n'+lines[i]; i+=1
             vals=tuple(value(v,policy) for v in f)
             units.append(Unit('header' if vals==header else 'row',vals,part,student,() if vals==header else header))
