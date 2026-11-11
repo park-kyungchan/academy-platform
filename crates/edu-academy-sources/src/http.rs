@@ -100,6 +100,16 @@ pub fn operations() -> Js {
             ("selector", "SelSglRecord".into()),
             ("selectorPlacement", "query".into()),
         ]),
+        obj(&[
+            (
+                "path",
+                "/servlet/controller.coursemanage.CourseManageServlet".into(),
+            ),
+            ("method", "GET".into()),
+            ("selectorKey", "reqCmd".into()),
+            ("selector", "GaStudyAnswer".into()),
+            ("selectorPlacement", "query".into()),
+        ]),
     ])
 }
 pub fn admit_operation(
