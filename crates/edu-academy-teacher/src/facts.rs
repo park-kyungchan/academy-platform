@@ -114,7 +114,24 @@ impl SeededFacts {
         Self {
             read_at: scenario.read_at.clone(),
             admitted_dates: scenario.admitted_dates.clone(),
-            reports: scenario.teacher_fact_reports.clone(),
+            reports: scenario
+                .teacher_fact_reports
+                .iter()
+                .cloned()
+                .map(|mut report| {
+                    if report.student_key.is_none() {
+                        let matches: Vec<_> = scenario
+                            .students
+                            .iter()
+                            .filter(|s| s.name == report.student)
+                            .collect();
+                        if let [only] = matches.as_slice() {
+                            report.student_key = Some(only.key.clone());
+                        }
+                    }
+                    report
+                })
+                .collect(),
             reminders: scenario.reminders.clone(),
             classes,
             moved,
@@ -182,6 +199,8 @@ pub struct DateRange {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TeacherFactReport {
+    #[serde(default)]
+    pub student_key: Option<String>,
     pub kind: String,
     pub student: String,
     pub reported_on: String,

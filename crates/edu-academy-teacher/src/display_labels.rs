@@ -271,3 +271,30 @@ pub const STUDENT_QUESTION: &str = "어느 학생인가요?";
 pub const STUDENT_MEANING: &str = "그 반의 학생";
 pub const ACTUAL_CLASS_QUESTION: &str = "학생과 반이 일치하지 않습니다. 어느 반인가요?";
 pub const ACTUAL_CLASS_MEANING: &str = "그 학생이 속한 반";
+
+pub const DISPLAY_FAILURE: &str =
+    "표시문을 올바른 형식으로 만들지 못했습니다. 범위를 줄여 다시 요청해 주세요.";
+pub const TOOL_UNAVAILABLE: &str = "이 도구는 아직 제공되지 않습니다.";
+pub fn unknown_tool(names: &str) -> String {
+    format!("그런 이름의 도구는 없습니다. 쓸 수 있는 도구: {names}")
+}
+pub fn no_homework(student: &str) -> String {
+    format!("{student}의 지난 수업에는 숙제가 배정되지 않았습니다.")
+}
+pub fn unread_homework(student: &str) -> String {
+    format!("{student}의 지난 배정 숙제를 읽을 수 없습니다.")
+}
+pub fn unread_scope(scope: &str) -> String {
+    format!("{scope}: 원천을 읽지 못해 읽은 원천에 포함하지 않았습니다.")
+}
+pub fn omitted(student: &str) -> String {
+    format!(
+        "{student}부터 생략했습니다: 표시 한도(60줄·6,000바이트)를 넘어 학생 블록 경계에서 중단했습니다."
+    )
+}
+
+pub fn omitted_reminders(student: &str) -> String {
+    format!(
+        "{student}의 알림부터 생략했습니다: 표시 한도(60줄·6,000바이트)를 넘어 알림 행 경계에서 중단했습니다."
+    )
+}

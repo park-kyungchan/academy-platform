@@ -33,6 +33,10 @@ pub struct LineRef {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Check {
     #[serde(default)]
+    pub book: String,
+    #[serde(default)]
+    pub title_read: bool,
+    #[serde(default)]
     pub observed_on: Option<String>,
     pub kind: String,
     pub scope: String,
@@ -60,6 +64,8 @@ pub struct CarryOverItem {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StudentLesson {
     #[serde(default)]
+    pub student_key: String,
+    #[serde(default)]
     pub class_name: Option<String>,
     #[serde(default)]
     pub searched_dates: Vec<String>,
@@ -77,6 +83,10 @@ pub struct StudentLesson {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct LessonData {
+    #[serde(skip)]
+    pub display_omitted: bool,
+    #[serde(skip)]
+    pub display_subject: Option<String>,
     #[serde(default)]
     pub admitted_dates: Option<DateRange>,
     #[serde(default)]
@@ -119,6 +129,18 @@ pub fn scan_line(line: &str) -> Option<LineRef> {
         minor: minor.as_str().to_string(),
         activity: (*activity).to_string(),
     })
+}
+
+/// Every book-delimited homework item, including items on one physical line.
+pub fn homework_items(text: &str) -> Vec<LineRef> {
+    let starts: Vec<_> = book_re().find_iter(text).map(|m| m.start()).collect();
+    starts
+        .iter()
+        .enumerate()
+        .filter_map(|(i, start)| {
+            scan_line(&text[*start..starts.get(i + 1).copied().unwrap_or(text.len())])
+        })
+        .collect()
 }
 
 /// Homework at a minor start: the homework minor differs from the progress
@@ -329,190 +351,197 @@ fn prepare_student<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
     student: &ResolvedStudent,
     lesson_date: NaiveDate,
     requested_book: Option<&str>,
+    require_on_date: bool,
 ) -> Result<PreparedStudent, BackendError> {
     let read_at = backend.read_at().to_string();
-    let mut sources: Vec<SourceRead> = Vec::new();
-    let mut unknowns: Vec<String> = Vec::new();
+    let mut sources = Vec::new();
+    let mut unknowns = Vec::new();
     let carry_over = carry_over_of(facts, &student.key);
-    let (previous, searched_from, searched_to, read_failed) =
-        match previous_lesson(backend, facts, student, lesson_date) {
-            PreviousOutcome::Found(found) => {
-                sources.push(SourceRead {
-                    name: "daily_record".into(),
-                    read_at: read_at.clone(),
-                    scope: format!("{} {}", student.name, found.date.format("%Y-%m-%d")),
-                });
-                (
-                    Some(PreviousLesson {
-                        date: found.date.format("%Y-%m-%d").to_string(),
-                        how_found: found.how_found,
-                        progress: found.record.progress.clone(),
-                        homework: found.record.homework.clone(),
-                    }),
-                    None,
-                    None,
-                    false,
-                )
-            }
-            PreviousOutcome::NotFound { from, to } => {
-                sources.push(SourceRead {
-                    name: "daily_record".into(),
-                    read_at: read_at.clone(),
-                    scope: format!(
-                        "{} {}/{}",
-                        student.name,
-                        from.format("%Y-%m-%d"),
-                        to.format("%Y-%m-%d")
-                    ),
-                });
-                unknowns.push(format!("previous_lesson_not_found:{}", student.name));
-                (
-                    None,
-                    Some(from.format("%Y-%m-%d").to_string()),
-                    Some(to.format("%Y-%m-%d").to_string()),
-                    false,
-                )
-            }
-            PreviousOutcome::Failed => {
-                unknowns.push(format!("daily_record_read_failed:{}", student.name));
-                (None, None, None, true)
-            }
-        };
-    let mut checks = Vec::new();
-    if let Some(prev) = &previous
-        && let Some(start) = homework_minor_is_start(&prev.progress, &prev.homework)
-    {
-        let (prestudy, observed_on) =
-            backend.prestudy_observation(&student.name, &start.book_label, &start.minor);
-        if prestudy != Verdict::Unknown {
+    let on_date = if require_on_date {
+        backend.read_record(&student.key, lesson_date)?.is_some()
+    } else {
+        true
+    };
+    let outcome = if on_date {
+        previous_lesson(backend, facts, student, lesson_date)
+    } else {
+        PreviousOutcome::NotFound {
+            from: lesson_date,
+            to: lesson_date,
+        }
+    };
+    let (previous, searched_from, searched_to, read_failed) = match outcome {
+        PreviousOutcome::Found(found) => {
             sources.push(SourceRead {
-                name: "prestudy".into(),
+                name: "daily_record".into(),
                 read_at: read_at.clone(),
-                scope: format!("{} {} {}", student.name, start.book_label, start.minor),
+                scope: format!("{} {}", student.name, found.date),
             });
+            (
+                Some(PreviousLesson {
+                    date: found.date.to_string(),
+                    how_found: found.how_found,
+                    progress: found.record.progress,
+                    homework: found.record.homework,
+                }),
+                None,
+                None,
+                false,
+            )
         }
-        if prestudy == Verdict::Unknown {
-            unknowns.push(format!("prestudy_unknown:{}:{}", student.name, start.minor));
-        }
-        checks.push(Check {
-            observed_on,
-            kind: "prestudy".into(),
-            scope: start.minor.clone(),
-            verdict: prestudy,
-            correct: None,
-            total: None,
-        });
-        let effective_book = requested_book.unwrap_or(&start.book_label);
-        let textbook_student = match TextbookStudent::new(&student.key, &student.name) {
-            Ok(student_ref) => student_ref,
-            Err(_) => {
-                return Ok(PreparedStudent {
-                    lesson: StudentLesson {
-                        class_name: student.class_name.clone(),
-                        searched_dates: candidate_dates(facts, student, lesson_date)
-                            .iter()
-                            .map(ToString::to_string)
-                            .collect(),
-                        student: student.name.clone(),
-                        previous_lesson: previous,
-                        searched_from,
-                        searched_to,
-                        read_failed: true,
-                        checks,
-                        carry_over,
-                        excluded: vec![],
-                    },
-                    sources,
-                    unknowns,
-                });
-            }
-        };
-        let scope = match backend.resolve_book(student, effective_book)? {
-            BookResolution::Found(scope) => scope,
-            BookResolution::NoBinding { bound_labels } => {
-                if bound_labels.is_empty() {
-                    for activity in [l::REQUIRED, l::PRACTICE] {
-                        unknowns.push(format!("section_unknown:{}:{}", student.name, start.minor));
-                        checks.push(Check {
-                            observed_on: None,
-                            kind: "section".into(),
-                            scope: format!("{} {activity}", start.minor),
-                            verdict: Verdict::Unknown,
-                            correct: None,
-                            total: None,
-                        });
-                    }
-                    return Ok(PreparedStudent {
-                        lesson: StudentLesson {
-                            class_name: student.class_name.clone(),
-                            searched_dates: candidate_dates(facts, student, lesson_date)
-                                .iter()
-                                .map(ToString::to_string)
-                                .collect(),
-                            student: student.name.clone(),
-                            previous_lesson: previous,
-                            searched_from,
-                            searched_to,
-                            read_failed,
-                            checks,
-                            carry_over,
-                            excluded: vec![],
-                        },
-                        sources,
-                        unknowns,
-                    });
-                }
-                return Err(BackendError::Ask(Ask {
-                    field: AskField::Book,
-                    question_ko: l::BOOK_QUESTION.into(),
-                    options: bound_labels
-                        .into_iter()
-                        .map(|label| AskOption {
-                            value: label.clone(),
-                            label_ko: label,
-                            meaning_ko: l::BOOK_MEANING.into(),
-                        })
-                        .collect(),
-                }));
-            }
-        };
-        let section_checks = backend.section_checks(
-            &textbook_student,
-            &scope,
-            &start.minor,
-            &[l::REQUIRED, l::PRACTICE],
-        );
-        if section_checks
-            .iter()
-            .any(|check| check.verdict != Verdict::Unknown)
-        {
+        PreviousOutcome::NotFound { from, to } => {
             sources.push(SourceRead {
-                name: "textbook_sections".into(),
-                read_at,
-                scope: format!("{} {} {}", student.name, effective_book, start.minor),
+                name: "daily_record".into(),
+                read_at: read_at.clone(),
+                scope: format!("{} {}/{}", student.name, from, to),
             });
+            unknowns.push(format!("previous_lesson_not_found:{}", student.name));
+            (None, Some(from.to_string()), Some(to.to_string()), false)
         }
-        for check in section_checks {
-            if check.verdict == Verdict::Unknown {
-                unknowns.push(format!("section_unknown:{}:{}", student.name, check.scope));
+        PreviousOutcome::Failed => {
+            unknowns.push(format!("daily_record_read_failed:{}", student.name));
+            (None, None, None, true)
+        }
+    };
+    let mut checks = Vec::new();
+    if let Some(prev) = &previous {
+        let mut read_minors = Vec::new();
+        for item in homework_items(&prev.homework) {
+            if read_minors.contains(&(item.book_label.clone(), item.minor.clone())) {
+                continue;
+            }
+            read_minors.push((item.book_label.clone(), item.minor.clone()));
+            // Start requirements are evaluated per book, not against another book's progress.
+            let continuing = homework_items(&prev.progress)
+                .iter()
+                .any(|p| p.book_label == item.book_label && p.minor == item.minor);
+            if continuing && !prev.homework.contains(l::START) {
+                // The footer names registration only after this actual read, even when
+                // a continuing minor needs no new prestudy/index requirement.
+                if backend
+                    .resolve_book(student, requested_book.unwrap_or(&item.book_label))
+                    .is_ok()
+                {
+                    sources.push(SourceRead {
+                        name: "registration".into(),
+                        read_at: read_at.clone(),
+                        scope: format!("{} {}", student.name, item.book_label),
+                    });
+                } else {
+                    unknowns.push(format!(
+                        "registration_read_failed:{}:{}",
+                        student.name, item.book_label
+                    ));
+                }
+                continue;
+            }
+            let (prestudy, observed_on) =
+                backend.prestudy_observation(&student.name, &item.book_label, &item.minor);
+            if prestudy != Verdict::Unknown {
+                sources.push(SourceRead {
+                    name: "prestudy".into(),
+                    read_at: read_at.clone(),
+                    scope: format!("{} {} {}", student.name, item.book_label, item.minor),
+                });
+            } else {
+                unknowns.push(format!("prestudy_unknown:{}:{}", student.name, item.minor));
             }
             checks.push(Check {
-                observed_on: None,
-                kind: "section".into(),
-                scope: check.scope,
-                verdict: check.verdict,
-                correct: check.correct,
-                total: check.total,
+                book: item.book_label.clone(),
+                title_read: false,
+                observed_on,
+                kind: "prestudy".into(),
+                scope: item.minor.clone(),
+                verdict: prestudy,
+                correct: None,
+                total: None,
             });
+            let effective_book = requested_book.unwrap_or(&item.book_label);
+            let textbook_student = TextbookStudent::new(&student.key, &student.name)
+                .map_err(|_| BackendError::source_unavailable())?;
+            let resolved = backend.resolve_book(student, effective_book)?;
+            sources.push(SourceRead {
+                name: "registration".into(),
+                read_at: read_at.clone(),
+                scope: format!("{} {}", student.name, effective_book),
+            });
+            let scope = match resolved {
+                BookResolution::Found(scope) => Some(scope),
+                BookResolution::NoBinding { bound_labels } => {
+                    if !bound_labels.is_empty() {
+                        return Err(BackendError::Ask(Ask {
+                            field: AskField::Book,
+                            question_ko: l::BOOK_QUESTION.into(),
+                            options: bound_labels
+                                .into_iter()
+                                .map(|label| AskOption {
+                                    value: label.clone(),
+                                    label_ko: label,
+                                    meaning_ko: l::BOOK_MEANING.into(),
+                                })
+                                .collect(),
+                        }));
+                    }
+                    None
+                }
+            };
+            if let Some(scope) = scope {
+                let section_checks = backend.section_checks(
+                    &textbook_student,
+                    &scope,
+                    &item.minor,
+                    &[l::REQUIRED, l::PRACTICE],
+                );
+                if section_checks.iter().any(|c| c.title_read) {
+                    sources.push(SourceRead {
+                        name: "textbook_sections".into(),
+                        read_at: read_at.clone(),
+                        scope: format!("{} {} {}", student.name, effective_book, item.minor),
+                    });
+                }
+                for c in section_checks {
+                    if c.verdict == Verdict::Unknown {
+                        unknowns.push(format!("section_unknown:{}:{}", student.name, c.scope));
+                    }
+                    checks.push(Check {
+                        book: effective_book.into(),
+                        title_read: c.title_read,
+                        observed_on: None,
+                        kind: "section".into(),
+                        scope: c.scope,
+                        verdict: c.verdict,
+                        correct: c.correct,
+                        total: c.total,
+                    });
+                }
+            } else {
+                for activity in [l::REQUIRED, l::PRACTICE] {
+                    checks.push(Check {
+                        book: effective_book.into(),
+                        title_read: false,
+                        observed_on: None,
+                        kind: "section".into(),
+                        scope: format!("{} {activity}", item.minor),
+                        verdict: Verdict::Unknown,
+                        correct: None,
+                        total: None,
+                    });
+                }
+            }
         }
     }
     Ok(PreparedStudent {
         lesson: StudentLesson {
+            student_key: student.key.clone(),
             class_name: student.class_name.clone(),
-            searched_dates: candidate_dates(facts, student, lesson_date)
-                .iter()
-                .map(ToString::to_string)
-                .collect(),
+            searched_dates: if on_date {
+                candidate_dates(facts, student, lesson_date)
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect()
+            } else {
+                vec![lesson_date.to_string()]
+            },
             student: student.name.clone(),
             previous_lesson: previous,
             searched_from,
@@ -580,7 +609,8 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
         ..Default::default()
     };
 
-    if let Some(range) = facts.admitted_dates()
+    if !previous_requested
+        && let Some(range) = facts.admitted_dates()
         && (data.lesson_date < range.from || data.lesson_date > range.to)
     {
         let display = l::outside(&data.lesson_date, &range.from, &range.to);
@@ -616,6 +646,7 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
     };
 
     let mut coverage = Coverage::default();
+    let mut resolved_students = Vec::new();
     for name in &names {
         let name = name.trim();
         let student = match backend.resolve_student(name, class_hint.as_deref()) {
@@ -661,37 +692,103 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
                 return Envelope::stop(display, data_value(&data), stop, coverage);
             }
         };
-        let effective_date = if previous_requested {
-            match previous_lesson(backend, facts, &student, today) {
-                PreviousOutcome::Found(found) => {
-                    data.date_resolution = Some(found.date.to_string());
-                    data.lesson_date = found.date.to_string();
-                    coverage.sources.push(SourceRead {
-                        name: "date_resolution".into(),
-                        read_at: backend.read_at().into(),
-                        scope: format!("{} {}", student.name, found.date),
-                    });
-                    found.date
-                }
-                _ => {
-                    let display = l::SOURCE_FAILURE.to_string();
-                    return Envelope::stop(
-                        display.clone(),
-                        data_value(&data),
-                        Stop::new(StopCode::SourceUnavailable, &display),
-                        coverage,
-                    );
+        coverage.sources.push(SourceRead {
+            name: "student_info".into(),
+            read_at: backend.read_at().into(),
+            scope: student.name.clone(),
+        });
+        resolved_students.push(student);
+    }
+    let mut effective_date = lesson_date;
+    if previous_requested {
+        let resolved = if data.class_name.is_some() {
+            let mut found = None;
+            let scheduled_lower = resolved_students
+                .iter()
+                .flat_map(|s| candidate_dates(facts, s, today))
+                .min();
+            let admitted_lower = facts
+                .admitted_dates()
+                .and_then(|r| NaiveDate::parse_from_str(&r.from, "%Y-%m-%d").ok());
+            let lower = scheduled_lower
+                .into_iter()
+                .chain(admitted_lower)
+                .min()
+                .unwrap_or(today);
+            'days: for offset in 1..=today.signed_duration_since(lower).num_days() {
+                let Some(day) = today.checked_sub_signed(chrono::Duration::days(offset)) else {
+                    break;
+                };
+                for student in &resolved_students {
+                    match backend.read_record(&student.key, day) {
+                        Ok(Some(_)) => {
+                            found = Some(day);
+                            break 'days;
+                        }
+                        Ok(None) => {}
+                        Err(_) => {
+                            return Envelope::stop(
+                                l::SOURCE_FAILURE.into(),
+                                data_value(&data),
+                                Stop::new(StopCode::SourceUnavailable, l::SOURCE_FAILURE),
+                                coverage,
+                            );
+                        }
+                    }
                 }
             }
+            found
         } else {
-            lesson_date
+            match resolved_students
+                .first()
+                .map(|student| previous_lesson(backend, facts, student, today))
+            {
+                Some(PreviousOutcome::Found(found)) => Some(found.date),
+                _ => None,
+            }
         };
+        let Some(date) = resolved else {
+            return Envelope::stop(
+                l::SOURCE_FAILURE.into(),
+                data_value(&data),
+                Stop::new(StopCode::SourceUnavailable, l::SOURCE_FAILURE),
+                coverage,
+            );
+        };
+        effective_date = date;
+        data.date_resolution = Some(date.to_string());
+        data.lesson_date = date.to_string();
+        coverage.sources.push(SourceRead {
+            name: "date_resolution".into(),
+            read_at: backend.read_at().into(),
+            scope: format!(
+                "{} {}",
+                data.class_name
+                    .as_deref()
+                    .unwrap_or(&resolved_students[0].name),
+                date
+            ),
+        });
+        if let Some(range) = facts.admitted_dates()
+            && (data.lesson_date < range.from || data.lesson_date > range.to)
+        {
+            let display = l::outside(&data.lesson_date, &range.from, &range.to);
+            return Envelope::stop(
+                display.clone(),
+                data_value(&data),
+                Stop::new(StopCode::DateNotAdmitted, &display),
+                coverage,
+            );
+        }
+    }
+    for student in &resolved_students {
         match prepare_student(
             backend,
             facts,
-            &student,
+            student,
             effective_date,
             book_arg.as_deref(),
+            previous_requested && data.class_name.is_some(),
         ) {
             Ok(prepared) => {
                 coverage.sources.extend(prepared.sources);
@@ -719,7 +816,11 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
     data.teacher_fact_reports = facts
         .reports()
         .into_iter()
-        .filter(|r| data.students.iter().any(|s| s.student == r.student))
+        .filter(|r| {
+            data.students
+                .iter()
+                .any(|s| r.student_key.as_deref() == Some(&s.student_key))
+        })
         .collect();
     data.reminders = facts
         .reminders()
@@ -736,6 +837,15 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
             },
         );
     }
-    let display = render::lesson_prepare(&data, &coverage);
+    let display = render::bounded_lesson_prepare(&data, &mut coverage);
+    if let Err(reason) = render::display_lint(&display) {
+        coverage.unknowns.push(format!("display_invalid:{reason}"));
+        return Envelope::stop(
+            l::DISPLAY_FAILURE.into(),
+            data_value(&data),
+            Stop::new(StopCode::DisplayInvalid, l::DISPLAY_FAILURE),
+            coverage,
+        );
+    }
     Envelope::ok(display, data_value(&data), coverage)
 }

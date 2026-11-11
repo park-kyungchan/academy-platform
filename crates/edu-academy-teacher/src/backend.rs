@@ -46,6 +46,7 @@ pub struct DayRecord {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SectionCheck {
+    pub title_read: bool,
     pub scope: String,
     pub verdict: Verdict,
     pub correct: Option<usize>,
@@ -535,6 +536,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                 return activities
                     .iter()
                     .map(|activity| SectionCheck {
+                        title_read: false,
                         scope: format!("{minor} {activity}"),
                         verdict: Verdict::Unknown,
                         correct: None,
@@ -555,6 +557,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
             });
             let Some(title) = title else {
                 checks.push(SectionCheck {
+                    title_read: true,
                     scope: scope_label,
                     verdict: Verdict::NotObserved,
                     correct: None,
@@ -570,6 +573,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                     self.succeeded += 1;
                     let record = graded.records.first();
                     checks.push(SectionCheck {
+                        title_read: true,
                         scope: scope_label,
                         verdict: Verdict::Found,
                         correct: record.map(|r| r.correct_count()),
@@ -579,6 +583,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                 Ok(GradeOutcome::NotObservedInEither(_)) => {
                     self.succeeded += 1;
                     checks.push(SectionCheck {
+                        title_read: true,
                         scope: scope_label,
                         verdict: Verdict::NotObservedInEitherSource,
                         correct: None,
@@ -586,6 +591,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                     });
                 }
                 Err(_) => checks.push(SectionCheck {
+                    title_read: true,
                     scope: scope_label,
                     verdict: Verdict::Unknown,
                     correct: None,
