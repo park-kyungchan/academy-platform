@@ -692,7 +692,37 @@ pub fn call(
         let target = if source == Source::Metadata {
             metadata
         } else {
-            crate::routing::select(&graph.routing, &graph.registry, paper, input)?
+            crate::routing::select(&graph.routing, &graph.registry, paper, input).inspect_err(
+                |error| {
+                    if error.code == "paper_scope_unresolved" {
+                        let student = input.get("studentId").clone();
+                        let scopes = graph.routing.get("paperScopes");
+                        let configured = scopes
+                            .array()
+                            .iter()
+                            .map(|s| s.get("endpoint").clone())
+                            .collect::<Vec<_>>();
+                        let matches = scopes
+                            .array()
+                            .iter()
+                            .filter(|s| s.get("studentIds").array().iter().any(|id| id == &student))
+                            .count();
+                        *failure_metadata = Some(obj(&[
+                            (
+                                "paperScope",
+                                obj(&[
+                                    ("studentId", student),
+                                    ("upstreamName", paper.upstream_name.clone().into()),
+                                    ("configuredEndpoints", Js::Arr(configured)),
+                                    ("matchCount", matches.into()),
+                                ]),
+                            ),
+                            ("interviewRequired", true.into()),
+                            ("interviewReason", "paper_scope_admission_missing".into()),
+                        ]));
+                    }
+                },
+            )?
         };
         let plan = crate::endpoint::plan(graph, &target.endpoint)?;
         let supervised =

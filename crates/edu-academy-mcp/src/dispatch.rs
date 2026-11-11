@@ -11,6 +11,21 @@ pub enum Reply {
     Tool(Js),
     ReceiptFailure { occurrence: String, effect: Effect },
 }
+/// The three tool names this dispatcher handles itself (identity, the
+/// parent-get and daily-test compositions) instead of forwarding to an
+/// endpoint child. Each name is declared once here and compared against
+/// everywhere in this module.
+pub const RUNTIME_IDENTITY_TOOL: &str = "academy_runtime_identity";
+pub const DAILYRECORD_GET_TOOL: &str = "academy_dailyrecord_get";
+pub const DAILYTEST_HISTORY_TOOL: &str = "academy_dailytest_history_with_headers";
+/// Read-only list of the same constants, for registry classification tests.
+pub fn dispatch_adapter_names() -> [&'static str; 3] {
+    [
+        RUNTIME_IDENTITY_TOOL,
+        DAILYRECORD_GET_TOOL,
+        DAILYTEST_HISTORY_TOOL,
+    ]
+}
 fn workflow(name: &str) -> bool {
     matches!(
         name,
@@ -129,7 +144,7 @@ pub fn call(
     let occurrence = audit::occurrence()?;
     let started = Instant::now();
     let mut effect = Effect::NotDispatched;
-    let tool = if name == "academy_runtime_identity" || graph.registry.get(name).is_ok() {
+    let tool = if name == RUNTIME_IDENTITY_TOOL || graph.registry.get(name).is_ok() {
         name
     } else {
         "unrecognized_tool"
@@ -162,7 +177,7 @@ pub fn call(
     }
     let work = (|| -> Result<Js> {
         gate.check(graph.verify_unchanged())?;
-        if name == "academy_runtime_identity" {
+        if name == RUNTIME_IDENTITY_TOOL {
             if !args.props().is_empty() {
                 return Err(Error::new("tool_input_invalid"));
             }
@@ -176,7 +191,7 @@ pub fn call(
         endpoint_name = Some(entry.endpoint.clone());
         upstream_name = Some(entry.upstream_name.clone());
         phase = "upstream";
-        if entry.upstream_name == "academy_dailytest_history_with_headers" {
+        if entry.upstream_name == DAILYTEST_HISTORY_TOOL {
             let result = crate::dailytest_history::call(
                 graph,
                 &mut *gate,
@@ -192,7 +207,7 @@ pub fn call(
             phase = "release_readback";
             return Ok(result);
         }
-        parent_get = entry.upstream_name == "academy_dailyrecord_get";
+        parent_get = entry.upstream_name == DAILYRECORD_GET_TOOL;
         let prepared = if parent_get {
             let prepared = crate::dailyrecord_read::prepare(
                 args,
@@ -404,7 +419,7 @@ pub fn call(
             {
                 return Ok(Reply::ReceiptFailure { occurrence, effect });
             }
-            if name == "academy_runtime_identity" {
+            if name == RUNTIME_IDENTITY_TOOL {
                 return Ok(Reply::Tool(result));
             }
             Ok(Reply::Tool(audit::with_tool_meta(
