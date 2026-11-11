@@ -161,3 +161,24 @@ fn m23f_legend_tracks_printed_dash_values_not_source_titles() {
     let out = c.run();
     assert_eq!(out.display.matches(l::UNIT_DASH_LEGEND).count(), 0);
 }
+
+fn lesson_data() -> (edu_academy_teacher::lesson::LessonData, edu_academy_teacher::envelope::Coverage) {
+    use edu_academy_teacher::{backend::SourceBackend, facts::SeededFacts, lesson::PrepareRequest, load_scenario, prepare};
+    let scenario = load_scenario(include_str!("fixtures/scenario-v2.json")).unwrap();
+    let facts = SeededFacts::from_scenario(&scenario);
+    let mut backend = SourceBackend::synthetic(scenario, NOW);
+    let out = prepare(&mut backend, &facts, &PrepareRequest { student: Some(NAMES[0].into()), ..Default::default() }, chrono::NaiveDate::from_ymd_opt(2026, 11, 11).unwrap());
+    assert!(out.ask.is_none() && out.stop.is_none());
+    (serde_json::from_value(out.data).unwrap(), out.coverage)
+}
+
+#[test]
+fn m23g_unsupported_server_codes_have_explicit_display_labels() {
+    let (mut data, coverage) = lesson_data();
+    data.teacher_fact_reports[0].stages = vec!["invented_stage_739".into()];
+    let display = edu_academy_teacher::render::lesson_prepare(&data, &coverage);
+    assert!(!display.contains("invented_stage_739"));
+    assert!(display.contains("미확인(지원하지 않는 단계)"));
+    assert_eq!(l::unit_stage_name("invented_stage_739"), "미확인(지원하지 않는 단계)");
+    assert_eq!(l::unit_source_name("invented_source_739"), "미확인 원천");
+}
