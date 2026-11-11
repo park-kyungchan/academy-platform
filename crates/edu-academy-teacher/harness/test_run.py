@@ -37,8 +37,7 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(run.command("claude", "haiku", "mcp.json", "tools", "installed"), [
             "claude", "--print", "--model", "haiku", "--mcp-config", "mcp.json",
             "--strict-mcp-config", "--allowedTools", "tools", "--output-format", "stream-json",
-            "--verbose", "--include-hook-events", "--no-session-persistence", "--disallowedTools",
-            "Bash,Read,Grep,Glob,Edit,Write,NotebookEdit,Agent,WebFetch,WebSearch"])
+            "--verbose", "--include-hook-events", "--no-session-persistence", "--tools", "Skill"])
 
     def test_builtin_plugins_and_six_agents_allowed(self):
         events = self.isolated_events()
@@ -157,7 +156,7 @@ class HarnessTests(unittest.TestCase):
         ]
 
     def test_verbatim_display_in_both_received_forms(self):
-        for display in ("display field", ""):
+        for display in ("display field", "", " \t\n"):
             for content, form in [(display, "display_text"),
                                   (json.dumps({"display":display, "status":"ok"}), "envelope")]:
                 with self.subTest(form=form, display=display):
@@ -165,8 +164,13 @@ class HarnessTests(unittest.TestCase):
                     result = run.measure(events)
                     self.assertEqual(result["received_form"], form)
                     self.assertEqual(result["display"], display)
-                    self.assertEqual(result["verbatim"], "pass")
-                    self.assertEqual(result["extra_chars"], 0)
+                    self.assertEqual(result["verbatim"], "pass" if display.strip() else "unknown")
+                    self.assertEqual(result["extra_chars"], 0 if display.strip() else "unknown")
+
+    def test_installed_isolation_is_not_applicable(self):
+        raw = "\n".join(json.dumps(e) for e in self.isolated_events())
+        result = run.score_stream(raw, {}, [], True, "installed")
+        self.assertEqual(result["isolation"]["status"], "not_applicable")
 
     def test_later_non_academy_result_is_ignored(self):
         events = self.academy_exchange("display field") + [

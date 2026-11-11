@@ -18,6 +18,10 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
+// Variant B: only display is model-visible; the envelope is client metadata.
+const ENVELOPE_META_KEY: &str = "academy/envelope";
+const INSTRUCTIONS: &str = "Each tool result of this server is finished Korean text for the teacher. Show that text to the teacher exactly as it is and in full. Add nothing before or after it: no summary, no rewording, no advice, no extra question. When the text ends with a question, stop there and wait for the teacher's answer. Call a tool again only when the teacher asks for something else or answers a question.";
+
 const MAX_MESSAGE_BYTES: usize = 1_048_576;
 
 enum Message {
@@ -172,7 +176,12 @@ fn main() {
     let mut stdout = std::io::stdout().lock();
     while let Ok(Some(message)) = read_message(&mut input) {
         let parsed = match message {
-            Message::Bytes(bytes) => serde_json::from_slice::<Value>(&bytes).ok(),
+            Message::Bytes(bytes) => {
+                if bytes.iter().all(u8::is_ascii_whitespace) {
+                    continue;
+                }
+                serde_json::from_slice::<Value>(&bytes).ok()
+            }
             Message::TooLong => None,
         };
         let request: Value = match parsed {
@@ -219,6 +228,7 @@ fn main() {
                     "id": id,
                     "result": {
                         "protocolVersion": version,
+                        "instructions": INSTRUCTIONS,
                         "capabilities": {"tools": {}},
                         "serverInfo": {"name": "academy", "version": env!("CARGO_PKG_VERSION")}
                     }
@@ -297,7 +307,7 @@ fn main() {
                     "id": id,
                     "result": {
                         "content": [{"type": "text", "text": envelope.display}],
-                        "structuredContent": structured,
+                        "_meta": {(ENVELOPE_META_KEY): structured},
                         "isError": false
                     }
                 });

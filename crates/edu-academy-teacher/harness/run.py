@@ -14,8 +14,7 @@ CRATE = HERE.parent
 ISOLATED_SYSTEM_PROMPT = "You are an assistant of a teacher. Use the tools you are given."
 # Accepted CLI builtin agents (TASK-P8-S1b-R1c).
 DEFAULT_CLI_AGENTS = ("claude", "Explore", "general-purpose", "Plan", "statusline-setup", "web-fetch")
-INSTALLED_DISALLOWED_TOOLS = ("Bash", "Read", "Grep", "Glob", "Edit", "Write", "NotebookEdit",
-                              "Agent", "WebFetch", "WebSearch")
+
 
 
 def norm(text):
@@ -30,7 +29,7 @@ def command(cli, model, config, allowed, mode):
         args += ["--setting-sources", "", "--tools", "",
                  "--disable-slash-commands", "--system-prompt", ISOLATED_SYSTEM_PROMPT]
     else:
-        args += ["--disallowedTools", ",".join(INSTALLED_DISALLOWED_TOOLS)]
+        args += ["--tools", "Skill"]
     return args
 
 
@@ -81,7 +80,7 @@ def measure(events):
     if not isinstance(answer, str) or payload.get("is_error"):
         answer = None
     verbatim, extra = "unknown", "unknown"
-    if display is not None and answer is not None:
+    if display is not None and norm(display) and answer is not None:
         shown, final = norm(display), norm(answer)
         present = shown in final
         verbatim = "pass" if present else "FAIL"
@@ -186,7 +185,7 @@ def answer_checks(spec, answer):
     return checks
 
 
-def score_stream(raw, spec, allowed_tools, hook_events_requested=False):
+def score_stream(raw, spec, allowed_tools, hook_events_requested=False, mode="isolated"):
     """Shared live/offline scoring; never launches a CLI or mutates evidence."""
     events, malformed = [], 0
     for line in raw.splitlines():
@@ -203,6 +202,9 @@ def score_stream(raw, spec, allowed_tools, hook_events_requested=False):
         result.update(verbatim="unknown", extra_chars="unknown", received_form="unknown")
     result["malformed_stream_lines"] = malformed
     result["isolation"] = isolation(events, allowed_tools, malformed, hook_events_requested)
+    if mode == "installed":
+        result["isolation"]["status"] = "not_applicable"
+        result["isolation"]["reasons"] = []
     result["checks"] = answer_checks(spec, result["answer"])
     result["call_count"] = len(result["calls"]) if result["result_received"] and not malformed else "unknown"
     result["args_bytes"] = sum(c["args_bytes"] for c in result["calls"]) if (
@@ -247,7 +249,7 @@ def main():
     except OSError as exc:
         raw, stderr = "", f"{type(exc).__name__}: CLI could not start"
     wall = time.monotonic() - started
-    result = score_stream(raw, spec, allowed.split(","), "--include-hook-events" in cli_command)
+    result = score_stream(raw, spec, allowed.split(","), "--include-hook-events" in cli_command, args.mode)
     result["command"] = cli_command
     result["system_prompt"] = ISOLATED_SYSTEM_PROMPT if args.mode == "isolated" else None
     result.update({"mode": args.mode, "request": args.request, "model": args.model,

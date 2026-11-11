@@ -21,7 +21,7 @@ def score_saved(path):
     command = saved.get("command", [])
     hooks_requested = isinstance(command, list) and "--include-hook-events" in command
     result = run.score_stream((directory / "claude.jsonl").read_text(encoding="utf-8"),
-                              specs[request], allowed, hooks_requested)
+                              specs[request], allowed, hooks_requested, mode)
     proof = result["isolation"]
     isolation_text = proof["status"]
     if isolation_text == "FAIL" and proof["hook_condition"] == "unknown":

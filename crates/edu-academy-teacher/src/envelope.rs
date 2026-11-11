@@ -208,11 +208,16 @@ impl Envelope {
         .expect("stop invariant")
     }
     pub fn unknown_tool() -> Self {
-        let display = "그런 이름의 도구는 없습니다. 쓸 수 있는 도구: academy_lesson_prepare";
+        let names = crate::tools::TOOLS
+            .iter()
+            .map(|tool| tool.name)
+            .collect::<Vec<_>>()
+            .join(", ");
+        let display = format!("그런 이름의 도구는 없습니다. 쓸 수 있는 도구: {names}");
         Self::stop(
-            display.into(),
+            display.clone(),
             serde_json::json!({}),
-            Stop::new(StopCode::UnknownTool, display),
+            Stop::new(StopCode::UnknownTool, &display),
             Coverage::default(),
         )
     }

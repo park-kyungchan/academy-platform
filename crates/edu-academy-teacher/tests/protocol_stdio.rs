@@ -13,11 +13,12 @@ use std::{
 
 const DISPLAY_Q01: &str = include_str!("fixtures/display-q01.txt");
 const DISPLAY_Q02: &str = include_str!("fixtures/display-q02.txt");
+const INSTRUCTIONS: &str = "Each tool result of this server is finished Korean text for the teacher. Show that text to the teacher exactly as it is and in full. Add nothing before or after it: no summary, no rewording, no advice, no extra question. When the text ends with a question, stop there and wait for the teacher's answer. Call a tool again only when the teacher asks for something else or answers a question.";
 const TOOLS_FIXTURE: &[u8] = include_bytes!("fixtures/tools-list.json");
 
 struct Server {
     child: Child,
-    stdin: ChildStdin,
+    stdin: Option<ChildStdin>,
     stdout: Receiver<String>,
     run_log: PathBuf,
     dir: PathBuf,
@@ -77,15 +78,15 @@ impl Server {
         });
         Self {
             child,
-            stdin,
+            stdin: Some(stdin),
             stdout,
             run_log,
             dir,
         }
     }
     fn send(&mut self, raw: &str) -> String {
-        writeln!(self.stdin, "{raw}").unwrap();
-        self.stdin.flush().unwrap();
+        writeln!(self.stdin.as_mut().unwrap(), "{raw}").unwrap();
+        self.stdin.as_mut().unwrap().flush().unwrap();
         let line = self
             .stdout
             .recv_timeout(Duration::from_secs(10))
@@ -117,6 +118,7 @@ fn stdio_protocol_end_to_end() {
                    "clientInfo": {"name": "protocol-test", "version": "0"}}
     }));
     assert_eq!(init["result"]["protocolVersion"], "2025-06-18");
+    assert_eq!(init["result"]["instructions"], INSTRUCTIONS);
     assert_eq!(init["result"]["serverInfo"]["name"], "academy");
     assert_eq!(
         init["result"]["serverInfo"]["version"],
@@ -127,12 +129,12 @@ fn stdio_protocol_end_to_end() {
     // by every later call in this test).
 
     writeln!(
-        server.stdin,
+        server.stdin.as_mut().unwrap(),
         "{}",
         json!({"jsonrpc":"2.0", "method":"notifications/initialized"})
     )
     .unwrap();
-    server.stdin.flush().unwrap();
+    server.stdin.as_mut().unwrap().flush().unwrap();
     assert!(matches!(
         server.stdout.recv_timeout(Duration::from_millis(200)),
         Err(mpsc::RecvTimeoutError::Timeout)
@@ -154,12 +156,16 @@ fn stdio_protocol_end_to_end() {
         "params": {"name": "academy_lesson_prepare", "arguments": {"student": "가상학생A"}}
     }));
     assert_eq!(q01["result"]["isError"], false);
-    assert_eq!(q01["result"]["content"][0]["type"], "text");
+    assert_eq!(
+        q01["result"]["content"],
+        json!([{"type":"text","text":DISPLAY_Q01}])
+    );
+    assert!(q01["result"].get("structuredContent").is_none());
     assert_eq!(q01["result"]["content"][0]["text"], DISPLAY_Q01);
-    assert_eq!(q01["result"]["structuredContent"]["status"], "ok");
+    assert_eq!(q01["result"]["_meta"]["academy/envelope"]["status"], "ok");
     // checks.json Q01 data assertion, at the protocol level.
     assert_eq!(
-        q01["result"]["structuredContent"]["data"]["students"][0]["previous_lesson"]["date"],
+        q01["result"]["_meta"]["academy/envelope"]["data"]["students"][0]["previous_lesson"]["date"],
         "2026-11-09"
     );
 
@@ -169,7 +175,21 @@ fn stdio_protocol_end_to_end() {
         "params": {"name": "academy_lesson_prepare", "arguments": {"class_name": "가상반A"}}
     }));
     assert_eq!(q02["result"]["content"][0]["text"], DISPLAY_Q02);
-    assert_eq!(q02["result"]["structuredContent"]["status"], "ok");
+    assert_eq!(q02["result"]["_meta"]["academy/envelope"]["status"], "ok");
+
+    assert_eq!(
+        q02["result"]["content"],
+        json!([{"type":"text","text":DISPLAY_Q02}])
+    );
+    for result in [&q01["result"], &q02["result"]] {
+        assert_eq!(result.as_object().unwrap().len(), 3);
+        assert_eq!(result["_meta"].as_object().unwrap().len(), 1);
+        assert_eq!(
+            result["_meta"]["academy/envelope"]["display"],
+            result["content"][0]["text"]
+        );
+        assert!(result.get("structuredContent").is_none());
+    }
 
     // One of the other 13 tools returns tool_not_in_slice_1.
     let other = server.call(json!({
@@ -178,7 +198,7 @@ fn stdio_protocol_end_to_end() {
     }));
     assert_eq!(other["result"]["isError"], false);
     assert_eq!(
-        other["result"]["structuredContent"]["stop"]["code"],
+        other["result"]["_meta"]["academy/envelope"]["stop"]["code"],
         "tool_not_in_slice_1"
     );
 
@@ -189,13 +209,20 @@ fn stdio_protocol_end_to_end() {
     }));
     assert_eq!(unknown["result"]["isError"], false);
     assert_eq!(
-        unknown["result"]["structuredContent"]["stop"]["code"],
+        unknown["result"]["_meta"]["academy/envelope"]["stop"]["code"],
         "unknown_tool"
     );
 
     assert_eq!(
         unknown["result"]["content"][0]["text"],
-        "그런 이름의 도구는 없습니다. 쓸 수 있는 도구: academy_lesson_prepare"
+        format!(
+            "그런 이름의 도구는 없습니다. 쓸 수 있는 도구: {}",
+            edu_academy_teacher::tools::TOOLS
+                .iter()
+                .map(|tool| tool.name)
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     );
 
     // A malformed line gets -32700 and the next valid request still works.
@@ -275,8 +302,8 @@ fn missing_scenario_argument_exits_2() {
 
 fn assert_invalid_recovers(raw: &[u8], code: i32) {
     let mut server = Server::start();
-    server.stdin.write_all(raw).unwrap();
-    server.stdin.flush().unwrap();
+    server.stdin.as_mut().unwrap().write_all(raw).unwrap();
+    server.stdin.as_mut().unwrap().flush().unwrap();
     let line = server
         .stdout
         .recv_timeout(Duration::from_secs(10))
@@ -323,8 +350,8 @@ fn exact_message_limit_is_accepted() {
     let mut raw = b"{\"id\":1,\"method\":\"ping\"}".to_vec();
     raw.resize(1_048_576, b' ');
     raw.push(b'\n');
-    server.stdin.write_all(&raw).unwrap();
-    server.stdin.flush().unwrap();
+    server.stdin.as_mut().unwrap().write_all(&raw).unwrap();
+    server.stdin.as_mut().unwrap().flush().unwrap();
     let line = server
         .stdout
         .recv_timeout(Duration::from_secs(10))
@@ -376,4 +403,45 @@ fn symlink_log_is_not_followed() {
         stderr.lines().collect::<Vec<_>>(),
         ["call_log_disabled: cannot securely open log"]
     );
+}
+
+#[test]
+fn blank_lines_are_skipped_without_reply() {
+    let mut server = Server::start();
+    server
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(b"\n \t\r\n")
+        .unwrap();
+    server.stdin.as_mut().unwrap().flush().unwrap();
+    assert!(matches!(
+        server.stdout.recv_timeout(Duration::from_millis(200)),
+        Err(mpsc::RecvTimeoutError::Timeout)
+    ));
+    assert_eq!(server.call(json!({"id":1,"method":"ping"}))["id"], 1);
+}
+
+fn reply_at_eof(raw: &[u8]) -> Value {
+    let mut server = Server::start();
+    server.stdin.as_mut().unwrap().write_all(raw).unwrap();
+    server.stdin.as_mut().unwrap().flush().unwrap();
+    drop(server.stdin.take());
+    let line = server
+        .stdout
+        .recv_timeout(Duration::from_secs(10))
+        .expect("reply at EOF");
+    serde_json::from_str(&line).unwrap()
+}
+
+#[test]
+fn oversized_line_at_eof_is_parse_error() {
+    let reply = reply_at_eof(&vec![b'x'; 1_048_577]);
+    assert_eq!(reply["error"]["code"], -32700);
+    assert!(reply["id"].is_null());
+}
+
+#[test]
+fn partial_line_at_eof_is_answered() {
+    assert_eq!(reply_at_eof(br#"{"id":42,"method":"ping"}"#)["id"], 42);
 }
