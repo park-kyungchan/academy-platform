@@ -269,7 +269,7 @@ class HarnessTests(unittest.TestCase):
 
     def test_result_columns_share_live_and_offline_scoring(self):
         text = test_fidelity.AcceptanceTests.TEXT
-        answer = text.replace('Example title\n', '').replace('읽은 원천 Source listing\n', '')
+        answer = text.replace('읽은 원천 Source listing\n', '')
         events = self.academy_exchange(text) + [{"type": "result", "result": answer}]
         raw = "\n".join(json.dumps(event) for event in events)
         spec = json.loads((run.HERE / 'checks.json').read_text())["Q01"]
@@ -302,7 +302,7 @@ class HarnessTests(unittest.TestCase):
             (path / "measurement.json").write_text(metadata)
             (path / "claude.jsonl").write_text(stream)
             row = rescore.score_saved(path)
-            self.assertEqual(set(row), {"mode","request","model","received_form","shown_unchanged","facts_kept","extra_chars","isolation","delivery"})
+            self.assertEqual(set(row), {"mode","request","model","received_form","shown_unchanged","facts_kept","failed_rules","extra_chars","isolation","delivery"})
             self.assertEqual(row["received_form"], "envelope")
             self.assertEqual(row["shown_unchanged"], "pass")
             self.assertEqual(row["extra_chars"], 0)

@@ -30,7 +30,7 @@ def score_saved(path):
     # paths read by a measured model, or any other task/file content.
     return {"mode": mode, "request": request, "model": model,
             "received_form": result["received_form"], "shown_unchanged": result["shown_unchanged"], "facts_kept": result["facts_kept"],
-            "extra_chars": result["extra_chars"], "isolation": isolation_text, "delivery": result["delivery"]}
+            "failed_rules": result.get("failed_rules", []), "extra_chars": result["extra_chars"], "isolation": isolation_text, "delivery": result["delivery"]}
 
 
 def main():

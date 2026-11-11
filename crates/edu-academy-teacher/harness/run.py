@@ -239,7 +239,7 @@ def score_stream(raw, spec, allowed_tools, hook_events_requested=False, mode="is
     if malformed:
         result.update(verbatim="unknown", extra_chars="unknown", received_form="unknown")
     result["shown_unchanged"] = result["verbatim"]
-    result.update(fidelity.evaluate(result["display"], result["answer"], spec.get("fidelity_kind"))
+    result.update(fidelity.evaluate(result["display"], result["answer"], spec.get("fidelity_policy"))
                   if not malformed else {"facts_kept": "unknown"})
     result["malformed_stream_lines"] = malformed
     result["isolation"] = isolation(events, allowed_tools, malformed, hook_events_requested, mode)

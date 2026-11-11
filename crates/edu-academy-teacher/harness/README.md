@@ -27,9 +27,11 @@ Q02 roster_order: complete student action blocks occur in roster order A, B, C (
 Q02 line0: B's video absence is scoped to the lists, never a claim the student did not do or upload the work.
 Q03 labels and academy_calls_before_answer: show all three class choices and wait after one Academy call. The default fixture is scenario-v2.json.
 
-`shown_unchanged` is pass when the complete whitespace-normalised delivered text occurs in the final answer; missing evidence is unknown (the stored legacy `verbatim` alias remains).
-`facts_kept` is pass when every row keeps its fields in order, every word-table state-label count is unchanged, every unknown-section line is kept, and at most one unanchored line is added; missing/invalid evidence is unknown.
-A slice is accepted on `facts_kept`; `shown_unchanged` is reported beside it. Global row order, title, footer and closing retention are measured but do not decide `facts_kept`.
-Q01/Q02 use checklist scoring; Q03 asks have no rows, so require the complete delivered text instead of vacuously passing. `checks.json` declares each request's `fidelity_kind`.
-Offline counts: `python3 -I -m unittest discover -s crates/edu-academy-teacher/harness`; `python3 crates/edu-academy-teacher/harness/fidelity.py <run-dir>` prints counts/categories only, never answer text.
-Fields use literal whitespace-normalised matches; nonrow/addition anchors remove Markdown syntax. Counts cannot verify student attribution or added-sentence meaning; a field can be reused across source rows.
+`shown_unchanged` reports complete whitespace-normalised delivered-text inclusion; missing/malformed evidence is unknown (stored legacy alias: `verbatim`).
+`facts_kept` follows M21: one-to-one complete row values with multiplicity and the same part, student heading and table header; reordered rows in the same context may pass.
+Every whole line under `미확인 사항` and `다음 확인` must remain; unmatched rows/fields or lines under these parts fail; source footer/closing loss is counted separately and may pass.
+At most one commentary line outside factual parts may be added, and it must contain no declared word-table state label; title context must remain.
+Presentation normalization: surrounding whitespace, ASCII/full-width bars, ` / ` versus a literal cell line break, and an outer Markdown fence; internal value edits or inline field markup are not removed.
+Structure comes from delivered reference headers/headings, including other column counts and tableless whole-line facts; unsupported/ambiguous structure or policy yields unknown, which never accepts a slice.
+`checks.json` declares the complete contract, structure, normalization, provenance and word-table commentary policy; a slice is accepted on `facts_kept`, beside `shown_unchanged`.
+Offline tests: `python3 -I -m unittest discover -s crates/edu-academy-teacher/harness`; re-score with `python3 -B crates/edu-academy-teacher/harness/rescore.py <run-dir>`; numeric/category output includes failed M21 rule numbers and never run text.

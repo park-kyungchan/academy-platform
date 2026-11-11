@@ -29,7 +29,81 @@
       "11월 9일",
       "2026-11-09"
     ],
-    "fidelity_kind": "checklist"
+    "fidelity_policy": {
+      "contract": "M21",
+      "rows": "one_to_one_whole_fields",
+      "bindings": [
+        "part",
+        "student",
+        "header"
+      ],
+      "required_parts": [
+        "미확인 사항",
+        "다음 확인"
+      ],
+      "unknown_structure": "unknown",
+      "unmatched_rows": "reject",
+      "unmatched_required_lines": "reject",
+      "title": "retain",
+      "commentary_max_lines": 1,
+      "commentary_state_labels": "reject_word_table",
+      "optional_nonrows": [
+        "sources",
+        "closing"
+      ],
+      "normalization": {
+        "surrounding_whitespace": true,
+        "bars": [
+          "|",
+          "｜"
+        ],
+        "line_break_encoding": " / ",
+        "outer_fence": true
+      },
+      "structure": {
+        "tables": "reference_headers",
+        "heading_markers": [
+          "#",
+          "**"
+        ],
+        "list_marker": "- ",
+        "bullet_separator": " · ",
+        "student_heading_suffix": " 학원 내 처리",
+        "student_heading_values": "first_column",
+        "text_without_rows": "whole_lines"
+      },
+      "state_labels": {
+        "path": "src/display_labels.rs",
+        "constants": [
+          "TEACHER",
+          "SERVER",
+          "PHYSICAL",
+          "WAITING",
+          "UNJUDGED",
+          "DEFERRED",
+          "MISSING_VIDEO",
+          "MISSING_TITLE",
+          "NOT_OBSERVED",
+          "NOT_IN_RANGE",
+          "NOT_IN_EITHER",
+          "NOT_YET",
+          "NOT_APPLICABLE",
+          "UNAVAILABLE",
+          "EXCLUDED",
+          "ELIGIBLE",
+          "NOT_ELIGIBLE",
+          "PERSISTED",
+          "NOT_PERSISTED",
+          "CONFLICT",
+          "UNRESOLVED"
+        ]
+      },
+      "provenance": {
+        "source_prefix": "READ_SOURCES",
+        "closing": "CLOSING",
+        "none": "NONE"
+      }
+    }
   },
   "Q02": {
     "request_text": "가상반A 전체 오늘 체크리스트 줘",
@@ -78,7 +152,81 @@
       "11월 9일",
       "2026-11-09"
     ],
-    "fidelity_kind": "checklist"
+    "fidelity_policy": {
+      "contract": "M21",
+      "rows": "one_to_one_whole_fields",
+      "bindings": [
+        "part",
+        "student",
+        "header"
+      ],
+      "required_parts": [
+        "미확인 사항",
+        "다음 확인"
+      ],
+      "unknown_structure": "unknown",
+      "unmatched_rows": "reject",
+      "unmatched_required_lines": "reject",
+      "title": "retain",
+      "commentary_max_lines": 1,
+      "commentary_state_labels": "reject_word_table",
+      "optional_nonrows": [
+        "sources",
+        "closing"
+      ],
+      "normalization": {
+        "surrounding_whitespace": true,
+        "bars": [
+          "|",
+          "｜"
+        ],
+        "line_break_encoding": " / ",
+        "outer_fence": true
+      },
+      "structure": {
+        "tables": "reference_headers",
+        "heading_markers": [
+          "#",
+          "**"
+        ],
+        "list_marker": "- ",
+        "bullet_separator": " · ",
+        "student_heading_suffix": " 학원 내 처리",
+        "student_heading_values": "first_column",
+        "text_without_rows": "whole_lines"
+      },
+      "state_labels": {
+        "path": "src/display_labels.rs",
+        "constants": [
+          "TEACHER",
+          "SERVER",
+          "PHYSICAL",
+          "WAITING",
+          "UNJUDGED",
+          "DEFERRED",
+          "MISSING_VIDEO",
+          "MISSING_TITLE",
+          "NOT_OBSERVED",
+          "NOT_IN_RANGE",
+          "NOT_IN_EITHER",
+          "NOT_YET",
+          "NOT_APPLICABLE",
+          "UNAVAILABLE",
+          "EXCLUDED",
+          "ELIGIBLE",
+          "NOT_ELIGIBLE",
+          "PERSISTED",
+          "NOT_PERSISTED",
+          "CONFLICT",
+          "UNRESOLVED"
+        ]
+      },
+      "provenance": {
+        "source_prefix": "READ_SOURCES",
+        "closing": "CLOSING",
+        "none": "NONE"
+      }
+    }
   },
   "Q03": {
     "request_text": "가상반Z 오늘 수업 준비해줘",
@@ -89,6 +237,80 @@
       "가상반B",
       "가상반C"
     ],
-    "fidelity_kind": "text"
+    "fidelity_policy": {
+      "contract": "M21",
+      "rows": "one_to_one_whole_fields",
+      "bindings": [
+        "part",
+        "student",
+        "header"
+      ],
+      "required_parts": [
+        "미확인 사항",
+        "다음 확인"
+      ],
+      "unknown_structure": "unknown",
+      "unmatched_rows": "reject",
+      "unmatched_required_lines": "reject",
+      "title": "retain",
+      "commentary_max_lines": 1,
+      "commentary_state_labels": "reject_word_table",
+      "optional_nonrows": [
+        "sources",
+        "closing"
+      ],
+      "normalization": {
+        "surrounding_whitespace": true,
+        "bars": [
+          "|",
+          "｜"
+        ],
+        "line_break_encoding": " / ",
+        "outer_fence": true
+      },
+      "structure": {
+        "tables": "reference_headers",
+        "heading_markers": [
+          "#",
+          "**"
+        ],
+        "list_marker": "- ",
+        "bullet_separator": " · ",
+        "student_heading_suffix": " 학원 내 처리",
+        "student_heading_values": "first_column",
+        "text_without_rows": "whole_lines"
+      },
+      "state_labels": {
+        "path": "src/display_labels.rs",
+        "constants": [
+          "TEACHER",
+          "SERVER",
+          "PHYSICAL",
+          "WAITING",
+          "UNJUDGED",
+          "DEFERRED",
+          "MISSING_VIDEO",
+          "MISSING_TITLE",
+          "NOT_OBSERVED",
+          "NOT_IN_RANGE",
+          "NOT_IN_EITHER",
+          "NOT_YET",
+          "NOT_APPLICABLE",
+          "UNAVAILABLE",
+          "EXCLUDED",
+          "ELIGIBLE",
+          "NOT_ELIGIBLE",
+          "PERSISTED",
+          "NOT_PERSISTED",
+          "CONFLICT",
+          "UNRESOLVED"
+        ]
+      },
+      "provenance": {
+        "source_prefix": "READ_SOURCES",
+        "closing": "CLOSING",
+        "none": "NONE"
+      }
+    }
   }
 }
