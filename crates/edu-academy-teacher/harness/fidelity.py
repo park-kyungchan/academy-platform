@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Strict M21 scoring; saved evidence is read only, exports contain no run text."""
 import argparse
+from bisect import bisect_left
 from collections import Counter
 from dataclasses import dataclass
 from functools import lru_cache
@@ -10,6 +11,10 @@ import re
 
 CRATE = Path(__file__).resolve().parent.parent
 KINDS = ('title', 'parts', 'student_titles', 'unknown', 'next', 'sources', 'closing', 'text')
+
+
+class LimitReached(ValueError):
+    pass
 
 
 class Unsupported(ValueError):
@@ -41,7 +46,7 @@ def validate(policy):
                       'unmarked_cell_continuation': 'last_cell', 'plain_empty_part': 'heading_followed_by_none'},
         'provenance': {'source_prefix': 'READ_SOURCES','closing': 'CLOSING'},
     }
-    if not isinstance(policy, dict) or set(policy) != set(expected) | {'required_parts','commentary_max_lines','state_labels'}:
+    if not isinstance(policy, dict) or set(policy) != set(expected) | {'required_parts','commentary_max_lines','state_labels','limits'}:
         raise Unsupported('unsupported_policy')
     if any(policy[k] != v for k,v in expected.items()):
         raise Unsupported('unsupported_policy_rule')
@@ -49,6 +54,10 @@ def validate(policy):
             or len(policy['required_parts']) != 2 or len(set(policy['required_parts'])) != 2
             or any(not isinstance(p,str) or not p for p in policy['required_parts'])):
         raise Unsupported('unsupported_policy_parameter')
+    limits=policy['limits']
+    if (not isinstance(limits,dict) or set(limits)!={'reference_units','answer_bytes','search_states'}
+            or any(type(v) is not int or v<1 for v in limits.values())):
+        raise Unsupported('unsupported_limits')
     state = policy['state_labels']
     if (set(state) != {'path','constants'} or state['path'] != 'src/display_labels.rs'
             or not isinstance(state['constants'],list) or not state['constants']):
@@ -143,7 +152,7 @@ def parse_reference(text, policy):
         return (clean in required or clean.startswith(prefix) or clean==closing
                 or (index+1<len(lines) and lines[index+1]==words['NONE'])
                 or line.startswith(('#','**')) or clean.endswith(policy['structure']['student_heading_suffix'])
-                or (following is not None and (not header or value(following[0],policy)==header[0] or len(following)!=len(header))))
+                or (not line.startswith(('|','｜')) and following is not None and (not header or value(following[0],policy)==header[0] or len(following)!=len(header))))
     while i<len(lines):
         line=lines[i]; clean=heading(line,policy); f=fields_of(line,policy)
         if clean.startswith(prefix):
@@ -155,6 +164,13 @@ def parse_reference(text, policy):
             units.append(Unit('sources',norm(' '.join(group)))); continue
         if clean==closing:
             units.append(Unit('closing',clean)); i+=1; continue
+        if header and line.startswith(('|','｜')) and not line.endswith(('|','｜')):
+            # Explicit row borders disambiguate any number of cell breaks,
+            # including several breaks before the first field delimiter.
+            while not line.endswith(('|','｜')) and i+1<len(lines):
+                i+=1;line+='\n'+lines[i]
+            if not line.endswith(('|','｜')):raise Unsupported('unterminated_reference_row')
+            f=fields_of(line,policy)
         if f is None and boundary(i):
             is_student=(clean.endswith(policy['structure']['student_heading_suffix']) or line.startswith('## '))
             if is_student:
@@ -257,34 +273,70 @@ def find_assignment(units, answer, policy, reference=False):
     by_key={}
     for index,u in enumerate(unique): by_key.setdefault((u.kind,u.value),[]).append(index)
     words=vocabulary(policy); labels=tuple(words[name] for name in policy['state_labels']['constants'])
-    @lru_cache(maxsize=None)
-    def options(offset): return match_options(text,offset,units)
-    @lru_cache(maxsize=None)
-    def visit(offset,remaining,context,extras):
-        if offset==len(text):
-            return () if all(not count or (not reference and u.kind in policy['optional_nonrows']) for u,count in zip(unique,remaining)) else None
-        for key,end in options(offset):
+    offsets=[0]+[i+1 for i,char in enumerate(text) if char=='\n'] if text else []
+    options={offset:match_options(text,offset,units) for offset in offsets}
+    occurrences={}
+    for offset,choices in options.items():
+        for key,end in choices:occurrences.setdefault(key,[]).append(offset)
+    required_keys={key:tuple(index for index in indexes if reference or unique[index].kind not in policy['optional_nonrows'])
+                   for key,indexes in by_key.items()}
+    def feasible(offset,remaining,previous_offset=None):
+        # A necessary condition only: overlapping candidates may overestimate
+        # availability, never underestimate it. Thus pruning preserves all solutions.
+        keys=required_keys if previous_offset is None else {
+            key for position in offsets[bisect_left(offsets,previous_offset):bisect_left(offsets,offset)]
+            for key,end in options[position]}
+        for key in keys:
+            indexes=required_keys[key]
+            need=sum(remaining[index] for index in indexes)
+            positions=occurrences.get(key,())
+            if need>len(positions)-bisect_left(positions,offset):return False
+        return True
+    def successors(state):
+        offset,remaining,context,extras=state
+        for key,end in options.get(offset,()):
             for index in by_key.get(key,()):
-                if not remaining[index] or not compatible(unique[index],context): continue
-                counts=list(remaining); counts[index]-=1
-                next_offset=end+1 if end<len(text) else end
-                rest=visit(next_offset,tuple(counts),next_context(unique[index],context),extras)
-                if rest is not None: return ((unique[index],text[offset:end],context[0]),)+rest
+                if not remaining[index] or not compatible(unique[index],context):continue
+                counts=list(remaining);counts[index]-=1
+                child=(end+1 if end<len(text) else end,tuple(counts),next_context(unique[index],context),extras)
+                yield child,(unique[index],text[offset:end],context[0])
         end=text.find('\n',offset)
         if end<0:end=len(text)
         raw=text[offset:end]
         if (not reference and extras<policy['commentary_max_lines'] and context[0] not in policy['required_parts']
                 and not row_like(None,raw) and not any(label in raw for label in labels)):
-            rest=visit(end+1 if end<len(text) else end,remaining,context,extras+1)
-            if rest is not None:return ((None,raw,context[0]),)+rest
-        return None
-    return visit(0,initial,('','',()),0)
+            yield (end+1 if end<len(text) else end,remaining,context,extras+1),(None,raw,context[0])
+    start=(0,initial,('','',()),0)
+    # Iterative depth-first search. Failed states are memoized; successful edges
+    # are retained only on the active stack, so no Python recursion is involved.
+    stack=[];path=[];failed=set();states=0
+    def enter(state,edge=None,previous_offset=None):
+        nonlocal states
+        states+=1
+        if states>policy['limits']['search_states']:raise LimitReached('search_budget')
+        if not feasible(state[0],state[1],previous_offset):failed.add(state);return False
+        stack.append((state,iter(successors(state))))
+        if edge is not None:path.append(edge)
+        return True
+    enter(start)
+    while stack:
+        state,children=stack[-1]
+        if state[0]==len(text):return tuple(path)
+        candidate=next(children,None)
+        if candidate is None:
+            failed.add(state);stack.pop()
+            if stack:path.pop()
+            continue
+        child,edge=candidate
+        if child not in failed:enter(child,edge,state[0])
+    return None
 
 
 @lru_cache(maxsize=1024)
 def reference_units(source, serialized):
     policy=json.loads(serialized); validate(policy)
     units=parse_reference(source,policy)
+    if len(units)>policy['limits']['reference_units']:raise LimitReached('reference_too_large')
     # The same complete-assignment search validates reference coverage too.
     if find_assignment(units,source,policy,reference=True) is None:
         raise Unsupported('unassigned_reference_line')
@@ -323,7 +375,7 @@ def compare(units, answer, policy):
     words=vocabulary(policy); labels=tuple(words[name] for name in policy['state_labels']['constants'])
     if len(added)>policy['commentary_max_lines'] or any(label in raw for raw,part in added for label in labels):rules.add(5)
     nonrows={kind:{'total':sum(u.kind==kind for u in units),'kept':sum(n for u,n in kept.items() if u.kind==kind)} for kind in KINDS}
-    return {'facts_kept':'pass' if accepted else 'FAIL','failed_rules':[] if accepted else sorted(rules),'fidelity':{
+    return {'facts_kept':'pass' if accepted else 'FAIL','failed_rules':[] if accepted else sorted(rules),'unit_counts':{'reference':len(units),'kept':sum(kept.values()),'missing':sum(remaining.values()),'added':len(added)},'fidelity':{
         'rows_total':sum(u.kind=='row' for u in units),'rows_kept':sum(n for u,n in kept.items() if u.kind=='row'),
         'cells_total':sum(len(u.value) for u in units if u.kind=='row'),
         'cells_kept':sum(len(u.value)*n for u,n in kept.items() if u.kind=='row'),
@@ -332,14 +384,17 @@ def compare(units, answer, policy):
 
 def evaluate(server, answer, policy):
     if not isinstance(server,str) or not isinstance(answer,str):
-        return {'facts_kept':'unknown','failed_rules':[]}
+        return {'facts_kept':'unknown','failed_rules':[],'reason_code':'missing_evidence'}
     try:
+        validate(policy)
+        if len(answer.encode('utf-8'))>policy['limits']['answer_bytes']:raise LimitReached('answer_too_large')
         serialized=json.dumps(policy,sort_keys=True)
         units=reference_units(server,serialized)
+        return compare(units,answer,policy)
+    except LimitReached as error:
+        return {'facts_kept':'unknown','failed_rules':[],'reason_code':str(error)}
     except (Unsupported,KeyError,TypeError,OSError):
-        return {'facts_kept':'unknown','failed_rules':[]}
-    # Answer content is never a reason to return unknown.
-    return compare(units,answer,policy)
+        return {'facts_kept':'unknown','failed_rules':[],'reason_code':'unsupported_reference'}
 
 
 def score_saved(path):

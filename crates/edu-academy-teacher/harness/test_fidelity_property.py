@@ -44,17 +44,20 @@ def generated(seed, labels):
         lines.append('# Part '+str(p))
         if tableless:
             lines.append('Read chapter '+str(p));continue
-        for student in range(seed%4):lines.append('## Student '+str(student))
-        n=2+(seed+p)%5
-        lines.append('| '+' | '.join('Field '+str(c) for c in range(n))+' |')
-        count=rng.randrange(7)
-        base=[['Alice','2026-11-01','A·B','3/5','X｜Y','42'][c] for c in range(n)]
-        column=(seed+p)%n
-        if seed%3==0 and column!=n-1:base[column]+=' / detail'
-        for row in range(count):
-            cells=list(base)
-            cells[-1]='Review' if row%3==0 else 'Review / book'
-            lines.append('| '+' | '.join(cells)+' |')
+        for student in range(max(1,seed%4)):
+            if seed%4:lines.append('## Student '+str(student))
+            n=2+(seed+p)%5
+            lines.append('| '+' | '.join('Field '+str(c) for c in range(n))+' |')
+            count=rng.randrange(7)
+            base=[['Alice','2026-11-01','A·B','3/5','X｜Y','42'][c] for c in range(n)]
+            column=(seed+p)%n
+            if seed%3==0 and column!=n-1:base[column]+=' / detail'
+            if seed%7==0 and n>=3:
+                base[0]+=' / first';base[1]+=' / second'
+            for row in range(count):
+                cells=list(base)
+                cells[-1]='Review' if row%3==0 else 'Review / book'
+                lines.append('| '+' | '.join(cells)+' |')
     for j,name in enumerate(('미확인 사항','다음 확인')):
         lines.append(name)
         if not tableless and seed%4==1:
@@ -65,6 +68,15 @@ def generated(seed, labels):
     if seed%2:lines.append('읽은 원천 Fixture '+str(seed))
     if seed%3:lines.append('이번 결과는 읽기만 했고 저장한 것은 없습니다.')
     return '\n'.join(lines)
+
+
+def reorderings(groups):
+    choices=[]
+    for group in groups:
+        original=[row[1] for row in group]
+        changed=original[1:]+original[:1]
+        if changed!=original:choices.append((group,changed))
+    return choices
 
 
 class GeneratedFidelity(unittest.TestCase):
@@ -89,10 +101,12 @@ class GeneratedFidelity(unittest.TestCase):
         fixtures=sorted((fidelity.CRATE/'tests/fixtures').glob('display-*.txt'))
         references += [('F:'+path.name,path.read_text()) for path in fixtures]
         applications=defaultdict(set); eligible=defaultdict(set); assertions=0
-        shapes=set(); columns=set(); equal_rows=prefix_rows=break_free=tableless=0
+        columns=set(); equal_rows=prefix_rows=break_free=tableless=0
         def check(identifier,category,source,answer,expected):
             nonlocal assertions
-            self.assertEqual(fidelity.evaluate(source,answer,policy)['facts_kept'],expected,(identifier,category))
+            result=fidelity.evaluate(source,answer,policy)
+            self.assertNotIn(result.get('reason_code'),('reference_too_large','answer_too_large','search_budget'),(identifier,category))
+            self.assertEqual(result['facts_kept'],expected,(identifier,category))
             applications[category].add(identifier); assertions+=1
         def join(lines,index,replacement):return '\n'.join(lines[:index]+replacement+lines[index+1:])
         for sequence,(identifier,source) in enumerate(references):
@@ -104,7 +118,8 @@ class GeneratedFidelity(unittest.TestCase):
             equal_rows+=len(values)!=len(set(values))
             prefix_rows+=any(a!=b and all(y.startswith(x) for x,y in zip(a,b)) for a in values for b in values)
             breakable=[(row,c) for row in rows for c,cell in enumerate(row[2]) if ' / ' in cell]
-            reorder=[group for group in m['groups'].values() if len(group)>1]
+            reorder=reorderings(m['groups'].values())
+            multi=[row for row in rows if sum(' / ' in cell for cell in row[2])>1]
             move=[(row,target) for row in rows for target,name in m['parts'] if name!=row[3][0]]
             move_student=[(row,target) for row in rows for target,name in m['students'] if name!=row[3][1]]
             applicable={'identity':True,'drop_row':bool(rows),'change_field':bool(rows),'duplicate_row':bool(rows),
@@ -112,7 +127,7 @@ class GeneratedFidelity(unittest.TestCase):
                 'opposite_statement':bool(statements),'invented_row':True,'two_comments':True,'state_comment':True,
                 'required_addition':any(name in policy['required_parts'] for _,name in m['parts']),
                 'one_comment':True,'reorder_rows':bool(reorder),'cell_break':bool(breakable),'cell_break_reverse':bool(breakable),
-                'full_width_delimiters':bool(m['headers']),'outer_fence':True,'separator':bool(m['headers']),
+                'multi_cell_break':bool(multi),'multi_cell_break_reverse':bool(multi),'full_width_delimiters':bool(m['headers']),'outer_fence':True,'separator':bool(m['headers']),
                 'drop_footer':bool(m['footer']),'drop_closing':bool(m['closing'])}
             for category,applies in applicable.items():
                 if applies:eligible[category].add(identifier)
@@ -142,8 +157,8 @@ class GeneratedFidelity(unittest.TestCase):
                 check(identifier,'required_addition',source,'\n'.join(lines[:index+1]+['Additional factual line']+lines[index+1:]),'FAIL')
             check(identifier,'one_comment',source,'One stateless comment\n'+source,'pass')
             if reorder:
-                group=reorder[0]; changed=list(lines)
-                reordered=list(reversed([row[1] for row in group]))
+                group,reordered=reorder[0]; changed=list(lines)
+                self.assertNotEqual([row[1] for row in group],reordered)
                 for row,text in zip(group,reordered):changed[row[0]]=text
                 check(identifier,'reorder_rows',source,'\n'.join(changed),'pass')
             if breakable:
@@ -151,6 +166,11 @@ class GeneratedFidelity(unittest.TestCase):
                 wrapped=join(lines,index,[text.replace(cells[column],cells[column].replace(' / ','\n'),1)])
                 check(identifier,'cell_break',source,wrapped,'pass')
                 check(identifier,'cell_break_reverse',wrapped,source,'pass')
+            if multi:
+                index,text,cells,_=multi[0]
+                wrapped=join(lines,index,[text.replace(' / ','\n')])
+                check(identifier,'multi_cell_break',source,wrapped,'pass')
+                check(identifier,'multi_cell_break_reverse',wrapped,source,'pass')
             if m['headers']:
                 check(identifier,'full_width_delimiters',source,source.replace(' | ',' ｜ '),'pass')
                 index=m['headers'][0];n=len(re.split(r'\s+[|｜]\s+',lines[index].strip().strip('|｜').strip()))
@@ -164,4 +184,4 @@ class GeneratedFidelity(unittest.TestCase):
         self.assertTrue({2,3,4,5,6}.issubset(columns));self.assertGreater(tableless,0);self.assertGreater(equal_rows,0);self.assertGreater(prefix_rows,0);self.assertGreater(break_free,0)
         elapsed=time.perf_counter()-start
         self.assertLess(elapsed,20.0)
-        print('property_summary='+json.dumps({'generated':CASES,'fixtures':len(fixtures),'assertions':assertions,'seconds':round(elapsed,3),'state_labels':len(names),'applications':{key:len(value) for key,value in sorted(applications.items())}},sort_keys=True))
+        print('property_summary='+json.dumps({'generated':CASES,'fixtures':len(fixtures),'assertions':assertions,'seconds':round(elapsed,3),'state_labels':len(names),'limit_hits':0,'applications':{key:len(value) for key,value in sorted(applications.items())}},sort_keys=True))

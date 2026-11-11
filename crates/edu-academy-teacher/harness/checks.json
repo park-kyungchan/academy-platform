@@ -107,7 +107,12 @@
         "source_prefix": "READ_SOURCES",
         "closing": "CLOSING"
       },
-      "commentary_allowed": "outside_required_parts"
+      "commentary_allowed": "outside_required_parts",
+      "limits": {
+        "reference_units": 4096,
+        "answer_bytes": 65536,
+        "search_states": 10000
+      }
     }
   },
   "Q02": {
@@ -235,7 +240,12 @@
         "source_prefix": "READ_SOURCES",
         "closing": "CLOSING"
       },
-      "commentary_allowed": "outside_required_parts"
+      "commentary_allowed": "outside_required_parts",
+      "limits": {
+        "reference_units": 4096,
+        "answer_bytes": 65536,
+        "search_states": 10000
+      }
     }
   },
   "Q03": {
@@ -325,7 +335,12 @@
         "source_prefix": "READ_SOURCES",
         "closing": "CLOSING"
       },
-      "commentary_allowed": "outside_required_parts"
+      "commentary_allowed": "outside_required_parts",
+      "limits": {
+        "reference_units": 4096,
+        "answer_bytes": 65536,
+        "search_states": 10000
+      }
     }
   }
 }

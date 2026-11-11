@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline scoring: only row values leave saved evidence directories."""
+from collections import Counter
 import argparse
 import json
 from pathlib import Path
@@ -31,6 +32,7 @@ def score_saved(path):
     return {"mode": mode, "request": request, "model": model,
             "received_form": result["received_form"], "shown_unchanged": result["shown_unchanged"], "facts_kept": result["facts_kept"],
             "source_footer": result["source_footer"], "closing_statement": result["closing_statement"],
+            "reason_code": result["reason_code"], "unknown_by_reason": result["unknown_by_reason"], "unit_counts": result["unit_counts"],
             "failed_rules": result.get("failed_rules", []), "extra_chars": result["extra_chars"], "isolation": isolation_text, "delivery": result["delivery"]}
 
 
@@ -38,13 +40,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("paths", nargs="+", help="Saved run directories (read only)")
     args = parser.parse_args()
+    unknown_by_reason=Counter()
     for path in args.paths:
         try:
             row = score_saved(path)
         except (OSError, ValueError, KeyError):
             print(f"rescore_unavailable@{path}:0: missing or invalid scoring evidence", file=sys.stderr)
             return 2
+        unknown_by_reason.update(row["unknown_by_reason"])
         print(json.dumps(row, ensure_ascii=False))
+    print(json.dumps({"unknown_by_reason":dict(sorted(unknown_by_reason.items()))}),file=sys.stderr)
     return 0
 
 
