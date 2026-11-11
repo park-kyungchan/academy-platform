@@ -8,7 +8,7 @@ fn identity() -> RecordIdentity {
             owner: "synthetic-owner".into(),
             account: "synthetic-account".into(),
         },
-        student_key: "99011".into(),
+        student_key: "1001".into(),
         lesson_date: "2026-11-11".into(),
         kind: RecordKind::DailyRecord,
     }
@@ -19,7 +19,7 @@ fn values() -> RecordFields<RecordValue> {
 fn patch() -> RecordPatch {
     let mut p = RecordFields::from_fn(|_| None);
     p.homework = Some(FieldPatch {
-        effect_target: "synthetic:99011:2026-11-11".into(),
+        effect_target: "synthetic:1001:2026-11-11".into(),
         operation: PatchOperation::Replace,
         value: "- 가우스 5-1-2, 2-2 가상주제F 유형다지기".into(),
     });
