@@ -184,6 +184,11 @@ pub struct TextbookResponse {
     pub bytes: Vec<u8>,
     pub final_url: Option<String>,
     pub redirected: bool,
+    /// What the transport actually applied, reported by the port so the
+    /// layer can refuse a response that silently used a session or
+    /// followed a redirect (finding 2, rest).
+    pub credentials_sent: bool,
+    pub redirect_followed: bool,
 }
 impl TextbookResponse {
     fn header(&self, name: &str) -> Option<&str> {
@@ -252,20 +257,34 @@ impl<P: ReadPort> TextbookPort for SessionTextbookPort<'_, P> {
         &mut self,
         school_level: SchoolLevel,
         max_bytes: usize,
-        _policy: FetchPolicy,
+        policy: FetchPolicy,
     ) -> Result<TextbookResponse> {
+        // This session always sends its owner credential and never follows
+        // a redirect; a caller policy asking for anything else cannot be
+        // honoured here and refuses instead of being ignored.
+        if !policy.send_credentials || policy.follow_redirects {
+            return Err(Error::refusal("textbook_catalog_transport_failed"));
+        }
         let operation = school_level.catalog_operation();
         check_contract(self.port.transport_admission(), operation)?;
-        let response = self.port.read(&self.scope, operation, &[])?;
-        if response.bytes.len() > max_bytes {
+        let crate::http::Response {
+            status,
+            headers,
+            bytes,
+            url,
+            ..
+        } = self.port.read(&self.scope, operation, &[])?;
+        if bytes.len() > max_bytes {
             return Err(Error::refusal("textbook_catalog_size_rejected"));
         }
         Ok(TextbookResponse {
-            status: response.status,
-            headers: response.headers.clone(),
-            bytes: response.bytes.clone(),
-            final_url: (!response.url.is_empty()).then(|| response.url.clone()),
+            status,
+            headers,
+            bytes,
+            final_url: (!url.is_empty()).then_some(url),
             redirected: false,
+            credentials_sent: true,
+            redirect_followed: false,
         })
     }
     fn storage(
@@ -307,6 +326,11 @@ impl<P: TextbookPort> TextbookSource<P> {
             .port
             .catalog(school_level, catalog_body_limit(), CATALOG_FETCH)?;
         self.requests += 1;
+        if response.credentials_sent != CATALOG_FETCH.send_credentials
+            || response.redirect_followed != CATALOG_FETCH.follow_redirects
+        {
+            return Err(Error::refusal("textbook_catalog_transport_failed"));
+        }
         let bytes = bounded_body(response, MAX_CATALOG_BYTES, BodyKind::Catalog)?;
         let html = String::from_utf8(bytes)
             .map_err(|_| Error::refusal("textbook_catalog_response_rejected"))?;
@@ -340,6 +364,11 @@ impl<P: TextbookPort> TextbookSource<P> {
                 }
             })?;
         self.requests += 1;
+        if response.credentials_sent != STORAGE_FETCH.send_credentials
+            || response.redirect_followed != STORAGE_FETCH.follow_redirects
+        {
+            return Err(Error::refusal("textbook_pdf_transport_failed"));
+        }
         if let Some(final_url) = &response.final_url
             && final_url != &url
         {
@@ -528,12 +557,14 @@ impl std::fmt::Debug for TextbookResponse {
         let header_names: Vec<&str> = self.headers.iter().map(|(k, _)| k.as_str()).collect();
         write!(
             f,
-            "TextbookResponse {{ status: {}, header_names: {:?}, bytes_len: {}, bytes_sha256: {}, redirected: {} }}",
+            "TextbookResponse {{ status: {}, header_names: {:?}, bytes_len: {}, bytes_sha256: {}, redirected: {}, credentials_sent: {}, redirect_followed: {} }}",
             self.status,
             header_names,
             self.bytes.len(),
             hash(&self.bytes),
-            self.redirected
+            self.redirected,
+            self.credentials_sent,
+            self.redirect_followed
         )
     }
 }
@@ -642,9 +673,9 @@ pub fn parse_catalog(
     let selected: Vec<_> = doc
         .select(".tab.tab-on")
         .into_iter()
-        .filter(|node| level_labels.contains(&collapse(&dom::content(*node)).as_str()))
+        .filter(|node| level_labels.contains(&dom::content(*node).trim()))
         .collect();
-    if selected.len() != 1 || collapse(&dom::content(selected[0])) != school_level.label() {
+    if selected.len() != 1 || dom::content(selected[0]).trim() != school_level.label() {
         return Err(Error::refusal("textbook_catalog_school_level_rejected"));
     }
     let labels = row_labels(&doc);
@@ -815,13 +846,18 @@ pub fn preserve_pdf(root: &Path, pdf: &PdfObservation) -> Result<PdfArtifact> {
         }
         missing
     };
-    std::fs::create_dir_all(&absolute).map_err(|_| directory_rejected())?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        for created in &missing {
-            std::fs::set_permissions(created, std::fs::Permissions::from_mode(0o700))
-                .map_err(|_| directory_rejected())?;
+    // Create each missing directory with its mode at creation time.
+    for created in missing.iter().rev() {
+        let mut builder = std::fs::DirBuilder::new();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            builder.mode(0o700);
+        }
+        match builder.create(created) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(_) => return Err(directory_rejected()),
         }
     }
     let canonical = std::fs::canonicalize(&absolute).map_err(|_| directory_rejected())?;
@@ -838,9 +874,34 @@ pub fn preserve_pdf(root: &Path, pdf: &PdfObservation) -> Result<PdfArtifact> {
             return Err(readback_rejected());
         }
         use std::io::Read;
+        // Open without following a swapped-in symlink and without blocking
+        // on a swapped-in FIFO, then prove the opened file is the checked
+        // one (same device and inode, still a regular file).
+        #[cfg(unix)]
+        let opened = {
+            let fd = rustix::fs::open(
+                path,
+                rustix::fs::OFlags::RDONLY
+                    | rustix::fs::OFlags::NOFOLLOW
+                    | rustix::fs::OFlags::NONBLOCK,
+                rustix::fs::Mode::empty(),
+            )
+            .map_err(|_| readback_rejected())?;
+            let file = std::fs::File::from(fd);
+            let opened_meta = file.metadata().map_err(|_| readback_rejected())?;
+            use std::os::unix::fs::MetadataExt;
+            if opened_meta.dev() != metadata.dev()
+                || opened_meta.ino() != metadata.ino()
+                || !opened_meta.is_file()
+            {
+                return Err(readback_rejected());
+            }
+            file
+        };
+        #[cfg(not(unix))]
+        let mut opened = std::fs::File::open(path).map_err(|_| readback_rejected())?;
         let mut readback = Vec::new();
-        std::fs::File::open(path)
-            .map_err(|_| readback_rejected())?
+        opened
             .take((bytes.len() + 1) as u64)
             .read_to_end(&mut readback)
             .map_err(|_| readback_rejected())?;
@@ -855,12 +916,13 @@ pub fn preserve_pdf(root: &Path, pdf: &PdfObservation) -> Result<PdfArtifact> {
         // Write beside the target and publish without replacing: a hard
         // link fails if the final name appeared meanwhile, and a leftover
         // temporary file from an interrupted write is simply removed.
+        static TEMP_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let temporary = canonical.join(format!(
-            ".{}.pdf.tmp-{}",
+            ".{}.pdf.tmp-{}-{}",
             pdf.meta.sha256,
-            std::process::id()
+            std::process::id(),
+            TEMP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
-        let _ = std::fs::remove_file(&temporary);
         let written = (|| -> Result<()> {
             use std::io::Write;
             let mut options = std::fs::OpenOptions::new();
@@ -884,7 +946,7 @@ pub fn preserve_pdf(root: &Path, pdf: &PdfObservation) -> Result<PdfArtifact> {
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(_) => {
                 let _ = std::fs::remove_file(&temporary);
-                return Err(readback_rejected());
+                return Err(directory_rejected());
             }
         }
         let _ = std::fs::remove_file(&temporary);

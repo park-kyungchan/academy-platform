@@ -34,6 +34,8 @@ fn response(status: u16, content_type: &str, bytes: Vec<u8>) -> TextbookResponse
         bytes,
         final_url: None,
         redirected: false,
+        credentials_sent: false,
+        redirect_followed: false,
     }
 }
 fn catalog_response() -> TextbookResponse {
@@ -46,6 +48,9 @@ struct Fake {
     storage: VecDeque<Result<TextbookResponse>>,
     catalog_calls: Rc<Cell<usize>>,
     storage_urls: Rc<RefCell<Vec<String>>>,
+    catalog_applied: Option<(bool, bool)>,
+    storage_applied: Option<(bool, bool)>,
+    storage_max_seen: Rc<RefCell<Vec<usize>>>,
 }
 impl TextbookPort for Fake {
     fn catalog(
@@ -58,7 +63,11 @@ impl TextbookPort for Fake {
         assert_eq!(max_bytes, catalog_body_limit());
         assert_eq!(policy, CATALOG_FETCH);
         self.catalog_calls.set(self.catalog_calls.get() + 1);
-        self.catalog.pop_front().expect("unexpected catalog call")
+        let mut response = self.catalog.pop_front().expect("unexpected catalog call")?;
+        let (credentials, redirect) = self.catalog_applied.unwrap_or((true, false));
+        response.credentials_sent = credentials;
+        response.redirect_followed = redirect;
+        Ok(response)
     }
     fn storage(
         &mut self,
@@ -71,8 +80,13 @@ impl TextbookPort for Fake {
             max_bytes == pdf_body_limit(DocumentKind::Sample)
                 || max_bytes == pdf_body_limit(DocumentKind::Answer)
         );
+        self.storage_max_seen.borrow_mut().push(max_bytes);
         self.storage_urls.borrow_mut().push(url.into());
-        self.storage.pop_front().expect("unexpected storage call")
+        let mut response = self.storage.pop_front().expect("unexpected storage call")?;
+        let (credentials, redirect) = self.storage_applied.unwrap_or((false, false));
+        response.credentials_sent = credentials;
+        response.redirect_followed = redirect;
+        Ok(response)
     }
 }
 fn make_source(fake: Fake) -> TextbookSource<Fake> {
@@ -462,6 +476,7 @@ fn pdf_reference_kind_uses_reference_bound() {
         .push_back(Ok(response(200, "text/html", html.as_bytes().to_vec())));
     fake.storage
         .push_back(Ok(response(200, "application/pdf", large.clone())));
+    let seen = fake.storage_max_seen.clone();
     let mut textbook_source = make_source(fake);
     let pdf = textbook_source
         .fetch_pdf(
@@ -472,6 +487,10 @@ fn pdf_reference_kind_uses_reference_bound() {
         )
         .unwrap();
     assert_eq!(pdf.meta.kind, DocumentKind::Answer);
+    assert_eq!(
+        seen.borrow().as_slice(),
+        [pdf_body_limit(DocumentKind::Answer)]
+    );
     assert_eq!(pdf.meta.byte_length, MAX_SAMPLE_BYTES + 1);
     assert_eq!(pdf.meta.sha256, hash(&large));
 }
@@ -1014,4 +1033,123 @@ fn debug_output_never_prints_bytes_or_header_values() {
     assert!(!response_debug.contains("secret body bytes"));
     assert!(!response_debug.contains("secret-cookie-value"));
     assert!(response_debug.contains("set-cookie"));
+}
+
+/// Q1: a transport that silently sent credentials or followed a redirect
+/// is refused with the transport-failure code of that read.
+#[test]
+fn applied_policy_mismatch_refused() {
+    for applied in [(true, false), (false, true)] {
+        let mut fake = Fake::default();
+        fake.catalog.push_back(Ok(catalog_response()));
+        fake.storage
+            .push_back(Ok(response(200, "application/pdf", PDF.to_vec())));
+        fake.storage_applied = Some(applied);
+        let mut textbook_source = make_source(fake);
+        assert_eq!(
+            code(
+                textbook_source
+                    .fetch_pdf(
+                        PRINCIPAL,
+                        SchoolLevel::Middle,
+                        &document_ref("middle", URL),
+                        NOW
+                    )
+                    .unwrap_err()
+            ),
+            "textbook_pdf_transport_failed",
+            "applied={applied:?}"
+        );
+    }
+    let mut fake = Fake::default();
+    fake.catalog.push_back(Ok(catalog_response()));
+    fake.catalog_applied = Some((false, false));
+    let mut textbook_source = make_source(fake);
+    assert_eq!(
+        code(
+            textbook_source
+                .read_catalog(PRINCIPAL, SchoolLevel::Middle, NOW)
+                .unwrap_err()
+        ),
+        "textbook_catalog_transport_failed"
+    );
+}
+
+/// Q2: the bound at the storage call site is exact for the entry kind,
+/// with a declared length equal to the body.
+#[test]
+fn storage_bound_is_exact_per_kind() {
+    let mut fake = Fake::default();
+    fake.catalog.push_back(Ok(catalog_response()));
+    let mut storage = response(200, "application/pdf", PDF.to_vec());
+    storage
+        .headers
+        .push(("content-length".into(), PDF.len().to_string()));
+    fake.storage.push_back(Ok(storage));
+    let seen = fake.storage_max_seen.clone();
+    let mut textbook_source = make_source(fake);
+    textbook_source
+        .fetch_pdf(
+            PRINCIPAL,
+            SchoolLevel::Middle,
+            &document_ref("middle", URL),
+            NOW,
+        )
+        .unwrap();
+    assert_eq!(
+        seen.borrow().as_slice(),
+        [pdf_body_limit(DocumentKind::Sample)]
+    );
+}
+
+/// Q3: rows follow `table.rows` order (thead, tbody sections, tfoot), and a
+/// rowspan started in one body section carries into the next, not into the
+/// footer row that sits between them in document order.
+#[test]
+fn catalog_rows_follow_table_rows_order() {
+    let sample = "https://storage.studyq.net/data/answer/mi/book/g7_fictionalplus_sample_1_1.pdf";
+    let answer = "https://storage.studyq.net/data/answer/mi/workbook/g7_fictionalplus_answer.pdf";
+    let html = format!(
+        "<div class=\"tab tab-on\">중등부</div><table><tbody><tr><td rowspan=\"2\">중1</td><td>Invented first body</td><td></td></tr></tbody><tfoot><tr><td>Foot label</td><td><button onclick=\"fullUrlDownloadFile('{answer}')\">sample</button></td></tr></tfoot><tbody><tr><td>Invented Plus</td><td><button onclick=\"fullUrlDownloadFile('{sample}')\">sample</button></td></tr></tbody></table>"
+    );
+    let value = parse_catalog(&html, SchoolLevel::Middle, NOW).unwrap();
+    let sample_entry = value
+        .entries
+        .iter()
+        .find(|e| e.kind == DocumentKind::Sample)
+        .unwrap();
+    assert_eq!(sample_entry.source_labels, ["중1 Invented Plus sample"]);
+    let answer_entry = value
+        .entries
+        .iter()
+        .find(|e| e.kind == DocumentKind::Answer)
+        .unwrap();
+    assert_eq!(answer_entry.source_labels, ["Foot label sample"]);
+}
+
+/// Q5: an empty body with status 200 gives the size code for both kinds.
+#[test]
+fn empty_body_gives_size_code() {
+    assert_eq!(
+        code(
+            bounded_body(
+                response(200, "text/html", vec![]),
+                catalog_body_limit(),
+                BodyKind::Catalog
+            )
+            .unwrap_err()
+        ),
+        "textbook_catalog_size_rejected"
+    );
+    assert_eq!(
+        code(
+            bounded_body(
+                response(200, "application/pdf", vec![]),
+                pdf_body_limit(DocumentKind::Sample),
+                BodyKind::Pdf
+            )
+            .unwrap_err()
+        ),
+        "textbook_pdf_size_rejected"
+    );
 }
