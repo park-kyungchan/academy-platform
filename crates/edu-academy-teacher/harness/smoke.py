@@ -28,6 +28,7 @@ if "--system-prompt" in args:
     print(json.dumps({"type":"result","result":"prefix received stream display suffix 2026-11-09","usage":{"input_tokens":3,"output_tokens":4},"total_cost_usd":0.01}))
 else:
     assert "--setting-sources" not in args and "--tools" not in args
+    assert args[args.index("--disallowedTools")+1] == "Bash,Read,Grep,Glob,Edit,Write,NotebookEdit,Agent,WebFetch,WebSearch"
     print(json.dumps({"type":"system","subtype":"init"}))
 '''
 

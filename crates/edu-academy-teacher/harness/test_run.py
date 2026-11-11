@@ -25,12 +25,31 @@ class HarnessTests(unittest.TestCase):
             "--disable-slash-commands", "--system-prompt",
             "You are an assistant of a teacher. Use the tools you are given."])
 
+    def test_exact_installed_command(self):
+        self.assertEqual(run.command("claude", "haiku", "mcp.json", "tools", "installed"), [
+            "claude", "--print", "--model", "haiku", "--mcp-config", "mcp.json",
+            "--strict-mcp-config", "--allowedTools", "tools", "--output-format", "stream-json",
+            "--verbose", "--no-session-persistence", "--disallowedTools",
+            "Bash,Read,Grep,Glob,Edit,Write,NotebookEdit,Agent,WebFetch,WebSearch"])
+
+    def test_builtin_plugins_and_six_agents_allowed(self):
+        events = self.isolated_events()
+        events[0]["plugins"] = [{"name": "cli-plugin", "path": "builtin"}]
+        events[1]["message"]["usage"] = {"input_tokens": 2,
+            "cache_read_input_tokens": 0, "cache_creation_input_tokens": 4519}
+        result = run.isolation(events, ["mcp__academy__academy_lesson_prepare"])
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["first_request_tokens"], 4521)
+        for plugins in [[{"path": "/synthetic/plugin"}], [{"name": "missing-path"}], ["invalid-entry"]]:
+            events[0]["plugins"] = plugins
+            self.assertIn("plugins_loaded", run.isolation(events, ["mcp__academy__academy_lesson_prepare"])["reasons"])
+
     @staticmethod
     def isolated_events():
         return [
             {"type": "system", "subtype": "init", "tools": ["mcp__academy__academy_lesson_prepare"],
              "slash_commands": [], "terminal_slash_commands": [], "skills": [], "plugins": [],
-             "agents": ["claude", "Explore", "general-purpose", "Plan", "statusline-setup"],
+             "agents": ["claude", "Explore", "general-purpose", "Plan", "statusline-setup", "web-fetch"],
              "memory_paths": [], "mcp_servers": [{"name": "academy", "status": "connected"}]},
             {"type": "assistant", "message": {"usage": {
                 "input_tokens": 100, "cache_read_input_tokens": 200,
@@ -85,10 +104,12 @@ class HarnessTests(unittest.TestCase):
             result = run.isolation(self.isolated_events() + [event], ["mcp__academy__academy_lesson_prepare"])
             self.assertIn("hook_events_present", result["reasons"])
         events = self.isolated_events()
-        events[1]["message"]["usage"]["input_tokens"] = 3500
+        events[1]["message"]["usage"]["input_tokens"] = 5500
         result = run.isolation(events, ["mcp__academy__academy_lesson_prepare"])
-        self.assertEqual(result["first_request_tokens"], 4000)
-        self.assertIn("first_request_tokens_not_under_4000", result["reasons"])
+        self.assertEqual(result["first_request_tokens"], 6000)
+        self.assertIn("first_request_tokens_not_under_6000", result["reasons"])
+        events[1]["message"]["usage"]["input_tokens"] = 5499
+        self.assertEqual(run.isolation(events, ["mcp__academy__academy_lesson_prepare"])["status"], "pass")
         self.assertIn("init_missing", run.isolation([], [])["reasons"])
         self.assertIn("first_request_usage_missing", run.isolation(events[:1], [])["reasons"])
         events = self.isolated_events()

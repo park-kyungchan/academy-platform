@@ -12,8 +12,10 @@ import time
 HERE = Path(__file__).resolve().parent
 CRATE = HERE.parent
 ISOLATED_SYSTEM_PROMPT = "You are an assistant of a teacher. Use the tools you are given."
-# Observed in the previous all-sources-disabled CLI init, not user agents.
-DEFAULT_CLI_AGENTS = ("claude", "Explore", "general-purpose", "Plan", "statusline-setup")
+# Accepted CLI builtin agents (TASK-P8-S1b-R1c).
+DEFAULT_CLI_AGENTS = ("claude", "Explore", "general-purpose", "Plan", "statusline-setup", "web-fetch")
+INSTALLED_DISALLOWED_TOOLS = ("Bash", "Read", "Grep", "Glob", "Edit", "Write", "NotebookEdit",
+                              "Agent", "WebFetch", "WebSearch")
 
 
 def norm(text):
@@ -27,6 +29,8 @@ def command(cli, model, config, allowed, mode):
     if mode == "isolated":
         args += ["--setting-sources", "", "--tools", "",
                  "--disable-slash-commands", "--system-prompt", ISOLATED_SYSTEM_PROMPT]
+    else:
+        args += ["--disallowedTools", ",".join(INSTALLED_DISALLOWED_TOOLS)]
     return args
 
 
@@ -76,7 +80,7 @@ def measure(events):
 
 
 def isolation(events, allowed_tools, malformed=0):
-    """Fail closed on missing evidence; builtin plugins are still plugins."""
+    """Fail closed on missing evidence, allowing only CLI builtin extensions."""
     reasons = []
     inits = [e for e in events if e.get("type") == "system" and e.get("subtype") == "init"]
     if not inits:
@@ -100,6 +104,9 @@ def isolation(events, allowed_tools, malformed=0):
         if field == "tools":
             if any(tool not in allowed_tools for tool in values):
                 reasons.append("unexpected_tools")
+        elif field == "plugins":
+            if any(not isinstance(plugin, dict) or plugin.get("path") != "builtin" for plugin in values):
+                reasons.append("plugins_loaded")
         elif field == "agents":
             if any(agent not in DEFAULT_CLI_AGENTS for agent in values):
                 reasons.append("unexpected_agents")
@@ -119,8 +126,8 @@ def isolation(events, allowed_tools, malformed=0):
     if isinstance(first, dict) and all(type(first.get(k)) is int and first[k] >= 0 for k in keys):
         usage = {key: first[key] for key in keys}
         tokens = sum(usage.values())
-        if tokens >= 4000:
-            reasons.append("first_request_tokens_not_under_4000")
+        if tokens >= 6000:
+            reasons.append("first_request_tokens_not_under_6000")
     else:
         reasons.append("first_request_usage_missing")
     if malformed:
@@ -240,7 +247,7 @@ def main():
           f"args_bytes={result['args_bytes']} | isolation={isolation_text} | verbatim={result['verbatim']} | extra_chars={result['extra_chars']} | "
           f"checks={';'.join(f'{k}={v}' for k, v in result['checks'].items())} | wall_s={wall:.1f} | "
           f"tokens={tokens} | cost_usd={result['cost_usd']} | exit={exit_code} | run_dir={run}")
-    if "first_request_tokens_not_under_4000" in proof["reasons"]:
+    if "first_request_tokens_not_under_6000" in proof["reasons"]:
         return 3  # Stop the measurement series; inspect the saved stream before any further attempt.
     return 0
 
