@@ -150,6 +150,10 @@ def main():
         except json.JSONDecodeError:
             malformed += 1
     result = measure(events)
+    if malformed:
+        # A discarded event could have been a later tool result.
+        result["verbatim"] = "unknown"
+        result["extra_chars"] = "unknown"
     result.update({"mode": args.mode, "request": args.request, "model": args.model,
                    "target_calls": spec["target_calls"], "wall_s": round(wall, 3),
                    "exit_code": exit_code, "malformed_stream_lines": malformed,

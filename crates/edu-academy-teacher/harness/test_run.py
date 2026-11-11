@@ -1,5 +1,6 @@
 """Offline regression checks; these never launch a model session."""
 import unittest
+import json
 import run
 
 
@@ -46,6 +47,17 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(result["verbatim"], "FAIL")
         self.assertEqual(result["extra_chars"], len("rewritten"))
         self.assertEqual(run.measure(events[:1])["verbatim"], "unknown")
+
+    def test_received_envelope_text_is_preserved(self):
+        # Claude can forward structuredContent as JSON text instead of the
+        # server's content[0].text. Measure the actual received representation.
+        text = json.dumps({"display": "display field", "status": "ok"})
+        events = [{"type": "user", "message": {"content": [
+            {"type": "tool_result", "content": text}]}},
+            {"type": "result", "result": "display field"}]
+        result = run.measure(events)
+        self.assertEqual(result["display"], text)
+        self.assertEqual(result["verbatim"], "FAIL")
 
     def test_missing_result_text_is_unknown(self):
         events = [
