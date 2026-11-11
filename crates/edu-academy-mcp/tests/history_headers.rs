@@ -1275,8 +1275,13 @@ fn e09d_scope_unresolved_or_ambiguous_refuses_with_interview_and_no_paper_child(
             "{mode}: {data:?}"
         );
         assert_eq!(
-            diagnostic.get("configuredEndpoints").array().len(),
-            2,
+            diagnostic
+                .get("configuredEndpoints")
+                .array()
+                .iter()
+                .map(|e| e.code_units())
+                .collect::<Vec<_>>(),
+            vec!["paper1".to_string(), "paper2".to_string()],
             "{mode}: {data:?}"
         );
         assert!(data.get("interviewRequired").truthy(), "{mode}: {data:?}");
@@ -1313,6 +1318,11 @@ fn e09d_wrong_identity_through_composition_stops_before_paper() {
     let data = out.get("structuredContent");
     assert!(out.get("isError").truthy(), "{out:?}");
     assert!(data.get("failedSource").is("metadata"), "{data:?}");
+    assert!(
+        data.get("reasonCode")
+            .is("native_dated_name_scope_conflict"),
+        "{data:?}"
+    );
     assert_eq!(
         data.get("failure").get("code"),
         data.get("code"),
@@ -1448,134 +1458,111 @@ fn e09d_registry_v2_matches_served_names_schemas_and_routes() {
         .map(|t| t["name"].as_str().unwrap().to_string())
         .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(names.len(), 45, "tool names must be unique");
-    // The 41 frozen entries are carried over with unchanged input schemas.
-    let v1_schemas = v1
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|e| {
-            (
-                e["tool"]["name"].as_str().unwrap().to_string(),
-                e["tool"]["inputSchema"].clone(),
-            )
-        })
-        .collect::<std::collections::BTreeMap<_, _>>();
-    assert_eq!(v1_schemas.len(), 41);
     for t in tools {
-        if let Some(schema) = v1_schemas.get(t["name"].as_str().unwrap()) {
-            assert_eq!(&t["inputSchema"], schema, "{}", t["name"]);
-        }
         assert!(
             t["derivedFrom"].as_str().unwrap().contains(':'),
             "{}",
             t["name"]
         );
     }
-    // Served names/schemas: the Rust registry parses v2 (identity excluded,
-    // as ToolRegistry requires) and list() re-adds the identity tool.
-    let entries = tools
+    // Served side: the frozen v1 registry the Rust release serves today,
+    // loaded through ToolRegistry; list() prepends the identity tool from
+    // src/runtime-identity-tool.json. Nothing here is built from the v2 file.
+    let registry = ToolRegistry::parse(include_bytes!(
+        "fixtures/mcp-runtime-reference-v1/frozen/inventory/registry.json"
+    ))
+    .unwrap();
+    let v1_names = registry
+        .entries()
         .iter()
-        .filter(|t| t["name"] != "academy_runtime_identity")
-        .map(|t| {
-            json!({"endpoint":t["endpoint"],"upstreamName":t["upstreamName"],
-                "tool":{"name":t["name"],"description":t["description"],
-                "inputSchema":t["inputSchema"]}})
-        })
-        .collect::<Vec<_>>();
-    let registry = ToolRegistry::parse(&serde_json::to_vec(&json!(entries)).unwrap()).unwrap();
-    let served = registry.list().unwrap();
-    let served_names = served
-        .iter()
-        .map(|t| t.get("name").code_units())
+        .map(|e| e.tool.get("name").code_units())
         .collect::<std::collections::BTreeSet<_>>();
-    assert_eq!(served_names.len(), 45);
-    for name in &names {
-        assert!(served_names.contains(name), "{name}");
-    }
-    // E09d scope: composition, both paper scopes, full metadata query set.
-    let mut scope = vec![
-        "academy_dailytest_history_with_headers",
-        "academy_student_metadata_get",
-        "academy_student_metadata",
-    ];
-    for upstream in [
-        "academy_daily_test_inventory",
-        "academy_paper_definition_lookup",
-        "academy_paper_headers",
-        "academy_paper_read_contracts",
-        "academy_printed_paper_lookup",
-        "academy_source_read_contracts",
-    ] {
-        scope.push(upstream);
-        let class2: &'static str = Box::leak(format!("class2_{upstream}").into_boxed_str());
-        scope.push(class2);
-    }
-    assert_eq!(scope.len(), 15);
-    for name in scope {
-        let entry = tools.iter().find(|t| t["name"] == name).unwrap();
-        let tool = served
+    assert_eq!(v1_names.len(), 41);
+    let served = registry.list().unwrap();
+    assert_eq!(served.len(), 42);
+    for tool in &served {
+        let name = tool.get("name").code_units();
+        let entry = tools
             .iter()
-            .find(|t| t.get("name").is(name))
-            .unwrap_or_else(|| panic!("{name} not served"));
+            .find(|t| t["name"] == name)
+            .unwrap_or_else(|| panic!("{name} served but missing from v2"));
         assert_eq!(
             value(tool.get("inputSchema")),
             entry["inputSchema"],
-            "{name} schema"
+            "{name} served schema"
         );
     }
-    // Every entry's declared route equals what the Rust code does.
-    let dispatch_adapter = [
-        "academy_runtime_identity",
-        "academy_dailyrecord_get",
-        "academy_dailytest_history_with_headers",
-    ];
-    let absent = [
-        "academy_clinic_paper_status_get",
-        "academy_prestudy_report_get",
-        "academy_textbook_units_get",
-    ];
-    let session_loan = [
-        "academy_dailyrecord_intake",
-        "academy_dailyrecord_review",
-        "academy_dailyrecord_save",
-        "academy_dailyrecord_reconcile",
-        "academy_dailyrecord_execution_status",
-        "academy_student_resolve",
-        "academy_runtime_read_admission",
-        "academy_student_metadata_get",
-        "academy_student_metadata",
-        "academy_daily_test_inventory",
-        "academy_paper_definition_lookup",
-        "academy_paper_headers",
-        "academy_paper_read_contracts",
-        "academy_printed_paper_lookup",
-        "academy_source_read_contracts",
-        "class2_academy_daily_test_inventory",
-        "class2_academy_paper_definition_lookup",
-        "class2_academy_paper_headers",
-        "class2_academy_paper_read_contracts",
-        "class2_academy_printed_paper_lookup",
-        "class2_academy_source_read_contracts",
-    ];
+    // Route classes derived from what the Rust code declares, never from
+    // hand-written name lists.
+    // session_loan: business::TOOLS + student::TOOLS + paper::TOOLS, plus the
+    // class2_ name of each paper tool built by paper::class2_name
+    // (crates/edu-academy-mcp/src/paper.rs:19).
+    let mut session_loan = std::collections::BTreeSet::new();
+    for name in edu_academy_mcp::business::TOOLS
+        .into_iter()
+        .chain(edu_academy_mcp::student::TOOLS)
+        .chain(edu_academy_mcp::paper::TOOLS)
+    {
+        session_loan.insert(name.to_string());
+    }
+    for upstream in edu_academy_mcp::paper::TOOLS {
+        session_loan.insert(edu_academy_mcp::paper::class2_name(upstream));
+    }
+    assert_eq!(session_loan.len(), 21);
+    // dispatch_adapter: the names the dispatcher handles itself.
+    let dispatch_adapter = dispatch::dispatch_adapter_names()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(dispatch_adapter.len(), 3);
+    // refusal_boundary: served by the v1 registry but handled by neither.
+    let refusal_boundary = v1_names
+        .difference(&session_loan)
+        .filter(|n| !dispatch_adapter.contains(*n))
+        .cloned()
+        .collect::<std::collections::BTreeSet<_>>();
+    // absent: in v2 but not in the v1 registry the Rust release serves.
+    let absent = names
+        .difference(&v1_names)
+        .filter(|n| !dispatch_adapter.contains(*n))
+        .cloned()
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(absent.len(), 3);
+    let class_of = |name: &str| {
+        if dispatch_adapter.contains(name) {
+            "dispatch_adapter"
+        } else if session_loan.contains(name) {
+            "session_loan"
+        } else if refusal_boundary.contains(name) {
+            "refusal_boundary"
+        } else {
+            "absent"
+        }
+    };
+    for (route, set) in [
+        ("session_loan", &session_loan),
+        ("dispatch_adapter", &dispatch_adapter),
+        ("refusal_boundary", &refusal_boundary),
+        ("absent", &absent),
+    ] {
+        let in_file = tools
+            .iter()
+            .filter(|t| t["rustRoute"] == route)
+            .map(|t| t["name"].as_str().unwrap().to_string())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(&in_file, set, "{route} set");
+    }
     for t in tools {
         let name = t["name"].as_str().unwrap();
-        let expected = if dispatch_adapter.contains(&name) {
-            "dispatch_adapter"
-        } else if absent.contains(&name) {
-            "absent"
-        } else if session_loan.contains(&name) {
-            "session_loan"
-        } else {
-            "refusal_boundary"
-        };
-        assert_eq!(t["rustRoute"], json!(expected), "{name}");
-        if expected == "absent" {
-            assert!(
-                !v1_schemas.contains_key(name),
-                "{name} must stay absent from the frozen registry"
-            );
-        }
+        assert_eq!(t["rustRoute"], json!(class_of(name)), "{name}");
     }
+    // No silent extra registration: every served name is classified above.
+    for tool in &served {
+        let name = tool.get("name").code_units();
+        assert!(names.contains(&name), "{name} served but not in v2");
+    }
+    // v1 is only a name source here; its raw value must stay an array.
+    assert!(v1.is_array());
     let dailytest = tools
         .iter()
         .find(|t| t["name"] == "academy_dailytest_history_with_headers")

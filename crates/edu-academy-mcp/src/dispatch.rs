@@ -11,6 +11,16 @@ pub enum Reply {
     Tool(Js),
     ReceiptFailure { occurrence: String, effect: Effect },
 }
+/// Names this dispatcher handles itself (identity, the parent-get and
+/// daily-test compositions) instead of forwarding to an endpoint child.
+/// Read-only: the match sites in `call` remain the behaviour.
+pub fn dispatch_adapter_names() -> [&'static str; 3] {
+    [
+        "academy_runtime_identity",
+        "academy_dailyrecord_get",
+        "academy_dailytest_history_with_headers",
+    ]
+}
 fn workflow(name: &str) -> bool {
     matches!(
         name,
