@@ -14,7 +14,7 @@
 //! decision after the bytes arrive. JavaScript text rules (whitespace, trim,
 //! UTF-16 length, bounded decoding) come only from `crate::js_text`.
 use crate::{
-    data::{Error, Js, Result, array, hash, object, parse, trim},
+    data::{Error, Js, Result, array, hash, obj, object, parse, text, trim},
     dom::{self, Document},
     js_text::{
         DecodeRefusal, JS_WS_CLASS, decode_bounded, is_js_whitespace, js_collapse_whitespace,
@@ -59,7 +59,18 @@ pub const MAX_BOOK_LABEL_UNITS: usize = 200;
 pub const MAX_HINT_ROWS: usize = 1000;
 pub const MAX_HINT_TITLE_UNITS: usize = 2000;
 /// Colspan/rowspan clamp (TS has none; see the declared difference).
-pub const MAX_SPAN: usize = 1000;
+pub const MAX_SPAN: usize = 100;
+/// Most logical columns one grid row may hold. A real progress table has
+/// about ten columns; 128 leaves room for a wide one and for one cell with
+/// the clamped `colspan` of 100.
+pub const MAX_GRID_COLUMNS: usize = 128;
+/// Most expanded grid cells one table may hold. A real progress table has
+/// well under a thousand rows of about ten columns; 100,000 allows ten times
+/// that and keeps the clone cost bounded for a 2M-unit page.
+pub const MAX_GRID_CELLS: usize = 100_000;
+/// Most textbook bindings one progress page may register (TypeScript has no
+/// cap; each binding costs two or three reads in the interview).
+pub const MAX_BINDINGS: usize = 64;
 /// Source path shared by the wrong-note and single-test detail reads.
 pub const TESTPAGE_SELECT_PATH: &str = "/servlet/controller.common.TestpageSelectExServlet";
 
@@ -685,14 +696,60 @@ fn applied_policy_ok(response: &TextbookResponse, policy: FetchPolicy) -> bool {
         && response.redirect_followed == policy.follow_redirects
 }
 
-/// TS `post` and `#readRequest` for a keyed read: the response must be an
-/// OK (2xx), unredirected one (`source_transport_failed`); the body is
+/// The HTTP status of a `source_http_failed` failure (TS
+/// `AcademyHttpFailure.httpStatus`, academyHttpClient.ts:33-34), so the
+/// adapter can rebuild `sourceHttpStatus`. `None` for any other failure.
+pub fn http_failure_status(error: &Error) -> Option<u16> {
+    if error.message != "source_http_failed" {
+        return None;
+    }
+    match error.properties.get("httpStatus") {
+        Js::Num(n) if n.fract() == 0.0 && (0.0..=65535.0).contains(n) => Some(*n as u16),
+        _ => None,
+    }
+}
+
+fn http_failed(status: u16) -> Error {
+    let mut error = Error::refusal("source_http_failed");
+    error
+        .properties
+        .set("httpStatus", Js::Num(f64::from(status)));
+    error
+}
+
+/// Status rule of the keyed reads (`#readRequest`, academyHttpClient.ts:905):
+/// 401, 403 and a redirect answer `authentication_required`; any other
+/// non-2xx answer is `source_http_failed` carrying the status.
+fn keyed_status(response: &TextbookResponse) -> Result<()> {
+    if response.redirected || (300..400).contains(&response.status) {
+        return refuse("authentication_required");
+    }
+    match response.status {
+        200..=299 => Ok(()),
+        401 | 403 => refuse("authentication_required"),
+        other => Err(http_failed(other)),
+    }
+}
+
+/// Status rule of the direct page reads (`#request` without `#readRequest`,
+/// academyHttpClient.ts:206-207): a redirect is `source_redirect_rejected`
+/// and any other non-2xx answer is `source_http_failed` with the status
+/// (401 and 403 included: only the keyed path maps them).
+fn page_status(response: &TextbookResponse) -> Result<()> {
+    if response.redirected || (300..400).contains(&response.status) {
+        return refuse("source_redirect_rejected");
+    }
+    match response.status {
+        200..=299 => Ok(()),
+        other => Err(http_failed(other)),
+    }
+}
+
+/// TS `#readRequest` for a keyed read: the status rule above; the body is
 /// bounded in bytes (`source_response_too_large`) and then in units; a
 /// session page is `authentication_required`.
 fn keyed_text(response: TextbookResponse) -> Result<String> {
-    if !(200..=299).contains(&response.status) || response.redirected {
-        return refuse("source_transport_failed");
-    }
+    keyed_status(&response)?;
     let text = decode_bounded(&response.bytes, MAX_SECTION_BODY_BYTES, MAX_BODY_UNITS).map_err(
         |refusal| {
             Error::refusal(match refusal {
@@ -710,9 +767,7 @@ fn keyed_text(response: TextbookResponse) -> Result<String> {
 /// `readTextbookBindings`: the progress body is bounded in UTF-16 units
 /// (`textbook_binding_source_rejected`) and has no byte stream cap in TS.
 fn binding_text(response: TextbookResponse) -> Result<String> {
-    if !(200..=299).contains(&response.status) || response.redirected {
-        return refuse("source_transport_failed");
-    }
+    page_status(&response)?;
     decode_bounded(&response.bytes, MAX_UNIT_BODY_BYTES, MAX_BODY_UNITS).map_err(|refusal| {
         Error::refusal(match refusal {
             DecodeRefusal::TooLarge => "textbook_binding_source_rejected",
@@ -723,9 +778,7 @@ fn binding_text(response: TextbookResponse) -> Result<String> {
 
 /// The paper-search page body (`student_paper_response_too_large`, units).
 fn paper_text(response: TextbookResponse) -> Result<String> {
-    if !(200..=299).contains(&response.status) || response.redirected {
-        return refuse("source_transport_failed");
-    }
+    page_status(&response)?;
     decode_bounded(&response.bytes, MAX_UNIT_BODY_BYTES, MAX_BODY_UNITS).map_err(|refusal| {
         Error::refusal(match refusal {
             DecodeRefusal::TooLarge => "student_paper_response_too_large",
@@ -823,6 +876,7 @@ fn require_scope_binding(html: &str, scope: &BookScope, student: &TextbookStuden
 
 /// `isTextbookBookLabel` (prestudyRead.ts:204): a title, never a progress,
 /// date, number or button cell.
+#[doc(hidden)]
 pub fn is_textbook_book_label(value: &str) -> bool {
     static NUMERIC: OnceLock<regex::Regex> = OnceLock::new();
     static DATES: OnceLock<[regex::Regex; 2]> = OnceLock::new();
@@ -910,15 +964,37 @@ struct GridCell {
     attrs: Vec<String>,
 }
 
-struct Grid<'a> {
-    rows: Vec<scraper::ElementRef<'a>>,
+struct Grid<K> {
+    row_index: HashMap<K, usize>,
     cells: Vec<Vec<GridCell>>,
     header_row: Option<usize>,
 }
 
 /// `tableGrid` (prestudyRead.ts:219): rowspan/colspan are expanded so a
 /// shifted physical row keeps its logical columns.
-fn table_grid(table: scraper::ElementRef<'_>) -> Grid<'_> {
+fn table_grid<'a, K: std::hash::Hash + Eq>(
+    table: scraper::ElementRef<'a>,
+    key: impl Fn(scraper::ElementRef<'a>) -> K,
+) -> Result<Grid<K>> {
+    fn place_carried(
+        out: &mut Vec<GridCell>,
+        carry: &mut HashMap<usize, (GridCell, f64)>,
+        total: &mut usize,
+    ) -> Result<()> {
+        while let Some((cell, left)) = carry.get_mut(&out.len()) {
+            let column = out.len();
+            if column >= MAX_GRID_COLUMNS || *total >= MAX_GRID_CELLS {
+                return refuse("textbook_binding_source_unqualified");
+            }
+            out.push(cell.clone());
+            *total += 1;
+            *left -= 1.0;
+            if *left <= 0.0 {
+                carry.remove(&column);
+            }
+        }
+        Ok(())
+    }
     let rows = dom::select(
         table,
         ":scope > tbody > tr, :scope > thead > tr, :scope > tr",
@@ -926,21 +1002,16 @@ fn table_grid(table: scraper::ElementRef<'_>) -> Grid<'_> {
     let mut cells: Vec<Vec<GridCell>> = vec![];
     let mut carry: HashMap<usize, (GridCell, f64)> = HashMap::new();
     let mut header_row = None;
+    let mut total = 0usize;
     for (ri, tr) in rows.iter().enumerate() {
         let mut out: Vec<GridCell> = vec![];
-        let place_carried =
-            |out: &mut Vec<GridCell>, carry: &mut HashMap<usize, (GridCell, f64)>| {
-                while let Some((cell, left)) = carry.get_mut(&out.len()) {
-                    let column = out.len();
-                    out.push(cell.clone());
-                    *left -= 1.0;
-                    if *left <= 0.0 {
-                        carry.remove(&column);
-                    }
-                }
-            };
         for node in dom::select(*tr, ":scope > th, :scope > td") {
-            place_carried(&mut out, &mut carry);
+            place_carried(&mut out, &mut carry, &mut total)?;
+            let width = span_of(node.value().attr("colspan")).ceil() as usize;
+            // The budget is checked before the cell is built or cloned.
+            if out.len() + width > MAX_GRID_COLUMNS || total + width > MAX_GRID_CELLS {
+                return refuse("textbook_binding_source_unqualified");
+            }
             let attrs = dom::select(node, "input, img")
                 .iter()
                 .flat_map(|n| {
@@ -955,11 +1026,11 @@ fn table_grid(table: scraper::ElementRef<'_>) -> Grid<'_> {
                 text: js_collapse_whitespace(&dom::content(node)),
                 attrs,
             };
-            let width = span_of(node.value().attr("colspan")).ceil() as usize;
             let down = span_of(node.value().attr("rowspan"));
             for _ in 0..width {
                 let column = out.len();
                 out.push(cell.clone());
+                total += 1;
                 if down > 1.0 {
                     carry.insert(column, (cell.clone(), down - 1.0));
                 }
@@ -968,20 +1039,22 @@ fn table_grid(table: scraper::ElementRef<'_>) -> Grid<'_> {
                 header_row = Some(ri);
             }
         }
-        place_carried(&mut out, &mut carry);
+        place_carried(&mut out, &mut carry, &mut total)?;
         cells.push(out);
     }
-    Grid {
-        rows,
+    let row_index = rows.iter().enumerate().map(|(i, r)| (key(*r), i)).collect();
+    Ok(Grid {
+        row_index,
         cells,
         header_row,
-    }
+    })
 }
 
 /// `parseTextbookBindings` (prestudyRead.ts:243): the registered bindings of
 /// one student from the `getTextBookProgress` rows, in first-observed order.
 /// The label is chosen from the logical table grid: the header-named book
 /// column, else a branded label, else the first non-UI title cell.
+#[doc(hidden)]
 pub fn parse_textbook_bindings(html: &str, student_key: &str) -> Result<Vec<TextbookBinding>> {
     if expired_binding_page_re().is_match(html) {
         return refuse("prestudy_authentication_required");
@@ -1001,7 +1074,7 @@ pub fn parse_textbook_bindings(html: &str, student_key: &str) -> Result<Vec<Text
     let doc = Document::parse(html);
     let mut order: Vec<(String, String)> = vec![];
     let mut found: HashMap<(String, String), TextbookBinding> = HashMap::new();
-    let mut grids: HashMap<_, Grid<'_>> = HashMap::new();
+    let mut grids: HashMap<_, Grid<_>> = HashMap::new();
     for node in doc.select("[onclick]") {
         let Some(call) = call_re().captures(node.value().attr("onclick").unwrap_or("")) else {
             continue;
@@ -1018,12 +1091,14 @@ pub fn parse_textbook_bindings(html: &str, student_key: &str) -> Result<Vec<Text
         let (Some(row), Some(table)) = (row, table) else {
             return refuse("textbook_binding_source_unqualified");
         };
-        let grid = grids.entry(table.id()).or_insert_with(|| table_grid(table));
+        if let std::collections::hash_map::Entry::Vacant(slot) = grids.entry(table.id()) {
+            slot.insert(table_grid(table, |r| r.id())?);
+        }
+        let grid = &grids[&table.id()];
         let grid_row: &[GridCell] = grid
-            .rows
-            .iter()
-            .position(|r| r.id() == row.id())
-            .and_then(|i| grid.cells.get(i))
+            .row_index
+            .get(&row.id())
+            .and_then(|i| grid.cells.get(*i))
             .map_or(&[], |v| v.as_slice());
         let header_cells: &[GridCell] = grid
             .header_row
@@ -1067,6 +1142,9 @@ pub fn parse_textbook_bindings(html: &str, student_key: &str) -> Result<Vec<Text
                 return refuse("textbook_binding_source_unqualified");
             }
         } else {
+            if order.len() >= MAX_BINDINGS {
+                return refuse("textbook_binding_source_unqualified");
+            }
             order.push(key.clone());
         }
         found.insert(key, binding);
@@ -1121,6 +1199,7 @@ fn bracket_tokens(title: &str) -> (Vec<&str>, &str) {
 /// `deriveTextbookSectionTitlePattern`: `None` when the template cannot
 /// anchor paper rows to this book (no titles, or a title without an
 /// activity and book bracket pair).
+#[doc(hidden)]
 pub fn derive_title_pattern(
     wrong_note_titles: &[String],
     student_name: &str,
@@ -1151,6 +1230,7 @@ pub fn derive_title_pattern(
 }
 
 /// `isTextbookSectionPaperTitle`.
+#[doc(hidden)]
 pub fn is_section_paper_title(title: &str, pattern: &TitlePattern) -> bool {
     let (tokens, rest) = bracket_tokens(title);
     if tokens.len() < 2 {
@@ -1178,6 +1258,7 @@ pub fn is_section_paper_title(title: &str, pattern: &TitlePattern) -> bool {
 /// key must carry the same title in both sources (else
 /// `textbook_section_title_conflict_for_attempt`); a paper row joins only when
 /// its title matches the pattern.
+#[doc(hidden)]
 pub fn merge_section_rows(
     wrong_rows: &[WrongNoteRow],
     paper_rows: &[PaperSearchRow],
@@ -1436,7 +1517,7 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
             .progress(student, MAX_SECTION_BODY_BYTES, SECTION_FETCH)?;
         self.requests += 1;
         if !applied_policy_ok(&response, SECTION_FETCH) {
-            return refuse("source_transport_failed");
+            return refuse("textbook_section_policy_rejected");
         }
         keyed_text(response)
     }
@@ -1450,7 +1531,7 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
                 .wrong_notes(student, scope, MAX_SECTION_BODY_BYTES, SECTION_FETCH)?;
         self.requests += 1;
         if !applied_policy_ok(&response, SECTION_FETCH) {
-            return refuse("source_transport_failed");
+            return refuse("textbook_section_policy_rejected");
         }
         keyed_text(response)
     }
@@ -1460,7 +1541,7 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
                 .detail(student, attempt_key, MAX_SECTION_BODY_BYTES, SECTION_FETCH)?;
         self.requests += 1;
         if !applied_policy_ok(&response, SECTION_FETCH) {
-            return refuse("source_transport_failed");
+            return refuse("textbook_section_policy_rejected");
         }
         keyed_text(response)
     }
@@ -1470,7 +1551,7 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
             .paper_search(student, MAX_UNIT_BODY_BYTES, SECTION_FETCH)?;
         self.requests += 1;
         if !applied_policy_ok(&response, SECTION_FETCH) {
-            return refuse("source_transport_failed");
+            return refuse("textbook_section_policy_rejected");
         }
         let html = paper_text(response)?;
         let rows = metadata_rows(
@@ -1515,7 +1596,7 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
             .progress(student, MAX_UNIT_BODY_BYTES, SECTION_FETCH)?;
         self.requests += 1;
         if !applied_policy_ok(&response, SECTION_FETCH) {
-            return refuse("source_transport_failed");
+            return refuse("textbook_section_policy_rejected");
         }
         let html = binding_text(response)?;
         let bindings = parse_textbook_bindings(&html, student.student_key())?;
@@ -1721,6 +1802,26 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
             }
             None => {
                 let index = self.index(teacher_label, student, &scope)?;
+                // native-dailyrecord-backend.ts:300-302: the zod schema allows
+                // at most 1000 rows with `sourceTitle` of 1 to 2000 units; a
+                // violation is a ZodError (uncatalogued: the tool's fallback
+                // `source_read_unavailable` / `upstream_unavailable`).
+                let too_many = index.rows.len() > MAX_HINT_ROWS;
+                let bad_title = index
+                    .rows
+                    .iter()
+                    .any(|r| !(1..=MAX_HINT_TITLE_UNITS).contains(&utf16_len(&r.source_title)));
+                if too_many || bad_title {
+                    let code = if too_many {
+                        "too_big"
+                    } else {
+                        "too_small_or_big"
+                    };
+                    return Err(Error::zod(vec![obj(&[
+                        ("code", Js::Str(text(code))),
+                        ("path", Js::Arr(vec![Js::Str(text("rows"))])),
+                    ])]));
+                }
                 Ok(SectionsByName::Index(IndexByName {
                     scope,
                     book_label: binding.book_label,
@@ -1760,7 +1861,7 @@ impl<'a, P: ReadPort> SessionTextbookSectionPort<'a, P> {
     }
     fn gate(&self, student: &TextbookStudent, policy: FetchPolicy) -> Result<()> {
         if policy != SECTION_FETCH {
-            return refuse("source_transport_failed");
+            return refuse("textbook_section_policy_rejected");
         }
         if student.student_key != self.course_scope.student_id
             || student.student_key != self.metadata_scope.student_id
@@ -1786,7 +1887,7 @@ impl<'a, P: ReadPort> SessionTextbookSectionPort<'a, P> {
         over_code: &str,
     ) -> Result<TextbookResponse> {
         if response.stalled {
-            return refuse("source_transport_failed");
+            return refuse("academy_transport_failed");
         }
         if response.bytes.len() > max_bytes {
             return refuse(over_code);
@@ -2196,7 +2297,7 @@ mod tests {
                     port.detail(&s, "1", MAX_SECTION_BODY_BYTES, policy)
                         .unwrap_err()
                 ),
-                "source_transport_failed"
+                "textbook_section_policy_rejected"
             );
         }
         assert_eq!(
@@ -2247,7 +2348,7 @@ mod tests {
                 port.progress(&s, MAX_SECTION_BODY_BYTES, SECTION_FETCH)
                     .unwrap_err()
             ),
-            "source_transport_failed"
+            "academy_transport_failed"
         );
         for (max, size, expected) in [
             (

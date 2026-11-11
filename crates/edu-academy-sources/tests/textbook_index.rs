@@ -868,7 +868,7 @@ fn tweak(
 }
 
 /// Session pages, transport refusals and the applied policy, each with the
-/// exact TS code and for every one of the three reads.
+/// TS code and for every one of the three reads (status rule T2).
 #[test]
 fn session_page_and_transport_refusals() {
     for kind in ["progress", "notes", "detail"] {
@@ -898,13 +898,24 @@ fn session_page_and_transport_refusals() {
             );
         }
         type Change = fn(&mut TextbookResponse);
-        let cases: [(Change, &str); 8] = [
-            (|r| r.status = 500, "source_transport_failed"),
-            (|r| r.status = 302, "source_transport_failed"),
-            (|r| r.status = 199, "source_transport_failed"),
-            (|r| r.redirected = true, "source_transport_failed"),
-            (|r| r.credentials_sent = false, "source_transport_failed"),
-            (|r| r.redirect_followed = true, "source_transport_failed"),
+        let cases: [(Change, &str); 11] = [
+            // academyHttpClient.ts:905: 401, 403 and a redirect are
+            // `authentication_required`; any other non-2xx is `source_http_failed`.
+            (|r| r.status = 500, "source_http_failed"),
+            (|r| r.status = 404, "source_http_failed"),
+            (|r| r.status = 302, "authentication_required"),
+            (|r| r.status = 401, "authentication_required"),
+            (|r| r.status = 403, "authentication_required"),
+            (|r| r.status = 199, "source_http_failed"),
+            (|r| r.redirected = true, "authentication_required"),
+            (
+                |r| r.credentials_sent = false,
+                "textbook_section_policy_rejected",
+            ),
+            (
+                |r| r.redirect_followed = true,
+                "textbook_section_policy_rejected",
+            ),
             (
                 |r| r.bytes = vec![0xff, 0xfe],
                 "source_response_encoding_rejected",
@@ -1019,7 +1030,7 @@ fn bounds_are_the_real_constants() {
     assert_eq!(MAX_WRONG_NOTE_ROWS, 1000);
     assert_eq!((MIN_BOOK_LABEL_UNITS, MAX_BOOK_LABEL_UNITS), (2, 200));
     assert_eq!((MAX_HINT_ROWS, MAX_HINT_TITLE_UNITS), (1000, 2000));
-    assert_eq!(MAX_SPAN, 1000);
+    assert_eq!(MAX_SPAN, 100);
     assert_eq!(
         TESTPAGE_SELECT_PATH,
         "/servlet/controller.common.TestpageSelectExServlet"
@@ -1113,17 +1124,27 @@ fn binding_read_refuses_invalid_utf8_and_transport_failures() {
             Box::new(|r: &mut TextbookResponse| r.bytes = vec![0xff]),
             "source_response_encoding_rejected",
         ),
+        // The direct page read (`#request`): non-2xx is `source_http_failed`
+        // (401 and 403 included), a redirect is `source_redirect_rejected`.
         (
             Box::new(|r: &mut TextbookResponse| r.status = 503),
-            "source_transport_failed",
+            "source_http_failed",
+        ),
+        (
+            Box::new(|r: &mut TextbookResponse| r.status = 401),
+            "source_http_failed",
+        ),
+        (
+            Box::new(|r: &mut TextbookResponse| r.status = 302),
+            "source_redirect_rejected",
         ),
         (
             Box::new(|r: &mut TextbookResponse| r.redirected = true),
-            "source_transport_failed",
+            "source_redirect_rejected",
         ),
         (
             Box::new(|r: &mut TextbookResponse| r.credentials_sent = false),
-            "source_transport_failed",
+            "textbook_section_policy_rejected",
         ),
     ];
     for (change, expected) in cases {
@@ -1830,4 +1851,286 @@ fn contracts_and_operation_list_carry_the_new_entries() {
         )
         .is_none()
     );
+}
+
+// ------------------------------------------ repairs after the review (#100)
+
+/// `source_http_failed` carries the HTTP status in a typed field so the
+/// adapter can rebuild `sourceHttpStatus` (academyHttpClient.ts:33-34).
+#[test]
+fn http_failures_carry_the_status() {
+    for (kind, status) in [
+        ("progress", 500),
+        ("notes", 404),
+        ("detail", 502),
+        ("progress", 199),
+    ] {
+        let mut fake = Fake::single();
+        fake.tweak = tweak(move |k, mut r| {
+            if k == kind {
+                r.status = status;
+            }
+            Ok(r)
+        });
+        let error = run_grade(fake, &[WRONG_TITLE]).unwrap_err();
+        assert_eq!(error.message, "source_http_failed", "{kind}");
+        assert_eq!(http_failure_status(&error), Some(status), "{kind}");
+    }
+    // The binding page read keeps 401 as a status, not as authentication.
+    let mut fake = Fake::single();
+    fake.tweak = tweak(|_, mut r| {
+        r.status = 401;
+        Ok(r)
+    });
+    let error = source(fake).bindings(PRINCIPAL, &student()).unwrap_err();
+    assert_eq!(http_failure_status(&error), Some(401));
+    // Other failures carry no status.
+    assert_eq!(
+        http_failure_status(&Error::refusal("source_http_failed")),
+        None
+    );
+    assert_eq!(
+        http_failure_status(&Error::refusal("authentication_required")),
+        None
+    );
+    // A failed paper search degrades whatever its status.
+    for status in [401, 403, 500, 302] {
+        let mut fake = Fake::single();
+        fake.tweak = tweak(move |k, mut r| {
+            if k == "paper" {
+                r.status = status;
+            }
+            Ok(r)
+        });
+        assert_eq!(
+            run_index(fake).unwrap().paper_search,
+            PaperSearchStatus::Unavailable,
+            "{status}"
+        );
+    }
+}
+
+/// A stalled transport is the TS `academy_transport_failed` (academyHttpClient.ts:192).
+#[test]
+fn section_policy_codes_are_not_ts_transport_codes() {
+    let mut fake = Fake::single();
+    fake.tweak = tweak(|_, mut r| {
+        r.credentials_sent = false;
+        Ok(r)
+    });
+    let error = run_grade(fake, &[WRONG_TITLE]).unwrap_err();
+    assert_ne!(error.message, "source_transport_failed");
+}
+
+fn lone(html: String) -> String {
+    html.replace("LONESURR", "\\\\ud800")
+}
+
+/// Declared difference: a lone surrogate in a wrong-note title refuses
+/// (`invalid_read_name`), in a paper row title drops the row, in an
+/// `apply_date` gives no date literal.
+#[test]
+fn lone_surrogates_are_refused_dropped_or_none() {
+    let mut fake = Fake::single();
+    fake.notes.insert(
+        ("693".into(), "2517".into()),
+        notes_json(&[(1, 2, "LONESURR")]).replace("LONESURR", "\\ud800"),
+    );
+    assert_eq!(code(run_index(fake).unwrap_err()), "invalid_read_name");
+    let mut fake = Fake::single();
+    fake.notes.insert(
+        ("693".into(), "2517".into()),
+        notes_json(&[(1, 2, WRONG_TITLE)]).replace("\"11-03\"", "\"11-0\\ud800\""),
+    );
+    fake.paper = None;
+    let index = run_index(fake).unwrap();
+    assert_eq!(index.rows.len(), 1);
+    assert_eq!(index.rows[0].source_date_literal, None);
+    // Control: the same rows without the surrogate carry the literal.
+    let mut fake = Fake::single();
+    fake.paper = None;
+    assert!(
+        run_index(fake).unwrap().rows[0]
+            .source_date_literal
+            .is_some()
+    );
+    // Paper row title: dropped; the control row with a plain title is kept.
+    let plain = "[필수예제] [가우스] 5-9 Plain - Invented Learner";
+    let marked = "[필수예제] [가우스] 5-9 LONESURR - Invented Learner";
+    let mut fake = Fake::single();
+    fake.paper = Some(lone(paper_page(&[
+        ("81004", "82004", PERFECT, None),
+        ("81009", "82009", marked, None),
+    ])));
+    let index = run_index(fake).unwrap();
+    assert!(index.rows.iter().any(|r| r.attempt_key == "82004"));
+    assert!(index.rows.iter().all(|r| r.attempt_key != "82009"));
+    let mut fake = Fake::single();
+    fake.paper = Some(paper_page(&[
+        ("81004", "82004", PERFECT, None),
+        ("81009", "82009", plain, None),
+    ]));
+    assert!(
+        run_index(fake)
+            .unwrap()
+            .rows
+            .iter()
+            .any(|r| r.attempt_key == "82009")
+    );
+}
+
+/// The by-name index applies the TS zod bound (native-dailyrecord-backend.ts:300-302):
+/// more than 1000 rows or a `sourceTitle` outside 1 to 2000 units is a ZodError.
+#[test]
+fn by_name_index_applies_the_zod_bound() {
+    let wrong: Vec<(u64, u64, &str)> = (1..=1000).map(|i| (i, i, WRONG_TITLE)).collect();
+    let mut fake = Fake::single();
+    fake.notes
+        .insert(("693".into(), "2517".into()), notes_json(&wrong));
+    fake.paper = Some(paper_page(&[("81004", "82004", PERFECT, None)]));
+    // The index call itself returns the 1001 rows (only the by-name path is bounded).
+    assert_eq!(run_index(fake).unwrap().rows.len(), 1001);
+    let mut fake = Fake::single();
+    fake.notes
+        .insert(("693".into(), "2517".into()), notes_json(&wrong));
+    fake.paper = Some(paper_page(&[("81004", "82004", PERFECT, None)]));
+    let error = source(fake)
+        .sections_by_name(PRINCIPAL, &student(), None, None)
+        .unwrap_err();
+    assert_eq!(error.name, "ZodError");
+    // 1000 rows pass.
+    let mut fake = Fake::single();
+    fake.notes
+        .insert(("693".into(), "2517".into()), notes_json(&wrong));
+    fake.paper = None;
+    assert!(matches!(
+        source(fake)
+            .sections_by_name(PRINCIPAL, &student(), None, None)
+            .unwrap(),
+        SectionsByName::Index(_)
+    ));
+    // A wrong-note title is bounded at 200 units before this check
+    // (`invalid_read_name`), so the 1 to 2000 unit rule is a defensive guard.
+    let long = "a".repeat(2000);
+    let mut fake = Fake::single();
+    fake.notes.insert(
+        ("693".into(), "2517".into()),
+        notes_json(&[(1, 2, long.as_str())]),
+    );
+    fake.paper = None;
+    assert_eq!(
+        code(
+            source(fake)
+                .sections_by_name(PRINCIPAL, &student(), None, None)
+                .unwrap_err()
+        ),
+        "invalid_read_name"
+    );
+}
+
+fn grid_page(rows: &str) -> String {
+    format!("<table>{rows}</table>")
+}
+
+/// T1: a huge `colspan` is clamped to 100 (as `textbookCatalogRead.ts:97`);
+/// the clamped width is observable in the logical column of the next cell.
+#[test]
+fn huge_colspan_is_clamped_to_one_hundred() {
+    let html = grid_page(&format!(
+        "<tr><td colspan=1000000000>x</td><td>Book Beta</td><td>{}</td></tr>",
+        button(1, 2)
+    ));
+    assert_eq!(labels(&html), ["Book Beta"]);
+    assert_eq!(MAX_SPAN, 100);
+    // Header-named column: the header cell with colspan=1e9 puts the book
+    // title column at logical index 100.
+    let html = grid_page(&format!(
+        "<tr><th colspan=1000000000>x</th><th>교재</th></tr><tr><td colspan=1000000000>y</td><td>Book Gamma</td><td>{}</td></tr>",
+        button(1, 2)
+    ));
+    assert_eq!(labels(&html), ["Book Gamma"]);
+}
+
+/// T1: the total-cell and column budgets fail closed before allocation.
+#[test]
+fn grid_budget_fails_closed() {
+    assert_eq!((MAX_GRID_COLUMNS, MAX_GRID_CELLS), (128, 100_000));
+    // Exactly at the cell budget: 1000 rows of 100 cells parse.
+    let rows = |n: usize| "<tr><td colspan=100>a</td></tr>".repeat(n);
+    let ok = grid_page(&format!(
+        "{}<tr><td>n</td><td>Book Beta</td><td>{}</td></tr>",
+        rows(999),
+        button(1, 2)
+    ));
+    assert_eq!(labels(&ok), ["Book Beta"]);
+    // One more wide row exceeds 100,000 cells.
+    let over = grid_page(&format!(
+        "{}<tr><td>n</td><td>Book Beta</td><td>{}</td></tr>",
+        rows(1000),
+        button(1, 2)
+    ));
+    assert_eq!(
+        code(bind(&over).unwrap_err()),
+        "textbook_binding_source_unqualified"
+    );
+    // Many columns in one row.
+    let wide = format!(
+        "<tr>{}<td>{}</td></tr>",
+        "<td>c</td>".repeat(MAX_GRID_COLUMNS),
+        button(1, 2)
+    );
+    assert_eq!(
+        code(bind(&grid_page(&wide)).unwrap_err()),
+        "textbook_binding_source_unqualified"
+    );
+    // Two clamped cells are over the column budget; one plus a few is not.
+    let two = grid_page(&format!(
+        "<tr><td colspan=5000>a</td><td colspan=5000>b</td><td>Book Beta</td><td>{}</td></tr>",
+        button(1, 2)
+    ));
+    assert_eq!(
+        code(bind(&two).unwrap_err()),
+        "textbook_binding_source_unqualified"
+    );
+    // Carried rowspan cells count against the budget too.
+    let carried = grid_page(&format!(
+        "<tr><td rowspan=100 colspan=100>a</td></tr>{}<tr><td>n</td><td>Book Beta</td><td>{}</td></tr>",
+        "<tr><td>b</td></tr>".repeat(99),
+        button(1, 2)
+    ));
+    assert!(bind(&carried).is_ok());
+    // A normal page still parses.
+    assert_eq!(labels(PROGRESS_SINGLE).len(), 1);
+}
+
+/// T5: at most `MAX_BINDINGS` bindings on one page (TS has no cap), refused
+/// before any per-binding read; the lookup is linear (the page is large).
+#[test]
+fn more_than_max_bindings_fail_closed() {
+    assert_eq!(MAX_BINDINGS, 64);
+    let page = |n: u32| {
+        grid_page(
+            &(1..=n)
+                .map(|i| {
+                    format!(
+                        "<tr><td>n</td><td>Book Alpha</td><td>{}</td></tr>",
+                        button(i, 1)
+                    )
+                })
+                .collect::<String>(),
+        )
+    };
+    assert_eq!(bind(&page(64)).unwrap().len(), 64);
+    assert_eq!(
+        code(bind(&page(65)).unwrap_err()),
+        "textbook_binding_source_unqualified"
+    );
+    let mut fake = Fake::single();
+    fake.progress = page(65);
+    let log = fake.log.clone();
+    let error = source(fake)
+        .sections_by_name(PRINCIPAL, &student(), None, None)
+        .unwrap_err();
+    assert_eq!(error.message, "textbook_binding_source_unqualified");
+    assert_eq!(*log.borrow(), ["progress"], "no per-binding read happened");
 }

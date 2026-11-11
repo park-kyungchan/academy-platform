@@ -8,7 +8,7 @@
 use crate::{
     data::*,
     dom::{self, Document},
-    js_text::{js_trim, utf16_len},
+    js_text::{js_collapse_whitespace, js_trim, utf16_len},
     owner_admission::TransportScope,
     student_course::{ReadPort, check_contract},
 };
@@ -449,9 +449,8 @@ pub fn bounded_body(response: TextbookResponse, maximum: usize, kind: BodyKind) 
         .unwrap_or("")
         .split(';')
         .next()
-        .unwrap_or("")
-        .trim()
-        .to_ascii_lowercase();
+        .unwrap_or("");
+    let mime = js_trim(mime).to_ascii_lowercase();
     let mime_ok = match kind {
         BodyKind::Catalog => mime == "text/html",
         BodyKind::Pdf => ["application/pdf", "application/octet-stream"].contains(&mime.as_str()),
@@ -581,7 +580,7 @@ fn closest_row<'a>(node: scraper::ElementRef<'a>) -> Option<scraper::ElementRef<
 }
 
 fn collapse(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
+    js_collapse_whitespace(text)
 }
 
 /// Rowspan-aware row labels: carried cells keep their logical columns, so a
