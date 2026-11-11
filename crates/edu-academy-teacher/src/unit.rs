@@ -163,7 +163,10 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
             {
                 l::unit_course_book(
                     &b.book_label,
-                    bindings[..=i].iter().filter(|other| other.book_label == b.book_label).count(),
+                    bindings[..=i]
+                        .iter()
+                        .filter(|other| other.book_label == b.book_label)
+                        .count(),
                 )
             } else {
                 b.book_label.clone()
@@ -264,10 +267,16 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
                 books.push(b.book_label.as_str());
             }
         }
-        let duplicates: Vec<_> = books.iter().filter_map(|book| {
-            let count = candidates.iter().filter(|b| b.book_label.as_str() == *book).count();
-            (count > 1).then(|| l::unit_course_registration(&cell(book), count))
-        }).collect();
+        let duplicates: Vec<_> = books
+            .iter()
+            .filter_map(|book| {
+                let count = candidates
+                    .iter()
+                    .filter(|b| b.book_label.as_str() == *book)
+                    .count();
+                (count > 1).then(|| l::unit_course_registration(&cell(book), count))
+            })
+            .collect();
         let question = if duplicates.is_empty() {
             if topic == l::UNIT_TOPICS[2] {
                 l::unit_book_ask(&cell(&student.name), candidates.len())
@@ -279,11 +288,16 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         };
         // The book field is replaced on the next stateless call. Carry its
         // original unit suffix in every choice rather than widening the scope.
-        let suffix = candidates.iter().filter_map(|b| {
-            book_text.strip_prefix(&b.book_label)
-                .filter(|tail| tail.starts_with(char::is_whitespace))
-                .map(|tail| (b.book_label.len(), tail))
-        }).max_by_key(|(len, _)| *len).map_or("", |(_, tail)| tail);
+        let suffix = candidates
+            .iter()
+            .filter_map(|b| {
+                book_text
+                    .strip_prefix(&b.book_label)
+                    .filter(|tail| tail.starts_with(char::is_whitespace))
+                    .map(|tail| (b.book_label.len(), tail))
+            })
+            .max_by_key(|(len, _)| *len)
+            .map_or("", |(_, tail)| tail);
         return Err(ask(
             AskField::Book,
             question,
@@ -666,9 +680,6 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
                                 crate::render::Verdict::Waiting => UnitVerdict::Waiting,
                                 crate::render::Verdict::Completed => UnitVerdict::Completed,
                                 crate::render::Verdict::NotObserved => UnitVerdict::NotObserved,
-                                crate::render::Verdict::NotInReadRange => {
-                                    UnitVerdict::NotInReadRange
-                                }
                                 _ => UnitVerdict::Unknown,
                             }
                         })
@@ -710,10 +721,15 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         f.student_key.as_deref() == Some(&data.student_key)
             && f.book == data.edition
             && (f.course_key.is_none() || f.book_no.is_none())
-            && f.course_key.as_ref().is_none_or(|key| key == &data.course_key)
+            && f.course_key
+                .as_ref()
+                .is_none_or(|key| key == &data.course_key)
             && f.book_no.as_ref().is_none_or(|key| key == &data.book_no)
             && (f.kind == "original_work" || f.kind == "clinic_stage")
-            && data.activity.as_ref().is_none_or(|a| f.activity.is_empty() || &f.activity == a)
+            && data
+                .activity
+                .as_ref()
+                .is_none_or(|a| f.activity.is_empty() || &f.activity == a)
             && data.minors.iter().any(|leaf| leaf.minor.code == f.unit)
             && (all_topics || topic == l::UNIT_TOPICS[2])
     }) {
