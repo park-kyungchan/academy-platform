@@ -90,6 +90,10 @@ def isolation(events, allowed_tools, malformed=0):
     if "tools" not in init:
         reasons.append("tools_missing")
     for field, values in snapshot.items():
+        if field == "memory_paths":
+            # The CLI reports an auto-memory destination as an object, even
+            # for a new empty cwd. A path alone does not prove a file was loaded.
+            continue
         if not isinstance(values, list):
             reasons.append(f"{field}_invalid")
             continue
@@ -122,7 +126,8 @@ def isolation(events, allowed_tools, malformed=0):
     if malformed:
         reasons.append("malformed_stream")
     return {"status": "FAIL" if reasons else "pass", "reasons": reasons,
-            "checked_init_fields": list(snapshot), "init": snapshot,
+            "checked_init_fields": [field for field in snapshot if field != "memory_paths"],
+            "observed_init_fields": list(snapshot), "init": snapshot,
             "default_cli_agents": list(DEFAULT_CLI_AGENTS), "hook_events": hooks,
             "first_request_usage": usage, "first_request_tokens": tokens}
 

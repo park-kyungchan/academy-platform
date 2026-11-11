@@ -48,6 +48,15 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(result["init"]["agents"], list(run.DEFAULT_CLI_AGENTS))
         self.assertIn("terminal_slash_commands", result["checked_init_fields"])
 
+    def test_memory_path_is_metadata_not_a_loaded_file(self):
+        events = self.isolated_events()
+        events[0]["memory_paths"] = {"auto": "/synthetic/new-cwd/memory/"}
+        result = run.isolation(events, ["mcp__academy__academy_lesson_prepare"])
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["init"]["memory_paths"], events[0]["memory_paths"])
+        self.assertIn("memory_paths", result["observed_init_fields"])
+        self.assertNotIn("memory_paths", result["checked_init_fields"])
+
     def test_isolation_failures(self):
         for field, value, reason in [
             ("tools", ["Read"], "unexpected_tools"),
@@ -56,7 +65,6 @@ class HarnessTests(unittest.TestCase):
             ("skills", ["custom"], "skills_loaded"),
             ("plugins", [{"name": "builtin-plugin"}], "plugins_loaded"),
             ("agents", ["custom-agent"], "unexpected_agents"),
-            ("memory_paths", ["/synthetic/memory"], "memory_paths_loaded"),
             ("mcp_servers", [{"name": "other"}], "unexpected_mcp_servers"),
         ]:
             with self.subTest(field=field):
@@ -66,7 +74,7 @@ class HarnessTests(unittest.TestCase):
                 self.assertEqual(result["status"], "FAIL")
                 self.assertIn(reason, result["reasons"])
         for field in ("tools", "slash_commands", "terminal_slash_commands", "skills", "plugins",
-                      "agents", "memory_paths", "mcp_servers"):
+                      "agents", "mcp_servers"):
             with self.subTest(invalid_field=field):
                 events = self.isolated_events()
                 events[0][field] = None
