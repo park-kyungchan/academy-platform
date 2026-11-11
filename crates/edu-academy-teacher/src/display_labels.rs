@@ -616,7 +616,10 @@ pub const UNIT_STUDENT_REQUIRED: &str =
 pub const UNIT_FROM_ASK: &str = "시작 소단원을 정하지 못했습니다.\n어느 소단원부터 볼까요?";
 pub const UNIT_TO_ASK: &str = "끝 소단원이 없거나 시작보다 앞섭니다.\n어느 소단원까지 볼까요?";
 pub fn unit_unmapped_title(title: &str) -> String {
-    format!("단원·활동 연결 미확인: {title}·{}", unit_unknown_remedy("section_mapping_unavailable"))
+    format!(
+        "단원·활동 연결 미확인: {title}·{}",
+        unit_unknown_remedy("section_mapping_unavailable")
+    )
 }
 pub fn unit_timed_scope(scope: &str, at: &str) -> String {
     format!("{scope}·읽은 시각 {at}")
@@ -660,14 +663,16 @@ pub const UNIT_WRONG_NOTE_TITLES: &str = "오답노트 첫 관측 페이지·관
 pub const UNIT_INDEX_SCOPE: &str = "오답노트와 시험지 검색 각 첫 관측 페이지·관측 제목";
 pub fn unit_unmapped_summary(count: usize) -> String {
     format!(
-        "단원·활동 연결 미확인: 제목 {count}개(표시 한도로 원문 제목 생략·결과 자료에 보존)·{}.", unit_unknown_remedy("section_mapping_unavailable")
+        "단원·활동 연결 미확인: 제목 {count}개(표시 한도로 원문 제목 생략·결과 자료에 보존)·{}.",
+        unit_unknown_remedy("section_mapping_unavailable")
     )
 }
 
 pub const UNIT_SECTION_UNREAD: &str = "미확인(섹션을 읽지 못함)·섹션을 다시 조회해 주세요";
 pub const UNIT_DAILY_UNREAD: &str = "미확인(일일시험을 읽지 못함)·일일시험을 다시 조회해 주세요";
 pub const UNIT_PRESTUDY_UNREAD: &str = "미확인(예습 목록을 읽지 못함)·예습을 다시 조회해 주세요";
-pub const UNIT_COURSE_UNKNOWN: &str = "과정 연결이 기록되지 않음·해당 교사 기록에 교재 등록 과정을 지정해 주세요";
+pub const UNIT_COURSE_UNKNOWN: &str =
+    "과정 연결이 기록되지 않음·해당 교사 기록에 교재 등록 과정을 지정해 주세요";
 pub fn unit_course_book(book: &str, ordinal: usize) -> String {
     format!("{book} (등록 과정 {ordinal})")
 }
@@ -679,7 +684,9 @@ pub fn unit_unknown_remedy(code: &str) -> &'static str {
         "prestudy_unavailable" => "예습 목록을 다시 조회해 주세요",
         "teacher_fact_course_unknown" => "해당 교사 기록에 교재 등록 과정을 지정해 주세요",
         "section_grade_unavailable" => "해당 섹션 성적을 다시 조회해 주세요",
-        "section_ambiguous_attempts" => "원천의 동일 제목만으로 각 시험 시도의 성적을 연결할 수 없습니다",
+        "section_ambiguous_attempts" => {
+            "원천의 동일 제목만으로 각 시험 시도의 성적을 연결할 수 없습니다"
+        }
         "section_mapping_unavailable" => "원문 제목에 판본 목차와 연결할 단원·활동 정보가 없습니다",
         _ => "해당 원천을 다시 조회해 주세요",
     }

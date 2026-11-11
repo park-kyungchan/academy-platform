@@ -79,7 +79,12 @@ fn m22e_duplicate_unmapped_titles_have_one_counted_remedy() {
         .filter(|l| l.starts_with("단원·활동 연결 미확인:"))
         .collect();
     assert_eq!(lines.len(), 1);
-    assert!(lines[0].contains("2건") && lines[0].contains(edu_academy_teacher::display_labels::unit_unknown_remedy("section_mapping_unavailable")));
+    assert!(
+        lines[0].contains("2건")
+            && lines[0].contains(edu_academy_teacher::display_labels::unit_unknown_remedy(
+                "section_mapping_unavailable"
+            ))
+    );
 }
 #[test]
 fn m22e_trimmed_units_leave_with_their_unknown_lines() {

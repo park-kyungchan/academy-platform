@@ -1173,19 +1173,26 @@ fn unknown_lines(d: &UnitData, coverage: &Coverage, tree_scope: &[Leaf]) -> Vec<
         for leaf in tree_scope {
             let major = format!("{} {}", l::CHAPTER_SCOPE, leaf.chapter);
             for (id, level) in [
-                (Some(leaf.chapter.as_str()), 0), (Some(major.as_str()), 0),
-                (leaf.middle.as_deref(), 1), (leaf.middle_code.as_deref(), 1),
+                (Some(leaf.chapter.as_str()), 0),
+                (Some(major.as_str()), 0),
+                (leaf.middle.as_deref(), 1),
+                (leaf.middle_code.as_deref(), 1),
                 (Some(leaf.minor.code.as_str()), 2),
             ] {
                 if let Some(id) = id.filter(|id| !id.is_empty())
-                    && (scope == id || scope.strip_prefix(id).is_some_and(|tail| tail.starts_with(char::is_whitespace)))
+                    && (scope == id
+                        || scope
+                            .strip_prefix(id)
+                            .is_some_and(|tail| tail.starts_with(char::is_whitespace)))
                 {
                     matches.push(((id.len(), level), retained(d, &leaf.minor.code)));
                 }
             }
         }
         if let Some(specificity) = matches.iter().map(|(key, _)| *key).max()
-            && !matches.iter().any(|(key, kept)| *key == specificity && *kept)
+            && !matches
+                .iter()
+                .any(|(key, kept)| *key == specificity && *kept)
         {
             continue;
         }
