@@ -648,3 +648,65 @@ fn dated_retests_keep_each_attempt_and_date() {
             .any(|a| a["score"].as_f64() == Some(22.0) && a["occurred_at"] == "2026-11-11")
     );
 }
+
+#[test]
+fn r1_b1_observed_title_with_failed_details_is_not_absence() {
+    let s = scenario();
+    for topic in ["섹션", "클리닉"] {
+        let mut p = text_port(&s);
+        p.detail_fail = Some("8200".into());
+        let mut b = backend(&s, p);
+        let out = call(
+            &mut b,
+            &mut reader(&s),
+            &s,
+            json!({"student":"가상학생A","unit":"1-2 필수예제","topic":topic}),
+        );
+        assert!(out.stop.is_none());
+        assert!(out.display.contains("미확인(성적을 읽지 못함)"));
+        assert!(!out.display.contains("1-2 섹션: 미확인(읽은 범위에 없음)"));
+    }
+}
+#[test]
+fn r1_b2_same_title_attempts_are_qualified_unknown() {
+    for date in [Some("11-10".to_string()), None] {
+        let mut s = scenario();
+        let mut a = s.sections.attempts[0].clone();
+        a.attempt_key = "8222".into();
+        a.paper_key = "8122".into();
+        a.source_date = date;
+        s.sections.attempts.push(a);
+        let mut b = backend(&s, text_port(&s));
+        let out = call(
+            &mut b,
+            &mut reader(&s),
+            &s,
+            json!({"student":"가상학생A","unit":"1-2 필수예제","topic":"섹션"}),
+        );
+        assert!(out.display.contains("동일 제목의 시험 시도"));
+        assert!(out.stop.is_none());
+        assert!(
+            out.data["sections"]["records"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+    }
+}
+#[test]
+fn r1_b11_relative_success_does_not_claim_primary_page() {
+    let s = scenario();
+    let (mut p, c) = daily_port(&s);
+    p.fail_selector = Some("1".into());
+    let mut d = DailyTestReader::new(p, c, TEACHER_ID);
+    let mut b = backend(&s, text_port(&s));
+    let out = call(
+        &mut b,
+        &mut d,
+        &s,
+        json!({"student":"가상학생A","unit":"1-1","topic":"DailyTest"}),
+    );
+    assert!(out.stop.is_none());
+    assert!(out.display.contains("상대기간"));
+    assert!(!out.display.contains("현재 필터 첫 관측 페이지"));
+}
