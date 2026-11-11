@@ -24,6 +24,19 @@ pub struct NotBrought {
 }
 
 pub trait TeacherFacts {
+    fn unit_read_at(&self) -> Option<&str> {
+        self.read_at()
+    }
+    fn edition_tree(&self, _edition: &str) -> Option<crate::unit_data::EditionTree> {
+        None
+    }
+    fn unit_judgments(&self, _student_key: &str) -> Vec<crate::unit_data::TeacherJudgment> {
+        Vec::new()
+    }
+    fn excluded_sections(&self, _student_key: &str) -> Vec<crate::unit_data::ExcludedSection> {
+        Vec::new()
+    }
+
     fn read_at(&self) -> Option<&str> {
         None
     }
@@ -50,6 +63,10 @@ pub trait TeacherFacts {
 /// Seeded implementation from the scenario file's `classes` section.
 #[derive(Clone, Debug, Default)]
 pub struct SeededFacts {
+    unit_read_at: Option<String>,
+    trees: Vec<crate::unit_data::EditionTree>,
+    judgments: Vec<crate::unit_data::TeacherJudgment>,
+    excluded: Vec<crate::unit_data::ExcludedSection>,
     read_at: Option<String>,
     admitted_dates: Option<DateRange>,
     reports: Vec<TeacherFactReport>,
@@ -112,6 +129,40 @@ impl SeededFacts {
             })
             .collect();
         Self {
+            unit_read_at: scenario.unit_read_at.clone(),
+            trees: scenario.edition_trees.clone(),
+            judgments: scenario
+                .teacher_judgments
+                .iter()
+                .cloned()
+                .map(|mut j| {
+                    if let Some(binding) = unique_binding(scenario, &j.student_key, &j.edition) {
+                        if j.course_key.is_none() {
+                            j.course_key = Some(binding.course_key.clone());
+                        }
+                        if j.book_no.is_none() {
+                            j.book_no = Some(binding.book_no.clone());
+                        }
+                    }
+                    j
+                })
+                .collect(),
+            excluded: scenario
+                .excluded_sections
+                .iter()
+                .cloned()
+                .map(|mut e| {
+                    if let Some(binding) = unique_binding(scenario, &e.student_key, &e.edition) {
+                        if e.course_key.is_none() {
+                            e.course_key = Some(binding.course_key.clone());
+                        }
+                        if e.book_no.is_none() {
+                            e.book_no = Some(binding.book_no.clone());
+                        }
+                    }
+                    e
+                })
+                .collect(),
             read_at: scenario.read_at.clone(),
             admitted_dates: scenario.admitted_dates.clone(),
             reports: scenario
@@ -129,6 +180,16 @@ impl SeededFacts {
                             report.student_key = Some(only.key.clone());
                         }
                     }
+                    if let Some(key) = &report.student_key
+                        && let Some(binding) = unique_binding(scenario, key, &report.book)
+                    {
+                        if report.course_key.is_none() {
+                            report.course_key = Some(binding.course_key.clone());
+                        }
+                        if report.book_no.is_none() {
+                            report.book_no = Some(binding.book_no.clone());
+                        }
+                    }
                     report
                 })
                 .collect(),
@@ -141,6 +202,27 @@ impl SeededFacts {
 }
 
 impl TeacherFacts for SeededFacts {
+    fn unit_read_at(&self) -> Option<&str> {
+        self.unit_read_at.as_deref().or(self.read_at.as_deref())
+    }
+    fn edition_tree(&self, edition: &str) -> Option<crate::unit_data::EditionTree> {
+        self.trees.iter().find(|t| t.edition == edition).cloned()
+    }
+    fn unit_judgments(&self, key: &str) -> Vec<crate::unit_data::TeacherJudgment> {
+        self.judgments
+            .iter()
+            .filter(|j| j.student_key == key)
+            .cloned()
+            .collect()
+    }
+    fn excluded_sections(&self, key: &str) -> Vec<crate::unit_data::ExcludedSection> {
+        self.excluded
+            .iter()
+            .filter(|j| j.student_key == key)
+            .cloned()
+            .collect()
+    }
+
     fn read_at(&self) -> Option<&str> {
         self.read_at.as_deref()
     }
@@ -200,6 +282,12 @@ pub struct DateRange {
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TeacherFactReport {
     #[serde(default)]
+    pub course_key: Option<String>,
+    #[serde(default)]
+    pub book_no: Option<String>,
+    #[serde(default)]
+    pub snapshot: Option<String>,
+    #[serde(default)]
     pub student_key: Option<String>,
     pub kind: String,
     pub student: String,
@@ -237,4 +325,22 @@ pub struct Reminder {
     pub action: String,
     pub status: String,
     pub reported_on: String,
+}
+
+fn unique_binding<'a>(
+    s: &'a Scenario,
+    key: &str,
+    edition: &str,
+) -> Option<&'a crate::synthetic::ScenarioBinding> {
+    let bindings: Vec<_> = s
+        .student_by_key(key)?
+        .bindings
+        .iter()
+        .filter(|b| b.label == edition)
+        .collect();
+    if let [binding] = bindings.as_slice() {
+        Some(*binding)
+    } else {
+        None
+    }
 }

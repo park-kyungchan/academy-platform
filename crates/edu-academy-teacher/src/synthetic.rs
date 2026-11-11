@@ -20,6 +20,16 @@ pub const NOW: &str = "2026-11-11T09:00:00+09:00";
 #[derive(Clone, Debug, Deserialize)]
 pub struct Scenario {
     #[serde(default)]
+    pub unit_read_at: Option<String>,
+    #[serde(default)]
+    pub edition_trees: Vec<crate::unit_data::EditionTree>,
+    #[serde(default)]
+    pub teacher_judgments: Vec<crate::unit_data::TeacherJudgment>,
+    #[serde(default)]
+    pub excluded_sections: Vec<crate::unit_data::ExcludedSection>,
+    #[serde(default)]
+    pub dailytest_frames: Vec<crate::unit_data::DailyFrame>,
+    #[serde(default)]
     pub read_at: Option<String>,
     #[serde(default)]
     pub admitted_dates: Option<crate::facts::DateRange>,
@@ -108,9 +118,38 @@ pub struct PrestudyRow {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct SectionsScenario {
     #[serde(default)]
+    pub attempts: Vec<NativeSectionAttempt>,
+    #[serde(default)]
     pub index_titles: Vec<IndexTitle>,
     #[serde(default)]
     pub grades: Vec<GradeSpec>,
+}
+
+/// Explicit synthetic native source data, scoped independently of display titles.
+#[derive(Clone, Debug, Deserialize)]
+pub struct NativeSectionAttempt {
+    pub student_key: String,
+    pub course_key: String,
+    pub book_no: String,
+    pub paper_key: String,
+    pub attempt_key: String,
+    pub title: String,
+    pub source_score: f64,
+    pub source_date: Option<String>,
+    pub items: Vec<NativeSectionItem>,
+    #[serde(default = "visible")]
+    pub wrong_note: bool,
+    #[serde(default = "visible")]
+    pub paper_search: bool,
+}
+fn visible() -> bool {
+    true
+}
+#[derive(Clone, Debug, Deserialize)]
+pub struct NativeSectionItem {
+    pub ordinal: String,
+    pub label: Option<String>,
+    pub scoring: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -191,6 +230,7 @@ pub fn validate_scenario(scenario: &Scenario) -> std::result::Result<(), String>
             }
         }
     }
+    crate::unit_fixture::validate(scenario)?;
     Ok(())
 }
 
@@ -505,6 +545,12 @@ impl TextbookSectionPort for SyntheticTextbookPort {
         _max: usize,
         _policy: FetchPolicy,
     ) -> Result<TextbookResponse> {
+        if !self.scenario.sections.attempts.is_empty() {
+            let rows: Vec<_> = self.scenario.sections.attempts.iter().filter(|a| a.student_key == student.student_key() && a.course_key == scope.course_key() && a.book_no == scope.book_no() && a.wrong_note).map(|a| serde_json::json!({"pri_no": a.student_key, "name": student.student_name(), "p_no": a.paper_key, "testing_no": a.attempt_key, "testing_name": a.title, "apply_date": a.source_date})).collect();
+            return Ok(textbook_response(
+                serde_json::json!({"result":"ok","noteResultList":rows}).to_string(),
+            ));
+        }
         let key: u64 = student.student_key().parse().unwrap_or(0);
         let list: Vec<serde_json::Value> = self
             .titles_for(student.student_name())
@@ -528,6 +574,17 @@ impl TextbookSectionPort for SyntheticTextbookPort {
         _max: usize,
         _policy: FetchPolicy,
     ) -> Result<TextbookResponse> {
+        if !self.scenario.sections.attempts.is_empty() {
+            let a = self
+                .scenario
+                .sections
+                .attempts
+                .iter()
+                .find(|a| a.student_key == student.student_key() && a.attempt_key == attempt_key)
+                .ok_or_else(|| Error::refusal("synthetic_detail_missing"))?;
+            let items: Vec<_> = a.items.iter().map(|i| serde_json::json!({"exam_no":i.ordinal,"lecture_key":i.label,"scoring_result":i.scoring})).collect();
+            return Ok(textbook_response(serde_json::json!({"result":"OK","print_list":[{"pri_no":student.student_key(),"student_name":student.student_name(),"sub_title":a.title,"score":a.source_score,"exam_list":items}]}).to_string()));
+        }
         let title = self
             .scenario
             .sections
@@ -567,6 +624,16 @@ impl TextbookSectionPort for SyntheticTextbookPort {
         _max: usize,
         _policy: FetchPolicy,
     ) -> Result<TextbookResponse> {
+        if !self.scenario.sections.attempts.is_empty() {
+            let list: Vec<_> = self.scenario.sections.attempts.iter().filter(|a| a.student_key == student.student_key() && a.paper_search).map(|a| serde_json::json!({"priNo":a.student_key,"userName":student.student_name(),"pNo":a.paper_key,"testingNo":a.attempt_key,"score":a.source_score,"_id":format!("r{}",a.attempt_key),"testingName":a.title,"applyDate":a.source_date})).collect();
+            let raw = serde_json::Value::Array(list)
+                .to_string()
+                .replace('\\', "\\\\")
+                .replace('\'', "\\'");
+            return Ok(textbook_response(format!(
+                "<form name=userForm><input name=pri_no value={TEACHER_KEY}></form><script>const results={{testResultList:JSON.parse('{raw}')}};</script>"
+            )));
+        }
         let list: Vec<serde_json::Value> = self
             .titles_for(student.student_name())
             .into_iter()

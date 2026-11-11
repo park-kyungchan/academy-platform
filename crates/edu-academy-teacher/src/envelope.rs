@@ -16,6 +16,9 @@ pub enum Status {
 /// extra codes of slice 1.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StopCode {
+    StudentRequired,
+    EditionTreeUnavailable,
+    UnitScopeUnavailable,
     DisplayInvalid,
     StudentNotFound,
     RosterClassMismatch,
@@ -32,6 +35,9 @@ pub enum StopCode {
 impl StopCode {
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::StudentRequired => "student_required",
+            Self::EditionTreeUnavailable => "edition_tree_unavailable",
+            Self::UnitScopeUnavailable => "unit_scope_unavailable",
             Self::DisplayInvalid => "display_invalid",
             Self::StudentNotFound => "student_not_found",
             Self::RosterClassMismatch => "roster_class_mismatch",
@@ -56,22 +62,28 @@ impl Serialize for StopCode {
 /// Closed set of ask fields: the input field names of the tool table.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AskField {
+    Topic,
     Student,
     ClassName,
     Date,
     Book,
     Unit,
+    UnitFrom,
+    UnitTo,
     Draft,
 }
 
 impl AskField {
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Topic => "topic",
             Self::Student => "student",
             Self::ClassName => "class_name",
             Self::Date => "date",
             Self::Book => "book",
             Self::Unit => "unit",
+            Self::UnitFrom => "unit_from",
+            Self::UnitTo => "unit_to",
             Self::Draft => "draft",
         }
     }

@@ -99,6 +99,8 @@ impl<'de> serde::Deserialize<'de> for Verdict {
 /// Teacher-facing structural encoding; original values remain in envelope data.
 pub fn cell(value: &str) -> String {
     value
+        .replace("<!--", l::VALUE_COMMENT_OPEN)
+        .replace("-->", l::VALUE_COMMENT_CLOSE)
         .replace('|', l::VALUE_BAR)
         .replace("\r\n", l::VALUE_BREAK)
         .replace(['\r', '\n'], l::VALUE_BREAK)
@@ -441,7 +443,7 @@ fn student_rows(data: &LessonData, student: &StudentLesson) -> Vec<String> {
     out
 }
 
-fn local_time(at: &str) -> String {
+pub(crate) fn local_time(at: &str) -> String {
     chrono::DateTime::parse_from_rfc3339(at)
         .map(|d| {
             d.with_timezone(&chrono::FixedOffset::east_opt(9 * 3600).unwrap())

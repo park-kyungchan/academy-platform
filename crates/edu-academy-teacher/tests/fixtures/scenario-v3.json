@@ -1,0 +1,1076 @@
+{
+  "today": "2026-11-11",
+  "students": [
+    {
+      "name": "가상학생A",
+      "key": "1001",
+      "class_name": "가상반A",
+      "bindings": [
+        {
+          "label": "가우스 5-1-2",
+          "course_key": "101",
+          "book_no": "201"
+        }
+      ]
+    },
+    {
+      "name": "가상학생B",
+      "key": "1002",
+      "class_name": "가상반A",
+      "bindings": [
+        {
+          "label": "가우스 5-1-2",
+          "course_key": "101",
+          "book_no": "201"
+        },
+        {
+          "label": "가우스 5-1-1",
+          "course_key": "102",
+          "book_no": "202"
+        }
+      ]
+    },
+    {
+      "name": "가상학생C",
+      "key": "1003",
+      "class_name": "가상반A",
+      "bindings": [
+        {
+          "label": "가우스 5-1-1",
+          "course_key": "102",
+          "book_no": "202"
+        }
+      ]
+    },
+    {
+      "name": "가상학생D",
+      "key": "1004",
+      "class_name": "가상반B",
+      "bindings": [
+        {
+          "label": "가우스 6-1-1",
+          "course_key": "103",
+          "book_no": "203"
+        }
+      ]
+    },
+    {
+      "name": "가상학생E",
+      "key": "1005",
+      "class_name": "가상반B",
+      "bindings": [
+        {
+          "label": "가우스 5-1-2",
+          "course_key": "101",
+          "book_no": "201"
+        }
+      ]
+    },
+    {
+      "name": "가상학생F",
+      "key": "1006",
+      "class_name": "가상반C",
+      "bindings": [
+        {
+          "label": "가우스 5-1-2",
+          "course_key": "101",
+          "book_no": "201"
+        }
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "가상반A",
+      "weekdays": [
+        "Mon",
+        "Wed"
+      ],
+      "roster": [
+        "가상학생A",
+        "가상학생B",
+        "가상학생C"
+      ],
+      "moved": [
+        {
+          "from": "2026-11-04",
+          "to": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "name": "가상반B",
+      "weekdays": [
+        "Sat"
+      ],
+      "roster": [
+        "가상학생D",
+        "가상학생E"
+      ],
+      "moved": []
+    },
+    {
+      "name": "가상반C",
+      "weekdays": [
+        "Mon",
+        "Wed"
+      ],
+      "roster": [
+        "가상학생F"
+      ],
+      "moved": []
+    }
+  ],
+  "records": [
+    {
+      "student": "가상학생A",
+      "date": "2026-11-02",
+      "progress": "- 가우스 5-1-2 1-1 필수예제 풀이",
+      "homework": "- 가우스 5-1-2 1-2 유형다지기"
+    },
+    {
+      "student": "가상학생A",
+      "date": "2026-11-05",
+      "progress": "- 가우스 5-1-2 1-2 필수예제 풀이",
+      "homework": "- 가우스 5-1-2 1-2 유형다지기 8문항"
+    },
+    {
+      "student": "가상학생A",
+      "date": "2026-11-09",
+      "progress": "- 가우스 5-1-2 1-2 유형다지기 풀이",
+      "homework": "- 가우스 5-1-2 2-1 필수예제 (소단원 2-1 시작)"
+    },
+    {
+      "student": "가상학생B",
+      "date": "2026-11-02",
+      "progress": "- 가우스 5-1-1 4-1 유형다지기 풀이",
+      "homework": "- 가우스 5-1-1 4-2 유형다지기"
+    },
+    {
+      "student": "가상학생B",
+      "date": "2026-11-05",
+      "progress": "- 가우스 5-1-1 4-2 필수예제 풀이",
+      "homework": "- 가우스 5-1-1 4-2 유형다지기"
+    },
+    {
+      "student": "가상학생B",
+      "date": "2026-11-09",
+      "progress": "- 가우스 5-1-1 4-2 유형다지기 풀이",
+      "homework": "- 가우스 5-1-1 4-3 필수예제"
+    },
+    {
+      "student": "가상학생C",
+      "date": "2026-11-02",
+      "progress": "- 가우스 5-1-1 1-1 유형다지기 풀이",
+      "homework": "- 가우스 5-1-1 1-2 필수예제"
+    },
+    {
+      "student": "가상학생C",
+      "date": "2026-11-05",
+      "progress": "- 가우스 5-1-1 1-2 필수예제 풀이",
+      "homework": "- 가우스 5-1-1 1-2 유형다지기"
+    },
+    {
+      "student": "가상학생C",
+      "date": "2026-11-09",
+      "progress": "- 가우스 5-1-1 1-2 필수예제 풀이",
+      "homework": "- 가우스 5-1-1 1-3 유형다지기"
+    },
+    {
+      "student": "가상학생D",
+      "date": "2026-10-31",
+      "progress": "- 가우스 6-1-1 1-1 유형다지기 풀이",
+      "homework": "- 가우스 6-1-1 1-1 필수예제"
+    },
+    {
+      "student": "가상학생D",
+      "date": "2026-11-07",
+      "progress": "- 가우스 6-1-1 1-1 필수예제 풀이",
+      "homework": "- 가우스 6-1-1 1-2 유형다지기"
+    },
+    {
+      "student": "가상학생E",
+      "date": "2026-10-31",
+      "progress": "- 가우스 5-1-2 1-2 유형다지기 풀이",
+      "homework": "- 가우스 5-1-2 1-3 실력쌓기"
+    },
+    {
+      "student": "가상학생E",
+      "date": "2026-11-07",
+      "progress": "- 가우스 5-1-2 1-3 실력쌓기 풀이",
+      "homework": "- 가우스 5-1-2 1-4 필수예제"
+    },
+    {
+      "student": "가상학생F",
+      "date": "2026-11-11",
+      "progress": "- 가우스 5-1-2 1-1 필수예제 풀이",
+      "homework": "- 가우스 5-1-2 1-2 필수예제"
+    }
+  ],
+  "carry_over": [
+    {
+      "student": "가상학생A",
+      "homework_line": "가우스 5-1-2 1-2 유형다지기 8문항",
+      "assigned_on": "2026-11-05",
+      "judged": false
+    }
+  ],
+  "no_predecessor": [
+    "가상학생F"
+  ],
+  "prestudy": {
+    "waiting": [
+      {
+        "student": "가상학생A",
+        "unit_label": "가우스 5-1-2 2-1 가상주제E",
+        "date": "2026-11-10",
+        "key": "7001"
+      }
+    ],
+    "completed": [
+      {
+        "student": "가상학생C",
+        "unit_label": "가우스 5-1-1 1-3 가상주제J",
+        "date": "2026-11-10",
+        "key": "7002"
+      }
+    ]
+  },
+  "sections": {
+    "index_titles": [
+      {
+        "student": "가상학생A",
+        "course_key": "101",
+        "book_no": "201",
+        "title": "[필수예제] [가우스] 5-1-2 1-2 가상주제B - 가상학생A"
+      },
+      {
+        "student": "가상학생A",
+        "course_key": "101",
+        "book_no": "201",
+        "title": "[유형다지기] [가우스] 5-1-2 1-2 가상주제B - 가상학생A"
+      }
+    ],
+    "grades": [
+      {
+        "title": "[필수예제] [가우스] 5-1-2 1-2 가상주제B - 가상학생A",
+        "correct": 8,
+        "total": 10,
+        "wrong_labels": [
+          "1002",
+          "1003"
+        ]
+      },
+      {
+        "title": "[유형다지기] [가우스] 5-1-2 1-2 가상주제B - 가상학생A",
+        "correct": 6,
+        "total": 10,
+        "wrong_labels": [
+          "1004",
+          "1005",
+          "1006",
+          "1007"
+        ]
+      }
+    ],
+    "attempts": [
+      {
+        "student_key": "1001",
+        "course_key": "101",
+        "book_no": "201",
+        "paper_key": "8100",
+        "attempt_key": "8200",
+        "title": "[필수예제] [가우스] 5-1-2 1-2 가상주제B - 가상학생A",
+        "source_score": 80,
+        "source_date": "11-09",
+        "items": [
+          {
+            "ordinal": "1",
+            "label": "1002",
+            "scoring": "X"
+          },
+          {
+            "ordinal": "2",
+            "label": "1003",
+            "scoring": "X"
+          },
+          {
+            "ordinal": "3",
+            "label": "9900",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "4",
+            "label": "9901",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "5",
+            "label": "9902",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "6",
+            "label": "9903",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "7",
+            "label": "9904",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "8",
+            "label": "9905",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "9",
+            "label": "9906",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "10",
+            "label": "9907",
+            "scoring": "O"
+          }
+        ],
+        "wrong_note": true,
+        "paper_search": true
+      },
+      {
+        "student_key": "1001",
+        "course_key": "101",
+        "book_no": "201",
+        "paper_key": "8101",
+        "attempt_key": "8201",
+        "title": "[유형다지기] [가우스] 5-1-2 1-2 가상주제B - 가상학생A",
+        "source_score": 60,
+        "source_date": "11-09",
+        "items": [
+          {
+            "ordinal": "1",
+            "label": "1004",
+            "scoring": "X"
+          },
+          {
+            "ordinal": "2",
+            "label": "1005",
+            "scoring": "X"
+          },
+          {
+            "ordinal": "3",
+            "label": "1006",
+            "scoring": "X"
+          },
+          {
+            "ordinal": "4",
+            "label": "1007",
+            "scoring": "X"
+          },
+          {
+            "ordinal": "5",
+            "label": "9900",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "6",
+            "label": "9901",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "7",
+            "label": "9902",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "8",
+            "label": "9903",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "9",
+            "label": "9904",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "10",
+            "label": "9905",
+            "scoring": "O"
+          }
+        ],
+        "wrong_note": true,
+        "paper_search": true
+      },
+      {
+        "student_key": "1002",
+        "course_key": "102",
+        "book_no": "202",
+        "paper_key": "8102",
+        "attempt_key": "8202",
+        "title": "[필수예제] [가우스] 5-1-1 4-1 가상주제K - 가상학생B",
+        "source_score": 90,
+        "source_date": "11-09",
+        "items": [
+          {
+            "ordinal": "1",
+            "label": "1001",
+            "scoring": "X"
+          },
+          {
+            "ordinal": "2",
+            "label": "9900",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "3",
+            "label": "9901",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "4",
+            "label": "9902",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "5",
+            "label": "9903",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "6",
+            "label": "9904",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "7",
+            "label": "9905",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "8",
+            "label": "9906",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "9",
+            "label": "9907",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "10",
+            "label": "9908",
+            "scoring": "O"
+          }
+        ],
+        "wrong_note": true,
+        "paper_search": true
+      },
+      {
+        "student_key": "1002",
+        "course_key": "101",
+        "book_no": "201",
+        "paper_key": "8103",
+        "attempt_key": "8203",
+        "title": "[필수예제] [가우스] 5-1-2 1-1 가상주제A - 가상학생B",
+        "source_score": 70,
+        "source_date": "11-09",
+        "items": [
+          {
+            "ordinal": "1",
+            "label": "1001",
+            "scoring": "X"
+          },
+          {
+            "ordinal": "2",
+            "label": "1010",
+            "scoring": "X"
+          },
+          {
+            "ordinal": "3",
+            "label": "1011",
+            "scoring": "X"
+          },
+          {
+            "ordinal": "4",
+            "label": "9900",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "5",
+            "label": "9901",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "6",
+            "label": "9902",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "7",
+            "label": "9903",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "8",
+            "label": "9904",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "9",
+            "label": "9905",
+            "scoring": "O"
+          },
+          {
+            "ordinal": "10",
+            "label": "9906",
+            "scoring": "O"
+          }
+        ],
+        "wrong_note": true,
+        "paper_search": true
+      }
+    ]
+  },
+  "read_at": "2026-11-11T09:10:00Z",
+  "admitted_dates": {
+    "from": "2026-10-21",
+    "to": "2026-11-11"
+  },
+  "teacher_fact_reports": [
+    {
+      "kind": "assigned_stages",
+      "student": "가상학생A",
+      "assigned_on": "2026-11-09",
+      "book": "가우스 5-1-2",
+      "unit": "2-1",
+      "activity": "필수예제",
+      "stages": [
+        "solving"
+      ],
+      "reported_on": "2026-11-09"
+    },
+    {
+      "kind": "assigned_stages",
+      "student": "가상학생A",
+      "assigned_on": "2026-11-05",
+      "book": "가우스 5-1-2",
+      "unit": "1-2",
+      "activity": "유형다지기",
+      "stages": [
+        "solving"
+      ],
+      "item_labels": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "reported_on": "2026-11-05"
+    },
+    {
+      "kind": "assigned_stages",
+      "student": "가상학생B",
+      "assigned_on": "2026-11-09",
+      "book": "가우스 5-1-1",
+      "unit": "4-3",
+      "activity": "필수예제",
+      "stages": [
+        "solving"
+      ],
+      "reported_on": "2026-11-09"
+    },
+    {
+      "kind": "assigned_stages",
+      "student": "가상학생C",
+      "assigned_on": "2026-11-09",
+      "book": "가우스 5-1-1",
+      "unit": "1-3",
+      "activity": "유형다지기",
+      "stages": [
+        "solving"
+      ],
+      "reported_on": "2026-11-09"
+    },
+    {
+      "kind": "homework_stage_check",
+      "student": "가상학생A",
+      "assigned_on": "2026-11-09",
+      "stage": "solving",
+      "completed": true,
+      "reported_on": "2026-11-11"
+    },
+    {
+      "kind": "not_brought",
+      "student": "가상학생A",
+      "assigned_on": "2026-11-05",
+      "reported_on": "2026-11-09"
+    },
+    {
+      "kind": "in_class_follow_up",
+      "student": "가상학생A",
+      "lesson_date": "2026-11-09",
+      "book": "가우스 5-1-2",
+      "unit": "2-1",
+      "action": "설명 보완",
+      "status": "unfinished",
+      "reported_on": "2026-11-09"
+    },
+    {
+      "kind": "in_academy_correction",
+      "student": "가상학생A",
+      "lesson_date": "2026-11-09",
+      "at": "2026-11-12T18:10:00+09:00",
+      "action": "오답수정",
+      "status": "scheduled",
+      "reported_on": "2026-11-09"
+    }
+  ],
+  "reminders": [
+    {
+      "student": "가상학생D",
+      "at": "2026-11-11T18:10:00+09:00",
+      "action": "교재 확인",
+      "status": "open",
+      "reported_on": "2026-11-09"
+    },
+    {
+      "student": "가상학생E",
+      "at": "2026-11-12T18:10:00+09:00",
+      "action": "교재 확인",
+      "status": "open",
+      "reported_on": "2026-11-09"
+    },
+    {
+      "student": null,
+      "at": "2026-11-10T18:10:00+09:00",
+      "action": "교재 확인",
+      "status": "open",
+      "reported_on": "2026-11-09"
+    }
+  ],
+  "unit_read_at": "2026-11-11T09:00:00+09:00",
+  "edition_trees": [
+    {
+      "edition": "가우스 5-1-2",
+      "family": "main",
+      "school_level": "elementary",
+      "read_at": "2026-11-11T09:00:00+09:00",
+      "chapters": [
+        {
+          "code": "1",
+          "title": "가상대단원1",
+          "minors": [
+            {
+              "code": "1-1",
+              "title": "가상주제A",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            },
+            {
+              "code": "1-2",
+              "title": "가상주제B",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            },
+            {
+              "code": "1-3",
+              "title": "가상주제C",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            },
+            {
+              "code": "1-4",
+              "title": "가상주제D",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            }
+          ]
+        },
+        {
+          "code": "2",
+          "title": "가상대단원2",
+          "minors": [
+            {
+              "code": "2-1",
+              "title": "가상주제E",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            },
+            {
+              "code": "2-2",
+              "title": "가상주제F",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            },
+            {
+              "code": "2-3",
+              "title": "가상주제G",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "edition": "가우스 5-1-1",
+      "family": "main",
+      "school_level": "elementary",
+      "read_at": "2026-11-11T09:00:00+09:00",
+      "chapters": [
+        {
+          "code": "1",
+          "title": "가상대단원1",
+          "minors": [
+            {
+              "code": "1-1",
+              "title": "가상주제H",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            },
+            {
+              "code": "1-2",
+              "title": "가상주제I",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            },
+            {
+              "code": "1-3",
+              "title": "가상주제J",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            }
+          ]
+        },
+        {
+          "code": "4",
+          "title": "가상대단원4",
+          "minors": [
+            {
+              "code": "4-1",
+              "title": "가상주제K",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            },
+            {
+              "code": "4-2",
+              "title": "가상주제L",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            },
+            {
+              "code": "4-3",
+              "title": "가상주제M",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            },
+            {
+              "code": "4-4",
+              "title": "가상주제N",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            },
+            {
+              "code": "대단원 4",
+              "title": "대단원총괄",
+              "activities": [
+                "대단원총괄"
+              ],
+              "unit_wide": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "edition": "가우스 6-1-1",
+      "family": "main",
+      "school_level": "elementary",
+      "read_at": "2026-11-11T09:00:00+09:00",
+      "chapters": [
+        {
+          "code": "1",
+          "title": "가상대단원1",
+          "minors": [
+            {
+              "code": "1-1",
+              "title": "가상주제O",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            },
+            {
+              "code": "1-2",
+              "title": "가상주제P",
+              "activities": [
+                "필수예제",
+                "유형다지기",
+                "실력쌓기"
+              ],
+              "unit_wide": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "teacher_judgments": [
+    {
+      "student_key": "1001",
+      "edition": "가우스 5-1-2",
+      "unit": "1-1",
+      "topic": "DailyTest",
+      "activity": null,
+      "level": null,
+      "stage": null,
+      "snapshot": null,
+      "verdict": "confirmed",
+      "actor": null,
+      "recorded_at": null
+    },
+    {
+      "student_key": "1002",
+      "edition": "가우스 5-1-1",
+      "unit": "4-4",
+      "topic": "DailyTest",
+      "activity": null,
+      "level": "발전",
+      "stage": null,
+      "snapshot": null,
+      "verdict": "deferred",
+      "actor": null,
+      "recorded_at": null
+    },
+    {
+      "student_key": "1002",
+      "edition": "가우스 5-1-1",
+      "unit": "4-1",
+      "topic": "클리닉",
+      "activity": null,
+      "level": null,
+      "stage": null,
+      "snapshot": null,
+      "verdict": "unjudged",
+      "actor": null,
+      "recorded_at": null
+    },
+    {
+      "student_key": "1002",
+      "edition": "가우스 5-1-1",
+      "unit": "4-2",
+      "topic": "클리닉",
+      "activity": null,
+      "level": null,
+      "stage": null,
+      "snapshot": null,
+      "verdict": "unjudged",
+      "actor": null,
+      "recorded_at": null
+    }
+  ],
+  "excluded_sections": [
+    {
+      "student_key": "1001",
+      "edition": "가우스 5-1-2",
+      "unit": "1-3",
+      "activity": "실력쌓기",
+      "state": "active",
+      "actor": null,
+      "recorded_at": null
+    }
+  ],
+  "dailytest_frames": [
+    {
+      "student_key": "1001",
+      "read_at": "2026-11-11T09:00:00+09:00",
+      "scope": {
+        "to": "2026-11-11",
+        "selector_label": "현재 필터",
+        "page_label": "첫 관측 페이지",
+        "complete": false,
+        "from": "2026-10-28"
+      },
+      "expected_today": [],
+      "attempts": [
+        {
+          "paper_key": "9001",
+          "attempt_key": "9101",
+          "edition_mapping": "가우스 5-1-2",
+          "unit_mapping": "1-1",
+          "source_title": "가상시험9001",
+          "level": null,
+          "occurred_at": null,
+          "score": 90
+        }
+      ],
+      "headers": [
+        {
+          "paper_key": "9001",
+          "attempt_key": "9101",
+          "edition_mapping": "가우스 5-1-2",
+          "unit_mapping": "1-1",
+          "source_title": "가상시험9001",
+          "level": null,
+          "occurred_at": null,
+          "score": 90
+        }
+      ]
+    },
+    {
+      "student_key": "1002",
+      "read_at": "2026-11-11T09:00:00+09:00",
+      "scope": {
+        "to": "2026-11-11",
+        "selector_label": "현재 필터",
+        "page_label": "첫 관측 페이지",
+        "complete": false,
+        "from": "2026-10-28"
+      },
+      "expected_today": [
+        {
+          "edition": "가우스 5-1-1",
+          "unit": "4-4",
+          "level": "기본"
+        }
+      ],
+      "attempts": [],
+      "headers": []
+    },
+    {
+      "student_key": "1002",
+      "read_at": "2026-11-11T10:00:00+09:00",
+      "scope": {
+        "to": "2026-11-11",
+        "selector_label": "현재 필터",
+        "page_label": "첫 관측 페이지",
+        "complete": false,
+        "from": "2026-10-28"
+      },
+      "expected_today": [],
+      "attempts": [
+        {
+          "paper_key": "9002",
+          "attempt_key": "9102",
+          "edition_mapping": "가우스 5-1-1",
+          "unit_mapping": "4-4",
+          "source_title": "가상시험9002",
+          "level": "기본",
+          "occurred_at": null,
+          "score": 80
+        }
+      ],
+      "headers": [
+        {
+          "paper_key": "9002",
+          "attempt_key": "9102",
+          "edition_mapping": "가우스 5-1-1",
+          "unit_mapping": "4-4",
+          "source_title": "가상시험9002",
+          "level": "기본",
+          "occurred_at": null,
+          "score": 80
+        }
+      ]
+    },
+    {
+      "student_key": "1003",
+      "read_at": "2026-11-11T09:00:00+09:00",
+      "scope": {
+        "to": "2026-11-11",
+        "selector_label": "현재 필터",
+        "page_label": "첫 관측 페이지",
+        "complete": false,
+        "from": "2026-10-28"
+      },
+      "expected_today": [],
+      "attempts": [
+        {
+          "paper_key": "9003",
+          "attempt_key": "9103",
+          "edition_mapping": "가우스 5-1-1",
+          "unit_mapping": "1-2",
+          "source_title": "가상시험9003",
+          "level": null,
+          "occurred_at": null,
+          "score": 70
+        }
+      ],
+      "headers": [
+        {
+          "paper_key": "9003",
+          "attempt_key": "9103",
+          "edition_mapping": "가우스 5-1-1",
+          "unit_mapping": "1-2",
+          "source_title": "가상시험9003",
+          "level": null,
+          "occurred_at": null,
+          "score": 70
+        }
+      ]
+    }
+  ]
+}
