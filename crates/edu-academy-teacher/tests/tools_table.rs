@@ -1,5 +1,6 @@
 use edu_academy_teacher::{
-    envelope::{Envelope, LessonData, Status},
+    envelope::{Ask, AskField, AskOption, Envelope, Status, Stop, StopCode},
+    lesson::LessonData,
     render::{Verdict, display_lint},
     tools::{TOOLS, dispatch, docs_table, tools_json, tools_list_minified},
 };
@@ -8,9 +9,12 @@ const FIXTURE: &[u8] = include_bytes!("fixtures/tools-list.json");
 const DISPLAY_Q01: &str = include_str!("fixtures/display-q01.txt");
 const DISPLAY_Q02: &str = include_str!("fixtures/display-q02.txt");
 
+fn empty_data() -> serde_json::Value {
+    serde_json::to_value(LessonData::default()).unwrap()
+}
+
 #[test]
 fn tools_list_equals_fixture() {
-    // Exact bytes in fixture key order, and the same value as parsed JSON.
     assert_eq!(tools_list_minified().as_bytes(), FIXTURE);
     let expected: serde_json::Value = serde_json::from_slice(FIXTURE).unwrap();
     assert_eq!(tools_json(), expected);
@@ -51,7 +55,6 @@ fn every_advertised_name_has_a_handler_and_unknown_name_refuses() {
         assert!(dispatch(tool.name).is_some(), "{}", tool.name);
     }
     assert!(dispatch("academy_no_such_tool").is_none());
-    // The 13 tools outside slice 1 answer unavailable/tool_not_in_slice_1.
     let unavailable: Vec<_> = TOOLS
         .iter()
         .filter(|t| t.name != "academy_lesson_prepare")
@@ -62,29 +65,33 @@ fn every_advertised_name_has_a_handler_and_unknown_name_refuses() {
             .and_then(|h| h.unavailable_envelope())
             .unwrap();
         assert_eq!(envelope.status, Status::Unavailable);
-        assert_eq!(envelope.stop.as_ref().unwrap().code, "tool_not_in_slice_1");
+        assert_eq!(
+            envelope.stop.as_ref().unwrap().code,
+            StopCode::ToolNotInSlice1
+        );
+        assert_eq!(
+            envelope.stop.as_ref().unwrap().code.as_str(),
+            "tool_not_in_slice_1"
+        );
         assert!(!envelope.display.is_empty());
     }
 }
 
 #[test]
 fn envelope_invariant_holds_for_every_constructor() {
-    // ok: no carrier.
-    let ok = Envelope::ok("확인".into(), LessonData::default(), Default::default());
+    let ok = Envelope::ok("확인".into(), empty_data(), Default::default());
     assert!(ok.ask.is_none() && ok.next.is_none() && ok.stop.is_none());
-    // ask / stop constructors carry exactly one.
     let unavailable = Envelope::unavailable_tool();
     assert_eq!(unavailable.status, Status::Unavailable);
     assert!(unavailable.stop.is_some());
-    // Direct constructor rejects violations.
     assert!(
         Envelope::new(
             Status::Ok,
             "x".into(),
-            LessonData::default(),
+            empty_data(),
             None,
             None,
-            Some(edu_academy_teacher::envelope::Stop::new("c", "문장")),
+            Some(Stop::new(StopCode::SourceUnavailable, "문장")),
             Default::default()
         )
         .is_err()
@@ -93,13 +100,50 @@ fn envelope_invariant_holds_for_every_constructor() {
         Envelope::new(
             Status::Unavailable,
             "x".into(),
-            LessonData::default(),
+            empty_data(),
             None,
             None,
             None,
             Default::default()
         )
         .is_err()
+    );
+}
+
+// R7: an ask without options is a constructor error, never a panic.
+#[test]
+fn ask_without_options_is_a_constructor_error() {
+    let ask = Ask {
+        field: AskField::Student,
+        question_ko: "어느 학생인가요?".into(),
+        options: vec![],
+    };
+    assert!(
+        Envelope::ask(
+            "어느 학생인가요?".into(),
+            empty_data(),
+            ask,
+            Default::default()
+        )
+        .is_err()
+    );
+    let ask = Ask {
+        field: AskField::Student,
+        question_ko: "어느 학생인가요?".into(),
+        options: vec![AskOption {
+            value: "가상학생A".into(),
+            label_ko: "가상학생A".into(),
+            meaning_ko: "그 학생".into(),
+        }],
+    };
+    assert!(
+        Envelope::ask(
+            "어느 학생인가요?".into(),
+            empty_data(),
+            ask,
+            Default::default()
+        )
+        .is_ok()
     );
 }
 
@@ -120,6 +164,5 @@ fn display_lint_accepts_fixtures_and_rejects_codes() {
     display_lint(DISPLAY_Q02).unwrap();
     assert!(display_lint("섹션: not_observed").is_err());
     assert!(display_lint("hello world test").is_err());
-    // Book labels and unit codes are allowed.
     display_lint("진도: 가우스 5-1-2 1-2 유형다지기").unwrap();
 }

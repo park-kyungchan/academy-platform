@@ -5,15 +5,17 @@
     {"name": "가상학생B", "key": "1002", "class_name": "가상반A", "bindings": [{"label": "가우스 5-1-2", "course_key": "101", "book_no": "201"}, {"label": "가우스 5-1-1", "course_key": "102", "book_no": "202"}]},
     {"name": "가상학생C", "key": "1003", "class_name": "가상반A", "bindings": [{"label": "가우스 5-1-1", "course_key": "102", "book_no": "202"}]},
     {"name": "가상학생D", "key": "1004", "class_name": "가상반B", "bindings": [{"label": "가우스 6-1-1", "course_key": "103", "book_no": "203"}]},
-    {"name": "가상학생E", "key": "1005", "class_name": "가상반B", "bindings": [{"label": "가우스 5-1-2", "course_key": "101", "book_no": "201"}]}
+    {"name": "가상학생E", "key": "1005", "class_name": "가상반B", "bindings": [{"label": "가우스 5-1-2", "course_key": "101", "book_no": "201"}]},
+    {"name": "가상학생F", "key": "1006", "class_name": "가상반C", "bindings": [{"label": "가우스 5-1-2", "course_key": "101", "book_no": "201"}]}
   ],
   "classes": [
     {"name": "가상반A", "weekdays": ["Mon", "Wed"], "roster": ["가상학생A", "가상학생B", "가상학생C"], "moved": [{"from": "2026-11-04", "to": "2026-11-05"}]},
-    {"name": "가상반B", "weekdays": ["Sat"], "roster": ["가상학생D", "가상학생E"], "moved": []}
+    {"name": "가상반B", "weekdays": ["Sat"], "roster": ["가상학생D", "가상학생E"], "moved": []},
+    {"name": "가상반C", "weekdays": ["Mon", "Wed"], "roster": ["가상학생F"], "moved": []}
   ],
   "records": [
     {"student": "가상학생A", "date": "2026-11-02", "progress": "- 가우스 5-1-2 1-1 필수예제 풀이", "homework": "- 가우스 5-1-2 1-2 유형다지기"},
-    {"student": "가상학생A", "date": "2026-11-05", "progress": "- 가우스 5-1-2 1-2 필수예제 풀이", "homework": "- 가우스 5-1-2 1-2 유형다지기"},
+    {"student": "가상학생A", "date": "2026-11-05", "progress": "- 가우스 5-1-2 1-2 필수예제 풀이", "homework": "- 가우스 5-1-2 1-2 유형다지기 8문항"},
     {"student": "가상학생A", "date": "2026-11-09", "progress": "- 가우스 5-1-2 1-2 유형다지기 풀이", "homework": "- 가우스 5-1-2 2-1 필수예제 (소단원 2-1 시작)"},
     {"student": "가상학생B", "date": "2026-11-02", "progress": "- 가우스 5-1-1 4-1 유형다지기 풀이", "homework": "- 가우스 5-1-1 4-2 유형다지기"},
     {"student": "가상학생B", "date": "2026-11-05", "progress": "- 가우스 5-1-1 4-2 필수예제 풀이", "homework": "- 가우스 5-1-1 4-2 유형다지기"},
@@ -24,8 +26,13 @@
     {"student": "가상학생D", "date": "2026-10-31", "progress": "- 가우스 6-1-1 1-1 유형다지기 풀이", "homework": "- 가우스 6-1-1 1-1 필수예제"},
     {"student": "가상학생D", "date": "2026-11-07", "progress": "- 가우스 6-1-1 1-1 필수예제 풀이", "homework": "- 가우스 6-1-1 1-2 유형다지기"},
     {"student": "가상학생E", "date": "2026-10-31", "progress": "- 가우스 5-1-2 1-2 유형다지기 풀이", "homework": "- 가우스 5-1-2 1-3 실력쌓기"},
-    {"student": "가상학생E", "date": "2026-11-07", "progress": "- 가우스 5-1-2 1-3 실력쌓기 풀이", "homework": "- 가우스 5-1-2 1-4 필수예제"}
+    {"student": "가상학생E", "date": "2026-11-07", "progress": "- 가우스 5-1-2 1-3 실력쌓기 풀이", "homework": "- 가우스 5-1-2 1-4 필수예제"},
+    {"student": "가상학생F", "date": "2026-11-11", "progress": "- 가우스 5-1-2 1-1 필수예제 풀이", "homework": "- 가우스 5-1-2 1-2 필수예제"}
   ],
+  "carry_over": [
+    {"student": "가상학생A", "homework_line": "가우스 5-1-2 1-2 유형다지기 8문항", "assigned_on": "2026-11-05", "judged": false}
+  ],
+  "no_predecessor": ["가상학생F"],
   "prestudy": {
     "waiting": [{"student": "가상학생A", "unit_label": "가우스 5-1-2 2-1 가상주제E", "date": "2026-11-10", "key": "7001"}],
     "completed": [{"student": "가상학생C", "unit_label": "가우스 5-1-1 1-3 가상주제J", "date": "2026-11-10", "key": "7002"}]

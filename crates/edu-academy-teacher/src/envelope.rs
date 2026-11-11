@@ -1,6 +1,5 @@
 //! Result envelope with the one-of-three invariant (DESIGN-P8-v2:4).
-use crate::render::Verdict;
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -12,6 +11,69 @@ pub enum Status {
     Unavailable,
 }
 
+/// Closed set of stop codes: the refusal catalogue of DESIGN-P8-v2 part 1,
+/// plus `tool_not_in_slice_1`, the extra code of slice 1.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StopCode {
+    StudentNotFound,
+    BookNotFound,
+    DateNotAdmitted,
+    DraftExpired,
+    SaveNoOpenDraft,
+    SourceUnavailable,
+    ToolNotInSlice1,
+}
+
+impl StopCode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::StudentNotFound => "student_not_found",
+            Self::BookNotFound => "book_not_found",
+            Self::DateNotAdmitted => "date_not_admitted",
+            Self::DraftExpired => "draft_expired",
+            Self::SaveNoOpenDraft => "save_no_open_draft",
+            Self::SourceUnavailable => "source_unavailable",
+            Self::ToolNotInSlice1 => "tool_not_in_slice_1",
+        }
+    }
+}
+
+impl Serialize for StopCode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+/// Closed set of ask fields: the input field names of the tool table.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AskField {
+    Student,
+    ClassName,
+    Date,
+    Book,
+    Unit,
+    Draft,
+}
+
+impl AskField {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Student => "student",
+            Self::ClassName => "class_name",
+            Self::Date => "date",
+            Self::Book => "book",
+            Self::Unit => "unit",
+            Self::Draft => "draft",
+        }
+    }
+}
+
+impl Serialize for AskField {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct AskOption {
     pub value: String,
@@ -21,7 +83,7 @@ pub struct AskOption {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Ask {
-    pub field: String,
+    pub field: AskField,
     pub question_ko: String,
     pub options: Vec<AskOption>,
 }
@@ -34,13 +96,13 @@ pub struct NextCall {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Stop {
-    pub code: String,
+    pub code: StopCode,
     pub message_ko: String,
 }
 impl Stop {
-    pub fn new(code: &str, message_ko: &str) -> Self {
+    pub fn new(code: StopCode, message_ko: &str) -> Self {
         Self {
-            code: code.to_string(),
+            code,
             message_ko: message_ko.to_string(),
         }
     }
@@ -60,48 +122,10 @@ pub struct Coverage {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct Check {
-    pub kind: String,
-    pub scope: String,
-    pub verdict: Verdict,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub correct: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub total: Option<usize>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct PreviousLesson {
-    pub date: String,
-    pub how_found: String,
-    pub progress: String,
-    pub homework: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct StudentLesson {
-    pub student: String,
-    pub previous_lesson: Option<PreviousLesson>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub searched_range: Option<String>,
-    pub checks: Vec<Check>,
-    pub carry_over: Vec<String>,
-    pub excluded: Vec<String>,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
-pub struct LessonData {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub class_name: Option<String>,
-    pub lesson_date: String,
-    pub students: Vec<StudentLesson>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Envelope {
     pub status: Status,
     pub display: String,
-    pub data: LessonData,
+    pub data: serde_json::Value,
     pub ask: Option<Ask>,
     pub next: Option<NextCall>,
     pub stop: Option<Stop>,
@@ -111,11 +135,12 @@ pub struct Envelope {
 impl Envelope {
     /// The one constructor enforcing the invariant: exactly one of
     /// `ask|next|stop` is non-null when status is not `ok|saved`, all null
-    /// otherwise.
+    /// otherwise. `data` is the JSON value built from the calling tool's own
+    /// typed, `Serialize` struct.
     pub fn new(
         status: Status,
         display: String,
-        data: LessonData,
+        data: serde_json::Value,
         ask: Option<Ask>,
         next: Option<NextCall>,
         stop: Option<Stop>,
@@ -149,14 +174,23 @@ impl Envelope {
             coverage,
         })
     }
-    pub fn ok(display: String, data: LessonData, coverage: Coverage) -> Self {
+    pub fn ok(display: String, data: serde_json::Value, coverage: Coverage) -> Self {
         Self::new(Status::Ok, display, data, None, None, None, coverage).expect("ok invariant")
     }
-    pub fn ask(display: String, data: LessonData, ask: Ask, coverage: Coverage) -> Self {
+    /// An ask with no option can never be answered, so building one is a
+    /// constructor error the caller must handle; it never panics.
+    pub fn ask(
+        display: String,
+        data: serde_json::Value,
+        ask: Ask,
+        coverage: Coverage,
+    ) -> Result<Self, String> {
+        if ask.options.is_empty() {
+            return Err("ask_requires_options".into());
+        }
         Self::new(Status::Ask, display, data, Some(ask), None, None, coverage)
-            .expect("ask invariant")
     }
-    pub fn stop(display: String, data: LessonData, stop: Stop, coverage: Coverage) -> Self {
+    pub fn stop(display: String, data: serde_json::Value, stop: Stop, coverage: Coverage) -> Self {
         Self::new(
             Status::Unavailable,
             display,
@@ -171,8 +205,11 @@ impl Envelope {
     pub fn unavailable_tool() -> Self {
         Self::stop(
             "이 도구는 아직 제공되지 않습니다.".into(),
-            LessonData::default(),
-            Stop::new("tool_not_in_slice_1", "이 도구는 아직 제공되지 않습니다."),
+            serde_json::Value::Object(Default::default()),
+            Stop::new(
+                StopCode::ToolNotInSlice1,
+                "이 도구는 아직 제공되지 않습니다.",
+            ),
             Coverage::default(),
         )
     }

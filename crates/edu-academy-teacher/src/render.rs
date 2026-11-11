@@ -1,6 +1,6 @@
 //! The single code-to-Korean verdict table, the lesson renderer and the
 //! reusable display lint (DESIGN-P8-v2 part 1).
-use crate::envelope::{LessonData, StudentLesson};
+use crate::lesson::{LessonData, StudentLesson};
 use serde::{Serialize, Serializer};
 use std::sync::OnceLock;
 
@@ -100,6 +100,16 @@ impl Serialize for Verdict {
     }
 }
 
+impl<'de> serde::Deserialize<'de> for Verdict {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let code = String::deserialize(deserializer)?;
+        Self::ALL
+            .into_iter()
+            .find(|v| v.code() == code)
+            .ok_or_else(|| serde::de::Error::custom("unknown verdict code"))
+    }
+}
+
 fn how_found_ko(how_found: &str) -> &'static str {
     match how_found {
         "schedule" => "반 요일 일정으로 확인",
@@ -124,8 +134,27 @@ fn format_date_ko(iso: &str) -> String {
     iso.to_string()
 }
 
+fn carry_lines(student: &StudentLesson, prefix: &str) -> Vec<String> {
+    student
+        .carry_over
+        .iter()
+        .map(|item| {
+            format!(
+                "{prefix}못 가져온 숙제: {} ({} 숙제, 판정 전)",
+                item.homework_line,
+                format_date_ko(&item.assigned_on)
+            )
+        })
+        .collect()
+}
+
 fn student_lines(student: &StudentLesson, prefix: &str) -> Vec<String> {
     let mut lines = Vec::new();
+    if student.read_failed {
+        lines.push(format!("{prefix}지난 수업 기록을 읽지 못했습니다."));
+        lines.extend(carry_lines(student, prefix));
+        return lines;
+    }
     match &student.previous_lesson {
         Some(prev) => {
             lines.push(format!(
@@ -139,12 +168,15 @@ fn student_lines(student: &StudentLesson, prefix: &str) -> Vec<String> {
             if !prev.homework.is_empty() {
                 lines.push(format!("{prefix}숙제: {}", strip_dash(&prev.homework)));
             }
+            lines.extend(carry_lines(student, prefix));
         }
         None => {
-            let range = student.searched_range.as_deref().unwrap_or("");
+            let from = format_date_ko(student.searched_from.as_deref().unwrap_or(""));
+            let to = format_date_ko(student.searched_to.as_deref().unwrap_or(""));
             lines.push(format!(
-                "{prefix}지난 수업: 미확인 (읽은 범위에 없음) - 찾은 범위 {range}"
+                "{prefix}지난 수업: {from}부터 {to}까지 찾아봤지만 기록이 없습니다."
             ));
+            lines.extend(carry_lines(student, prefix));
         }
     }
     for check in &student.checks {

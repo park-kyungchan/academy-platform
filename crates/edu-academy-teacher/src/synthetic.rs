@@ -1,5 +1,6 @@
 //! Synthetic backend: the three existing source ports served from one
 //! parsed scenario file, so the real parsers of `edu-academy-sources` run.
+use crate::backend::{BackendIdentity, SourceBackend, StudentEntry};
 use edu_academy_core::js::Js;
 use edu_academy_sources::{
     data::{Error, Result, obj},
@@ -24,6 +25,20 @@ pub struct Scenario {
     pub records: Vec<ScenarioRecord>,
     pub prestudy: PrestudyScenario,
     pub sections: SectionsScenario,
+    #[serde(default)]
+    pub carry_over: Vec<CarryOverSpec>,
+    /// Students whose earliest record has no predecessor row at all; the
+    /// day port refuses their earliest read instead of synthesising one.
+    #[serde(default)]
+    pub no_predecessor: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct CarryOverSpec {
+    pub student: String,
+    pub homework_line: String,
+    pub assigned_on: String,
+    pub judged: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -271,7 +286,21 @@ impl SourcePort for SyntheticDayPort {
                 let row = self.scenario.row(&prev);
                 (prev.date.clone(), key, row)
             }
+            None if self.scenario.no_predecessor.contains(&student.name) => {
+                // No predecessor exists for this student's earliest record
+                // and none is synthesised: the real Backend then refuses
+                // with native_dailyrecord_previous_unverified, as it does
+                // for a first-ever record on the live source.
+                return Err(Error::error("native_dailyrecord_previous_unverified"));
+            }
             None => {
+                // Synthesised predecessor, kept for the other students: it
+                // is equivalent to a real predecessor row because
+                // Backend::read checks only its keys, date and recordKey
+                // (native.rs:204-211) and returns the current record's
+                // fields from journal_state, never the predecessor's
+                // progress or homework. Its empty fields therefore cannot
+                // surface as a previous lesson.
                 let current = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d")
                     .map_err(|_| Error::error("synthetic_date_invalid"))?;
                 let prev_date = current
@@ -532,5 +561,34 @@ impl TextbookSectionPort for SyntheticTextbookPort {
         Ok(textbook_response(format!(
             "<form name=userForm><input name=pri_no value={TEACHER_KEY}></form><script>const results={{testResultList:JSON.parse('{raw}')}};</script>"
         )))
+    }
+}
+
+impl SourceBackend<SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPort> {
+    /// The synthetic backend: the three synthetic ports, the scenario
+    /// directory and the invented teacher identity, read at `NOW` unless a
+    /// caller passes another clock value.
+    pub fn synthetic(scenario: Scenario, read_at: &str) -> Self {
+        let directory = scenario
+            .students
+            .iter()
+            .map(|s| StudentEntry {
+                name: s.name.clone(),
+                key: s.key.clone(),
+                class_name: s.class_name.clone(),
+            })
+            .collect();
+        Self::new(
+            SyntheticDayPort::new(scenario.clone()),
+            SyntheticPrestudyPort::new(scenario.clone()),
+            SyntheticTextbookPort::new(scenario),
+            directory,
+            BackendIdentity {
+                teacher_id: TEACHER_ID.into(),
+                teacher_label: TEACHER_LABEL.into(),
+                teacher_key: TEACHER_KEY.into(),
+                read_at: read_at.into(),
+            },
+        )
     }
 }

@@ -15,9 +15,23 @@ pub struct MovedLesson {
     pub to: NaiveDate,
 }
 
+/// One homework item the teacher said was not brought, until judged.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NotBrought {
+    pub homework_line: String,
+    pub assigned_on: NaiveDate,
+    pub judged: bool,
+}
+
 pub trait TeacherFacts {
     fn class(&self, name: &str) -> Option<ClassFact>;
     fn moved_lessons(&self, class_name: &str) -> &[MovedLesson];
+    fn class_names(&self) -> Vec<String> {
+        Vec::new()
+    }
+    fn not_brought(&self, _student: &str) -> Vec<NotBrought> {
+        Vec::new()
+    }
 }
 
 /// Seeded implementation from the scenario file's `classes` section.
@@ -25,6 +39,7 @@ pub trait TeacherFacts {
 pub struct SeededFacts {
     classes: Vec<ClassFact>,
     moved: Vec<(String, Vec<MovedLesson>)>,
+    carry_over: Vec<(String, NotBrought)>,
 }
 
 impl SeededFacts {
@@ -54,11 +69,40 @@ impl SeededFacts {
                 .collect();
             moved.push((class.name.clone(), lessons));
         }
-        Self { classes, moved }
+        let carry_over = scenario
+            .carry_over
+            .iter()
+            .filter_map(|item| {
+                Some((
+                    item.student.clone(),
+                    NotBrought {
+                        homework_line: item.homework_line.clone(),
+                        assigned_on: NaiveDate::parse_from_str(&item.assigned_on, "%Y-%m-%d")
+                            .ok()?,
+                        judged: item.judged,
+                    },
+                ))
+            })
+            .collect();
+        Self {
+            classes,
+            moved,
+            carry_over,
+        }
     }
 }
 
 impl TeacherFacts for SeededFacts {
+    fn class_names(&self) -> Vec<String> {
+        self.classes.iter().map(|c| c.name.clone()).collect()
+    }
+    fn not_brought(&self, student: &str) -> Vec<NotBrought> {
+        self.carry_over
+            .iter()
+            .filter(|(name, _)| name == student)
+            .map(|(_, item)| item.clone())
+            .collect()
+    }
     fn class(&self, name: &str) -> Option<ClassFact> {
         self.classes.iter().find(|c| c.name == name).cloned()
     }

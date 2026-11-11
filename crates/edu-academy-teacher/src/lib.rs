@@ -10,10 +10,5 @@ pub mod render;
 pub mod synthetic;
 pub mod tools;
 
-pub use backend::{BackendError, ResolvedStudent, SectionCheck, SourceBackend};
-pub use envelope::{Ask, AskOption, Coverage, Envelope, LessonData, NextCall, Status, Stop};
-pub use facts::{ClassFact, MovedLesson, SeededFacts, TeacherFacts};
-pub use lesson::{LineRef, PrepareRequest, prepare, previous_lesson, scan_line};
-pub use render::{Verdict, display_lint};
-pub use synthetic::{Scenario, load_scenario};
-pub use tools::{Handler, TOOLS, ToolSpec, dispatch, docs_table, tools_json, tools_list_minified};
+pub use lesson::prepare;
+pub use synthetic::load_scenario;

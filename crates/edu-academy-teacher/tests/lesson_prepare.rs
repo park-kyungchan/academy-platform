@@ -1,17 +1,18 @@
 use chrono::{NaiveDate, Weekday};
 use edu_academy_teacher::{
     backend::SourceBackend,
-    envelope::Status,
+    envelope::{AskField, Status, StopCode},
     facts::{ClassFact, SeededFacts, TeacherFacts},
-    lesson::{PrepareRequest, previous_lesson, scan_line},
+    lesson::{LessonData, PrepareRequest, previous_lesson, scan_line},
     load_scenario,
     render::{Verdict, display_lint},
-    synthetic::Scenario,
+    synthetic::{NOW, Scenario, SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPort},
 };
 
 const SCENARIO: &str = include_str!("fixtures/scenario-v1.json");
 const DISPLAY_Q01: &str = include_str!("fixtures/display-q01.txt");
 const DISPLAY_Q02: &str = include_str!("fixtures/display-q02.txt");
+const DISPLAY_NOT_FOUND: &str = include_str!("fixtures/display-previous-not-found.txt");
 
 fn today() -> NaiveDate {
     NaiveDate::from_ymd_opt(2026, 11, 11).unwrap()
@@ -19,8 +20,10 @@ fn today() -> NaiveDate {
 fn scenario() -> Scenario {
     load_scenario(SCENARIO).unwrap()
 }
-fn backend() -> SourceBackend {
-    SourceBackend::new(scenario())
+type SyntheticBackend =
+    SourceBackend<SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPort>;
+fn make_backend() -> SyntheticBackend {
+    SourceBackend::synthetic(scenario(), NOW)
 }
 fn facts() -> SeededFacts {
     SeededFacts::from_scenario(&scenario())
@@ -31,19 +34,27 @@ fn req_student(name: &str) -> PrepareRequest {
         ..Default::default()
     }
 }
+fn data(envelope: &edu_academy_teacher::envelope::Envelope) -> LessonData {
+    serde_json::from_value(envelope.data.clone()).unwrap()
+}
 
-// Q01: S-017, S-019, S-026; sections of 2-1 not observed; no carry-over.
+// Q01: S-017, S-019, S-026, S-024/S-025 carry-over; sections of 2-1 not observed.
 #[test]
 fn q01_single_student_previous_lesson_and_checks() {
-    let mut backend = backend();
+    let mut backend = make_backend();
     let envelope =
         edu_academy_teacher::prepare(&mut backend, &facts(), &req_student("가상학생A"), today());
     assert_eq!(envelope.status, Status::Ok);
     assert_eq!(envelope.display, DISPLAY_Q01);
     display_lint(&envelope.display).unwrap();
-    assert!(!envelope.display.contains("못 가져온 숙제"));
+    assert!(
+        envelope
+            .display
+            .contains("못 가져온 숙제: 가우스 5-1-2 1-2 유형다지기 8문항 (11월 5일 숙제, 판정 전)")
+    );
     assert!(!envelope.display.contains("2026-11-04"));
-    let student = &envelope.data.students[0];
+    let parsed = data(&envelope);
+    let student = &parsed.students[0];
     let prev = student.previous_lesson.as_ref().unwrap();
     assert_eq!(prev.date, "2026-11-09");
     assert_ne!(prev.date, "2026-11-04");
@@ -54,17 +65,38 @@ fn q01_single_student_previous_lesson_and_checks() {
     assert_eq!(student.checks[0].verdict, Verdict::Waiting);
     assert_eq!(student.checks[1].verdict, Verdict::NotObserved);
     assert_eq!(student.checks[2].verdict, Verdict::NotObserved);
-    // Waiting must never claim teacher review in display wording beyond the
-    // fixed label, which says teacher review is pending.
+    assert_eq!(student.carry_over.len(), 1);
+    assert_eq!(
+        student.carry_over[0].homework_line,
+        "가우스 5-1-2 1-2 유형다지기 8문항"
+    );
+    assert_eq!(student.carry_over[0].assigned_on, "2026-11-05");
     assert!(envelope.display.contains("교사 확인 전"));
-    // Source reads: 1 record probe + 1 prestudy + 2 section checks.
+    // Logical reads: 1 record probe + 1 prestudy + 1 bindings + 1 index.
     assert_eq!(backend.source_reads(), 4);
+    // Coverage lists only the reads made, with the clock value as read time.
+    let names: Vec<&str> = envelope
+        .coverage
+        .sources
+        .iter()
+        .map(|s| s.name.as_str())
+        .collect();
+    assert_eq!(names, ["daily_record", "prestudy", "textbook_sections"]);
+    assert!(envelope.coverage.sources.iter().all(|s| s.read_at == NOW));
+    assert!(
+        envelope.coverage.unknowns.is_empty(),
+        "{:?}",
+        envelope.coverage.unknowns
+    );
+    // One index read for both section kinds: bindings 1 + index 3 port calls.
+    assert_eq!(backend.textbook_port_calls(), 4);
+    assert_eq!(backend.prestudy_port_calls(), 5);
 }
 
 // Q02: S-002 roster order, S-019..S-021, S-027 not observed (never not done).
 #[test]
 fn q02_class_of_three_roster_order() {
-    let mut backend = backend();
+    let mut backend = make_backend();
     let req = PrepareRequest {
         class_name: Some("가상반A".into()),
         ..Default::default()
@@ -73,27 +105,24 @@ fn q02_class_of_three_roster_order() {
     assert_eq!(envelope.status, Status::Ok);
     assert_eq!(envelope.display, DISPLAY_Q02);
     display_lint(&envelope.display).unwrap();
-    let names: Vec<&str> = envelope
-        .data
-        .students
-        .iter()
-        .map(|s| s.student.as_str())
-        .collect();
+    let parsed = data(&envelope);
+    let names: Vec<&str> = parsed.students.iter().map(|s| s.student.as_str()).collect();
     assert_eq!(names, ["가상학생A", "가상학생B", "가상학생C"]);
-    for student in &envelope.data.students {
+    for student in &parsed.students {
         assert_eq!(student.previous_lesson.as_ref().unwrap().date, "2026-11-09");
     }
-    let b = &envelope.data.students[1];
+    let b = &parsed.students[1];
     assert_eq!(b.checks[0].verdict, Verdict::NotObserved);
     assert!(!envelope.display.contains("안 함"));
     assert!(!envelope.display.contains("하지 않"));
     assert_eq!(backend.source_reads(), 12);
+    assert_eq!(envelope.coverage.sources.len(), 9);
 }
 
 #[test]
 fn previous_lesson_uses_moved_to_date() {
-    let mut backend = backend();
-    let student = backend.resolve_student("가상학생A").unwrap();
+    let mut backend = make_backend();
+    let student = backend.resolve_student("가상학생A", None).unwrap();
     let date = NaiveDate::from_ymd_opt(2026, 11, 9).unwrap();
     match previous_lesson(&mut backend, &facts(), &student, date) {
         edu_academy_teacher::lesson::PreviousOutcome::Found(found) => {
@@ -120,9 +149,6 @@ impl TeacherFacts for NoScheduleFacts {
 
 #[test]
 fn previous_lesson_day_scan_without_schedule() {
-    // A student whose (stub) class has no seeded weekdays: the class name of
-    // the resolved student is replaced by the stub through a custom facts
-    // view that reports no schedule for it.
     struct EmptyFacts;
     impl TeacherFacts for EmptyFacts {
         fn class(&self, _name: &str) -> Option<ClassFact> {
@@ -136,8 +162,8 @@ fn previous_lesson_day_scan_without_schedule() {
             &[]
         }
     }
-    let mut backend = backend();
-    let student = backend.resolve_student("가상학생A").unwrap();
+    let mut backend = make_backend();
+    let student = backend.resolve_student("가상학생A", None).unwrap();
     match previous_lesson(&mut backend, &EmptyFacts, &student, today()) {
         edu_academy_teacher::lesson::PreviousOutcome::Found(found) => {
             assert_eq!(found.date, NaiveDate::from_ymd_opt(2026, 11, 9).unwrap());
@@ -151,7 +177,7 @@ fn previous_lesson_day_scan_without_schedule() {
 
 #[test]
 fn previous_lesson_not_found_states_range() {
-    let mut backend = backend();
+    let mut backend = make_backend();
     let req = PrepareRequest {
         student: Some("가상학생A".into()),
         date: Some("2026-10-01".into()),
@@ -159,55 +185,170 @@ fn previous_lesson_not_found_states_range() {
     };
     let envelope = edu_academy_teacher::prepare(&mut backend, &facts(), &req, today());
     assert_eq!(envelope.status, Status::Ok);
-    assert!(envelope.data.students[0].previous_lesson.is_none());
-    let range = envelope.data.students[0].searched_range.as_deref().unwrap();
-    assert!(range.contains("부터"), "{range}");
-    assert!(envelope.display.contains(range), "{}", envelope.display);
+    let parsed = data(&envelope);
+    assert!(parsed.students[0].previous_lesson.is_none());
+    assert_eq!(
+        envelope.coverage.unknowns,
+        ["previous_lesson_not_found:가상학생A"]
+    );
+    assert!(
+        envelope.display.contains("찾아봤지만 기록이 없습니다."),
+        "{}",
+        envelope.display
+    );
+}
+
+// R5: the not-found display fixture, byte for byte (day scan of 11-11).
+#[test]
+fn previous_not_found_display_fixture() {
+    let mut backend = make_backend();
+    let envelope = edu_academy_teacher::prepare(
+        &mut backend,
+        &NoScheduleFacts,
+        &req_student("가상학생F"),
+        today(),
+    );
+    assert_eq!(envelope.status, Status::Ok);
+    assert_eq!(envelope.display, DISPLAY_NOT_FOUND);
+    display_lint(&envelope.display).unwrap();
+    // Only the daily-record read was made.
+    let names: Vec<&str> = envelope
+        .coverage
+        .sources
+        .iter()
+        .map(|s| s.name.as_str())
+        .collect();
+    assert_eq!(names, ["daily_record"]);
 }
 
 #[test]
 fn ambiguous_student_asks_on_student_field() {
-    // Two admitted students share one name (a second admission entry).
     let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
     let mut duplicate = value["students"][0].clone();
     duplicate["key"] = serde_json::json!("1009");
     value["students"].as_array_mut().unwrap().push(duplicate);
     let scenario = load_scenario(&value.to_string()).unwrap();
-    let mut backend = SourceBackend::new(scenario.clone());
+    let mut backend = SourceBackend::synthetic(scenario.clone(), NOW);
     let seeded = SeededFacts::from_scenario(&scenario);
     let envelope =
         edu_academy_teacher::prepare(&mut backend, &seeded, &req_student("가상학생A"), today());
     assert_eq!(envelope.status, Status::Ask);
-    assert_eq!(envelope.ask.as_ref().unwrap().field, "student");
+    let ask = envelope.ask.as_ref().unwrap();
+    assert_eq!(ask.field, AskField::Student);
+    assert!(!ask.options.is_empty());
+}
+
+// R7: duplicate names are told apart by class, and the answer resolves.
+#[test]
+fn duplicate_names_resolve_by_class_label() {
+    let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    value["students"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "name": "가상학생A", "key": "1010", "class_name": "가상반B",
+            "bindings": [{"label": "가우스 5-1-2", "course_key": "101", "book_no": "201"}]
+        }));
+    let scenario = load_scenario(&value.to_string()).unwrap();
+    let seeded = SeededFacts::from_scenario(&scenario);
+    let mut backend = SourceBackend::synthetic(scenario.clone(), NOW);
+    let envelope =
+        edu_academy_teacher::prepare(&mut backend, &seeded, &req_student("가상학생A"), today());
+    assert_eq!(envelope.status, Status::Ask);
+    let options: Vec<&str> = envelope
+        .ask
+        .as_ref()
+        .unwrap()
+        .options
+        .iter()
+        .map(|o| o.value.as_str())
+        .collect();
+    assert_eq!(options, ["가상학생A (가상반A)", "가상학생A (가상반B)"]);
+    // Answering with the labelled form resolves instead of looping.
+    let mut backend2 = SourceBackend::synthetic(scenario.clone(), NOW);
+    let envelope = edu_academy_teacher::prepare(
+        &mut backend2,
+        &seeded,
+        &req_student("가상학생A (가상반B)"),
+        today(),
+    );
+    assert_eq!(envelope.status, Status::Ok);
+    assert_eq!(data(&envelope).students[0].student, "가상학생A");
+    // Giving class_name together with student resolves it too.
+    let mut backend3 = SourceBackend::synthetic(scenario, NOW);
+    let req = PrepareRequest {
+        student: Some("가상학생A".into()),
+        class_name: Some("가상반B".into()),
+        ..Default::default()
+    };
+    let envelope = edu_academy_teacher::prepare(&mut backend3, &seeded, &req, today());
+    assert_eq!(envelope.status, Status::Ok);
+}
+
+// R7: neither student nor class asks on class_name with the class names.
+#[test]
+fn missing_student_and_class_asks_on_class_name() {
+    let mut backend = make_backend();
+    let envelope =
+        edu_academy_teacher::prepare(&mut backend, &facts(), &PrepareRequest::default(), today());
+    assert_eq!(envelope.status, Status::Ask);
+    let ask = envelope.ask.as_ref().unwrap();
+    assert_eq!(ask.field, AskField::ClassName);
+    let options: Vec<&str> = ask.options.iter().map(|o| o.value.as_str()).collect();
+    assert_eq!(options, ["가상반A", "가상반B", "가상반C"]);
+    assert!(ask.options.iter().all(|o| o.meaning_ko == "반 전체 준비"));
+    assert!(
+        envelope.display.contains("학생 이름"),
+        "{}",
+        envelope.display
+    );
+}
+
+#[test]
+fn unknown_class_asks_on_class_name() {
+    let mut backend = make_backend();
+    let req = PrepareRequest {
+        class_name: Some("가상반Z".into()),
+        ..Default::default()
+    };
+    let envelope = edu_academy_teacher::prepare(&mut backend, &facts(), &req, today());
+    assert_eq!(envelope.status, Status::Ask);
+    let ask = envelope.ask.as_ref().unwrap();
+    assert_eq!(ask.field, AskField::ClassName);
+    assert_eq!(ask.options.len(), 3);
 }
 
 #[test]
 fn unknown_student_stops_student_not_found() {
-    let mut backend = backend();
+    let mut backend = make_backend();
     let envelope =
         edu_academy_teacher::prepare(&mut backend, &facts(), &req_student("가상학생Z"), today());
     assert_eq!(envelope.status, Status::Unavailable);
-    assert_eq!(envelope.stop.as_ref().unwrap().code, "student_not_found");
+    assert_eq!(
+        envelope.stop.as_ref().unwrap().code,
+        StopCode::StudentNotFound
+    );
+    assert_eq!(
+        envelope.stop.as_ref().unwrap().code.as_str(),
+        "student_not_found"
+    );
 }
 
 #[test]
 fn section_titles_of_progress_minor_are_not_checked() {
-    // S-030/S-031 titles belong to progress minor 1-2; only homework minor
-    // 2-1 is checked in slice 1, so no check graded from those titles.
-    let mut backend = backend();
+    let mut backend = make_backend();
     let envelope =
         edu_academy_teacher::prepare(&mut backend, &facts(), &req_student("가상학생A"), today());
-    for check in &envelope.data.students[0].checks {
+    for check in &data(&envelope).students[0].checks {
         assert_ne!(check.verdict, Verdict::Found);
         assert!(!check.scope.starts_with("1-2"), "{}", check.scope);
     }
-    // The graded path itself works on the source layer for that title.
     let student =
         edu_academy_sources::textbook_index::TextbookStudent::new("1001", "가상학생A").unwrap();
     let scope = edu_academy_sources::textbook_index::BookScope::new("101", "201").unwrap();
-    let graded = backend.section_verdict(&student, &scope, "1-2", "필수예제");
-    assert_eq!(graded.verdict, Verdict::Found);
-    assert_eq!((graded.correct, graded.total), (Some(8), Some(10)));
+    let checks = backend.section_checks(&student, &scope, "1-2", &["필수예제"]);
+    assert_eq!(checks[0].verdict, Verdict::Found);
+    assert_eq!((checks[0].correct, checks[0].total), (Some(8), Some(10)));
 }
 
 #[test]
@@ -222,9 +363,7 @@ fn scenario_has_at_most_one_record_per_student_date() {
 
 #[test]
 fn synthetic_day_port_serves_backend_read() {
-    // The earliest record of a student (2026-11-02 for A) reads through the
-    // real Backend, which requires a predecessor row.
-    let mut backend = backend();
+    let mut backend = make_backend();
     let record = backend
         .read_record("1001", NaiveDate::from_ymd_opt(2026, 11, 2).unwrap())
         .unwrap();
@@ -251,16 +390,16 @@ fn tolerant_date_forms() {
         ("11월 9일", "2026-11-09"),
         ("2026-11-09", "2026-11-09"),
     ] {
-        let mut backend = backend();
+        let mut backend = make_backend();
         let req = PrepareRequest {
             student: Some("가상학생A".into()),
             date: Some(input.into()),
             ..Default::default()
         };
         let envelope = edu_academy_teacher::prepare(&mut backend, &facts(), &req, today());
-        assert_eq!(envelope.data.lesson_date, expected, "{input}");
+        assert_eq!(data(&envelope).lesson_date, expected, "{input}");
     }
-    let mut backend = backend();
+    let mut backend = make_backend();
     let req = PrepareRequest {
         student: Some("가상학생A".into()),
         date: Some("다음 주".into()),
@@ -268,5 +407,378 @@ fn tolerant_date_forms() {
     };
     let envelope = edu_academy_teacher::prepare(&mut backend, &facts(), &req, today());
     assert_eq!(envelope.status, Status::Ask);
-    assert_eq!(envelope.ask.as_ref().unwrap().field, "date");
+    assert_eq!(envelope.ask.as_ref().unwrap().field, AskField::Date);
+}
+
+// R3: a judged carry-over item is not shown.
+#[test]
+fn judged_carry_over_is_not_shown() {
+    struct JudgedFacts;
+    impl TeacherFacts for JudgedFacts {
+        fn class(&self, name: &str) -> Option<ClassFact> {
+            SeededFacts::from_scenario(&scenario()).class(name)
+        }
+        fn moved_lessons(&self, class_name: &str) -> &[edu_academy_teacher::facts::MovedLesson] {
+            let _ = class_name;
+            &[]
+        }
+        fn not_brought(&self, _student: &str) -> Vec<edu_academy_teacher::facts::NotBrought> {
+            vec![edu_academy_teacher::facts::NotBrought {
+                homework_line: "가우스 5-1-2 1-2 유형다지기 8문항".into(),
+                assigned_on: NaiveDate::from_ymd_opt(2026, 11, 5).unwrap(),
+                judged: true,
+            }]
+        }
+    }
+    // Use the seeded schedule through a wrapper is complex; the seeded facts
+    // with a judged twin are covered by filtering in prepare, exercised here
+    // through a scenario whose only carry-over row is judged.
+    let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    value["carry_over"][0]["judged"] = serde_json::json!(true);
+    let scenario = load_scenario(&value.to_string()).unwrap();
+    let seeded = SeededFacts::from_scenario(&scenario);
+    let mut backend = SourceBackend::synthetic(scenario, NOW);
+    let envelope =
+        edu_academy_teacher::prepare(&mut backend, &seeded, &req_student("가상학생A"), today());
+    assert_eq!(envelope.status, Status::Ok);
+    assert!(
+        !envelope.display.contains("못 가져온 숙제"),
+        "{}",
+        envelope.display
+    );
+    assert!(data(&envelope).students[0].carry_over.is_empty());
+    let _ = JudgedFacts;
+}
+
+// R4: F's earliest record has no predecessor; the failure stays per-student.
+#[test]
+fn first_record_without_predecessor_stays_per_student() {
+    let later = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
+    // Single form.
+    let mut backend = make_backend();
+    let req = PrepareRequest {
+        student: Some("가상학생F".into()),
+        date: Some("2026-11-16".into()),
+        ..Default::default()
+    };
+    let envelope = edu_academy_teacher::prepare(&mut backend, &facts(), &req, today());
+    assert_eq!(envelope.status, Status::Ok, "{}", envelope.display);
+    assert!(
+        envelope
+            .display
+            .contains("- 지난 수업 기록을 읽지 못했습니다."),
+        "{}",
+        envelope.display
+    );
+    assert!(
+        envelope
+            .coverage
+            .unknowns
+            .contains(&"daily_record_read_failed:가상학생F".to_string()),
+        "{:?}",
+        envelope.coverage.unknowns
+    );
+    let _ = later;
+    // Class form containing F.
+    let mut backend2 = make_backend();
+    let req = PrepareRequest {
+        class_name: Some("가상반C".into()),
+        date: Some("2026-11-16".into()),
+        ..Default::default()
+    };
+    let envelope = edu_academy_teacher::prepare(&mut backend2, &facts(), &req, today());
+    assert_eq!(envelope.status, Status::Ok, "{}", envelope.display);
+    assert!(
+        envelope
+            .display
+            .contains("- 가상학생F 지난 수업 기록을 읽지 못했습니다."),
+        "{}",
+        envelope.display
+    );
+}
+
+// R6: a waiting upload of the same minor in the other book is not 대기.
+#[test]
+fn prestudy_verdict_requires_the_homework_book() {
+    let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    value["prestudy"]["waiting"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "student": "가상학생B", "unit_label": "가우스 5-1-2 4-3 가상주제M",
+            "date": "2026-11-10", "key": "7003"
+        }));
+    let scenario = load_scenario(&value.to_string()).unwrap();
+    let seeded = SeededFacts::from_scenario(&scenario);
+    let mut backend = SourceBackend::synthetic(scenario, NOW);
+    let envelope =
+        edu_academy_teacher::prepare(&mut backend, &seeded, &req_student("가상학생B"), today());
+    assert_eq!(envelope.status, Status::Ok);
+    let parsed = data(&envelope);
+    assert_eq!(
+        parsed.students[0].checks[0].verdict,
+        Verdict::NotInReadRange
+    );
+    assert_ne!(parsed.students[0].checks[0].verdict, Verdict::Waiting);
+}
+
+// R9: a homework book with no binding asks on book with the bound books.
+#[test]
+fn unbound_homework_book_asks_on_book() {
+    let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    for record in value["records"].as_array_mut().unwrap() {
+        if record["student"] == "가상학생A" && record["date"] == "2026-11-09" {
+            record["homework"] = serde_json::json!("- 가우스 5-1-9 2-1 필수예제");
+        }
+    }
+    let scenario = load_scenario(&value.to_string()).unwrap();
+    let seeded = SeededFacts::from_scenario(&scenario);
+    let mut backend = SourceBackend::synthetic(scenario, NOW);
+    let envelope =
+        edu_academy_teacher::prepare(&mut backend, &seeded, &req_student("가상학생A"), today());
+    assert_eq!(envelope.status, Status::Ask, "{}", envelope.display);
+    let ask = envelope.ask.as_ref().unwrap();
+    assert_eq!(ask.field, AskField::Book);
+    let options: Vec<&str> = ask.options.iter().map(|o| o.value.as_str()).collect();
+    assert_eq!(options, ["가우스 5-1-2"]);
+}
+
+// R9: a non-Gauss homework book asks on book as well.
+#[test]
+fn non_gauss_homework_book_asks_on_book() {
+    let mut backend = make_backend();
+    let req = PrepareRequest {
+        student: Some("가상학생A".into()),
+        book: Some("다빈치 5-1-2".into()),
+        ..Default::default()
+    };
+    let envelope = edu_academy_teacher::prepare(&mut backend, &facts(), &req, today());
+    assert_eq!(envelope.status, Status::Ask, "{}", envelope.display);
+    assert_eq!(envelope.ask.as_ref().unwrap().field, AskField::Book);
+}
+
+// R9: names and class names are trimmed before use.
+#[test]
+fn inputs_are_trimmed() {
+    let mut backend = make_backend();
+    let envelope = edu_academy_teacher::prepare(
+        &mut backend,
+        &facts(),
+        &req_student("  가상학생A  "),
+        today(),
+    );
+    assert_eq!(envelope.status, Status::Ok);
+    assert_eq!(envelope.display, DISPLAY_Q01);
+}
+
+// ---- R1: a second, minimal set of ports serves prepare unchanged. ----
+mod minimal {
+    use edu_academy_core::js::Js;
+    use edu_academy_sources::{
+        data::{Error, Result, obj},
+        http::Response,
+        native::SourcePort,
+        prestudy::{ListKind, PrestudyPort, PrestudySearchForm},
+        textbook::{FetchPolicy, TextbookResponse},
+        textbook_index::{BookScope, TextbookSectionPort, TextbookStudent},
+    };
+
+    pub struct EmptyDayPort;
+    impl SourcePort for EmptyDayPort {
+        fn authenticate(&mut self) -> Result<Js> {
+            Ok(obj(&[("status", "authenticated".into())]))
+        }
+        fn discover(&mut self, _input: &Js) -> Result<Js> {
+            Ok(obj(&[(
+                "groups",
+                Js::Arr(vec![obj(&[("groupId", "1".into())])]),
+            )]))
+        }
+        fn execute(&mut self, _input: &Js) -> Result<Js> {
+            Ok(obj(&[("dayRecords", Js::Arr(vec![]))]))
+        }
+        fn journal_state(&mut self, _target: &Js) -> Result<Js> {
+            Err(Error::error("minimal_no_record"))
+        }
+    }
+
+    pub struct FailingPrestudyPort;
+    impl PrestudyPort for FailingPrestudyPort {
+        fn shell(&mut self, _kind: ListKind, _bound: usize) -> Result<Response> {
+            Err(Error::refusal("minimal_prestudy_unavailable"))
+        }
+        fn search(
+            &mut self,
+            _kind: ListKind,
+            _form: &PrestudySearchForm,
+            _student_name: &str,
+            _bound: usize,
+        ) -> Result<Response> {
+            Err(Error::refusal("minimal_prestudy_unavailable"))
+        }
+        fn summary(&mut self, _bound: usize) -> Result<Response> {
+            Err(Error::refusal("minimal_prestudy_unavailable"))
+        }
+        fn detail(&mut self, _key: &str, _bound: usize) -> Result<Response> {
+            Err(Error::refusal("minimal_prestudy_unavailable"))
+        }
+        fn report(&mut self, _key: &str, _bound: usize) -> Result<Response> {
+            Err(Error::refusal("minimal_prestudy_unavailable"))
+        }
+    }
+
+    pub struct FailingTextbookPort;
+    impl TextbookSectionPort for FailingTextbookPort {
+        fn progress(
+            &mut self,
+            _student: &TextbookStudent,
+            _max: usize,
+            _policy: FetchPolicy,
+        ) -> Result<TextbookResponse> {
+            Err(Error::refusal("minimal_textbook_unavailable"))
+        }
+        fn wrong_notes(
+            &mut self,
+            _student: &TextbookStudent,
+            _scope: &BookScope,
+            _max: usize,
+            _policy: FetchPolicy,
+        ) -> Result<TextbookResponse> {
+            Err(Error::refusal("minimal_textbook_unavailable"))
+        }
+        fn detail(
+            &mut self,
+            _student: &TextbookStudent,
+            _attempt_key: &str,
+            _max: usize,
+            _policy: FetchPolicy,
+        ) -> Result<TextbookResponse> {
+            Err(Error::refusal("minimal_textbook_unavailable"))
+        }
+        fn paper_search(
+            &mut self,
+            _student: &TextbookStudent,
+            _max: usize,
+            _policy: FetchPolicy,
+        ) -> Result<TextbookResponse> {
+            Err(Error::refusal("minimal_textbook_unavailable"))
+        }
+    }
+
+    /// Every read fails, including the name search.
+    pub struct FailingDayPort;
+    impl SourcePort for FailingDayPort {
+        fn authenticate(&mut self) -> Result<Js> {
+            Ok(obj(&[("status", "authenticated".into())]))
+        }
+        fn discover(&mut self, _input: &Js) -> Result<Js> {
+            Err(Error::error("minimal_source_down"))
+        }
+        fn execute(&mut self, _input: &Js) -> Result<Js> {
+            Err(Error::error("minimal_source_down"))
+        }
+        fn journal_state(&mut self, _target: &Js) -> Result<Js> {
+            Err(Error::error("minimal_source_down"))
+        }
+        fn has_name_search(&self) -> bool {
+            true
+        }
+        fn search_students_by_name(&mut self, _input: &Js) -> Option<Result<Js>> {
+            Some(Err(Error::error("minimal_source_down")))
+        }
+    }
+}
+
+#[test]
+fn prepare_runs_against_minimal_ports() {
+    use edu_academy_teacher::backend::StudentEntry;
+    let mut backend = SourceBackend::new(
+        minimal::EmptyDayPort,
+        minimal::FailingPrestudyPort,
+        minimal::FailingTextbookPort,
+        vec![StudentEntry {
+            name: "가상학생A".into(),
+            key: "1001".into(),
+            class_name: "가상반A".into(),
+        }],
+        edu_academy_teacher::backend::BackendIdentity {
+            teacher_id: "9001".into(),
+            teacher_label: "가상교사".into(),
+            teacher_key: "99001".into(),
+            read_at: NOW.into(),
+        },
+    );
+    let envelope = edu_academy_teacher::prepare(
+        &mut backend,
+        &NoScheduleFacts,
+        &req_student("가상학생A"),
+        today(),
+    );
+    assert_eq!(envelope.status, Status::Ok, "{}", envelope.display);
+    assert!(envelope.display.contains("찾아봤지만 기록이 없습니다."));
+}
+
+// R4: only when every read of the call failed is the call unavailable.
+#[test]
+fn all_reads_failed_stops_source_unavailable() {
+    use edu_academy_teacher::backend::StudentEntry;
+    let mut backend = SourceBackend::new(
+        minimal::FailingDayPort,
+        minimal::FailingPrestudyPort,
+        minimal::FailingTextbookPort,
+        vec![StudentEntry {
+            name: "가상학생A".into(),
+            key: "1001".into(),
+            class_name: "가상반A".into(),
+        }],
+        edu_academy_teacher::backend::BackendIdentity {
+            teacher_id: "9001".into(),
+            teacher_label: "가상교사".into(),
+            teacher_key: "99001".into(),
+            read_at: NOW.into(),
+        },
+    );
+    let envelope = edu_academy_teacher::prepare(
+        &mut backend,
+        &NoScheduleFacts,
+        &req_student("가상학생A"),
+        today(),
+    );
+    assert_eq!(envelope.status, Status::Unavailable);
+    assert_eq!(
+        envelope.stop.as_ref().unwrap().code,
+        StopCode::SourceUnavailable
+    );
+}
+
+// R2: a failed prestudy or section read comes back Unknown, never absent.
+#[test]
+fn failed_prestudy_and_section_reads_are_unknown() {
+    use edu_academy_teacher::backend::StudentEntry;
+    let mut backend = SourceBackend::new(
+        minimal::EmptyDayPort,
+        minimal::FailingPrestudyPort,
+        minimal::FailingTextbookPort,
+        vec![StudentEntry {
+            name: "가상학생A".into(),
+            key: "1001".into(),
+            class_name: "가상반A".into(),
+        }],
+        edu_academy_teacher::backend::BackendIdentity {
+            teacher_id: "9001".into(),
+            teacher_label: "가상교사".into(),
+            teacher_key: "99001".into(),
+            read_at: NOW.into(),
+        },
+    );
+    assert_eq!(
+        backend.prestudy_verdict("가상학생A", "가우스 5-1-2", "2-1"),
+        Verdict::Unknown
+    );
+    let student =
+        edu_academy_sources::textbook_index::TextbookStudent::new("1001", "가상학생A").unwrap();
+    let scope = edu_academy_sources::textbook_index::BookScope::new("101", "201").unwrap();
+    let checks = backend.section_checks(&student, &scope, "2-1", &["필수예제", "유형다지기"]);
+    assert_eq!(checks.len(), 2);
+    assert!(checks.iter().all(|c| c.verdict == Verdict::Unknown));
 }

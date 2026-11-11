@@ -1,15 +1,17 @@
-//! `academy_lesson_prepare` as a library (plan s6).
+//! `academy_lesson_prepare` as a library (plan s6). The typed result of
+//! this tool lives here; the envelope carries it as a JSON value.
 use crate::{
-    backend::{BackendError, DayRecord, ResolvedStudent, SourceBackend},
-    envelope::{
-        Ask, AskOption, Check, Coverage, Envelope, LessonData, PreviousLesson, SourceRead, Status,
-        StudentLesson,
-    },
-    facts::TeacherFacts,
-    render,
+    backend::{BackendError, BookResolution, DayRecord, ResolvedStudent, SourceBackend},
+    envelope::{Ask, AskField, AskOption, Coverage, Envelope, SourceRead, Stop, StopCode},
+    facts::{NotBrought, TeacherFacts},
+    render::{self, Verdict},
 };
 use chrono::{Datelike, NaiveDate};
-use edu_academy_sources::textbook_index::TextbookStudent;
+use edu_academy_sources::{
+    native::SourcePort, prestudy::PrestudyPort, textbook_index::TextbookSectionPort,
+    textbook_index::TextbookStudent,
+};
+use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
 #[derive(Clone, Debug, Default)]
@@ -25,6 +27,53 @@ pub struct LineRef {
     pub book_label: String,
     pub minor: String,
     pub activity: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Check {
+    pub kind: String,
+    pub scope: String,
+    pub verdict: Verdict,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub correct: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<usize>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PreviousLesson {
+    pub date: String,
+    pub how_found: String,
+    pub progress: String,
+    pub homework: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CarryOverItem {
+    pub homework_line: String,
+    pub assigned_on: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct StudentLesson {
+    pub student: String,
+    pub previous_lesson: Option<PreviousLesson>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub searched_from: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub searched_to: Option<String>,
+    pub read_failed: bool,
+    pub checks: Vec<Check>,
+    pub carry_over: Vec<CarryOverItem>,
+    pub excluded: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct LessonData {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
+    pub lesson_date: String,
+    pub students: Vec<StudentLesson>,
 }
 
 fn book_re() -> &'static regex::Regex {
@@ -76,14 +125,15 @@ pub struct FoundPrevious {
 
 pub enum PreviousOutcome {
     Found(FoundPrevious),
-    NotFound { searched_range: String },
-    Failed(BackendError),
+    NotFound { from: NaiveDate, to: NaiveDate },
+    Failed,
 }
 
 /// Previous lesson per DESIGN part 1: schedule (with moved lessons, at most
-/// 6 candidates), else a day scan of at most 14 days.
-pub fn previous_lesson(
-    backend: &mut SourceBackend,
+/// 6 candidates), else a day scan of at most 14 days. A failed read of the
+/// latest candidate stays a failure: an older record is never substituted.
+pub fn previous_lesson<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
+    backend: &mut SourceBackend<D, P, T>,
     facts: &dyn TeacherFacts,
     student: &ResolvedStudent,
     date: NaiveDate,
@@ -110,13 +160,9 @@ pub fn previous_lesson(
                 break;
             }
         }
-        let range = match (candidates.last(), candidates.first()) {
-            (Some(first), Some(last)) => format!(
-                "{}부터 {}까지",
-                first.format("%Y-%m-%d"),
-                last.format("%Y-%m-%d")
-            ),
-            _ => format!("{} 이전", date.format("%Y-%m-%d")),
+        let (from, to) = match (candidates.last(), candidates.first()) {
+            (Some(first), Some(last)) => (*first, *last),
+            _ => (date, date),
         };
         for candidate in candidates {
             match backend.read_record(&student.key, candidate) {
@@ -133,12 +179,10 @@ pub fn previous_lesson(
                     });
                 }
                 Ok(None) => continue,
-                Err(e) => return PreviousOutcome::Failed(e),
+                Err(_) => return PreviousOutcome::Failed,
             }
         }
-        return PreviousOutcome::NotFound {
-            searched_range: range,
-        };
+        return PreviousOutcome::NotFound { from, to };
     }
     // Day scan.
     let end = date.pred_opt().unwrap_or(date);
@@ -156,21 +200,18 @@ pub fn previous_lesson(
                 });
             }
             Ok(None) => continue,
-            Err(e) => return PreviousOutcome::Failed(e),
+            Err(_) => return PreviousOutcome::Failed,
         }
     }
     PreviousOutcome::NotFound {
-        searched_range: format!(
-            "{}부터 {}까지",
-            start.format("%Y-%m-%d"),
-            end.format("%Y-%m-%d")
-        ),
+        from: start,
+        to: end,
     }
 }
 
 fn parse_request_date(input: Option<&str>, today: NaiveDate) -> Result<NaiveDate, Ask> {
     let ask = || Ask {
-        field: "date".into(),
+        field: AskField::Date,
         question_ko: "날짜를 알려주세요.".into(),
         options: vec![AskOption {
             value: today.format("%Y-%m-%d").to_string(),
@@ -196,107 +237,258 @@ fn parse_request_date(input: Option<&str>, today: NaiveDate) -> Result<NaiveDate
     Err(ask())
 }
 
-fn coverage(lesson_date: NaiveDate) -> Coverage {
-    let scope = lesson_date.format("%Y-%m-%d").to_string();
-    let read = |name: &str| SourceRead {
-        name: name.into(),
-        read_at: crate::synthetic::NOW.into(),
-        scope: scope.clone(),
-    };
-    Coverage {
-        sources: vec![
-            read("daily_record"),
-            read("prestudy"),
-            read("textbook_sections"),
-        ],
-        unknowns: vec![],
-    }
+fn data_value(data: &LessonData) -> serde_json::Value {
+    serde_json::to_value(data).expect("lesson data serializes")
 }
 
-fn prepare_student(
-    backend: &mut SourceBackend,
+fn ask_envelope(display: String, data: &LessonData, ask: Ask, coverage: Coverage) -> Envelope {
+    Envelope::ask(display, data_value(data), ask, coverage).unwrap_or_else(|_| {
+        Envelope::stop(
+            "원천을 읽지 못했습니다.".into(),
+            data_value(data),
+            Stop::new(StopCode::SourceUnavailable, "원천을 읽지 못했습니다."),
+            Coverage::default(),
+        )
+    })
+}
+
+fn class_options(facts: &dyn TeacherFacts) -> Vec<AskOption> {
+    facts
+        .class_names()
+        .into_iter()
+        .map(|name| AskOption {
+            value: name.clone(),
+            label_ko: name,
+            meaning_ko: "반 전체 준비".into(),
+        })
+        .collect()
+}
+
+fn carry_over_of(facts: &dyn TeacherFacts, student: &str) -> Vec<CarryOverItem> {
+    facts
+        .not_brought(student)
+        .into_iter()
+        .filter(|item: &NotBrought| !item.judged)
+        .map(|item| CarryOverItem {
+            homework_line: item.homework_line,
+            assigned_on: item.assigned_on.format("%Y-%m-%d").to_string(),
+        })
+        .collect()
+}
+
+struct PreparedStudent {
+    lesson: StudentLesson,
+    sources: Vec<SourceRead>,
+    unknowns: Vec<String>,
+}
+
+fn prepare_student<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
+    backend: &mut SourceBackend<D, P, T>,
     facts: &dyn TeacherFacts,
     student: &ResolvedStudent,
     lesson_date: NaiveDate,
     requested_book: Option<&str>,
-) -> Result<StudentLesson, BackendError> {
-    let (previous, searched_range) = match previous_lesson(backend, facts, student, lesson_date) {
-        PreviousOutcome::Found(found) => (
-            Some(PreviousLesson {
-                date: found.date.format("%Y-%m-%d").to_string(),
-                how_found: found.how_found,
-                progress: found.record.progress.clone(),
-                homework: found.record.homework.clone(),
-            }),
-            None,
-        ),
-        PreviousOutcome::NotFound { searched_range } => (None, Some(searched_range)),
-        PreviousOutcome::Failed(e) => return Err(e),
-    };
+) -> Result<PreparedStudent, BackendError> {
+    let read_at = backend.read_at().to_string();
+    let mut sources: Vec<SourceRead> = Vec::new();
+    let mut unknowns: Vec<String> = Vec::new();
+    let carry_over = carry_over_of(facts, &student.name);
+    let (previous, searched_from, searched_to, read_failed) =
+        match previous_lesson(backend, facts, student, lesson_date) {
+            PreviousOutcome::Found(found) => {
+                sources.push(SourceRead {
+                    name: "daily_record".into(),
+                    read_at: read_at.clone(),
+                    scope: format!("{} {}", student.name, found.date.format("%Y-%m-%d")),
+                });
+                (
+                    Some(PreviousLesson {
+                        date: found.date.format("%Y-%m-%d").to_string(),
+                        how_found: found.how_found,
+                        progress: found.record.progress.clone(),
+                        homework: found.record.homework.clone(),
+                    }),
+                    None,
+                    None,
+                    false,
+                )
+            }
+            PreviousOutcome::NotFound { from, to } => {
+                sources.push(SourceRead {
+                    name: "daily_record".into(),
+                    read_at: read_at.clone(),
+                    scope: format!(
+                        "{} {}/{}",
+                        student.name,
+                        from.format("%Y-%m-%d"),
+                        to.format("%Y-%m-%d")
+                    ),
+                });
+                unknowns.push(format!("previous_lesson_not_found:{}", student.name));
+                (
+                    None,
+                    Some(from.format("%Y-%m-%d").to_string()),
+                    Some(to.format("%Y-%m-%d").to_string()),
+                    false,
+                )
+            }
+            PreviousOutcome::Failed => {
+                sources.push(SourceRead {
+                    name: "daily_record".into(),
+                    read_at: read_at.clone(),
+                    scope: format!("{} {}", student.name, lesson_date.format("%Y-%m-%d")),
+                });
+                unknowns.push(format!("daily_record_read_failed:{}", student.name));
+                (None, None, None, true)
+            }
+        };
     let mut checks = Vec::new();
     if let Some(prev) = &previous
         && let Some(start) = homework_minor_is_start(&prev.progress, &prev.homework)
     {
-        let book_label = requested_book.unwrap_or(&start.book_label);
+        let prestudy = backend.prestudy_verdict(&student.name, &start.book_label, &start.minor);
+        sources.push(SourceRead {
+            name: "prestudy".into(),
+            read_at: read_at.clone(),
+            scope: format!("{} {} {}", student.name, start.book_label, start.minor),
+        });
+        if prestudy == Verdict::Unknown {
+            unknowns.push(format!("prestudy_unknown:{}:{}", student.name, start.minor));
+        }
         checks.push(Check {
             kind: "prestudy".into(),
             scope: start.minor.clone(),
-            verdict: backend.prestudy_verdict(&student.name, &start.minor),
+            verdict: prestudy,
             correct: None,
             total: None,
         });
-        let textbook_student = TextbookStudent::new(&student.key, &student.name)
-            .map_err(|_| BackendError::source_unavailable())?;
-        let scope = backend.book_scope(student, book_label)?;
-        for activity in ["필수예제", "유형다지기"] {
-            let verdict = match &scope {
-                Some(scope) => {
-                    backend.section_verdict(&textbook_student, scope, &start.minor, activity)
+        let effective_book = requested_book.unwrap_or(&start.book_label);
+        let textbook_student = match TextbookStudent::new(&student.key, &student.name) {
+            Ok(student_ref) => student_ref,
+            Err(_) => {
+                return Ok(PreparedStudent {
+                    lesson: StudentLesson {
+                        student: student.name.clone(),
+                        previous_lesson: previous,
+                        searched_from,
+                        searched_to,
+                        read_failed: true,
+                        checks,
+                        carry_over,
+                        excluded: vec![],
+                    },
+                    sources,
+                    unknowns,
+                });
+            }
+        };
+        let scope = match backend.resolve_book(student, effective_book)? {
+            BookResolution::Found(scope) => scope,
+            BookResolution::NoBinding { bound_labels } => {
+                if bound_labels.is_empty() {
+                    for activity in ["필수예제", "유형다지기"] {
+                        unknowns.push(format!("section_unknown:{}:{}", student.name, start.minor));
+                        checks.push(Check {
+                            kind: "section".into(),
+                            scope: format!("{} {activity}", start.minor),
+                            verdict: Verdict::Unknown,
+                            correct: None,
+                            total: None,
+                        });
+                    }
+                    return Ok(PreparedStudent {
+                        lesson: StudentLesson {
+                            student: student.name.clone(),
+                            previous_lesson: previous,
+                            searched_from,
+                            searched_to,
+                            read_failed,
+                            checks,
+                            carry_over,
+                            excluded: vec![],
+                        },
+                        sources,
+                        unknowns,
+                    });
                 }
-                None => crate::backend::SectionCheck {
-                    scope: format!("{} {activity}", start.minor),
-                    verdict: render::Verdict::Unknown,
-                    correct: None,
-                    total: None,
-                },
-            };
+                return Err(BackendError::Ask(Ask {
+                    field: AskField::Book,
+                    question_ko: "어느 교재인가요?".into(),
+                    options: bound_labels
+                        .into_iter()
+                        .map(|label| AskOption {
+                            value: label.clone(),
+                            label_ko: label,
+                            meaning_ko: "그 학생에게 등록된 교재".into(),
+                        })
+                        .collect(),
+                }));
+            }
+        };
+        let section_checks = backend.section_checks(
+            &textbook_student,
+            &scope,
+            &start.minor,
+            &["필수예제", "유형다지기"],
+        );
+        sources.push(SourceRead {
+            name: "textbook_sections".into(),
+            read_at,
+            scope: format!("{} {} {}", student.name, effective_book, start.minor),
+        });
+        for check in section_checks {
+            if check.verdict == Verdict::Unknown {
+                unknowns.push(format!("section_unknown:{}:{}", student.name, check.scope));
+            }
             checks.push(Check {
                 kind: "section".into(),
-                scope: verdict.scope,
-                verdict: verdict.verdict,
-                correct: verdict.correct,
-                total: verdict.total,
+                scope: check.scope,
+                verdict: check.verdict,
+                correct: check.correct,
+                total: check.total,
             });
         }
     }
-    Ok(StudentLesson {
-        student: student.name.clone(),
-        previous_lesson: previous,
-        searched_range,
-        checks,
-        carry_over: vec![],
-        excluded: vec![],
+    Ok(PreparedStudent {
+        lesson: StudentLesson {
+            student: student.name.clone(),
+            previous_lesson: previous,
+            searched_from,
+            searched_to,
+            read_failed,
+            checks,
+            carry_over,
+            excluded: vec![],
+        },
+        sources,
+        unknowns,
     })
 }
 
-pub fn prepare(
-    backend: &mut SourceBackend,
+pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
+    backend: &mut SourceBackend<D, P, T>,
     facts: &dyn TeacherFacts,
     req: &PrepareRequest,
     today: NaiveDate,
 ) -> Envelope {
+    let trimmed = |value: &Option<String>| {
+        value
+            .as_deref()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(str::to_string)
+    };
+    let student_arg = trimmed(&req.student);
+    let class_arg = trimmed(&req.class_name);
+    let book_arg = trimmed(&req.book);
     let lesson_date = match parse_request_date(req.date.as_deref(), today) {
         Ok(date) => date,
         Err(ask) => {
-            return Envelope::ask(
-                ask.question_ko.clone(),
-                LessonData {
-                    lesson_date: today.format("%Y-%m-%d").to_string(),
-                    ..Default::default()
-                },
-                ask,
-                Coverage::default(),
-            );
+            let data = LessonData {
+                lesson_date: today.format("%Y-%m-%d").to_string(),
+                ..Default::default()
+            };
+            return ask_envelope(ask.question_ko.clone(), &data, ask, Coverage::default());
         }
     };
     let mut data = LessonData {
@@ -304,68 +496,72 @@ pub fn prepare(
         lesson_date: lesson_date.format("%Y-%m-%d").to_string(),
         students: vec![],
     };
-    let cov = coverage(lesson_date);
 
-    let names: Vec<String> = if let Some(student) = &req.student {
-        vec![student.clone()]
-    } else if let Some(class_name) = &req.class_name {
+    let (names, class_hint): (Vec<String>, Option<String>) = if let Some(student) = &student_arg {
+        (vec![student.clone()], class_arg.clone())
+    } else if let Some(class_name) = &class_arg {
         data.class_name = Some(class_name.clone());
         match facts.class(class_name) {
-            Some(class) => class.roster.clone(),
+            Some(class) => (class.roster.clone(), Some(class_name.clone())),
             None => {
-                return Envelope::ask(
-                    "어느 반인가요?".into(),
-                    data,
-                    Ask {
-                        field: "class_name".into(),
-                        question_ko: "어느 반인가요?".into(),
-                        options: vec![],
-                    },
-                    cov,
-                );
+                let ask = Ask {
+                    field: AskField::ClassName,
+                    question_ko: "어느 반인가요?".into(),
+                    options: class_options(facts),
+                };
+                return ask_envelope("어느 반인가요?".into(), &data, ask, Coverage::default());
             }
         }
     } else {
-        return Envelope::ask(
-            "누구의 체크리스트인가요?".into(),
-            data,
-            Ask {
-                field: "student".into(),
-                question_ko: "누구의 체크리스트인가요?".into(),
-                options: vec![],
-            },
-            cov,
+        let ask = Ask {
+            field: AskField::ClassName,
+            question_ko: "어느 반인가요?".into(),
+            options: class_options(facts),
+        };
+        return ask_envelope(
+            "어느 반인가요?\n반 이름 대신 학생 이름을 알려주셔도 됩니다.".into(),
+            &data,
+            ask,
+            Coverage::default(),
         );
     };
 
+    let mut coverage = Coverage::default();
     for name in &names {
-        let student = match backend.resolve_student(name) {
+        let name = name.trim();
+        let student = match backend.resolve_student(name, class_hint.as_deref()) {
             Ok(student) => student,
             Err(BackendError::Ask(ask)) => {
-                return Envelope::ask(ask.question_ko.clone(), data, ask, cov);
+                return ask_envelope(ask.question_ko.clone(), &data, ask, coverage);
             }
             Err(BackendError::Stop(stop)) => {
                 let display = stop.message_ko.clone();
-                return Envelope::stop(display, data, stop, cov);
+                return Envelope::stop(display, data_value(&data), stop, coverage);
             }
         };
-        match prepare_student(backend, facts, &student, lesson_date, req.book.as_deref()) {
-            Ok(entry) => data.students.push(entry),
+        match prepare_student(backend, facts, &student, lesson_date, book_arg.as_deref()) {
+            Ok(prepared) => {
+                coverage.sources.extend(prepared.sources);
+                coverage.unknowns.extend(prepared.unknowns);
+                data.students.push(prepared.lesson);
+            }
             Err(BackendError::Ask(ask)) => {
-                return Envelope::ask(ask.question_ko.clone(), data, ask, cov);
+                return ask_envelope(ask.question_ko.clone(), &data, ask, coverage);
             }
             Err(BackendError::Stop(stop)) => {
                 let display = stop.message_ko.clone();
-                return Envelope::stop(display, data, stop, cov);
+                return Envelope::stop(display, data_value(&data), stop, coverage);
             }
         }
     }
-    let display = render::lesson_prepare(&data);
-    let mut cov = cov;
-    if data.students.iter().any(|s| s.previous_lesson.is_none()) {
-        cov.unknowns.push("previous_lesson_not_found".into());
+    if backend.attempted_reads() > 0 && backend.succeeded_reads() == 0 {
+        return Envelope::stop(
+            "원천을 읽지 못했습니다.".into(),
+            data_value(&data),
+            Stop::new(StopCode::SourceUnavailable, "원천을 읽지 못했습니다."),
+            coverage,
+        );
     }
-    // Keep the status type referenced for future held results.
-    let _ = Status::Ok;
-    Envelope::ok(display, data, cov)
+    let display = render::lesson_prepare(&data);
+    Envelope::ok(display, data_value(&data), coverage)
 }
