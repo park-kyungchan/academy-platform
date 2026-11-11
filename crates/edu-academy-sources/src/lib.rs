@@ -12,6 +12,7 @@ pub mod owner_root;
 pub mod owner_workflow;
 pub mod paper;
 pub mod presentation;
+pub mod prestudy;
 pub mod saved;
 pub mod script;
 pub mod student_course;
