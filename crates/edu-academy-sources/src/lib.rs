@@ -6,6 +6,7 @@ pub mod dom;
 pub mod evidence;
 pub mod history;
 pub mod http;
+pub(crate) mod js_text;
 pub mod native;
 pub mod owner_admission;
 pub mod owner_root;

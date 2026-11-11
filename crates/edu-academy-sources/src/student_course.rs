@@ -4,6 +4,7 @@ use crate::{
     data::*,
     dom::{self, Document},
     http::{self, Request, Response, Transport},
+    js_text::{DecodeRefusal, decode_bounded},
     owner_admission::{
         OperationContract, ParameterValue, ScopeField, TransportAdmission, TransportParameter,
         TransportScope,
@@ -336,8 +337,8 @@ pub fn read_contracts() -> Vec<OperationContract> {
             vec![
                 lit("reqCmd", "WebUnPreStudy"),
                 arg("g_clg_no", 16),
-                scoped("g_pri_no", ScopeField::TeacherId),
                 arg("g_mem_type", 200),
+                scoped("g_pri_no", ScopeField::TeacherId),
                 arg("student_name", 800),
             ],
         ),
@@ -358,8 +359,8 @@ pub fn read_contracts() -> Vec<OperationContract> {
             vec![
                 lit("reqCmd", "WebCtPreStudy"),
                 arg("g_clg_no", 16),
-                scoped("g_pri_no", ScopeField::TeacherId),
                 arg("g_mem_type", 200),
+                scoped("g_pri_no", ScopeField::TeacherId),
                 arg("student_name", 800),
             ],
         ),
@@ -486,15 +487,15 @@ pub(crate) fn check_contract(p: &TransportAdmission, id: &str) -> Result<()> {
 }
 pub(crate) fn response_text(r: Response) -> Result<String> {
     require(
-        r.status == 200 && !r.stalled && r.bytes.len() <= 8_000_000,
+        r.status == 200 && !r.stalled,
         "student_read_source_rejected",
     )?;
-    let html =
-        String::from_utf8(r.bytes).map_err(|_| Error::refusal("student_read_encoding_rejected"))?;
-    require(
-        html.encode_utf16().count() <= 2_000_000,
-        "student_read_source_rejected",
-    )?;
+    let html = decode_bounded(&r.bytes, 8_000_000, 2_000_000).map_err(|refusal| {
+        Error::refusal(match refusal {
+            DecodeRefusal::TooLarge => "student_read_source_rejected",
+            DecodeRefusal::NotUtf8 => "student_read_encoding_rejected",
+        })
+    })?;
     let d = Document::parse(&html);
     require(
         !d.select("input").iter().any(|e| {
