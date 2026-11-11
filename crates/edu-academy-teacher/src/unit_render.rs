@@ -313,13 +313,15 @@ fn section_block(d: &UnitData, leaf: &Leaf, grid: bool, printed_dash: &mut bool)
             let value: String = if !leaf.minor.activities.contains(&activity) {
                 l::NOT_APPLICABLE.into()
             } else if titles.is_empty() {
-                section_issue(d, code, Some(&activity))
-                    .unwrap_or(l::UNIT_DASH)
-                    .into()
+                if let Some(issue) = section_issue(d, code, Some(&activity)) {
+                    issue.into()
+                } else {
+                    *printed_dash = true;
+                    l::UNIT_DASH.into()
+                }
             } else {
                 titles.join(" / ")
             };
-            *printed_dash |= value == l::UNIT_DASH;
             fields.push(value);
         }
         return fields.join(" | ");
