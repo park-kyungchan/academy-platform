@@ -1339,6 +1339,34 @@ fn selected_and_partial_views_survive_the_wire_in_both_representations() {
 // refuse as a tool error, an unadmitted name is an observed refusal, other
 // messages traverse the lifecycle, and a registry without the tool is an RPC
 // error (the frozen v1 registry lacks `academy_prestudy_report_get`).
+// Declared difference (f): TS trims first and then bounds the length
+// (`dailyrecord.ts:78`, `.trim().min(1).max(200)`); the loan applies the
+// registry JSON Schema `maxLength: 200` to the untrimmed value first
+// (`protocol.rs:265`, `validation.rs:322-324`). A name over 200 units before
+// the trim and within 200 after it is accepted by TS and refused by the loan
+// (fail closed).
+#[test]
+fn padded_display_name_over_200_before_trim_is_refused_by_the_loan_but_not_the_zod_layer() {
+    let scene = Scene::new("padded", &TOOLS);
+    let mut session = scene.session();
+    let mut r = rig();
+    let mut padded = get_input();
+    padded.set(
+        "displayName",
+        format!("Invented Student{}", " ".repeat(190)).into(),
+    );
+    // The Zod layer (the driver, as TS) trims first and admits the student.
+    let out = r.driver.call_at(GET, &padded, NOW).unwrap();
+    assert_eq!(out.get("status").code_units(), "observed");
+    // The loan refuses it on the untrimmed schema bound.
+    let out = loan(&mut session, &mut r, "1", GET, &padded);
+    assert!(out.get("result").get("isError").truthy());
+    assert_eq!(
+        text_of(out.get("result").get("content").array()[0].get("text")),
+        "tool_input_invalid"
+    );
+}
+
 #[test]
 fn loan_routes_schema_zod_admission_and_lifecycle() {
     let scene = Scene::new("loan", &TOOLS);

@@ -1269,6 +1269,10 @@ fn scores_json_prints_javascript_exponent_form() {
     assert_eq!(scores_json(&[0.000001234]), "[0.000001234]");
     assert_eq!(scores_json(&[1e300, 5e-324]), "[1e+300,5e-324]");
     assert_eq!(scores_json(&[12345.678, -0.0000001]), "[12345.678,-1e-7]");
+    // Node: JSON.stringify([-0]) is "[0]"; 9007199254740993 is not
+    // representable and prints as 9007199254740992.
+    assert_eq!(scores_json(&[-0.0]), "[0]");
+    assert_eq!(scores_json(&[9007199254740993.0]), "[9007199254740992]");
     // The same numbers read from a page reach the same text.
     let page = REPORT.replace(
         "{ m1: 77, m2: 80, m3: 90 }",
