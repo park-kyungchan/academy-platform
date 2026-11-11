@@ -82,6 +82,53 @@ pub(crate) fn business_entry<'a>(
     Ok(first)
 }
 
+/// Exact route for the E09c student/paper families. Returns the registry
+/// entry plus the upstream (unprefixed) tool name. A `class2_` name only
+/// binds on `paper2`; an `academy_*` paper name binds on its own endpoint.
+pub(crate) fn student_paper_entry<'a>(
+    graph: &'a ReleaseGraph,
+    endpoint: &str,
+    name: &str,
+) -> Result<(&'a Entry, String)> {
+    let upstream = if crate::student::is_student_tool(name) {
+        if endpoint != "dailyrecord" {
+            return Err(Error::new("business_endpoint_mismatch"));
+        }
+        name.to_string()
+    } else if let Some(upstream) = crate::paper::upstream_name(name) {
+        let class2 = crate::paper::is_class2_name(name);
+        if class2 && endpoint != "paper2" {
+            return Err(Error::new("paper_scope_unresolved"));
+        }
+        if !class2 && !["paper1", "paper2"].contains(&endpoint) {
+            return Err(Error::new("business_endpoint_mismatch"));
+        }
+        if class2 && endpoint == "paper2" {
+            // Bridge spelling is accepted only inside the paper2 session.
+        }
+        upstream.to_string()
+    } else {
+        return Err(Error::new("business_endpoint_mismatch"));
+    };
+    let mut entries = graph
+        .registry
+        .entries()
+        .iter()
+        .filter(|e| e.endpoint == endpoint && e.upstream_name == upstream);
+    let first = entries
+        .next()
+        .ok_or_else(|| Error::new("business_tool_not_found"))?;
+    if entries.next().is_some() {
+        return Err(Error::new("business_tool_binding_ambiguous"));
+    }
+    Ok((first, upstream))
+}
+
+pub fn is_student_paper_tool(endpoint: &str, name: &str) -> bool {
+    (endpoint == "dailyrecord" && crate::student::is_student_tool(name))
+        || (["paper1", "paper2"].contains(&endpoint) && crate::paper::is_paper_tool(name))
+}
+
 /// Additive, exact two-route binding. The original business_entry is unchanged.
 pub(crate) fn history_entry<'a>(
     graph: &'a ReleaseGraph,
