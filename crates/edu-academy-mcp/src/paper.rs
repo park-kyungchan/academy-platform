@@ -152,8 +152,11 @@ fn scope_envelope(source_requests: usize) -> Js {
 }
 
 fn failure_envelope(error: &Fault, source_requests: usize, _before: usize) -> Js {
+    // As in the History handler (business.rs), the public code comes from
+    // the catalogued failure projection, so failure.code == code always and
+    // an uncatalogued upstream string never reaches the envelope.
     let failure = read_failure::public_read_failure(error, "source_read_unavailable");
-    let code = source_code(error, &failure);
+    let code = failure.get("code").clone();
     let mut out = obj(&[
         ("status", "blocked".into()),
         ("code", code.clone()),
@@ -166,25 +169,6 @@ fn failure_envelope(error: &Fault, source_requests: usize, _before: usize) -> Js
     out.set("academyWrites", Js::Num(0.0));
     out.set("parentSends", Js::Num(0.0));
     out
-}
-
-fn source_code(error: &Fault, failure: &Js) -> Js {
-    let raw = error.properties.get("code");
-    if raw.string() && !raw.code_units().is_empty() {
-        return raw.clone();
-    }
-    if error.name == "ZodError" || error.name == "SyntaxError" {
-        return "source_response_malformed".into();
-    }
-    if !error.message.is_empty()
-        && error
-            .message
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
-    {
-        return error.message.as_str().into();
-    }
-    failure.get("code").clone()
 }
 
 /// Protocol-facing loan for one paper scope.

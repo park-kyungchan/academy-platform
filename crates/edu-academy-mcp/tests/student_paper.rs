@@ -967,7 +967,13 @@ fn paper_identity_drift_and_budget_refusals() {
             &paper_input(PaperScope::Paper1),
         )
         .unwrap();
-    assert_eq!(out.get("code").code_units(), "contract_drift");
+    // R1: the public code is the catalogued projection, not the raw source
+    // string; contract_drift is uncatalogued and is masked to the fallback.
+    assert_eq!(out.get("code").code_units(), "source_read_unavailable");
+    assert_eq!(
+        out.get("failure").get("code").code_units(),
+        out.get("code").code_units()
+    );
     assert_eq!(out.get("failedSource").code_units(), "paper");
     assert_eq!(count.get(), 1);
     // Output budget: a definitions page with very many rows exceeds the cap
@@ -1019,9 +1025,19 @@ fn doc(path: &PathBuf, value: &Js) -> Js {
 }
 struct Scene {
     install: PathBuf,
+    base: PathBuf,
+}
+impl Drop for Scene {
+    // R7: the fixture root is removed at the end of each test.
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.base);
+    }
 }
 impl Scene {
     fn new(label: &str) -> Self {
+        Self::new_with(label, "fictional", None)
+    }
+    fn new_with(label: &str, kind: &str, scopes: Option<Js>) -> Self {
         let home = std::env::var_os("HOME")
             .map(PathBuf::from)
             .unwrap_or_else(std::env::temp_dir);
@@ -1059,23 +1075,25 @@ impl Scene {
         ]);
         routing.set(
             "paperScopes",
-            Js::Arr(vec![
-                obj(&[
-                    ("endpoint", "paper1".into()),
-                    ("studentIds", Js::Arr(vec!["77001".into()])),
-                ]),
-                obj(&[
-                    ("endpoint", "paper2".into()),
-                    ("studentIds", Js::Arr(vec!["77002".into()])),
-                ]),
-            ]),
+            scopes.unwrap_or_else(|| {
+                Js::Arr(vec![
+                    obj(&[
+                        ("endpoint", "paper1".into()),
+                        ("studentIds", Js::Arr(vec!["77001".into()])),
+                    ]),
+                    obj(&[
+                        ("endpoint", "paper2".into()),
+                        ("studentIds", Js::Arr(vec!["77002".into()])),
+                    ]),
+                ])
+            }),
         );
         let routing_pin = doc(&install.join("routing.json"), &routing);
         let owner = doc(
             &install.join("owner.json"),
             &obj(&[
                 ("schemaVersion", "academy.rust-owner/1".into()),
-                ("kind", "fictional".into()),
+                ("kind", kind.into()),
                 ("uid", Js::Num(rustix::process::geteuid().as_raw() as f64)),
                 ("installRoot", install.to_str().unwrap().into()),
                 (
@@ -1161,7 +1179,7 @@ impl Scene {
             ("endpoints", endpoints_pin),
         ]);
         put(&install.join("release.json"), &encode(&pointer).unwrap());
-        Self { install }
+        Self { install, base }
     }
     fn graph(&self) -> ReleaseGraph {
         ReleaseGraph::open(&self.install).unwrap()
@@ -1312,4 +1330,356 @@ fn protocol_maps_student_and_paper_calls_and_errors() {
         out.has("error"),
         "admission mismatch must be an RPC error: {out:?}"
     );
+}
+
+// ---------- repair 1: R1 catalogued envelopes, R2 over-cap, R3/R4 protocol ----------
+fn big_daily(row_count: usize, title_len: usize) -> String {
+    let title = "x".repeat(title_len);
+    let rows: Vec<Js> = (0..row_count)
+        .map(|i| {
+            obj(&[
+                ("priNo", "77001".into()),
+                ("userName", "Fictional One".into()),
+                ("pNo", format!("{}", i + 1).into()),
+                ("testingNo", format!("{}", 81001 + i).into()),
+                ("score", 100.into()),
+                ("_id", "fictional-row".into()),
+                ("title", title.as_str().into()),
+            ])
+        })
+        .collect();
+    result(rows)
+}
+fn student_driver_fault(code: &'static str) -> (StudentDriver<Fake>, Rc<Cell<usize>>) {
+    let count = Rc::new(Cell::new(0));
+    let seen = Rc::new(RefCell::new(vec![]));
+    let port = Fake {
+        policy: student_admission(),
+        replies: VecDeque::new(),
+        count: count.clone(),
+        seen,
+        fault: Some(code),
+    };
+    let source = StudentSource::new(
+        port,
+        Owner::parse(&owner_value()).unwrap(),
+        student_admission(),
+        MetadataPolicy::parse(&policy_value()).unwrap(),
+        Some(PaperFormPin::parse(&form_value()).unwrap()),
+    )
+    .unwrap();
+    (StudentDriver::new(source, routing_admission()), count)
+}
+fn paper_driver_fault(
+    scope: PaperScope,
+    code: &'static str,
+) -> (PaperDriver<Fake>, Rc<Cell<usize>>) {
+    let count = Rc::new(Cell::new(0));
+    let seen = Rc::new(RefCell::new(vec![]));
+    let port = Fake {
+        policy: paper_admission(scope),
+        replies: VecDeque::new(),
+        count: count.clone(),
+        seen,
+        fault: Some(code),
+    };
+    let source = PaperSource::new(port, paper_owner(scope), paper_admission(scope)).unwrap();
+    (
+        PaperDriver::new(source, routing_admission(), DATE.into()),
+        count,
+    )
+}
+fn paper_driver_on(scope: PaperScope, lesson_date: &str) -> (PaperDriver<Fake>, Rc<Cell<usize>>) {
+    let (port, count, _) = fake(paper_admission(scope), vec![]);
+    let source = PaperSource::new(port, paper_owner(scope), paper_admission(scope)).unwrap();
+    (
+        PaperDriver::new(source, routing_admission(), lesson_date.into()),
+        count,
+    )
+}
+
+#[test]
+fn r1_envelope_code_is_catalogued_and_uncatalogued_is_masked() {
+    // Student: an uncatalogued upstream code never reaches the envelope.
+    let (mut driver, count) = student_driver_fault("uncatalogued_upstream_xyz");
+    let out = driver
+        .call(
+            "academy_student_metadata",
+            &student_request(vec![js(r#"{"kind":"daily_metadata"}"#)], false),
+        )
+        .unwrap();
+    assert_eq!(out.get("status").code_units(), "unavailable");
+    assert_eq!(
+        out.get("code").code_units(),
+        "student_metadata_unqualified_no_automatic_retry"
+    );
+    assert_eq!(
+        out.get("failure").get("code").code_units(),
+        out.get("code").code_units()
+    );
+    assert_eq!(
+        out.get("reasonCode").code_units(),
+        out.get("code").code_units()
+    );
+    assert!(
+        !String::from_utf8(encode(&out).unwrap())
+            .unwrap()
+            .contains("uncatalogued_upstream_xyz")
+    );
+    assert_eq!(count.get(), 1);
+    // Student: a catalogued code passes through unchanged, still consistent.
+    let (mut driver, _) = student_driver(vec![]);
+    let mut input = student_request(vec![js(r#"{"kind":"daily_metadata"}"#)], false);
+    let mut scope = input.get("scope").clone();
+    scope.set("teacherId", "99002".into());
+    input.set("scope", scope);
+    let out = driver.call("academy_student_metadata", &input).unwrap();
+    assert_eq!(
+        out.get("code").code_units(),
+        "native_metadata_scope_refused"
+    );
+    assert_eq!(
+        out.get("failure").get("code").code_units(),
+        out.get("code").code_units()
+    );
+    // Paper: same masking on the blocked envelope.
+    let (mut driver, count) = paper_driver_fault(PaperScope::Paper1, "uncatalogued_upstream_xyz");
+    let out = driver
+        .call(
+            "academy_daily_test_inventory",
+            &paper_input(PaperScope::Paper1),
+        )
+        .unwrap();
+    assert_eq!(out.get("status").code_units(), "blocked");
+    assert_eq!(out.get("code").code_units(), "source_read_unavailable");
+    assert_eq!(
+        out.get("failure").get("code").code_units(),
+        out.get("code").code_units()
+    );
+    assert!(
+        !String::from_utf8(encode(&out).unwrap())
+            .unwrap()
+            .contains("uncatalogued_upstream_xyz")
+    );
+    assert_eq!(count.get(), 1);
+}
+
+#[test]
+fn r2_over_cap_branches_for_metadata_and_paper() {
+    // Metadata: a small control succeeds; the big page forces the cap branch.
+    let (mut driver, _) = student_driver(vec![("metadata.daily", big_daily(2, 10))]);
+    let small = driver
+        .call(
+            "academy_student_metadata",
+            &student_request(vec![js(r#"{"kind":"daily_metadata"}"#)], false),
+        )
+        .unwrap();
+    assert_eq!(small.get("status").code_units(), "observed");
+    let (mut driver, count) = student_driver(vec![("metadata.daily", big_daily(600, 1500))]);
+    let out = driver
+        .call(
+            "academy_student_metadata",
+            &student_request(vec![js(r#"{"kind":"daily_metadata"}"#)], false),
+        )
+        .unwrap();
+    assert_eq!(out.get("status").code_units(), "unavailable");
+    assert_eq!(out.get("failedSource").code_units(), "metadata");
+    assert_eq!(out.get("sourceRequests"), &Js::Num(1.0));
+    assert_eq!(
+        out.get("failure").get("code").code_units(),
+        out.get("code").code_units()
+    );
+    assert_eq!(count.get(), 1);
+    // Paper inventory: same forcing through the paper adapter cap.
+    let (mut driver, _) = paper_driver(
+        PaperScope::Paper1,
+        vec![("metadata.daily", big_daily(2, 10))],
+    );
+    let small = driver
+        .call(
+            "academy_daily_test_inventory",
+            &paper_input(PaperScope::Paper1),
+        )
+        .unwrap();
+    assert_eq!(small.get("status").code_units(), "observed");
+    let (mut driver, count) = paper_driver(
+        PaperScope::Paper1,
+        vec![("metadata.daily", big_daily(600, 1500))],
+    );
+    let out = driver
+        .call(
+            "academy_daily_test_inventory",
+            &paper_input(PaperScope::Paper1),
+        )
+        .unwrap();
+    assert_eq!(out.get("status").code_units(), "blocked");
+    assert_eq!(out.get("failedSource").code_units(), "paper");
+    assert_eq!(
+        out.get("failure").get("code").code_units(),
+        out.get("code").code_units()
+    );
+    assert_eq!(count.get(), 1);
+}
+
+#[test]
+fn r3_protocol_scope_crossing_refusals() {
+    let scene = Scene::new("crossing");
+    let (mut student, _) = student_driver(vec![]);
+    let (mut p1, _) = paper_driver(PaperScope::Paper1, vec![]);
+    let (mut p2, _) = paper_driver(PaperScope::Paper2, vec![]);
+    // class2_* inside a paper1 session -> paper_scope_unresolved RPC error.
+    let mut session = RpcSession::endpoint(scene.graph(), "paper1".into()).unwrap();
+    let out = session
+        .handle_student_paper(
+            &rpc(
+                "c1",
+                "class2_academy_daily_test_inventory",
+                &paper_input(PaperScope::Paper1),
+            ),
+            &mut student,
+            &mut [&mut p1, &mut p2],
+        )
+        .unwrap()
+        .unwrap();
+    assert!(out.has("error"), "{out:?}");
+    assert!(
+        String::from_utf8(encode(&out).unwrap())
+            .unwrap()
+            .contains("paper_scope_unresolved")
+    );
+    // A paper tool name on the dailyrecord endpoint is not a student/paper
+    // target and falls through to the unchanged unknown-tool refusal.
+    let (mut student, _) = student_driver(vec![]);
+    let (mut p1, _) = paper_driver(PaperScope::Paper1, vec![]);
+    let (mut p2, _) = paper_driver(PaperScope::Paper2, vec![]);
+    let mut session = RpcSession::endpoint(scene.graph(), "dailyrecord".into()).unwrap();
+    let out = session
+        .handle_student_paper(
+            &rpc(
+                "c2",
+                "academy_paper_headers",
+                &paper_input(PaperScope::Paper1),
+            ),
+            &mut student,
+            &mut [&mut p1, &mut p2],
+        )
+        .unwrap()
+        .unwrap();
+    assert!(
+        String::from_utf8(encode(&out).unwrap())
+            .unwrap()
+            .contains("unknown_tool"),
+        "{out:?}"
+    );
+    // A student tool name on a paper endpoint likewise falls through.
+    let (mut student, _) = student_driver(vec![]);
+    let (mut p1, _) = paper_driver(PaperScope::Paper1, vec![]);
+    let (mut p2, _) = paper_driver(PaperScope::Paper2, vec![]);
+    let mut session = RpcSession::endpoint(scene.graph(), "paper1".into()).unwrap();
+    let out = session
+        .handle_student_paper(
+            &rpc(
+                "c3",
+                "academy_student_metadata",
+                &student_request(vec![js(r#"{"kind":"daily_metadata"}"#)], false),
+            ),
+            &mut student,
+            &mut [&mut p1, &mut p2],
+        )
+        .unwrap()
+        .unwrap();
+    assert!(
+        String::from_utf8(encode(&out).unwrap())
+            .unwrap()
+            .contains("unknown_tool"),
+        "{out:?}"
+    );
+    // Missing driver for the session endpoint in the papers slice.
+    let (mut student, _) = student_driver(vec![]);
+    let (mut only_p2, _) = paper_driver(PaperScope::Paper2, vec![]);
+    let mut session = RpcSession::endpoint(scene.graph(), "paper1".into()).unwrap();
+    let out = session
+        .handle_student_paper(
+            &rpc(
+                "c4",
+                "academy_daily_test_inventory",
+                &paper_input(PaperScope::Paper1),
+            ),
+            &mut student,
+            &mut [&mut only_p2],
+        )
+        .unwrap()
+        .unwrap();
+    assert!(out.has("error"), "{out:?}");
+    assert!(
+        String::from_utf8(encode(&out).unwrap())
+            .unwrap()
+            .contains("paper_scope_unresolved")
+    );
+}
+
+#[test]
+fn r4_protocol_binding_and_lesson_date_refusals() {
+    // A non-fictional owner graph is refused at graph open, before any
+    // session or driver exists.
+    let scene = Scene::new_with("nonfictional", "native", None);
+    let err = match ReleaseGraph::open(&scene.install) {
+        Ok(_) => panic!("non-fictional owner graph must refuse"),
+        Err(e) => e,
+    };
+    assert_eq!(err.code, "native_owner_binding_unqualified");
+    drop(scene);
+    // paperScopes mismatch: declared students do not cover the driver scope.
+    let scopes = Js::Arr(vec![
+        obj(&[
+            ("endpoint", "paper1".into()),
+            ("studentIds", Js::Arr(vec!["77009".into()])),
+        ]),
+        obj(&[
+            ("endpoint", "paper2".into()),
+            ("studentIds", Js::Arr(vec!["77002".into()])),
+        ]),
+    ]);
+    let scene = Scene::new_with("scopes", "fictional", Some(scopes));
+    let (mut student, _) = student_driver(vec![]);
+    let (mut p1, _) = paper_driver(PaperScope::Paper1, vec![]);
+    let (mut p2, _) = paper_driver(PaperScope::Paper2, vec![]);
+    let mut session = RpcSession::endpoint(scene.graph(), "paper1".into()).unwrap();
+    let out = session
+        .handle_student_paper(
+            &rpc(
+                "b1",
+                "academy_daily_test_inventory",
+                &paper_input(PaperScope::Paper1),
+            ),
+            &mut student,
+            &mut [&mut p1, &mut p2],
+        )
+        .unwrap()
+        .unwrap();
+    assert!(out.has("error"), "{out:?}");
+    assert!(
+        String::from_utf8(encode(&out).unwrap())
+            .unwrap()
+            .contains("paper_scope_unresolved")
+    );
+    drop(session);
+    drop(scene);
+    // Empty and invalid lesson_date refuse before any source request.
+    for bad_date in ["", "2040-02-30"] {
+        let (mut driver, count) = paper_driver_on(PaperScope::Paper1, bad_date);
+        let out = driver
+            .call(
+                "academy_daily_test_inventory",
+                &paper_input(PaperScope::Paper1),
+            )
+            .unwrap();
+        assert_eq!(out.get("status").code_units(), "blocked", "{bad_date}");
+        assert_eq!(
+            out.get("failure").get("code").code_units(),
+            out.get("code").code_units(),
+            "{bad_date}"
+        );
+        assert_eq!(count.get(), 0, "{bad_date}");
+    }
 }

@@ -91,9 +91,6 @@ pub(crate) fn student_paper_entry<'a>(
     name: &str,
 ) -> Result<(&'a Entry, String)> {
     let upstream = if crate::student::is_student_tool(name) {
-        if endpoint != "dailyrecord" {
-            return Err(Error::new("business_endpoint_mismatch"));
-        }
         name.to_string()
     } else if let Some(upstream) = crate::paper::upstream_name(name) {
         let class2 = crate::paper::is_class2_name(name);
@@ -102,9 +99,6 @@ pub(crate) fn student_paper_entry<'a>(
         }
         if !class2 && !["paper1", "paper2"].contains(&endpoint) {
             return Err(Error::new("business_endpoint_mismatch"));
-        }
-        if class2 && endpoint == "paper2" {
-            // Bridge spelling is accepted only inside the paper2 session.
         }
         upstream.to_string()
     } else {
