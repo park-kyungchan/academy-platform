@@ -710,6 +710,10 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         f.student_key.as_deref() == Some(&data.student_key)
             && f.book == data.edition
             && (f.course_key.is_none() || f.book_no.is_none())
+            && f.course_key.as_ref().is_none_or(|key| key == &data.course_key)
+            && f.book_no.as_ref().is_none_or(|key| key == &data.book_no)
+            && (f.kind == "original_work" || f.kind == "clinic_stage")
+            && data.activity.as_ref().is_none_or(|a| f.activity.is_empty() || &f.activity == a)
             && data.minors.iter().any(|leaf| leaf.minor.code == f.unit)
             && (all_topics || topic == l::UNIT_TOPICS[2])
     }) {
