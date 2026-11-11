@@ -17,6 +17,7 @@ pub enum Status {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StopCode {
     StudentNotFound,
+    RosterClassMismatch,
     BookNotFound,
     DateNotAdmitted,
     DraftExpired,
@@ -31,6 +32,7 @@ impl StopCode {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::StudentNotFound => "student_not_found",
+            Self::RosterClassMismatch => "roster_class_mismatch",
             Self::BookNotFound => "book_not_found",
             Self::DateNotAdmitted => "date_not_admitted",
             Self::DraftExpired => "draft_expired",

@@ -18,5 +18,11 @@ Both modes request --include-hook-events; isolation records hook_condition as pa
 Offline re-scoring: python3 -B crates/edu-academy-teacher/harness/rescore.py <run-dir> [...]. It uses the same score_stream as live runs, reads evidence without modifying it, and emits only mode/request/model/received_form/verbatim/extra_chars/isolation/delivery. No tool arguments, file contents, answers or reference text leave the saved directories.
 Installed rows retain a reduced fail-closed check: exactly one init, well-formed stream, and a tools list limited to per-run Academy names plus Skill. Passing this check reports `not_applicable`; failure reports `FAIL` with reasons. Full isolation criteria apply to isolated rows. Hook evidence remains recorded.
 
-Q03 requests preparation for the unknown class 가상반Z on scenario v1, triggering a class_name ask with the three known class labels. Checks require every label and exactly one Academy call before a teacher answer; Skill calls are counted separately in total calls.
+Q03 requests preparation for the unknown class 가상반Z on scenario v2, triggering a class_name ask with the three known class labels. Checks require every label and exactly one Academy call before a teacher answer; Skill calls are counted separately in total calls.
 `received_text_bytes` is the UTF-8 length of the last delivered Academy text before whitespace normalisation. Per-call lengths are matched by tool-use id in the stream, then by tool name and call order to the optional server run-log. `delivery` is `same` when all matched lengths equal display_bytes, `truncated_or_changed` on a mismatch, or `unknown` if evidence cannot be paired. Equal byte lengths do not prove equal content; verbatim scoring still uses the delivered text.
+
+Q01/Q02 previous_lesson_date: the assignment/record provenance names November 9; forbidden-date checks reject November 4 (ISO and Korean forms).
+Q01 line0 and Q02 line1: A's 2-1 video row says uploaded and awaiting teacher confirmation, without server/teacher completion claims.
+Q02 roster_order: complete student action blocks occur in roster order A, B, C (reminders stay in their separate section).
+Q02 line0: B's video absence is scoped to the lists, never a claim the student did not do or upload the work.
+Q03 labels and academy_calls_before_answer: show all three class choices and wait after one Academy call. The default fixture is scenario-v2.json.

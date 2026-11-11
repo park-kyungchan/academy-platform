@@ -19,6 +19,14 @@ pub const NOW: &str = "2026-11-11T09:00:00+09:00";
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Scenario {
+    #[serde(default)]
+    pub read_at: Option<String>,
+    #[serde(default)]
+    pub admitted_dates: Option<crate::facts::DateRange>,
+    #[serde(default)]
+    pub teacher_fact_reports: Vec<crate::facts::TeacherFactReport>,
+    #[serde(default)]
+    pub reminders: Vec<crate::facts::Reminder>,
     pub today: String,
     pub students: Vec<ScenarioStudent>,
     pub classes: Vec<ScenarioClass>,
@@ -134,6 +142,19 @@ pub fn load_scenario(text: &str) -> std::result::Result<Scenario, String> {
 pub fn validate_scenario(scenario: &Scenario) -> std::result::Result<(), String> {
     chrono::NaiveDate::parse_from_str(&scenario.today, "%Y-%m-%d")
         .map_err(|_| "scenario_today_invalid".to_string())?;
+    if let Some(at) = &scenario.read_at {
+        chrono::DateTime::parse_from_rfc3339(at)
+            .map_err(|_| "scenario_read_at_invalid".to_string())?;
+    }
+    if let Some(range) = &scenario.admitted_dates {
+        let from = chrono::NaiveDate::parse_from_str(&range.from, "%Y-%m-%d")
+            .map_err(|_| "scenario_admitted_dates_invalid".to_string())?;
+        let to = chrono::NaiveDate::parse_from_str(&range.to, "%Y-%m-%d")
+            .map_err(|_| "scenario_admitted_dates_invalid".to_string())?;
+        if from > to {
+            return Err("scenario_admitted_dates_reversed".into());
+        }
+    }
     let mut seen = std::collections::HashSet::new();
     for record in &scenario.records {
         if !seen.insert((record.student.clone(), record.date.clone())) {
@@ -571,6 +592,10 @@ impl SourceBackend<SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPor
     /// directory and the invented teacher identity, read at `NOW` unless a
     /// caller passes another clock value.
     pub fn synthetic(scenario: Scenario, read_at: &str) -> Self {
+        let read_at = scenario
+            .read_at
+            .clone()
+            .unwrap_or_else(|| read_at.to_string());
         let directory = scenario
             .students
             .iter()
@@ -589,7 +614,7 @@ impl SourceBackend<SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPor
                 teacher_id: TEACHER_ID.into(),
                 teacher_label: TEACHER_LABEL.into(),
                 teacher_key: TEACHER_KEY.into(),
-                read_at: read_at.into(),
+                read_at,
             },
         )
     }

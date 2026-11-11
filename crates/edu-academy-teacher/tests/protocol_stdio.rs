@@ -47,7 +47,17 @@ impl Server {
             std::os::unix::fs::symlink(dir.join("target"), &run_log).unwrap();
         }
         let scenario =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/scenario-v1.json");
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/scenario-v2.json");
+        let scenario = if kind == Some("empty_roster") {
+            let mut value: Value =
+                serde_json::from_str(&std::fs::read_to_string(&scenario).unwrap()).unwrap();
+            value["classes"][2]["roster"] = json!([]);
+            let path = dir.join("scenario.json");
+            std::fs::write(&path, value.to_string()).unwrap();
+            path
+        } else {
+            scenario
+        };
         let mut child = Command::new(env!("CARGO_BIN_EXE_edu-academy-teacher"))
             .args([
                 "--scenario",
@@ -445,4 +455,49 @@ fn oversized_line_at_eof_is_parse_error() {
 #[test]
 fn partial_line_at_eof_is_answered() {
     assert_eq!(reply_at_eof(br#"{"id":42,"method":"ping"}"#)["id"], 42);
+}
+
+#[test]
+fn seven_contract_targets_through_tools_call() {
+    for (arguments, expected, empty) in [
+        (json!({"student":"가상학생A"}), DISPLAY_Q01, false),
+        (json!({"class_name":"가상반A"}), DISPLAY_Q02, false),
+        (
+            json!({"student":"가상학생F"}),
+            include_str!("fixtures/display-previous-not-found.txt"),
+            false,
+        ),
+        (
+            json!({"student":"가상학생A","class_name":"가상반B"}),
+            include_str!("fixtures/display-disagreement.txt"),
+            false,
+        ),
+        (
+            json!({"student":"가상학생A","date":"2026-10-20"}),
+            include_str!("fixtures/display-outside-admission.txt"),
+            false,
+        ),
+        (
+            json!({"class_name":"가상반C"}),
+            include_str!("fixtures/display-empty-roster.txt"),
+            true,
+        ),
+        (
+            json!({"student":"가상학생A","date":"지난 수업일"}),
+            include_str!("fixtures/display-previous-lesson-date.txt"),
+            false,
+        ),
+    ] {
+        let mut server = Server::start_with_log(if empty { Some("empty_roster") } else { None });
+        let response=server.call(json!({"id":1,"method":"tools/call","params":{"name":"academy_lesson_prepare","arguments":arguments}}));
+        assert_eq!(
+            response["result"]["content"],
+            json!([{"type":"text","text":expected}])
+        );
+        assert_eq!(
+            response["result"]["_meta"]["academy/envelope"]["display"],
+            expected
+        );
+        assert!(response["result"].get("structuredContent").is_none());
+    }
 }

@@ -194,11 +194,18 @@ fn assessment_labels_map_every_advertised_value() {
 #[test]
 fn verdict_labels_are_the_single_table() {
     assert_eq!(Verdict::ALL.len(), 18);
-    assert_eq!(Verdict::Found.label_ko(), "확인됨");
-    assert_eq!(Verdict::Waiting.label_ko(), "대기: 업로드됨, 교사 확인 전");
+    for verdict in Verdict::ALL {
+        assert!(!verdict.label_ko().is_empty());
+        assert_eq!(
+            verdict.label_ko(),
+            edu_academy_teacher::display_labels::verdict(verdict.code())
+        );
+    }
+    assert_eq!(Verdict::Found.label_ko(), "서버 확인");
+    assert_eq!(Verdict::Waiting.label_ko(), "미확인(업로드됨·교사 확인 전)");
     assert_eq!(
         Verdict::NotObservedInEitherSource.label_ko(),
-        "미확인 (두 원천 모두 없음)"
+        "미확인(두 원천 모두에 없음)"
     );
 }
 
@@ -238,4 +245,29 @@ fn unknown_tool_lists_only_implemented_slice() {
         Envelope::unknown_tool().display,
         "그런 이름의 도구는 없습니다. 쓸 수 있는 도구: academy_lesson_prepare"
     );
+}
+
+#[test]
+fn display_lint_checks_closing_heading_order_and_six_fields() {
+    for text in [DISPLAY_Q01, DISPLAY_Q02] {
+        display_lint(text).unwrap();
+        assert!(
+            display_lint(
+                text.lines()
+                    .take(text.lines().count() - 1)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    .as_str()
+            )
+            .is_err()
+        );
+        assert!(display_lint(&text.replace("알림\n", "다음 확인\n")).is_err());
+        let reversed = text
+            .replacen("알림\n", "TEMP\n", 1)
+            .replacen("학생별 할 일\n", "알림\n", 1)
+            .replacen("TEMP\n", "학생별 할 일\n", 1);
+        assert!(display_lint(&reversed).is_err());
+        assert!(display_lint(&text.replacen("가상학생D | 오늘", "가상학생D 오늘", 1)).is_err());
+        assert!(display_lint(&text.replacen(" | ", " / ", 1)).is_err());
+    }
 }

@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 pub mod backend;
+pub mod display_labels;
 pub mod envelope;
 pub mod facts;
 pub mod labels;

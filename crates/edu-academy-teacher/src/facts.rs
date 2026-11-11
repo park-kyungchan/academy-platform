@@ -24,6 +24,18 @@ pub struct NotBrought {
 }
 
 pub trait TeacherFacts {
+    fn read_at(&self) -> Option<&str> {
+        None
+    }
+    fn admitted_dates(&self) -> Option<&DateRange> {
+        None
+    }
+    fn reports(&self) -> Vec<TeacherFactReport> {
+        Vec::new()
+    }
+    fn reminders(&self) -> Vec<Reminder> {
+        Vec::new()
+    }
     fn class(&self, name: &str) -> Option<ClassFact>;
     fn moved_lessons(&self, class_name: &str) -> &[MovedLesson];
     fn class_names(&self) -> Vec<String> {
@@ -38,6 +50,10 @@ pub trait TeacherFacts {
 /// Seeded implementation from the scenario file's `classes` section.
 #[derive(Clone, Debug, Default)]
 pub struct SeededFacts {
+    read_at: Option<String>,
+    admitted_dates: Option<DateRange>,
+    reports: Vec<TeacherFactReport>,
+    reminders: Vec<Reminder>,
     classes: Vec<ClassFact>,
     moved: Vec<(String, Vec<MovedLesson>)>,
     carry_over: Vec<(String, NotBrought)>,
@@ -96,6 +112,10 @@ impl SeededFacts {
             })
             .collect();
         Self {
+            read_at: scenario.read_at.clone(),
+            admitted_dates: scenario.admitted_dates.clone(),
+            reports: scenario.teacher_fact_reports.clone(),
+            reminders: scenario.reminders.clone(),
             classes,
             moved,
             carry_over,
@@ -104,6 +124,18 @@ impl SeededFacts {
 }
 
 impl TeacherFacts for SeededFacts {
+    fn read_at(&self) -> Option<&str> {
+        self.read_at.as_deref()
+    }
+    fn admitted_dates(&self) -> Option<&DateRange> {
+        self.admitted_dates.as_ref()
+    }
+    fn reports(&self) -> Vec<TeacherFactReport> {
+        self.reports.clone()
+    }
+    fn reminders(&self) -> Vec<Reminder> {
+        self.reminders.clone()
+    }
     fn class_names(&self) -> Vec<String> {
         self.classes.iter().map(|c| c.name.clone()).collect()
     }
@@ -140,4 +172,50 @@ pub fn parse_weekday(value: &str) -> Option<Weekday> {
 
 pub fn weekday_of(date: NaiveDate) -> Weekday {
     date.weekday()
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct DateRange {
+    pub from: String,
+    pub to: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct TeacherFactReport {
+    pub kind: String,
+    pub student: String,
+    pub reported_on: String,
+    #[serde(default)]
+    pub assigned_on: String,
+    #[serde(default)]
+    pub lesson_date: String,
+    #[serde(default)]
+    pub book: String,
+    #[serde(default)]
+    pub unit: String,
+    #[serde(default)]
+    pub activity: String,
+    #[serde(default)]
+    pub stages: Vec<String>,
+    #[serde(default)]
+    pub item_labels: Vec<String>,
+    #[serde(default)]
+    pub stage: String,
+    #[serde(default)]
+    pub completed: Option<bool>,
+    #[serde(default)]
+    pub at: String,
+    #[serde(default)]
+    pub action: String,
+    #[serde(default)]
+    pub status: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Reminder {
+    pub student: Option<String>,
+    pub at: String,
+    pub action: String,
+    pub status: String,
+    pub reported_on: String,
 }
