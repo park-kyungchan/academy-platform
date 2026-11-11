@@ -413,6 +413,28 @@ pub fn read_contracts() -> Vec<OperationContract> {
             vec![],
         ),
         op(
+            "textbook.wrongnote",
+            COURSE_NS,
+            "POST",
+            "/servlet/controller.common.TestpageSelectExServlet",
+            vec![],
+            vec![
+                lit("p_process", "getWrongAnswerNoteResult"),
+                arg("answerNoteResult", 256),
+            ],
+        ),
+        op(
+            "textbook.detail",
+            COURSE_NS,
+            "POST",
+            "/servlet/controller.common.TestpageSelectExServlet",
+            vec![],
+            vec![
+                lit("p_process", "getStudyResultSingleTestingSingleUser"),
+                arg("condition", 2000),
+            ],
+        ),
+        op(
             "metadata.daily",
             METADATA_NS,
             "POST",
