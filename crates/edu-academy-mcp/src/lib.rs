@@ -10,6 +10,7 @@ pub mod endpoint;
 pub mod framing;
 pub mod identity;
 pub mod paper;
+pub mod prestudy;
 pub mod process;
 pub mod protocol;
 pub mod registry;
