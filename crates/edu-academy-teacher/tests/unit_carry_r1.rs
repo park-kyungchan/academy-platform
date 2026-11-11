@@ -82,3 +82,65 @@ fn r1_successful_section_index_without_qualified_paper_search_is_not_a_whole_sou
         }
     }
 }
+
+fn prefix_books(reverse: bool, duplicates: bool) -> Case {
+    let mut c = Case::new(1);
+    c.scope(2, "섹션");
+    c.scenario.sections.attempts.clear();
+    let template = c.scenario.students[0].bindings[0].clone();
+    c.scenario.students[0].bindings = ["수학", "수학 2"].into_iter().enumerate().flat_map(|(b, name)| {
+        let template = template.clone();
+        (0..if duplicates { 2 } else { 1 }).map(move |course| {
+            let mut binding = template.clone();
+            binding.label = name.into();
+            binding.course_key = format!("{}", 101 + b * 10 + course);
+            binding.book_no = format!("{}", 201 + b * 10 + course);
+            binding
+        })
+    }).collect();
+    if reverse { c.scenario.students[0].bindings.reverse(); }
+    let tree = c.scenario.edition_trees[0].clone();
+    c.scenario.edition_trees = ["수학", "수학 2"].into_iter().map(|name| {
+        let mut tree = tree.clone(); tree.edition = name.into(); tree
+    }).collect();
+    c
+}
+
+#[test]
+fn r1_longest_registered_book_wins_in_both_registration_orders() {
+    for reverse in [false, true] {
+        for (text, book, count) in [("수학 1-1", "수학", 1), ("수학 2 1-1", "수학 2", 1), ("수학 2", "수학 2", 2)] {
+            let mut c = prefix_books(reverse, false);
+            c.request.book = Some(text.into());
+            let out = c.run();
+            assert!(out.ask.is_none() && out.stop.is_none(), "{reverse}/{text}: {}", out.display);
+            assert_eq!(out.data["edition"], book);
+            assert_eq!(out.data["minors"].as_array().unwrap().len(), count);
+            let expected = if count == 1 {
+                format!("가상학생A {book} 대단원 1 소단원 1-1 가상주제1 섹션 결과")
+            } else {
+                format!("가상학생A {book}  섹션 결과")
+            };
+            assert_eq!(out.display.lines().next().unwrap(), expected);
+        }
+    }
+}
+
+#[test]
+fn r1_course_ask_keeps_only_longest_book_and_its_own_unit_suffix() {
+    for reverse in [false, true] {
+        let mut c = prefix_books(reverse, true);
+        c.request.book = Some("수학 2 1-1".into());
+        let out = c.run();
+        let ask = out.ask.expect("same longest book registered twice");
+        assert_eq!(out.display, "가상학생A의 교재 등록을 확인했습니다.\n수학 2: 같은 교재가 2개 과정에 등록되어 있습니다.\n어느 교재와 등록 과정을 볼까요?\n- 수학 2 (등록 과정 1) 1-1: 이 교재의 현황을 봅니다.\n- 수학 2 (등록 과정 2) 1-1: 이 교재의 현황을 봅니다.");
+        assert_eq!(ask.options.iter().map(|o| o.value.as_str()).collect::<Vec<_>>(), ["수학 2 (등록 과정 1) 1-1", "수학 2 (등록 과정 2) 1-1"]);
+        for option in ask.options {
+            c.request.book = Some(option.value);
+            let out = c.run();
+            assert_eq!(out.data["edition"], "수학 2");
+            assert_eq!(out.data["minors"].as_array().unwrap().len(), 1);
+            assert_eq!(out.display.lines().next().unwrap(), "가상학생A 수학 2 대단원 1 소단원 1-1 가상주제1 섹션 결과");
+        }
+    }
+}
