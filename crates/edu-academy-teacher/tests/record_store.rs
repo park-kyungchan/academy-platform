@@ -698,7 +698,10 @@ fn stored_draft_validation_binds_structure_identity_content_questions_attempts_a
         ("/binding/generation", json!("foreign")),
         ("/rendered_preview", json!("changed")),
         ("/pending_questions/0/revision", json!(2)),
-        ("/pending_questions/0/choices/0/answer/type", json!("text")),
+        (
+            "/pending_questions/0/choices/0/answer",
+            json!({"type": "text", "value": "yes"}),
+        ),
         ("/pending_attempt/ordinal", json!(2)),
         ("/pending_attempt/instruction_hash", json!("x".repeat(64))),
         ("/pending_attempt/instruction_hash", json!("a".repeat(63))),
@@ -727,6 +730,19 @@ fn stored_draft_validation_binds_structure_identity_content_questions_attempts_a
     let mut extra = serde_json::to_value(&d).unwrap();
     extra["pending_approval"] = json!(true);
     assert!(validate_draft(&serde_json::to_vec(&extra).unwrap(), &identity()).is_err());
+    let mut future = d.clone();
+    let attempt = future.pending_attempt.as_mut().unwrap();
+    attempt.ordinal = std::num::NonZeroU64::new(2).unwrap();
+    attempt.request_ref = "p8s3:".to_owned()
+        + &edu_academy_teacher::record_data::content_hash(&(
+            &attempt.binding,
+            attempt.ordinal.get(),
+            &attempt.instruction_hash,
+        ))
+        .unwrap();
+    assert!(validate_draft(&serde_json::to_vec(&future).unwrap(), &identity()).is_err());
+    future.next_attempt_ordinal = std::num::NonZeroU64::new(2).unwrap();
+    assert!(validate_draft(&serde_json::to_vec(&future).unwrap(), &identity()).is_ok());
     assert!(validate_draft(b"not JSON", &identity()).is_err());
     let mut exact = bytes.clone();
     exact.resize(MAX_FILE_BYTES, b' ');
