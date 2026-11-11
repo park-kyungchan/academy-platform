@@ -161,7 +161,10 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
                 .count()
                 > 1
             {
-                l::unit_course_book(&b.book_label, i + 1)
+                l::unit_course_book(
+                    &b.book_label,
+                    bindings[..=i].iter().filter(|other| other.book_label == b.book_label).count(),
+                )
             } else {
                 b.book_label.clone()
             }
@@ -255,13 +258,28 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
     let binding = if let [one] = candidates.as_slice() {
         *one
     } else {
-        return Err(ask(
-            AskField::Book,
+        let mut books = Vec::new();
+        for b in &candidates {
+            if !books.contains(&b.book_label) {
+                books.push(&b.book_label);
+            }
+        }
+        let duplicates: Vec<_> = books.iter().filter_map(|book| {
+            let count = candidates.iter().filter(|b| b.book_label == ***book).count();
+            (count > 1).then(|| l::unit_course_registration(&cell(book), count))
+        }).collect();
+        let question = if duplicates.is_empty() {
             if topic == l::UNIT_TOPICS[2] {
                 l::unit_book_ask(&cell(&student.name), candidates.len())
             } else {
                 l::unit_book_other_ask(&cell(&student.name))
-            },
+            }
+        } else {
+            l::unit_course_ask(&cell(&student.name), &duplicates.join("\n"))
+        };
+        return Err(ask(
+            AskField::Book,
+            question,
             bindings
                 .iter()
                 .enumerate()

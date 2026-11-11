@@ -704,3 +704,10 @@ pub fn unit_unscoped_judgment(scope: &str, value: &str) -> String {
 pub fn unit_unscoped_exclusion(unit: &str, activity: &str) -> String {
     format!("과정 연결 미확인: {unit} {activity} 섹션 제외·미확인({UNIT_COURSE_UNKNOWN})")
 }
+
+pub fn unit_course_registration(book: &str, count: usize) -> String {
+    format!("{book}: 같은 교재가 {count}개 과정에 등록되어 있습니다.")
+}
+pub fn unit_course_ask(who: &str, registrations: &str) -> String {
+    format!("{who}의 교재 등록을 확인했습니다.\n{registrations}\n어느 교재와 등록 과정을 볼까요?")
+}
