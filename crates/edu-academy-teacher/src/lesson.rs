@@ -264,9 +264,9 @@ fn class_options(facts: &dyn TeacherFacts) -> Vec<AskOption> {
         .collect()
 }
 
-fn carry_over_of(facts: &dyn TeacherFacts, student: &str) -> Vec<CarryOverItem> {
+fn carry_over_of(facts: &dyn TeacherFacts, student_key: &str) -> Vec<CarryOverItem> {
     facts
-        .not_brought(student)
+        .not_brought(student_key)
         .into_iter()
         .filter(|item: &NotBrought| !item.judged)
         .map(|item| CarryOverItem {
@@ -292,7 +292,7 @@ fn prepare_student<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
     let read_at = backend.read_at().to_string();
     let mut sources: Vec<SourceRead> = Vec::new();
     let mut unknowns: Vec<String> = Vec::new();
-    let carry_over = carry_over_of(facts, &student.name);
+    let carry_over = carry_over_of(facts, &student.key);
     let (previous, searched_from, searched_to, read_failed) =
         match previous_lesson(backend, facts, student, lesson_date) {
             PreviousOutcome::Found(found) => {
@@ -333,11 +333,6 @@ fn prepare_student<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
                 )
             }
             PreviousOutcome::Failed => {
-                sources.push(SourceRead {
-                    name: "daily_record".into(),
-                    read_at: read_at.clone(),
-                    scope: format!("{} {}", student.name, lesson_date.format("%Y-%m-%d")),
-                });
                 unknowns.push(format!("daily_record_read_failed:{}", student.name));
                 (None, None, None, true)
             }
@@ -347,11 +342,13 @@ fn prepare_student<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
         && let Some(start) = homework_minor_is_start(&prev.progress, &prev.homework)
     {
         let prestudy = backend.prestudy_verdict(&student.name, &start.book_label, &start.minor);
-        sources.push(SourceRead {
-            name: "prestudy".into(),
-            read_at: read_at.clone(),
-            scope: format!("{} {} {}", student.name, start.book_label, start.minor),
-        });
+        if prestudy != Verdict::Unknown {
+            sources.push(SourceRead {
+                name: "prestudy".into(),
+                read_at: read_at.clone(),
+                scope: format!("{} {} {}", student.name, start.book_label, start.minor),
+            });
+        }
         if prestudy == Verdict::Unknown {
             unknowns.push(format!("prestudy_unknown:{}:{}", student.name, start.minor));
         }
@@ -431,11 +428,16 @@ fn prepare_student<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
             &start.minor,
             &["필수예제", "유형다지기"],
         );
-        sources.push(SourceRead {
-            name: "textbook_sections".into(),
-            read_at,
-            scope: format!("{} {} {}", student.name, effective_book, start.minor),
-        });
+        if section_checks
+            .iter()
+            .any(|check| check.verdict != Verdict::Unknown)
+        {
+            sources.push(SourceRead {
+                name: "textbook_sections".into(),
+                read_at,
+                scope: format!("{} {} {}", student.name, effective_book, start.minor),
+            });
+        }
         for check in section_checks {
             if check.verdict == Verdict::Unknown {
                 unknowns.push(format!("section_unknown:{}:{}", student.name, check.scope));
@@ -471,6 +473,9 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
     req: &PrepareRequest,
     today: NaiveDate,
 ) -> Envelope {
+    // Per-call lesson-data read counts: a backend kept across calls gives
+    // the same status rule on every call from this difference alone.
+    let (attempted_at_start, succeeded_at_start) = backend.read_counts();
     let trimmed = |value: &Option<String>| {
         value
             .as_deref()
@@ -554,7 +559,8 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
             }
         }
     }
-    if backend.attempted_reads() > 0 && backend.succeeded_reads() == 0 {
+    let (attempted_now, succeeded_now) = backend.read_counts();
+    if attempted_now > attempted_at_start && succeeded_now == succeeded_at_start {
         return Envelope::stop(
             "원천을 읽지 못했습니다.".into(),
             data_value(&data),

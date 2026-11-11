@@ -12,7 +12,8 @@ pub enum Status {
 }
 
 /// Closed set of stop codes: the refusal catalogue of DESIGN-P8-v2 part 1,
-/// plus `tool_not_in_slice_1`, the extra code of slice 1.
+/// plus `tool_not_in_slice_1` and `student_ambiguous_unresolvable`, the
+/// extra codes of slice 1.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StopCode {
     StudentNotFound,
@@ -22,6 +23,7 @@ pub enum StopCode {
     SaveNoOpenDraft,
     SourceUnavailable,
     ToolNotInSlice1,
+    StudentAmbiguousUnresolvable,
 }
 
 impl StopCode {
@@ -34,6 +36,7 @@ impl StopCode {
             Self::SaveNoOpenDraft => "save_no_open_draft",
             Self::SourceUnavailable => "source_unavailable",
             Self::ToolNotInSlice1 => "tool_not_in_slice_1",
+            Self::StudentAmbiguousUnresolvable => "student_ambiguous_unresolvable",
         }
     }
 }

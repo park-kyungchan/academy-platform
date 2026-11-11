@@ -24,6 +24,48 @@ pub struct StudentEntry {
     pub class_name: String,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct NameHint {
+    class_name: Option<String>,
+    book_label: Option<String>,
+}
+
+enum NameSearch {
+    Resolved(ResolvedStudent),
+    Ambiguous(Vec<String>),
+    NotFound,
+}
+
+/// The disambiguated form `이름 (반 이름)` or `이름 (반 이름, 교재)`.
+fn parse_disambiguated(name: &str) -> Option<(String, NameHint)> {
+    let pos = name.rfind(" (")?;
+    if !name.ends_with(')') {
+        return None;
+    }
+    let base = &name[..pos];
+    let inline = &name[pos + 2..name.len() - 1];
+    if base.is_empty() || inline.is_empty() {
+        return None;
+    }
+    let (class_name, book_label) = match inline.split_once(", ") {
+        Some((class_name, book_label)) => (
+            class_name.trim().to_string(),
+            Some(book_label.trim().to_string()),
+        ),
+        None => (inline.trim().to_string(), None),
+    };
+    if class_name.is_empty() {
+        return None;
+    }
+    Some((
+        base.to_string(),
+        NameHint {
+            class_name: Some(class_name),
+            book_label,
+        },
+    ))
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedStudent {
     pub name: String,
@@ -79,6 +121,7 @@ pub struct SourceBackend<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>
     pub prestudy: PrestudySource<P>,
     pub sections: TextbookIndexSource<T>,
     directory: Vec<StudentEntry>,
+    book_labels_by_key: std::collections::BTreeMap<String, Vec<String>>,
     teacher_id: String,
     teacher_label: String,
     read_at: String,
@@ -131,6 +174,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
             ),
             sections: TextbookIndexSource::new(textbook_port, teacher_label.clone()),
             directory,
+            book_labels_by_key: std::collections::BTreeMap::new(),
             teacher_id,
             teacher_label,
             read_at,
@@ -155,6 +199,11 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
     pub fn succeeded_reads(&self) -> usize {
         self.succeeded
     }
+    /// Snapshot of the lesson-data read counters, for a per-call difference.
+    /// Name resolution is not a lesson-data read and is never counted here.
+    pub fn read_counts(&self) -> (usize, usize) {
+        (self.attempted, self.succeeded)
+    }
     pub fn prestudy_port_calls(&self) -> usize {
         self.prestudy.requests()
     }
@@ -166,108 +215,198 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
         self.directory.iter().find(|s| s.key == key)
     }
 
-    pub fn resolve_student(
+    pub(crate) fn set_book_labels_by_key(
         &mut self,
-        name: &str,
-        class_hint: Option<&str>,
-    ) -> Result<ResolvedStudent, BackendError> {
-        self.attempted += 1;
-        // The disambiguated form `이름 (반 이름)` names the class inline.
-        let (base, inline_class) = match name.rfind(" (") {
-            Some(pos) if name.ends_with(')') => {
-                (&name[..pos], Some(&name[pos + 2..name.len() - 1]))
+        book_labels_by_key: std::collections::BTreeMap<String, Vec<String>>,
+    ) {
+        self.book_labels_by_key = book_labels_by_key;
+    }
+
+    fn book_labels_for(&self, key: &str) -> &[String] {
+        self.book_labels_by_key.get(key).map_or(&[], Vec::as_slice)
+    }
+
+    fn book_label_for(&self, key: &str) -> &str {
+        self.book_labels_for(key).first().map_or("", String::as_str)
+    }
+
+    fn student_not_found() -> BackendError {
+        BackendError::Stop(Stop::new(
+            StopCode::StudentNotFound,
+            "학생을 찾지 못했습니다.",
+        ))
+    }
+
+    fn search_name(&mut self, query: &str) -> Result<NameSearch, BackendError> {
+        let name_js: Js = query.into();
+        let rows = match self.day.search_students_by_name(&name_js, None, None, 0) {
+            Ok(rows) => rows,
+            Err(edu_academy_sources::native::StageError::StudentNameNotAdmitted) => {
+                return Ok(NameSearch::NotFound);
             }
-            _ => (name, None),
+            Err(_) => return Err(BackendError::source_unavailable()),
         };
-        let hint = inline_class.or(class_hint);
-        let name_js: Js = base.into();
-        let rows = self
-            .day
-            .search_students_by_name(&name_js, None, None, 0)
-            .map_err(|error| {
-                if matches!(
-                    error,
-                    edu_academy_sources::native::StageError::StudentNameNotAdmitted
-                ) {
-                    BackendError::Stop(Stop::new(
-                        StopCode::StudentNotFound,
-                        "학생을 찾지 못했습니다.",
-                    ))
-                } else {
-                    BackendError::source_unavailable()
-                }
-            })?;
         let resolved = resolve_name(&name_js, &rows);
         let value = resolved.get("value");
         match string(value.get("status")).as_str() {
             "resolved" => {
                 let key = string(value.get("studentKey"));
                 let class_name = self.entry_by_key(&key).map(|s| s.class_name.clone());
-                if let Some(hint) = hint
-                    && class_name.as_deref() != Some(hint)
-                {
-                    return Err(BackendError::Stop(Stop::new(
-                        StopCode::StudentNotFound,
-                        "학생을 찾지 못했습니다.",
-                    )));
-                }
-                self.succeeded += 1;
-                Ok(ResolvedStudent {
-                    name: base.to_string(),
+                Ok(NameSearch::Resolved(ResolvedStudent {
+                    name: query.to_string(),
                     key,
                     class_name,
-                })
+                }))
             }
-            _ => {
-                let reason = string(value.get("reasonCode"));
-                if reason == "student_name_ambiguous" {
-                    let mut keys: Vec<String> = Vec::new();
-                    for row in rows.array() {
-                        let key = string(row.get("studentKey"));
-                        if !keys.contains(&key) {
-                            keys.push(key);
-                        }
+            _ if string(value.get("reasonCode")) == "student_name_ambiguous" => {
+                let mut keys: Vec<String> = Vec::new();
+                for row in rows.array() {
+                    let key = string(row.get("studentKey"));
+                    if !keys.contains(&key) {
+                        keys.push(key);
                     }
-                    if let Some(hint) = hint {
-                        let matched: Vec<&StudentEntry> = self
-                            .directory
-                            .iter()
-                            .filter(|s| {
-                                s.name == base && s.class_name == hint && keys.contains(&s.key)
-                            })
-                            .collect();
-                        if matched.len() == 1 {
-                            self.succeeded += 1;
-                            return Ok(ResolvedStudent {
-                                name: base.to_string(),
-                                key: matched[0].key.clone(),
-                                class_name: Some(matched[0].class_name.clone()),
-                            });
-                        }
-                    }
-                    let options = keys
-                        .iter()
-                        .map(|key| {
-                            let class =
-                                self.entry_by_key(key).map_or("", |s| s.class_name.as_str());
-                            let value = format!("{base} ({class})");
-                            AskOption {
-                                value: value.clone(),
-                                label_ko: value,
-                                meaning_ko: "그 반의 학생".into(),
-                            }
+                }
+                Ok(NameSearch::Ambiguous(keys))
+            }
+            _ => Ok(NameSearch::NotFound),
+        }
+    }
+
+    fn hint_matches(&self, student: &ResolvedStudent, hint: &NameHint) -> bool {
+        if let Some(class_name) = &hint.class_name
+            && student.class_name.as_deref() != Some(class_name.as_str())
+        {
+            return false;
+        }
+        if let Some(book_label) = &hint.book_label {
+            let matches_book = self
+                .book_labels_for(&student.key)
+                .iter()
+                .any(|label| label == book_label);
+            if !matches_book {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn disambiguate(
+        &self,
+        base: &str,
+        keys: Vec<String>,
+        hint: &NameHint,
+    ) -> Result<ResolvedStudent, BackendError> {
+        let mut candidates: Vec<(String, String, String)> = keys
+            .iter()
+            .map(|key| {
+                let entry = self.entry_by_key(key);
+                (
+                    key.clone(),
+                    entry.map_or_else(String::new, |entry| entry.class_name.clone()),
+                    self.book_label_for(key).to_string(),
+                )
+            })
+            .collect();
+        if hint.class_name.is_some() || hint.book_label.is_some() {
+            let matched: Vec<(String, String, String)> = candidates
+                .iter()
+                .filter(|(key, class_name, book_label)| {
+                    hint.class_name
+                        .as_ref()
+                        .is_none_or(|expected| class_name == expected)
+                        && hint.book_label.as_ref().is_none_or(|expected| {
+                            book_label == expected
+                                || self
+                                    .book_labels_for(key)
+                                    .iter()
+                                    .any(|label| label == expected)
                         })
-                        .collect();
-                    Err(BackendError::Ask(Ask {
-                        field: AskField::Student,
-                        question_ko: "어느 학생인가요?".into(),
-                        options,
-                    }))
+                })
+                .cloned()
+                .collect();
+            if matched.len() == 1 {
+                let (key, class_name, _) = matched.into_iter().next().expect("one match");
+                return Ok(ResolvedStudent {
+                    name: base.to_string(),
+                    key,
+                    class_name: Some(class_name),
+                });
+            }
+            if matched.is_empty() {
+                return Err(Self::student_not_found());
+            }
+            candidates = matched;
+        }
+        let options: Vec<AskOption> = candidates
+            .iter()
+            .map(|(_, class_name, book_label)| {
+                let same_class = candidates
+                    .iter()
+                    .filter(|(_, other_class, _)| other_class == class_name)
+                    .count()
+                    > 1;
+                let value = if same_class {
+                    format!("{base} ({class_name}, {book_label})")
                 } else {
-                    Err(BackendError::Stop(Stop::new(
-                        StopCode::StudentNotFound,
-                        "학생을 찾지 못했습니다.",
-                    )))
+                    format!("{base} ({class_name})")
+                };
+                AskOption {
+                    value: value.clone(),
+                    label_ko: value,
+                    meaning_ko: "그 반의 학생".into(),
+                }
+            })
+            .collect();
+        let mut values: Vec<&str> = options.iter().map(|option| option.value.as_str()).collect();
+        values.sort_unstable();
+        values.dedup();
+        if values.len() != options.len() {
+            return Err(BackendError::Stop(Stop::new(
+                StopCode::StudentAmbiguousUnresolvable,
+                "이름, 반, 교재가 같아 두 학생을 구분할 수 없습니다. 반 명부를 수정해 주세요.",
+            )));
+        }
+        Err(BackendError::Ask(Ask {
+            field: AskField::Student,
+            question_ko: "어느 학생인가요?".into(),
+            options,
+        }))
+    }
+
+    pub fn resolve_student(
+        &mut self,
+        name: &str,
+        class_hint: Option<&str>,
+    ) -> Result<ResolvedStudent, BackendError> {
+        // Try the full given string as a name first; only a name that no
+        // student has falls back to the `이름 (반 이름)` form.
+        let full_hint = NameHint {
+            class_name: class_hint.map(str::to_string),
+            book_label: None,
+        };
+        match self.search_name(name)? {
+            NameSearch::Resolved(student) => {
+                if self.hint_matches(&student, &full_hint) {
+                    Ok(student)
+                } else {
+                    Err(Self::student_not_found())
+                }
+            }
+            NameSearch::Ambiguous(keys) => self.disambiguate(name, keys, &full_hint),
+            NameSearch::NotFound => {
+                let Some((base, inline_hint)) = parse_disambiguated(name) else {
+                    return Err(Self::student_not_found());
+                };
+                match self.search_name(&base)? {
+                    NameSearch::Resolved(student) => {
+                        if self.hint_matches(&student, &inline_hint) {
+                            Ok(student)
+                        } else {
+                            Err(Self::student_not_found())
+                        }
+                    }
+                    NameSearch::Ambiguous(keys) => self.disambiguate(&base, keys, &inline_hint),
+                    NameSearch::NotFound => Err(Self::student_not_found()),
                 }
             }
         }

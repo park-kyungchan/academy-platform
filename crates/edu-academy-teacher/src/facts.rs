@@ -29,7 +29,8 @@ pub trait TeacherFacts {
     fn class_names(&self) -> Vec<String> {
         Vec::new()
     }
-    fn not_brought(&self, _student: &str) -> Vec<NotBrought> {
+    /// `student_key` is the resolved student's key, never the spoken name.
+    fn not_brought(&self, _student_key: &str) -> Vec<NotBrought> {
         Vec::new()
     }
 }
@@ -69,12 +70,22 @@ impl SeededFacts {
                 .collect();
             moved.push((class.name.clone(), lessons));
         }
+        // Scenario rows name a student; store them under the resolved
+        // student's key. An explicit `student_key` row names the key
+        // directly, which is how same-name students are told apart.
         let carry_over = scenario
             .carry_over
             .iter()
             .filter_map(|item| {
+                let student_key = item.student_key.clone().or_else(|| {
+                    let mut matches = scenario.students.iter().filter(|s| s.name == item.student);
+                    match (matches.next(), matches.next()) {
+                        (Some(only), None) => Some(only.key.clone()),
+                        _ => None,
+                    }
+                });
                 Some((
-                    item.student.clone(),
+                    student_key.unwrap_or_else(|| item.student.clone()),
                     NotBrought {
                         homework_line: item.homework_line.clone(),
                         assigned_on: NaiveDate::parse_from_str(&item.assigned_on, "%Y-%m-%d")
@@ -96,10 +107,10 @@ impl TeacherFacts for SeededFacts {
     fn class_names(&self) -> Vec<String> {
         self.classes.iter().map(|c| c.name.clone()).collect()
     }
-    fn not_brought(&self, student: &str) -> Vec<NotBrought> {
+    fn not_brought(&self, student_key: &str) -> Vec<NotBrought> {
         self.carry_over
             .iter()
-            .filter(|(name, _)| name == student)
+            .filter(|(key, _)| key == student_key)
             .map(|(_, item)| item.clone())
             .collect()
     }
