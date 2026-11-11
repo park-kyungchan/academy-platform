@@ -441,7 +441,7 @@ fn student_rows(data: &LessonData, student: &StudentLesson) -> Vec<String> {
     out
 }
 
-fn local_time(at: &str) -> String {
+pub(crate) fn local_time(at: &str) -> String {
     chrono::DateTime::parse_from_rfc3339(at)
         .map(|d| {
             d.with_timezone(&chrono::FixedOffset::east_opt(9 * 3600).unwrap())

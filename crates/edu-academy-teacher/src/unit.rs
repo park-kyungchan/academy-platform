@@ -1,12 +1,11 @@
 //! Resolve once, enumerate the reference tree, then read only the selected scope.
 use crate::{
-    backend::{BackendError, SourceBackend},
+    backend::{BackendError, ReadClock, SourceBackend},
     display_labels as l,
     envelope::{Ask, AskField, AskOption, Coverage, Envelope, SourceRead, Stop, StopCode},
     facts::TeacherFacts,
     render::cell,
     unit_data::*,
-    unit_fixture::ReadClock,
     unit_sources::{self, DailyTestReader},
 };
 use edu_academy_sources::{
@@ -143,7 +142,10 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
     r: &UnitStatusRequest,
     clock: &ReadClock,
 ) -> Result<Envelope, BackendError> {
-    let student = backend.resolve_student(&r.student, None)?;
+    if r.student.trim().is_empty() || facts.class(r.student.trim()).is_some() {
+        return Err(stop(StopCode::StudentRequired, l::UNIT_STUDENT_REQUIRED));
+    }
+    let student = backend.resolve_student(r.student.trim(), None)?;
     let topic = infer_topic(r)?;
     let bindings = backend.bindings_for(&student)?;
     if bindings.is_empty() {
@@ -171,7 +173,11 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
     .flatten()
     .collect::<Vec<_>>()
     .join(" ");
-    if let [binding] = explicit.as_slice() {
+    if let [binding] = explicit.as_slice()
+        && r.unit.is_none()
+        && r.unit_from.is_none()
+        && r.unit_to.is_none()
+    {
         text = format!(
             "{} {text}",
             book_text.strip_prefix(&binding.book_label).unwrap_or("")
@@ -239,15 +245,13 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
     if all.is_empty() {
         return Err(stop(StopCode::UnitScopeUnavailable, l::UNIT_SCOPE_STOP));
     }
+    // A unit answer replaces ambiguous activity words retained in range endpoints.
+    let activity_text = r.unit.as_deref().unwrap_or(&text);
     let mut activity_signals: Vec<_> = l::UNIT_ACTIVITIES
         .iter()
-        .filter(|a| text.contains(**a))
+        .filter(|a| activity_text.contains(**a))
         .collect();
     activity_signals.dedup();
-    // An explicit contradictory activity is an answerable unit ambiguity.
-    if activity_signals.len() > 1 {
-        return Err(unit_ask(&all));
-    }
     let activity = activity_signals.first().map(|v| (**v).to_string());
     let levels: Vec<_> = l::UNIT_LEVELS
         .iter()
@@ -280,20 +284,37 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
                 None
             }
         });
-        let (Some(from), Some(to)) = (from, to) else {
-            return Err(unit_ask(&all));
-        };
-        let start = all.iter().position(|l| l.minor.code == from).expect("leaf");
-        let end = all.iter().position(|l| l.minor.code == to).expect("leaf");
-        if start > end {
-            return Err(unit_ask(&all));
+        let start = from
+            .as_ref()
+            .and_then(|code| all.iter().position(|l| &l.minor.code == code));
+        let end = to
+            .as_ref()
+            .and_then(|code| all.iter().position(|l| &l.minor.code == code));
+        if start.is_none() {
+            let choices = &all[..=end.unwrap_or(all.len() - 1)];
+            return Err(ask(
+                AskField::UnitFrom,
+                l::UNIT_FROM_ASK.into(),
+                choices.iter().map(leaf_label).collect(),
+                l::UNIT_MEANING,
+            ));
         }
+        let start = start.expect("validated start");
+        if end.is_none() || end.is_some_and(|end| end < start) {
+            return Err(ask(
+                AskField::UnitTo,
+                l::UNIT_TO_ASK.into(),
+                all[start..].iter().map(leaf_label).collect(),
+                l::UNIT_MEANING,
+            ));
+        }
+        let end = end.expect("validated end");
         let range = all[start..=end].to_vec();
         if r.unit.as_deref().is_some_and(|u| {
             let codes = code_in(u, &all);
             codes.len() != 1 || !range.contains(codes[0])
         }) {
-            return Err(unit_ask(&all));
+            return Err(unit_ask(&range));
         }
         range
     } else if let Some(unit) = unit_text {
@@ -319,10 +340,15 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
             .ok_or_else(|| unit_ask(&all))?;
         all[index.saturating_sub(2)..=index].to_vec()
     };
+    if activity_signals.len() > 1 {
+        return Err(unit_ask(&minors));
+    }
     // Bound reads as well as output. Renderer may omit additional whole leaves for bytes.
     let first_omitted = minors.get(60).map(leaf_label);
     minors.truncate(60);
     let mut data = UnitData {
+        course_key: binding.course_key.clone(),
+        book_no: binding.book_no.clone(),
         student_key: student.key.clone(),
         student: student.name.clone(),
         edition: binding.book_label.clone(),
@@ -339,12 +365,23 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         judgments: facts
             .unit_judgments(&student.key)
             .into_iter()
-            .filter(|j| j.edition == binding.book_label)
+            .filter(|j| {
+                j.student_key == student.key
+                    && j.edition == binding.book_label
+                    && j.course_key.as_deref() == Some(&binding.course_key)
+                    && j.book_no.as_deref() == Some(&binding.book_no)
+            })
             .collect(),
         excluded: facts
             .excluded_sections(&student.key)
             .into_iter()
-            .filter(|j| j.edition == binding.book_label && j.state == "active")
+            .filter(|j| {
+                j.student_key == student.key
+                    && j.edition == binding.book_label
+                    && j.state == "active"
+                    && j.course_key.as_deref() == Some(&binding.course_key)
+                    && j.book_no.as_deref() == Some(&binding.book_no)
+            })
             .collect(),
         clinic: Vec::new(),
         first_omitted,
@@ -402,13 +439,18 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
             .map_err(|_| BackendError::source_unavailable())?;
         let scope = BookScope::new(&binding.course_key, &binding.book_no)
             .map_err(|_| BackendError::source_unavailable())?;
+        let labels: Vec<_> = bindings.iter().map(|b| b.book_label.clone()).collect();
         match unit_sources::sections(
             backend,
-            &ts,
-            &scope,
-            &data.edition,
-            &data.minors,
-            data.activity.as_deref(),
+            &unit_sources::SectionSelection {
+                student: &ts,
+                scope: &scope,
+                edition: &data.edition,
+                tree: &all,
+                leaves: &data.minors,
+                activity: data.activity.as_deref(),
+                bound_editions: &labels,
+            },
         ) {
             Ok(read) => {
                 answered += 1;
@@ -435,76 +477,143 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         data.clinic = clinic(&data);
         let reports = facts.reports();
         for leaf in &data.minors {
-            let prerequisite = reports
+            for activity in leaf
+                .minor
+                .activities
                 .iter()
-                .filter(|f| {
+                .filter(|a| data.activity.as_ref().is_none_or(|filter| filter == *a))
+            {
+                let matches = |f: &&crate::facts::TeacherFactReport| {
                     f.student_key.as_deref() == Some(&data.student_key)
                         && f.book == data.edition
+                        && f.course_key.as_deref() == Some(&data.course_key)
+                        && f.book_no.as_deref() == Some(&data.book_no)
                         && f.unit == leaf.minor.code
-                        && f.kind == "original_work"
-                })
-                .max_by(|a, b| a.reported_on.cmp(&b.reported_on))
-                .and_then(|f| f.completed);
-            for (index, name) in [
-                "original_clinic_solving",
-                "original_clinic_grading",
-                "similar_clinic",
-                "advanced_clinic",
-                "cism_support",
-                "printed",
-                "handout",
-            ]
-            .iter()
-            .enumerate()
-            {
-                let teacher = reports
-                    .iter()
-                    .filter(|f| {
-                        f.student_key.as_deref() == Some(&data.student_key)
-                            && f.book == data.edition
-                            && f.unit == leaf.minor.code
-                            && f.kind == "clinic_stage"
-                            && f.stage == *name
-                    })
-                    .max_by(|a, b| a.reported_on.cmp(&b.reported_on));
-                let verdict = if teacher.is_some_and(|f| f.completed == Some(true)) {
-                    UnitVerdict::Confirmed
-                } else {
-                    dependent_stage(prerequisite, index < 2)
+                        && (f.activity.is_empty() || f.activity == *activity)
+                        && f.snapshot.as_ref().is_none_or(|key| {
+                            data.sections.as_ref().is_some_and(|s| {
+                                s.observations.iter().any(|o| {
+                                    o.attempt_key == *key
+                                        && o.unit.as_deref() == Some(&leaf.minor.code)
+                                        && o.activity.as_deref() == Some(activity)
+                                })
+                            })
+                        })
                 };
-                data.stages.push(Stage {
-                    unit: leaf.minor.code.clone(),
-                    stage: (*name).into(),
-                    verdict,
-                });
+                let scoped_reports: Vec<_> = reports.iter().filter(matches).collect();
+                let snapshots: Vec<Option<String>> =
+                    if scoped_reports.iter().any(|f| f.snapshot.is_some()) {
+                        let mut keys = Vec::new();
+                        if let Some(sections) = &data.sections {
+                            for o in &sections.observations {
+                                if o.unit.as_deref() == Some(&leaf.minor.code)
+                                    && o.activity.as_deref() == Some(activity)
+                                    && !keys.contains(&Some(o.attempt_key.clone()))
+                                {
+                                    keys.push(Some(o.attempt_key.clone()));
+                                }
+                            }
+                        }
+                        keys
+                    } else {
+                        vec![None]
+                    };
+                for snapshot in snapshots {
+                    let in_attempt = |f: &&&crate::facts::TeacherFactReport| {
+                        f.snapshot.is_none() || f.snapshot == snapshot
+                    };
+                    let prerequisite = scoped_reports
+                        .iter()
+                        .filter(in_attempt)
+                        .filter(|f| f.kind == "original_work")
+                        .max_by(|a, b| a.reported_on.cmp(&b.reported_on))
+                        .and_then(|f| f.completed);
+                    for (index, name) in [
+                        "original_clinic_solving",
+                        "original_clinic_grading",
+                        "similar_clinic",
+                        "advanced_clinic",
+                        "cism_support",
+                        "printed",
+                        "handout",
+                    ]
+                    .iter()
+                    .enumerate()
+                    {
+                        let teacher = scoped_reports
+                            .iter()
+                            .filter(in_attempt)
+                            .filter(|f| f.kind == "clinic_stage" && f.stage == *name)
+                            .max_by(|a, b| a.reported_on.cmp(&b.reported_on));
+                        let verdict = if teacher.is_some_and(|f| f.completed == Some(true)) {
+                            UnitVerdict::Confirmed
+                        } else {
+                            dependent_stage(prerequisite, index < 2)
+                        };
+                        data.stages.push(Stage {
+                            unit: leaf.minor.code.clone(),
+                            activity: Some(activity.clone()),
+                            snapshot: snapshot.clone(),
+                            stage: (*name).into(),
+                            verdict,
+                        });
+                    }
+                }
             }
         }
     }
+
     if all_topics || topic == l::UNIT_TOPICS[4] {
-        for leaf in &data.minors {
-            let verdict = if supplementary {
-                UnitVerdict::NotApplicable
-            } else {
-                requested += 1;
-                let v = backend.prestudy_verdict(&student.name, &data.edition, &leaf.minor.code);
-                if v != crate::render::Verdict::Unknown {
+        let verdicts = if supplementary {
+            vec![UnitVerdict::NotApplicable; data.minors.len()]
+        } else if !backend.unique_source_name(&student.name) {
+            // The source has no keyed association: this is an unresolved identity, not outage.
+            requested += 1;
+            answered += 1;
+            coverage.unknowns.push("prestudy_name_ambiguous".into());
+            vec![UnitVerdict::Unknown; data.minors.len()]
+        } else {
+            requested += 1;
+            match backend.read_prestudy_lists(&student.name) {
+                Ok(lists) => {
                     answered += 1;
                     coverage.sources.push(SourceRead {
                         name: "prestudy".into(),
-                        read_at: clock.read_at.clone(),
-                        scope: format!("{} / {}", data.edition, leaf.minor.code),
+                        read_at: lists.observed_at.clone(),
+                        scope: data.edition.clone(),
                     });
+                    data.minors
+                        .iter()
+                        .map(|leaf| {
+                            match SourceBackend::<D, P, T>::project_prestudy(
+                                &lists,
+                                &data.edition,
+                                &leaf.minor.code,
+                            )
+                            .0
+                            {
+                                crate::render::Verdict::Waiting => UnitVerdict::Waiting,
+                                crate::render::Verdict::Completed => UnitVerdict::Completed,
+                                crate::render::Verdict::NotObserved => UnitVerdict::NotObserved,
+                                crate::render::Verdict::NotInReadRange => {
+                                    UnitVerdict::NotInReadRange
+                                }
+                                _ => UnitVerdict::Unknown,
+                            }
+                        })
+                        .collect()
                 }
-                match v {
-                    crate::render::Verdict::Unknown => UnitVerdict::Unknown,
-                    crate::render::Verdict::NotObserved => UnitVerdict::NotObserved,
-                    crate::render::Verdict::Waiting => UnitVerdict::Waiting,
-                    crate::render::Verdict::Completed => UnitVerdict::Completed,
-                    _ => UnitVerdict::Found,
+                Err(_) => {
+                    coverage.unknowns.push("prestudy_unavailable".into());
+                    vec![UnitVerdict::Unknown; data.minors.len()]
                 }
-            };
+            }
+        };
+        for (leaf, verdict) in data.minors.iter().zip(verdicts) {
             data.prestudy.push(Stage {
                 unit: leaf.minor.code.clone(),
+                activity: None,
+                snapshot: None,
                 stage: l::VIDEO.into(),
                 verdict,
             });
@@ -515,6 +624,8 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
             if supplementary {
                 data.stages.push(Stage {
                     unit: leaf.minor.code.clone(),
+                    activity: None,
+                    snapshot: None,
                     stage: stage.into(),
                     verdict: UnitVerdict::NotApplicable,
                 });
@@ -529,6 +640,14 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         .iter()
         .any(|j| data.minors.iter().any(|l| l.minor.code == j.unit))
         || !data.excluded.is_empty()
+        || facts.reports().iter().any(|f| {
+            f.student_key.as_deref() == Some(&data.student_key)
+                && f.book == data.edition
+                && f.course_key.as_deref() == Some(&data.course_key)
+                && f.book_no.as_deref() == Some(&data.book_no)
+                && data.minors.iter().any(|l| l.minor.code == f.unit)
+                && (f.kind == "clinic_stage" || f.kind == "original_work")
+        })
     {
         coverage.sources.push(SourceRead {
             name: "teacher_facts".into(),
@@ -550,13 +669,36 @@ pub fn clinic(data: &UnitData) -> Vec<ClinicCell> {
     let mut cells = Vec::new();
     for leaf in &data.minors {
         for activity in &leaf.minor.activities {
+            let observations: Vec<_> = data
+                .sections
+                .as_ref()
+                .map(|s| {
+                    s.observations
+                        .iter()
+                        .filter(|o| {
+                            o.unit.as_deref() == Some(&leaf.minor.code)
+                                && o.activity.as_deref() == Some(activity)
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            let excluded_attempt = |attempt: &str| {
+                data.excluded.iter().any(|e| {
+                    exclusion_applies(data, e, &leaf.minor.code, activity)
+                        && e.snapshot.as_deref().is_none_or(|key| key == attempt)
+                })
+            };
             let records: Vec<_> = data
                 .sections
                 .as_ref()
                 .map(|s| {
                     s.records
                         .iter()
-                        .filter(|s| s.unit == leaf.minor.code && s.activity == *activity)
+                        .filter(|r| {
+                            r.unit == leaf.minor.code
+                                && r.activity == *activity
+                                && !excluded_attempt(&r.attempt_key)
+                        })
                         .collect()
                 })
                 .unwrap_or_default();
@@ -572,15 +714,20 @@ pub fn clinic(data: &UnitData) -> Vec<ClinicCell> {
             let wrong = records
                 .iter()
                 .any(|r| r.items.iter().any(|i| i.scoring == "X"));
-            let verdict = if data
-                .excluded
+            let excluded = data.excluded.iter().any(|e| {
+                e.snapshot.is_none() && exclusion_applies(data, e, &leaf.minor.code, activity)
+            }) || !observations.is_empty()
+                && observations
+                    .iter()
+                    .all(|o| excluded_attempt(&o.attempt_key));
+            let unread = observations
                 .iter()
-                .any(|e| e.unit == leaf.minor.code && e.activity == *activity)
-            {
+                .any(|o| o.state != SectionState::Graded && !excluded_attempt(&o.attempt_key));
+            let verdict = if excluded {
                 UnitVerdict::Excluded
             } else if wrong {
                 UnitVerdict::Eligible
-            } else if records.is_empty() {
+            } else if unread || records.is_empty() {
                 UnitVerdict::Unknown
             } else {
                 UnitVerdict::NotEligible
@@ -597,6 +744,8 @@ pub fn clinic(data: &UnitData) -> Vec<ClinicCell> {
 }
 #[derive(Clone, Debug, serde::Serialize, PartialEq)]
 pub struct Stage {
+    pub activity: Option<String>,
+    pub snapshot: Option<String>,
     pub unit: String,
     pub stage: String,
     pub verdict: UnitVerdict,
@@ -609,4 +758,26 @@ pub fn dependent_stage(prerequisite_finished: Option<bool>, teacher_only: bool) 
     } else {
         UnitVerdict::Unknown
     }
+}
+
+pub fn exclusion_applies(data: &UnitData, e: &ExcludedSection, unit: &str, activity: &str) -> bool {
+    data.activity
+        .as_ref()
+        .is_none_or(|filter| filter == activity)
+        && e.student_key == data.student_key
+        && e.edition == data.edition
+        && e.course_key.as_deref() == Some(&data.course_key)
+        && e.book_no.as_deref() == Some(&data.book_no)
+        && e.unit == unit
+        && e.activity == activity
+        && e.state == "active"
+        && e.snapshot.as_ref().is_none_or(|snapshot| {
+            data.sections.as_ref().is_some_and(|s| {
+                s.observations.iter().any(|o| {
+                    o.attempt_key == *snapshot
+                        && o.unit.as_deref() == Some(unit)
+                        && o.activity.as_deref() == Some(activity)
+                })
+            })
+        })
 }

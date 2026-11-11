@@ -3,44 +3,14 @@ use crate::{
     display_labels as l,
     envelope::Coverage,
     render::cell,
-    unit::{dependent_stage, leaf_label},
+    unit::{exclusion_applies, leaf_label},
     unit_data::*,
 };
-use chrono::{DateTime, Datelike, Timelike};
 pub fn verdict(v: UnitVerdict) -> &'static str {
-    match v {
-        UnitVerdict::Found => l::SERVER,
-        UnitVerdict::Waiting => l::WAITING,
-        UnitVerdict::Completed => l::TEACHER,
-        UnitVerdict::NotYetVisible => l::NOT_YET,
-        UnitVerdict::NotInReadRange => l::NOT_IN_RANGE,
-        UnitVerdict::NotObserved => l::NOT_OBSERVED,
-        UnitVerdict::NotObservedInEitherSource => l::NOT_IN_EITHER,
-        UnitVerdict::Eligible => l::ELIGIBLE,
-        UnitVerdict::NotEligible => l::NOT_ELIGIBLE,
-        UnitVerdict::Excluded => l::EXCLUDED,
-        UnitVerdict::Confirmed => l::UNIT_CONFIRMED,
-        UnitVerdict::Deferred => l::DEFERRED,
-        UnitVerdict::Unjudged => l::UNJUDGED,
-        UnitVerdict::NotApplicable => l::NOT_APPLICABLE,
-        UnitVerdict::NotYetExpected => l::UNIT_NOT_EXPECTED,
-        UnitVerdict::TeacherReportedNoServer => l::UNIT_TEACHER_ONLY,
-        UnitVerdict::Unknown => l::UNAVAILABLE,
-    }
+    l::unit_verdict(v)
 }
 fn time(at: &str) -> String {
-    DateTime::parse_from_rfc3339(at)
-        .map(|d| {
-            let d = d.with_timezone(&chrono::FixedOffset::east_opt(9 * 3600).expect("offset"));
-            format!(
-                "{}월 {}일 {:02}:{:02}",
-                d.month(),
-                d.day(),
-                d.hour(),
-                d.minute()
-            )
-        })
-        .unwrap_or_else(|_| cell(at))
+    l::observation_time(at)
 }
 fn scoped(unit: &str, level: Option<&str>) -> String {
     format!(
@@ -72,7 +42,10 @@ fn daily_attempts<'a>(d: &'a UnitData, code: &str) -> Vec<&'a DailyAttempt> {
         .map(|r| {
             r.attempts
                 .iter()
-                .filter(|a| a.unit_mapping.as_deref() == Some(code))
+                .filter(|a| {
+                    a.edition_mapping.as_deref() == Some(&d.edition)
+                        && a.unit_mapping.as_deref() == Some(code)
+                })
                 .collect()
         })
         .unwrap_or_default()
@@ -109,6 +82,7 @@ fn daily_block(d: &UnitData, leaf: &Leaf, grid: bool) -> (String, Vec<String>) {
                 .join(" / ")
         };
         let js = judgments(d, code, l::UNIT_TOPICS[1]);
+        let mut matched = std::collections::HashSet::new();
         for a in &attempts {
             let scope = scoped(code, a.level.as_deref());
             details.push(l::unit_date_line(
@@ -121,25 +95,33 @@ fn daily_block(d: &UnitData, leaf: &Leaf, grid: bool) -> (String, Vec<String>) {
             ));
             let current = js.iter().find(|j| {
                 j.level == a.level
-                    && j.snapshot
-                        .as_ref()
-                        .map_or(attempts.len() == 1, |s| s == &a.attempt_key)
+                    && j.activity.is_none()
+                    && j.stage.is_none()
+                    && j.snapshot.as_ref().map_or(
+                        attempts
+                            .iter()
+                            .filter(|other| other.level == a.level)
+                            .count()
+                            == 1,
+                        |s| s == &a.attempt_key,
+                    )
             });
+            if let Some(j) = current {
+                matched.insert(*j as *const TeacherJudgment);
+            }
             details.push(l::unit_judgment_line(
-                &scope,
+                &current.map(|j| judgment_scope(d, j)).unwrap_or(scope),
                 &current
                     .map(|j| cell(&l::unit_judgment(j)))
                     .unwrap_or_else(|| l::UNJUDGED.into()),
             ));
         }
-        for j in js.iter().filter(|j| {
-            attempts.is_empty()
-                || j.snapshot.as_ref().map_or(attempts.len() != 1, |s| {
-                    !attempts.iter().any(|a| &a.attempt_key == s)
-                })
-        }) {
+        for j in js
+            .iter()
+            .filter(|j| !matched.contains(&(**j as *const TeacherJudgment)))
+        {
             details.push(l::unit_judgment_line(
-                &scoped(code, j.level.as_deref()),
+                &judgment_scope(d, j),
                 &cell(&l::unit_judgment(j)),
             ));
         }
@@ -176,6 +158,7 @@ fn daily_block(d: &UnitData, leaf: &Leaf, grid: bool) -> (String, Vec<String>) {
                 .filter(|j| j.level == level)
                 .collect();
             if !matching.is_empty() {
+                let mut matched = std::collections::HashSet::new();
                 for a in &matching {
                     lines.push(l::unit_source_line(&scope, &l::unit_source(a.score)));
                     lines.push(l::unit_date_line(
@@ -186,12 +169,19 @@ fn daily_block(d: &UnitData, leaf: &Leaf, grid: bool) -> (String, Vec<String>) {
                         lines.push(l::unit_level_line(&scope, None));
                     }
                     let current = js.iter().find(|j| {
-                        j.snapshot
-                            .as_ref()
-                            .map_or(matching.len() == 1, |s| s == &a.attempt_key)
+                        j.activity.is_none()
+                            && j.stage.is_none()
+                            && j.snapshot
+                                .as_ref()
+                                .map_or(matching.len() == 1, |s| s == &a.attempt_key)
                     });
+                    if let Some(j) = current {
+                        matched.insert(*j as *const TeacherJudgment);
+                    }
                     lines.push(l::unit_judgment_line(
-                        &scope,
+                        &current
+                            .map(|j| judgment_scope(d, j))
+                            .unwrap_or(scope.clone()),
                         &current
                             .map(|j| cell(&l::unit_judgment(j)))
                             .unwrap_or_else(|| l::UNJUDGED.into()),
@@ -200,12 +190,14 @@ fn daily_block(d: &UnitData, leaf: &Leaf, grid: bool) -> (String, Vec<String>) {
                 if matching.len() > 1 {
                     lines.push(l::UNIT_SAME_ATTEMPT.into());
                 }
-                for j in js.iter().filter(|j| {
-                    j.snapshot.as_ref().map_or(matching.len() != 1, |s| {
-                        !matching.iter().any(|a| &a.attempt_key == s)
-                    })
-                }) {
-                    lines.push(l::unit_judgment_line(&scope, &cell(&l::unit_judgment(j))));
+                for j in js
+                    .iter()
+                    .filter(|j| !matched.contains(&(**j as *const TeacherJudgment)))
+                {
+                    lines.push(l::unit_judgment_line(
+                        &judgment_scope(d, j),
+                        &cell(&l::unit_judgment(j)),
+                    ));
                 }
             } else {
                 if js.is_empty()
@@ -224,7 +216,10 @@ fn daily_block(d: &UnitData, leaf: &Leaf, grid: bool) -> (String, Vec<String>) {
                     lines.push(l::unit_judgment_line(&scope, l::UNJUDGED));
                 } else {
                     for j in js {
-                        lines.push(l::unit_judgment_line(&scope, &cell(&l::unit_judgment(j))));
+                        lines.push(l::unit_judgment_line(
+                            &judgment_scope(d, j),
+                            &cell(&l::unit_judgment(j)),
+                        ));
                     }
                 }
             }
@@ -236,15 +231,12 @@ fn clinic_block(d: &UnitData, leaf: &Leaf) -> (String, Vec<String>) {
     let code = &leaf.minor.code;
     let mut fields = vec![cell(&leaf_label(leaf))];
     let mut details = Vec::new();
-    for a in &l::UNIT_ACTIVITIES[..3] {
-        let c = d
-            .clinic
-            .iter()
-            .find(|c| c.unit == *code && c.activity == *a);
+    for a in section_columns(d) {
+        let c = d.clinic.iter().find(|c| c.unit == *code && c.activity == a);
         fields.push(
             c.map(|c| {
                 if c.verdict == UnitVerdict::Unknown {
-                    l::UNIT_DASH
+                    section_issue(d, code, Some(&a)).unwrap_or(l::UNIT_DASH)
                 } else {
                     verdict(c.verdict)
                 }
@@ -252,25 +244,33 @@ fn clinic_block(d: &UnitData, leaf: &Leaf) -> (String, Vec<String>) {
             .unwrap_or(l::UNIT_DASH)
             .into(),
         );
-        if let Some(c) = c {
-            match c.verdict {
-                UnitVerdict::Eligible => details.push(l::unit_clinic_basis(
-                    &cell(code),
-                    a,
-                    &c.labels
-                        .iter()
-                        .map(|v| cell(v))
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                )),
-                UnitVerdict::Excluded => details.push(l::unit_clinic_excluded(&cell(code), a)),
-                _ => {}
-            }
+        if let Some(c) = c
+            && c.verdict == UnitVerdict::Eligible
+        {
+            details.push(l::unit_clinic_basis(
+                &cell(code),
+                &cell(&a),
+                &c.labels
+                    .iter()
+                    .map(|v| cell(v))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ));
         }
+    }
+    for e in d
+        .excluded
+        .iter()
+        .filter(|e| exclusion_applies(d, e, code, &e.activity))
+    {
+        details.push(l::unit_clinic_excluded(
+            &exclusion_scope(d, e),
+            &cell(&e.activity),
+        ));
     }
     for j in judgments(d, code, l::UNIT_TOPICS[2]) {
         details.push(l::unit_clinic_judgment(
-            &cell(code),
+            &judgment_scope(d, j),
             &cell(&l::unit_judgment(j)),
         ));
     }
@@ -292,7 +292,9 @@ fn section_block(d: &UnitData, leaf: &Leaf, grid: bool) -> String {
                 .map(|r| cell(&r.source_title))
                 .collect::<Vec<_>>();
             fields.push(if titles.is_empty() {
-                l::UNIT_DASH.into()
+                section_issue(d, code, Some(&activity))
+                    .unwrap_or(l::UNIT_DASH)
+                    .into()
             } else {
                 titles.join(" / ")
             });
@@ -302,7 +304,10 @@ fn section_block(d: &UnitData, leaf: &Leaf, grid: bool) -> String {
     if records.is_empty() {
         return l::unit_absent(
             &cell(code),
-            if d.sections
+            if let Some(issue) = section_issue(d, code, d.activity.as_deref()) {
+                issue
+            } else if d
+                .sections
                 .as_ref()
                 .is_some_and(|s| s.absent_units.contains(code))
             {
@@ -347,7 +352,7 @@ fn section_block(d: &UnitData, leaf: &Leaf, grid: bool) -> String {
     lines.join("\n")
 }
 fn fact_scope(d: &UnitData) -> String {
-    let mut facts = vec![if d.tree_read_at != d.default_read_at {
+    let mut facts = vec![if d.tree_read_at != d.read_at {
         l::unit_cached_tree(&cell(&d.tree_read_at))
     } else {
         l::UNIT_TREE_FACT.into()
@@ -364,11 +369,7 @@ fn fact_scope(d: &UnitData) -> String {
         }
         for leaf in &d.minors {
             for j in judgments(d, &leaf.minor.code, l::UNIT_TOPICS[1]) {
-                let mut description = l::unit_fact_judgment(
-                    &cell(&j.unit),
-                    j.level.as_deref().map(cell).as_deref(),
-                    j,
-                );
+                let mut description = l::unit_fact_judgment(&judgment_scope(d, j), None, j);
                 if facts
                     .last()
                     .is_some_and(|f| f.starts_with(&format!("{} ", cell(&j.unit))))
@@ -384,8 +385,13 @@ fn fact_scope(d: &UnitData) -> String {
     }
     if d.topic == l::UNIT_TOPICS[2] {
         for e in &d.excluded {
-            if d.minors.iter().any(|l| l.minor.code == e.unit) {
-                facts.push(l::unit_exclusion(&cell(&e.unit), &cell(&e.activity)));
+            if d.minors.iter().any(|l| l.minor.code == e.unit)
+                && exclusion_applies(d, e, &e.unit, &e.activity)
+            {
+                facts.push(l::unit_exclusion(
+                    &exclusion_scope(d, e),
+                    &cell(&e.activity),
+                ));
             }
         }
         let unjudged = d
@@ -411,29 +417,15 @@ fn source_scope(d: &UnitData) -> String {
         if d.family == "supplementary" {
             return l::NOT_APPLICABLE.into();
         }
-        return d
-            .daily
-            .as_ref()
-            .map(|r| {
-                l::unit_daily_range(
-                    &r.scope.from,
-                    &r.scope.to,
-                    &cell(&r.scope.selector_label),
-                    &cell(&r.scope.page_label),
-                )
-            })
-            .unwrap_or_else(|| l::UNAVAILABLE.into());
+        return daily_source_scope(d);
     }
+
     if d.topic == l::UNIT_TOPICS[2] {
         return l::unit_section_source(
             &who,
             &book,
-            if d.sections.as_ref().is_some_and(|r| r.paper_observed) {
-                l::UNIT_SECTION_SCOPE
-            } else {
-                l::NOT_OBSERVED
-            },
-            false,
+            section_inventory_scope(d),
+            d.sections.as_ref().is_none_or(|r| r.records.is_empty()),
         );
     }
     if d.topic == l::UNIT_TOPICS[3] {
@@ -451,9 +443,14 @@ fn source_scope(d: &UnitData) -> String {
         {
             l::unit_section_small_scope(&code, d.activity.as_deref().map(cell).as_deref())
         } else {
-            l::NOT_OBSERVED.into()
+            section_inventory_scope(d).into()
         };
-        return l::unit_section_source(&who, &book, &scope, absent);
+        return l::unit_section_source(
+            &who,
+            &book,
+            &scope,
+            absent || d.sections.as_ref().is_none_or(|r| r.records.is_empty()),
+        );
     }
     l::NOT_OBSERVED.into()
 }
@@ -552,7 +549,9 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
         }
         t if t == l::UNIT_TOPICS[2] => {
             lines.push(format!("{who} {book} {}", l::UNIT_CLINIC_TITLE));
-            lines.push(l::UNIT_CLINIC_GRID.into());
+            let mut headers = vec![l::UNIT_MINOR.to_string()];
+            headers.extend(section_columns(d).iter().map(|a| cell(a)));
+            lines.push(headers.join(" | "));
             for leaf in &d.minors {
                 let (block, extra) = clinic_block(d, leaf);
                 lines.push(block);
@@ -560,39 +559,6 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
             }
             lines.push(l::UNIT_DASH_LEGEND.into());
             lines.append(&mut details);
-            if d.stages
-                .iter()
-                .filter(|s| s.stage == "original_clinic_solving")
-                .all(|s| s.verdict == UnitVerdict::TeacherReportedNoServer)
-            {
-                lines.push(format!(
-                    "{}: {}",
-                    l::UNIT_STAGE_NAMES[0],
-                    verdict(dependent_stage(None, true))
-                ));
-            }
-            if d.stages
-                .iter()
-                .filter(|s| s.stage == "original_clinic_grading")
-                .all(|s| s.verdict == UnitVerdict::TeacherReportedNoServer)
-            {
-                lines.push(format!(
-                    "{}: {}",
-                    l::UNIT_STAGE_NAMES[1],
-                    verdict(dependent_stage(None, true))
-                ));
-            }
-            if d.stages
-                .iter()
-                .filter(|s| s.stage == "similar_clinic")
-                .all(|s| s.verdict == UnitVerdict::Unknown)
-            {
-                lines.push(format!(
-                    "{}: {}",
-                    l::UNIT_STAGE_NAMES[2],
-                    l::UNIT_SOURCE_NOT_OBSERVED
-                ));
-            }
         }
         t if t == l::UNIT_TOPICS[3] => {
             let scope = if small {
@@ -613,7 +579,7 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
                         .unwrap_or("")
                         .to_string(),
                 ];
-                headers.extend(section_columns(d));
+                headers.extend(section_columns(d).iter().map(|a| cell(a)));
                 lines.push(headers.join(" | "));
             }
             for leaf in &d.minors {
@@ -639,18 +605,8 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
                     lines.push(block);
                     lines.extend(extra);
                 }
-                for (index, stage) in l::UNIT_STAGE_NAMES.iter().enumerate() {
-                    lines.push(format!(
-                        "{stage}: {}",
-                        if index < 2 {
-                            l::UNIT_TEACHER_ONLY
-                        } else {
-                            l::NOT_OBSERVED
-                        }
-                    ));
-                }
             }
-            for stage in &d.prestudy {
+            for stage in d.prestudy.iter().filter(|s| retained(d, &s.unit)) {
                 lines.push(format!(
                     "{} {}: {}",
                     cell(&stage.unit),
@@ -661,18 +617,15 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
         }
     }
     lines.extend(details);
-    for stage in d.stages.iter().filter(|s| {
-        !is_clinic_stage(&s.stage)
-            || (d.topic == l::UNIT_TOPICS[2] || d.topic == l::UNIT_TOPICS[0])
-                && s.verdict
-                    != if s.stage == "original_clinic_solving"
-                        || s.stage == "original_clinic_grading"
-                    {
-                        UnitVerdict::TeacherReportedNoServer
-                    } else {
-                        UnitVerdict::Unknown
-                    }
-    }) {
+    lines.extend(unmapped_lines(d));
+    if d.topic == l::UNIT_TOPICS[2] || d.topic == l::UNIT_TOPICS[0] {
+        lines.extend(stage_lines(d));
+    }
+    for stage in d
+        .stages
+        .iter()
+        .filter(|s| retained(d, &s.unit) && !is_clinic_stage(&s.stage))
+    {
         lines.push(format!(
             "{} {}: {}",
             cell(&stage.unit),
@@ -681,7 +634,16 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
         ));
     }
     for reason in &coverage.unknowns {
-        if !reason.starts_with("first_omitted:") {
+        if !reason.starts_with("first_omitted:")
+            && !reason.starts_with("section_mapping_unavailable:")
+            && !reason.split_once(':').is_some_and(|(code, scope)| {
+                (code == "section_grade_unavailable" || code == "section_ambiguous_attempts")
+                    && !d
+                        .minors
+                        .iter()
+                        .any(|l| scope.starts_with(&format!("{} ", l.minor.code)))
+            })
+        {
             let (code, scope) = reason.split_once(':').unwrap_or((reason.as_str(), ""));
             let description = if scope.is_empty() {
                 l::unit_unknown_reason(code).to_string()
@@ -694,11 +656,26 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
     if let Some(omitted) = &d.first_omitted {
         lines.push(l::unit_truncation(&cell(omitted)));
     }
-    let registered = if d.topic == l::UNIT_TOPICS[1] {
+    let mut registered = if d.topic == l::UNIT_TOPICS[1] {
         format!("{who}·{book}")
     } else {
         who
     };
+    if let Some(source) = coverage
+        .sources
+        .iter()
+        .find(|s| s.name == "student_book_bindings" && s.read_at != d.read_at)
+    {
+        registered = l::unit_timed_scope(&registered, &time(&source.read_at));
+    }
+    let mut facts = fact_scope(d);
+    if let Some(source) = coverage
+        .sources
+        .iter()
+        .find(|s| s.name == "teacher_facts" && s.read_at != d.read_at)
+    {
+        facts = l::unit_timed_scope(&facts, &time(&source.read_at));
+    }
     let source = if d.topic == l::UNIT_TOPICS[0] || d.topic == l::UNIT_TOPICS[4] {
         let mut seen = std::collections::HashSet::new();
         coverage
@@ -726,7 +703,7 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
         &time(&d.read_at),
         &source,
         &registered,
-        &fact_scope(d),
+        &facts,
     ));
     lines.push(l::unit_next_line(&next(d)));
     lines.push(l::CLOSING.into());
@@ -750,25 +727,14 @@ pub fn render(data: &mut UnitData, coverage: &mut Coverage) -> String {
 }
 fn safe_source_scope(d: &UnitData, s: &crate::envelope::SourceRead) -> String {
     match s.name.as_str() {
-        "dailytest" => d
-            .daily
-            .as_ref()
-            .map(|r| {
-                l::unit_daily_range(
-                    &r.scope.from,
-                    &r.scope.to,
-                    &cell(&r.scope.selector_label),
-                    &cell(&r.scope.page_label),
-                )
-            })
-            .unwrap_or_else(|| l::UNAVAILABLE.into()),
+        "dailytest" => daily_source_scope(d),
         "dailytest_relative_page" => l::UNIT_RELATIVE_PAGE.into(),
         "dailytest_header" => cell(&d.edition),
         "section_index" => format!(
             "{}·{}",
             cell(&d.edition),
             if d.sections.as_ref().is_some_and(|r| r.paper_observed) {
-                l::UNIT_SECTION_SCOPE
+                l::UNIT_INDEX_SCOPE
             } else {
                 l::UNIT_WRONG_NOTE_PAGE
             }
@@ -793,7 +759,12 @@ fn is_clinic_stage(stage: &str) -> bool {
 fn section_columns(d: &UnitData) -> Vec<String> {
     let mut columns = Vec::new();
     for leaf in &d.minors {
-        for a in &leaf.minor.activities {
+        for a in leaf
+            .minor
+            .activities
+            .iter()
+            .filter(|a| d.activity.as_ref().is_none_or(|filter| filter == *a))
+        {
             if !columns.contains(a) {
                 columns.push(a.clone());
             }
@@ -806,4 +777,202 @@ pub fn lint(display: &str) -> bool {
         && display.len() <= 6000
         && display.ends_with(l::CLOSING)
         && !display.ends_with('\n')
+}
+
+fn retained(d: &UnitData, unit: &str) -> bool {
+    d.minors.iter().any(|l| l.minor.code == unit)
+}
+fn section_issue(d: &UnitData, unit: &str, activity: Option<&str>) -> Option<&'static str> {
+    let observations = &d.sections.as_ref()?.observations;
+    if observations.iter().any(|o| {
+        o.unit.as_deref() == Some(unit)
+            && activity.is_none_or(|a| o.activity.as_deref() == Some(a))
+            && o.state == SectionState::Unread
+    }) {
+        Some(l::UNIT_GRADE_UNREAD)
+    } else if observations.iter().any(|o| {
+        o.unit.as_deref() == Some(unit)
+            && activity.is_none_or(|a| o.activity.as_deref() == Some(a))
+            && o.state == SectionState::Ambiguous
+    }) {
+        Some(l::UNIT_ATTEMPTS_AMBIGUOUS)
+    } else {
+        None
+    }
+}
+fn snapshot_scope(d: &UnitData, snapshot: &str, daily_topic: bool) -> String {
+    let section = d.sections.as_ref().and_then(|s| {
+        s.records
+            .iter()
+            .enumerate()
+            .find(|(_, r)| r.attempt_key == snapshot)
+            .map(|(i, r)| (i, r.source_date.as_deref()))
+    });
+    let daily = d.daily.as_ref().and_then(|r| {
+        r.attempts
+            .iter()
+            .enumerate()
+            .find(|(_, a)| a.attempt_key == snapshot)
+            .map(|(i, a)| (i, a.occurred_at.as_deref()))
+    });
+    let section = section.or_else(|| {
+        d.sections.as_ref().and_then(|s| {
+            s.observations
+                .iter()
+                .enumerate()
+                .find(|(_, o)| o.attempt_key == snapshot)
+                .map(|(i, _)| (i, None))
+        })
+    });
+    l::unit_snapshot_scope(
+        if daily_topic { daily } else { section }.map(|(i, date)| (i + 1, date.map(cell))),
+    )
+}
+fn judgment_scope(d: &UnitData, j: &TeacherJudgment) -> String {
+    let mut scope = scoped(&j.unit, j.level.as_deref());
+    if let Some(a) = &j.activity {
+        scope.push_str(&format!(" {}", cell(a)));
+    }
+    if let Some(stage) = &j.stage {
+        scope.push_str(&format!(" {}", cell(l::unit_stage_name(stage))));
+    }
+    if let Some(snapshot) = &j.snapshot {
+        scope.push_str(&format!(
+            " {}",
+            snapshot_scope(d, snapshot, j.topic == l::UNIT_TOPICS[1])
+        ));
+    }
+    scope
+}
+fn exclusion_scope(d: &UnitData, e: &ExcludedSection) -> String {
+    let mut scope = cell(&e.unit);
+    if let Some(snapshot) = &e.snapshot {
+        scope.push_str(&format!(" {}", snapshot_scope(d, snapshot, false)));
+    }
+    scope
+}
+fn stage_lines(d: &UnitData) -> Vec<String> {
+    let mut lines = Vec::new();
+    for (index, name) in [
+        "original_clinic_solving",
+        "original_clinic_grading",
+        "similar_clinic",
+        "advanced_clinic",
+        "cism_support",
+        "printed",
+        "handout",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let stages: Vec<_> = d
+            .stages
+            .iter()
+            .filter(|s| retained(d, &s.unit) && s.stage == *name)
+            .collect();
+        let default = if index < 2 {
+            UnitVerdict::TeacherReportedNoServer
+        } else {
+            UnitVerdict::Unknown
+        };
+        if index < 3 && !stages.is_empty() && stages.iter().all(|s| s.verdict == default) {
+            lines.push(format!(
+                "{}: {}",
+                l::unit_stage_name(name),
+                if index == 2 {
+                    l::UNIT_SOURCE_NOT_OBSERVED
+                } else {
+                    verdict(default)
+                }
+            ));
+        } else {
+            for s in stages {
+                if s.verdict != default || index < 3 {
+                    lines.push(format!(
+                        "{} {}: {}",
+                        &stage_scope(d, s),
+                        l::unit_stage_name(name),
+                        if s.verdict == UnitVerdict::Unknown {
+                            l::UNIT_SOURCE_NOT_OBSERVED
+                        } else {
+                            verdict(s.verdict)
+                        }
+                    ));
+                }
+            }
+        }
+    }
+    lines
+}
+
+fn stage_scope(d: &UnitData, s: &crate::unit::Stage) -> String {
+    let mut scope = cell(&s.unit);
+    if let Some(a) = &s.activity {
+        scope.push_str(&format!(" {}", cell(a)));
+    }
+    if let Some(snapshot) = &s.snapshot {
+        scope.push_str(&format!(" {}", snapshot_scope(d, snapshot, false)));
+    }
+    scope
+}
+
+fn section_inventory_scope(d: &UnitData) -> &'static str {
+    match &d.sections {
+        Some(read) if !read.records.is_empty() && read.paper_observed => l::UNIT_SECTION_SCOPE,
+        Some(read) if read.paper_observed => l::UNIT_TITLES_OBSERVED,
+        Some(read) if read.index_observed => l::UNIT_WRONG_NOTE_TITLES,
+        _ => l::UNAVAILABLE,
+    }
+}
+
+fn daily_source_scope(d: &UnitData) -> String {
+    let Some(read) = &d.daily else {
+        return l::UNAVAILABLE.into();
+    };
+    let primary = read.sources.iter().any(|s| s.name == "dailytest");
+    let mut scopes = vec![if primary {
+        l::unit_daily_range(
+            &read.scope.from,
+            &read.scope.to,
+            &cell(&read.scope.selector_label),
+            &cell(&read.scope.page_label),
+        )
+    } else {
+        l::UNIT_RELATIVE_PAGE.into()
+    }];
+    let mut seen = std::collections::HashSet::new();
+    for source in read
+        .sources
+        .iter()
+        .filter(|s| s.read_at != d.read_at && seen.insert((&s.name, &s.read_at)))
+    {
+        let scope = if source.name == "dailytest_relative_page" {
+            l::UNIT_RELATIVE_PAGE.to_string()
+        } else {
+            cell(&d.edition)
+        };
+        scopes.push(l::unit_source_observation(
+            l::unit_source_name(&source.name),
+            &time(&source.read_at),
+            &scope,
+        ));
+    }
+    scopes.join("·")
+}
+fn unmapped_lines(d: &UnitData) -> Vec<String> {
+    let Some(read) = &d.sections else {
+        return Vec::new();
+    };
+    let mut seen = std::collections::HashSet::new();
+    let titles: Vec<_> = read
+        .observations
+        .iter()
+        .filter(|o| o.state == SectionState::Unmapped && seen.insert(&o.source_title))
+        .map(|o| l::unit_unmapped_title(&cell(&o.source_title)))
+        .collect();
+    if titles.iter().map(|t| t.len() + 1).sum::<usize>() > 1500 {
+        vec![l::unit_unmapped_summary(titles.len())]
+    } else {
+        titles
+    }
 }

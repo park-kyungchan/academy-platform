@@ -18,6 +18,11 @@ use edu_academy_sources::{
     },
 };
 
+/// Per-request observation clock, shared by library callers and source adapters.
+#[derive(Clone, Debug)]
+pub struct ReadClock {
+    pub read_at: String,
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StudentEntry {
     pub name: String,
@@ -198,6 +203,57 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
         Ok(result)
     }
 
+    pub fn unique_source_name(&self, name: &str) -> bool {
+        let keys: std::collections::HashSet<_> = self
+            .directory
+            .iter()
+            .filter(|s| s.name == name)
+            .map(|s| &s.key)
+            .collect();
+        keys.len() == 1
+    }
+    pub fn read_prestudy_lists(
+        &mut self,
+        name: &str,
+    ) -> Result<edu_academy_sources::prestudy::PrestudyLists, BackendError> {
+        self.source_reads += 1;
+        self.attempted += 1;
+        let lists = self
+            .prestudy
+            .read_lists(&self.teacher_label, name, &self.read_at)
+            .map_err(|_| BackendError::source_unavailable())?;
+        self.succeeded += 1;
+        Ok(lists)
+    }
+    pub fn project_prestudy(
+        lists: &edu_academy_sources::prestudy::PrestudyLists,
+        book_label: &str,
+        minor: &str,
+    ) -> (Verdict, Option<String>) {
+        let in_book = |rows: &[edu_academy_sources::prestudy::PrestudyListRow]| {
+            rows.iter()
+                .find(|r| {
+                    r.unit_label.strip_prefix(book_label).is_some_and(|tail| {
+                        tail.starts_with(char::is_whitespace)
+                            && tail.split_whitespace().next() == Some(minor)
+                    })
+                })
+                .map(|r| r.date_literal.clone())
+        };
+        let any_minor = |rows: &[edu_academy_sources::prestudy::PrestudyListRow]| {
+            rows.iter()
+                .any(|r| r.unit_label.split_whitespace().any(|t| t == minor))
+        };
+        if let Some(row) = in_book(&lists.waiting) {
+            (Verdict::Waiting, Some(row))
+        } else if let Some(row) = in_book(&lists.completed) {
+            (Verdict::Completed, Some(row))
+        } else if any_minor(&lists.waiting) || any_minor(&lists.completed) {
+            (Verdict::NotInReadRange, None)
+        } else {
+            (Verdict::NotObserved, None)
+        }
+    }
     pub fn read_at(&self) -> &str {
         &self.read_at
     }
@@ -511,35 +567,12 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
         book_label: &str,
         minor: &str,
     ) -> (Verdict, Option<String>) {
-        self.source_reads += 1;
-        self.attempted += 1;
-        let read_at = self.read_at.clone();
-        let label = self.teacher_label.clone();
-        let lists = match self.prestudy.read_lists(&label, student_name, &read_at) {
-            Ok(lists) => lists,
-            Err(_) => return (Verdict::Unknown, None),
-        };
-        self.succeeded += 1;
-        let in_book = |rows: &[edu_academy_sources::prestudy::PrestudyListRow]| {
-            rows.iter()
-                .find(|r| {
-                    r.unit_label.contains(book_label)
-                        && r.unit_label.split_whitespace().any(|token| token == minor)
-                })
-                .map(|row| row.date_literal.clone())
-        };
-        let any_minor = |rows: &[edu_academy_sources::prestudy::PrestudyListRow]| {
-            rows.iter()
-                .any(|r| r.unit_label.split_whitespace().any(|token| token == minor))
-        };
-        if let Some(row) = in_book(&lists.waiting) {
-            (Verdict::Waiting, Some(row))
-        } else if let Some(row) = in_book(&lists.completed) {
-            (Verdict::Completed, Some(row))
-        } else if any_minor(&lists.waiting) || any_minor(&lists.completed) {
-            (Verdict::NotInReadRange, None)
-        } else {
-            (Verdict::NotObserved, None)
+        if !self.unique_source_name(student_name) {
+            return (Verdict::Unknown, None);
+        }
+        match self.read_prestudy_lists(student_name) {
+            Ok(lists) => Self::project_prestudy(&lists, book_label, minor),
+            Err(_) => (Verdict::Unknown, None),
         }
     }
 

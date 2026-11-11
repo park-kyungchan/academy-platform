@@ -131,8 +131,38 @@ impl SeededFacts {
         Self {
             unit_read_at: scenario.unit_read_at.clone(),
             trees: scenario.edition_trees.clone(),
-            judgments: scenario.teacher_judgments.clone(),
-            excluded: scenario.excluded_sections.clone(),
+            judgments: scenario
+                .teacher_judgments
+                .iter()
+                .cloned()
+                .map(|mut j| {
+                    if let Some(binding) = unique_binding(scenario, &j.student_key, &j.edition) {
+                        if j.course_key.is_none() {
+                            j.course_key = Some(binding.course_key.clone());
+                        }
+                        if j.book_no.is_none() {
+                            j.book_no = Some(binding.book_no.clone());
+                        }
+                    }
+                    j
+                })
+                .collect(),
+            excluded: scenario
+                .excluded_sections
+                .iter()
+                .cloned()
+                .map(|mut e| {
+                    if let Some(binding) = unique_binding(scenario, &e.student_key, &e.edition) {
+                        if e.course_key.is_none() {
+                            e.course_key = Some(binding.course_key.clone());
+                        }
+                        if e.book_no.is_none() {
+                            e.book_no = Some(binding.book_no.clone());
+                        }
+                    }
+                    e
+                })
+                .collect(),
             read_at: scenario.read_at.clone(),
             admitted_dates: scenario.admitted_dates.clone(),
             reports: scenario
@@ -148,6 +178,16 @@ impl SeededFacts {
                             .collect();
                         if let [only] = matches.as_slice() {
                             report.student_key = Some(only.key.clone());
+                        }
+                    }
+                    if let Some(key) = &report.student_key
+                        && let Some(binding) = unique_binding(scenario, key, &report.book)
+                    {
+                        if report.course_key.is_none() {
+                            report.course_key = Some(binding.course_key.clone());
+                        }
+                        if report.book_no.is_none() {
+                            report.book_no = Some(binding.book_no.clone());
                         }
                     }
                     report
@@ -242,6 +282,12 @@ pub struct DateRange {
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TeacherFactReport {
     #[serde(default)]
+    pub course_key: Option<String>,
+    #[serde(default)]
+    pub book_no: Option<String>,
+    #[serde(default)]
+    pub snapshot: Option<String>,
+    #[serde(default)]
     pub student_key: Option<String>,
     pub kind: String,
     pub student: String,
@@ -279,4 +325,22 @@ pub struct Reminder {
     pub action: String,
     pub status: String,
     pub reported_on: String,
+}
+
+fn unique_binding<'a>(
+    s: &'a Scenario,
+    key: &str,
+    edition: &str,
+) -> Option<&'a crate::synthetic::ScenarioBinding> {
+    let bindings: Vec<_> = s
+        .student_by_key(key)?
+        .bindings
+        .iter()
+        .filter(|b| b.label == edition)
+        .collect();
+    if let [binding] = bindings.as_slice() {
+        Some(*binding)
+    } else {
+        None
+    }
 }

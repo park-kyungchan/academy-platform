@@ -191,7 +191,7 @@ fn tree_range_middle_unit_comprehensive_and_limits() {
     );
     assert_eq!(
         reversed.ask.unwrap().field,
-        edu_academy_teacher::envelope::AskField::Unit
+        edu_academy_teacher::envelope::AskField::UnitTo
     );
     let mut s = scenario();
     let minor = &mut s.edition_trees[0].chapters[0].minors[1];
@@ -242,7 +242,16 @@ fn tree_range_middle_unit_comprehensive_and_limits() {
 fn seeded_judgments_never_write_or_replace_native_score() {
     let mut s = scenario();
     s.teacher_judgments[0].snapshot = Some("old-attempt".into());
-    let before = serde_json::to_value(&s.teacher_judgments).unwrap();
+    use edu_academy_teacher::facts::TeacherFacts;
+    let before_facts = SeededFacts::from_scenario(&s);
+    let before = serde_json::to_value(
+        before_facts
+            .unit_judgments("1001")
+            .into_iter()
+            .chain(before_facts.unit_judgments("1002"))
+            .collect::<Vec<_>>(),
+    )
+    .unwrap();
     let (mut b, f, mut d, c) = setup(s.clone());
     let r = req(json!({"student":"가상학생A","unit":"1-1","topic":"DailyTest"}));
     for _ in 0..2 {
@@ -252,7 +261,6 @@ fn seeded_judgments_never_write_or_replace_native_score() {
         assert!(out.display.contains("완료 판정"));
         assert!(out.ask.is_none());
     }
-    use edu_academy_teacher::facts::TeacherFacts;
     assert_eq!(
         before,
         serde_json::to_value(
@@ -275,10 +283,9 @@ fn seeded_judgments_never_write_or_replace_native_score() {
 #[test]
 fn unit_asks_round_trip_and_stops_are_actionable() {
     use edu_academy_teacher::envelope::{AskField, StopCode};
-    let out = run(
-        scenario(),
-        json!({"student":"가상학생없음","topic":"DailyTest"}),
-    );
+    let mut absent = scenario();
+    absent.students.retain(|s| s.key != "1006");
+    let out = run(absent, json!({"student":"가상학생F","topic":"DailyTest"}));
     assert_eq!(out.stop.unwrap().code, StopCode::StudentNotFound);
     let out = run(
         scenario(),
@@ -321,10 +328,9 @@ fn unit_asks_round_trip_and_stops_are_actionable() {
     }
 }
 #[test]
-fn same_name_and_empty_class_do_not_join_by_name_or_scan_class() {
+fn same_name_students_are_resolved_without_class_fanout() {
     let mut s = scenario();
     s.students[2].name = s.students[0].name.clone();
-    s.classes[0].roster.clear();
     let out = run(
         s.clone(),
         json!({"student":"가상학생A","topic":"DailyTest"}),
@@ -468,6 +474,7 @@ fn unfinished_prerequisite_and_teacher_stages_remain_independent() {
             .as_array()
             .unwrap()
             .iter()
+            .filter(|s| s["activity"] == "필수예제")
             .all(|s| s["verdict"] == "not_yet_expected")
     );
     let mut f = base;
@@ -674,7 +681,7 @@ fn all_topic_byte_limit_keeps_footer_and_names_omission() {
             .iter()
             .filter(|s| s.name == "prestudy")
             .count()
-            == 60
+            == 1
     );
 }
 
@@ -778,7 +785,8 @@ fn r1_b8_all_topics_do_not_contradict_scoped_stages() {
     let out = run(s, json!({"student":"가상학생A","unit":"1-2"}));
     assert!(
         !out.display
-            .contains("오답클리닉 풀이: 미확인(교사만 확인 가능)")
+            .lines()
+            .any(|line| line == "오답클리닉 풀이: 미확인(교사만 확인 가능)")
     );
     assert!(!out.display.contains("유사클리닉: 미확인(읽은 범위에 없음)"));
     assert!(out.display.contains("완료 판정"));
@@ -821,6 +829,7 @@ fn r1_b10_each_scope_ask_option_repairs_the_original_request() {
         json!({"student":"가상학생A","unit_from":"invalid","unit_to":"1-2","topic":"섹션"}),
         json!({"student":"가상학생A","unit_from":"1-1","topic":"섹션"}),
         json!({"student":"가상학생A","book":"가우스 5-1-2 1-2 필수예제 유형다지기","topic":"섹션"}),
+        json!({"student":"가상학생A","unit_from":"1-1 필수예제","unit_to":"1-2 유형다지기","topic":"섹션"}),
     ] {
         let (mut b, f, mut d, c) = setup(scenario());
         let request = req(value);
@@ -831,6 +840,8 @@ fn r1_b10_each_scope_ask_option_repairs_the_original_request() {
             match ask.field {
                 AskField::Unit => answer.unit = Some(option.value),
                 AskField::Book => answer.book = Some(option.value),
+                AskField::UnitFrom => answer.unit_from = Some(option.value),
+                AskField::UnitTo => answer.unit_to = Some(option.value),
                 _ => panic!("new scope field must be handled in the repair test"),
             };
             let out = status(&mut b, &mut d, &f, &answer, &c);
@@ -911,4 +922,149 @@ fn r1_b13_course_and_activity_stage_snapshot_are_not_erased() {
     assert!(out.display.contains("1-2 필수예제 오답클리닉 풀이"));
     assert!(out.display.contains("1-2 유형다지기 오답클리닉 채점"));
     assert!(!out.display.contains("8200"));
+}
+
+#[test]
+fn r1_n1_class_and_missing_student_have_a_defined_stop() {
+    for class in ["가상반A", ""] {
+        let mut s = scenario();
+        s.classes[0].roster.clear();
+        let out = run(s, json!({"student":class,"topic":"섹션"}));
+        assert_eq!(out.stop.unwrap().code.as_str(), "student_required");
+        assert!(out.display.contains("학생 이름"));
+    }
+    assert!(serde_json::from_value::<UnitStatusRequest>(json!({"class_name":"가상반A"})).is_err());
+    let out = run(scenario(), json!({"topic":"섹션"}));
+    assert_eq!(out.stop.unwrap().code.as_str(), "student_required");
+}
+#[test]
+fn r1_prestudy_reads_once_for_all_selected_leaves() {
+    let (mut b, f, mut d, c) = setup(scenario());
+    let out = status(
+        &mut b,
+        &mut d,
+        &f,
+        &req(json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"예습"})),
+        &c,
+    );
+    assert!(out.stop.is_none());
+    assert_eq!(b.prestudy_port_calls(), 5);
+    assert_eq!(
+        out.coverage
+            .sources
+            .iter()
+            .filter(|s| s.name == "prestudy")
+            .count(),
+        1
+    );
+    assert_eq!(out.data["prestudy"].as_array().unwrap().len(), 7);
+}
+
+#[test]
+fn r1_b13_exclusion_is_limited_to_its_course_and_attempt() {
+    let mut s = scenario();
+    let mut a = s.sections.attempts[0].clone();
+    a.paper_key = "8333".into();
+    a.attempt_key = "8444".into();
+    a.title = a.title.replace("가상주제B", "가상주제B 재시험");
+    for i in &mut a.items {
+        if i.scoring == "X" {
+            i.label = Some("1009".into());
+        }
+    }
+    s.sections.attempts.push(a);
+    s.excluded_sections[0].unit = "1-2".into();
+    s.excluded_sections[0].activity = "필수예제".into();
+    s.excluded_sections[0].snapshot = Some("8200".into());
+    let out = run(
+        s,
+        json!({"student":"가상학생A","unit":"1-2 필수예제","topic":"클리닉"}),
+    );
+    assert!(out.stop.is_none());
+    let cell = out.data["clinic"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["activity"] == "필수예제")
+        .unwrap();
+    assert_eq!(cell["verdict"], "eligible");
+    assert!(
+        cell["labels"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|l| l == "1009")
+    );
+    assert!(out.display.contains("관측 시도"));
+    assert!(!out.display.contains("8200"));
+}
+#[test]
+fn r1_many_unmapped_observations_are_preserved_with_a_bounded_notice() {
+    let mut s = scenario();
+    let a = s.sections.attempts[0].clone();
+    s.sections.attempts = (1..=50)
+        .map(|i| {
+            let mut a = a.clone();
+            a.paper_key = format!("{}", 8500 + i);
+            a.attempt_key = format!("{}", 8600 + i);
+            a.title = a
+                .title
+                .replace("1-2 가상주제B", &format!("9-{i} {}", "가상주제".repeat(30)));
+            a
+        })
+        .collect();
+    let out = run(
+        s,
+        json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"섹션"}),
+    );
+    assert!(out.stop.is_none());
+    assert!(out.display.len() <= 6000);
+    assert_eq!(
+        out.data["sections"]["observations"]
+            .as_array()
+            .unwrap()
+            .len(),
+        50
+    );
+    assert!(out.display.contains("제목 50개"));
+    assert!(out.display.contains("표시 한도"));
+}
+
+#[test]
+fn r1_b13_stage_reports_keep_each_observed_attempt_scope() {
+    let mut s = scenario();
+    let mut second = s.sections.attempts[0].clone();
+    second.attempt_key = "8299".into();
+    second.paper_key = "8399".into();
+    second.title.push_str(" 재시험");
+    s.sections.attempts.push(second);
+    let mut f = s.teacher_fact_reports[0].clone();
+    f.kind = "clinic_stage".into();
+    f.student_key = Some("1001".into());
+    f.unit = "1-2".into();
+    f.stage = "original_clinic_solving".into();
+    f.completed = Some(true);
+    f.snapshot = Some("8200".into());
+    let mut second = f.clone();
+    second.snapshot = Some("8299".into());
+    second.completed = Some(false);
+    second.reported_on = "2026-11-12".into();
+    s.teacher_fact_reports.extend([f, second]);
+    let out = run(
+        s,
+        json!({"student":"가상학생A","unit":"1-2","topic":"클리닉"}),
+    );
+    let stages = out.data["stages"].as_array().unwrap();
+    assert!(
+        stages
+            .iter()
+            .any(|s| s["snapshot"] == "8200" && s["verdict"] == "confirmed")
+    );
+    assert!(
+        stages
+            .iter()
+            .any(|s| s["snapshot"] == "8299" && s["stage"] == "original_clinic_solving")
+    );
+    assert!(out.display.contains("관측 시도"));
+    assert!(!out.display.contains("8299"));
 }

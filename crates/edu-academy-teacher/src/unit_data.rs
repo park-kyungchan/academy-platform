@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct UnitStatusRequest {
+    #[serde(default)]
     pub student: String,
     #[serde(default, deserialize_with = "optional_text")]
     pub book: Option<String>,
@@ -102,6 +103,10 @@ impl EditionTree {
 }
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct TeacherJudgment {
+    #[serde(default)]
+    pub course_key: Option<String>,
+    #[serde(default)]
+    pub book_no: Option<String>,
     pub student_key: String,
     pub edition: String,
     pub unit: String,
@@ -116,6 +121,12 @@ pub struct TeacherJudgment {
 }
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct ExcludedSection {
+    #[serde(default)]
+    pub course_key: Option<String>,
+    #[serde(default)]
+    pub book_no: Option<String>,
+    #[serde(default)]
+    pub snapshot: Option<String>,
     pub student_key: String,
     pub edition: String,
     pub unit: String,
@@ -164,6 +175,7 @@ pub struct DailyFrame {
 }
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct DailyRead {
+    pub unmapped_attempts: Vec<DailyAttempt>,
     pub sources: Vec<crate::envelope::SourceRead>,
     pub read_at: String,
     pub scope: DailyScope,
@@ -195,8 +207,26 @@ pub struct Section {
     pub source_date: Option<String>,
     pub date_precision: String,
 }
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SectionState {
+    Graded,
+    Unread,
+    Ambiguous,
+    Unmapped,
+}
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct SectionObservation {
+    pub unit: Option<String>,
+    pub activity: Option<String>,
+    pub source_title: String,
+    pub paper_key: String,
+    pub attempt_key: String,
+    pub state: SectionState,
+}
 #[derive(Clone, Debug, Default, Serialize, PartialEq)]
 pub struct SectionRead {
+    pub observations: Vec<SectionObservation>,
     pub records: Vec<Section>,
     pub absent_units: Vec<String>,
     pub index_observed: bool,
@@ -212,6 +242,8 @@ pub struct ClinicCell {
 }
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct UnitData {
+    pub course_key: String,
+    pub book_no: String,
     pub student_key: String,
     pub student: String,
     pub edition: String,
@@ -235,4 +267,74 @@ pub struct UnitData {
 
 fn optional_text<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
     String::deserialize(d).map(Some)
+}
+
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+#[derive(Clone, Default)]
+pub struct SharedFrameClock(Rc<RefCell<FrameState>>);
+#[derive(Default)]
+struct FrameState {
+    frames: Vec<DailyFrame>,
+    next: HashMap<String, usize>,
+    active: Option<DailyFrame>,
+}
+impl SharedFrameClock {
+    pub fn new(frames: Vec<DailyFrame>) -> Self {
+        Self(Rc::new(RefCell::new(FrameState {
+            frames,
+            ..Default::default()
+        })))
+    }
+    pub fn begin_read(&self, key: &str) -> Option<DailyFrame> {
+        let mut state = self.0.borrow_mut();
+        let frames: Vec<_> = state
+            .frames
+            .iter()
+            .filter(|f| f.student_key == key)
+            .cloned()
+            .collect();
+        let index = *state.next.get(key).unwrap_or(&0);
+        let frame = frames
+            .get(index.min(frames.len().saturating_sub(1)))
+            .cloned();
+        if frame.is_some() {
+            state.next.insert(key.to_string(), index.saturating_add(1));
+        }
+        state.active = frame.clone();
+        frame
+    }
+    pub fn reads(&self, key: &str) -> usize {
+        *self.0.borrow().next.get(key).unwrap_or(&0)
+    }
+    pub(crate) fn active(&self) -> edu_academy_sources::data::Result<DailyFrame> {
+        self.0
+            .borrow()
+            .active
+            .clone()
+            .ok_or_else(|| edu_academy_sources::data::Error::error("synthetic_frame_not_latched"))
+    }
+}
+
+impl UnitVerdict {
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::Waiting => "waiting",
+            Self::Completed => "completed",
+            Self::Found => "found",
+            Self::NotYetVisible => "not_yet_visible",
+            Self::NotInReadRange => "not_in_read_range",
+            Self::NotObserved => "not_observed",
+            Self::NotObservedInEitherSource => "not_observed_in_either_source",
+            Self::Unknown => "unknown",
+            Self::Eligible => "eligible",
+            Self::NotEligible => "not_eligible",
+            Self::Excluded => "excluded",
+            Self::Confirmed => "confirmed",
+            Self::Deferred => "deferred",
+            Self::Unjudged => "unjudged",
+            Self::NotApplicable => "not_applicable",
+            Self::NotYetExpected => "not_yet_expected",
+            Self::TeacherReportedNoServer => "teacher_reported_no_server",
+        }
+    }
 }

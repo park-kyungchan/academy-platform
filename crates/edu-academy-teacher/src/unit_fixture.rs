@@ -1,63 +1,13 @@
 //! Synthetic frame state and raw History port. No transport or real account.
-use crate::{
-    synthetic::{Scenario, TEACHER_ID},
-    unit_data::*,
-};
+use crate::synthetic::{Scenario, TEACHER_ID};
 use edu_academy_core::js::Js;
 use edu_academy_sources::{
     data::{Error, Result, obj, string},
     history::{Port, decode_code},
 };
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-#[derive(Clone, Debug)]
-pub struct ReadClock {
-    pub read_at: String,
-}
-#[derive(Clone, Default)]
-pub struct SharedFrameClock(Rc<RefCell<FrameState>>);
-#[derive(Default)]
-struct FrameState {
-    frames: Vec<DailyFrame>,
-    next: HashMap<String, usize>,
-    active: Option<DailyFrame>,
-}
-impl SharedFrameClock {
-    pub fn new(frames: Vec<DailyFrame>) -> Self {
-        Self(Rc::new(RefCell::new(FrameState {
-            frames,
-            ..Default::default()
-        })))
-    }
-    pub fn begin_read(&self, key: &str) -> Option<DailyFrame> {
-        let mut state = self.0.borrow_mut();
-        let frames: Vec<_> = state
-            .frames
-            .iter()
-            .filter(|f| f.student_key == key)
-            .cloned()
-            .collect();
-        let index = *state.next.get(key).unwrap_or(&0);
-        let frame = frames
-            .get(index.min(frames.len().saturating_sub(1)))
-            .cloned();
-        if frame.is_some() {
-            state.next.insert(key.to_string(), index.saturating_add(1));
-        }
-        state.active = frame.clone();
-        frame
-    }
-    pub fn reads(&self, key: &str) -> usize {
-        *self.0.borrow().next.get(key).unwrap_or(&0)
-    }
-    fn active(&self) -> Result<DailyFrame> {
-        self.0
-            .borrow()
-            .active
-            .clone()
-            .ok_or_else(|| Error::error("synthetic_frame_not_latched"))
-    }
-}
+pub use crate::backend::ReadClock;
+pub use crate::unit_data::SharedFrameClock;
 pub struct SyntheticDailyTestPort {
     scenario: Scenario,
     clock: SharedFrameClock,

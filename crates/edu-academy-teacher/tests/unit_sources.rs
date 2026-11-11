@@ -169,6 +169,7 @@ struct DailyPort {
     fail_page: bool,
     fail_selector: Option<String>,
     observed_at: Option<String>,
+    header_at: Option<String>,
     timeout: usize,
 }
 impl Port for DailyPort {
@@ -183,7 +184,10 @@ impl Port for DailyPort {
         Ok(rows)
     }
     fn daily_page(&mut self, s: &Js, selector: &Js) -> Result<Js> {
-        self.events.borrow_mut().push(format!("page:{selector:?}"));
+        self.events.borrow_mut().push(format!(
+            "page:{}",
+            edu_academy_sources::data::string(selector)
+        ));
         if self.timeout > 0 {
             self.timeout -= 1;
             return Err(Error::error("timeout"));
@@ -210,6 +214,9 @@ impl Port for DailyPort {
             return Err(Error::error("source_unavailable"));
         }
         let mut header = self.inner.paper_header(s, code)?;
+        if let Some(at) = &self.header_at {
+            header.set("observedAt", at.clone().into());
+        }
         if self.wrong_header {
             header.set("paperKey", "9999".into());
         }
@@ -228,6 +235,7 @@ fn daily_port(s: &Scenario) -> (DailyPort, SharedFrameClock) {
             fail_page: false,
             fail_selector: None,
             observed_at: None,
+            header_at: None,
             timeout: 0,
         },
         c,
@@ -451,7 +459,7 @@ fn daily_exact_key_join_retests_and_unknown_dates() {
     );
     assert!(!out.display.contains("미확인(읽은 기간에 없음)"));
     assert_eq!(
-        out.data["daily"]["attempts"][0]["edition_mapping"],
+        out.data["daily"]["unmapped_attempts"][0]["edition_mapping"],
         json!(null)
     );
 }
@@ -709,4 +717,86 @@ fn r1_b11_relative_success_does_not_claim_primary_page() {
     assert!(out.stop.is_none());
     assert!(out.display.contains("상대기간"));
     assert!(!out.display.contains("현재 필터 첫 관측 페이지"));
+}
+
+#[test]
+fn r1_b11_header_keeps_its_own_display_time() {
+    let s = scenario();
+    let (mut p, c) = daily_port(&s);
+    p.header_at = Some("2026-11-11T07:30:00+09:00".into());
+    let mut d = DailyTestReader::new(p, c, TEACHER_ID);
+    let mut b = backend(&s, text_port(&s));
+    let out = call(
+        &mut b,
+        &mut d,
+        &s,
+        json!({"student":"가상학생A","unit":"1-1","topic":"DailyTest"}),
+    );
+    assert!(out.display.contains("07:30"));
+    assert!(out.display.contains("09:00"));
+}
+#[test]
+fn r1_index_absence_needs_no_fabricated_grade_probe() {
+    let s = scenario();
+    let p = text_port(&s);
+    let events = p.calls.clone();
+    let mut b = backend(&s, p);
+    let out = call(
+        &mut b,
+        &mut reader(&s),
+        &s,
+        json!({"student":"가상학생A","unit":"2-3","topic":"섹션"}),
+    );
+    assert!(out.display.contains("두 원천 모두에 없음"));
+    assert_eq!(events.borrow().events.len(), 4);
+    assert_eq!(b.read_counts(), (2, 2));
+}
+
+#[test]
+fn r1_b1_failed_detail_footer_only_claims_observed_titles() {
+    let s = scenario();
+    let mut p = text_port(&s);
+    p.detail_fail = Some("8200".into());
+    let mut b = backend(&s, p);
+    let out = call(
+        &mut b,
+        &mut reader(&s),
+        &s,
+        json!({"student":"가상학생A","unit":"1-2 필수예제","topic":"클리닉"}),
+    );
+    assert!(out.display.contains("관측 제목·성적 미확인"));
+    assert!(!out.display.contains("관측 섹션 성적"));
+    assert!(
+        out.coverage
+            .sources
+            .iter()
+            .all(|s| s.name != "section_grades")
+    );
+}
+
+#[test]
+fn r1_relative_page_failure_is_not_retried_as_a_new_probe() {
+    let s = scenario();
+    let (mut p, c) = daily_port(&s);
+    p.fail_selector = Some("11".into());
+    let events = p.events.clone();
+    let mut d = DailyTestReader::new(p, c, TEACHER_ID);
+    let mut b = backend(&s, text_port(&s));
+    let out = call(
+        &mut b,
+        &mut d,
+        &s,
+        json!({"student":"가상학생A","unit":"1-1","topic":"DailyTest"}),
+    );
+    assert!(out.stop.is_none());
+    assert_eq!(
+        events
+            .borrow()
+            .iter()
+            .filter(|e| e.as_str() == "page:11")
+            .count(),
+        1,
+        "{:?}",
+        events.borrow()
+    );
 }

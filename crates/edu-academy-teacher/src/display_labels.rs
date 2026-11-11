@@ -539,6 +539,10 @@ pub fn unit_unknown_reason(code: &str) -> &'static str {
         "daily_header_unavailable" | "daily_mapping_unavailable" => {
             "일일시험 제목·판본 연결 미확인"
         }
+        "section_ambiguous_attempts" => "동일 제목의 시험 시도를 구분하지 못함",
+        "section_mapping_unavailable" => "단원·활동 연결 미확인",
+        "prestudy_name_ambiguous" => "같은 이름의 학생을 예습 원천에서 구분하지 못함",
+        "prestudy_unavailable" => "예습 목록을 읽지 못함",
         "daily_unavailable" => "일일시험을 읽지 못함",
         "daily_partial_page" => "일일시험의 일부 관측 페이지를 읽지 못함",
         "section_grade_unavailable" => "섹션 성적을 읽지 못함",
@@ -597,3 +601,58 @@ pub const UNIT_RELATIVE_PAGE: &str = "상대기간 첫 관측 페이지·기간 
 pub const UNIT_WRONG_NOTE_PAGE: &str = "오답노트 첫 관측 페이지";
 
 pub const UNIT_NEXT_SUPPLEMENTARY: &str = "교재 자체 평가와 교사 판정 확인.";
+
+// Source-qualified slice-2 repair vocabulary.
+pub const UNIT_MINOR: &str = "소단원";
+pub const UNIT_GRADE_UNREAD: &str = "미확인(성적을 읽지 못함)";
+pub const UNIT_ATTEMPTS_AMBIGUOUS: &str = "미확인(동일 제목의 시험 시도 구분 불가)";
+pub const UNIT_STUDENT_REQUIRED: &str =
+    "이 도구는 학생 한 명의 현황을 조회합니다. 반 이름 대신 학생 이름을 알려 주세요.";
+pub const UNIT_FROM_ASK: &str = "시작 소단원을 정하지 못했습니다.\n어느 소단원부터 볼까요?";
+pub const UNIT_TO_ASK: &str = "끝 소단원이 없거나 시작보다 앞섭니다.\n어느 소단원까지 볼까요?";
+pub fn unit_unmapped_title(title: &str) -> String {
+    format!("단원·활동 연결 미확인: {title}")
+}
+pub fn unit_timed_scope(scope: &str, at: &str) -> String {
+    format!("{scope}·읽은 시각 {at}")
+}
+pub fn unit_snapshot_scope(attempt: Option<(usize, Option<String>)>) -> String {
+    match attempt {
+        Some((i, date)) => format!(
+            "관측 시도 {i}({})",
+            date.unwrap_or_else(|| UNIT_DATE_UNKNOWN.into())
+        ),
+        None => "이전 관측 시도(현재 범위에서 연결 미확인)".into(),
+    }
+}
+pub fn unit_verdict(v: crate::unit_data::UnitVerdict) -> &'static str {
+    use crate::unit_data::UnitVerdict;
+    match v {
+        UnitVerdict::Confirmed => UNIT_CONFIRMED,
+        UnitVerdict::Completed => TEACHER,
+        UnitVerdict::NotYetExpected => UNIT_NOT_EXPECTED,
+        UnitVerdict::TeacherReportedNoServer => UNIT_TEACHER_ONLY,
+        _ => verdict(v.code()),
+    }
+}
+pub fn observation_time(at: &str) -> String {
+    let local = crate::render::local_time(at);
+    if local
+        .get(..10)
+        .is_some_and(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").is_ok())
+        && local.get(11..16).is_some()
+    {
+        format!("{} {}", date(&local), &local[11..16])
+    } else {
+        crate::render::cell(at)
+    }
+}
+
+pub const UNIT_TITLES_OBSERVED: &str =
+    "오답노트와 시험지 검색 각 첫 관측 페이지·관측 제목·성적 미확인";
+pub const UNIT_WRONG_NOTE_TITLES: &str = "오답노트 첫 관측 페이지·관측 제목·성적 미확인";
+
+pub const UNIT_INDEX_SCOPE: &str = "오답노트와 시험지 검색 각 첫 관측 페이지·관측 제목";
+pub fn unit_unmapped_summary(count: usize) -> String {
+    format!("단원·활동 연결 미확인: 제목 {count}개(표시 한도로 원문 제목 생략·결과 자료에 보존).")
+}
