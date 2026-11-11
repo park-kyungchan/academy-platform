@@ -3,6 +3,7 @@
 //! port traits, so the synthetic ports here and any real ports later serve
 //! `lesson::prepare` unchanged.
 use crate::{
+    display_labels as l,
     envelope::{Ask, AskField, AskOption, Stop, StopCode},
     render::Verdict,
 };
@@ -45,6 +46,7 @@ pub struct DayRecord {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SectionCheck {
+    pub title_read: bool,
     pub scope: String,
     pub verdict: Verdict,
     pub correct: Option<usize>,
@@ -59,10 +61,7 @@ pub enum BackendError {
 
 impl BackendError {
     pub fn source_unavailable() -> Self {
-        Self::Stop(Stop::new(
-            StopCode::SourceUnavailable,
-            "원천을 읽지 못했습니다.",
-        ))
+        Self::Stop(Stop::new(StopCode::SourceUnavailable, l::SOURCE_FAILURE))
     }
 }
 
@@ -178,10 +177,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
     }
 
     fn student_not_found() -> BackendError {
-        BackendError::Stop(Stop::new(
-            StopCode::StudentNotFound,
-            "학생을 찾지 못했습니다.",
-        ))
+        BackendError::Stop(Stop::new(StopCode::StudentNotFound, l::STUDENT_MISSING))
     }
 
     fn search_name(&mut self, query: &str) -> Result<NameSearch, BackendError> {
@@ -276,7 +272,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                 AskOption {
                     value: value.clone(),
                     label_ko: value,
-                    meaning_ko: "그 반의 학생".into(),
+                    meaning_ko: l::STUDENT_MEANING.into(),
                 },
             ));
         }
@@ -286,7 +282,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
     fn ambiguous_unresolvable() -> BackendError {
         BackendError::Stop(Stop::new(
             StopCode::StudentAmbiguousUnresolvable,
-            "이름, 반, 교재가 같아 두 학생을 구분할 수 없습니다. 반 명부를 수정해 주세요.",
+            l::STUDENT_AMBIGUOUS,
         ))
     }
 
@@ -299,7 +295,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
         }
         BackendError::Ask(Ask {
             field: AskField::Student,
-            question_ko: "어느 학생인가요?".into(),
+            question_ko: l::STUDENT_QUESTION.into(),
             options: options.iter().map(|(_, o)| o.clone()).collect(),
         })
     }
@@ -314,7 +310,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                 options.push(AskOption {
                     value: class_name.clone(),
                     label_ko: class_name.clone(),
-                    meaning_ko: "그 학생이 속한 반".into(),
+                    meaning_ko: l::ACTUAL_CLASS_MEANING.into(),
                 });
             }
         }
@@ -323,7 +319,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
         }
         BackendError::Ask(Ask {
             field: AskField::ClassName,
-            question_ko: "학생과 반이 일치하지 않습니다. 어느 반인가요?".into(),
+            question_ko: l::ACTUAL_CLASS_QUESTION.into(),
             options,
         })
     }
@@ -457,40 +453,46 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
         }
     }
 
-    pub fn prestudy_verdict(
+    pub fn prestudy_observation(
         &mut self,
         student_name: &str,
         book_label: &str,
         minor: &str,
-    ) -> Verdict {
+    ) -> (Verdict, Option<String>) {
         self.source_reads += 1;
         self.attempted += 1;
         let read_at = self.read_at.clone();
         let label = self.teacher_label.clone();
         let lists = match self.prestudy.read_lists(&label, student_name, &read_at) {
             Ok(lists) => lists,
-            Err(_) => return Verdict::Unknown,
+            Err(_) => return (Verdict::Unknown, None),
         };
         self.succeeded += 1;
         let in_book = |rows: &[edu_academy_sources::prestudy::PrestudyListRow]| {
-            rows.iter().any(|r| {
-                r.unit_label.contains(book_label)
-                    && r.unit_label.split_whitespace().any(|token| token == minor)
-            })
+            rows.iter()
+                .find(|r| {
+                    r.unit_label.contains(book_label)
+                        && r.unit_label.split_whitespace().any(|token| token == minor)
+                })
+                .map(|row| row.date_literal.clone())
         };
         let any_minor = |rows: &[edu_academy_sources::prestudy::PrestudyListRow]| {
             rows.iter()
                 .any(|r| r.unit_label.split_whitespace().any(|token| token == minor))
         };
-        if in_book(&lists.waiting) {
-            Verdict::Waiting
-        } else if in_book(&lists.completed) {
-            Verdict::Completed
+        if let Some(row) = in_book(&lists.waiting) {
+            (Verdict::Waiting, Some(row))
+        } else if let Some(row) = in_book(&lists.completed) {
+            (Verdict::Completed, Some(row))
         } else if any_minor(&lists.waiting) || any_minor(&lists.completed) {
-            Verdict::NotInReadRange
+            (Verdict::NotInReadRange, None)
         } else {
-            Verdict::NotObserved
+            (Verdict::NotObserved, None)
         }
+    }
+
+    pub fn prestudy_verdict(&mut self, student: &str, book: &str, minor: &str) -> Verdict {
+        self.prestudy_observation(student, book, minor).0
     }
 
     pub fn resolve_book(
@@ -534,6 +536,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                 return activities
                     .iter()
                     .map(|activity| SectionCheck {
+                        title_read: false,
                         scope: format!("{minor} {activity}"),
                         verdict: Verdict::Unknown,
                         correct: None,
@@ -554,6 +557,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
             });
             let Some(title) = title else {
                 checks.push(SectionCheck {
+                    title_read: true,
                     scope: scope_label,
                     verdict: Verdict::NotObserved,
                     correct: None,
@@ -569,6 +573,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                     self.succeeded += 1;
                     let record = graded.records.first();
                     checks.push(SectionCheck {
+                        title_read: true,
                         scope: scope_label,
                         verdict: Verdict::Found,
                         correct: record.map(|r| r.correct_count()),
@@ -578,6 +583,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                 Ok(GradeOutcome::NotObservedInEither(_)) => {
                     self.succeeded += 1;
                     checks.push(SectionCheck {
+                        title_read: true,
                         scope: scope_label,
                         verdict: Verdict::NotObservedInEitherSource,
                         correct: None,
@@ -585,6 +591,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                     });
                 }
                 Err(_) => checks.push(SectionCheck {
+                    title_read: true,
                     scope: scope_label,
                     verdict: Verdict::Unknown,
                     correct: None,

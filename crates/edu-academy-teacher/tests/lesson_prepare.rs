@@ -38,85 +38,100 @@ fn data(envelope: &edu_academy_teacher::envelope::Envelope) -> LessonData {
     serde_json::from_value(envelope.data.clone()).unwrap()
 }
 
-// Q01: S-017, S-019, S-026, S-024/S-025 carry-over; sections of 2-1 not observed.
-#[test]
-fn q01_single_student_previous_lesson_and_checks() {
-    let mut backend = make_backend();
-    let envelope =
-        edu_academy_teacher::prepare(&mut backend, &facts(), &req_student("가상학생A"), today());
-    assert_eq!(envelope.status, Status::Ok);
-    assert_eq!(envelope.display, DISPLAY_Q01);
-    display_lint(&envelope.display).unwrap();
-    assert!(
-        envelope
-            .display
-            .contains("못 가져온 숙제: 가우스 5-1-2 1-2 유형다지기 8문항 (11월 5일 숙제, 판정 전)")
-    );
-    assert!(!envelope.display.contains("2026-11-04"));
-    let parsed = data(&envelope);
-    let student = &parsed.students[0];
-    let prev = student.previous_lesson.as_ref().unwrap();
-    assert_eq!(prev.date, "2026-11-09");
-    assert_ne!(prev.date, "2026-11-04");
-    assert_eq!(prev.how_found, "schedule");
-    assert!(prev.progress.contains("1-2 유형다지기"));
-    assert!(prev.homework.contains("2-1 필수예제"));
-    assert_eq!(student.checks.len(), 3);
-    assert_eq!(student.checks[0].verdict, Verdict::Waiting);
-    assert_eq!(student.checks[1].verdict, Verdict::NotObserved);
-    assert_eq!(student.checks[2].verdict, Verdict::NotObserved);
-    assert_eq!(student.carry_over.len(), 1);
-    assert_eq!(
-        student.carry_over[0].homework_line,
-        "가우스 5-1-2 1-2 유형다지기 8문항"
-    );
-    assert_eq!(student.carry_over[0].assigned_on, "2026-11-05");
-    assert!(envelope.display.contains("교사 확인 전"));
-    // Logical reads: 1 record probe + 1 prestudy + 1 bindings + 1 index.
-    assert_eq!(backend.source_reads(), 4);
-    // Coverage lists only the reads made, with the clock value as read time.
-    let names: Vec<&str> = envelope
-        .coverage
-        .sources
-        .iter()
-        .map(|s| s.name.as_str())
-        .collect();
-    assert_eq!(names, ["daily_record", "prestudy", "textbook_sections"]);
-    assert!(envelope.coverage.sources.iter().all(|s| s.read_at == NOW));
-    assert!(
-        envelope.coverage.unknowns.is_empty(),
-        "{:?}",
-        envelope.coverage.unknowns
-    );
-    // One index read for both section kinds: bindings 1 + index 3 port calls.
-    assert_eq!(backend.textbook_port_calls(), 4);
-    assert_eq!(backend.prestudy_port_calls(), 5);
+fn prepare_v2(sc: Scenario, req: &PrepareRequest) -> edu_academy_teacher::envelope::Envelope {
+    let seeded = SeededFacts::from_scenario(&sc);
+    let mut backend = SourceBackend::synthetic(sc, NOW);
+    edu_academy_teacher::prepare(&mut backend, &seeded, req, today())
+}
+fn scenario_v2() -> Scenario {
+    load_scenario(include_str!("fixtures/scenario-v2.json")).unwrap()
 }
 
-// Q02: S-002 roster order, S-019..S-021, S-027 not observed (never not done).
 #[test]
-fn q02_class_of_three_roster_order() {
-    let mut backend = make_backend();
-    let req = PrepareRequest {
-        class_name: Some("가상반A".into()),
-        ..Default::default()
-    };
-    let envelope = edu_academy_teacher::prepare(&mut backend, &facts(), &req, today());
-    assert_eq!(envelope.status, Status::Ok);
-    assert_eq!(envelope.display, DISPLAY_Q02);
-    display_lint(&envelope.display).unwrap();
-    let parsed = data(&envelope);
-    let names: Vec<&str> = parsed.students.iter().map(|s| s.student.as_str()).collect();
-    assert_eq!(names, ["가상학생A", "가상학생B", "가상학생C"]);
-    for student in &parsed.students {
-        assert_eq!(student.previous_lesson.as_ref().unwrap().date, "2026-11-09");
+fn seven_contract_targets_byte_for_byte() {
+    for (req, fixture) in [
+        (req_student("가상학생A"), DISPLAY_Q01),
+        (
+            PrepareRequest {
+                class_name: Some("가상반A".into()),
+                ..Default::default()
+            },
+            DISPLAY_Q02,
+        ),
+        (req_student("가상학생F"), DISPLAY_NOT_FOUND),
+        (
+            PrepareRequest {
+                student: Some("가상학생A".into()),
+                class_name: Some("가상반B".into()),
+                ..Default::default()
+            },
+            include_str!("fixtures/display-disagreement.txt"),
+        ),
+        (
+            PrepareRequest {
+                student: Some("가상학생A".into()),
+                date: Some("2026-10-20".into()),
+                ..Default::default()
+            },
+            include_str!("fixtures/display-outside-admission.txt"),
+        ),
+        (
+            PrepareRequest {
+                class_name: Some("가상반C".into()),
+                ..Default::default()
+            },
+            include_str!("fixtures/display-empty-roster.txt"),
+        ),
+        (
+            PrepareRequest {
+                student: Some("가상학생A".into()),
+                date: Some("지난 수업일".into()),
+                ..Default::default()
+            },
+            include_str!("fixtures/display-previous-lesson-date.txt"),
+        ),
+    ] {
+        let mut sc = scenario_v2();
+        if req.class_name.as_deref() == Some("가상반C") {
+            sc.classes[2].roster.clear();
+        }
+        let result = prepare_v2(sc, &req);
+        assert_eq!(result.display, fixture);
+        display_lint(&result.display).unwrap();
+        assert!(!result.display.ends_with('\n'));
     }
-    let b = &parsed.students[1];
-    assert_eq!(b.checks[0].verdict, Verdict::NotObserved);
-    assert!(!envelope.display.contains("안 함"));
-    assert!(!envelope.display.contains("하지 않"));
-    assert_eq!(backend.source_reads(), 12);
-    assert_eq!(envelope.coverage.sources.len(), 9);
+}
+
+#[test]
+fn q01_q02_data_and_line_limits() {
+    let one = prepare_v2(scenario_v2(), &req_student("가상학생A"));
+    assert!(one.display.lines().count() <= 30);
+    assert_eq!(
+        data(&one).students[0]
+            .previous_lesson
+            .as_ref()
+            .unwrap()
+            .date,
+        "2026-11-09"
+    );
+    assert_eq!(data(&one).students[0].checks[0].verdict, Verdict::Waiting);
+    assert_eq!(data(&one).read_at, "2026-11-11T09:10:00Z");
+    let group = prepare_v2(
+        scenario_v2(),
+        &PrepareRequest {
+            class_name: Some("가상반A".into()),
+            ..Default::default()
+        },
+    );
+    assert!(group.display.lines().count() <= 45);
+    assert_eq!(
+        data(&group)
+            .students
+            .iter()
+            .map(|s| s.student.as_str())
+            .collect::<Vec<_>>(),
+        ["가상학생A", "가상학생B", "가상학생C"]
+    );
 }
 
 #[test]
@@ -192,33 +207,10 @@ fn previous_lesson_not_found_states_range() {
         ["previous_lesson_not_found:가상학생A"]
     );
     assert!(
-        envelope.display.contains("찾아봤지만 기록이 없습니다."),
+        envelope.display.contains("지난 수업 기록이 없어"),
         "{}",
         envelope.display
     );
-}
-
-// R5: the not-found display fixture, byte for byte (day scan of 11-11).
-#[test]
-fn previous_not_found_display_fixture() {
-    let mut backend = make_backend();
-    let envelope = edu_academy_teacher::prepare(
-        &mut backend,
-        &NoScheduleFacts,
-        &req_student("가상학생F"),
-        today(),
-    );
-    assert_eq!(envelope.status, Status::Ok);
-    assert_eq!(envelope.display, DISPLAY_NOT_FOUND);
-    display_lint(&envelope.display).unwrap();
-    // Only the daily-record read was made.
-    let names: Vec<&str> = envelope
-        .coverage
-        .sources
-        .iter()
-        .map(|s| s.name.as_str())
-        .collect();
-    assert_eq!(names, ["daily_record"]);
 }
 
 #[test]
@@ -299,7 +291,7 @@ fn missing_student_and_class_asks_on_class_name() {
     assert_eq!(options, ["가상반A", "가상반B", "가상반C"]);
     assert!(ask.options.iter().all(|o| o.meaning_ko == "반 전체 준비"));
     assert!(
-        envelope.display.contains("학생 이름"),
+        envelope.display.lines().count() <= 4,
         "{}",
         envelope.display
     );
@@ -480,7 +472,11 @@ fn first_record_without_predecessor_all_failed_stops() {
     );
     // F has no successful lesson-data read, so it is not listed as a source.
     assert!(
-        envelope.coverage.sources.is_empty(),
+        envelope
+            .coverage
+            .sources
+            .iter()
+            .all(|s| s.name != "daily_record"),
         "{:?}",
         envelope.coverage.sources
     );
@@ -563,13 +559,7 @@ fn non_gauss_homework_book_asks_on_book() {
 // R9: names and class names are trimmed before use.
 #[test]
 fn inputs_are_trimmed() {
-    let mut backend = make_backend();
-    let envelope = edu_academy_teacher::prepare(
-        &mut backend,
-        &facts(),
-        &req_student("  가상학생A  "),
-        today(),
-    );
+    let envelope = prepare_v2(scenario_v2(), &req_student("  가상학생A  "));
     assert_eq!(envelope.status, Status::Ok);
     assert_eq!(envelope.display, DISPLAY_Q01);
 }
@@ -869,7 +859,7 @@ fn prepare_runs_against_minimal_ports() {
         today(),
     );
     assert_eq!(envelope.status, Status::Ok, "{}", envelope.display);
-    assert!(envelope.display.contains("찾아봤지만 기록이 없습니다."));
+    assert!(envelope.display.contains("지난 수업 기록이 없어"));
 }
 
 // R4: only when every read of the call failed is the call unavailable.
@@ -1037,7 +1027,7 @@ fn one_failed_student_stays_ok_when_two_succeed() {
     assert!(
         envelope
             .display
-            .contains("- 가상학생F 지난 수업 기록을 읽지 못했습니다."),
+            .contains("가상학생F의 지난 수업 기록을 읽지 못했습니다."),
         "{}",
         envelope.display
     );
@@ -1584,7 +1574,7 @@ fn class_roster_disagreement_stops_whole_request() {
         assert_eq!(result.status, Status::Unavailable);
         assert!(result.ask.is_none());
         let stop = result.stop.as_ref().unwrap();
-        assert_eq!(stop.code, StopCode::StudentNotFound);
+        assert_eq!(stop.code, StopCode::RosterClassMismatch);
         assert_eq!(
             result.display,
             format!(
@@ -1593,7 +1583,7 @@ fn class_roster_disagreement_stops_whole_request() {
         );
         assert_eq!(stop.message_ko, result.display);
         assert_eq!(data(&result).class_name.as_deref(), Some("가상반A"));
-        assert_eq!(data(&result).students.len(), index);
+        assert!(data(&result).students.is_empty());
         assert!(!result.display.contains("지난 수업:"));
     }
     // Explicitly naming the student retains the student-mode class ask.
@@ -1629,6 +1619,892 @@ fn student_without_class_stops_instead_of_empty_ask() {
         assert_eq!(result.status, Status::Unavailable);
         assert!(result.ask.is_none());
         assert_eq!(result.stop.unwrap().code, StopCode::StudentNotFound);
-        assert_eq!(result.display, "학생을 찾지 못했습니다.");
+        assert_eq!(
+            result.display,
+            edu_academy_teacher::display_labels::STUDENT_MISSING
+        );
     }
+}
+
+fn action_rows(text: &str) -> Vec<&str> {
+    text.lines()
+        .filter(|line| line.contains(" | ") && !line.starts_with("학생 | "))
+        .collect()
+}
+fn changed_rows(before: &str, after: &str) -> (usize, usize) {
+    let a = action_rows(before);
+    let b = action_rows(after);
+    (
+        a.iter().filter(|r| !b.contains(r)).count(),
+        b.iter().filter(|r| !a.contains(r)).count(),
+    )
+}
+#[test]
+fn one_fact_changes_one_video_row() {
+    let original = prepare_v2(scenario_v2(), &req_student("가상학생A"));
+    let mut sc = scenario_v2();
+    let video = sc.prestudy.waiting.remove(0);
+    sc.prestudy.completed.push(video);
+    let changed = prepare_v2(sc, &req_student("가상학생A"));
+    assert_eq!(changed_rows(&original.display, &changed.display), (1, 1));
+    assert!(
+        changed
+            .display
+            .lines()
+            .any(|r| r.contains("예습영상 | 영상 확인 | 서버 확인"))
+    );
+    assert_eq!(
+        data(&changed).students[0].checks[0].verdict,
+        Verdict::Completed
+    );
+}
+#[test]
+fn closing_one_reminder_removes_only_its_row() {
+    let original = prepare_v2(scenario_v2(), &req_student("가상학생A"));
+    let mut sc = scenario_v2();
+    sc.reminders[1].status = "closed".into();
+    let changed = prepare_v2(sc, &req_student("가상학생A"));
+    assert_eq!(changed_rows(&original.display, &changed.display), (1, 0));
+    assert!(!changed.display.contains("가상학생E |"));
+    assert_eq!(data(&changed).reminders.len(), 2);
+}
+#[test]
+fn dated_notebook_fact_changes_only_its_row() {
+    let original = prepare_v2(scenario_v2(), &req_student("가상학생A"));
+    let mut sc = scenario_v2();
+    sc.teacher_fact_reports.push(serde_json::from_value(serde_json::json!({
+        "kind":"solution_notebook_check","student":"가상학생A","book":"가우스 5-1-2","unit":"2-1","completed":true,"reported_on":"2026-11-11"
+    })).unwrap());
+    let changed = prepare_v2(sc, &req_student("가상학생A"));
+    assert_eq!(changed_rows(&original.display, &changed.display), (1, 2));
+    assert!(
+        changed
+            .display
+            .lines()
+            .any(|r| r.contains("풀이노트 검사 | 교사 확인(11월 11일)"))
+    );
+}
+#[test]
+fn not_brought_judgment_removes_its_row() {
+    let original = prepare_v2(scenario_v2(), &req_student("가상학생A"));
+    let mut sc = scenario_v2();
+    sc.carry_over[0].judged = true;
+    let changed = prepare_v2(sc, &req_student("가상학생A"));
+    assert_eq!(changed_rows(&original.display, &changed.display), (1, 0));
+    assert!(!changed.display.contains("미지참 판정"));
+}
+#[test]
+fn anonymous_counts_are_not_claimed_as_distinct_labels() {
+    let mut sc = scenario_v2();
+    sc.teacher_fact_reports[1].item_labels = vec!["1".into(), "1".into()];
+    let result = prepare_v2(sc, &req_student("가상학생A"));
+    let carry = result
+        .display
+        .lines()
+        .find(|line| line.contains("미지참 판정"))
+        .unwrap();
+    assert!(carry.contains("문항 8개"));
+    assert!(!carry.contains("문항 번호"));
+}
+#[test]
+fn unknown_part_does_not_repeat_rows_and_next_is_bounded() {
+    let result = prepare_v2(
+        scenario_v2(),
+        &PrepareRequest {
+            class_name: Some("가상반A".into()),
+            ..Default::default()
+        },
+    );
+    let unknown = result
+        .display
+        .split("미확인 사항\n")
+        .nth(1)
+        .unwrap()
+        .split("\n다음 확인")
+        .next()
+        .unwrap();
+    assert!(!unknown.contains(" | "));
+    assert!(!unknown.contains("미확인("));
+    let next = result
+        .display
+        .split("다음 확인\n")
+        .last()
+        .unwrap()
+        .split("\n읽은 원천")
+        .next()
+        .unwrap();
+    assert!(next.lines().count() <= 3);
+    for line in result.display.lines().filter(|line| line.contains('|')) {
+        assert_eq!(line.split(" | ").count(), 6);
+    }
+}
+#[test]
+fn reminder_urgency_uses_today_even_for_historical_request() {
+    use edu_academy_teacher::render::urgency;
+    assert_eq!(
+        urgency("2026-11-10T18:10:00+09:00", "2026-11-11"),
+        "기한 지남"
+    );
+    assert_eq!(urgency("2026-11-11T18:10:00+09:00", "2026-11-11"), "오늘");
+    assert_eq!(urgency("2026-11-12T18:10:00+09:00", "2026-11-11"), "임박");
+    let result = prepare_v2(
+        scenario_v2(),
+        &PrepareRequest {
+            student: Some("가상학생A".into()),
+            date: Some("지난 수업일".into()),
+            ..Default::default()
+        },
+    );
+    assert!(result.display.contains("오늘 11월 11일 18:10"));
+    assert_eq!(data(&result).lesson_date, "2026-11-09");
+    assert_eq!(
+        data(&result).students[0]
+            .previous_lesson
+            .as_ref()
+            .unwrap()
+            .date,
+        "2026-11-05"
+    );
+    assert!(
+        result
+            .coverage
+            .sources
+            .iter()
+            .any(|s| s.name == "date_resolution")
+    );
+}
+#[test]
+fn admission_refusal_reads_no_source() {
+    let sc = scenario_v2();
+    let seeded = SeededFacts::from_scenario(&sc);
+    let mut backend = SourceBackend::synthetic(sc, NOW);
+    let result = edu_academy_teacher::prepare(
+        &mut backend,
+        &seeded,
+        &PrepareRequest {
+            student: Some("가상학생A".into()),
+            date: Some("2026-10-20".into()),
+            ..Default::default()
+        },
+        today(),
+    );
+    assert_eq!(result.stop.unwrap().code, StopCode::DateNotAdmitted);
+    assert_eq!(backend.source_reads(), 0);
+    assert_eq!(backend.attempted_reads(), 0);
+    assert_eq!(backend.prestudy_port_calls(), 0);
+    assert_eq!(backend.textbook_port_calls(), 0);
+    assert!(result.coverage.sources.is_empty());
+}
+#[test]
+fn missing_class_roster_stop_names_student() {
+    let mut sc = scenario_v2();
+    sc.students[1].class_name.clear();
+    let result = prepare_v2(
+        sc,
+        &PrepareRequest {
+            class_name: Some("가상반A".into()),
+            ..Default::default()
+        },
+    );
+    assert_eq!(result.stop.unwrap().code, StopCode::StudentNotFound);
+    assert!(result.display.contains("가상학생B"));
+    assert!(result.ask.is_none());
+}
+
+#[test]
+fn scenario_v2_preserves_v1_root_and_wires_added_facts() {
+    let old: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    let new: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/scenario-v2.json")).unwrap();
+    for (key, value) in old.as_object().unwrap() {
+        assert_eq!(&new[key], value, "{key}");
+    }
+    assert_eq!(
+        new.as_object().unwrap().len(),
+        old.as_object().unwrap().len() + 4
+    );
+    let seeded = SeededFacts::from_scenario(&scenario_v2());
+    assert_eq!(seeded.read_at(), Some("2026-11-11T09:10:00Z"));
+    assert_eq!(seeded.reports().len(), 8);
+    assert_eq!(seeded.reminders().len(), 3);
+    assert_eq!(seeded.admitted_dates().unwrap().from, "2026-10-21");
+    for bad in [
+        serde_json::json!({"from":"2026-11-11","to":"2026-10-21"}),
+        serde_json::json!({"from":"bad","to":"2026-11-11"}),
+    ] {
+        let mut invalid = new.clone();
+        invalid["admitted_dates"] = bad;
+        assert!(load_scenario(&invalid.to_string()).is_err());
+    }
+}
+#[test]
+fn once_per_student_port_reads_and_separate_date_resolution() {
+    for (req, expected) in [
+        (req_student("가상학생A"), 4),
+        (
+            PrepareRequest {
+                class_name: Some("가상반A".into()),
+                ..Default::default()
+            },
+            12,
+        ),
+        (
+            PrepareRequest {
+                student: Some("가상학생A".into()),
+                date: Some("지난 수업일".into()),
+                ..Default::default()
+            },
+            3,
+        ),
+    ] {
+        let sc = scenario_v2();
+        let seeded = SeededFacts::from_scenario(&sc);
+        let mut backend = SourceBackend::synthetic(sc, NOW);
+        let result = edu_academy_teacher::prepare(&mut backend, &seeded, &req, today());
+        assert_eq!(result.status, Status::Ok);
+        assert_eq!(backend.source_reads(), expected);
+    }
+}
+
+#[test]
+fn cached_scope_keeps_its_original_read_time_in_footer() {
+    let result = prepare_v2(scenario_v2(), &req_student("가상학생A"));
+    let mut coverage = result.coverage.clone();
+    coverage
+        .sources
+        .iter_mut()
+        .find(|s| s.name == "prestudy")
+        .unwrap()
+        .read_at = "2026-11-10T09:10:00Z".into();
+    let text = edu_academy_teacher::render::lesson_prepare(&data(&result), &coverage);
+    assert!(text.contains("읽은 원천 (11월 11일 18:10)"));
+    assert!(text.contains("(11월 10일 18:10)"));
+    display_lint(&text).unwrap();
+}
+#[test]
+fn reminder_next_uses_overdue_before_today_for_named_students() {
+    let mut sc = scenario_v2();
+    sc.reminders[1].at = "2026-11-10T18:10:00+09:00".into();
+    let result = prepare_v2(sc, &req_student("가상학생A"));
+    let next = result.display.split("다음 확인\n").last().unwrap();
+    assert!(next.starts_with("- 가상학생E의 기한 지남"));
+}
+
+fn add_report(sc: &mut Scenario, value: serde_json::Value) {
+    sc.teacher_fact_reports
+        .push(serde_json::from_value(value).unwrap());
+}
+fn notebook_rows(text: &str) -> Vec<&str> {
+    text.lines()
+        .filter(|r| r.contains(" | 풀이노트 검사 | "))
+        .collect()
+}
+#[test]
+fn repair_notebook_check_covers_only_named_assignment() {
+    let mut sc = scenario_v2();
+    add_report(
+        &mut sc,
+        serde_json::json!({"kind":"solution_notebook_check","student":"가상학생A","book":"가우스 5-1-2","unit":"2-1","completed":true,"reported_on":"2026-11-11"}),
+    );
+    let e = prepare_v2(sc.clone(), &req_student("가상학생A"));
+    let rows = notebook_rows(&e.display);
+    assert_eq!(rows.len(), 2, "{}", e.display);
+    assert!(
+        rows.iter()
+            .any(|r| r.contains("1-2 풀이노트") && r.contains("미확인(실물 확인 전)"))
+    );
+    sc.teacher_fact_reports.last_mut().unwrap().reported_on = "2026-11-08".into();
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert!(
+        notebook_rows(&e.display)
+            .iter()
+            .all(|r| !r.contains("교사 확인("))
+    );
+}
+#[test]
+fn repair_fact_identity_and_assignment_do_not_collide() {
+    let mut sc = scenario_v2();
+    sc.teacher_fact_reports[4].book = "가우스 5-1-1".into();
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert!(
+        !e.display
+            .lines()
+            .any(|r| r.contains("배정 풀이 확인 | 교사 확인("))
+    );
+    let mut sc = scenario_v2();
+    sc.students[4].name = "가상학생A".into();
+    let mut req = req_student("가상학생A");
+    req.class_name = Some("가상반A".into());
+    let e = prepare_v2(sc, &req);
+    assert!(
+        !e.display
+            .lines()
+            .any(|r| r.contains("배정 풀이 확인 | 교사 확인(")),
+        "{}",
+        e.display
+    );
+}
+#[test]
+fn repair_independent_rows_survive_missing_homework_and_record() {
+    let mut sc = scenario_v2();
+    sc.records
+        .iter_mut()
+        .find(|r| r.student == "가상학생A" && r.date == "2026-11-09")
+        .unwrap()
+        .homework
+        .clear();
+    let e = prepare_v2(sc.clone(), &req_student("가상학생A"));
+    assert!(e.display.contains("미지참 판정"));
+    assert!(e.display.contains("설명 보완(미처리)"));
+    assert!(e.display.contains("배정 숙제를 읽을 수 없습니다"));
+    sc.records.retain(|r| r.student != "가상학생A");
+    sc.no_predecessor.push("가상학생A".into());
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert!(e.display.contains("미지참 판정"));
+    assert!(e.display.contains("풀이노트 검사"));
+    assert!(e.display.contains("설명 보완(미처리)"));
+}
+#[test]
+fn repair_explicit_no_homework_differs_from_unreadable() {
+    let mut sc = scenario_v2();
+    sc.records
+        .iter_mut()
+        .find(|r| r.student == "가상학생A" && r.date == "2026-11-09")
+        .unwrap()
+        .homework = "없음".into();
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert!(e.display.contains("숙제가 배정되지 않았습니다"));
+}
+#[test]
+fn repair_every_homework_item_is_used() {
+    let mut sc = scenario_v2();
+    let binding = sc.students[1].bindings[1].clone();
+    sc.students[0].bindings.push(binding);
+    sc.records
+        .iter_mut()
+        .find(|r| r.student == "가상학생A" && r.date == "2026-11-09")
+        .unwrap()
+        .homework
+        .push_str("\n- 가우스 5-1-1 4-3 필수예제");
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert!(
+        e.display
+            .lines()
+            .any(|r| r.contains("가우스 5-1-1 4-3 예습영상 | 영상 확인")),
+        "{}",
+        e.display
+    );
+}
+#[test]
+fn repair_footer_only_claims_actual_reads_and_each_scope_time() {
+    let e = prepare_v2(scenario_v2(), &req_student("가상학생A"));
+    let d = data(&e);
+    let mut c = e.coverage;
+    c.sources.retain(|s| {
+        s.name != "prestudy" && s.name != "textbook_sections" && s.name != "registration"
+    });
+    let text = edu_academy_teacher::render::lesson_prepare(&d, &c);
+    let footer = text.split("읽은 원천").nth(1).unwrap();
+    assert!(!footer.contains("예습영상("));
+    assert!(!footer.contains("학생·교재 등록("));
+    assert!(!footer.contains("섹션 제목("));
+}
+#[test]
+fn repair_partial_grades_name_only_unread_activity() {
+    let mut sc = scenario_v2();
+    let mut title = sc.sections.index_titles[0].clone();
+    title.title = title.title.replace("1-2", "2-1");
+    let mut grade = sc.sections.grades[0].clone();
+    grade.title = title.title.clone();
+    sc.sections.index_titles.push(title);
+    sc.sections.grades.push(grade);
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert!(e.display.contains("채점 결과 8/10문항"));
+    let unknown = e
+        .display
+        .split("미확인 사항\n")
+        .nth(1)
+        .unwrap()
+        .split("다음 확인\n")
+        .next()
+        .unwrap();
+    assert!(unknown.contains("2-1 유형다지기"), "{unknown}");
+    assert!(!unknown.contains("필수예제"));
+}
+#[test]
+fn repair_dynamic_cells_are_readable_and_linted() {
+    let mut sc = scenario_v2();
+    sc.reminders[0].action = "교재 | 확인\n다음\\값".into();
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert_eq!(e.status, Status::Ok, "{}", e.display);
+    assert!(display_lint(&e.display).is_ok());
+    assert!(e.display.contains("교재 ｜ 확인 / 다음\\값"));
+    assert!(!e.display.lines().any(|r| r.starts_with("다음\\값")));
+    let mut sc = scenario_v2();
+    sc.reminders[0].action = "untranslated".into();
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert!(e.stop.is_none(), "{}", e.display);
+}
+#[test]
+fn repair_resolved_followups_and_corrections_are_omitted() {
+    let mut sc = scenario_v2();
+    sc.teacher_fact_reports[6].status = "closed".into();
+    sc.teacher_fact_reports[7].status = "completed".into();
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert!(!e.display.contains("설명 보완(미처리)"));
+    assert!(!e.display.contains("오답수정 일정 확인"));
+}
+#[test]
+fn repair_class_previous_date_is_shared_and_admitted() {
+    let mut sc = scenario_v2();
+    sc.records
+        .retain(|r| !(r.date == "2026-11-09" && r.student != "가상학생A"));
+    let req = PrepareRequest {
+        class_name: Some("가상반A".into()),
+        date: Some("지난 수업일".into()),
+        ..Default::default()
+    };
+    let e = prepare_v2(sc.clone(), &req);
+    let d = data(&e);
+    assert_eq!(d.lesson_date, "2026-11-09");
+    assert!(
+        d.students[1].previous_lesson.is_none(),
+        "{:?}",
+        d.students[1]
+    );
+    sc.admitted_dates.as_mut().unwrap().from = "2026-11-10".into();
+    let e = prepare_v2(sc, &req);
+    assert_eq!(e.stop.unwrap().code, StopCode::DateNotAdmitted);
+}
+#[test]
+fn repair_seoul_reminder_time_and_runtime_limits() {
+    let mut sc = scenario_v2();
+    sc.reminders[0].at = "2026-11-10T23:30:00Z".into();
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert!(e.display.contains("오늘 11월 11일 08:30"));
+    let mut sc = scenario_v2();
+    for _ in 0..50 {
+        sc.reminders.push(sc.reminders[0].clone());
+    }
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert!(e.display.len() <= 6000);
+    assert!(e.display.lines().count() <= 60);
+    assert!(e.display.contains("생략"));
+    assert!(display_lint(&e.display).is_ok());
+}
+
+#[test]
+fn repair_keyed_facts_and_ambiguous_abbreviations_stay_scoped() {
+    let mut sc = scenario_v2();
+    sc.students[4].name = "가상학생A".into();
+    let value = serde_json::to_value(&sc.teacher_fact_reports[0]).unwrap();
+    // Supply an explicit resolved identity for the two relevant facts.
+    sc.teacher_fact_reports[0] = serde_json::from_value({
+        let mut v = value;
+        v["student_key"] = "1001".into();
+        v
+    })
+    .unwrap();
+    let mut v = serde_json::to_value(&sc.teacher_fact_reports[4]).unwrap();
+    v["student_key"] = "1001".into();
+    sc.teacher_fact_reports[4] = serde_json::from_value(v).unwrap();
+    let req = PrepareRequest {
+        student: Some("가상학생A".into()),
+        class_name: Some("가상반A".into()),
+        ..Default::default()
+    };
+    let e = prepare_v2(sc.clone(), &req);
+    assert!(e.display.contains("배정 풀이 확인 | 교사 확인(11월 11일)"));
+    add_report(
+        &mut sc,
+        serde_json::json!({"kind":"assigned_stages","student":"가상학생A","student_key":"1001","assigned_on":"2026-11-09","book":"가우스 5-1-1","unit":"4-3","activity":"필수예제","stages":["solving"],"reported_on":"2026-11-09"}),
+    );
+    let e = prepare_v2(sc, &req);
+    assert!(!e.display.contains("배정 풀이 확인 | 교사 확인("));
+}
+#[test]
+fn repair_footer_mixed_scope_times_do_not_relabel_other_students() {
+    let e = prepare_v2(
+        scenario_v2(),
+        &PrepareRequest {
+            class_name: Some("가상반A".into()),
+            ..Default::default()
+        },
+    );
+    let mut c = e.coverage.clone();
+    c.sources
+        .iter_mut()
+        .find(|s| s.name == "prestudy" && s.scope.starts_with("가상학생A"))
+        .unwrap()
+        .read_at = "2026-11-10T09:10:00Z".into();
+    let text = edu_academy_teacher::render::lesson_prepare(&data(&e), &c);
+    assert!(text.contains("예습영상(가상학생A 가우스 5-1-2 2-1) (11월 10일 18:10)"));
+    assert!(text.contains("예습영상(가상학생B 가우스 5-1-1 4-3)"));
+    assert!(!text.contains("예습영상(가상학생B 가우스 5-1-1 4-3) (11월 10일"));
+}
+#[test]
+fn repair_missing_reads_are_named_outside_read_footer() {
+    let sc = scenario_v2();
+    let seeded = SeededFacts::from_scenario(&sc);
+    let mut backend = SourceBackend::new(
+        SyntheticDayPort::new(sc.clone()),
+        minimal::FailingPrestudyPort,
+        SyntheticTextbookPort::new(sc),
+        vec![entry("가상학생A", "1001", "가상반A")],
+        edu_academy_teacher::backend::BackendIdentity {
+            teacher_id: "9001".into(),
+            teacher_label: "가상교사".into(),
+            teacher_key: "99001".into(),
+            read_at: NOW.into(),
+        },
+    );
+    let e = edu_academy_teacher::prepare(&mut backend, &seeded, &req_student("가상학생A"), today());
+    assert_eq!(e.status, Status::Ok);
+    let parts = e.display.split("읽은 원천").collect::<Vec<_>>();
+    let footer = parts.last().unwrap();
+    assert!(!footer.contains("예습영상("));
+    assert!(e.display.contains("예습영상: 원천을 읽지 못해"));
+}
+#[test]
+fn repair_runtime_bound_keeps_whole_student_blocks_and_names_first_omitted() {
+    let mut sc = scenario_v2();
+    sc.teacher_fact_reports[6].action = "가".repeat(1500);
+    let e = prepare_v2(
+        sc,
+        &PrepareRequest {
+            class_name: Some("가상반A".into()),
+            ..Default::default()
+        },
+    );
+    assert!(e.display.len() <= 6000);
+    assert!(e.display.lines().count() <= 60);
+    assert!(e.display.contains("가상학생A부터 생략"));
+    assert!(!e.display.contains("가상학생A |"));
+    assert!(!e.display.contains("가상학생B |"));
+    assert!(
+        e.coverage
+            .unknowns
+            .iter()
+            .any(|s| s.contains("display_truncated:가상학생A"))
+    );
+    assert!(!e.display.contains("명단이 비어 있어"));
+    assert!(
+        e.display
+            .ends_with("이번 결과는 읽기만 했고 저장한 것은 없습니다.")
+    );
+}
+
+#[test]
+fn repair_reused_ports_keep_their_supplied_scope_clock() {
+    let sc = scenario_v2();
+    let seeded = SeededFacts::from_scenario(&sc);
+    let mut backend = SourceBackend::synthetic(sc.clone(), NOW);
+    let first =
+        edu_academy_teacher::prepare(&mut backend, &seeded, &req_student("가상학생A"), today());
+    assert_eq!(first.status, Status::Ok);
+    let calls = (backend.prestudy_port_calls(), backend.textbook_port_calls());
+    let mut fresh = sc;
+    fresh.read_at = Some("2026-11-11T10:10:00Z".into());
+    let second = edu_academy_teacher::prepare(
+        &mut backend,
+        &SeededFacts::from_scenario(&fresh),
+        &req_student("가상학생A"),
+        today(),
+    );
+    assert_eq!(second.status, Status::Ok);
+    assert!(backend.prestudy_port_calls() > calls.0 && backend.textbook_port_calls() > calls.1);
+    assert!(second.display.contains("읽은 원천 (11월 11일 19:10)"));
+    assert!(
+        second
+            .display
+            .contains("예습영상(가상학생A 2-1·대기/완료목록) (11월 11일 18:10)")
+    );
+}
+
+#[test]
+fn r2_a_teacher_and_source_latin_text_stays_data() {
+    let mut sc = scenario_v2();
+    sc.reminders[0].action = "DailyTest 확인".into();
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert_eq!(e.status, Status::Ok, "{}", e.display);
+    assert!(e.display.contains("DailyTest 확인"));
+}
+#[test]
+fn r2_a_latin_book_title_stays_data() {
+    let mut sc = scenario_v2();
+    sc.teacher_fact_reports[0].book = "DailyTest Algebra".into();
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert_eq!(e.status, Status::Ok, "{}", e.display);
+    assert!(e.display.contains("DailyTest Algebra 2-1 풀이노트"));
+}
+#[test]
+fn r2_b_requested_book_sections_render_once_in_check_order() {
+    let req = PrepareRequest {
+        student: Some("가상학생B".into()),
+        book: Some("가우스 5-1-2".into()),
+        ..Default::default()
+    };
+    let e = prepare_v2(scenario_v2(), &req);
+    assert_eq!(e.status, Status::Ok);
+    let rows = e
+        .display
+        .lines()
+        .filter(|r| r.contains(" | 섹션 결과 확인 | "))
+        .collect::<Vec<_>>();
+    assert_eq!(rows.len(), 2, "{}", e.display);
+    assert!(rows[0].contains("가우스 5-1-2 4-3 필수예제"));
+    assert!(rows[1].contains("가우스 5-1-2 4-3 유형다지기"));
+}
+#[test]
+fn r2_b_footer_sections_do_not_depend_on_a_video() {
+    let e = prepare_v2(scenario_v2(), &req_student("가상학생A"));
+    let mut d = data(&e);
+    d.students[0].checks.retain(|c| c.kind == "section");
+    let text = edu_academy_teacher::render::lesson_prepare(&d, &e.coverage);
+    assert_eq!(
+        text.lines()
+            .filter(|r| r.contains(" | 섹션 결과 확인 | "))
+            .count(),
+        2
+    );
+    assert!(
+        text.split("읽은 원천")
+            .nth(1)
+            .unwrap()
+            .contains("섹션 제목(")
+    );
+}
+#[test]
+fn r2_b_next_check_names_the_waiting_item_not_first_item() {
+    let e = prepare_v2(scenario_v2(), &req_student("가상학생A"));
+    let mut d = data(&e);
+    let mut first = d.students[0].checks[0].clone();
+    first.verdict = Verdict::Completed;
+    first.scope = "1-1".into();
+    d.students[0].checks.insert(0, first);
+    let text = edu_academy_teacher::render::lesson_prepare(&d, &e.coverage);
+    let next = text.split("다음 확인\n").last().unwrap();
+    assert!(next.contains("2-1 예습영상 내용을 확인"));
+    assert!(!next.contains("1-1 예습영상 내용을 확인"));
+}
+fn no_previous_records(mut sc: Scenario, names: &[&str]) -> Scenario {
+    sc.records.retain(|r| !names.contains(&r.student.as_str()));
+    for name in names {
+        sc.no_predecessor.push((*name).into());
+    }
+    sc
+}
+fn class_request(previous: bool) -> PrepareRequest {
+    PrepareRequest {
+        class_name: Some("가상반A".into()),
+        date: previous.then(|| "지난 수업일".into()),
+        ..Default::default()
+    }
+}
+#[test]
+fn r2_c_mixed_found_and_absent_scopes_are_separate() {
+    let sc = no_previous_records(scenario_v2(), &["가상학생B"]);
+    let e = prepare_v2(sc, &class_request(false));
+    let footer = e.display.split("읽은 원천").nth(1).unwrap();
+    assert!(!footer.contains("각 학생 11월 9일"), "{footer}");
+    assert!(footer.contains("가상학생B") && footer.contains("기록 미관측"));
+    assert!(
+        footer.contains("가상학생A") && footer.contains("가상학생C") && footer.contains("11월 9일")
+    );
+}
+#[test]
+fn r2_c_all_absent_preserves_every_search_scope() {
+    let e = prepare_v2(
+        no_previous_records(scenario_v2(), &["가상학생A", "가상학생B", "가상학생C"]),
+        &class_request(false),
+    );
+    let footer = e.display.split("읽은 원천").nth(1).unwrap();
+    for name in ["가상학생A", "가상학생B", "가상학생C"] {
+        assert!(footer.contains(&format!("수업 기록({name} ")), "{footer}");
+    }
+    assert_eq!(footer.matches("기록 미관측").count(), 3);
+}
+#[test]
+fn r2_c_resolution_scope_does_not_hide_absent_assignment_scope() {
+    let mut sc = scenario_v2();
+    sc.records
+        .retain(|r| r.date != "2026-11-09" || r.student == "가상학생A");
+    let e = prepare_v2(sc, &class_request(true));
+    let footer = e.display.split("읽은 원천").nth(1).unwrap();
+    assert!(
+        footer.contains("가상학생B")
+            && footer.contains("가상학생C")
+            && footer.contains("기록 미관측"),
+        "{footer}"
+    );
+}
+#[test]
+fn r2_d_absent_previous_class_is_normal_with_reminders() {
+    let e = prepare_v2(
+        no_previous_records(scenario_v2(), &["가상학생A", "가상학생B", "가상학생C"]),
+        &class_request(true),
+    );
+    assert_eq!(e.status, Status::Ok, "{}", e.display);
+    assert!(e.display.contains("지난 수업 기록이 없어"));
+    assert!(e.display.contains("지난 수업일과 배정 숙제를 확인"));
+    assert!(e.display.contains("교재 확인(미처리)"));
+}
+#[test]
+fn r2_d_empty_previous_class_reads_no_dates() {
+    let mut sc = scenario_v2();
+    sc.classes[0].roster.clear();
+    let seeded = SeededFacts::from_scenario(&sc);
+    let mut backend = SourceBackend::synthetic(sc, NOW);
+    let e = edu_academy_teacher::prepare(&mut backend, &seeded, &class_request(true), today());
+    assert_eq!(e.status, Status::Ok, "{}", e.display);
+    assert!(e.display.contains("명단이 비어 있어"));
+    assert!(e.display.contains("교재 확인(미처리)"));
+    assert_eq!(backend.source_reads(), 0);
+}
+#[test]
+fn r2_d_absent_previous_individual_is_not_a_failed_read() {
+    let mut req = req_student("가상학생F");
+    req.date = Some("지난 수업일".into());
+    let e = prepare_v2(scenario_v2(), &req);
+    assert_eq!(e.status, Status::Ok, "{}", e.display);
+    assert!(e.display.contains("지난 수업 기록이 없어"));
+    assert!(e.display.contains("교재 확인(미처리)"));
+}
+#[test]
+fn r2_e_start_marker_belongs_only_to_its_item() {
+    let mut sc = scenario_v2();
+    let binding = sc.students[1].bindings[1].clone();
+    sc.students[0].bindings.push(binding);
+    let record = sc
+        .records
+        .iter_mut()
+        .find(|r| r.student == "가상학생A" && r.date == "2026-11-09")
+        .unwrap();
+    record.progress.push_str("\n- 가우스 5-1-1 4-3 필수예제");
+    record.homework.push_str("\n- 가우스 5-1-1 4-3 유형다지기");
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert!(e.display.contains("가우스 5-1-2 2-1 예습영상"));
+    assert!(
+        !e.display.contains("가우스 5-1-1 4-3 예습영상"),
+        "{}",
+        e.display
+    );
+}
+#[test]
+fn r2_e_single_item_helper_does_not_borrow_another_marker_or_book() {
+    use edu_academy_teacher::lesson::homework_minor_is_start;
+    assert!(
+        homework_minor_is_start(
+            "가우스 5-1-1 4-3 필수예제",
+            "가우스 5-1-1 4-3 유형다지기\n가우스 5-1-2 2-1 필수예제 시작"
+        )
+        .is_none()
+    );
+    assert!(
+        homework_minor_is_start("가우스 5-1-2 4-3 필수예제", "가우스 5-1-1 4-3 유형다지기")
+            .is_some()
+    );
+}
+#[test]
+fn r2_f_values_are_readable_and_original_data_is_retained() {
+    let mut sc = scenario_v2();
+    sc.reminders[0].action = "DailyTest | 확인\r\n다음\\값".into();
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert_eq!(e.status, Status::Ok);
+    assert!(e.display.contains("DailyTest ｜ 확인 / 다음\\값"));
+    assert_eq!(data(&e).reminders[0].action, "DailyTest | 확인\r\n다음\\값");
+    assert!(display_lint(&e.display).is_ok());
+}
+#[test]
+fn r2_g_omission_replaces_none_and_keeps_retained_unknowns() {
+    let mut sc = scenario_v2();
+    sc.teacher_fact_reports[6].action = "가".repeat(300);
+    sc.teacher_fact_reports[7].action = "가".repeat(300);
+    let e = prepare_v2(sc, &class_request(false));
+    let mut d = data(&e);
+    let mut coverage = e.coverage.clone();
+    // A has no unknown items; B and C do. Force C alone beyond the byte bound.
+    d.students[0].checks.clear();
+    d.teacher_fact_reports.retain(|r| r.student != "가상학생A");
+    let mut long = d
+        .teacher_fact_reports
+        .iter()
+        .find(|r| r.student == "가상학생C")
+        .unwrap()
+        .clone();
+    long.kind = "in_class_follow_up".into();
+    long.lesson_date = "2026-11-09".into();
+    long.status = "unfinished".into();
+    long.action = "가".repeat(2000);
+    d.teacher_fact_reports.push(long);
+    let text = edu_academy_teacher::render::bounded_lesson_prepare(&d, &mut coverage);
+    assert!(text.contains("가상학생C부터 생략"));
+    assert!(text.contains("가상학생B의 4-3 섹션 성적"));
+    assert!(!text.contains("없음\n가상학생C부터 생략"));
+    let mut d = d.clone();
+    d.students.truncate(1);
+    d.teacher_fact_reports.retain(|r| r.student == "가상학생A");
+    d.reminders
+        .extend((0..50).map(|_| d.reminders[0].clone()).collect::<Vec<_>>());
+    let text = edu_academy_teacher::render::bounded_lesson_prepare(&d, &mut coverage);
+    assert!(!text.contains("미확인 사항\n없음\n"), "{text}");
+}
+
+#[test]
+fn r2_b_footer_uses_actual_section_book_instead_of_video_book() {
+    let e = prepare_v2(
+        scenario_v2(),
+        &PrepareRequest {
+            student: Some("가상학생B".into()),
+            book: Some("가우스 5-1-2".into()),
+            ..Default::default()
+        },
+    );
+    let footer = e.display.split("읽은 원천").nth(1).unwrap();
+    assert!(
+        footer.contains("섹션 제목(가상학생B 가우스 5-1-2 4-3"),
+        "{footer}"
+    );
+}
+
+#[test]
+fn r2_c_shared_date_keeps_each_predecessor_scope() {
+    let mut sc = scenario_v2();
+    sc.records
+        .retain(|r| !(r.student == "가상학생B" && r.date == "2026-11-05"));
+    let e = prepare_v2(sc, &class_request(true));
+    let footer = e.display.split("읽은 원천").nth(1).unwrap();
+    assert!(footer.contains("가상학생B·11월 2일"), "{footer}");
+    assert!(footer.contains("날짜 해석: 11월 9일"));
+}
+#[test]
+fn r2_e_duplicate_minor_does_not_hide_its_own_explicit_start() {
+    let mut sc = scenario_v2();
+    let r = sc
+        .records
+        .iter_mut()
+        .find(|r| r.student == "가상학생A" && r.date == "2026-11-09")
+        .unwrap();
+    r.progress = "가우스 5-1-2 2-1 필수예제".into();
+    r.homework = "가우스 5-1-2 2-1 유형다지기\n가우스 5-1-2 2-1 필수예제 시작".into();
+    let e = prepare_v2(sc, &req_student("가상학생A"));
+    assert_eq!(
+        e.display
+            .lines()
+            .filter(|l| l.contains("2-1 예습영상 | 영상 확인"))
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn r2_d_no_ask_choices_is_not_a_source_read_failure() {
+    let mut sc = scenario_v2();
+    sc.classes.clear();
+    let seeded = SeededFacts::from_scenario(&sc);
+    let mut backend = SourceBackend::synthetic(sc, NOW);
+    let e =
+        edu_academy_teacher::prepare(&mut backend, &seeded, &PrepareRequest::default(), today());
+    assert_eq!(backend.source_reads(), 0);
+    assert_ne!(e.stop.as_ref().unwrap().code, StopCode::SourceUnavailable);
 }

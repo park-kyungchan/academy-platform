@@ -16,7 +16,9 @@ pub enum Status {
 /// extra codes of slice 1.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StopCode {
+    DisplayInvalid,
     StudentNotFound,
+    RosterClassMismatch,
     BookNotFound,
     DateNotAdmitted,
     DraftExpired,
@@ -30,7 +32,9 @@ pub enum StopCode {
 impl StopCode {
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::DisplayInvalid => "display_invalid",
             Self::StudentNotFound => "student_not_found",
+            Self::RosterClassMismatch => "roster_class_mismatch",
             Self::BookNotFound => "book_not_found",
             Self::DateNotAdmitted => "date_not_admitted",
             Self::DraftExpired => "draft_expired",
@@ -221,7 +225,7 @@ impl Envelope {
             .map(|tool| tool.name)
             .collect::<Vec<_>>()
             .join(", ");
-        let display = format!("그런 이름의 도구는 없습니다. 쓸 수 있는 도구: {names}");
+        let display = crate::display_labels::unknown_tool(&names);
         Self::stop(
             display.clone(),
             serde_json::json!({}),
@@ -231,11 +235,11 @@ impl Envelope {
     }
     pub fn unavailable_tool() -> Self {
         Self::stop(
-            "이 도구는 아직 제공되지 않습니다.".into(),
+            crate::display_labels::TOOL_UNAVAILABLE.into(),
             serde_json::Value::Object(Default::default()),
             Stop::new(
                 StopCode::ToolNotInSlice1,
-                "이 도구는 아직 제공되지 않습니다.",
+                crate::display_labels::TOOL_UNAVAILABLE,
             ),
             Coverage::default(),
         )

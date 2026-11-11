@@ -257,7 +257,7 @@ def main():
     ap.add_argument("model")
     ap.add_argument("--mode", choices=["isolated", "installed"], required=True)
     ap.add_argument("--binary", default=os.environ.get("EDU_ACADEMY_TEACHER_BINARY", ""))
-    ap.add_argument("--scenario", default=str(CRATE / "tests/fixtures/scenario-v1.json"))
+    ap.add_argument("--scenario", default=str(CRATE / "tests/fixtures/scenario-v2.json"))
     ap.add_argument("--claude", default=os.environ.get("CLAUDE_BIN", "claude"))
     args = ap.parse_args()
     spec = json.loads((HERE / "checks.json").read_text(encoding="utf-8"))[args.request]

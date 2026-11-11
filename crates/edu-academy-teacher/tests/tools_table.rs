@@ -194,20 +194,28 @@ fn assessment_labels_map_every_advertised_value() {
 #[test]
 fn verdict_labels_are_the_single_table() {
     assert_eq!(Verdict::ALL.len(), 18);
-    assert_eq!(Verdict::Found.label_ko(), "확인됨");
-    assert_eq!(Verdict::Waiting.label_ko(), "대기: 업로드됨, 교사 확인 전");
+    for verdict in Verdict::ALL {
+        assert!(!verdict.label_ko().is_empty());
+        assert_eq!(
+            verdict.label_ko(),
+            edu_academy_teacher::display_labels::verdict(verdict.code())
+        );
+    }
+    assert_eq!(Verdict::Found.label_ko(), "서버 확인");
+    assert_eq!(Verdict::Waiting.label_ko(), "미확인(업로드됨·교사 확인 전)");
     assert_eq!(
         Verdict::NotObservedInEitherSource.label_ko(),
-        "미확인 (두 원천 모두 없음)"
+        "미확인(두 원천 모두에 없음)"
     );
 }
 
 #[test]
-fn display_lint_accepts_fixtures_and_rejects_codes() {
+fn structural_lint_and_server_vocabulary_are_separate() {
     display_lint(DISPLAY_Q01).unwrap();
     display_lint(DISPLAY_Q02).unwrap();
-    assert!(display_lint("섹션: not_observed").is_err());
-    assert!(display_lint("hello world test").is_err());
+    assert!(edu_academy_teacher::render::vocabulary_lint("섹션: not_observed").is_err());
+    assert!(edu_academy_teacher::render::vocabulary_lint("hello world test").is_err());
+    display_lint("DailyTest 확인").unwrap();
     display_lint("진도: 가우스 5-1-2 1-2 유형다지기").unwrap();
 }
 
@@ -238,4 +246,55 @@ fn unknown_tool_lists_only_implemented_slice() {
         Envelope::unknown_tool().display,
         "그런 이름의 도구는 없습니다. 쓸 수 있는 도구: academy_lesson_prepare"
     );
+}
+
+#[test]
+fn display_lint_checks_closing_heading_order_and_six_fields() {
+    for text in [DISPLAY_Q01, DISPLAY_Q02] {
+        display_lint(text).unwrap();
+        assert!(
+            display_lint(
+                text.lines()
+                    .take(text.lines().count() - 1)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    .as_str()
+            )
+            .is_err()
+        );
+        assert!(display_lint(&text.replace("알림\n", "다음 확인\n")).is_err());
+        let reversed = text
+            .replacen("알림\n", "TEMP\n", 1)
+            .replacen("학생별 할 일\n", "알림\n", 1)
+            .replacen("TEMP\n", "학생별 할 일\n", 1);
+        assert!(display_lint(&reversed).is_err());
+        assert!(display_lint(&text.replacen("가상학생D | 오늘", "가상학생D 오늘", 1)).is_err());
+        assert!(display_lint(&text.replacen(" | ", " / ", 1)).is_err());
+    }
+}
+
+#[test]
+fn server_owned_vocabulary_and_templates_do_not_leak_codes() {
+    use edu_academy_teacher::{display_labels as l, render::vocabulary_lint};
+    let source = include_str!("../src/display_labels.rs");
+    let constants =
+        regex::Regex::new(r#"(?s)pub const [A-Z_]+: &str =\s*"((?:\\.|[^"\\])*)""#).unwrap();
+    let templates = regex::Regex::new(r#"(?s)format!\(\s*"((?:\\.|[^"\\])*)""#).unwrap();
+    let slots = regex::Regex::new(r"\{[^}]*\}").unwrap();
+    let mut checked = 0;
+    for capture in constants
+        .captures_iter(source)
+        .chain(templates.captures_iter(source))
+    {
+        let text = slots.replace_all(&capture[1], "");
+        vocabulary_lint(&text).unwrap();
+        checked += 1;
+    }
+    assert!(checked > 90);
+    for label in l::PARTS.into_iter().chain(l::UNITS) {
+        vocabulary_lint(label).unwrap();
+    }
+    for verdict in Verdict::ALL {
+        vocabulary_lint(verdict.label_ko()).unwrap();
+    }
 }
