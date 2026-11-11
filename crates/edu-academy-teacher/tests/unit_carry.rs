@@ -65,3 +65,47 @@ fn m23c_book_choice_retains_the_unit_suffix() {
         }
     }
 }
+
+fn render_data(c: &Case) -> edu_academy_teacher::unit_data::UnitData {
+    use edu_academy_teacher::unit_data::UnitData;
+    let tree = &c.scenario.edition_trees[0];
+    UnitData {
+        course_key: "101".into(), book_no: "201".into(), student_key: "1001".into(),
+        student: NAMES[0].into(), edition: tree.edition.clone(), family: tree.family.clone(),
+        topic: "예습".into(), default_read_at: NOW.into(), read_at: NOW.into(), tree_read_at: NOW.into(),
+        minors: tree.leaves(), activity: None, level: None, daily: None, sections: None,
+        judgments: vec![], excluded: vec![], stages: vec![], prestudy: vec![], clinic: vec![], first_omitted: None,
+    }
+}
+
+#[test]
+fn m23d_trimmed_unknowns_follow_major_middle_and_minor_identifiers() {
+    use edu_academy_teacher::{envelope::Coverage, unit_data::{Chapter, Middle, Minor}, unit_render};
+    let mut c = Case::new(1);
+    c.scenario.edition_trees[0].chapters = ["A", "Z"].into_iter().map(|id| Chapter {
+        code: format!("major {id}"), title: format!("가상대단원{id}"), minors: vec![],
+        middles: vec![Middle { code: format!("middle {id}"), title: format!("가상중단원{id}"),
+            minors: vec![Minor { code: format!("minor {id}"), title: "가상소단원".into(),
+                activities: vec!["필수예제".into()], unit_wide: false }] }],
+    }).collect();
+    for level in ["major", "middle", "minor"] {
+        let mut d = render_data(&c);
+        d.topic = "섹션".into();
+        d.sections = Some(edu_academy_teacher::unit_data::SectionRead {
+            index_observed: true, paper_observed: true,
+            records: d.minors.iter().map(|leaf| edu_academy_teacher::unit_data::Section {
+                student_key: "1001".into(), student_name: NAMES[0].into(), course_key: "101".into(), book_no: "201".into(),
+                unit: leaf.minor.code.clone(), activity: "필수예제".into(), source_title: "가".repeat(1100),
+                paper_key: "1".into(), attempt_key: "2".into(), score: 70.0, items: vec![], source_date: None, date_precision: "unknown".into(),
+            }).collect(), ..Default::default()
+        });
+        let mut coverage = Coverage { sources: vec![], unknowns: vec![
+            format!("section_grade_unavailable:{level} A 필수예제"),
+            format!("section_grade_unavailable:{level} Z 필수예제"),
+        ] };
+        let display = unit_render::render(&mut d, &mut coverage);
+        assert_eq!(d.minors.len(), 1, "{level}");
+        assert!(display.contains(&format!("{level} A 필수예제·")), "{level}");
+        assert!(!display.contains(&format!("{level} Z 필수예제·")), "{level}");
+    }
+}
