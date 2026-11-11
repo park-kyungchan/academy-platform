@@ -1406,3 +1406,229 @@ fn option_matches_across_name_prefixes_stop() {
     };
     assert_eq!(stop.code, StopCode::StudentAmbiguousUnresolvable);
 }
+
+fn assert_ask_labels_resolve(sc: Scenario, req: PrepareRequest, field: AskField) {
+    let seeded = SeededFacts::from_scenario(&sc);
+    let mut backend = SourceBackend::synthetic(sc, NOW);
+    let envelope = edu_academy_teacher::prepare(&mut backend, &seeded, &req, today());
+    assert_eq!(envelope.status, Status::Ask, "{}", envelope.display);
+    let ask = envelope.ask.as_ref().unwrap();
+    assert_eq!(ask.field, field);
+    let mut last = 0;
+    for option in &ask.options {
+        let line = if option.meaning_ko.is_empty() {
+            format!("- {}", option.label_ko)
+        } else {
+            format!("- {}: {}", option.label_ko, option.meaning_ko)
+        };
+        let offset = envelope.display[last..]
+            .find(&line)
+            .expect("option in display in order");
+        last += offset + line.len();
+        let mut answer = req.clone();
+        let target = match field {
+            AskField::Student => &mut answer.student,
+            AskField::ClassName => &mut answer.class_name,
+            AskField::Book => &mut answer.book,
+            AskField::Date => &mut answer.date,
+            _ => panic!("unexpected slice-1 field"),
+        };
+        *target = Some(option.label_ko.clone());
+        let resolved = edu_academy_teacher::prepare(&mut backend, &seeded, &answer, today());
+        assert_eq!(
+            resolved.status,
+            Status::Ok,
+            "{}: {}",
+            option.label_ko,
+            resolved.display
+        );
+    }
+}
+
+#[test]
+fn all_class_date_and_book_ask_labels_resolve() {
+    assert_ask_labels_resolve(scenario(), PrepareRequest::default(), AskField::ClassName);
+    assert_ask_labels_resolve(
+        scenario(),
+        PrepareRequest {
+            class_name: Some("가상반Z".into()),
+            ..Default::default()
+        },
+        AskField::ClassName,
+    );
+    assert_ask_labels_resolve(
+        scenario(),
+        PrepareRequest {
+            student: Some("가상학생A".into()),
+            date: Some("invalid".into()),
+            ..Default::default()
+        },
+        AskField::Date,
+    );
+    assert_ask_labels_resolve(
+        scenario(),
+        PrepareRequest {
+            student: Some("가상학생B".into()),
+            book: Some("가우스 9-9-9".into()),
+            ..Default::default()
+        },
+        AskField::Book,
+    );
+}
+
+#[test]
+fn student_class_disagreement_ask_labels_resolve() {
+    assert_ask_labels_resolve(
+        scenario(),
+        PrepareRequest {
+            student: Some("가상학생A".into()),
+            class_name: Some("가상반Z".into()),
+            ..Default::default()
+        },
+        AskField::ClassName,
+    );
+}
+
+#[test]
+fn class_disagreement_labels_resolve_for_generated_and_duplicate_names() {
+    assert_ask_labels_resolve(
+        scenario(),
+        PrepareRequest {
+            student: Some("가상학생A (가상반A)".into()),
+            class_name: Some("가상반Z".into()),
+            ..Default::default()
+        },
+        AskField::ClassName,
+    );
+    let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    let mut duplicate = value["students"][0].clone();
+    duplicate["key"] = serde_json::json!("1050");
+    duplicate["class_name"] = serde_json::json!("가상반B");
+    value["students"].as_array_mut().unwrap().push(duplicate);
+    assert_ask_labels_resolve(
+        load_scenario(&value.to_string()).unwrap(),
+        PrepareRequest {
+            student: Some("가상학생A".into()),
+            class_name: Some("가상반Z".into()),
+            ..Default::default()
+        },
+        AskField::ClassName,
+    );
+}
+
+#[test]
+fn ambiguous_student_ask_labels_resolve_with_class_and_book() {
+    let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    for (key, class_name, book) in [
+        ("1020", "가상반A", "가우스 5-1-1"),
+        ("1021", "가상반A", "가우스 6-1-1"),
+    ] {
+        value["students"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "name":"가상학생D", "key":key, "class_name":class_name,
+                "bindings":[{"label":book,"course_key":"102","book_no":"202"}]
+            }));
+    }
+    let sc = load_scenario(&value.to_string()).unwrap();
+    assert_ask_labels_resolve(sc.clone(), req_student("가상학생D"), AskField::Student);
+    assert_ask_labels_resolve(
+        sc,
+        PrepareRequest {
+            student: Some("가상학생D".into()),
+            class_name: Some("가상반A".into()),
+            ..Default::default()
+        },
+        AskField::Student,
+    );
+}
+
+#[test]
+fn q03_unknown_class_display_has_three_choices() {
+    let result = edu_academy_teacher::prepare(
+        &mut make_backend(),
+        &facts(),
+        &PrepareRequest {
+            class_name: Some("가상반Z".into()),
+            ..Default::default()
+        },
+        today(),
+    );
+    assert_eq!(result.status, Status::Ask);
+    assert_eq!(
+        result.display,
+        "어느 반인가요?\n- 가상반A: 반 전체 준비\n- 가상반B: 반 전체 준비\n- 가상반C: 반 전체 준비"
+    );
+}
+
+#[test]
+fn class_roster_disagreement_stops_whole_request() {
+    let mut sc = scenario();
+    // Keep the authoritative requested roster unchanged; move only the
+    // student's record. Exercise the first, middle and last roster entry.
+    for (index, name) in [(0, "가상학생A"), (1, "가상학생B"), (2, "가상학생C")] {
+        let mut changed = sc.clone();
+        changed.students[index].class_name = "가상반B".into();
+        let seeded = SeededFacts::from_scenario(&changed);
+        let mut backend = SourceBackend::synthetic(changed, NOW);
+        let result = edu_academy_teacher::prepare(
+            &mut backend,
+            &seeded,
+            &PrepareRequest {
+                class_name: Some("가상반A".into()),
+                ..Default::default()
+            },
+            today(),
+        );
+        assert_eq!(result.status, Status::Unavailable);
+        assert!(result.ask.is_none());
+        let stop = result.stop.as_ref().unwrap();
+        assert_eq!(stop.code, StopCode::StudentNotFound);
+        assert_eq!(
+            result.display,
+            format!(
+                "가상반A의 반 명부와 학생 기록이 {name} 학생의 반에 대해 일치하지 않아 반 전체 수업 준비를 중단했습니다. 반 명부를 수정하거나 학생 이름을 지정해 주세요."
+            )
+        );
+        assert_eq!(stop.message_ko, result.display);
+        assert_eq!(data(&result).class_name.as_deref(), Some("가상반A"));
+        assert_eq!(data(&result).students.len(), index);
+        assert!(!result.display.contains("지난 수업:"));
+    }
+    // Explicitly naming the student retains the student-mode class ask.
+    sc.students[1].class_name = "가상반B".into();
+    assert_ask_labels_resolve(
+        sc,
+        PrepareRequest {
+            student: Some("가상학생B".into()),
+            class_name: Some("가상반A".into()),
+            ..Default::default()
+        },
+        AskField::ClassName,
+    );
+}
+
+#[test]
+fn student_without_class_stops_instead_of_empty_ask() {
+    for missing in ["", "  "] {
+        let mut sc = scenario();
+        sc.students[0].class_name = missing.into();
+        let seeded = SeededFacts::from_scenario(&sc);
+        let mut backend = SourceBackend::synthetic(sc, NOW);
+        let result = edu_academy_teacher::prepare(
+            &mut backend,
+            &seeded,
+            &PrepareRequest {
+                student: Some("가상학생A".into()),
+                class_name: Some("가상반A".into()),
+                ..Default::default()
+            },
+            today(),
+        );
+        assert_eq!(result.status, Status::Unavailable);
+        assert!(result.ask.is_none());
+        assert_eq!(result.stop.unwrap().code, StopCode::StudentNotFound);
+        assert_eq!(result.display, "학생을 찾지 못했습니다.");
+    }
+}
