@@ -916,7 +916,7 @@ fn judgment_scope(d: &UnitData, j: &TeacherJudgment) -> String {
     if let Some(a) = &j.activity {
         scope.push_str(&format!(" {}", cell(a)));
     }
-    if let Some(stage) = &j.stage {
+    if let Some(stage) = j.stage.as_ref().filter(|stage| !stage.is_empty()) {
         scope.push_str(&format!(" {}", cell(l::unit_stage_name(stage))));
     }
     if let Some(snapshot) = &j.snapshot {

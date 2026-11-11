@@ -560,6 +560,7 @@ pub const UNIT_SOURCE_NOT_OBSERVED: &str = "미확인(읽은 원천에 없음)";
 
 pub fn unit_stage_name(stage: &str) -> &str {
     match stage {
+        "" => "",
         "dailytest" => "일일시험",
         "chapter_print" => "서버 대단원 인쇄",
         "prestudy" => "예습",

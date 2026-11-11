@@ -733,12 +733,12 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
             && data.minors.iter().any(|leaf| leaf.minor.code == f.unit)
             && (all_topics || topic == l::UNIT_TOPICS[2])
     }) {
-        coverage.unknowns.push(format!(
-            "teacher_fact_course_unknown:{} {} {}",
-            f.unit,
-            f.activity,
-            l::unit_stage_name(&f.stage)
-        ));
+        let mut scope: Vec<_> = [&f.unit, &f.activity].into_iter()
+            .filter(|value| !value.is_empty()).map(String::as_str).collect();
+        if f.kind == "clinic_stage" && !f.stage.is_empty() {
+            scope.push(l::unit_stage_name(&f.stage));
+        }
+        coverage.unknowns.push(format!("teacher_fact_course_unknown:{}", scope.join(" ")));
     }
     if data
         .judgments
