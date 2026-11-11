@@ -6,8 +6,10 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 import run
+import rescore
 
 
 class TurnTests(unittest.TestCase):
@@ -244,6 +246,52 @@ for line in sys.stdin:
             self.assertEqual(path.with_name('runs.before-conversation.jsonl').read_bytes(),original)
             run.annotate_conversations(path)
             self.assertEqual(len(path.read_text().splitlines()),1)
+
+    def test_export_names_all_failed_checks_and_none_for_a_passing_turn(self):
+        specs = self.specs('Q15')
+        text = (run.CRATE / 'tests/fixtures' / specs[0]['fixture']).read_text()
+        log = [{'tool': 'academy_unit_status', 'display_bytes': len(text.encode())}]
+        result = run.score_turns('\n'.join(map(json.dumps, self.stream(specs))), specs,
+                                ['mcp__academy__academy_unit_status'], 'isolated', log)[0]
+        self.assertEqual(run.public_row(result, 'Q15', 'haiku', 'isolated')['failed_request_checks'], [])
+        result['checks'] = {'zeta': 'FAIL', 'alpha': 'FAIL', 'good': 'pass', 'clock': 'not_applicable'}
+        row = run.public_row(result, 'Q15', 'haiku', 'isolated')
+        self.assertEqual(row['failed_request_checks'], ['alpha', 'zeta'])
+        result['checks']['alpha'] = 'unknown'
+        self.assertEqual(run.failed_request_checks(result), ['alpha', 'zeta'])
+
+    def test_rebuild_failed_checks_replays_evidence_and_preserves_other_bytes(self):
+        import contextlib, io
+        specs = self.specs('Q15')
+        events = self.stream(specs)
+        # A broader server result can keep facts but fail the narrow fixture.
+        broad = (run.CRATE / 'tests/fixtures/display-q15-bare.txt').read_text()
+        events[2]['message']['content'][0]['content'] = broad
+        events[3]['result'] = broad
+        log = [{'tool': 'academy_unit_status', 'display_bytes': len(broad.encode())}]
+        raw = '\n'.join(map(json.dumps, events))
+        result = run.score_turns(raw, specs, ['mcp__academy__academy_unit_status'], 'isolated', log)[0]
+        row = dict(run.public_row(result, 'Q15', 'haiku', 'isolated'), trial=False)
+        expected = row.pop('failed_request_checks')
+        self.assertIn('raw_fixture', expected)
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
+            root = Path(directory)
+            (root / 'measurement.json').write_text(json.dumps({'sent_turns': 1, 'error': None}))
+            (root / 'claude.jsonl').write_text(raw)
+            (root / 'run-log.jsonl').write_text(json.dumps(log[0]) + '\n')
+            path = root / 'rows.jsonl'
+            original = (json.dumps(row, sort_keys=True, separators=(',', ': ')) + '\r\n').encode()
+            path.write_bytes(original)
+            with patch('diffclass.resolve', return_value=root):
+                rescore.rebuild_rows(path)
+            changed = path.read_bytes()
+            addition = b', "failed_request_checks": ' + json.dumps(expected, ensure_ascii=False).encode()
+            self.assertEqual(changed, original[:-3] + addition + original[-3:])
+            self.assertEqual(path.with_name('rows.before-failed-checks.jsonl').read_bytes(), original)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            rebuilt = json.loads(changed)
+            self.assertEqual(rebuilt.pop('failed_request_checks'), expected)
+            self.assertEqual(rebuilt, row)
 
 
 if __name__ == '__main__':

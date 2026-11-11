@@ -441,6 +441,12 @@ def _valid_json(line):
         return False
 
 
+def failed_request_checks(result):
+    """Applicable request checks without a pass; no check values or payloads."""
+    return sorted(name for name, value in result["checks"].items()
+                  if value not in ("pass", "not_applicable"))
+
+
 def public_row(result, request, model, mode, conversation=1):
     """The only export from private evidence: identities and numeric/category data."""
     status, reason = result["facts_kept"], result["reason_code"]
@@ -460,6 +466,7 @@ def public_row(result, request, model, mode, conversation=1):
             "result": status,
             "reason_code": reason, "shown_unchanged": result["shown_unchanged"],
             "unknown_by_reason": result["unknown_by_reason"], "failed_rules": result.get("failed_rules", []),
+            "failed_request_checks": failed_request_checks(result),
             "tokens": {key: result["usage"].get(key, "unknown") for key in
                        ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")},
             "elapsed_s": result["elapsed_s"],
