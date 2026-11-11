@@ -66,7 +66,19 @@ fn draft() -> Draft {
             homework: Some(vec!["유형다지기로 바꿔".into()]),
             ..Default::default()
         },
-        entries: vec![],
+        entries: vec![RecordEntry {
+            field: RecordField::Homework,
+            raw_line: "가우스 5-1-2 2-2 PART A 유형다지기".into(),
+            book_ref: "201".into(),
+            unit_ref: "2-2".into(),
+            unit_code: "2-2".into(),
+            minor_title: "가상주제F".into(),
+            activity: "유형다지기".into(),
+            qualifiers: vec!["PART A".into(), "3문항".into()],
+            scope: EntryScope::Sections,
+            section_refs: vec!["PART A".into(), "PART B".into()],
+            deadline: Some("2026-11-12".into()),
+        }],
         patch: p,
         rendered_preview: "가상학생A 미리보기".into(),
         preview_hash: content_hash(&"가상학생A 미리보기").unwrap(),
@@ -106,6 +118,7 @@ fn six_field_bound_and_source_names_are_exact() {
     let encoded = serde_json::to_value(&fields).unwrap();
     assert_eq!(encoded.as_object().unwrap().len(), RECORD_FIELD_COUNT);
     for field in RecordField::ALL {
+        assert_eq!(fields[field], RecordValue::Known(field.wire_name().into()));
         assert_eq!(encoded[field.wire_name()]["value"], field.wire_name());
         let mut missing = encoded.clone();
         missing.as_object_mut().unwrap().remove(field.wire_name());
@@ -213,6 +226,11 @@ fn hashes_use_complete_raw_values_and_the_existing_canonical_algorithm() {
         raw.push('끝');
     }
     assert_ne!(before.source_hash, binding(&patch(), &v).source_hash);
+    let mut intended = patch();
+    intended.homework.as_mut().unwrap().value = "가".repeat(300);
+    let original = binding(&intended, &v);
+    intended.homework.as_mut().unwrap().value.push('끝');
+    assert_ne!(original.patch_hash, binding(&intended, &v).patch_hash);
     let json = serde_json::to_vec(&v).unwrap();
     let js = edu_academy_core::workflow::codec::parse(&json).unwrap();
     assert_eq!(
