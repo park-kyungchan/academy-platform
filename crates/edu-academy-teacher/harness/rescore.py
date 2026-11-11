@@ -29,7 +29,7 @@ def score_saved(path):
     # Do not export tool arguments, answers, reference text, init payloads,
     # paths read by a measured model, or any other task/file content.
     return {"mode": mode, "request": request, "model": model,
-            "received_form": result["received_form"], "verbatim": result["verbatim"],
+            "received_form": result["received_form"], "shown_unchanged": result["shown_unchanged"], "facts_kept": result["facts_kept"],
             "extra_chars": result["extra_chars"], "isolation": isolation_text, "delivery": result["delivery"]}
 
 
