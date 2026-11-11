@@ -4,6 +4,7 @@ use crate::{
     data::*,
     dom::{self, Document},
     http::{self, Request, Response, Transport},
+    js_text::{DecodeRefusal, decode_bounded},
     owner_admission::{
         OperationContract, ParameterValue, ScopeField, TransportAdmission, TransportParameter,
         TransportScope,
@@ -320,6 +321,74 @@ pub fn read_contracts() -> Vec<OperationContract> {
             vec![arg("student_name", 800)],
         ),
         op(
+            "prestudy.waiting.shell",
+            COURSE_NS,
+            "GET",
+            COURSE_PATH,
+            vec![lit("reqCmd", "WebUnPreStudy")],
+            vec![],
+        ),
+        op(
+            "prestudy.waiting.search",
+            COURSE_NS,
+            "POST",
+            COURSE_PATH,
+            vec![],
+            vec![
+                lit("reqCmd", "WebUnPreStudy"),
+                arg("g_clg_no", 16),
+                arg("g_mem_type", 200),
+                scoped("g_pri_no", ScopeField::TeacherId),
+                arg("student_name", 800),
+            ],
+        ),
+        op(
+            "prestudy.completed.shell",
+            COURSE_NS,
+            "GET",
+            COURSE_PATH,
+            vec![lit("reqCmd", "WebCtPreStudy")],
+            vec![],
+        ),
+        op(
+            "prestudy.completed.search",
+            COURSE_NS,
+            "POST",
+            COURSE_PATH,
+            vec![],
+            vec![
+                lit("reqCmd", "WebCtPreStudy"),
+                arg("g_clg_no", 16),
+                arg("g_mem_type", 200),
+                scoped("g_pri_no", ScopeField::TeacherId),
+                arg("student_name", 800),
+            ],
+        ),
+        op(
+            "prestudy.summary",
+            COURSE_NS,
+            "GET",
+            COURSE_PATH,
+            vec![lit("reqCmd", "TeacherPrestudySummary")],
+            vec![],
+        ),
+        op(
+            "prestudy.detail",
+            COURSE_NS,
+            "GET",
+            COURSE_PATH,
+            vec![lit("reqCmd", "WebPreStudy"), arg("prestudy_key", 16)],
+            vec![],
+        ),
+        op(
+            "prestudy.report",
+            COURSE_NS,
+            "GET",
+            "/app-ui/solution_common/prestudy/prestudy_ai_report.jsp",
+            vec![arg("analysis_key", 16)],
+            vec![],
+        ),
+        op(
             "textbook.catalog",
             COURSE_NS,
             "GET",
@@ -442,15 +511,15 @@ pub(crate) fn check_contract(p: &TransportAdmission, id: &str) -> Result<()> {
 }
 pub(crate) fn response_text(r: Response) -> Result<String> {
     require(
-        r.status == 200 && !r.stalled && r.bytes.len() <= 8_000_000,
+        r.status == 200 && !r.stalled,
         "student_read_source_rejected",
     )?;
-    let html =
-        String::from_utf8(r.bytes).map_err(|_| Error::refusal("student_read_encoding_rejected"))?;
-    require(
-        html.encode_utf16().count() <= 2_000_000,
-        "student_read_source_rejected",
-    )?;
+    let html = decode_bounded(&r.bytes, 8_000_000, 2_000_000).map_err(|refusal| {
+        Error::refusal(match refusal {
+            DecodeRefusal::TooLarge => "student_read_source_rejected",
+            DecodeRefusal::NotUtf8 => "student_read_encoding_rejected",
+        })
+    })?;
     let d = Document::parse(&html);
     require(
         !d.select("input").iter().any(|e| {

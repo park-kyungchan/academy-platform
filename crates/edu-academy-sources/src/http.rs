@@ -107,6 +107,66 @@ pub fn operations() -> Js {
             ),
             ("method", "GET".into()),
             ("selectorKey", "reqCmd".into()),
+            ("selector", "WebUnPreStudy".into()),
+            ("selectorPlacement", "query".into()),
+        ]),
+        obj(&[
+            (
+                "path",
+                "/servlet/controller.coursemanage.CourseManageServlet".into(),
+            ),
+            ("method", "POST".into()),
+            ("selectorKey", "reqCmd".into()),
+            ("selector", "WebUnPreStudy".into()),
+            ("selectorPlacement", "body".into()),
+        ]),
+        obj(&[
+            (
+                "path",
+                "/servlet/controller.coursemanage.CourseManageServlet".into(),
+            ),
+            ("method", "GET".into()),
+            ("selectorKey", "reqCmd".into()),
+            ("selector", "WebCtPreStudy".into()),
+            ("selectorPlacement", "query".into()),
+        ]),
+        obj(&[
+            (
+                "path",
+                "/servlet/controller.coursemanage.CourseManageServlet".into(),
+            ),
+            ("method", "POST".into()),
+            ("selectorKey", "reqCmd".into()),
+            ("selector", "WebCtPreStudy".into()),
+            ("selectorPlacement", "body".into()),
+        ]),
+        obj(&[
+            (
+                "path",
+                "/servlet/controller.coursemanage.CourseManageServlet".into(),
+            ),
+            ("method", "GET".into()),
+            ("selectorKey", "reqCmd".into()),
+            ("selector", "TeacherPrestudySummary".into()),
+            ("selectorPlacement", "query".into()),
+        ]),
+        obj(&[
+            (
+                "path",
+                "/servlet/controller.coursemanage.CourseManageServlet".into(),
+            ),
+            ("method", "GET".into()),
+            ("selectorKey", "reqCmd".into()),
+            ("selector", "WebPreStudy".into()),
+            ("selectorPlacement", "query".into()),
+        ]),
+        obj(&[
+            (
+                "path",
+                "/servlet/controller.coursemanage.CourseManageServlet".into(),
+            ),
+            ("method", "GET".into()),
+            ("selectorKey", "reqCmd".into()),
             ("selector", "GaStudyAnswer".into()),
             ("selectorPlacement", "query".into()),
         ]),
