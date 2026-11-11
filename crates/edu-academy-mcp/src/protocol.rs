@@ -220,6 +220,69 @@ impl RpcSession {
             Err(e) => business_rpc_error(id, e.code, Effect::NotDispatched, false),
         }))
     }
+    /// Explicit loan for the two prestudy read tools (E11b). Non-target
+    /// messages traverse the unchanged lifecycle/refusal path; the source is
+    /// the borrowed driver and nothing is inferred.
+    pub fn handle_prestudy(
+        &mut self,
+        request: &Js,
+        prestudy: &mut dyn crate::prestudy::PrestudyCall,
+    ) -> Result<Option<Js>> {
+        if !valid_envelope(request) {
+            return Err(Error::new("mcp_stdio_input_or_transport_invalid"));
+        }
+        let name = request.get("params").get("name");
+        let endpoint = self.endpoint.as_deref().unwrap_or("");
+        let target = request.get("method").is("tools/call")
+            && request.has("id")
+            && crate::prestudy::is_prestudy_tool(
+                endpoint,
+                &crate::string(name).unwrap_or_default(),
+            );
+        if !target {
+            return self.handle(request);
+        }
+        let id = request.get("id");
+        let outcome = (|| -> Result<Js> {
+            self.check_graph()?;
+            let params = request.get("params");
+            if !matches!(params, Js::Obj(_))
+                || (params.has("arguments") && !matches!(params.get("arguments"), Js::Obj(_)))
+            {
+                return Err(Error::new("tool_input_invalid"));
+            }
+            let input = if params.has("arguments") {
+                params.get("arguments").clone()
+            } else {
+                obj(&[])
+            };
+            let endpoint = self
+                .endpoint
+                .as_deref()
+                .ok_or_else(|| Error::new("business_endpoint_mismatch"))?;
+            let name = string(name)?;
+            let entry = crate::prestudy::prestudy_entry(&self.graph, endpoint, &name)?;
+            if let Err(e) = crate::validation::validate(entry.tool.get("inputSchema"), &input) {
+                return Ok(crate::business::tool_error(e.code));
+            }
+            prestudy.check_prestudy_binding(&self.graph)?;
+            self.check_graph()?;
+            let result = prestudy.prestudy_call(&name, &input);
+            self.check_graph()?;
+            match result {
+                Ok(value) => tool_result(value),
+                Err(e) => Ok(crate::business::tool_error(&e.message)),
+            }
+        })();
+        let outcome = match self.check_graph() {
+            Ok(()) => outcome,
+            Err(e) => Err(e),
+        };
+        Ok(Some(match outcome {
+            Ok(value) => rpc_result(id, value),
+            Err(e) => business_rpc_error(id, e.code, Effect::NotDispatched, false),
+        }))
+    }
     fn handle_inner(
         &mut self,
         request: &Js,

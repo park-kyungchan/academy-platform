@@ -1494,7 +1494,8 @@ fn e09d_registry_v2_matches_served_names_schemas_and_routes() {
     }
     // Route classes derived from what the Rust code declares, never from
     // hand-written name lists.
-    // session_loan: business::TOOLS + student::TOOLS + paper::TOOLS, plus the
+    // session_loan: business::TOOLS + student::TOOLS + paper::TOOLS +
+    // prestudy::TOOLS (E11b), plus the
     // class2_ name of each paper tool built by paper::class2_name
     // (crates/edu-academy-mcp/src/paper.rs:19).
     let mut session_loan = std::collections::BTreeSet::new();
@@ -1502,13 +1503,14 @@ fn e09d_registry_v2_matches_served_names_schemas_and_routes() {
         .into_iter()
         .chain(edu_academy_mcp::student::TOOLS)
         .chain(edu_academy_mcp::paper::TOOLS)
+        .chain(edu_academy_mcp::prestudy::TOOLS)
     {
         session_loan.insert(name.to_string());
     }
     for upstream in edu_academy_mcp::paper::TOOLS {
         session_loan.insert(edu_academy_mcp::paper::class2_name(upstream));
     }
-    assert_eq!(session_loan.len(), 21);
+    assert_eq!(session_loan.len(), 23);
     // dispatch_adapter: the names the dispatcher handles itself.
     let dispatch_adapter = dispatch::dispatch_adapter_names()
         .into_iter()
@@ -1524,10 +1526,10 @@ fn e09d_registry_v2_matches_served_names_schemas_and_routes() {
     // absent: in v2 but not in the v1 registry the Rust release serves.
     let absent = names
         .difference(&v1_names)
-        .filter(|n| !dispatch_adapter.contains(*n))
+        .filter(|n| !dispatch_adapter.contains(*n) && !session_loan.contains(*n))
         .cloned()
         .collect::<std::collections::BTreeSet<_>>();
-    assert_eq!(absent.len(), 3);
+    assert_eq!(absent.len(), 2);
     let class_of = |name: &str| {
         if dispatch_adapter.contains(name) {
             "dispatch_adapter"

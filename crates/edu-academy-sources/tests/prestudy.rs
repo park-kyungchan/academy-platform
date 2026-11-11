@@ -1248,3 +1248,159 @@ fn session_requests_and_contract_body_order_follow_ts() {
         );
     }
 }
+
+// E11b step 7a (review N1): `scores_json` equals `JSON.stringify` where
+// JavaScript prints exponent form. Expected texts are what node prints:
+// JSON.stringify([0.0000001, 123456789012345678901234, 1e21, 1e-6, 1e20,
+// 0.000001234, 1e300, 5e-324, 12345.678, -0.0000001]) under node 24 =
+// [1e-7,1.2345678901234569e+23,1e+21,0.000001,100000000000000000000,
+//  0.000001234,1e+300,5e-324,12345.678,-1e-7]
+#[test]
+fn scores_json_prints_javascript_exponent_form() {
+    // parse_report accepts any digit string, so these values are reachable.
+    assert_eq!(scores_json(&[0.0000001]), "[1e-7]");
+    assert_eq!(
+        scores_json(&[123456789012345678901234.0]),
+        "[1.2345678901234569e+23]"
+    );
+    assert_eq!(scores_json(&[1e21]), "[1e+21]");
+    assert_eq!(scores_json(&[1e-6]), "[0.000001]");
+    assert_eq!(scores_json(&[1e20]), "[100000000000000000000]");
+    assert_eq!(scores_json(&[0.000001234]), "[0.000001234]");
+    assert_eq!(scores_json(&[1e300, 5e-324]), "[1e+300,5e-324]");
+    assert_eq!(scores_json(&[12345.678, -0.0000001]), "[12345.678,-1e-7]");
+    // Node: JSON.stringify([-0]) is "[0]"; 9007199254740993 is not
+    // representable and prints as 9007199254740992.
+    assert_eq!(scores_json(&[-0.0]), "[0]");
+    assert_eq!(scores_json(&[9007199254740993.0]), "[9007199254740992]");
+    // The same numbers read from a page reach the same text.
+    let page = REPORT.replace(
+        "{ m1: 77, m2: 80, m3: 90 }",
+        "{ m1: 0.0000001, m2: 123456789012345678901234 }",
+    );
+    let report = parse_report(&page).unwrap();
+    assert_eq!(scores_json(&report.scores), "[1e-7,1.2345678901234569e+23]");
+}
+
+fn units_text(units: usize) -> String {
+    // Astral characters count two UTF-16 units each; an odd count ends in a
+    // BMP character, so every unit count is reachable.
+    let mut text = "😀".repeat(units / 2);
+    if units % 2 == 1 {
+        text.push('x');
+    }
+    assert_eq!(text.encode_utf16().count(), units);
+    text
+}
+
+fn observation_with(
+    mutate: impl FnOnce(&mut PrestudyReportObservation),
+) -> PrestudyReportObservation {
+    let mut observation = PrestudyReportObservation {
+        prestudy_key: "12345".into(),
+        source_record: PrestudySourceRecord {
+            prestudy_key: "12345".into(),
+            unit_label: Some("Invented Unit".into()),
+            date_literal: Some("2040-01-02 03:04:05".into()),
+        },
+        sections: vec![section("Title", "Text")],
+        scores: vec![77.0],
+        encoding_result: Some("success".into()),
+        observed_at: NOW.into(),
+        coverage: "x".into(),
+    };
+    mutate(&mut observation);
+    observation
+}
+
+// E11b step 7b (review N4 and answer 4): every limit of `check_report_shape`
+// at its bound (accepted) and one over (refused), counted in UTF-16 units.
+#[test]
+fn report_shape_limits_table_at_bound_and_over() {
+    type Mutator = fn(&mut PrestudyReportObservation, usize);
+    let rows: Vec<(&str, usize, Mutator)> = vec![
+        ("sections", MAX_SECTIONS, |o, n| {
+            o.sections = (0..n).map(|i| section(&format!("S{i}"), "t")).collect();
+        }),
+        ("section title", MAX_SECTION_TITLE_UNITS, |o, n| {
+            o.sections[0].title = units_text(n);
+        }),
+        ("section subtitle", MAX_SECTION_SUBTITLE_UNITS, |o, n| {
+            o.sections[0].subtitle = Some(units_text(n));
+        }),
+        ("blocks per section", MAX_BLOCKS_PER_SECTION, |o, n| {
+            o.sections[0].blocks = (0..n)
+                .map(|_| PrestudyReportBlock {
+                    heading: None,
+                    text: "t".into(),
+                })
+                .collect();
+        }),
+        ("block text", MAX_BLOCK_TEXT_UNITS, |o, n| {
+            o.sections[0].blocks[0].text = units_text(n);
+        }),
+        ("block heading", MAX_BLOCK_HEADING_UNITS, |o, n| {
+            o.sections[0].blocks[0].heading = Some(units_text(n));
+        }),
+        ("unit label", MAX_SOURCE_UNIT_LABEL_UNITS, |o, n| {
+            o.source_record.unit_label = Some(units_text(n));
+        }),
+        ("date literal", MAX_SOURCE_DATE_LITERAL_UNITS, |o, n| {
+            o.source_record.date_literal = Some(units_text(n));
+        }),
+        ("encoding result", MAX_ENCODING_RESULT_UNITS, |o, n| {
+            o.encoding_result = Some(units_text(n));
+        }),
+        ("scores", 20, |o, n| {
+            o.scores = vec![1.0; n];
+        }),
+    ];
+    for (name, bound, mutate) in &rows {
+        check_report_shape(&observation_with(|o| mutate(o, *bound)))
+            .unwrap_or_else(|e| panic!("{name} at bound {bound} refused: {}", e.message));
+        let over = check_report_shape(&observation_with(|o| mutate(o, bound + 1))).expect_err(name);
+        assert_eq!(over.message, "source_response_malformed", "{name} over");
+    }
+    // The bound is in UTF-16 units, not scalars: 251 astral characters are
+    // 502 units and refuse although 251 scalars are under 500.
+    let astral = observation_with(|o| o.sections[0].title = "😀".repeat(251));
+    assert_eq!(
+        check_report_shape(&astral).unwrap_err().message,
+        "source_response_malformed"
+    );
+    let at = observation_with(|o| o.sections[0].title = "😀".repeat(250));
+    check_report_shape(&at).unwrap();
+    // Lower bounds the TS shape also states.
+    for (name, mutate) in [
+        (
+            "no sections",
+            (|o: &mut PrestudyReportObservation| o.sections.clear())
+                as fn(&mut PrestudyReportObservation),
+        ),
+        ("empty title", |o| o.sections[0].title.clear()),
+        ("no blocks", |o| o.sections[0].blocks.clear()),
+        ("empty block text", |o| o.sections[0].blocks[0].text.clear()),
+        ("empty unit label", |o| {
+            o.source_record.unit_label = Some(String::new())
+        }),
+        ("empty date literal", |o| {
+            o.source_record.date_literal = Some(String::new())
+        }),
+    ] {
+        assert_eq!(
+            check_report_shape(&observation_with(mutate))
+                .unwrap_err()
+                .message,
+            "source_response_malformed",
+            "{name}"
+        );
+    }
+    // Absent optional values stay accepted.
+    check_report_shape(&observation_with(|o| {
+        o.source_record.unit_label = None;
+        o.source_record.date_literal = None;
+        o.encoding_result = None;
+        o.sections[0].subtitle = None;
+    }))
+    .unwrap();
+}

@@ -5171,13 +5171,51 @@
     "additionalProperties": false
    },
    "derivedFrom": "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-tools.ts:66",
-   "rustRoute": "refusal_boundary",
+   "rustRoute": "session_loan",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
     "idempotentHint": false,
     "openWorldHint": true
-   }
+   },
+   "outputShape": {
+    "orderedKeys": [
+     "purpose",
+     "currentRequestRef",
+     "displayName",
+     "academyWrites",
+     "parentSends",
+     "automaticRetryAllowed",
+     "sourceContentIsUntrustedData",
+     "execution",
+     "status",
+     "student",
+     "waiting",
+     "completed",
+     "summary",
+     "teacherJudgment",
+     "observedAt",
+     "coverage"
+    ],
+    "statusLiterals": [
+     "observed"
+    ]
+   },
+   "errorCodes": [
+    "tool_input_invalid",
+    "prestudy_student_not_admitted",
+    "prestudy_source_port_unavailable",
+    "prestudy_authentication_required",
+    "prestudy_search_form_missing",
+    "prestudy_search_form_drift",
+    "prestudy_source_rejected",
+    "prestudy_row_unqualified",
+    "prestudy_summary_row_unqualified",
+    "source_response_malformed",
+    "prestudy_scope_conflict",
+    "prestudy_result_too_large",
+    "prestudy_unqualified_no_automatic_retry"
+   ]
   },
   {
    "name": "academy_prestudy_report_get",
@@ -5238,7 +5276,53 @@
     "openWorldHint": true
    },
    "derivedFrom": "modules/academy-workbench/tools/academy-mcp/src/dailyrecord-tools.ts:71",
-   "rustRoute": "absent"
+   "rustRoute": "session_loan",
+   "outputShape": {
+    "orderedKeys": [
+     "purpose",
+     "currentRequestRef",
+     "displayName",
+     "prestudyKey",
+     "academyWrites",
+     "parentSends",
+     "automaticRetryAllowed",
+     "sourceContentIsUntrustedData",
+     "execution",
+     "studentContent",
+     "student",
+     "sourceRecord",
+     "sections",
+     "scores",
+     "encodingResult",
+     "observedAt",
+     "coverage",
+     "status",
+     "view"
+    ],
+    "statusLiterals": [
+     "observed",
+     "partial"
+    ]
+   },
+   "errorCodes": [
+    "tool_input_invalid",
+    "prestudy_student_not_admitted",
+    "prestudy_report_source_port_unavailable",
+    "prestudy_report_principal_rejected",
+    "prestudy_detail_student_mismatch",
+    "prestudy_detail_record_mismatch",
+    "prestudy_detail_unqualified",
+    "prestudy_report_scope_conflict",
+    "prestudy_report_result_unqualified",
+    "prestudy_report_unqualified",
+    "prestudy_report_source_rejected",
+    "prestudy_report_not_ready",
+    "prestudy_report_result_too_large",
+    "prestudy_report_section_ambiguous",
+    "prestudy_authentication_required",
+    "source_response_malformed",
+    "prestudy_report_unqualified_no_automatic_retry"
+   ]
   },
   {
    "name": "academy_printed_paper_lookup",

@@ -290,17 +290,14 @@ impl fmt::Debug for PrestudyReportView {
     }
 }
 
-/// JavaScript number printing for scores: `77`, not `77.0`; `77.5` stays.
+/// `JSON.stringify` of a score array: numbers print as JavaScript prints
+/// them, including exponent form for a value below 1e-6 or at least 1e21
+/// (`1e-7`, `1e+23`). The number text comes from the shared JS stringifier,
+/// never from Rust `Display`.
 pub fn scores_json(scores: &[f64]) -> String {
     let parts: Vec<String> = scores
         .iter()
-        .map(|n| {
-            if n.is_finite() && n.fract() == 0.0 && n.abs() <= 9_007_199_254_740_991.0 {
-                format!("{}", *n as i64)
-            } else {
-                format!("{n}")
-            }
-        })
+        .map(|n| stringify(&Js::Num(*n)).unwrap_or_else(|_| "null".into()))
         .collect();
     format!("[{}]", parts.join(","))
 }
@@ -766,8 +763,11 @@ pub fn parse_report(html: &str) -> Result<PrestudyReport> {
 
 /// The backend shape limits, enforced on the assembled report observation
 /// exactly where the TS backend enforces them; a violation is the Zod
-/// refusal TS produces (`source_response_malformed`).
-fn check_report_shape(observation: &PrestudyReportObservation) -> Result<()> {
+/// refusal TS produces (`source_response_malformed`). Public (hidden) so the
+/// limit table test can reach limits the parser cannot produce, such as more
+/// than 20 scores.
+#[doc(hidden)]
+pub fn check_report_shape(observation: &PrestudyReportObservation) -> Result<()> {
     let code = "source_response_malformed";
     require(
         (1..=MAX_SECTIONS).contains(&observation.sections.len()),
