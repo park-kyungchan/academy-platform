@@ -174,24 +174,23 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         })
         .collect();
     let book_text = r.book.as_deref().unwrap_or("");
-    let label_match = labels.iter().position(|label| {
-        book_text == label
-            || book_text
-                .strip_prefix(label.as_str())
-                .is_some_and(|tail| tail.starts_with(char::is_whitespace))
-    });
+    let matches = |label: &str| {
+        book_text == label || book_text.strip_prefix(label)
+            .is_some_and(|tail| tail.starts_with(char::is_whitespace))
+    };
+    // Resolve the registered book name before its course-choice decoration.
+    // A shorter registered name must never consume the start of a longer one.
+    let matched_book = bindings.iter().map(|b| b.book_label.as_str())
+        .filter(|name| matches(name)).max_by_key(|name| name.len());
+    let label_match = labels.iter().enumerate()
+        .filter(|(i, label)| Some(bindings[*i].book_label.as_str()) == matched_book && matches(label))
+        .max_by_key(|(_, label)| label.len()).map(|(i, _)| i);
+    let matched_label = label_match.map(|i| labels[i].as_str()).or(matched_book);
+    let book_suffix = matched_label.and_then(|label| book_text.strip_prefix(label)).unwrap_or("");
     let explicit: Vec<_> = if let Some(i) = label_match {
         vec![&bindings[i]]
     } else {
-        bindings
-            .iter()
-            .filter(|b| {
-                book_text == b.book_label
-                    || book_text
-                        .strip_prefix(&b.book_label)
-                        .is_some_and(|tail| tail.starts_with(char::is_whitespace))
-            })
-            .collect()
+        bindings.iter().filter(|b| Some(b.book_label.as_str()) == matched_book).collect()
     };
     if !book_text.is_empty() && explicit.is_empty() {
         return Err(stop(StopCode::BookNotFound, l::UNIT_BOOK_STOP));
@@ -205,15 +204,8 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
     .flatten()
     .collect::<Vec<_>>()
     .join(" ");
-    if let [binding] = explicit.as_slice()
-        && r.unit.is_none()
-        && r.unit_from.is_none()
-        && r.unit_to.is_none()
-    {
-        let label = label_match
-            .map(|i| labels[i].as_str())
-            .unwrap_or(&binding.book_label);
-        text = format!("{} {text}", book_text.strip_prefix(label).unwrap_or(""));
+    if !book_suffix.is_empty() && r.unit.is_none() && r.unit_from.is_none() && r.unit_to.is_none() {
+        text = format!("{book_suffix} {text}");
     }
     let compatible: Vec<_> = bindings
         .iter()
@@ -288,16 +280,7 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         };
         // The book field is replaced on the next stateless call. Carry its
         // original unit suffix in every choice rather than widening the scope.
-        let suffix = candidates
-            .iter()
-            .filter_map(|b| {
-                book_text
-                    .strip_prefix(&b.book_label)
-                    .filter(|tail| tail.starts_with(char::is_whitespace))
-                    .map(|tail| (b.book_label.len(), tail))
-            })
-            .max_by_key(|(len, _)| *len)
-            .map_or("", |(_, tail)| tail);
+        let suffix = book_suffix;
         return Err(ask(
             AskField::Book,
             question,
