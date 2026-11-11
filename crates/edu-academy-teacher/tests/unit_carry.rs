@@ -379,6 +379,12 @@ fn other_book_only_prestudy_minor_stays_unknown() {
     assert!(out.ask.is_none() && out.stop.is_none());
     assert_eq!(out.data["prestudy"][0]["verdict"], "unknown");
     assert!(!out.display.contains("읽은 기간에 없음"));
+    for topic in ["예습", "전체"] {
+        c.request.topic = Some(topic.into());
+        let out = c.run();
+        assert_eq!(out.display.lines().find(|line| line.starts_with("1-1 예습영상: ")).unwrap(),
+            "1-1 예습영상: 미확인(다른 교재에서만 단원 관측)");
+    }
 }
 
 #[test]
