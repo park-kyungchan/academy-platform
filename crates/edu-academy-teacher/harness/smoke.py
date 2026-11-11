@@ -16,10 +16,14 @@ config = json.loads(pathlib.Path(args[args.index("--mcp-config")+1]).read_text()
 assert list(config["mcpServers"]) == ["academy"]
 assert len(args[args.index("--allowedTools")+1].split(",")) == 14
 request = sys.stdin.read()
-if "--bare" in args:
+if "--system-prompt" in args:
+    assert "--bare" not in args
+    assert args[args.index("--system-prompt")+1] == "You are an assistant of a teacher. Use the tools you are given."
     assert args[args.index("--setting-sources")+1] == ""
     assert args[args.index("--tools")+1] == "" and "--disable-slash-commands" in args
-    print(json.dumps({"type":"assistant","message":{"content":[{"type":"tool_use","id":"one","name":"mcp__academy__academy_lesson_prepare","input":{"student":"synthetic"}}]}}))
+    allowed = args[args.index("--allowedTools")+1].split(",")
+    print(json.dumps({"type":"system","subtype":"init","tools":allowed,"slash_commands":[],"skills":[],"plugins":[],"agents":["claude","Explore","general-purpose","Plan","statusline-setup"]}))
+    print(json.dumps({"type":"assistant","message":{"usage":{"input_tokens":3,"cache_read_input_tokens":0,"cache_creation_input_tokens":0},"content":[{"type":"tool_use","id":"one","name":"mcp__academy__academy_lesson_prepare","input":{"student":"synthetic"}}]}}))
     print(json.dumps({"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"one","content":[{"type":"text","text":"received stream display"}]}]}}))
     print(json.dumps({"type":"result","result":"prefix received stream display suffix 2026-11-09","usage":{"input_tokens":3,"output_tokens":4},"total_cost_usd":0.01}))
 else:
@@ -44,6 +48,7 @@ def main():
             if mode == "isolated":
                 assert result["call_count"] == 1 and result["args_bytes"] == 23
                 assert result["verbatim"] == "pass"
+                assert result["isolation"]["status"] == "pass"
                 assert result["checks"]["previous_lesson_date"] == "pass"
                 assert result["checks"]["line0"] == "FAIL"
             else:

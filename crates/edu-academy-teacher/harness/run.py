@@ -11,6 +11,9 @@ import time
 
 HERE = Path(__file__).resolve().parent
 CRATE = HERE.parent
+ISOLATED_SYSTEM_PROMPT = "You are an assistant of a teacher. Use the tools you are given."
+# Observed in the previous all-sources-disabled CLI init, not user agents.
+DEFAULT_CLI_AGENTS = ("claude", "Explore", "general-purpose", "Plan", "statusline-setup")
 
 
 def norm(text):
@@ -22,8 +25,8 @@ def command(cli, model, config, allowed, mode):
             "--strict-mcp-config", "--allowedTools", allowed,
             "--output-format", "stream-json", "--verbose", "--no-session-persistence"]
     if mode == "isolated":
-        args += ["--bare", "--setting-sources", "", "--tools", "",
-                 "--disable-slash-commands"]
+        args += ["--setting-sources", "", "--tools", "",
+                 "--disable-slash-commands", "--system-prompt", ISOLATED_SYSTEM_PROMPT]
     return args
 
 
@@ -70,6 +73,58 @@ def measure(events):
             "verbatim": verbatim, "extra_chars": extra,
             "usage": payload.get("usage") or {}, "cost_usd": payload.get("total_cost_usd", "unknown"),
             "result_received": bool(payload), "is_error": payload.get("is_error", "unknown")}
+
+
+def isolation(events, allowed_tools, malformed=0):
+    """Fail closed on missing evidence; builtin plugins are still plugins."""
+    reasons = []
+    inits = [e for e in events if e.get("type") == "system" and e.get("subtype") == "init"]
+    if not inits:
+        reasons.append("init_missing")
+    elif len(inits) != 1:
+        reasons.append("multiple_init_events")
+    init = inits[0] if inits else {}
+    fields = ("tools", "slash_commands", "terminal_slash_commands", "skills", "plugins",
+              "agents", "memory_paths", "mcp_servers")
+    snapshot = {field: init[field] for field in fields if field in init}
+    if "tools" not in init:
+        reasons.append("tools_missing")
+    for field, values in snapshot.items():
+        if not isinstance(values, list):
+            reasons.append(f"{field}_invalid")
+            continue
+        if field == "tools":
+            if any(tool not in allowed_tools for tool in values):
+                reasons.append("unexpected_tools")
+        elif field == "agents":
+            if any(agent not in DEFAULT_CLI_AGENTS for agent in values):
+                reasons.append("unexpected_agents")
+        elif field == "mcp_servers":
+            if any(not isinstance(server, dict) or server.get("name") != "academy" for server in values):
+                reasons.append("unexpected_mcp_servers")
+        elif values:
+            reasons.append(f"{field}_loaded")
+    hooks = [{"type": e.get("type"), "subtype": e.get("subtype")} for e in events
+             if "hook" in str(e.get("type", "")).lower()
+             or "hook" in str(e.get("subtype", "")).lower()]
+    if hooks:
+        reasons.append("hook_events_present")
+    first = next((e.get("message", {}).get("usage") for e in events if e.get("type") == "assistant"), None)
+    keys = ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
+    usage, tokens = {}, None
+    if isinstance(first, dict) and all(type(first.get(k)) is int and first[k] >= 0 for k in keys):
+        usage = {key: first[key] for key in keys}
+        tokens = sum(usage.values())
+        if tokens >= 4000:
+            reasons.append("first_request_tokens_not_under_4000")
+    else:
+        reasons.append("first_request_usage_missing")
+    if malformed:
+        reasons.append("malformed_stream")
+    return {"status": "FAIL" if reasons else "pass", "reasons": reasons,
+            "checked_init_fields": list(snapshot), "init": snapshot,
+            "default_cli_agents": list(DEFAULT_CLI_AGENTS), "hook_events": hooks,
+            "first_request_usage": usage, "first_request_tokens": tokens}
 
 
 def answer_checks(spec, answer):
@@ -125,10 +180,11 @@ def main():
         "--scenario", str(scenario), "--today", "2026-11-11", "--run-log", str(run / "run-log.jsonl")]}}}
     config_path = run / "mcp.json"
     config_path.write_text(json.dumps(config), encoding="utf-8")
+    cli_command = command(args.claude, args.model, config_path, allowed, args.mode)
     started = time.monotonic()
     exit_code = None
     try:
-        proc = subprocess.run(command(args.claude, args.model, config_path, allowed, args.mode),
+        proc = subprocess.run(cli_command,
                               input=spec["request_text"], capture_output=True, text=True, cwd=cwd, timeout=600)
         raw, stderr, exit_code = proc.stdout, proc.stderr, proc.returncode
     except subprocess.TimeoutExpired as exc:
@@ -154,6 +210,10 @@ def main():
         # A discarded event could have been a later tool result.
         result["verbatim"] = "unknown"
         result["extra_chars"] = "unknown"
+    result["command"] = cli_command
+    result["system_prompt"] = ISOLATED_SYSTEM_PROMPT if args.mode == "isolated" else None
+    result["isolation"] = isolation(events, allowed.split(","), malformed) if args.mode == "isolated" else {
+        "status": "not_checked", "reasons": []}
     result.update({"mode": args.mode, "request": args.request, "model": args.model,
                    "target_calls": spec["target_calls"], "wall_s": round(wall, 3),
                    "exit_code": exit_code, "malformed_stream_lines": malformed,
@@ -169,10 +229,14 @@ def main():
     usage = result["usage"]
     tokens = ",".join(f"{key}={usage.get(key, 'unknown')}" for key in (
         "input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+    proof = result["isolation"]
+    isolation_text = proof["status"] + (":" + ",".join(proof["reasons"]) if proof["reasons"] else "")
     print(f"{args.mode} | {args.request} | {args.model} | calls={result['call_count']}/{spec['target_calls']} | "
-          f"args_bytes={result['args_bytes']} | verbatim={result['verbatim']} | extra_chars={result['extra_chars']} | "
+          f"args_bytes={result['args_bytes']} | isolation={isolation_text} | verbatim={result['verbatim']} | extra_chars={result['extra_chars']} | "
           f"checks={';'.join(f'{k}={v}' for k, v in result['checks'].items())} | wall_s={wall:.1f} | "
           f"tokens={tokens} | cost_usd={result['cost_usd']} | exit={exit_code} | run_dir={run}")
+    if "first_request_tokens_not_under_4000" in proof["reasons"]:
+        return 3  # Stop the measurement series; inspect the saved stream before any further attempt.
     return 0
 
 
