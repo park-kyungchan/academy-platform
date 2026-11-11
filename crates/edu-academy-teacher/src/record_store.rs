@@ -7,6 +7,7 @@ use edu_academy_core::{
 use rustix::fs::{self as rfs, Dir, Mode, OFlags};
 use serde::{Deserialize, Serialize};
 use std::{
+    cell::Cell,
     ffi::{OsStr, OsString},
     fs::{File, Permissions},
     io::{Read, Write},
@@ -163,6 +164,32 @@ fn name(entry: &rustix::fs::DirEntry) -> Option<&OsStr> {
 fn poll_allowed(elapsed_ms: u128, waits: usize) -> bool {
     elapsed_ms < u128::from(LOCK_WAIT_MS) && waits < MAX_LOCK_WAITS
 }
+fn bounded_lock(path: &Path, elapsed_ms: impl Fn() -> u128, waits: usize) -> Result<Guard> {
+    let waits = Cell::new(waits);
+    lock_path(
+        path,
+        LockOptions {
+            wait: Duration::from_millis(LOCK_WAIT_MS),
+            poll: Duration::from_millis(LOCK_POLL_MS),
+        },
+        &|| {
+            let n = waits.get();
+            if !poll_allowed(elapsed_ms(), n) {
+                return true;
+            }
+            // Each permitted core iteration can sleep once: reserve that wait.
+            waits.set(n + 1);
+            false
+        },
+    )
+    .map_err(|e| {
+        if e.message == "workflow_lock_cancelled" {
+            Fault::error("shared_writer_lock_busy")
+        } else {
+            e
+        }
+    })
+}
 fn bootstrap_lock(f: &File) -> Result<()> {
     let start = Instant::now();
     let mut waits = 0;
@@ -315,14 +342,8 @@ impl DraftStore {
         let f = regular(&parent, &leaf, true)?.ok_or_else(unavailable)?;
         // Pin the validated inode for the existing path-only lock API.
         let pinned = PathBuf::from(format!("/proc/self/fd/{}", f.as_raw_fd()));
-        lock_path(
-            &pinned,
-            LockOptions {
-                wait: Duration::from_millis(LOCK_WAIT_MS),
-                poll: Duration::from_millis(LOCK_POLL_MS),
-            },
-            &|| false,
-        )
+        let start = Instant::now();
+        bounded_lock(&pinned, || start.elapsed().as_millis(), 0)
     }
     pub fn lock_account(&self) -> Result<AccountGuard<'_>> {
         self.verify()?;
@@ -408,6 +429,7 @@ impl DraftGuard<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::fs::DirBuilderExt;
     #[test]
     fn lock_budget_boundaries() {
         let end = u128::from(LOCK_WAIT_MS);
@@ -417,5 +439,39 @@ mod tests {
             assert!(!poll_allowed(0, MAX_LOCK_WAITS + over as usize));
         }
         assert_eq!(MAX_LOCK_WAITS as u64 * LOCK_POLL_MS, LOCK_WAIT_MS);
+    }
+    #[test]
+    fn delegated_lock_budget_boundaries() {
+        let path = std::env::temp_dir().join(format!("record-lock-budget-{}", std::process::id()));
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&path)
+            .unwrap();
+        for suffix in ["account.flock", "draft.flock"] {
+            let path = path.join(suffix);
+            let end = u128::from(LOCK_WAIT_MS);
+            let lock = bounded_lock(&path, || end - 1, MAX_LOCK_WAITS - 1).unwrap();
+            let calls = Cell::new(0);
+            let result = bounded_lock(
+                &path,
+                || {
+                    calls.set(calls.get() + 1);
+                    0
+                },
+                MAX_LOCK_WAITS - 1,
+            );
+            assert_eq!(result.err().unwrap().message, "shared_writer_lock_busy");
+            assert_eq!(calls.get(), 2); // One permitted wait, then the 100-wait limit.
+            drop(lock);
+            for over in [0, 1] {
+                for (ms, waits) in [(end + over, 0), (0, MAX_LOCK_WAITS + over as usize)] {
+                    // Even a free lock must stop through the actual core callback.
+                    let error = bounded_lock(&path, || ms, waits).err().unwrap();
+                    assert_eq!(error.message, "shared_writer_lock_busy");
+                }
+            }
+            std::fs::remove_file(path).unwrap();
+        }
+        std::fs::remove_dir(path).unwrap();
     }
 }

@@ -130,6 +130,14 @@ fn unmarked_corrupt_missing_and_oversized_markers_never_adopt_a_root() {
     }
     let t = Scratch::new();
     let s = t.open();
+    let path = t.root().join(MARKER);
+    let mut marker: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    marker["format"] = "another-format".into();
+    fs::write(&path, serde_json::to_vec(&marker).unwrap()).unwrap();
+    refused(DraftStore::open(&t.root(), owner()));
+    refused(s.lock_account());
+    let t = Scratch::new();
+    let s = t.open();
     fs::remove_file(t.root().join(MARKER)).unwrap();
     assert!(s.lock_account().is_err());
     assert!(DraftStore::open(&t.root(), owner()).is_err());
@@ -218,6 +226,25 @@ fn file_size_and_atomic_replacement_boundaries() {
     assert_eq!(a.read_bytes(p).unwrap().unwrap(), bytes);
     assert!(d.write_atomic(p, &vec![b'x'; MAX_FILE_BYTES + 1]).is_err());
     assert_eq!(a.read_bytes(p).unwrap().unwrap(), bytes);
+    d.write_atomic(p, b"first").unwrap();
+    assert_eq!(a.read_bytes(p).unwrap().unwrap(), b"first");
+    d.write_atomic(p, b"replacement of existing file").unwrap();
+    assert_eq!(
+        a.read_bytes(p).unwrap().unwrap(),
+        b"replacement of existing file"
+    );
+    assert_eq!(mode(t.root().join(p)), 0o600);
+    assert_eq!(
+        fs::read_dir(t.root().join("record-drafts"))
+            .unwrap()
+            .count(),
+        1
+    );
+    assert!(d.write_atomic(p, &vec![b'x'; MAX_FILE_BYTES + 1]).is_err());
+    assert_eq!(
+        a.read_bytes(p).unwrap().unwrap(),
+        b"replacement of existing file"
+    );
     fs::write(t.root().join(p), vec![b'x'; MAX_FILE_BYTES + 1]).unwrap();
     assert!(a.read_bytes(p).is_err());
     fs::remove_file(t.root().join(p)).unwrap();
@@ -270,6 +297,10 @@ fn child_lock_worker() {
         return;
     }
     let a = s.lock_account().unwrap();
+    if std::env::var_os("A2A_DRAFT_TIMEOUT").is_some() {
+        assert_eq!(error(a.lock_draft(&identity())), "shared_writer_lock_busy");
+        return;
+    }
     let d = a.lock_draft(&identity()).unwrap();
     d.write_atomic(rel("record-drafts/order"), b"child")
         .unwrap();
@@ -324,4 +355,28 @@ fn two_process_account_before_draft_and_lock_timeout() {
             );
         }
     }
+}
+#[test]
+fn second_process_with_account_lock_cannot_take_held_draft_lock() {
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    drop(a.lock_draft(&identity()).unwrap());
+    let raw = File::open(
+        t.root()
+            .join(format!("locks/{}.flock", identity().key().unwrap())),
+    )
+    .unwrap();
+    raw.try_lock().unwrap();
+    drop(a); // The next account holder must still contend on the draft inode.
+    let mut child = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "child_lock_worker"])
+        .env("A2A_CHILD_ROOT", t.root())
+        .env("A2A_DRAFT_TIMEOUT", "1")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    finish(&mut child);
+    raw.unlock().unwrap();
 }
