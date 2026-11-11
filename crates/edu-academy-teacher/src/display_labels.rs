@@ -568,7 +568,7 @@ pub fn unit_stage_name(stage: &str) -> &str {
         "cism_support" => "CISM 지원",
         "printed" => "인쇄",
         "handout" => "배부",
-        _ => stage,
+        _ => UNSUPPORTED_STAGE,
     }
 }
 
@@ -580,7 +580,7 @@ pub fn unit_source_name(name: &str) -> &str {
         "section_index" => "섹션 제목",
         "section_grades" => "섹션 성적",
         "prestudy" => "예습 목록",
-        _ => name,
+        _ => UNKNOWN_SOURCE,
     }
 }
 pub fn unit_source_observation(name: &str, at: &str, scope: &str) -> String {
@@ -710,4 +710,15 @@ pub fn unit_course_registration(book: &str, count: usize) -> String {
 }
 pub fn unit_course_ask(who: &str, registrations: &str) -> String {
     format!("{who}의 교재 등록을 확인했습니다.\n{registrations}\n어느 교재와 등록 과정을 볼까요?")
+}
+
+pub const UNSUPPORTED_STAGE: &str = "미확인(지원하지 않는 단계)";
+pub const UNKNOWN_SOURCE: &str = "미확인 원천";
+pub fn lesson_stage_name(code: &str) -> &'static str {
+    match code {
+        "solving" => SOLVING,
+        "grading" => GRADING,
+        "correction" => CORRECTION,
+        _ => UNSUPPORTED_STAGE,
+    }
 }

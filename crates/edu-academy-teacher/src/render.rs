@@ -136,12 +136,7 @@ fn reports<'a>(data: &'a LessonData, student: &StudentLesson) -> Vec<&'a Teacher
         .collect()
 }
 fn stage_label(code: &str) -> &str {
-    match code {
-        "solving" => l::SOLVING,
-        "grading" => l::GRADING,
-        "correction" => l::CORRECTION,
-        _ => code,
-    }
+    l::lesson_stage_name(code)
 }
 // A partially named fact is usable only if exactly one assignment matches it.
 fn applies(
