@@ -232,13 +232,13 @@ fn daily_block(d: &UnitData, leaf: &Leaf, grid: bool) -> (String, Vec<String>) {
         (lines.join("\n"), details)
     }
 }
-fn clinic_block(d: &UnitData, leaf: &Leaf) -> (String, Vec<String>) {
+fn clinic_block(d: &UnitData, leaf: &Leaf, printed_dash: &mut bool) -> (String, Vec<String>) {
     let code = &leaf.minor.code;
     let mut fields = vec![cell(&leaf_label(leaf))];
     let mut details = Vec::new();
     for a in section_columns(d) {
         let c = d.clinic.iter().find(|c| c.unit == *code && c.activity == a);
-        fields.push(if !leaf.minor.activities.contains(&a) {
+        let value: String = if !leaf.minor.activities.contains(&a) {
             l::NOT_APPLICABLE.into()
         } else if d.sections.is_none() {
             l::UNIT_SECTION_UNREAD.into()
@@ -252,7 +252,9 @@ fn clinic_block(d: &UnitData, leaf: &Leaf) -> (String, Vec<String>) {
             })
             .unwrap_or(l::UNIT_DASH)
             .into()
-        });
+        };
+        *printed_dash |= value == l::UNIT_DASH;
+        fields.push(value);
         if let Some(c) = c
             && c.verdict == UnitVerdict::Eligible
         {
@@ -293,7 +295,7 @@ fn clinic_block(d: &UnitData, leaf: &Leaf) -> (String, Vec<String>) {
     }
     (fields.join(" | "), details)
 }
-fn section_block(d: &UnitData, leaf: &Leaf, grid: bool) -> String {
+fn section_block(d: &UnitData, leaf: &Leaf, grid: bool, printed_dash: &mut bool) -> String {
     let code = &leaf.minor.code;
     let records: Vec<_> = d
         .sections
@@ -308,7 +310,7 @@ fn section_block(d: &UnitData, leaf: &Leaf, grid: bool) -> String {
                 .filter(|r| r.activity == activity)
                 .map(|r| cell(&r.source_title))
                 .collect::<Vec<_>>();
-            fields.push(if !leaf.minor.activities.contains(&activity) {
+            let value: String = if !leaf.minor.activities.contains(&activity) {
                 l::NOT_APPLICABLE.into()
             } else if titles.is_empty() {
                 section_issue(d, code, Some(&activity))
@@ -316,7 +318,9 @@ fn section_block(d: &UnitData, leaf: &Leaf, grid: bool) -> String {
                     .into()
             } else {
                 titles.join(" / ")
-            });
+            };
+            *printed_dash |= value == l::UNIT_DASH;
+            fields.push(value);
         }
         return fields.join(" | ");
     }
@@ -569,6 +573,7 @@ fn compose(d: &UnitData, coverage: &Coverage, tree_scope: &[Leaf]) -> String {
     let small = d.minors.len() == 1;
     let mut lines = Vec::new();
     let mut details = Vec::new();
+    let mut printed_dash = false;
     match d.topic.as_str() {
         t if t == l::UNIT_TOPICS[1] => {
             lines.push(l::unit_daily_heading(
@@ -591,12 +596,10 @@ fn compose(d: &UnitData, coverage: &Coverage, tree_scope: &[Leaf]) -> String {
             headers.extend(section_columns(d).iter().map(|a| cell(a)));
             lines.push(headers.join(" | "));
             for leaf in &d.minors {
-                let (block, extra) = clinic_block(d, leaf);
+                let (block, extra) = clinic_block(d, leaf, &mut printed_dash);
                 lines.push(block);
                 details.extend(extra);
             }
-            lines.push(l::UNIT_DASH_LEGEND.into());
-            lines.append(&mut details);
         }
         t if t == l::UNIT_TOPICS[3] => {
             let scope = if small {
@@ -621,7 +624,7 @@ fn compose(d: &UnitData, coverage: &Coverage, tree_scope: &[Leaf]) -> String {
                 lines.push(headers.join(" | "));
             }
             for leaf in &d.minors {
-                lines.push(section_block(d, leaf, !small));
+                lines.push(section_block(d, leaf, !small, &mut printed_dash));
             }
         }
         _ => {
@@ -634,13 +637,13 @@ fn compose(d: &UnitData, coverage: &Coverage, tree_scope: &[Leaf]) -> String {
                     lines.extend(extra);
                 }
                 if d.sections.is_some() || d.topic == l::UNIT_TOPICS[0] {
-                    lines.push(section_block(d, leaf, false));
+                    lines.push(section_block(d, leaf, false, &mut printed_dash));
                 }
             }
             if d.topic == l::UNIT_TOPICS[0] {
                 lines.push(section_header(d));
                 for leaf in &d.minors {
-                    let (block, extra) = clinic_block(d, leaf);
+                    let (block, extra) = clinic_block(d, leaf, &mut printed_dash);
                     lines.push(block);
                     lines.extend(extra);
                 }
@@ -664,9 +667,7 @@ fn compose(d: &UnitData, coverage: &Coverage, tree_scope: &[Leaf]) -> String {
             }
         }
     }
-    if lines.iter().any(|line| line.contains(l::UNIT_DASH))
-        && !lines.iter().any(|line| line == l::UNIT_DASH_LEGEND)
-    {
+    if printed_dash {
         lines.push(l::UNIT_DASH_LEGEND.into());
     }
     lines.extend(details);
