@@ -49,6 +49,11 @@ pub const NOTE_NEXT: &str = "풀이노트 확인";
 pub const SECTION_CHECK: &str = "섹션 결과 확인";
 pub const SECTION_TITLES: &str = "섹션 제목 목록";
 pub const SECTION_NEXT: &str = "제목·성적 확인";
+// Contract vocabulary whose required chapter/label evidence is absent from v2.
+pub const CHAPTER_SCOPE: &str = "대단원";
+pub const DESCRIPTIVE_WORK: &str = "서술형 정복";
+pub const CHAPTER_CHECK: &str = "총괄평가 전 검사";
+pub const CHAPTER_NEXT: &str = "대단원 검사 여부 확인";
 pub const CARRY_CHECK: &str = "미지참 판정";
 pub const CARRY_NEXT: &str = "판정 기록";
 pub const FOLLOW_UP: &str = "수업 후속";
@@ -113,6 +118,15 @@ pub fn count_labels(n: usize) -> String {
 }
 pub fn anonymous_grade(c: usize, t: usize) -> String {
     format!("채점 결과 {c}/{t}{}", UNITS[1])
+}
+pub fn identified_grade(correct: usize, total: usize) -> String {
+    format!(
+        "정답 {} {correct}개 / 전체 {} {total}개",
+        UNITS[0], UNITS[0]
+    )
+}
+pub fn unknown(reason: &str) -> String {
+    format!("미확인({reason})")
 }
 pub fn carry_scope(scope: &str, count: &str, assigned: &str) -> String {
     format!("{scope} {count} ({} 숙제)", date(assigned))
