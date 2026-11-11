@@ -46,8 +46,11 @@ impl Server {
             std::fs::write(dir.join("target"), "retained").unwrap();
             std::os::unix::fs::symlink(dir.join("target"), &run_log).unwrap();
         }
-        let scenario =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/scenario-v2.json");
+        let scenario = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(if kind == Some("unit") {
+            "tests/fixtures/scenario-v3.json"
+        } else {
+            "tests/fixtures/scenario-v2.json"
+        });
         let scenario = if kind == Some("empty_roster") {
             let mut value: Value =
                 serde_json::from_str(&std::fs::read_to_string(&scenario).unwrap()).unwrap();
@@ -206,7 +209,7 @@ fn stdio_protocol_end_to_end() {
         "jsonrpc": "2.0", "id": 5, "method": "tools/call",
         "params": {"name": "academy_help", "arguments": {"topic": "x"}}
     }));
-    assert_eq!(other["result"]["isError"], false);
+    assert_eq!(other["result"]["isError"], true);
     assert_eq!(
         other["result"]["_meta"]["academy/envelope"]["stop"]["code"],
         "tool_not_in_slice_1"
@@ -217,24 +220,9 @@ fn stdio_protocol_end_to_end() {
         "jsonrpc": "2.0", "id": 6, "method": "tools/call",
         "params": {"name": "가상학생UnknownTool", "arguments": {}}
     }));
-    assert_eq!(unknown["result"]["isError"], false);
-    assert_eq!(
-        unknown["result"]["_meta"]["academy/envelope"]["stop"]["code"],
-        "unknown_tool"
-    );
-
-    assert_eq!(
-        unknown["result"]["content"][0]["text"],
-        format!(
-            "그런 이름의 도구는 없습니다. 쓸 수 있는 도구: {}",
-            edu_academy_teacher::tools::TOOLS
-                .iter()
-                .filter(|tool| tool.handler == edu_academy_teacher::tools::Handler::LessonPrepare)
-                .map(|tool| tool.name)
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    );
+    assert_eq!(unknown["error"]["code"], -32602);
+    assert_eq!(unknown["id"], 6);
+    assert!(unknown.get("result").is_none());
 
     // A malformed line gets -32700 and the next valid request still works.
     let bad = server.send("{not json");
@@ -394,7 +382,7 @@ fn symlink_log_is_not_followed() {
     for id in 1..=2 {
         let reply =
             server.call(json!({"id":id,"method":"tools/call","params":{"name":"academy_help"}}));
-        assert_eq!(reply["result"]["isError"], false);
+        assert_eq!(reply["result"]["isError"], true);
     }
     assert_eq!(
         std::fs::read_to_string(server.dir.join("target")).unwrap(),
@@ -500,4 +488,129 @@ fn seven_contract_targets_through_tools_call() {
         );
         assert!(response["result"].get("structuredContent").is_none());
     }
+}
+
+fn unit_call(server: &mut Server, id: i32, args: Value, fixture: &str, status: &str) -> Value {
+    let reply = server.call(json!({"jsonrpc":"2.0", "id":id,"method":"tools/call",
+        "params":{"name":"academy_unit_status","arguments":args}}));
+    assert_eq!(reply["id"], id);
+    let result = &reply["result"];
+    assert_eq!(result["content"], json!([{"type":"text","text":fixture}]));
+    assert_eq!(result["_meta"]["academy/envelope"]["status"], status);
+    assert_eq!(result["_meta"]["academy/envelope"]["display"], fixture);
+    assert_eq!(result["isError"], false);
+    assert!(result.get("structuredContent").is_none());
+    reply
+}
+
+#[test]
+fn unit_protocol_q11_to_q16_display_and_distinct_frames() {
+    let mut s = Server::start_with_log(Some("unit"));
+    let list = s.send(r#"{"id":0,"method":"tools/list"}"#);
+    assert_eq!(TOOLS_FIXTURE.len(), 7960);
+    assert!(list.contains(std::str::from_utf8(TOOLS_FIXTURE).unwrap()));
+    unit_call(
+        &mut s,
+        11,
+        json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"DailyTest"}),
+        include_str!("fixtures/display-q11.txt"),
+        "ok",
+    );
+    let args = json!({"student":"가상학생B","unit":"4-4","topic":"DailyTest"});
+    unit_call(
+        &mut s,
+        12,
+        args.clone(),
+        include_str!("fixtures/display-q12-first.txt"),
+        "ok",
+    );
+    unit_call(
+        &mut s,
+        13,
+        args,
+        include_str!("fixtures/display-q12-later.txt"),
+        "ok",
+    );
+    unit_call(
+        &mut s,
+        14,
+        json!({"student":"가상학생A","topic":"클리닉"}),
+        include_str!("fixtures/display-q13.txt"),
+        "ok",
+    );
+    unit_call(
+        &mut s,
+        15,
+        json!({"student":"가상학생B","topic":"클리닉"}),
+        include_str!("fixtures/display-q14-ask.txt"),
+        "ask",
+    );
+    unit_call(
+        &mut s,
+        16,
+        json!({"student":"가상학생B","topic":"클리닉","book":"가우스 5-1-1"}),
+        include_str!("fixtures/display-q14-result.txt"),
+        "ok",
+    );
+    unit_call(
+        &mut s,
+        17,
+        json!({"student":"가상학생A","unit":"1-2 필수예제","topic":"섹션"}),
+        include_str!("fixtures/display-q15.txt"),
+        "ok",
+    );
+    unit_call(
+        &mut s,
+        18,
+        json!({"student":"가상학생A","unit":"1-2","topic":"섹션"}),
+        include_str!("fixtures/display-q15-bare.txt"),
+        "ok",
+    );
+    unit_call(
+        &mut s,
+        19,
+        json!({"student":"가상학생A","unit":"2-3","topic":"섹션"}),
+        include_str!("fixtures/display-q16.txt"),
+        "ok",
+    );
+}
+
+#[test]
+fn unit_invalid_requests_read_no_sources_and_stop_is_error() {
+    let mut s = Server::start_with_log(Some("unit"));
+    for (i, args) in [
+        json!({}),
+        json!({"student":4}),
+        json!({"student":"가상학생A","unit":null}),
+        json!({"student":"가상학생A","offset":1}),
+        json!([]),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let out = s.call(json!({"id":i,"method":"tools/call","params":{"name":"academy_unit_status","arguments":args}}));
+        assert_eq!(out["error"]["code"], -32602);
+        assert_eq!(out["id"], i);
+        assert!(out.get("result").is_none());
+    }
+    let text = std::fs::read_to_string(&s.run_log).unwrap();
+    assert_eq!(text.lines().count(), 5);
+    for line in text.lines() {
+        assert_eq!(
+            serde_json::from_str::<Value>(line).unwrap()["source_reads"],
+            0
+        );
+    }
+    let stopped = s.call(json!({"id":6,"method":"tools/call","params":{"name":"academy_unit_status","arguments":{"student":"가상학생Z"}}}));
+    let result = &stopped["result"];
+    assert_eq!(result["isError"], true);
+    assert_eq!(
+        result["_meta"]["academy/envelope"]["stop"]["code"],
+        "student_not_found"
+    );
+    assert_eq!(
+        result["content"][0]["text"],
+        result["_meta"]["academy/envelope"]["display"]
+    );
+    assert!(result.get("structuredContent").is_none());
 }

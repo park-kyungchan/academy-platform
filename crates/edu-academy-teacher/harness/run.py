@@ -3,6 +3,8 @@
 import argparse
 import json
 import os
+import queue
+import threading
 from pathlib import Path
 import subprocess
 import sys
@@ -262,29 +264,185 @@ def score_stream(raw, spec, allowed_tools, hook_events_requested=False, mode="is
     return result
 
 
+def drive_turns(cli_command, turns, cwd, evidence, timeout=600):
+    """One process/server; submit turn N+1 only after result N. Never retry."""
+    events, completed, sent = [], 0, 0
+    lines = queue.Queue()
+    with (evidence / "claude.stderr").open("w", encoding="utf-8") as stderr:
+        proc = subprocess.Popen(cli_command + ["--input-format", "stream-json"],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=stderr, text=True, cwd=cwd)
+        def read():
+            for line in proc.stdout:
+                lines.put(line)
+            lines.put(None)
+        reader = threading.Thread(target=read, daemon=True)
+        reader.start()
+        def send_turn():
+            nonlocal sent
+            message = {"type": "user", "message": {"role": "user", "content": turns[sent]["request_text"]}}
+            proc.stdin.write(json.dumps(message, ensure_ascii=False) + "\n")
+            proc.stdin.flush()
+            sent += 1
+        started = time.monotonic()
+        error = None
+        try:
+            send_turn()
+            while True:
+                remaining = timeout - (time.monotonic() - started)
+                line = lines.get(timeout=max(0.001, remaining)) if remaining > 0 else None
+                if line is None:
+                    error = "client_ended_before_all_turns" if completed < len(turns) else None
+                    break
+                events.append(line)
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    continue
+                if event.get("type") == "result":
+                    completed += 1
+                    proof = isolation([json.loads(x) for x in events], [], mode="isolated")
+                    tokens = proof["first_request_tokens"]
+                    if event.get("is_error") or (tokens is not None and tokens >= 6000):
+                        break
+                    if completed == len(turns):
+                        break
+                    send_turn()
+        except queue.Empty:
+            error = "client_timeout"
+        finally:
+            proc.stdin.close()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+            reader.join(timeout=1)
+            proc.stdout.close()
+    return "".join(events), proc.returncode, error
+
+
+def score_turns(raw, specs, allowed, mode, call_log):
+    """Result boundaries partition one conversation, retaining init proof per turn."""
+    chunks, current, init = [], [], []
+    for line in raw.splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            current.append(line)
+            continue
+        if event.get("type") == "system" and event.get("subtype") == "init":
+            init.append(line)
+        current.append(line)
+        if event.get("type") == "result":
+            chunks.append(current)
+            current = []
+    if current:
+        chunks.append(current)
+    results, offset, prior_arguments = [], 0, None
+    for index, spec in enumerate(specs):
+        chunk = chunks[index] if index < len(chunks) else []
+        if index:
+            chunk = init + chunk
+        # Count Academy uses in this segment, not in the cumulative log.
+        calls = measure([json.loads(x) for x in chunk if x.startswith("{")]) if all(_valid_json(x) for x in chunk) else {"calls": []}
+        count = sum(str(c["name"]).startswith("mcp__academy__") for c in calls["calls"])
+        logs = None if call_log is None else call_log[offset:offset + count]
+        offset += count
+        result = score_stream("\n".join(chunk), spec, allowed, True, mode, logs)
+        names = [c["name"] for c in result["calls"] if str(c["name"]).startswith("mcp__academy__")]
+        result["checks"]["expected_tool"] = "pass" if names == ["mcp__academy__" + spec["expected_tool"]] else "FAIL"
+        fixture = (CRATE / "tests/fixtures" / spec["fixture"]).read_text(encoding="utf-8")
+        result["checks"]["raw_fixture"] = "unknown" if result["display"] is None else "pass" if result["display"] == fixture else "FAIL"
+        result["checks"]["clock"] = "unknown" if result["display"] is None else "pass" if spec["clock_expectation"] in result["display"] else "FAIL"
+        arguments = [json.loads(c["arguments"]) for c in result["calls"] if str(c["name"]).startswith("mcp__academy__")]
+        if index and spec.get("preserve_arguments"):
+            current = arguments[0] if len(arguments) == 1 and isinstance(arguments[0], dict) else None
+            previous = prior_arguments if isinstance(prior_arguments, dict) else None
+            ignored = set(spec.get("answer_fields", []))
+            result["checks"]["prior_arguments"] = ("unknown" if previous is None or current is None else
+                "pass" if {k:v for k,v in previous.items() if k not in ignored} == {k:v for k,v in current.items() if k not in ignored} else "FAIL")
+        prior_arguments = arguments[0] if len(arguments) == 1 else None
+        result["turn"] = index + 1
+        result["elapsed_s"] = next((json.loads(x).get("duration_ms", "unknown") for x in reversed(chunk) if _valid_json(x) and json.loads(x).get("type") == "result"), "unknown")
+        if isinstance(result["elapsed_s"], (int, float)):
+            result["elapsed_s"] /= 1000
+        results.append(result)
+    return results
+
+
+def _valid_json(line):
+    try:
+        return isinstance(json.loads(line), dict)
+    except ValueError:
+        return False
+
+
+def public_row(result, request, model, mode):
+    """The only export from private evidence: identities and numeric/category data."""
+    return {"request": request, "turn": result["turn"], "model_tier": {"haiku": "low", "sonnet": "reference"}.get(model, model),
+            "mode": mode, "calls": result["call_count"], "argument_bytes": result["args_bytes"],
+            "unit_counts": result["unit_counts"], "facts_kept": result["facts_kept"],
+            "result": "FAIL" if "FAIL" in result["checks"].values() else result["facts_kept"],
+            "reason_code": result["reason_code"] or ("request_checks_failed" if "FAIL" in result["checks"].values() else None), "shown_unchanged": result["shown_unchanged"],
+            "unknown_by_reason": result["unknown_by_reason"], "failed_rules": result.get("failed_rules", []),
+            "tokens": {key: result["usage"].get(key, "unknown") for key in
+                       ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")},
+            "elapsed_s": result["elapsed_s"]}
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("request", choices=["Q01", "Q02", "Q03"])
+    ap.add_argument("request", choices=["Q01", "Q02", "Q03", "Q11", "Q12", "Q13", "Q14", "Q15", "Q16"])
     ap.add_argument("model")
     ap.add_argument("--mode", choices=["isolated", "installed"], required=True)
     ap.add_argument("--binary", default=os.environ.get("EDU_ACADEMY_TEACHER_BINARY", ""))
     ap.add_argument("--scenario", default=str(CRATE / "tests/fixtures/scenario-v2.json"))
     ap.add_argument("--claude", default=os.environ.get("CLAUDE_BIN", "claude"))
+    ap.add_argument("--trial", action="store_true", help="Disposable two-turn contract trial; exports metadata only")
     args = ap.parse_args()
     spec = json.loads((HERE / "checks.json").read_text(encoding="utf-8"))[args.request]
     binary = Path(args.binary or "/home/palantirkc/work/ws-replan/wt/e09d-target/debug/edu-academy-teacher").resolve()
     scenario = Path(args.scenario).resolve()
+    if "turns" in spec and args.scenario == str(CRATE / "tests/fixtures/scenario-v2.json"):
+        scenario = CRATE / "tests/fixtures/scenario-v3.json"
     tools = json.loads((CRATE / "tests/fixtures/tools-list.json").read_text(encoding="utf-8"))["tools"]
     allowed = ",".join(f"mcp__academy__{t['name']}" for t in tools)
     root = Path(tempfile.mkdtemp(prefix=f"p8-{args.mode}-{args.request}-{args.model}-"))
     run, cwd = root / "run", root / "cwd"
-    run.mkdir()
-    cwd.mkdir()
+    run.mkdir(mode=0o700)
+    cwd.mkdir(mode=0o700)
     config = {"mcpServers": {"academy": {"command": str(binary), "args": [
         "--scenario", str(scenario), "--today", "2026-11-11", "--run-log", str(run / "run-log.jsonl")]}}}
     config_path = run / "mcp.json"
     config_path.write_text(json.dumps(config), encoding="utf-8")
     cli_command = command(args.claude, args.model, config_path, allowed, args.mode)
+    if "turns" in spec:
+        turns = spec["turns"]
+        try:
+            raw, exit_code, error = drive_turns(cli_command, turns, cwd, run)
+        except OSError as exc:
+            raw, exit_code, error = "", None, type(exc).__name__ + ":client_start_failed"
+        (run / "claude.jsonl").write_text(raw, encoding="utf-8")
+        results = score_turns(raw, turns, allowed.split(","), args.mode, read_call_log(run / "run-log.jsonl"))
+        (run / "measurement.json").write_text(json.dumps({"command": cli_command + ["--input-format", "stream-json"],
+            "results": results, "exit_code": exit_code, "error": error}, ensure_ascii=False, indent=2), encoding="utf-8")
+        if args.trial:
+            sessions = {json.loads(x).get("session_id") for x in raw.splitlines() if _valid_json(x) and json.loads(x).get("session_id")}
+            contract = {"trial": True, "completed_turns": sum(r["result_received"] for r in results),
+                        "session_count": len(sessions), "same_process": True,
+                        "arguments_retained": results[-1]["checks"].get("prior_arguments", "unknown")}
+            print(json.dumps(contract))
+        for result in results:
+            print(json.dumps(public_row(result, args.request, args.model, args.mode), ensure_ascii=False))
+        proof = isolation([json.loads(x) for x in raw.splitlines() if _valid_json(x)], allowed.split(","), hook_events_requested=True, mode=args.mode)
+        if proof["first_request_tokens"] is not None and proof["first_request_tokens"] >= 6000:
+            return 3
+        return 0
     started = time.monotonic()
     exit_code = None
     try:

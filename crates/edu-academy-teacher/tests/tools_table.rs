@@ -58,9 +58,15 @@ fn every_advertised_name_has_a_handler_and_unknown_name_refuses() {
     assert!(dispatch("academy_no_such_tool").is_none());
     let unavailable: Vec<_> = TOOLS
         .iter()
-        .filter(|t| t.name != "academy_lesson_prepare")
+        .filter(|t| {
+            !matches!(
+                t.handler,
+                edu_academy_teacher::tools::Handler::LessonPrepare
+                    | edu_academy_teacher::tools::Handler::UnitStatus
+            )
+        })
         .collect();
-    assert_eq!(unavailable.len(), 13);
+    assert_eq!(unavailable.len(), 12);
     for tool in unavailable {
         let envelope = dispatch(tool.name)
             .and_then(|h| h.unavailable_envelope())

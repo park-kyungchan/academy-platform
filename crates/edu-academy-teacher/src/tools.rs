@@ -5,6 +5,7 @@ use serde_json::Value;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Handler {
     LessonPrepare,
+    UnitStatus,
     NotInSlice1,
 }
 impl Handler {
@@ -13,7 +14,7 @@ impl Handler {
     pub fn unavailable_envelope(self) -> Option<Envelope> {
         match self {
             Self::NotInSlice1 => Some(Envelope::unavailable_tool()),
-            Self::LessonPrepare => None,
+            Self::LessonPrepare | Self::UnitStatus => None,
         }
     }
 }
@@ -36,7 +37,7 @@ pub static TOOLS: &[ToolSpec] = &[
         name: "academy_unit_status",
         description: "소단원별 현황·DailyTest·섹션 결과와 오답·예습 올렸어?: 소단원마다 시험·섹션·클리닉·예습을 봅니다. 체크리스트면 academy_lesson_prepare입니다.",
         input_schema: r##"{"type":"object","properties":{"student":{"type":"string","description":"학생"},"book":{"type":"string","description":"교재. 예 가우스 5-1-2"},"unit":{"type":"string","description":"소단원"},"unit_from":{"type":"string","description":"시작"},"unit_to":{"type":"string","description":"끝"},"topic":{"type":"string","description":"항목","enum":["전체","DailyTest","클리닉","섹션","예습"]}},"additionalProperties":false,"required":["student"]}"##,
-        handler: Handler::NotInSlice1,
+        handler: Handler::UnitStatus,
     },
     ToolSpec {
         name: "academy_record_read",
