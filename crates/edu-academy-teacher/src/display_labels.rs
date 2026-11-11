@@ -688,7 +688,12 @@ pub fn unit_unknown_remedy(code: &str) -> &'static str {
             "원천의 동일 제목만으로 각 시험 시도의 성적을 연결할 수 없습니다"
         }
         "section_mapping_unavailable" => "원문 제목에 판본 목차와 연결할 단원·활동 정보가 없습니다",
-        _ => "해당 원천을 다시 조회해 주세요",
+        "daily_unavailable" => "일일시험을 다시 조회해 주세요",
+        "daily_partial_page" => "일일시험의 관측 페이지를 다시 조회해 주세요",
+        "section_unavailable" => "섹션을 다시 조회해 주세요",
+        "section_paper_search_unavailable" => "시험지 검색을 다시 조회해 주세요",
+        "section_paper_search_unavailable_or_unqualified" => "시험지 검색의 제목 목록을 유효한 원천 관측으로 확인하지 못했습니다",
+        _ => "원천에서 확인 가능한 정보가 없습니다",
     }
 }
 
