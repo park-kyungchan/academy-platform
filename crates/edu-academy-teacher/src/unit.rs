@@ -151,17 +151,43 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
     if bindings.is_empty() {
         return Err(stop(StopCode::BookNotFound, l::UNIT_BOOK_STOP));
     }
-    let book_text = r.book.as_deref().unwrap_or("");
-    let explicit: Vec<_> = bindings
+    let labels: Vec<_> = bindings
         .iter()
-        .filter(|b| {
-            book_text == b.book_label
-                || book_text
-                    .strip_prefix(&b.book_label)
-                    .is_some_and(|tail| tail.starts_with(char::is_whitespace))
+        .enumerate()
+        .map(|(i, b)| {
+            if bindings
+                .iter()
+                .filter(|other| other.book_label == b.book_label)
+                .count()
+                > 1
+            {
+                l::unit_course_book(&b.book_label, i + 1)
+            } else {
+                b.book_label.clone()
+            }
         })
         .collect();
-    if !book_text.is_empty() && explicit.len() != 1 {
+    let book_text = r.book.as_deref().unwrap_or("");
+    let label_match = labels.iter().position(|label| {
+        book_text == label
+            || book_text
+                .strip_prefix(label.as_str())
+                .is_some_and(|tail| tail.starts_with(char::is_whitespace))
+    });
+    let explicit: Vec<_> = if let Some(i) = label_match {
+        vec![&bindings[i]]
+    } else {
+        bindings
+            .iter()
+            .filter(|b| {
+                book_text == b.book_label
+                    || book_text
+                        .strip_prefix(&b.book_label)
+                        .is_some_and(|tail| tail.starts_with(char::is_whitespace))
+            })
+            .collect()
+    };
+    if !book_text.is_empty() && explicit.is_empty() {
         return Err(stop(StopCode::BookNotFound, l::UNIT_BOOK_STOP));
     }
     let mut text = [
@@ -178,10 +204,10 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         && r.unit_from.is_none()
         && r.unit_to.is_none()
     {
-        text = format!(
-            "{} {text}",
-            book_text.strip_prefix(&binding.book_label).unwrap_or("")
-        );
+        let label = label_match
+            .map(|i| labels[i].as_str())
+            .unwrap_or(&binding.book_label);
+        text = format!("{} {text}", book_text.strip_prefix(label).unwrap_or(""));
     }
     let compatible: Vec<_> = bindings
         .iter()
@@ -191,52 +217,63 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
                 .is_some_and(|t| !code_in(&text, &t.leaves()).is_empty())
         })
         .collect();
-    let binding = if let [one] = explicit.as_slice() {
-        *one
-    } else if let [one] = compatible.as_slice() {
-        *one
-    } else if let [one] = bindings.as_slice() {
-        one
+    let mut candidates = if !explicit.is_empty() {
+        explicit
+    } else if !compatible.is_empty() {
+        compatible
     } else {
-        // A clinic with two bindings always asks, even if homework names one.
-        let context = if topic != l::UNIT_TOPICS[2] {
-            facts
-                .reports()
-                .into_iter()
-                .filter(|f| {
-                    f.student_key.as_deref() == Some(&student.key)
-                        && bindings.iter().any(|b| b.book_label == f.book)
-                        && (text.trim().is_empty()
-                            || facts
-                                .edition_tree(&f.book)
-                                .is_some_and(|t| !code_in(&text, &t.leaves()).is_empty()))
+        bindings.iter().collect()
+    };
+    if candidates.len() > 1 && book_text.is_empty() && topic != l::UNIT_TOPICS[2] {
+        let context = facts
+            .reports()
+            .into_iter()
+            .filter(|f| {
+                f.student_key.as_deref() == Some(&student.key)
+                    && candidates.iter().any(|b| b.book_label == f.book)
+                    && (text.trim().is_empty()
+                        || facts
+                            .edition_tree(&f.book)
+                            .is_some_and(|t| !code_in(&text, &t.leaves()).is_empty()))
+            })
+            .max_by(|a, b| a.assigned_on.cmp(&b.assigned_on));
+        if let Some(f) = context {
+            let scoped: Vec<_> = candidates
+                .iter()
+                .copied()
+                .filter(|b| {
+                    b.book_label == f.book
+                        && f.course_key.as_ref().is_none_or(|key| key == &b.course_key)
+                        && f.book_no.as_ref().is_none_or(|key| key == &b.book_no)
                 })
-                .max_by(|a, b| a.assigned_on.cmp(&b.assigned_on))
-                .map(|f| f.book)
-        } else {
-            None
-        };
-        if let Some(context) = context {
+                .collect();
+            if !scoped.is_empty() {
+                candidates = scoped;
+            }
+        }
+    }
+    let binding = if let [one] = candidates.as_slice() {
+        *one
+    } else {
+        return Err(ask(
+            AskField::Book,
+            if topic == l::UNIT_TOPICS[2] {
+                l::unit_book_ask(&cell(&student.name), candidates.len())
+            } else {
+                l::unit_book_other_ask(&cell(&student.name))
+            },
             bindings
                 .iter()
-                .find(|b| b.book_label == context)
-                .expect("bound fact")
-        } else {
-            return Err(ask(
-                AskField::Book,
-                if topic == l::UNIT_TOPICS[2] {
-                    l::unit_book_ask(&cell(&student.name), bindings.len())
-                } else {
-                    l::unit_book_other_ask(&cell(&student.name))
-                },
-                bindings.iter().map(|b| b.book_label.clone()).collect(),
-                if topic == l::UNIT_TOPICS[2] {
-                    l::UNIT_BOOK_MEANING
-                } else {
-                    l::UNIT_BOOK_OTHER_MEANING
-                },
-            ));
-        }
+                .enumerate()
+                .filter(|(_, b)| candidates.iter().any(|other| std::ptr::eq(*other, *b)))
+                .map(|(i, _)| labels[i].clone())
+                .collect(),
+            if topic == l::UNIT_TOPICS[2] {
+                l::UNIT_BOOK_MEANING
+            } else {
+                l::UNIT_BOOK_OTHER_MEANING
+            },
+        ));
     };
     let tree = facts
         .edition_tree(&binding.book_label)
@@ -368,8 +405,10 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
             .filter(|j| {
                 j.student_key == student.key
                     && j.edition == binding.book_label
-                    && j.course_key.as_deref() == Some(&binding.course_key)
-                    && j.book_no.as_deref() == Some(&binding.book_no)
+                    && j.course_key
+                        .as_ref()
+                        .is_none_or(|key| key == &binding.course_key)
+                    && j.book_no.as_ref().is_none_or(|key| key == &binding.book_no)
             })
             .collect(),
         excluded: facts
@@ -379,8 +418,10 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
                 j.student_key == student.key
                     && j.edition == binding.book_label
                     && j.state == "active"
-                    && j.course_key.as_deref() == Some(&binding.course_key)
-                    && j.book_no.as_deref() == Some(&binding.book_no)
+                    && j.course_key
+                        .as_ref()
+                        .is_none_or(|key| key == &binding.course_key)
+                    && j.book_no.as_ref().is_none_or(|key| key == &binding.book_no)
             })
             .collect(),
         clinic: Vec::new(),
@@ -462,7 +503,12 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
                         data.edition, read.paper_observed
                     ),
                 });
-                if !read.records.is_empty() {
+                if !read.records.is_empty()
+                    || read
+                        .observations
+                        .iter()
+                        .any(|o| o.state == SectionState::Absent)
+                {
                     coverage.sources.push(SourceRead {
                         name: "section_grades".into(),
                         read_at: clock.read_at.clone(),
@@ -635,6 +681,20 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
     if requested > 0 && answered == 0 {
         return Err(BackendError::source_unavailable());
     }
+    for f in facts.reports().iter().filter(|f| {
+        f.student_key.as_deref() == Some(&data.student_key)
+            && f.book == data.edition
+            && (f.course_key.is_none() || f.book_no.is_none())
+            && data.minors.iter().any(|leaf| leaf.minor.code == f.unit)
+            && (all_topics || topic == l::UNIT_TOPICS[2])
+    }) {
+        coverage.unknowns.push(format!(
+            "teacher_fact_course_unknown:{} {} {}",
+            f.unit,
+            f.activity,
+            l::unit_stage_name(&f.stage)
+        ));
+    }
     if data
         .judgments
         .iter()
@@ -643,15 +703,17 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         || facts.reports().iter().any(|f| {
             f.student_key.as_deref() == Some(&data.student_key)
                 && f.book == data.edition
-                && f.course_key.as_deref() == Some(&data.course_key)
-                && f.book_no.as_deref() == Some(&data.book_no)
+                && f.course_key
+                    .as_ref()
+                    .is_none_or(|key| key == &data.course_key)
+                && f.book_no.as_ref().is_none_or(|key| key == &data.book_no)
                 && data.minors.iter().any(|l| l.minor.code == f.unit)
                 && (f.kind == "clinic_stage" || f.kind == "original_work")
         })
     {
         coverage.sources.push(SourceRead {
             name: "teacher_facts".into(),
-            read_at: facts.unit_read_at().unwrap_or(&clock.read_at).into(),
+            read_at: clock.read_at.clone(),
             scope: student.key,
         });
     }
@@ -731,6 +793,10 @@ pub fn clinic(data: &UnitData) -> Vec<ClinicCell> {
                 UnitVerdict::Unknown
             } else if excluded {
                 UnitVerdict::Excluded
+            } else if !observations.is_empty()
+                && observations.iter().all(|o| o.state == SectionState::Absent)
+            {
+                UnitVerdict::NotObservedInEitherSource
             } else if wrong {
                 UnitVerdict::Eligible
             } else if unread || records.is_empty() {

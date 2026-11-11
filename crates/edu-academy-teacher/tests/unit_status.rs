@@ -53,7 +53,7 @@ fn q11_enumerates_complete_tree_and_scoped_scores() {
 }
 #[test]
 fn q12_two_teacher_turns_latch_distinct_frames() {
-    let (mut b, f, mut d, c) = setup(scenario());
+    let (mut b, f, mut d, mut c) = setup(scenario());
     let request = req(json!({"student":"가상학생B","unit":"4-4","topic":"DailyTest"}));
     let old = b.read_at().to_string();
     let first = status(&mut b, &mut d, &f, &request, &c);
@@ -61,6 +61,7 @@ fn q12_two_teacher_turns_latch_distinct_frames() {
         first.display,
         include_str!("fixtures/display-q12-first.txt")
     );
+    c.read_at = "2026-11-11T10:00:00+09:00".into();
     let second = status(&mut b, &mut d, &f, &request, &c);
     assert_eq!(
         second.display,
@@ -408,10 +409,7 @@ fn cached_tree_keeps_original_read_time() {
             .read_at,
         "2026-11-10T08:00:00+09:00"
     );
-    assert!(
-        out.display
-            .contains("원래 읽은 시각 2026-11-10T08:00:00+09:00")
-    );
+    assert!(out.display.contains("원래 읽은 시각 11월 10일 08:00"));
 }
 #[test]
 fn clinic_stage_applicability_matrix() {
@@ -852,9 +850,10 @@ fn r1_b10_each_scope_ask_option_repairs_the_original_request() {
 }
 #[test]
 fn r1_b11_second_turn_qualifies_original_registry_and_tree_times() {
-    let (mut b, f, mut d, c) = setup(scenario());
+    let (mut b, f, mut d, mut c) = setup(scenario());
     let r = req(json!({"student":"가상학생B","unit":"4-4","topic":"DailyTest"}));
     let _ = status(&mut b, &mut d, &f, &r, &c);
+    c.read_at = "2026-11-11T10:00:00+09:00".into();
     let out = status(&mut b, &mut d, &f, &r, &c);
     assert!(out.display.contains("10:00"));
     assert!(out.display.contains("09:00"));

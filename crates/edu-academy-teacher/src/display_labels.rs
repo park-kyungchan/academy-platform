@@ -544,6 +544,7 @@ pub fn unit_unknown_reason(code: &str) -> &'static str {
         "section_ambiguous_attempts" => "동일 제목의 시험 시도를 구분하지 못함",
         "section_mapping_unavailable" => "단원·활동 연결 미확인",
         "prestudy_name_ambiguous" => "같은 이름의 학생을 예습 원천에서 구분하지 못함",
+        "teacher_fact_course_unknown" => "과정 연결이 기록되지 않음",
         "prestudy_unavailable" => "예습 목록을 읽지 못함",
         "daily_unavailable" => "일일시험을 읽지 못함",
         "daily_partial_page" => "일일시험의 일부 관측 페이지를 읽지 못함",
@@ -606,15 +607,16 @@ pub const UNIT_NEXT_SUPPLEMENTARY: &str = "교재 자체 평가와 교사 판정
 
 // Source-qualified slice-2 repair vocabulary.
 pub const UNIT_MINOR: &str = "소단원";
-pub const UNIT_GRADE_UNREAD: &str = "미확인(성적을 읽지 못함)";
+pub const UNIT_GRADE_UNREAD: &str = "미확인(성적을 읽지 못함)·해당 섹션 성적을 다시 조회해 주세요";
 pub const UNIT_ATTEMPTS_AMBIGUOUS: &str = "미확인(동일 제목의 시험 시도 구분 불가)";
-pub const UNIT_EXCLUSION_SCOPE_UNKNOWN: &str = "미확인(섹션 제외의 시험 시도 범위 미확인)";
+pub const UNIT_EXCLUSION_SCOPE_UNKNOWN: &str =
+    "미확인(섹션 제외의 시험 시도 범위 미확인)·교사에게 제외할 시험 시도 지정을 요청해 주세요";
 pub const UNIT_STUDENT_REQUIRED: &str =
     "이 도구는 학생 한 명의 현황을 조회합니다. 반 이름 대신 학생 이름을 알려 주세요.";
 pub const UNIT_FROM_ASK: &str = "시작 소단원을 정하지 못했습니다.\n어느 소단원부터 볼까요?";
 pub const UNIT_TO_ASK: &str = "끝 소단원이 없거나 시작보다 앞섭니다.\n어느 소단원까지 볼까요?";
 pub fn unit_unmapped_title(title: &str) -> String {
-    format!("단원·활동 연결 미확인: {title}")
+    format!("단원·활동 연결 미확인: {title}·교사에게 원문 제목의 단원과 활동 확인을 요청해 주세요")
 }
 pub fn unit_timed_scope(scope: &str, at: &str) -> String {
     format!("{scope}·읽은 시각 {at}")
@@ -657,5 +659,48 @@ pub const UNIT_WRONG_NOTE_TITLES: &str = "오답노트 첫 관측 페이지·관
 
 pub const UNIT_INDEX_SCOPE: &str = "오답노트와 시험지 검색 각 첫 관측 페이지·관측 제목";
 pub fn unit_unmapped_summary(count: usize) -> String {
-    format!("단원·활동 연결 미확인: 제목 {count}개(표시 한도로 원문 제목 생략·결과 자료에 보존).")
+    format!(
+        "단원·활동 연결 미확인: 제목 {count}개(표시 한도로 원문 제목 생략·결과 자료에 보존)·교사에게 원문 제목의 단원과 활동 확인을 요청해 주세요."
+    )
+}
+
+pub const UNIT_SECTION_UNREAD: &str = "미확인(섹션을 읽지 못함)·섹션을 다시 조회해 주세요";
+pub const UNIT_DAILY_UNREAD: &str = "미확인(일일시험을 읽지 못함)·일일시험을 다시 조회해 주세요";
+pub const UNIT_PRESTUDY_UNREAD: &str = "미확인(예습 목록을 읽지 못함)·예습을 다시 조회해 주세요";
+pub const UNIT_COURSE_UNKNOWN: &str = "과정 연결이 기록되지 않음·교재 등록 과정을 지정해 주세요";
+pub fn unit_course_book(book: &str, ordinal: usize) -> String {
+    format!("{book} (등록 과정 {ordinal})")
+}
+pub fn unit_unknown_remedy(code: &str) -> &'static str {
+    match code {
+        "daily_mapping_unavailable" => "교재 판본과 단원을 지정해 주세요",
+        "daily_header_unavailable" => "시험지 제목을 다시 조회해 주세요",
+        "prestudy_name_ambiguous" => "교사에게 예습 원천의 학생 구분을 확인해 주세요",
+        "prestudy_unavailable" => "예습 목록을 다시 조회해 주세요",
+        "teacher_fact_course_unknown" => "교재 등록 과정을 지정해 주세요",
+        "section_grade_unavailable" => "해당 섹션 성적을 다시 조회해 주세요",
+        "section_ambiguous_attempts" => "교사에게 각 시험 시도의 성적 확인을 요청해 주세요",
+        "section_mapping_unavailable" => "교사에게 원문 제목의 단원과 활동 확인을 요청해 주세요",
+        _ => "해당 원천을 다시 조회해 주세요",
+    }
+}
+
+pub fn unit_stage_remainder(stage: &str, value: &str) -> String {
+    format!("그 외 {stage}: {value}")
+}
+
+pub const UNIT_GRADES_ABSENT_SCOPE: &str =
+    "오답노트와 시험지 검색 각 첫 관측 페이지·선택 성적 미관측";
+pub fn unit_counted_unknown(line: &str, count: usize) -> String {
+    if count > 1 {
+        format!("{line}·{count}건")
+    } else {
+        line.into()
+    }
+}
+pub fn unit_unscoped_judgment(scope: &str, value: &str) -> String {
+    format!("과정 연결 미확인: {scope} 교사 판정: {value}·미확인({UNIT_COURSE_UNKNOWN})")
+}
+pub fn unit_unscoped_exclusion(unit: &str, activity: &str) -> String {
+    format!("과정 연결 미확인: {unit} {activity} 섹션 제외·미확인({UNIT_COURSE_UNKNOWN})")
 }

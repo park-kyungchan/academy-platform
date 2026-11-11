@@ -211,6 +211,7 @@ pub struct Section {
 #[serde(rename_all = "snake_case")]
 pub enum SectionState {
     Graded,
+    Absent,
     Unread,
     Ambiguous,
     Unmapped,

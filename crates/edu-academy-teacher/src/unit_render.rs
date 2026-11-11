@@ -12,6 +12,9 @@ pub fn verdict(v: UnitVerdict) -> &'static str {
 fn time(at: &str) -> String {
     l::observation_time(at)
 }
+fn same_minute(a: &str, b: &str) -> bool {
+    time(a) == time(b)
+}
 fn scoped(unit: &str, level: Option<&str>) -> String {
     format!(
         "{}{}",
@@ -24,6 +27,8 @@ fn judgments<'a>(d: &'a UnitData, code: &str, topic: &str) -> Vec<&'a TeacherJud
         .iter()
         .filter(|j| {
             j.unit == code
+                && j.course_key.as_deref() == Some(&d.course_key)
+                && j.book_no.as_deref() == Some(&d.book_no)
                 && j.topic == topic
                 && (d
                     .level
@@ -73,7 +78,7 @@ fn daily_block(d: &UnitData, leaf: &Leaf, grid: bool) -> (String, Vec<String>) {
     let mut details = Vec::new();
     if grid {
         let state = if attempts.is_empty() {
-            verdict(daily_state(d, code, None)).into()
+            daily_status(d, code, None)
         } else {
             attempts
                 .iter()
@@ -209,7 +214,7 @@ fn daily_block(d: &UnitData, leaf: &Leaf, grid: bool) -> (String, Vec<String>) {
                 {
                     lines.push(l::unit_source_line(
                         &scope,
-                        verdict(daily_state(d, code, level.as_deref())),
+                        &daily_status(d, code, level.as_deref()),
                     ));
                 }
                 if js.is_empty() {
@@ -233,7 +238,11 @@ fn clinic_block(d: &UnitData, leaf: &Leaf) -> (String, Vec<String>) {
     let mut details = Vec::new();
     for a in section_columns(d) {
         let c = d.clinic.iter().find(|c| c.unit == *code && c.activity == a);
-        fields.push(
+        fields.push(if !leaf.minor.activities.contains(&a) {
+            l::NOT_APPLICABLE.into()
+        } else if d.sections.is_none() {
+            l::UNIT_SECTION_UNREAD.into()
+        } else {
             c.map(|c| {
                 if c.verdict == UnitVerdict::Unknown {
                     section_issue(d, code, Some(&a)).unwrap_or(l::UNIT_DASH)
@@ -242,8 +251,8 @@ fn clinic_block(d: &UnitData, leaf: &Leaf) -> (String, Vec<String>) {
                 }
             })
             .unwrap_or(l::UNIT_DASH)
-            .into(),
-        );
+            .into()
+        });
         if let Some(c) = c
             && c.verdict == UnitVerdict::Eligible
         {
@@ -299,7 +308,9 @@ fn section_block(d: &UnitData, leaf: &Leaf, grid: bool) -> String {
                 .filter(|r| r.activity == activity)
                 .map(|r| cell(&r.source_title))
                 .collect::<Vec<_>>();
-            fields.push(if titles.is_empty() {
+            fields.push(if !leaf.minor.activities.contains(&activity) {
+                l::NOT_APPLICABLE.into()
+            } else if titles.is_empty() {
                 section_issue(d, code, Some(&activity))
                     .unwrap_or(l::UNIT_DASH)
                     .into()
@@ -360,8 +371,8 @@ fn section_block(d: &UnitData, leaf: &Leaf, grid: bool) -> String {
     lines.join("\n")
 }
 fn fact_scope(d: &UnitData) -> String {
-    let mut facts = vec![if d.tree_read_at != d.read_at {
-        l::unit_cached_tree(&cell(&d.tree_read_at))
+    let mut facts = vec![if !same_minute(&d.tree_read_at, &d.read_at) {
+        l::unit_cached_tree(&time(&d.tree_read_at))
     } else {
         l::UNIT_TREE_FACT.into()
     }];
@@ -429,14 +440,26 @@ fn source_scope(d: &UnitData) -> String {
     }
 
     if d.topic == l::UNIT_TOPICS[2] {
+        if d.sections.is_none() {
+            return l::UNIT_SECTION_UNREAD.into();
+        }
         return l::unit_section_source(
             &who,
             &book,
             section_inventory_scope(d),
-            d.sections.as_ref().is_none_or(|r| r.records.is_empty()),
+            d.sections.as_ref().is_none_or(|r| {
+                r.records.is_empty()
+                    && !r
+                        .observations
+                        .iter()
+                        .any(|o| o.state == SectionState::Absent)
+            }),
         );
     }
     if d.topic == l::UNIT_TOPICS[3] {
+        if d.sections.is_none() {
+            return l::UNIT_SECTION_UNREAD.into();
+        }
         let code = d
             .minors
             .first()
@@ -457,7 +480,14 @@ fn source_scope(d: &UnitData) -> String {
             &who,
             &book,
             &scope,
-            absent || d.sections.as_ref().is_none_or(|r| r.records.is_empty()),
+            absent
+                || d.sections.as_ref().is_none_or(|r| {
+                    r.records.is_empty()
+                        && !r
+                            .observations
+                            .iter()
+                            .any(|o| o.state == SectionState::Absent)
+                }),
         );
     }
     l::NOT_OBSERVED.into()
@@ -598,16 +628,17 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
             lines.push(format!("{who} {book}"));
             for leaf in &d.minors {
                 lines.push(cell(&leaf_label(leaf)));
-                if d.daily.is_some() {
+                if d.daily.is_some() || d.topic == l::UNIT_TOPICS[0] {
                     let (block, extra) = daily_block(d, leaf, false);
                     lines.push(block);
                     lines.extend(extra);
                 }
-                if d.sections.is_some() {
+                if d.sections.is_some() || d.topic == l::UNIT_TOPICS[0] {
                     lines.push(section_block(d, leaf, false));
                 }
             }
             if d.topic == l::UNIT_TOPICS[0] {
+                lines.push(section_header(d));
                 for leaf in &d.minors {
                     let (block, extra) = clinic_block(d, leaf);
                     lines.push(block);
@@ -619,12 +650,27 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
                     "{} {}: {}",
                     cell(&stage.unit),
                     cell(&stage.stage),
-                    verdict(stage.verdict)
+                    if stage.verdict == UnitVerdict::Unknown
+                        && coverage
+                            .unknowns
+                            .iter()
+                            .any(|u| u == "prestudy_unavailable")
+                    {
+                        l::UNIT_PRESTUDY_UNREAD
+                    } else {
+                        verdict(stage.verdict)
+                    }
                 ));
             }
         }
     }
+    if lines.iter().any(|line| line.contains(l::UNIT_DASH))
+        && !lines.iter().any(|line| line == l::UNIT_DASH_LEGEND)
+    {
+        lines.push(l::UNIT_DASH_LEGEND.into());
+    }
     lines.extend(details);
+    lines.extend(unscoped_fact_lines(d));
     lines.extend(ambiguous_attempt_lines(d));
     lines.extend(unmapped_lines(d));
     if d.topic == l::UNIT_TOPICS[2] || d.topic == l::UNIT_TOPICS[0] {
@@ -642,27 +688,7 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
             verdict(stage.verdict)
         ));
     }
-    for reason in &coverage.unknowns {
-        if !reason.starts_with("first_omitted:")
-            && !reason.starts_with("section_ambiguous_attempts:")
-            && !reason.starts_with("section_mapping_unavailable:")
-            && !reason.split_once(':').is_some_and(|(code, scope)| {
-                (code == "section_grade_unavailable" || code == "section_ambiguous_attempts")
-                    && !d
-                        .minors
-                        .iter()
-                        .any(|l| scope.starts_with(&format!("{} ", l.minor.code)))
-            })
-        {
-            let (code, scope) = reason.split_once(':').unwrap_or((reason.as_str(), ""));
-            let description = if scope.is_empty() {
-                l::unit_unknown_reason(code).to_string()
-            } else {
-                format!("{}·{}", cell(scope), l::unit_unknown_reason(code))
-            };
-            lines.push(l::unit_unknown_line(&description));
-        }
-    }
+    lines.extend(unknown_lines(d, coverage));
     if let Some(omitted) = &d.first_omitted {
         lines.push(l::unit_truncation(&cell(omitted)));
     }
@@ -674,7 +700,7 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
     if let Some(source) = coverage
         .sources
         .iter()
-        .find(|s| s.name == "student_book_bindings" && s.read_at != d.read_at)
+        .find(|s| s.name == "student_book_bindings" && !same_minute(&s.read_at, &d.read_at))
     {
         registered = l::unit_timed_scope(&registered, &time(&source.read_at));
     }
@@ -682,7 +708,7 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
     if let Some(source) = coverage
         .sources
         .iter()
-        .find(|s| s.name == "teacher_facts" && s.read_at != d.read_at)
+        .find(|s| s.name == "teacher_facts" && !same_minute(&s.read_at, &d.read_at))
     {
         facts = l::unit_timed_scope(&facts, &time(&source.read_at));
     }
@@ -793,6 +819,9 @@ fn retained(d: &UnitData, unit: &str) -> bool {
     d.minors.iter().any(|l| l.minor.code == unit)
 }
 fn section_issue(d: &UnitData, unit: &str, activity: Option<&str>) -> Option<&'static str> {
+    if d.sections.is_none() {
+        return Some(l::UNIT_SECTION_UNREAD);
+    }
     if (d.topic == l::UNIT_TOPICS[0] || d.topic == l::UNIT_TOPICS[2])
         && d.excluded.iter().any(|e| {
             activity.is_none_or(|a| e.activity == a)
@@ -814,6 +843,12 @@ fn section_issue(d: &UnitData, unit: &str, activity: Option<&str>) -> Option<&'s
             && o.state == SectionState::Ambiguous
     }) {
         Some(l::UNIT_ATTEMPTS_AMBIGUOUS)
+    } else if observations.iter().any(|o| {
+        o.unit.as_deref() == Some(unit)
+            && activity.is_none_or(|a| o.activity.as_deref() == Some(a))
+            && o.state == SectionState::Absent
+    }) {
+        Some(l::NOT_IN_EITHER)
     } else {
         None
     }
@@ -830,11 +865,12 @@ fn ambiguous_attempt_lines(d: &UnitData) -> Vec<String> {
                 })
                 .map(|o| {
                     format!(
-                        "{} {} {}: {}",
+                        "{} {} {}: {}·{}",
                         cell(o.unit.as_deref().unwrap_or("")),
                         cell(o.activity.as_deref().unwrap_or("")),
                         snapshot_scope(d, &o.attempt_key, false),
-                        l::UNIT_ATTEMPTS_AMBIGUOUS
+                        l::UNIT_ATTEMPTS_AMBIGUOUS,
+                        l::unit_unknown_remedy("section_ambiguous_attempts")
                     )
                 })
                 .collect()
@@ -928,13 +964,25 @@ fn stage_lines(d: &UnitData) -> Vec<String> {
                 }
             ));
         } else {
+            if stages.iter().any(|s| s.verdict == default)
+                && stages.iter().any(|s| s.verdict != default)
+            {
+                lines.push(l::unit_stage_remainder(
+                    l::unit_stage_name(name),
+                    if default == UnitVerdict::Unknown {
+                        l::UNIT_SOURCE_NOT_OBSERVED
+                    } else {
+                        verdict(default)
+                    },
+                ));
+            }
             let mut grouped = std::collections::HashSet::new();
             let mut by_unit: std::collections::HashMap<&str, Vec<_>> =
                 std::collections::HashMap::new();
             for s in &stages {
                 by_unit.entry(&s.unit).or_default().push(*s);
             }
-            for s in &stages {
+            for s in stages.iter().filter(|s| s.verdict != default) {
                 let unit_stages = &by_unit[s.unit.as_str()];
                 let complete_unit = d.activity.is_none()
                     && d.minors
@@ -989,6 +1037,15 @@ fn stage_scope(d: &UnitData, s: &crate::unit::Stage) -> String {
 
 fn section_inventory_scope(d: &UnitData) -> &'static str {
     match &d.sections {
+        Some(read)
+            if !read.observations.is_empty()
+                && read
+                    .observations
+                    .iter()
+                    .all(|o| o.state == SectionState::Absent) =>
+        {
+            l::UNIT_GRADES_ABSENT_SCOPE
+        }
         Some(read) if !read.records.is_empty() && read.paper_observed => l::UNIT_SECTION_SCOPE,
         Some(read) if read.paper_observed => l::UNIT_TITLES_OBSERVED,
         Some(read) if read.index_observed => l::UNIT_WRONG_NOTE_TITLES,
@@ -1015,7 +1072,7 @@ fn daily_source_scope(d: &UnitData) -> String {
     for source in read
         .sources
         .iter()
-        .filter(|s| s.read_at != d.read_at && seen.insert((&s.name, &s.read_at)))
+        .filter(|s| !same_minute(&s.read_at, &d.read_at) && seen.insert((&s.name, &s.read_at)))
     {
         let scope = if source.name == "dailytest_relative_page" {
             l::UNIT_RELATIVE_PAGE.to_string()
@@ -1034,16 +1091,112 @@ fn unmapped_lines(d: &UnitData) -> Vec<String> {
     let Some(read) = &d.sections else {
         return Vec::new();
     };
-    let mut seen = std::collections::HashSet::new();
-    let titles: Vec<_> = read
+    let mut counts = std::collections::BTreeMap::new();
+    for o in read
         .observations
         .iter()
-        .filter(|o| o.state == SectionState::Unmapped && seen.insert(&o.source_title))
-        .map(|o| l::unit_unmapped_title(&cell(&o.source_title)))
+        .filter(|o| o.state == SectionState::Unmapped)
+    {
+        *counts.entry(&o.source_title).or_insert(0usize) += 1;
+    }
+    let total = counts.values().sum();
+    let titles: Vec<_> = counts
+        .into_iter()
+        .map(|(title, count)| l::unit_counted_unknown(&l::unit_unmapped_title(&cell(title)), count))
         .collect();
     if titles.iter().map(|t| t.len() + 1).sum::<usize>() > 1500 {
-        vec![l::unit_unmapped_summary(titles.len())]
+        vec![l::unit_unmapped_summary(total)]
     } else {
         titles
     }
+}
+
+fn daily_status(d: &UnitData, unit: &str, level: Option<&str>) -> String {
+    if d.daily.is_none() && d.family != "supplementary" {
+        l::UNIT_DAILY_UNREAD.into()
+    } else {
+        verdict(daily_state(d, unit, level)).into()
+    }
+}
+fn section_header(d: &UnitData) -> String {
+    std::iter::once(l::UNIT_MINOR.to_string())
+        .chain(section_columns(d).iter().map(|a| cell(a)))
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+fn unscoped_fact_lines(d: &UnitData) -> Vec<String> {
+    let mut lines = Vec::new();
+    for j in d.judgments.iter().filter(|j| {
+        (j.course_key.is_none() || j.book_no.is_none())
+            && retained(d, &j.unit)
+            && (d.topic == l::UNIT_TOPICS[0] || d.topic == j.topic)
+    }) {
+        lines.push(l::unit_unscoped_judgment(
+            &judgment_scope(d, j),
+            &cell(&l::unit_judgment(j)),
+        ));
+    }
+    for e in d.excluded.iter().filter(|e| {
+        (e.course_key.is_none() || e.book_no.is_none())
+            && retained(d, &e.unit)
+            && (d.topic == l::UNIT_TOPICS[0] || d.topic == l::UNIT_TOPICS[2])
+    }) {
+        lines.push(l::unit_unscoped_exclusion(
+            &cell(&e.unit),
+            &cell(&e.activity),
+        ));
+    }
+    let mut counts = std::collections::BTreeMap::new();
+    for line in lines {
+        *counts.entry(line).or_insert(0usize) += 1;
+    }
+    counts
+        .into_iter()
+        .map(|(line, count)| l::unit_counted_unknown(&line, count))
+        .collect()
+}
+fn unknown_lines(d: &UnitData, coverage: &Coverage) -> Vec<String> {
+    let mut counts = std::collections::BTreeMap::new();
+    for reason in &coverage.unknowns {
+        let (code, scope) = reason.split_once(':').unwrap_or((reason.as_str(), ""));
+        if matches!(
+            code,
+            "first_omitted" | "section_ambiguous_attempts" | "section_mapping_unavailable"
+        ) {
+            continue;
+        }
+        let token = scope.split_whitespace().next().unwrap_or("");
+        let components: Vec<_> = token.split('-').collect();
+        if components.len() >= 2
+            && components
+                .iter()
+                .all(|c| !c.is_empty() && c.bytes().all(|b| b.is_ascii_digit()))
+            && !retained(d, token)
+        {
+            continue;
+        }
+        *counts.entry(reason).or_insert(0usize) += 1;
+    }
+    counts
+        .into_iter()
+        .map(|(reason, count)| {
+            let (code, scope) = reason.split_once(':').unwrap_or((reason.as_str(), ""));
+            let count = if count > 1 {
+                format!("·{count}건")
+            } else {
+                String::new()
+            };
+            l::unit_unknown_line(&format!(
+                "{}{}{}·{}",
+                if scope.is_empty() {
+                    String::new()
+                } else {
+                    format!("{}·", cell(scope))
+                },
+                l::unit_unknown_reason(code),
+                count,
+                l::unit_unknown_remedy(code)
+            ))
+        })
+        .collect()
 }

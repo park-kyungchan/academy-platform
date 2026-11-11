@@ -398,9 +398,14 @@ pub fn sections<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
             out.observations.push(observation);
             continue;
         }
-        if let Ok(GradeOutcome::Graded(graded)) =
-            backend.selected_sections(q.student, q.scope, std::slice::from_ref(&row.source_title))
+        let outcome =
+            backend.selected_sections(q.student, q.scope, std::slice::from_ref(&row.source_title));
+        if let Ok(GradeOutcome::NotObservedInEither(ref absent)) = outcome
+            && absent.source_title == row.source_title
         {
+            observation.state = SectionState::Absent;
+        }
+        if let Ok(GradeOutcome::Graded(graded)) = outcome {
             if !graded.paper_search_observed {
                 out.paper_observed = false;
                 out.unknowns.push("section_paper_search_unavailable".into());

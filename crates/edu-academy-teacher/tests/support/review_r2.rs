@@ -98,7 +98,7 @@ pub fn courses(c: &mut Case) -> Failures {
     second.book_no = "403".into();
     c.scenario.students[0].bindings = vec![first, second];
     c.judgment("클리닉", Some("필수예제"), None, None);
-    if c.seed % 3 != 0 {
+    if !c.seed.is_multiple_of(3) {
         c.request.book = None;
     }
     if c.seed % 3 == 2 {
@@ -147,7 +147,7 @@ pub fn unknowns(c: &mut Case) -> Failures {
             let mut a = template.clone();
             a.paper_key = format!("{}", 91000 + i);
             a.attempt_key = format!("{}", 92000 + i);
-            if c.seed % 2 == 0 {
+            if c.seed.is_multiple_of(2) {
                 a.edition_mapping = None;
             }
             a
