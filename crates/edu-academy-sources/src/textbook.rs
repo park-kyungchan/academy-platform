@@ -20,7 +20,22 @@ pub const CATALOG_PATH: &str = "/servlet/controller.coursemanage.CourseManageSer
 pub const MAX_CATALOG_BYTES: usize = 2_000_000;
 pub const MAX_SAMPLE_BYTES: usize = 32 * 1024 * 1024;
 pub const MAX_REFERENCE_BYTES: usize = 64 * 1024 * 1024;
-pub const STORAGE_ORIGIN: &str = "https://storage.studyq.net";
+
+/// Body bound for one catalogue read (mirrors `MAX_TEXTBOOK_CATALOG_BYTES`,
+/// apps/academy/dc-gang-a/src/lms/textbookCatalogRead.ts:4).
+pub fn catalog_body_limit() -> usize {
+    MAX_CATALOG_BYTES
+}
+/// Body bound for one PDF by document kind: the 32 MiB sample cap
+/// (textbookCatalogRead.ts:5) or the 64 MiB reference cap (:6), selected at
+/// apps/academy/dc-gang-a/src/lms/academyHttpClient.ts:105.
+pub fn pdf_body_limit(kind: DocumentKind) -> usize {
+    if kind == DocumentKind::Sample {
+        MAX_SAMPLE_BYTES
+    } else {
+        MAX_REFERENCE_BYTES
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SchoolLevel {
@@ -124,7 +139,7 @@ pub struct PdfMeta {
 /// One downloaded original. `bytes` exist only so `preserve_pdf` (and the
 /// E10b adapter through `download_pdf`, which drops them) can custody the
 /// exact original; no text is read from them in this layer.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PdfObservation {
     pub meta: PdfMeta,
     pub bytes: Vec<u8>,
@@ -162,7 +177,7 @@ pub struct CatalogPageRequest {
 /// Transport-neutral response for both textbook fetches. The Academy
 /// catalogue fetch is authenticated by the port owner; the storage fetch
 /// must be made without any Academy credential or cookie.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct TextbookResponse {
     pub status: u16,
     pub headers: Vec<(String, String)>,
@@ -179,12 +194,45 @@ impl TextbookResponse {
     }
 }
 
+/// Explicit per-request fetch policy carried by the port contract, so an
+/// implementation can stop reading at `max_bytes` and cannot silently
+/// attach a session or follow a redirect (TS storage fetch:
+/// `credentials:'omit', redirect:'manual'`, academyHttpClient.ts:102).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FetchPolicy {
+    pub send_credentials: bool,
+    pub follow_redirects: bool,
+}
+/// Storage fetches never carry an Academy credential or cookie.
+pub const STORAGE_FETCH: FetchPolicy = FetchPolicy {
+    send_credentials: false,
+    follow_redirects: false,
+};
+/// Catalogue fetches ride the authenticated owner session, unredirected.
+pub const CATALOG_FETCH: FetchPolicy = FetchPolicy {
+    send_credentials: true,
+    follow_redirects: false,
+};
+
 /// Owner port for the two textbook fetches, mirroring the TS owner client.
 /// Implementations own authentication and transport; this module owns every
-/// qualification, bound and parse decision after bytes arrive.
+/// qualification, bound and parse decision after bytes arrive. Each method
+/// receives its body bound and policy; a body over the bound is refused
+/// with the catalogued size code whether the port stopped early (by
+/// returning that code) or returned too many bytes.
 pub trait TextbookPort {
-    fn catalog(&mut self, school_level: SchoolLevel) -> Result<TextbookResponse>;
-    fn storage(&mut self, url: &str) -> Result<TextbookResponse>;
+    fn catalog(
+        &mut self,
+        school_level: SchoolLevel,
+        max_bytes: usize,
+        policy: FetchPolicy,
+    ) -> Result<TextbookResponse>;
+    fn storage(
+        &mut self,
+        url: &str,
+        max_bytes: usize,
+        policy: FetchPolicy,
+    ) -> Result<TextbookResponse>;
 }
 
 /// Catalogue port over an admitted `ReadPort` session. The supplied scope
@@ -200,10 +248,18 @@ impl<'a, P: ReadPort> SessionTextbookPort<'a, P> {
     }
 }
 impl<P: ReadPort> TextbookPort for SessionTextbookPort<'_, P> {
-    fn catalog(&mut self, school_level: SchoolLevel) -> Result<TextbookResponse> {
+    fn catalog(
+        &mut self,
+        school_level: SchoolLevel,
+        max_bytes: usize,
+        _policy: FetchPolicy,
+    ) -> Result<TextbookResponse> {
         let operation = school_level.catalog_operation();
         check_contract(self.port.transport_admission(), operation)?;
         let response = self.port.read(&self.scope, operation, &[])?;
+        if response.bytes.len() > max_bytes {
+            return Err(Error::refusal("textbook_catalog_size_rejected"));
+        }
         Ok(TextbookResponse {
             status: response.status,
             headers: response.headers.clone(),
@@ -212,7 +268,12 @@ impl<P: ReadPort> TextbookPort for SessionTextbookPort<'_, P> {
             redirected: false,
         })
     }
-    fn storage(&mut self, _url: &str) -> Result<TextbookResponse> {
+    fn storage(
+        &mut self,
+        _url: &str,
+        _max_bytes: usize,
+        _policy: FetchPolicy,
+    ) -> Result<TextbookResponse> {
         Err(Error::refusal("textbook_pdf_source_port_unavailable"))
     }
 }
@@ -242,7 +303,9 @@ impl<P: TextbookPort> TextbookSource<P> {
         if teacher_label != self.principal_label {
             return Err(Error::refusal("textbook_catalog_principal_rejected"));
         }
-        let response = self.port.catalog(school_level)?;
+        let response = self
+            .port
+            .catalog(school_level, catalog_body_limit(), CATALOG_FETCH)?;
         self.requests += 1;
         let bytes = bounded_body(response, MAX_CATALOG_BYTES, BodyKind::Catalog)?;
         let html = String::from_utf8(bytes)
@@ -268,20 +331,21 @@ impl<P: TextbookPort> TextbookSource<P> {
         let url = qualified_pdf_url(&entry.url)?;
         let response = self
             .port
-            .storage(&url)
-            .map_err(|_| Error::refusal("textbook_pdf_transport_failed"))?;
+            .storage(&url, pdf_body_limit(entry.kind), STORAGE_FETCH)
+            .map_err(|error| {
+                if error.message == "textbook_pdf_size_rejected" {
+                    error
+                } else {
+                    Error::refusal("textbook_pdf_transport_failed")
+                }
+            })?;
         self.requests += 1;
         if let Some(final_url) = &response.final_url
             && final_url != &url
         {
             return Err(Error::refusal("textbook_pdf_response_url_rejected"));
         }
-        let maximum = if entry.kind == DocumentKind::Sample {
-            MAX_SAMPLE_BYTES
-        } else {
-            MAX_REFERENCE_BYTES
-        };
-        let bytes = bounded_body(response, maximum, BodyKind::Pdf)?;
+        let bytes = bounded_body(response, pdf_body_limit(entry.kind), BodyKind::Pdf)?;
         let meta = PdfMeta {
             school_level,
             kind: entry.kind,
@@ -420,6 +484,7 @@ pub fn qualified_pdf_url(literal: &str) -> Result<String> {
             }
     };
     if url.as_str() != literal
+        || url.port().is_some()
         || url.scheme() != "https"
         || url.host_str() != Some("storage.studyq.net")
         || !url.username().is_empty()
@@ -433,6 +498,56 @@ pub fn qualified_pdf_url(literal: &str) -> Result<String> {
     Ok(url.as_str().to_string())
 }
 
+/// HTML rule for parsing non-negative integers: leading whitespace is
+/// skipped and leading digits are used, so `" 2"` and `"2x"` are both 2.
+fn html_span(value: Option<&str>, maximum: usize) -> usize {
+    let digits: String = value
+        .unwrap_or("1")
+        .trim_start()
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
+    digits.parse::<usize>().unwrap_or(1).clamp(1, maximum)
+}
+
+impl std::fmt::Debug for PdfObservation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Length and digest only: PDF bytes never appear in debug output.
+        write!(
+            f,
+            "PdfObservation {{ meta: {:?}, bytes_len: {}, bytes_sha256: {} }}",
+            self.meta,
+            self.bytes.len(),
+            hash(&self.bytes)
+        )
+    }
+}
+impl std::fmt::Debug for TextbookResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Header names only, never values; body as length and digest.
+        let header_names: Vec<&str> = self.headers.iter().map(|(k, _)| k.as_str()).collect();
+        write!(
+            f,
+            "TextbookResponse {{ status: {}, header_names: {:?}, bytes_len: {}, bytes_sha256: {}, redirected: {} }}",
+            self.status,
+            header_names,
+            self.bytes.len(),
+            hash(&self.bytes),
+            self.redirected
+        )
+    }
+}
+
+/// DOM `closest` includes the element itself; `dom::closest` walks only
+/// ancestors, so a `tr` carrying the handler is checked first here.
+fn closest_row<'a>(node: scraper::ElementRef<'a>) -> Option<scraper::ElementRef<'a>> {
+    if node.value().name() == "tr" {
+        Some(node)
+    } else {
+        dom::closest(node, "tr")
+    }
+}
+
 fn collapse(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
@@ -442,13 +557,31 @@ fn collapse(text: &str) -> String {
 fn row_labels(doc: &Document) -> HashMap<String, String> {
     let mut labels = HashMap::new();
     for table in doc.select("table") {
-        let rows: Vec<_> = dom::select(table, "tr")
+        let mut rows: Vec<_> = dom::select(table, "tr")
             .into_iter()
             .filter(|row| {
                 dom::closest(*row, "table")
                     .is_some_and(|t| format!("{:?}", t.id()) == format!("{:?}", table.id()))
             })
             .collect();
+        // Match `table.rows` order (TS textbookCatalogRead.ts:90): header
+        // rows first, then body rows, then footer rows, each in document
+        // order (the sort is stable).
+        let section_rank = |row: &scraper::ElementRef<'_>| {
+            ["thead", "tbody", "tfoot"].iter().find_map(|tag| {
+                dom::closest(*row, tag)
+                    .filter(|section| {
+                        dom::closest(*section, "table")
+                            .is_some_and(|t| format!("{:?}", t.id()) == format!("{:?}", table.id()))
+                    })
+                    .map(|_| match *tag {
+                        "thead" => 0,
+                        "tbody" => 1,
+                        _ => 2,
+                    })
+            })
+        };
+        rows.sort_by_key(|row| section_rank(row).unwrap_or(1));
         let mut spans: HashMap<usize, (String, usize)> = HashMap::new();
         for row in &rows {
             let mut cells: BTreeMap<usize, String> = BTreeMap::new();
@@ -468,18 +601,8 @@ fn row_labels(doc: &Document) -> HashMap<String, String> {
                 while cells.contains_key(&column) {
                     column += 1;
                 }
-                let width = cell
-                    .value()
-                    .attr("colspan")
-                    .and_then(|v| v.parse::<usize>().ok())
-                    .unwrap_or(1)
-                    .clamp(1, 100);
-                let height = cell
-                    .value()
-                    .attr("rowspan")
-                    .and_then(|v| v.parse::<usize>().ok())
-                    .unwrap_or(1)
-                    .clamp(1, 1000);
+                let width = html_span(cell.value().attr("colspan"), 100);
+                let height = html_span(cell.value().attr("rowspan"), 1000);
                 let text = collapse(&dom::content(cell));
                 for i in 0..width {
                     cells.insert(column + i, text.clone());
@@ -550,7 +673,7 @@ pub fn parse_catalog(
                         .to_string()
                         .as_bytes(),
                 );
-                let label = match dom::closest(node, "tr") {
+                let label = match closest_row(node) {
                     Some(row) => labels
                         .get(&format!("{:?}", row.id()))
                         .cloned()
@@ -609,7 +732,16 @@ pub fn page_catalog(
     if limit == 0 || limit > 100 || offset > 1000 {
         return Err(Error::refusal("tool_input_invalid"));
     }
-    let query = request.query.map(|q| q.to_lowercase());
+    let query = match &request.query {
+        Some(raw) => {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() || trimmed.encode_utf16().count() > 200 {
+                return Err(Error::refusal("tool_input_invalid"));
+            }
+            Some(trimmed.to_lowercase())
+        }
+        None => None,
+    };
     let matched: Vec<CatalogEntry> = observation
         .entries
         .iter()
@@ -635,69 +767,136 @@ pub fn page_catalog(
 
 /// Content-addressed original bytes, private to the verified owner launch.
 /// The root is caller-supplied; an existing artifact is preserved, never
-/// overwritten, and every return is proven by a readback digest.
+/// overwritten, and every return is proven by a bounded readback digest.
+/// Symlinks are checked before anything is created, a new artifact is
+/// written to a temporary name and published by hard link (which fails if
+/// the final name exists), and the returned path is absolute.
 pub fn preserve_pdf(root: &Path, pdf: &PdfObservation) -> Result<PdfArtifact> {
     let bytes = &pdf.bytes;
     if hash(bytes) != pdf.meta.sha256 || bytes.len() != pdf.meta.byte_length {
         return Err(Error::refusal("textbook_pdf_digest_rejected"));
     }
-    let root_existed = root.exists();
-    std::fs::create_dir_all(root)
-        .map_err(|_| Error::refusal("textbook_artifact_directory_rejected"))?;
-    #[cfg(unix)]
-    if !root_existed {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o700));
+    let tail_start = bytes.len().saturating_sub(2048);
+    if !bytes.starts_with(b"%PDF-") || !bytes[tail_start..].windows(5).any(|w| w == b"%%EOF") {
+        return Err(Error::refusal("textbook_pdf_signature_rejected"));
     }
+    let directory_rejected = || Error::refusal("textbook_artifact_directory_rejected");
+    let readback_rejected = || Error::refusal("textbook_artifact_readback_rejected");
     let absolute = if root.is_absolute() {
         root.to_path_buf()
     } else {
         std::env::current_dir()
-            .map_err(|_| Error::refusal("textbook_artifact_directory_rejected"))?
+            .map_err(|_| directory_rejected())?
             .join(root)
     };
-    let canonical = std::fs::canonicalize(root)
-        .map_err(|_| Error::refusal("textbook_artifact_directory_rejected"))?;
-    // A symlinked or non-canonical root is not the verified owner root.
-    if canonical != absolute
-        || std::fs::symlink_metadata(root).is_ok_and(|m| m.file_type().is_symlink())
-    {
-        return Err(Error::refusal("textbook_artifact_directory_rejected"));
-    }
-    let path = root.join(format!("{}.pdf", pdf.meta.sha256));
-    {
-        use std::io::Write;
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        match options.open(&path) {
-            Ok(mut file) => {
-                file.write_all(bytes)
-                    .map_err(|_| Error::refusal("textbook_artifact_readback_rejected"))?;
+    // Check the root and every existing ancestor before creating anything:
+    // a symlinked ancestor would redirect creation outside the owner root.
+    let mut ancestor = Some(absolute.as_path());
+    while let Some(path) = ancestor {
+        match std::fs::symlink_metadata(path) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(directory_rejected());
             }
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(_) => return Err(Error::refusal("textbook_artifact_readback_rejected")),
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(directory_rejected()),
+        }
+        ancestor = path.parent();
+    }
+    let missing: Vec<PathBuf> = {
+        let mut missing = Vec::new();
+        let mut cursor = Some(absolute.as_path());
+        while let Some(path) = cursor {
+            if path.exists() {
+                break;
+            }
+            missing.push(path.to_path_buf());
+            cursor = path.parent();
+        }
+        missing
+    };
+    std::fs::create_dir_all(&absolute).map_err(|_| directory_rejected())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        for created in &missing {
+            std::fs::set_permissions(created, std::fs::Permissions::from_mode(0o700))
+                .map_err(|_| directory_rejected())?;
         }
     }
-    let metadata = std::fs::symlink_metadata(&path)
-        .map_err(|_| Error::refusal("textbook_artifact_readback_rejected"))?;
-    let readback =
-        std::fs::read(&path).map_err(|_| Error::refusal("textbook_artifact_readback_rejected"))?;
-    if !metadata.is_file()
-        || metadata.file_type().is_symlink()
-        || metadata.len() != bytes.len() as u64
-        || hash(&readback) != pdf.meta.sha256
-    {
-        return Err(Error::refusal("textbook_artifact_readback_rejected"));
+    let canonical = std::fs::canonicalize(&absolute).map_err(|_| directory_rejected())?;
+    if canonical != absolute {
+        return Err(directory_rejected());
     }
+    let path = canonical.join(format!("{}.pdf", pdf.meta.sha256));
+    let publish = |path: &Path| -> Result<()> {
+        let metadata = std::fs::symlink_metadata(path).map_err(|_| readback_rejected())?;
+        // The regular-file check comes before any read: a FIFO or device
+        // at the target name refuses without blocking, and the read is
+        // bounded by the expected size plus one byte.
+        if !metadata.is_file() || metadata.file_type().is_symlink() {
+            return Err(readback_rejected());
+        }
+        use std::io::Read;
+        let mut readback = Vec::new();
+        std::fs::File::open(path)
+            .map_err(|_| readback_rejected())?
+            .take((bytes.len() + 1) as u64)
+            .read_to_end(&mut readback)
+            .map_err(|_| readback_rejected())?;
+        if readback.len() != bytes.len() || hash(&readback) != pdf.meta.sha256 {
+            return Err(readback_rejected());
+        }
+        Ok(())
+    };
+    if std::fs::symlink_metadata(&path).is_ok() {
+        publish(&path)?;
+    } else {
+        // Write beside the target and publish without replacing: a hard
+        // link fails if the final name appeared meanwhile, and a leftover
+        // temporary file from an interrupted write is simply removed.
+        let temporary = canonical.join(format!(
+            ".{}.pdf.tmp-{}",
+            pdf.meta.sha256,
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&temporary);
+        let written = (|| -> Result<()> {
+            use std::io::Write;
+            let mut options = std::fs::OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                options.mode(0o600);
+            }
+            let mut file = options.open(&temporary).map_err(|_| readback_rejected())?;
+            file.write_all(bytes).map_err(|_| readback_rejected())?;
+            file.sync_all().map_err(|_| readback_rejected())?;
+            Ok(())
+        })();
+        if let Err(error) = written {
+            let _ = std::fs::remove_file(&temporary);
+            return Err(error);
+        }
+        match std::fs::hard_link(&temporary, &path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(_) => {
+                let _ = std::fs::remove_file(&temporary);
+                return Err(readback_rejected());
+            }
+        }
+        let _ = std::fs::remove_file(&temporary);
+        publish(&path)?;
+    }
+    let size = std::fs::symlink_metadata(&path)
+        .map_err(|_| readback_rejected())?
+        .len();
     Ok(PdfArtifact {
         path,
         sha256: pdf.meta.sha256.clone(),
-        bytes: metadata.len(),
+        bytes: size,
         custody: "native_owner_filesystem".into(),
     })
 }

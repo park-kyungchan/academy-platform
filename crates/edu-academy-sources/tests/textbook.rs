@@ -48,11 +48,29 @@ struct Fake {
     storage_urls: Rc<RefCell<Vec<String>>>,
 }
 impl TextbookPort for Fake {
-    fn catalog(&mut self, _level: SchoolLevel) -> Result<TextbookResponse> {
+    fn catalog(
+        &mut self,
+        _level: SchoolLevel,
+        max_bytes: usize,
+        policy: FetchPolicy,
+    ) -> Result<TextbookResponse> {
+        // The port contract carries the real bound and the session policy.
+        assert_eq!(max_bytes, catalog_body_limit());
+        assert_eq!(policy, CATALOG_FETCH);
         self.catalog_calls.set(self.catalog_calls.get() + 1);
         self.catalog.pop_front().expect("unexpected catalog call")
     }
-    fn storage(&mut self, url: &str) -> Result<TextbookResponse> {
+    fn storage(
+        &mut self,
+        url: &str,
+        max_bytes: usize,
+        policy: FetchPolicy,
+    ) -> Result<TextbookResponse> {
+        assert_eq!(policy, STORAGE_FETCH);
+        assert!(
+            max_bytes == pdf_body_limit(DocumentKind::Sample)
+                || max_bytes == pdf_body_limit(DocumentKind::Answer)
+        );
         self.storage_urls.borrow_mut().push(url.into());
         self.storage.pop_front().expect("unexpected storage call")
     }
@@ -671,7 +689,329 @@ fn contracts_and_session_port() {
     };
     let mut port2 = SessionTextbookPort::new(&mut session2, scope2);
     assert_eq!(
-        code(port2.storage(URL).unwrap_err()),
+        code(
+            port2
+                .storage(URL, pdf_body_limit(DocumentKind::Sample), STORAGE_FETCH)
+                .unwrap_err()
+        ),
         "textbook_pdf_source_port_unavailable"
     );
+}
+
+#[test]
+fn qualified_url_port_trailing_dot_and_encoded_dot_refused() {
+    for bad in [
+        "https://storage.studyq.net:8443/data/answer/mi/book/g7_fictionalplus_sample_1_1.pdf",
+        "https://storage.studyq.net./data/answer/mi/book/g7_fictionalplus_sample_1_1.pdf",
+        "https://storage.studyq.net/data/answer/mi/book/%2e%2e_sample.pdf",
+    ] {
+        assert_eq!(
+            code(qualified_pdf_url(bad).unwrap_err()),
+            "textbook_pdf_link_rejected",
+            "{bad}"
+        );
+    }
+}
+
+/// P3: the real constants are the bound, proven without allocating them.
+#[test]
+fn body_limits_are_the_real_constants() {
+    assert_eq!(catalog_body_limit(), 2_000_000);
+    assert_eq!(pdf_body_limit(DocumentKind::Sample), 32 * 1024 * 1024);
+    assert_eq!(pdf_body_limit(DocumentKind::Answer), 64 * 1024 * 1024);
+    assert_eq!(pdf_body_limit(DocumentKind::Other), 64 * 1024 * 1024);
+}
+
+/// P3/P9: a declared length above the maximum refuses at the real bound
+/// (TS textbookCatalogRead.test.ts:62 uses 999999999).
+#[test]
+fn declared_oversize_refuses_without_large_allocation() {
+    let mut fake = Fake::default();
+    let mut catalog = catalog_response();
+    catalog
+        .headers
+        .push(("content-length".into(), "999999999".into()));
+    fake.catalog.push_back(Ok(catalog));
+    let mut textbook_source = make_source(fake);
+    assert_eq!(
+        code(
+            textbook_source
+                .read_catalog(PRINCIPAL, SchoolLevel::Middle, NOW)
+                .unwrap_err()
+        ),
+        "textbook_catalog_size_rejected"
+    );
+    let mut fake = Fake::default();
+    fake.catalog.push_back(Ok(catalog_response()));
+    let mut storage = response(200, "application/pdf", PDF.to_vec());
+    storage.headers.push((
+        "content-length".into(),
+        (pdf_body_limit(DocumentKind::Sample) + 1).to_string(),
+    ));
+    fake.storage.push_back(Ok(storage));
+    let mut textbook_source = make_source(fake);
+    assert_eq!(
+        code(
+            textbook_source
+                .fetch_pdf(
+                    PRINCIPAL,
+                    SchoolLevel::Middle,
+                    &document_ref("middle", URL),
+                    NOW
+                )
+                .unwrap_err()
+        ),
+        "textbook_pdf_size_rejected"
+    );
+}
+
+/// P9: every bad link is refused inside a catalogue, not only standalone.
+#[test]
+fn parse_catalog_refuses_each_bad_link() {
+    for bad in [
+        URL.replace("storage.studyq.net", "evil.example"),
+        format!("{URL}?download=1"),
+        format!("{URL}#page=1"),
+        URL.replace("/book/", "/other/"),
+        URL.replace("https://", "https://name:secret@"),
+        URL.replace("g7_fictionalplus", "..%2fg7_fictionalplus"),
+        "https://storage.studyq.net:8443/data/answer/mi/book/g7_fictionalplus_sample_1_1.pdf"
+            .to_string(),
+    ] {
+        let html = format!(
+            "<div class=\"tab tab-on\">중등부</div><table><tr><td>Invented</td><td><button onclick=\"fullUrlDownloadFile('{bad}')\">sample</button></td></tr></table>"
+        );
+        assert_eq!(
+            code(parse_catalog(&html, SchoolLevel::Middle, NOW).unwrap_err()),
+            "textbook_pdf_link_rejected",
+            "{bad}"
+        );
+    }
+}
+
+/// P9: session-expired pages, tab count refusals, entry cap, redirected body.
+#[test]
+fn catalog_session_and_shape_refusals() {
+    for marker in ["popup_session_error.jsp", "세션이 만료"] {
+        let html = format!("{marker}{CATALOG}");
+        assert_eq!(
+            code(parse_catalog(&html, SchoolLevel::Middle, NOW).unwrap_err()),
+            "textbook_catalog_authentication_required"
+        );
+    }
+    let two_tabs = format!("<div class=\"tab tab-on\">고등부</div>{CATALOG}");
+    assert_eq!(
+        code(parse_catalog(&two_tabs, SchoolLevel::Middle, NOW).unwrap_err()),
+        "textbook_catalog_school_level_rejected"
+    );
+    let no_tab = "<table><tr><td>x</td></tr></table>";
+    assert_eq!(
+        code(parse_catalog(no_tab, SchoolLevel::Middle, NOW).unwrap_err()),
+        "textbook_catalog_school_level_rejected"
+    );
+    let mut rows = String::new();
+    for i in 0..1001 {
+        rows.push_str(&format!(
+            "<tr><td>Invented {i}</td><td><button onclick=\"fullUrlDownloadFile('https://storage.studyq.net/data/answer/mi/book/g7_fictionalplus_sample_1_{i}.pdf')\">sample</button></td></tr>"
+        ));
+    }
+    let many = format!("<div class=\"tab tab-on\">중등부</div><table>{rows}</table>");
+    assert_eq!(
+        code(parse_catalog(&many, SchoolLevel::Middle, NOW).unwrap_err()),
+        "textbook_catalog_pdf_links_unqualified"
+    );
+    let mut redirected = catalog_response();
+    redirected.redirected = true;
+    assert_eq!(
+        code(bounded_body(redirected, catalog_body_limit(), BodyKind::Catalog).unwrap_err()),
+        "textbook_catalog_response_rejected"
+    );
+}
+
+/// P9/P10: paging limits and the trimmed 1-200 query rule.
+#[test]
+fn page_catalog_query_and_limit_rules() {
+    let value = parse_catalog(CATALOG, SchoolLevel::Middle, NOW).unwrap();
+    assert_eq!(
+        code(page_catalog(&value, CatalogPageRequest::default(), 0, 101).unwrap_err()),
+        "tool_input_invalid"
+    );
+    for query in ["   ".to_string(), "x".repeat(201)] {
+        assert_eq!(
+            code(
+                page_catalog(
+                    &value,
+                    CatalogPageRequest {
+                        document_kind: None,
+                        query: Some(query),
+                    },
+                    0,
+                    10
+                )
+                .unwrap_err()
+            ),
+            "tool_input_invalid"
+        );
+    }
+    let trimmed = page_catalog(
+        &value,
+        CatalogPageRequest {
+            document_kind: None,
+            query: Some("  Plus  ".into()),
+        },
+        0,
+        10,
+    )
+    .unwrap();
+    assert_eq!(trimmed.total_matched, 1);
+}
+
+/// P4: an onclick on the row element itself keeps its rowspan label.
+#[test]
+fn catalog_onclick_on_row_keeps_label() {
+    let html = "<div class=\"tab tab-on\">중등부</div><table><tr><td rowspan=\"2\">중1</td><td>Invented ordinary</td></tr><tr onclick=\"fullUrlDownloadFile('https://storage.studyq.net/data/answer/mi/workbook/g7_fictionalplus_answer.pdf')\"><td>Invented Plus</td></tr></table>";
+    let value = parse_catalog(html, SchoolLevel::Middle, NOW).unwrap();
+    assert_eq!(value.entries[0].source_labels, ["중1 Invented Plus"]);
+}
+
+/// P5: the HTML integer rule (`" 2"` and `"2x"` are 2) carries the label.
+#[test]
+fn catalog_span_attributes_use_html_integer_rule() {
+    for span in [" 2", "2x"] {
+        let html = format!(
+            "<div class=\"tab tab-on\">중등부</div><table><tr><td rowspan=\"{span}\">중1</td><td>Invented ordinary</td></tr><tr><td>Invented Plus</td><td><button onclick=\"fullUrlDownloadFile('https://storage.studyq.net/data/answer/mi/workbook/g7_fictionalplus_answer.pdf')\">sample</button></td></tr></table>"
+        );
+        let value = parse_catalog(&html, SchoolLevel::Middle, NOW).unwrap();
+        assert_eq!(
+            value.entries[0].source_labels,
+            ["중1 Invented Plus sample"],
+            "rowspan={span:?}"
+        );
+    }
+}
+
+/// Declared difference (finding 6): Rust `split_whitespace` does not split
+/// on U+FEFF where JS `\s` does, so the character stays inside the label.
+#[test]
+fn declared_difference_feff_stays_in_label() {
+    let html = "<div class=\"tab tab-on\">중등부</div><table><tr><td>Invented\u{feff}Plus</td><td><button onclick=\"fullUrlDownloadFile('https://storage.studyq.net/data/answer/mi/book/g7_fictionalplus_sample_1_1.pdf')\">sample</button></td></tr></table>";
+    let value = parse_catalog(html, SchoolLevel::Middle, NOW).unwrap();
+    assert!(value.entries[0].source_labels[0].contains('\u{feff}'));
+}
+
+/// P6: strict UTF-8 refuses invalid bytes; a BOM is preserved in the hash
+/// (the decoded text keeps U+FEFF, unlike TS lossy TextDecoder).
+#[test]
+fn catalog_utf8_and_bom_results() {
+    let mut fake = Fake::default();
+    fake.catalog
+        .push_back(Ok(response(200, "text/html", vec![0xff, 0xfe, 0x41])));
+    let mut textbook_source = make_source(fake);
+    assert_eq!(
+        code(
+            textbook_source
+                .read_catalog(PRINCIPAL, SchoolLevel::Middle, NOW)
+                .unwrap_err()
+        ),
+        "textbook_catalog_response_rejected"
+    );
+    let mut bom_bytes = vec![0xef, 0xbb, 0xbf];
+    bom_bytes.extend_from_slice(CATALOG.as_bytes());
+    let expected_sha = hash(&bom_bytes);
+    let mut fake = Fake::default();
+    fake.catalog
+        .push_back(Ok(response(200, "text/html", bom_bytes)));
+    let mut textbook_source = make_source(fake);
+    let value = textbook_source
+        .read_catalog(PRINCIPAL, SchoolLevel::Middle, NOW)
+        .unwrap();
+    assert_eq!(value.catalog_sha256, expected_sha);
+    assert_eq!(value.entries.len(), 1);
+}
+
+/// P7: same-length tamper, interrupted write, FIFO, signature recheck.
+#[test]
+fn custody_hardened_cases() {
+    let root = temp_root("hardened");
+    let pdf = pdf_observation();
+    let first = preserve_pdf(&root, &pdf).unwrap();
+    // Same-length tamper: digest mismatch at the same size.
+    std::fs::write(&first.path, vec![b'X'; PDF.len()]).unwrap();
+    assert_eq!(
+        code(preserve_pdf(&root, &pdf).unwrap_err()),
+        "textbook_artifact_readback_rejected"
+    );
+    std::fs::remove_file(&first.path).unwrap();
+    // A leftover temporary file from an interrupted write is not an obstacle.
+    std::fs::write(
+        root.join(format!(".{}.pdf.tmp-999999", pdf.meta.sha256)),
+        "partial",
+    )
+    .unwrap();
+    let again = preserve_pdf(&root, &pdf).unwrap();
+    assert_eq!(std::fs::read(&again.path).unwrap(), PDF);
+    // A FIFO at the target name refuses without being opened.
+    std::fs::remove_file(&again.path).unwrap();
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&again.path)
+            .status()
+            .unwrap()
+            .success()
+    );
+    assert_eq!(
+        code(preserve_pdf(&root, &pdf).unwrap_err()),
+        "textbook_artifact_readback_rejected"
+    );
+    std::fs::remove_file(&again.path).unwrap();
+    // Non-PDF bytes never enter custody even with a matching digest.
+    let mut not_pdf = pdf_observation();
+    not_pdf.bytes = b"not a pdf at all %%EOF".to_vec();
+    not_pdf.meta.byte_length = not_pdf.bytes.len();
+    not_pdf.meta.sha256 = hash(&not_pdf.bytes);
+    assert_eq!(
+        code(preserve_pdf(&root, &not_pdf).unwrap_err()),
+        "textbook_pdf_signature_rejected"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// P7: a symlinked intermediate directory refuses before creation, and a
+/// relative root returns an absolute artifact path.
+#[test]
+fn custody_intermediate_symlink_and_relative_root() {
+    let real = temp_root("intermediate-real");
+    std::fs::create_dir_all(&real).unwrap();
+    let link_parent = temp_root("intermediate-link");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&real, &link_parent).unwrap();
+    let root = link_parent.join("sub");
+    assert_eq!(
+        code(preserve_pdf(&root, &pdf_observation()).unwrap_err()),
+        "textbook_artifact_directory_rejected"
+    );
+    assert!(!real.join("sub").exists());
+    let _ = std::fs::remove_file(&link_parent);
+    let _ = std::fs::remove_dir_all(&real);
+
+    let relative_name = format!("textbook-e10a-relative-{}", std::process::id());
+    let artifact = preserve_pdf(std::path::Path::new(&relative_name), &pdf_observation()).unwrap();
+    assert!(artifact.path.is_absolute());
+    let _ = std::fs::remove_dir_all(&relative_name);
+}
+
+/// P8: Debug prints lengths and digests, never bytes or header values.
+#[test]
+fn debug_output_never_prints_bytes_or_header_values() {
+    let pdf_debug = format!("{:?}", pdf_observation());
+    assert!(!pdf_debug.contains("synthetic transport fixture"));
+    assert!(pdf_debug.contains("bytes_len"));
+    let mut response = response(200, "application/pdf", b"secret body bytes".to_vec());
+    response
+        .headers
+        .push(("set-cookie".into(), "secret-cookie-value".into()));
+    let response_debug = format!("{:?}", response);
+    assert!(!response_debug.contains("secret body bytes"));
+    assert!(!response_debug.contains("secret-cookie-value"));
+    assert!(response_debug.contains("set-cookie"));
 }
