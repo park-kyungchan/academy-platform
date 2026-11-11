@@ -170,7 +170,7 @@ pub fn unknowns(c: &mut Case) -> Failures {
     check(
         &mut e,
         lines.iter().any(|l| {
-            l.contains(&format!("{count}건")) && (l.contains("조회해") || l.contains("지정해"))
+            l.contains(&format!("{count}건")) && l.contains(edu_academy_teacher::display_labels::unit_unknown_remedy(if c.seed % 2 == 1 { "daily_header_unavailable" } else { "daily_mapping_unavailable" }))
         }),
         "unknown_count_remedy",
     );
