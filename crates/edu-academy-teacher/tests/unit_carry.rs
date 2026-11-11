@@ -383,26 +383,63 @@ fn other_book_only_prestudy_minor_stays_unknown() {
 
 #[test]
 fn m23f_literal_dash_source_title_is_not_a_rendered_unknown() {
-    use edu_academy_teacher::{unit_data::{Section, SectionRead}, unit_render, envelope::Coverage};
+    use edu_academy_teacher::{
+        envelope::Coverage,
+        unit_data::{Section, SectionRead},
+        unit_render,
+    };
     let mut c = Case::new(1);
     c.scope(2, "섹션");
     let mut d = render_data(&c);
     d.topic = "섹션".into();
-    for leaf in &mut d.minors { leaf.minor.activities = vec!["필수예제".into()]; }
-    d.sections = Some(SectionRead { records: d.minors.iter().map(|leaf| Section {
-        student_key: "1001".into(), student_name: NAMES[0].into(), course_key: "101".into(), book_no: "201".into(),
-        unit: leaf.minor.code.clone(), activity: "필수예제".into(), source_title: "—".into(),
-        paper_key: "1".into(), attempt_key: "2".into(), score: 70.0, items: vec![], source_date: None, date_precision: "unknown".into(),
-    }).collect(), ..Default::default() });
+    for leaf in &mut d.minors {
+        leaf.minor.activities = vec!["필수예제".into()];
+    }
+    d.sections = Some(SectionRead {
+        records: d
+            .minors
+            .iter()
+            .map(|leaf| Section {
+                student_key: "1001".into(),
+                student_name: NAMES[0].into(),
+                course_key: "101".into(),
+                book_no: "201".into(),
+                unit: leaf.minor.code.clone(),
+                activity: "필수예제".into(),
+                source_title: "—".into(),
+                paper_key: "1".into(),
+                attempt_key: "2".into(),
+                score: 70.0,
+                items: vec![],
+                source_date: None,
+                date_precision: "unknown".into(),
+            })
+            .collect(),
+        ..Default::default()
+    });
     let display = unit_render::render(&mut d, &mut Coverage::default());
     assert_eq!(display.matches(l::UNIT_DASH_LEGEND).count(), 0);
 }
 
 #[test]
 fn m23a_unqualified_observation_and_unknown_codes_do_not_prescribe_retry() {
-    assert_eq!(l::unit_unknown_remedy("section_paper_search_unavailable_or_unqualified"), "시험지 검색의 제목 목록을 유효한 원천 관측으로 확인하지 못했습니다");
-    assert_eq!(l::unit_unknown_remedy("invented_unknown_739"), "원천에서 확인 가능한 정보가 없습니다");
-    for code in ["daily_unavailable", "daily_partial_page", "section_unavailable", "section_paper_search_unavailable"] {
-        assert!(l::unit_unknown_remedy(code).contains("다시 조회해"), "{code}");
+    assert_eq!(
+        l::unit_unknown_remedy("section_paper_search_unavailable_or_unqualified"),
+        "시험지 검색의 제목 목록을 유효한 원천 관측으로 확인하지 못했습니다"
+    );
+    assert_eq!(
+        l::unit_unknown_remedy("invented_unknown_739"),
+        "원천에서 확인 가능한 정보가 없습니다"
+    );
+    for code in [
+        "daily_unavailable",
+        "daily_partial_page",
+        "section_unavailable",
+        "section_paper_search_unavailable",
+    ] {
+        assert!(
+            l::unit_unknown_remedy(code).contains("다시 조회해"),
+            "{code}"
+        );
     }
 }
