@@ -358,7 +358,7 @@ pub fn unit_book_other_ask(who: &str) -> String {
 }
 pub fn unit_source(score: Option<f64>) -> String {
     score.map_or_else(
-        || UNAVAILABLE.to_string(),
+        || UNIT_SCORE_UNKNOWN.to_string(),
         |s| format!("{SERVER}: 원천 점수 {s}"),
     )
 }
@@ -550,7 +550,9 @@ pub fn unit_unknown_reason(code: &str) -> &'static str {
         "daily_partial_page" => "일일시험의 일부 관측 페이지를 읽지 못함",
         "section_grade_unavailable" => "섹션 성적을 읽지 못함",
         "section_unavailable" => "섹션을 읽지 못함",
-        _ => "시험지 검색을 읽지 못했거나 제목 연결을 확인하지 못함",
+        "section_paper_search_unavailable" => "시험지 검색을 읽지 못함",
+        "section_paper_search_unavailable_or_unqualified" => "시험지 검색의 관측 범위 미확인",
+        _ => "원천 정보 연결 미확인",
     }
 }
 
@@ -640,6 +642,7 @@ pub fn unit_verdict(v: crate::unit_data::UnitVerdict) -> &'static str {
         UnitVerdict::Completed => TEACHER,
         UnitVerdict::NotYetExpected => UNIT_NOT_EXPECTED,
         UnitVerdict::TeacherReportedNoServer => UNIT_TEACHER_ONLY,
+        UnitVerdict::Unknown => UNIT_SOURCE_NOT_OBSERVED,
         _ => verdict(v.code()),
     }
 }
@@ -736,3 +739,11 @@ pub fn lesson_stage_name(code: &str) -> &'static str {
         _ => UNSUPPORTED_STAGE,
     }
 }
+
+pub const UNIT_PRESTUDY_OTHER_BOOK: &str = "미확인(다른 교재에서만 단원 관측)";
+pub const UNIT_PRESTUDY_NAME_AMBIGUOUS: &str = "미확인(같은 이름의 학생을 구분하지 못함)";
+pub const UNIT_DAILY_MAPPING_UNKNOWN: &str = "미확인(일일시험의 교재·단원 연결 불가)";
+pub const UNIT_DAILY_HEADER_UNREAD: &str = "미확인(일일시험 제목을 읽지 못함)";
+pub const UNIT_DAILY_PARTIAL_UNREAD: &str = "미확인(일일시험의 일부 관측 페이지를 읽지 못함)";
+pub const UNIT_SCORE_UNKNOWN: &str = "미확인(원천 점수 없음)";
+pub const UNIT_PAPER_SCOPE_UNKNOWN: &str = "미확인(시험지 검색의 관측 범위 미확인)";

@@ -343,8 +343,10 @@ fn section_block(d: &UnitData, leaf: &Leaf, grid: bool, printed_dash: &mut bool)
                 .is_some_and(|s| s.index_observed && s.paper_observed)
             {
                 l::NOT_OBSERVED
+            } else if d.sections.as_ref().is_some_and(|s| s.index_observed) {
+                l::UNIT_PAPER_SCOPE_UNKNOWN
             } else {
-                l::UNAVAILABLE
+                l::UNIT_SOURCE_NOT_OBSERVED
             },
         );
     }
@@ -655,15 +657,14 @@ fn compose(d: &UnitData, coverage: &Coverage, tree_scope: &[Leaf]) -> String {
                     "{} {}: {}",
                     cell(&stage.unit),
                     cell(&stage.stage),
-                    if stage.verdict == UnitVerdict::Unknown
-                        && coverage
-                            .unknowns
-                            .iter()
-                            .any(|u| u == "prestudy_unavailable")
-                    {
-                        l::UNIT_PRESTUDY_UNREAD
-                    } else {
+                    if stage.verdict != UnitVerdict::Unknown {
                         verdict(stage.verdict)
+                    } else if coverage.unknowns.iter().any(|u| u == "prestudy_unavailable") {
+                        l::UNIT_PRESTUDY_UNREAD
+                    } else if coverage.unknowns.iter().any(|u| u == "prestudy_name_ambiguous") {
+                        l::UNIT_PRESTUDY_NAME_AMBIGUOUS
+                    } else {
+                        l::UNIT_PRESTUDY_OTHER_BOOK
                     }
                 ));
             }
@@ -1053,7 +1054,7 @@ fn section_inventory_scope(d: &UnitData) -> &'static str {
         Some(read) if !read.records.is_empty() && read.paper_observed => l::UNIT_SECTION_SCOPE,
         Some(read) if read.paper_observed => l::UNIT_TITLES_OBSERVED,
         Some(read) if read.index_observed => l::UNIT_WRONG_NOTE_TITLES,
-        _ => l::UNAVAILABLE,
+        _ => l::UNIT_SOURCE_NOT_OBSERVED,
     }
 }
 
@@ -1118,6 +1119,17 @@ fn unmapped_lines(d: &UnitData) -> Vec<String> {
 fn daily_status(d: &UnitData, unit: &str, level: Option<&str>) -> String {
     if d.daily.is_none() && d.family != "supplementary" {
         l::UNIT_DAILY_UNREAD.into()
+    } else if daily_state(d, unit, level) == UnitVerdict::Unknown {
+        let reasons = &d.daily.as_ref().expect("daily read exists").unknowns;
+        if reasons.iter().any(|u| u == "daily_header_unavailable") {
+            l::UNIT_DAILY_HEADER_UNREAD
+        } else if reasons.iter().any(|u| u == "daily_partial_page") {
+            l::UNIT_DAILY_PARTIAL_UNREAD
+        } else if reasons.iter().any(|u| u == "daily_mapping_unavailable") {
+            l::UNIT_DAILY_MAPPING_UNKNOWN
+        } else {
+            l::UNIT_SOURCE_NOT_OBSERVED
+        }.into()
     } else {
         verdict(daily_state(d, unit, level)).into()
     }
