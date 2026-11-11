@@ -99,7 +99,7 @@ pub fn date(iso: &str) -> String {
     {
         return format!("{month}월 {day}일");
     }
-    date.into()
+    crate::render::cell(date)
 }
 pub fn title(who: &str, day: &str) -> String {
     format!("{who} {} 수업 준비", date(day))

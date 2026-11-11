@@ -466,7 +466,7 @@ fn stamp(at: &str) -> String {
             .to_rfc3339()
     });
     let at = local.as_deref().unwrap_or(at);
-    format!("{} {}", l::date(at), time(at))
+    cell(&format!("{} {}", l::date(at), time(at)))
 }
 fn check_scopes(data: &LessonData, kind: &str) -> String {
     let mut scopes = Vec::new();
@@ -948,14 +948,14 @@ pub fn lesson_prepare(data: &LessonData, coverage: &Coverage) -> String {
         .collect::<Vec<_>>();
     if missing.len() == 1 {
         unknown.push(l::unread_grades(
-            &l::possessive(missing[0].0, &missing[0].1),
+            &cell(&l::possessive(missing[0].0, &missing[0].1)),
             false,
         ));
     } else if !missing.is_empty() {
         unknown.push(l::unread_grades(
             &missing
                 .iter()
-                .map(|(s, m)| format!("{s} {m}"))
+                .map(|(s, m)| cell(&format!("{s} {m}")))
                 .collect::<Vec<_>>()
                 .join("·"),
             true,
@@ -988,7 +988,7 @@ pub fn lesson_prepare(data: &LessonData, coverage: &Coverage) -> String {
         next.push(l::reminder_next(
             &cell(r.student.as_deref().unwrap_or(l::NEW_STUDENT)),
             urgency(&r.at, &data.today),
-            time(&local_time(&r.at)),
+            &cell(time(&local_time(&r.at))),
             &cell(&r.action),
         ));
     }
