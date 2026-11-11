@@ -1561,3 +1561,74 @@ fn q03_unknown_class_display_has_three_choices() {
         "어느 반인가요?\n- 가상반A: 반 전체 준비\n- 가상반B: 반 전체 준비\n- 가상반C: 반 전체 준비"
     );
 }
+
+#[test]
+fn class_roster_disagreement_stops_whole_request() {
+    let mut sc = scenario();
+    // Keep the authoritative requested roster unchanged; move only the
+    // student's record. Exercise the first, middle and last roster entry.
+    for (index, name) in [(0, "가상학생A"), (1, "가상학생B"), (2, "가상학생C")] {
+        let mut changed = sc.clone();
+        changed.students[index].class_name = "가상반B".into();
+        let seeded = SeededFacts::from_scenario(&changed);
+        let mut backend = SourceBackend::synthetic(changed, NOW);
+        let result = edu_academy_teacher::prepare(
+            &mut backend,
+            &seeded,
+            &PrepareRequest {
+                class_name: Some("가상반A".into()),
+                ..Default::default()
+            },
+            today(),
+        );
+        assert_eq!(result.status, Status::Unavailable);
+        assert!(result.ask.is_none());
+        let stop = result.stop.as_ref().unwrap();
+        assert_eq!(stop.code, StopCode::StudentNotFound);
+        assert_eq!(
+            result.display,
+            format!(
+                "가상반A의 반 명부와 학생 기록이 {name} 학생의 반에 대해 일치하지 않아 반 전체 수업 준비를 중단했습니다. 반 명부를 수정하거나 학생 이름을 지정해 주세요."
+            )
+        );
+        assert_eq!(stop.message_ko, result.display);
+        assert_eq!(data(&result).class_name.as_deref(), Some("가상반A"));
+        assert_eq!(data(&result).students.len(), index);
+        assert!(!result.display.contains("지난 수업:"));
+    }
+    // Explicitly naming the student retains the student-mode class ask.
+    sc.students[1].class_name = "가상반B".into();
+    assert_ask_labels_resolve(
+        sc,
+        PrepareRequest {
+            student: Some("가상학생B".into()),
+            class_name: Some("가상반A".into()),
+            ..Default::default()
+        },
+        AskField::ClassName,
+    );
+}
+
+#[test]
+fn student_without_class_stops_instead_of_empty_ask() {
+    for missing in ["", "  "] {
+        let mut sc = scenario();
+        sc.students[0].class_name = missing.into();
+        let seeded = SeededFacts::from_scenario(&sc);
+        let mut backend = SourceBackend::synthetic(sc, NOW);
+        let result = edu_academy_teacher::prepare(
+            &mut backend,
+            &seeded,
+            &PrepareRequest {
+                student: Some("가상학생A".into()),
+                class_name: Some("가상반A".into()),
+                ..Default::default()
+            },
+            today(),
+        );
+        assert_eq!(result.status, Status::Unavailable);
+        assert!(result.ask.is_none());
+        assert_eq!(result.stop.unwrap().code, StopCode::StudentNotFound);
+        assert_eq!(result.display, "학생을 찾지 못했습니다.");
+    }
+}

@@ -537,6 +537,19 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
         let student = match backend.resolve_student(name, class_hint.as_deref()) {
             Ok(student) => student,
             Err(BackendError::Ask(ask)) => {
+                if ask.field == AskField::ClassName
+                    && let Some(class_name) = &data.class_name
+                {
+                    let message = format!(
+                        "{class_name}의 반 명부와 학생 기록이 {name} 학생의 반에 대해 일치하지 않아 반 전체 수업 준비를 중단했습니다. 반 명부를 수정하거나 학생 이름을 지정해 주세요."
+                    );
+                    return Envelope::stop(
+                        message.clone(),
+                        data_value(&data),
+                        Stop::new(StopCode::StudentNotFound, &message),
+                        coverage,
+                    );
+                }
                 return ask_envelope(ask.question_ko.clone(), &data, ask, coverage);
             }
             Err(BackendError::Stop(stop)) => {

@@ -20,7 +20,7 @@ use std::{
 
 // Variant B: only display is model-visible; the envelope is client metadata.
 const ENVELOPE_META_KEY: &str = "academy/envelope";
-const INSTRUCTIONS: &str = "Each tool result of this server is finished Korean text for the teacher. Show that text to the teacher exactly as it is and in full, with nothing added before or after it: no summary, no rewording, no advice, no extra question. When the text asks the teacher something or lists choices, stop there and wait for the teacher's answer, then call the tool again with that answer. When the teacher later asks about a result already shown and no tool is needed, answer briefly in your own words from that result only. Call a tool again only when the teacher asks for something else or answers a question.";
+const INSTRUCTIONS: &str = "Each tool result of this server is finished Korean text for the teacher. Show that text to the teacher exactly as it is and in full, with nothing added before or after it: no summary, no rewording, no advice, no extra question. When the text asks the teacher something or lists choices, stop there and wait for the teacher's answer, then call the tool again with that answer and the other arguments of the previous call unchanged. When the teacher later asks about a result already shown and no tool is needed, answer briefly in your own words from that result only. Call a tool again only when the teacher asks for something else or answers a question.";
 
 const MAX_MESSAGE_BYTES: usize = 1_048_576;
 

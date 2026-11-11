@@ -308,6 +308,7 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
         let mut options: Vec<AskOption> = Vec::new();
         for candidate in candidates {
             if let Some(class_name) = &candidate.class_name
+                && !class_name.trim().is_empty()
                 && !options.iter().any(|option| option.value == *class_name)
             {
                 options.push(AskOption {
@@ -316,6 +317,9 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                     meaning_ko: "그 학생이 속한 반".into(),
                 });
             }
+        }
+        if options.is_empty() {
+            return Self::student_not_found();
         }
         BackendError::Ask(Ask {
             field: AskField::ClassName,
@@ -589,5 +593,25 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
             }
         }
         checks
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::synthetic::{SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPort};
+
+    #[test]
+    fn missing_class_metadata_never_builds_an_empty_ask() {
+        let student = ResolvedStudent {
+            name: "가상학생A".into(),
+            key: "1001".into(),
+            class_name: None,
+        };
+        let result = SourceBackend::<SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPort>::ask_class(&[student]);
+        let BackendError::Stop(stop) = result else {
+            panic!("missing class must stop");
+        };
+        assert_eq!(stop.code, StopCode::StudentNotFound);
     }
 }
