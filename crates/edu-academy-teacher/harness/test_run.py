@@ -3,6 +3,7 @@ import unittest
 import json
 import run
 import rescore
+import test_fidelity
 import tempfile
 from pathlib import Path
 
@@ -217,9 +218,12 @@ class HarnessTests(unittest.TestCase):
             return run.score_stream("\n".join(json.dumps(e) for e in events), spec, [])
         good = score(events)
         self.assertEqual(good["verbatim"], "pass")
+        self.assertEqual(good["shown_unchanged"], "pass")
+        self.assertEqual(good["facts_kept"], "pass")
         self.assertEqual(set(good["checks"].values()), {"pass"})
         events[-1]["result"] = "어느 반인가요?"
         self.assertEqual(score(events)["checks"]["option:가상반A"], "FAIL")
+        self.assertEqual(score(events)["facts_kept"], "FAIL")
         self.assertEqual(score(events + self.academy_exchange(text))["checks"]["academy_calls_before_answer"], "FAIL")
 
     def test_later_non_academy_result_is_ignored(self):
@@ -263,6 +267,47 @@ class HarnessTests(unittest.TestCase):
             self.assertEqual(result["received_form"], "display_text")
             self.assertEqual(result["verbatim"], "pass")
 
+    def test_result_columns_share_live_and_offline_scoring(self):
+        text = test_fidelity.AcceptanceTests.TEXT
+        answer = text.replace('읽은 원천 Source listing\n', '')
+        events = self.academy_exchange(text) + [{"type": "result", "result": answer}]
+        raw = "\n".join(json.dumps(event) for event in events)
+        spec = json.loads((run.HERE / 'checks.json').read_text())["Q01"]
+        live = run.score_stream(raw, spec, [])
+        self.assertEqual(live['shown_unchanged'], 'FAIL')
+        self.assertEqual(live['facts_kept'], 'pass')
+        self.assertEqual(live['source_footer'], {'total':1,'kept':0})
+        self.assertEqual(live['closing_statement'], {'total':1,'kept':1})
+        with tempfile.TemporaryDirectory(prefix='teacher-fidelity-test-') as directory:
+            path = Path(directory)
+            (path / 'measurement.json').write_text(json.dumps({'mode':'installed', 'request':'Q01', 'model':'haiku'}))
+            (path / 'claude.jsonl').write_text(raw)
+            offline = rescore.score_saved(path)
+        for key in ('shown_unchanged', 'facts_kept', 'source_footer', 'closing_statement'):
+            self.assertEqual(offline[key], live[key])
+        for malformed in ('not json\n' + raw, ''):
+            scored = run.score_stream(malformed, spec, [])
+            self.assertEqual(scored['facts_kept'], 'unknown')
+            self.assertEqual(scored['shown_unchanged'], 'unknown')
+
+    def test_limit_reasons_counted_live_and_offline(self):
+        from unittest.mock import patch
+        import copy
+        text='Title\nPart\nName | Action\nAlice | Review'
+        raw='\n'.join(json.dumps(e) for e in self.academy_exchange(text)+[{'type':'result','result':text}])
+        original=json.loads((run.HERE/'checks.json').read_text())['Q01']
+        for key,reason in [('reference_units','reference_too_large'),('answer_bytes','answer_too_large'),('search_states','search_budget')]:
+            spec=copy.deepcopy(original);spec['fidelity_policy']['limits'][key]=1
+            live=run.score_stream(raw,spec,[])
+            self.assertEqual(live['facts_kept'],'unknown');self.assertEqual(live['unknown_by_reason'],{reason:1})
+            with tempfile.TemporaryDirectory(prefix='teacher-bound-test-') as directory:
+                path=Path(directory)
+                (path/'checks.json').write_text(json.dumps({'Q01':spec}))
+                (path/'measurement.json').write_text(json.dumps({'mode':'installed','request':'Q01','model':'haiku'}))
+                (path/'claude.jsonl').write_text(raw)
+                with patch.object(run,'HERE',path):offline=rescore.score_saved(path)
+            self.assertEqual(offline['reason_code'],reason);self.assertEqual(offline['unknown_by_reason'],{reason:1})
+
     def test_rescore_exports_only_row_values_and_preserves_evidence(self):
         secret = "synthetic confidential sentinel"
         events = self.isolated_events() + self.academy_exchange(json.dumps({"display":"finished"})) + [
@@ -277,9 +322,9 @@ class HarnessTests(unittest.TestCase):
             (path / "measurement.json").write_text(metadata)
             (path / "claude.jsonl").write_text(stream)
             row = rescore.score_saved(path)
-            self.assertEqual(set(row), {"mode","request","model","received_form","verbatim","extra_chars","isolation","delivery"})
+            self.assertEqual(set(row), {"mode","request","model","received_form","shown_unchanged","facts_kept","source_footer","closing_statement","failed_rules","extra_chars","isolation","delivery","reason_code","unknown_by_reason","unit_counts"})
             self.assertEqual(row["received_form"], "envelope")
-            self.assertEqual(row["verbatim"], "pass")
+            self.assertEqual(row["shown_unchanged"], "pass")
             self.assertEqual(row["extra_chars"], 0)
             self.assertEqual(row["isolation"], "pass (hooks unknown)")
             self.assertNotIn(secret, json.dumps(row))
@@ -292,6 +337,8 @@ class HarnessTests(unittest.TestCase):
         result = run.score_stream(raw, {}, ["mcp__academy__academy_lesson_prepare"], True)
         self.assertEqual(result["received_form"], "unknown")
         self.assertEqual(result["verbatim"], "unknown")
+        self.assertEqual(result["shown_unchanged"], "unknown")
+        self.assertEqual(result["facts_kept"], "unknown")
         self.assertEqual(result["extra_chars"], "unknown")
         self.assertIn("malformed_stream", result["isolation"]["reasons"])
 
