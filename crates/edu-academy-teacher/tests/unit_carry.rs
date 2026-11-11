@@ -109,3 +109,28 @@ fn m23d_trimmed_unknowns_follow_major_middle_and_minor_identifiers() {
         assert!(!display.contains(&format!("{level} Z 필수예제·")), "{level}");
     }
 }
+
+#[test]
+fn m23e_only_cell_affecting_teacher_report_kinds_need_course_scope() {
+    for kind in ["original_work", "clinic_stage", "assigned_stages", "notebook_check", "homework_stage_check", "follow_up"] {
+        for topic in ["전체", "클리닉", "섹션", "DailyTest", "예습"] {
+            let mut c = Case::new(1);
+            c.scope(1, topic);
+            let first = c.scenario.students[0].bindings[0].clone();
+            let mut second = first.clone();
+            second.course_key = "202".into(); second.book_no = "302".into();
+            c.scenario.students[0].bindings = vec![first.clone(), second];
+            c.request.book = Some(format!("{} (등록 과정 1)", first.label));
+            c.stage("1-1", kind, "original_clinic_solving", kind != "original_work");
+            let out = c.run();
+            assert!(out.ask.is_none() && out.stop.is_none(), "{}", out.display);
+            let expected = ["original_work", "clinic_stage"].contains(&kind) && ["전체", "클리닉"].contains(&topic);
+            assert_eq!(out.coverage.unknowns.iter().any(|u| u.starts_with("teacher_fact_course_unknown:")), expected, "{kind}/{topic}");
+            c.scenario.teacher_fact_reports[0].course_key = Some("101".into());
+            c.scenario.teacher_fact_reports[0].book_no = Some("201".into());
+            let scoped = c.run();
+            assert!(!scoped.coverage.unknowns.iter().any(|u| u.starts_with("teacher_fact_course_unknown:")));
+            assert_eq!(out.data["stages"] != scoped.data["stages"], ["original_work", "clinic_stage"].contains(&kind) && ["전체", "클리닉", "섹션"].contains(&topic), "stage effect {kind}/{topic}");
+        }
+    }
+}
