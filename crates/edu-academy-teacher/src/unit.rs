@@ -161,30 +161,50 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
                 .count()
                 > 1
             {
-                l::unit_course_book(&b.book_label, i + 1)
+                l::unit_course_book(
+                    &b.book_label,
+                    bindings[..=i]
+                        .iter()
+                        .filter(|other| other.book_label == b.book_label)
+                        .count(),
+                )
             } else {
                 b.book_label.clone()
             }
         })
         .collect();
     let book_text = r.book.as_deref().unwrap_or("");
-    let label_match = labels.iter().position(|label| {
+    let matches = |label: &str| {
         book_text == label
             || book_text
-                .strip_prefix(label.as_str())
+                .strip_prefix(label)
                 .is_some_and(|tail| tail.starts_with(char::is_whitespace))
-    });
+    };
+    // Resolve the registered book name before its course-choice decoration.
+    // A shorter registered name must never consume the start of a longer one.
+    let matched_book = bindings
+        .iter()
+        .map(|b| b.book_label.as_str())
+        .filter(|name| matches(name))
+        .max_by_key(|name| name.len());
+    let label_match = labels
+        .iter()
+        .enumerate()
+        .filter(|(i, label)| {
+            Some(bindings[*i].book_label.as_str()) == matched_book && matches(label)
+        })
+        .max_by_key(|(_, label)| label.len())
+        .map(|(i, _)| i);
+    let matched_label = label_match.map(|i| labels[i].as_str()).or(matched_book);
+    let book_suffix = matched_label
+        .and_then(|label| book_text.strip_prefix(label))
+        .unwrap_or("");
     let explicit: Vec<_> = if let Some(i) = label_match {
         vec![&bindings[i]]
     } else {
         bindings
             .iter()
-            .filter(|b| {
-                book_text == b.book_label
-                    || book_text
-                        .strip_prefix(&b.book_label)
-                        .is_some_and(|tail| tail.starts_with(char::is_whitespace))
-            })
+            .filter(|b| Some(b.book_label.as_str()) == matched_book)
             .collect()
     };
     if !book_text.is_empty() && explicit.is_empty() {
@@ -199,15 +219,8 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
     .flatten()
     .collect::<Vec<_>>()
     .join(" ");
-    if let [binding] = explicit.as_slice()
-        && r.unit.is_none()
-        && r.unit_from.is_none()
-        && r.unit_to.is_none()
-    {
-        let label = label_match
-            .map(|i| labels[i].as_str())
-            .unwrap_or(&binding.book_label);
-        text = format!("{} {text}", book_text.strip_prefix(label).unwrap_or(""));
+    if !book_suffix.is_empty() && r.unit.is_none() && r.unit_from.is_none() && r.unit_to.is_none() {
+        text = format!("{book_suffix} {text}");
     }
     let compatible: Vec<_> = bindings
         .iter()
@@ -255,18 +268,42 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
     let binding = if let [one] = candidates.as_slice() {
         *one
     } else {
-        return Err(ask(
-            AskField::Book,
+        let mut books = Vec::new();
+        for b in &candidates {
+            if !books.contains(&b.book_label.as_str()) {
+                books.push(b.book_label.as_str());
+            }
+        }
+        let duplicates: Vec<_> = books
+            .iter()
+            .filter_map(|book| {
+                let count = bindings
+                    .iter()
+                    .filter(|b| b.book_label.as_str() == *book)
+                    .count();
+                (count > 1).then(|| l::unit_course_registration(&cell(book), count))
+            })
+            .collect();
+        let question = if duplicates.is_empty() {
             if topic == l::UNIT_TOPICS[2] {
                 l::unit_book_ask(&cell(&student.name), candidates.len())
             } else {
                 l::unit_book_other_ask(&cell(&student.name))
-            },
+            }
+        } else {
+            l::unit_course_ask(&cell(&student.name), &duplicates.join("\n"))
+        };
+        // The book field is replaced on the next stateless call. Carry its
+        // original unit suffix in every choice rather than widening the scope.
+        let suffix = book_suffix;
+        return Err(ask(
+            AskField::Book,
+            question,
             bindings
                 .iter()
                 .enumerate()
                 .filter(|(_, b)| candidates.iter().any(|other| std::ptr::eq(*other, *b)))
-                .map(|(i, _)| labels[i].clone())
+                .map(|(i, _)| format!("{}{suffix}", labels[i]))
                 .collect(),
             if topic == l::UNIT_TOPICS[2] {
                 l::UNIT_BOOK_MEANING
@@ -641,9 +678,6 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
                                 crate::render::Verdict::Waiting => UnitVerdict::Waiting,
                                 crate::render::Verdict::Completed => UnitVerdict::Completed,
                                 crate::render::Verdict::NotObserved => UnitVerdict::NotObserved,
-                                crate::render::Verdict::NotInReadRange => {
-                                    UnitVerdict::NotInReadRange
-                                }
                                 _ => UnitVerdict::Unknown,
                             }
                         })
@@ -685,15 +719,29 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         f.student_key.as_deref() == Some(&data.student_key)
             && f.book == data.edition
             && (f.course_key.is_none() || f.book_no.is_none())
+            && f.course_key
+                .as_ref()
+                .is_none_or(|key| key == &data.course_key)
+            && f.book_no.as_ref().is_none_or(|key| key == &data.book_no)
+            && (f.kind == "original_work" || f.kind == "clinic_stage")
+            && data
+                .activity
+                .as_ref()
+                .is_none_or(|a| f.activity.is_empty() || &f.activity == a)
             && data.minors.iter().any(|leaf| leaf.minor.code == f.unit)
             && (all_topics || topic == l::UNIT_TOPICS[2])
     }) {
-        coverage.unknowns.push(format!(
-            "teacher_fact_course_unknown:{} {} {}",
-            f.unit,
-            f.activity,
-            l::unit_stage_name(&f.stage)
-        ));
+        let mut scope: Vec<_> = [&f.unit, &f.activity]
+            .into_iter()
+            .filter(|value| !value.is_empty())
+            .map(String::as_str)
+            .collect();
+        if f.kind == "clinic_stage" && !f.stage.is_empty() {
+            scope.push(l::unit_stage_name(&f.stage));
+        }
+        coverage
+            .unknowns
+            .push(format!("teacher_fact_course_unknown:{}", scope.join(" ")));
     }
     if data
         .judgments

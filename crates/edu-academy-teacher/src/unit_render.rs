@@ -232,13 +232,13 @@ fn daily_block(d: &UnitData, leaf: &Leaf, grid: bool) -> (String, Vec<String>) {
         (lines.join("\n"), details)
     }
 }
-fn clinic_block(d: &UnitData, leaf: &Leaf) -> (String, Vec<String>) {
+fn clinic_block(d: &UnitData, leaf: &Leaf, printed_dash: &mut bool) -> (String, Vec<String>) {
     let code = &leaf.minor.code;
     let mut fields = vec![cell(&leaf_label(leaf))];
     let mut details = Vec::new();
     for a in section_columns(d) {
         let c = d.clinic.iter().find(|c| c.unit == *code && c.activity == a);
-        fields.push(if !leaf.minor.activities.contains(&a) {
+        let value: String = if !leaf.minor.activities.contains(&a) {
             l::NOT_APPLICABLE.into()
         } else if d.sections.is_none() {
             l::UNIT_SECTION_UNREAD.into()
@@ -252,7 +252,9 @@ fn clinic_block(d: &UnitData, leaf: &Leaf) -> (String, Vec<String>) {
             })
             .unwrap_or(l::UNIT_DASH)
             .into()
-        });
+        };
+        *printed_dash |= value == l::UNIT_DASH;
+        fields.push(value);
         if let Some(c) = c
             && c.verdict == UnitVerdict::Eligible
         {
@@ -293,7 +295,7 @@ fn clinic_block(d: &UnitData, leaf: &Leaf) -> (String, Vec<String>) {
     }
     (fields.join(" | "), details)
 }
-fn section_block(d: &UnitData, leaf: &Leaf, grid: bool) -> String {
+fn section_block(d: &UnitData, leaf: &Leaf, grid: bool, printed_dash: &mut bool) -> String {
     let code = &leaf.minor.code;
     let records: Vec<_> = d
         .sections
@@ -308,15 +310,19 @@ fn section_block(d: &UnitData, leaf: &Leaf, grid: bool) -> String {
                 .filter(|r| r.activity == activity)
                 .map(|r| cell(&r.source_title))
                 .collect::<Vec<_>>();
-            fields.push(if !leaf.minor.activities.contains(&activity) {
+            let value: String = if !leaf.minor.activities.contains(&activity) {
                 l::NOT_APPLICABLE.into()
             } else if titles.is_empty() {
-                section_issue(d, code, Some(&activity))
-                    .unwrap_or(l::UNIT_DASH)
-                    .into()
+                if let Some(issue) = section_issue(d, code, Some(&activity)) {
+                    issue.into()
+                } else {
+                    *printed_dash = true;
+                    l::UNIT_DASH.into()
+                }
             } else {
                 titles.join(" / ")
-            });
+            };
+            fields.push(value);
         }
         return fields.join(" | ");
     }
@@ -337,8 +343,10 @@ fn section_block(d: &UnitData, leaf: &Leaf, grid: bool) -> String {
                 .is_some_and(|s| s.index_observed && s.paper_observed)
             {
                 l::NOT_OBSERVED
+            } else if d.sections.as_ref().is_some_and(|s| s.index_observed) {
+                l::UNIT_PAPER_SCOPE_UNKNOWN
             } else {
-                l::UNAVAILABLE
+                l::UNIT_SOURCE_NOT_OBSERVED
             },
         );
     }
@@ -563,12 +571,13 @@ fn next(d: &UnitData) -> String {
     }
     l::unit_next_generic()
 }
-fn compose(d: &UnitData, coverage: &Coverage) -> String {
+fn compose(d: &UnitData, coverage: &Coverage, tree_scope: &[Leaf]) -> String {
     let who = cell(&d.student);
     let book = cell(&d.edition);
     let small = d.minors.len() == 1;
     let mut lines = Vec::new();
     let mut details = Vec::new();
+    let mut printed_dash = false;
     match d.topic.as_str() {
         t if t == l::UNIT_TOPICS[1] => {
             lines.push(l::unit_daily_heading(
@@ -591,12 +600,10 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
             headers.extend(section_columns(d).iter().map(|a| cell(a)));
             lines.push(headers.join(" | "));
             for leaf in &d.minors {
-                let (block, extra) = clinic_block(d, leaf);
+                let (block, extra) = clinic_block(d, leaf, &mut printed_dash);
                 lines.push(block);
                 details.extend(extra);
             }
-            lines.push(l::UNIT_DASH_LEGEND.into());
-            lines.append(&mut details);
         }
         t if t == l::UNIT_TOPICS[3] => {
             let scope = if small {
@@ -621,7 +628,7 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
                 lines.push(headers.join(" | "));
             }
             for leaf in &d.minors {
-                lines.push(section_block(d, leaf, !small));
+                lines.push(section_block(d, leaf, !small, &mut printed_dash));
             }
         }
         _ => {
@@ -634,13 +641,13 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
                     lines.extend(extra);
                 }
                 if d.sections.is_some() || d.topic == l::UNIT_TOPICS[0] {
-                    lines.push(section_block(d, leaf, false));
+                    lines.push(section_block(d, leaf, false, &mut printed_dash));
                 }
             }
             if d.topic == l::UNIT_TOPICS[0] {
                 lines.push(section_header(d));
                 for leaf in &d.minors {
-                    let (block, extra) = clinic_block(d, leaf);
+                    let (block, extra) = clinic_block(d, leaf, &mut printed_dash);
                     lines.push(block);
                     lines.extend(extra);
                 }
@@ -650,23 +657,28 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
                     "{} {}: {}",
                     cell(&stage.unit),
                     cell(&stage.stage),
-                    if stage.verdict == UnitVerdict::Unknown
-                        && coverage
-                            .unknowns
-                            .iter()
-                            .any(|u| u == "prestudy_unavailable")
+                    if stage.verdict != UnitVerdict::Unknown {
+                        verdict(stage.verdict)
+                    } else if coverage
+                        .unknowns
+                        .iter()
+                        .any(|u| u == "prestudy_unavailable")
                     {
                         l::UNIT_PRESTUDY_UNREAD
+                    } else if coverage
+                        .unknowns
+                        .iter()
+                        .any(|u| u == "prestudy_name_ambiguous")
+                    {
+                        l::UNIT_PRESTUDY_NAME_AMBIGUOUS
                     } else {
-                        verdict(stage.verdict)
+                        l::UNIT_PRESTUDY_OTHER_BOOK
                     }
                 ));
             }
         }
     }
-    if lines.iter().any(|line| line.contains(l::UNIT_DASH))
-        && !lines.iter().any(|line| line == l::UNIT_DASH_LEGEND)
-    {
+    if printed_dash {
         lines.push(l::UNIT_DASH_LEGEND.into());
     }
     lines.extend(details);
@@ -688,7 +700,7 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
             verdict(stage.verdict)
         ));
     }
-    lines.extend(unknown_lines(d, coverage));
+    lines.extend(unknown_lines(d, coverage, tree_scope));
     if let Some(omitted) = &d.first_omitted {
         lines.push(l::unit_truncation(&cell(omitted)));
     }
@@ -746,8 +758,9 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
     lines.join("\n")
 }
 pub fn render(data: &mut UnitData, coverage: &mut Coverage) -> String {
+    let tree_scope = data.minors.clone();
     loop {
-        let display = compose(data, coverage);
+        let display = compose(data, coverage, &tree_scope);
         if display.len() <= 6000 {
             if let Some(omitted) = &data.first_omitted {
                 coverage.unknowns.push(format!("first_omitted:{omitted}"));
@@ -911,7 +924,7 @@ fn judgment_scope(d: &UnitData, j: &TeacherJudgment) -> String {
     if let Some(a) = &j.activity {
         scope.push_str(&format!(" {}", cell(a)));
     }
-    if let Some(stage) = &j.stage {
+    if let Some(stage) = j.stage.as_ref().filter(|stage| !stage.is_empty()) {
         scope.push_str(&format!(" {}", cell(l::unit_stage_name(stage))));
     }
     if let Some(snapshot) = &j.snapshot {
@@ -1049,7 +1062,7 @@ fn section_inventory_scope(d: &UnitData) -> &'static str {
         Some(read) if !read.records.is_empty() && read.paper_observed => l::UNIT_SECTION_SCOPE,
         Some(read) if read.paper_observed => l::UNIT_TITLES_OBSERVED,
         Some(read) if read.index_observed => l::UNIT_WRONG_NOTE_TITLES,
-        _ => l::UNAVAILABLE,
+        _ => l::UNIT_SOURCE_NOT_OBSERVED,
     }
 }
 
@@ -1114,6 +1127,18 @@ fn unmapped_lines(d: &UnitData) -> Vec<String> {
 fn daily_status(d: &UnitData, unit: &str, level: Option<&str>) -> String {
     if d.daily.is_none() && d.family != "supplementary" {
         l::UNIT_DAILY_UNREAD.into()
+    } else if daily_state(d, unit, level) == UnitVerdict::Unknown {
+        let reasons = &d.daily.as_ref().expect("daily read exists").unknowns;
+        if reasons.iter().any(|u| u == "daily_header_unavailable") {
+            l::UNIT_DAILY_HEADER_UNREAD
+        } else if reasons.iter().any(|u| u == "daily_partial_page") {
+            l::UNIT_DAILY_PARTIAL_UNREAD
+        } else if reasons.iter().any(|u| u == "daily_mapping_unavailable") {
+            l::UNIT_DAILY_MAPPING_UNKNOWN
+        } else {
+            l::UNIT_SOURCE_NOT_OBSERVED
+        }
+        .into()
     } else {
         verdict(daily_state(d, unit, level)).into()
     }
@@ -1155,7 +1180,7 @@ fn unscoped_fact_lines(d: &UnitData) -> Vec<String> {
         .map(|(line, count)| l::unit_counted_unknown(&line, count))
         .collect()
 }
-fn unknown_lines(d: &UnitData, coverage: &Coverage) -> Vec<String> {
+fn unknown_lines(d: &UnitData, coverage: &Coverage, tree_scope: &[Leaf]) -> Vec<String> {
     let mut counts = std::collections::BTreeMap::new();
     for reason in &coverage.unknowns {
         let (code, scope) = reason.split_once(':').unwrap_or((reason.as_str(), ""));
@@ -1165,13 +1190,32 @@ fn unknown_lines(d: &UnitData, coverage: &Coverage) -> Vec<String> {
         ) {
             continue;
         }
-        let token = scope.split_whitespace().next().unwrap_or("");
-        let components: Vec<_> = token.split('-').collect();
-        if components.len() >= 2
-            && components
+        // Match the longest tree identifier, including identifiers containing
+        // spaces. Keep a parent scope while any of its descendants is retained.
+        let mut matches = Vec::new();
+        for leaf in tree_scope {
+            let major = format!("{} {}", l::CHAPTER_SCOPE, leaf.chapter);
+            for (id, level) in [
+                (Some(leaf.chapter.as_str()), 0),
+                (Some(major.as_str()), 0),
+                (leaf.middle.as_deref(), 1),
+                (leaf.middle_code.as_deref(), 1),
+                (Some(leaf.minor.code.as_str()), 2),
+            ] {
+                if let Some(id) = id.filter(|id| !id.is_empty())
+                    && (scope == id
+                        || scope
+                            .strip_prefix(id)
+                            .is_some_and(|tail| tail.starts_with(char::is_whitespace)))
+                {
+                    matches.push(((id.len(), level), retained(d, &leaf.minor.code)));
+                }
+            }
+        }
+        if let Some(specificity) = matches.iter().map(|(key, _)| *key).max()
+            && !matches
                 .iter()
-                .all(|c| !c.is_empty() && c.bytes().all(|b| b.is_ascii_digit()))
-            && !retained(d, token)
+                .any(|(key, kept)| *key == specificity && *kept)
         {
             continue;
         }

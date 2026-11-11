@@ -73,6 +73,7 @@ pub struct Minor {
 pub struct Leaf {
     pub chapter: String,
     pub middle: Option<String>,
+    pub middle_code: Option<String>,
     pub minor: Minor,
 }
 impl EditionTree {
@@ -86,6 +87,7 @@ impl EditionTree {
                     .map(|m| Leaf {
                         chapter: c.code.clone(),
                         middle: None,
+                        middle_code: None,
                         minor: m.clone(),
                     })
                     .collect();
@@ -93,6 +95,7 @@ impl EditionTree {
                     mid.minors.iter().map(|m| Leaf {
                         chapter: c.code.clone(),
                         middle: Some(format!("{} {}", mid.code, mid.title)),
+                        middle_code: Some(mid.code.clone()),
                         minor: m.clone(),
                     })
                 }));
