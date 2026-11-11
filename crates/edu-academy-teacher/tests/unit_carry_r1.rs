@@ -144,3 +144,23 @@ fn r1_course_ask_keeps_only_longest_book_and_its_own_unit_suffix() {
         }
     }
 }
+
+#[test]
+fn r1_course_count_uses_all_registrations_when_context_filters_choices() {
+    let mut c = Case::new(1);
+    c.scope(1, "전체");
+    let first = c.scenario.students[0].bindings[0].clone();
+    c.scenario.students[0].bindings = (0..3).map(|i| {
+        let mut binding = first.clone();
+        binding.course_key = format!("{}", 101 + i);
+        binding.book_no = if i == 1 { "202" } else { "201" }.into();
+        binding
+    }).collect();
+    c.stage("1-1", "assigned_stages", "", true);
+    c.scenario.teacher_fact_reports[0].book_no = Some("201".into());
+    c.request.book = None;
+    let out = c.run();
+    let ask = out.ask.expect("two remaining courses still ask");
+    assert_eq!(out.display, "가상학생A의 교재 등록을 확인했습니다.\n가우스 5-1-1: 같은 교재가 3개 과정에 등록되어 있습니다.\n어느 교재와 등록 과정을 볼까요?\n- 가우스 5-1-1 (등록 과정 1): 이 교재의 현황을 봅니다.\n- 가우스 5-1-1 (등록 과정 3): 이 교재의 현황을 봅니다.");
+    assert_eq!(ask.options.iter().map(|o| o.value.as_str()).collect::<Vec<_>>(), ["가우스 5-1-1 (등록 과정 1)", "가우스 5-1-1 (등록 과정 3)"]);
+}
