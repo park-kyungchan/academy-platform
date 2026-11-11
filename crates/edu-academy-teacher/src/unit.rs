@@ -262,7 +262,7 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         let duplicates: Vec<_> = books
             .iter()
             .filter_map(|book| {
-                let count = candidates
+                let count = bindings
                     .iter()
                     .filter(|b| b.book_label.as_str() == *book)
                     .count();
