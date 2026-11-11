@@ -580,17 +580,7 @@ impl SourceBackend<SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPor
                 class_name: s.class_name.clone(),
             })
             .collect();
-        let book_labels_by_key = scenario
-            .students
-            .iter()
-            .map(|s| {
-                (
-                    s.key.clone(),
-                    s.bindings.iter().map(|b| b.label.clone()).collect(),
-                )
-            })
-            .collect();
-        let mut backend = Self::new(
+        Self::new(
             SyntheticDayPort::new(scenario.clone()),
             SyntheticPrestudyPort::new(scenario.clone()),
             SyntheticTextbookPort::new(scenario),
@@ -601,8 +591,6 @@ impl SourceBackend<SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPor
                 teacher_key: TEACHER_KEY.into(),
                 read_at: read_at.into(),
             },
-        );
-        backend.set_book_labels_by_key(book_labels_by_key);
-        backend
+        )
     }
 }

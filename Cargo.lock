@@ -305,6 +305,7 @@ dependencies = [
  "edu-academy-core",
  "edu-academy-sources",
  "regex",
+ "rustix",
  "serde",
  "serde_json",
 ]

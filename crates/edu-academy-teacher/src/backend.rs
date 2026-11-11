@@ -24,46 +24,10 @@ pub struct StudentEntry {
     pub class_name: String,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-struct NameHint {
-    class_name: Option<String>,
-    book_label: Option<String>,
-}
-
 enum NameSearch {
     Resolved(ResolvedStudent),
     Ambiguous(Vec<String>),
     NotFound,
-}
-
-/// The disambiguated form `이름 (반 이름)` or `이름 (반 이름, 교재)`.
-fn parse_disambiguated(name: &str) -> Option<(String, NameHint)> {
-    let pos = name.rfind(" (")?;
-    if !name.ends_with(')') {
-        return None;
-    }
-    let base = &name[..pos];
-    let inline = &name[pos + 2..name.len() - 1];
-    if base.is_empty() || inline.is_empty() {
-        return None;
-    }
-    let (class_name, book_label) = match inline.split_once(", ") {
-        Some((class_name, book_label)) => (
-            class_name.trim().to_string(),
-            Some(book_label.trim().to_string()),
-        ),
-        None => (inline.trim().to_string(), None),
-    };
-    if class_name.is_empty() {
-        return None;
-    }
-    Some((
-        base.to_string(),
-        NameHint {
-            class_name: Some(class_name),
-            book_label,
-        },
-    ))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -121,7 +85,6 @@ pub struct SourceBackend<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>
     pub prestudy: PrestudySource<P>,
     pub sections: TextbookIndexSource<T>,
     directory: Vec<StudentEntry>,
-    book_labels_by_key: std::collections::BTreeMap<String, Vec<String>>,
     teacher_id: String,
     teacher_label: String,
     read_at: String,
@@ -174,7 +137,6 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
             ),
             sections: TextbookIndexSource::new(textbook_port, teacher_label.clone()),
             directory,
-            book_labels_by_key: std::collections::BTreeMap::new(),
             teacher_id,
             teacher_label,
             read_at,
@@ -213,21 +175,6 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
 
     fn entry_by_key(&self, key: &str) -> Option<&StudentEntry> {
         self.directory.iter().find(|s| s.key == key)
-    }
-
-    pub(crate) fn set_book_labels_by_key(
-        &mut self,
-        book_labels_by_key: std::collections::BTreeMap<String, Vec<String>>,
-    ) {
-        self.book_labels_by_key = book_labels_by_key;
-    }
-
-    fn book_labels_for(&self, key: &str) -> &[String] {
-        self.book_labels_by_key.get(key).map_or(&[], Vec::as_slice)
-    }
-
-    fn book_label_for(&self, key: &str) -> &str {
-        self.book_labels_for(key).first().map_or("", String::as_str)
     }
 
     fn student_not_found() -> BackendError {
@@ -272,105 +219,113 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
         }
     }
 
-    fn hint_matches(&self, student: &ResolvedStudent, hint: &NameHint) -> bool {
-        if let Some(class_name) = &hint.class_name
-            && student.class_name.as_deref() != Some(class_name.as_str())
-        {
-            return false;
-        }
-        if let Some(book_label) = &hint.book_label {
-            let matches_book = self
-                .book_labels_for(&student.key)
-                .iter()
-                .any(|label| label == book_label);
-            if !matches_book {
-                return false;
-            }
-        }
-        true
+    /// Book labels of one candidate, read from the bindings port at the
+    /// moment of use. One logical lesson-data read, counted like any other.
+    fn read_book_labels(&mut self, student: &ResolvedStudent) -> Result<Vec<String>, BackendError> {
+        self.source_reads += 1;
+        self.attempted += 1;
+        let textbook_student = TextbookStudent::new(&student.key, &student.name)
+            .map_err(|_| BackendError::source_unavailable())?;
+        let label = self.teacher_label.clone();
+        let bindings = self
+            .sections
+            .bindings(&label, &textbook_student)
+            .map_err(|_| BackendError::source_unavailable())?;
+        self.succeeded += 1;
+        Ok(bindings.iter().map(|b| b.book_label.clone()).collect())
     }
 
-    fn disambiguate(
-        &self,
-        base: &str,
-        keys: Vec<String>,
-        hint: &NameHint,
-    ) -> Result<ResolvedStudent, BackendError> {
-        let mut candidates: Vec<(String, String, String)> = keys
-            .iter()
-            .map(|key| {
-                let entry = self.entry_by_key(key);
-                (
-                    key.clone(),
-                    entry.map_or_else(String::new, |entry| entry.class_name.clone()),
-                    self.book_label_for(key).to_string(),
-                )
+    fn candidates_from_keys(&self, base: &str, keys: &[String]) -> Vec<ResolvedStudent> {
+        keys.iter()
+            .map(|key| ResolvedStudent {
+                name: base.to_string(),
+                key: key.clone(),
+                class_name: self.entry_by_key(key).map(|s| s.class_name.clone()),
             })
-            .collect();
-        if hint.class_name.is_some() || hint.book_label.is_some() {
-            let matched: Vec<(String, String, String)> = candidates
+            .collect()
+    }
+
+    /// The one function that builds the option strings for the candidates
+    /// of `base`. Answer resolution compares a given string for equality
+    /// with these strings; it never parses the string. When two candidates
+    /// share a class, each such candidate's book label is read from the
+    /// bindings port (one read per such candidate).
+    fn candidate_options(
+        &mut self,
+        base: &str,
+        candidates: &[ResolvedStudent],
+    ) -> Result<Vec<(ResolvedStudent, AskOption)>, BackendError> {
+        let mut options = Vec::new();
+        for candidate in candidates {
+            let class_name = candidate.class_name.as_deref().unwrap_or("");
+            let same_class = candidates
                 .iter()
-                .filter(|(key, class_name, book_label)| {
-                    hint.class_name
-                        .as_ref()
-                        .is_none_or(|expected| class_name == expected)
-                        && hint.book_label.as_ref().is_none_or(|expected| {
-                            book_label == expected
-                                || self
-                                    .book_labels_for(key)
-                                    .iter()
-                                    .any(|label| label == expected)
-                        })
-                })
-                .cloned()
-                .collect();
-            if matched.len() == 1 {
-                let (key, class_name, _) = matched.into_iter().next().expect("one match");
-                return Ok(ResolvedStudent {
-                    name: base.to_string(),
-                    key,
-                    class_name: Some(class_name),
-                });
-            }
-            if matched.is_empty() {
-                return Err(Self::student_not_found());
-            }
-            candidates = matched;
-        }
-        let options: Vec<AskOption> = candidates
-            .iter()
-            .map(|(_, class_name, book_label)| {
-                let same_class = candidates
-                    .iter()
-                    .filter(|(_, other_class, _)| other_class == class_name)
-                    .count()
-                    > 1;
-                let value = if same_class {
-                    format!("{base} ({class_name}, {book_label})")
-                } else {
-                    format!("{base} ({class_name})")
-                };
+                .filter(|other| other.class_name.as_deref().unwrap_or("") == class_name)
+                .count()
+                > 1;
+            let value = if same_class {
+                let mut labels = self.read_book_labels(candidate)?;
+                labels.sort();
+                let book_label = labels.first().map_or("", String::as_str);
+                format!("{base} ({class_name}, {book_label})")
+            } else {
+                format!("{base} ({class_name})")
+            };
+            options.push((
+                candidate.clone(),
                 AskOption {
                     value: value.clone(),
                     label_ko: value,
                     meaning_ko: "그 반의 학생".into(),
-                }
-            })
-            .collect();
-        let mut values: Vec<&str> = options.iter().map(|option| option.value.as_str()).collect();
+                },
+            ));
+        }
+        Ok(options)
+    }
+
+    fn ambiguous_unresolvable() -> BackendError {
+        BackendError::Stop(Stop::new(
+            StopCode::StudentAmbiguousUnresolvable,
+            "이름, 반, 교재가 같아 두 학생을 구분할 수 없습니다. 반 명부를 수정해 주세요.",
+        ))
+    }
+
+    fn ask_for_options(options: &[(ResolvedStudent, AskOption)]) -> BackendError {
+        let mut values: Vec<&str> = options.iter().map(|(_, o)| o.value.as_str()).collect();
         values.sort_unstable();
         values.dedup();
         if values.len() != options.len() {
-            return Err(BackendError::Stop(Stop::new(
-                StopCode::StudentAmbiguousUnresolvable,
-                "이름, 반, 교재가 같아 두 학생을 구분할 수 없습니다. 반 명부를 수정해 주세요.",
-            )));
+            return Self::ambiguous_unresolvable();
         }
-        Err(BackendError::Ask(Ask {
+        BackendError::Ask(Ask {
             field: AskField::Student,
             question_ko: "어느 학생인가요?".into(),
-            options,
-        }))
+            options: options.iter().map(|(_, o)| o.clone()).collect(),
+        })
+    }
+
+    fn disambiguate(
+        &mut self,
+        base: &str,
+        keys: Vec<String>,
+        class_hint: Option<&str>,
+    ) -> Result<ResolvedStudent, BackendError> {
+        let candidates = self.candidates_from_keys(base, &keys);
+        let filtered: Vec<ResolvedStudent> = match class_hint {
+            Some(expected) => candidates
+                .into_iter()
+                .filter(|c| c.class_name.as_deref() == Some(expected))
+                .collect(),
+            None => candidates,
+        };
+        match filtered.as_slice() {
+            [] => Err(Self::student_not_found()),
+            [only] if class_hint.is_some() => Ok(only.clone()),
+            _ => {
+                let options = self.candidate_options(base, &filtered)?;
+                Err(Self::ask_for_options(&options))
+            }
+        }
     }
 
     pub fn resolve_student(
@@ -378,37 +333,56 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
         name: &str,
         class_hint: Option<&str>,
     ) -> Result<ResolvedStudent, BackendError> {
-        // Try the full given string as a name first; only a name that no
-        // student has falls back to the `이름 (반 이름)` form.
-        let full_hint = NameHint {
-            class_name: class_hint.map(str::to_string),
-            book_label: None,
-        };
+        // Try the full given string as a name first.
         match self.search_name(name)? {
             NameSearch::Resolved(student) => {
-                if self.hint_matches(&student, &full_hint) {
-                    Ok(student)
-                } else {
+                return match class_hint {
+                    Some(expected) if student.class_name.as_deref() != Some(expected) => {
+                        Err(Self::student_not_found())
+                    }
+                    _ => Ok(student),
+                };
+            }
+            NameSearch::Ambiguous(keys) => return self.disambiguate(name, keys, class_hint),
+            NameSearch::NotFound => {}
+        }
+        // The given string may be an answer to a "which student" question:
+        // compare it for equality with the option strings this server
+        // generates for the candidates of each known name.
+        let mut bases: Vec<String> = Vec::new();
+        for entry in &self.directory {
+            if name
+                .strip_prefix(&entry.name)
+                .is_some_and(|tail| tail.starts_with(" ("))
+                && !bases.contains(&entry.name)
+            {
+                bases.push(entry.name.clone());
+            }
+        }
+        let mut matches = Vec::new();
+        for base in bases {
+            let candidates = match self.search_name(&base)? {
+                NameSearch::Resolved(student) => vec![student],
+                NameSearch::Ambiguous(keys) => self.candidates_from_keys(&base, &keys),
+                NameSearch::NotFound => continue,
+            };
+            let options = self.candidate_options(&base, &candidates)?;
+            matches.extend(
+                options
+                    .into_iter()
+                    .filter(|(_, option)| option.value == name)
+                    .map(|(student, _)| student),
+            );
+        }
+        match matches.as_slice() {
+            [] => Err(Self::student_not_found()),
+            [only] => match class_hint {
+                Some(expected) if only.class_name.as_deref() != Some(expected) => {
                     Err(Self::student_not_found())
                 }
-            }
-            NameSearch::Ambiguous(keys) => self.disambiguate(name, keys, &full_hint),
-            NameSearch::NotFound => {
-                let Some((base, inline_hint)) = parse_disambiguated(name) else {
-                    return Err(Self::student_not_found());
-                };
-                match self.search_name(&base)? {
-                    NameSearch::Resolved(student) => {
-                        if self.hint_matches(&student, &inline_hint) {
-                            Ok(student)
-                        } else {
-                            Err(Self::student_not_found())
-                        }
-                    }
-                    NameSearch::Ambiguous(keys) => self.disambiguate(&base, keys, &inline_hint),
-                    NameSearch::NotFound => Err(Self::student_not_found()),
-                }
-            }
+                _ => Ok(only.clone()),
+            },
+            _ => Err(Self::ambiguous_unresolvable()),
         }
     }
 

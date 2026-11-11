@@ -764,6 +764,61 @@ mod minimal {
         }
     }
 
+    /// Bindings-only textbook port: two same-name students, one book each.
+    pub struct BindingsTextbookPort;
+    impl TextbookSectionPort for BindingsTextbookPort {
+        fn progress(
+            &mut self,
+            student: &TextbookStudent,
+            _max: usize,
+            _policy: FetchPolicy,
+        ) -> Result<TextbookResponse> {
+            let (label, course, book) = match student.student_key() {
+                "1030" => ("가우스 5-1-1", "102", "202"),
+                _ => ("가우스 6-1-1", "103", "203"),
+            };
+            let html = format!(
+                "<table><tr><td>가상</td><td>{label}</td><td><button onclick=\"createBookIncorrectPapers({course},{book},{})\">생성</button></td></tr></table>",
+                student.student_key()
+            );
+            Ok(TextbookResponse {
+                status: 200,
+                headers: vec![],
+                bytes: html.into_bytes(),
+                final_url: None,
+                redirected: false,
+                credentials_sent: true,
+                redirect_followed: false,
+            })
+        }
+        fn wrong_notes(
+            &mut self,
+            _student: &TextbookStudent,
+            _scope: &BookScope,
+            _max: usize,
+            _policy: FetchPolicy,
+        ) -> Result<TextbookResponse> {
+            Err(Error::refusal("minimal_textbook_unavailable"))
+        }
+        fn detail(
+            &mut self,
+            _student: &TextbookStudent,
+            _attempt_key: &str,
+            _max: usize,
+            _policy: FetchPolicy,
+        ) -> Result<TextbookResponse> {
+            Err(Error::refusal("minimal_textbook_unavailable"))
+        }
+        fn paper_search(
+            &mut self,
+            _student: &TextbookStudent,
+            _max: usize,
+            _policy: FetchPolicy,
+        ) -> Result<TextbookResponse> {
+            Err(Error::refusal("minimal_textbook_unavailable"))
+        }
+    }
+
     /// Every read fails, including the name search.
     pub struct FailingDayPort;
     impl SourcePort for FailingDayPort {
@@ -1171,4 +1226,183 @@ fn not_brought_is_keyed_by_resolved_student() {
         "{}",
         envelope.display
     );
+}
+
+// P8-S1b 5a: the answer is compared with the generated option strings, so
+// a class name containing ", " (and a parenthesis) still resolves.
+#[test]
+fn duplicate_names_in_comma_class_resolve_by_generated_option() {
+    let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    for (key, label, course, book) in [
+        ("1030", "가우스 5-1-1", "102", "202"),
+        ("1031", "가우스 6-1-1", "103", "203"),
+    ] {
+        value["students"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "name": "가상학생G", "key": key, "class_name": "가상반A, 1조 (월수)",
+                "bindings": [{"label": label, "course_key": course, "book_no": book}]
+            }));
+    }
+    let sc = load_scenario(&value.to_string()).unwrap();
+    let mut backend = SourceBackend::synthetic(sc.clone(), NOW);
+    let err = backend.resolve_student("가상학생G", None).unwrap_err();
+    let edu_academy_teacher::backend::BackendError::Ask(ask) = err else {
+        panic!("expected ask, got {err:?}");
+    };
+    let options: Vec<&str> = ask.options.iter().map(|o| o.value.as_str()).collect();
+    assert_eq!(
+        options,
+        [
+            "가상학생G (가상반A, 1조 (월수), 가우스 5-1-1)",
+            "가상학생G (가상반A, 1조 (월수), 가우스 6-1-1)"
+        ]
+    );
+    // One bindings read per same-class candidate.
+    assert_eq!(backend.source_reads(), 2);
+    let mut backend2 = SourceBackend::synthetic(sc, NOW);
+    let resolved = backend2
+        .resolve_student("가상학생G (가상반A, 1조 (월수), 가우스 6-1-1)", None)
+        .unwrap();
+    assert_eq!(resolved.key, "1031");
+    assert_eq!(resolved.name, "가상학생G");
+}
+
+// P8-S1b 5b: two candidates getting the same option string stop; a student
+// bound to two books whose classmate is bound to one of them collides on
+// the shared first book.
+#[test]
+fn two_books_same_class_duplicate_option_stops() {
+    let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    value["students"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "name": "가상학생H", "key": "1032", "class_name": "가상반A",
+            "bindings": [
+                {"label": "가우스 5-1-1", "course_key": "102", "book_no": "202"},
+                {"label": "가우스 5-1-2", "course_key": "101", "book_no": "201"}
+            ]
+        }));
+    value["students"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "name": "가상학생H", "key": "1033", "class_name": "가상반A",
+            "bindings": [{"label": "가우스 5-1-1", "course_key": "102", "book_no": "202"}]
+        }));
+    let sc = load_scenario(&value.to_string()).unwrap();
+    let seeded = SeededFacts::from_scenario(&sc);
+    let mut backend = SourceBackend::synthetic(sc, NOW);
+    let envelope =
+        edu_academy_teacher::prepare(&mut backend, &seeded, &req_student("가상학생H"), today());
+    assert_eq!(envelope.status, Status::Unavailable, "{}", envelope.display);
+    assert_eq!(
+        envelope.stop.as_ref().unwrap().code.as_str(),
+        "student_ambiguous_unresolvable"
+    );
+}
+
+// P8-S1b 5c: a backend built from three minimal ports (no synthetic book
+// table) tells same-class, same-name students apart by the bindings port.
+#[test]
+fn minimal_ports_tell_same_class_students_apart() {
+    let mut backend = SourceBackend::new(
+        minimal::EmptyDayPort,
+        minimal::FailingPrestudyPort,
+        minimal::BindingsTextbookPort,
+        vec![
+            entry("가상학생G", "1030", "가상반A"),
+            entry("가상학생G", "1031", "가상반A"),
+        ],
+        edu_academy_teacher::backend::BackendIdentity {
+            teacher_id: "9001".into(),
+            teacher_label: "가상교사".into(),
+            teacher_key: "99001".into(),
+            read_at: NOW.into(),
+        },
+    );
+    let err = backend.resolve_student("가상학생G", None).unwrap_err();
+    let edu_academy_teacher::backend::BackendError::Ask(ask) = err else {
+        panic!("expected ask, got {err:?}");
+    };
+    let options: Vec<&str> = ask.options.iter().map(|o| o.value.as_str()).collect();
+    assert_eq!(
+        options,
+        [
+            "가상학생G (가상반A, 가우스 5-1-1)",
+            "가상학생G (가상반A, 가우스 6-1-1)"
+        ]
+    );
+    assert_eq!(backend.source_reads(), 2);
+    let resolved = backend
+        .resolve_student("가상학생G (가상반A, 가우스 6-1-1)", None)
+        .unwrap();
+    assert_eq!(resolved.key, "1031");
+}
+
+#[test]
+fn misspelt_name_reads_no_bindings() {
+    let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    let mut duplicate = value["students"][0].clone();
+    duplicate["key"] = serde_json::json!("1099");
+    value["students"].as_array_mut().unwrap().push(duplicate);
+    let mut backend = SourceBackend::synthetic(load_scenario(&value.to_string()).unwrap(), NOW);
+    let err = backend.resolve_student("가상학생Typo", None).unwrap_err();
+    let edu_academy_teacher::backend::BackendError::Stop(stop) = err else {
+        panic!("{err:?}")
+    };
+    assert_eq!(stop.code, StopCode::StudentNotFound);
+    assert_eq!(backend.source_reads(), 0);
+}
+
+#[test]
+fn binding_order_does_not_change_option() {
+    fn options(reverse: bool) -> Vec<String> {
+        let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+        let first = serde_json::json!({"label":"가우스 5-1-1","course_key":"102","book_no":"202"});
+        let second = value["students"][0]["bindings"][0].clone();
+        value["students"][0]["bindings"] = if reverse {
+            serde_json::json!([second, first])
+        } else {
+            serde_json::json!([first, second])
+        };
+        let mut duplicate = value["students"][0].clone();
+        duplicate["key"] = serde_json::json!("1099");
+        duplicate["bindings"] =
+            serde_json::json!([{"label":"가우스 6-1-1","course_key":"103","book_no":"203"}]);
+        value["students"].as_array_mut().unwrap().push(duplicate);
+        let mut backend = SourceBackend::synthetic(load_scenario(&value.to_string()).unwrap(), NOW);
+        let err = backend.resolve_student("가상학생A", None).unwrap_err();
+        let edu_academy_teacher::backend::BackendError::Ask(ask) = err else {
+            panic!("{err:?}")
+        };
+        ask.options.into_iter().map(|o| o.value).collect()
+    }
+    assert_eq!(options(false), options(true));
+}
+
+#[test]
+fn option_matches_across_name_prefixes_stop() {
+    let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    for (key, name, class_name) in [
+        ("1098", "가상학생X", "가상반 (추가"),
+        ("1099", "가상학생X (가상반", "추가"),
+    ] {
+        value["students"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "name":name, "key":key, "class_name":class_name, "bindings":[]
+            }));
+    }
+    let mut backend = SourceBackend::synthetic(load_scenario(&value.to_string()).unwrap(), NOW);
+    let err = backend
+        .resolve_student("가상학생X (가상반 (추가)", None)
+        .unwrap_err();
+    let edu_academy_teacher::backend::BackendError::Stop(stop) = err else {
+        panic!("{err:?}")
+    };
+    assert_eq!(stop.code, StopCode::StudentAmbiguousUnresolvable);
 }
