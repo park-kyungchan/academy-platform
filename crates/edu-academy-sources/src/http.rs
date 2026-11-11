@@ -45,6 +45,22 @@ impl Response {
 pub trait Transport {
     fn dispatch(&mut self, request: &Request) -> Result<Response>;
 }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RosterStudent {
+    pub student_name: String,
+    pub student_key: String,
+    pub course_key: String,
+    pub record_key: String,
+    pub membership_key: String,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroupRoster {
+    pub date: String,
+    pub group_id: String,
+    pub teacher_key: String,
+    pub students: Vec<RosterStudent>,
+    pub coverage: String,
+}
 fn err(code: &str) -> Error {
     Error::error(code)
 }
@@ -835,6 +851,122 @@ impl<T: Transport> Client<T> {
             ("academyWrites", Js::Num(0.)),
             ("parentSends", Js::Num(0.)),
         ]))
+    }
+    /// Alias for `discover`: groups of one date, with no second request.
+    pub fn list_groups_of_date(&mut self, date: &str, now: &str) -> Result<Js> {
+        self.discover(
+            &obj(&[
+                ("teacherLabel", self.principal.get("teacherLabel").clone()),
+                ("date", date.into()),
+            ]),
+            now,
+        )
+    }
+    /// Roster of one group on one date: one `student.day.main` request, no
+    /// per-student `SelSglRecord` corroboration.
+    pub fn read_group_roster(&mut self, date: &str, group_id: &str) -> Result<GroupRoster> {
+        if !valid_date(&date.into()) {
+            return Err(err("real_calendar_date_required"));
+        }
+        literal_key(&group_id.into())?;
+        if !self.authenticated {
+            return Err(err("authentication_required"));
+        }
+        let html = self.read_request(
+            "POST",
+            MAIN,
+            vec![],
+            vec![
+                ("p_process".into(), "Main".into()),
+                ("std_ymd".into(), date.replace('-', "")),
+                ("grp_seq".into(), group_id.into()),
+            ],
+        )?;
+        let doc = Document::parse(&html);
+        if doc
+            .select("[name=std_date]")
+            .first()
+            .is_none_or(|e| dom::value(*e) != date)
+            || doc
+                .select("[name=grp_seq]")
+                .first()
+                .is_none_or(|e| dom::value(*e) != group_id)
+            || doc
+                .select("[name=teacher_pri_no]")
+                .first()
+                .is_none_or(|e| dom::value(*e) != string(self.principal.get("teacherKey")))
+        {
+            return Err(err("day_record_scope_conflict"));
+        }
+        let links = doc
+            .select("[onclick]")
+            .into_iter()
+            .filter(|e| {
+                e.value()
+                    .attr("onclick")
+                    .unwrap_or("")
+                    .contains("onOpenDaysMain")
+            })
+            .collect::<Vec<_>>();
+        if links.len() > 60 {
+            return Err(err("day_record_roster_rows_rejected"));
+        }
+        let teacher_key = string(self.principal.get("teacherKey"));
+        if links.is_empty() {
+            if doc
+                .select("table")
+                .iter()
+                .any(|t| validate_table_headers(*t).is_ok())
+            {
+                return Ok(GroupRoster {
+                    date: date.into(),
+                    group_id: group_id.into(),
+                    teacher_key,
+                    students: vec![],
+                    coverage:
+                        "scheduled_rows_of_group_on_date_not_enrolment_not_corroborated_by_selected_record"
+                            .into(),
+                });
+            }
+            return Err(err("day_record_column_contract_rejected"));
+        }
+        let mut students: Vec<RosterStudent> = vec![];
+        for link in links {
+            let student_name = string(&Js::Str(trim(&text(&dom::content(link))).to_vec()));
+            if student_name.is_empty() {
+                return Err(err("requested_row_binding_unresolved"));
+            }
+            let row = day_record_row(link)?;
+            validate_headers(row)?;
+            let (_fields, binding) = bind_row(&doc, row)?;
+            let student = RosterStudent {
+                student_name,
+                student_key: string(binding.get("stu_pri_no")),
+                course_key: string(binding.get("course_seq")),
+                record_key: string(binding.get("record_seq")),
+                membership_key: string(binding.get("cm_seq")),
+            };
+            if students.iter().any(|s| {
+                s.student_key == student.student_key || s.student_name == student.student_name
+            }) {
+                return Err(err("ambiguous_day_record_identity"));
+            }
+            students.push(student);
+        }
+        students.sort_by(|a, b| {
+            a.student_name
+                .cmp(&b.student_name)
+                .then_with(|| a.student_key.cmp(&b.student_key))
+        });
+        Ok(GroupRoster {
+            date: date.into(),
+            group_id: group_id.into(),
+            teacher_key,
+            students,
+            coverage:
+                "scheduled_rows_of_group_on_date_not_enrolment_not_corroborated_by_selected_record"
+                    .into(),
+        })
     }
     pub fn execute(&mut self, input: &Js, now: &str) -> Result<Js> {
         let request = plan(input)?;
@@ -1779,9 +1911,51 @@ pub fn wire_digest(wire: &Js) -> Result<String> {
     ]);
     Ok(hash(canonical(&projection).as_bytes()))
 }
+fn day_record_row(link: scraper::ElementRef<'_>) -> Result<scraper::ElementRef<'_>> {
+    let mut row = dom::closest(link, "tr");
+    while let Some(r) = row {
+        let controls = dom::select(r, "[onchange],[onfocusout],[onclick]");
+        if ["onAttn", "onFoPrg", "onFoHw", "onFoMm"].iter().all(|h| {
+            controls
+                .iter()
+                .filter(|e| {
+                    ["onchange", "onfocusout", "onclick"]
+                        .iter()
+                        .any(|k| e.value().attr(k).unwrap_or("").contains(&format!("{h}(")))
+                })
+                .count()
+                == 1
+        }) {
+            break;
+        }
+        row = dom::closest(r, "tr");
+    }
+    row.ok_or_else(|| err("requested_row_structure_unresolved"))
+}
 pub(crate) fn validate_headers(row: scraper::ElementRef<'_>) -> Result<()> {
     let table =
         dom::closest(row, "table").ok_or_else(|| err("day_record_column_contract_rejected"))?;
+    validate_table_headers(table)?;
+    let headers = dom::select(table, "thead > tr");
+    for r in headers.iter().skip(2).copied().chain(std::iter::once(row)) {
+        let cells = r
+            .children()
+            .filter_map(scraper::ElementRef::wrap)
+            .filter(|c| matches!(c.value().name(), "td" | "th"))
+            .collect::<Vec<_>>();
+        if cells.len() != 13
+            || cells.iter().any(|c| {
+                c.value().name() != "td"
+                    || c.value().attr("colspan").unwrap_or("1") != "1"
+                    || c.value().attr("rowspan").unwrap_or("1") != "1"
+            })
+        {
+            return Err(err("day_record_column_contract_rejected"));
+        }
+    }
+    Ok(())
+}
+fn validate_table_headers(table: scraper::ElementRef<'_>) -> Result<()> {
     let headers = dom::select(table, "thead > tr");
     let expected = [
         vec![
@@ -1837,22 +2011,6 @@ pub(crate) fn validate_headers(row: scraper::ElementRef<'_>) -> Result<()> {
             {
                 return Err(err("day_record_column_contract_rejected"));
             }
-        }
-    }
-    for r in headers.iter().skip(2).copied().chain(std::iter::once(row)) {
-        let cells = r
-            .children()
-            .filter_map(scraper::ElementRef::wrap)
-            .filter(|c| matches!(c.value().name(), "td" | "th"))
-            .collect::<Vec<_>>();
-        if cells.len() != 13
-            || cells.iter().any(|c| {
-                c.value().name() != "td"
-                    || c.value().attr("colspan").unwrap_or("1") != "1"
-                    || c.value().attr("rowspan").unwrap_or("1") != "1"
-            })
-        {
-            return Err(err("day_record_column_contract_rejected"));
         }
     }
     Ok(())
