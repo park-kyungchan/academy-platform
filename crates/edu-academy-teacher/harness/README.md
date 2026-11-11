@@ -1,10 +1,10 @@
-# Measurement harness (slice 1, packet B)
-`run.py Q01|Q02 <model>` runs one measured Claude run against the built binary only.
-It writes a per-run directory under a `mktemp -d` root holding `mcp.json`, `run-log.jsonl`, `answer.txt` and `claude.json`.
-The MCP configuration's only server is `edu-academy-teacher --scenario <abs> --today 2026-11-11 --run-log <run>/run-log.jsonl`.
-The request text goes to `claude --print` on stdin from a neutral empty working directory; no user configuration is edited.
-It prints one row: model, calls/target, codes, summed `args_bytes`, display-verbatim, `checks.json` results, wall time, tokens and cost.
-`checks.json` is the hand-encoded assertion set for Q01/Q02; the request TSV is not machine-parsed.
-A failed check is a measured result to report, not a reason to change the server, tool list or display in this packet.
-Binary override: `EDU_ACADEMY_TEACHER_BINARY`; Claude override for smoke tests: `CLAUDE_BIN`.
-Example: `python3 run.py Q01 haiku`
+# Measurement harness (slice 1 repair)
+`python3 run.py Q01|Q02 <model> --mode isolated|installed` runs exactly one session.
+Both modes use a per-run strict MCP config, an empty working directory, stream-json with verbose output, and no session persistence.
+`isolated` adds `--bare --setting-sources "" --tools "" --disable-slash-commands`: no user settings, hooks, plugins, auto-memory, CLAUDE.md discovery, built-in tools or skills/commands.
+`installed` loads the installed user settings and built-in tools as packet B did; no configuration is edited.
+Each temporary run directory holds mcp.json, run-log.jsonl, claude.jsonl, claude.stderr, answer.txt and measurement.json.
+Tool names/inputs, last received tool-result text, answer, usage and cost come only from the stream; argument bytes use compact UTF-8 JSON.
+`verbatim` compares whitespace-normalised text; `extra_chars` counts normalised answer characters outside its first complete display occurrence (all answer characters if none). Missing evidence is `unknown`.
+Answer date/forbidden-date/order/line checks use checks.json; failed measurements never justify changing the server, list or displays.
+Offline tests: `python3 -B -m unittest discover -s crates/edu-academy-teacher/harness`; overrides: EDU_ACADEMY_TEACHER_BINARY and CLAUDE_BIN.

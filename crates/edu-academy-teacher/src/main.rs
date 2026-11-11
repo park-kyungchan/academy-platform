@@ -7,7 +7,7 @@ use edu_academy_teacher::{
     facts::SeededFacts,
     lesson::PrepareRequest,
     load_scenario,
-    log::{self, CallLogEntry},
+    log::{CallLog, CallLogEntry},
     synthetic::{SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPort},
     tools::{self, Handler, tools_list_minified},
 };
@@ -17,6 +17,54 @@ use std::{
     path::PathBuf,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
+
+const MAX_MESSAGE_BYTES: usize = 1_048_576;
+
+enum Message {
+    Bytes(Vec<u8>),
+    TooLong,
+}
+
+// Bound allocation while consuming the entire line, including an oversized
+// tail. EOF may terminate the last message without a newline.
+fn read_message(input: &mut impl BufRead) -> std::io::Result<Option<Message>> {
+    let mut bytes = Vec::new();
+    let mut too_long = false;
+    let mut seen = false;
+    loop {
+        let chunk = input.fill_buf()?;
+        if chunk.is_empty() {
+            return Ok(if seen {
+                Some(if too_long {
+                    Message::TooLong
+                } else {
+                    Message::Bytes(bytes)
+                })
+            } else {
+                None
+            });
+        }
+        seen = true;
+        let newline = chunk.iter().position(|b| *b == b'\n');
+        let length = newline.unwrap_or(chunk.len());
+        if !too_long {
+            if length > MAX_MESSAGE_BYTES - bytes.len() {
+                too_long = true;
+                bytes.clear();
+            } else {
+                bytes.extend_from_slice(&chunk[..length]);
+            }
+        }
+        input.consume(length + usize::from(newline.is_some()));
+        if newline.is_some() {
+            return Ok(Some(if too_long {
+                Message::TooLong
+            } else {
+                Message::Bytes(bytes)
+            }));
+        }
+    }
+}
 
 const SUPPORTED_VERSIONS: &[&str] = &[
     "2025-11-25",
@@ -118,16 +166,18 @@ fn main() {
     let read_at = format!("{}T09:00:00+09:00", today.format("%Y-%m-%d"));
     let mut backend: Backend = SourceBackend::synthetic(scenario, &read_at);
 
+    let mut run_log = run_log.and_then(|path| CallLog::open(&path));
     let stdin = std::io::stdin();
+    let mut input = stdin.lock();
     let mut stdout = std::io::stdout().lock();
-    for line in stdin.lock().lines() {
-        let Ok(line) = line else { break };
-        if line.trim().is_empty() {
-            continue;
-        }
-        let request: Value = match serde_json::from_str(&line) {
-            Ok(value) => value,
-            Err(_) => {
+    while let Ok(Some(message)) = read_message(&mut input) {
+        let parsed = match message {
+            Message::Bytes(bytes) => serde_json::from_slice::<Value>(&bytes).ok(),
+            Message::TooLong => None,
+        };
+        let request: Value = match parsed {
+            Some(value) => value,
+            None => {
                 let response = json!({
                     "jsonrpc": "2.0",
                     "id": Value::Null,
@@ -139,6 +189,12 @@ fn main() {
             }
         };
         let Some(method) = request.get("method").and_then(Value::as_str) else {
+            if request.is_array() || request.get("id").is_some() {
+                let response = json!({"jsonrpc":"2.0", "id":request.get("id").cloned().unwrap_or(Value::Null),
+                    "error":{"code":-32600,"message":"Invalid Request"}});
+                let _ = writeln!(stdout, "{response}");
+                let _ = stdout.flush();
+            }
             continue;
         };
         let id = request.get("id").cloned();
@@ -208,10 +264,10 @@ fn main() {
                     Some(Handler::NotInSlice1) => Handler::NotInSlice1
                         .unavailable_envelope()
                         .unwrap_or_else(Envelope::unavailable_tool),
-                    None => Envelope::unavailable_tool(),
+                    None => Envelope::unknown_tool(),
                 };
                 let source_reads = backend.source_reads().saturating_sub(before_reads);
-                if let Some(path) = &run_log {
+                if let Some(log) = &mut run_log {
                     let code = if let Some(stop) = &envelope.stop {
                         Some(stop.code.as_str().to_string())
                     } else {
@@ -221,19 +277,19 @@ fn main() {
                             .map(|ask| format!("ask:{}", ask.field.as_str()))
                     };
                     // A log write failure never fails the call.
-                    let _ = log::append(
-                        path,
-                        &CallLogEntry {
-                            tool: name.clone(),
-                            args_bytes: args_text.len(),
-                            args_sha256: log::sha256_hex(args_text.as_bytes()),
-                            status: status_str(envelope.status).to_string(),
-                            code,
-                            display_bytes: envelope.display.len(),
-                            duration_ms: started.elapsed().as_millis(),
-                            source_reads,
+                    log.append(&CallLogEntry {
+                        tool: if tools::dispatch(&name).is_some() {
+                            name.clone()
+                        } else {
+                            "unknown".into()
                         },
-                    );
+                        args_bytes: args_text.len(),
+                        status: status_str(envelope.status).to_string(),
+                        code,
+                        display_bytes: envelope.display.len(),
+                        duration_ms: started.elapsed().as_millis(),
+                        source_reads,
+                    });
                 }
                 let structured = serde_json::to_value(&envelope).unwrap_or_else(|_| json!({}));
                 let response = json!({

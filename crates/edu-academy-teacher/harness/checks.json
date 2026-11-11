@@ -2,25 +2,57 @@
   "Q01": {
     "request_text": "가상학생A 오늘 수업 준비해줘",
     "target_calls": 1,
-    "tool_arguments": {"student": "가상학생A"},
-    "display_fixture": "../tests/fixtures/display-q01.txt",
-    "data_equals": {"students.0.previous_lesson.date": "2026-11-09"},
-    "answer_forbidden": ["2026-11-04", "11월 4일"],
+    "answer_forbidden": [
+      "2026-11-04",
+      "11월 4일"
+    ],
     "answer_order": [],
     "line_checks": [
-      {"contains": ["예습영상", "2-1"], "must_contain": ["대기"], "must_not_contain": ["확인 완료"]}
+      {
+        "contains": [
+          "예습영상",
+          "2-1"
+        ],
+        "must_contain": [
+          "대기"
+        ],
+        "must_not_contain": [
+          "확인 완료"
+        ]
+      }
+    ],
+    "answer_date_any": [
+      "11월 9일",
+      "2026-11-09"
     ]
   },
   "Q02": {
     "request_text": "가상반A 전체 오늘 체크리스트 줘",
     "target_calls": 1,
-    "tool_arguments": {"class_name": "가상반A"},
-    "display_fixture": "../tests/fixtures/display-q02.txt",
-    "data_equals": {},
     "answer_forbidden": [],
-    "answer_order": ["가상학생A", "가상학생B", "가상학생C"],
+    "answer_order": [
+      "가상학생A",
+      "가상학생B",
+      "가상학생C"
+    ],
     "line_checks": [
-      {"contains": ["가상학생B", "예습영상"], "must_contain": [], "must_not_contain": ["안 함", "하지 않", "안 올렸", "미제출"]}
+      {
+        "contains": [
+          "가상학생B",
+          "예습영상"
+        ],
+        "must_contain": [],
+        "must_not_contain": [
+          "안 함",
+          "하지 않",
+          "안 올렸",
+          "미제출"
+        ]
+      }
+    ],
+    "answer_date_any": [
+      "11월 9일",
+      "2026-11-09"
     ]
   }
 }

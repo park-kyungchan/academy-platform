@@ -264,7 +264,8 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
                 .count()
                 > 1;
             let value = if same_class {
-                let labels = self.read_book_labels(candidate)?;
+                let mut labels = self.read_book_labels(candidate)?;
+                labels.sort();
                 let book_label = labels.first().map_or("", String::as_str);
                 format!("{base} ({class_name}, {book_label})")
             } else {
@@ -350,39 +351,39 @@ impl<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort> SourceBackend<D, P,
         // generates for the candidates of each known name.
         let mut bases: Vec<String> = Vec::new();
         for entry in &self.directory {
-            if !bases.contains(&entry.name) {
+            if name
+                .strip_prefix(&entry.name)
+                .is_some_and(|tail| tail.starts_with(" ("))
+                && !bases.contains(&entry.name)
+            {
                 bases.push(entry.name.clone());
             }
         }
+        let mut matches = Vec::new();
         for base in bases {
-            if base == name {
-                continue;
-            }
             let candidates = match self.search_name(&base)? {
                 NameSearch::Resolved(student) => vec![student],
                 NameSearch::Ambiguous(keys) => self.candidates_from_keys(&base, &keys),
                 NameSearch::NotFound => continue,
             };
             let options = self.candidate_options(&base, &candidates)?;
-            let matched: Vec<&ResolvedStudent> = options
-                .iter()
-                .filter(|(_, option)| option.value == name)
-                .map(|(student, _)| student)
-                .collect();
-            match matched.as_slice() {
-                [] => continue,
-                [only] => {
-                    return match class_hint {
-                        Some(expected) if only.class_name.as_deref() != Some(expected) => {
-                            Err(Self::student_not_found())
-                        }
-                        _ => Ok((*only).clone()),
-                    };
-                }
-                _ => return Err(Self::ambiguous_unresolvable()),
-            }
+            matches.extend(
+                options
+                    .into_iter()
+                    .filter(|(_, option)| option.value == name)
+                    .map(|(student, _)| student),
+            );
         }
-        Err(Self::student_not_found())
+        match matches.as_slice() {
+            [] => Err(Self::student_not_found()),
+            [only] => match class_hint {
+                Some(expected) if only.class_name.as_deref() != Some(expected) => {
+                    Err(Self::student_not_found())
+                }
+                _ => Ok(only.clone()),
+            },
+            _ => Err(Self::ambiguous_unresolvable()),
+        }
     }
 
     pub fn read_record(

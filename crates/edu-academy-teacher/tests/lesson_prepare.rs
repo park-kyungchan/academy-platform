@@ -1341,3 +1341,68 @@ fn minimal_ports_tell_same_class_students_apart() {
         .unwrap();
     assert_eq!(resolved.key, "1031");
 }
+
+#[test]
+fn misspelt_name_reads_no_bindings() {
+    let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    let mut duplicate = value["students"][0].clone();
+    duplicate["key"] = serde_json::json!("1099");
+    value["students"].as_array_mut().unwrap().push(duplicate);
+    let mut backend = SourceBackend::synthetic(load_scenario(&value.to_string()).unwrap(), NOW);
+    let err = backend.resolve_student("가상학생Typo", None).unwrap_err();
+    let edu_academy_teacher::backend::BackendError::Stop(stop) = err else {
+        panic!("{err:?}")
+    };
+    assert_eq!(stop.code, StopCode::StudentNotFound);
+    assert_eq!(backend.source_reads(), 0);
+}
+
+#[test]
+fn binding_order_does_not_change_option() {
+    fn options(reverse: bool) -> Vec<String> {
+        let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+        let first = serde_json::json!({"label":"가우스 5-1-1","course_key":"102","book_no":"202"});
+        let second = value["students"][0]["bindings"][0].clone();
+        value["students"][0]["bindings"] = if reverse {
+            serde_json::json!([second, first])
+        } else {
+            serde_json::json!([first, second])
+        };
+        let mut duplicate = value["students"][0].clone();
+        duplicate["key"] = serde_json::json!("1099");
+        duplicate["bindings"] =
+            serde_json::json!([{"label":"가우스 6-1-1","course_key":"103","book_no":"203"}]);
+        value["students"].as_array_mut().unwrap().push(duplicate);
+        let mut backend = SourceBackend::synthetic(load_scenario(&value.to_string()).unwrap(), NOW);
+        let err = backend.resolve_student("가상학생A", None).unwrap_err();
+        let edu_academy_teacher::backend::BackendError::Ask(ask) = err else {
+            panic!("{err:?}")
+        };
+        ask.options.into_iter().map(|o| o.value).collect()
+    }
+    assert_eq!(options(false), options(true));
+}
+
+#[test]
+fn option_matches_across_name_prefixes_stop() {
+    let mut value: serde_json::Value = serde_json::from_str(SCENARIO).unwrap();
+    for (key, name, class_name) in [
+        ("1098", "가상학생X", "가상반 (추가"),
+        ("1099", "가상학생X (가상반", "추가"),
+    ] {
+        value["students"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "name":name, "key":key, "class_name":class_name, "bindings":[]
+            }));
+    }
+    let mut backend = SourceBackend::synthetic(load_scenario(&value.to_string()).unwrap(), NOW);
+    let err = backend
+        .resolve_student("가상학생X (가상반 (추가)", None)
+        .unwrap_err();
+    let edu_academy_teacher::backend::BackendError::Stop(stop) = err else {
+        panic!("{err:?}")
+    };
+    assert_eq!(stop.code, StopCode::StudentAmbiguousUnresolvable);
+}

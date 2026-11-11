@@ -1,9 +1,14 @@
 //! Stdio protocol test: drive the built binary one line at a time.
 use serde_json::{Value, json};
 use std::{
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, Read, Write},
     path::PathBuf,
-    process::{Child, ChildStdin, ChildStdout, Command, Stdio},
+    process::{Child, ChildStdin, Command, Stdio},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        mpsc::{self, Receiver},
+    },
+    time::Duration,
 };
 
 const DISPLAY_Q01: &str = include_str!("fixtures/display-q01.txt");
@@ -13,20 +18,33 @@ const TOOLS_FIXTURE: &[u8] = include_bytes!("fixtures/tools-list.json");
 struct Server {
     child: Child,
     stdin: ChildStdin,
-    stdout: BufReader<ChildStdout>,
+    stdout: Receiver<String>,
     run_log: PathBuf,
     dir: PathBuf,
 }
 
 impl Server {
     fn start() -> Self {
+        Self::start_with_log(None)
+    }
+    fn start_with_log(kind: Option<&str>) -> Self {
+        static NEXT: AtomicUsize = AtomicUsize::new(0);
         let dir = std::env::temp_dir().join(format!(
-            "edu-academy-teacher-protocol-{}",
-            std::process::id()
+            "edu-academy-teacher-protocol-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let run_log = dir.join("run-log.jsonl");
+        if kind == Some("existing") {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::write(&run_log, "").unwrap();
+            std::fs::set_permissions(&run_log, std::fs::Permissions::from_mode(0o644)).unwrap();
+        } else if kind == Some("symlink") {
+            std::fs::write(dir.join("target"), "retained").unwrap();
+            std::os::unix::fs::symlink(dir.join("target"), &run_log).unwrap();
+        }
         let scenario =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/scenario-v1.json");
         let mut child = Command::new(env!("CARGO_BIN_EXE_edu-academy-teacher"))
@@ -40,10 +58,23 @@ impl Server {
             ])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
             .unwrap();
         let stdin = child.stdin.take().unwrap();
-        let stdout = BufReader::new(child.stdout.take().unwrap());
+        let mut reader = BufReader::new(child.stdout.take().unwrap());
+        let (tx, stdout) = mpsc::channel();
+        std::thread::spawn(move || {
+            loop {
+                let mut line = String::new();
+                if reader.read_line(&mut line).unwrap() == 0 {
+                    break;
+                }
+                if tx.send(line).is_err() {
+                    break;
+                }
+            }
+        });
         Self {
             child,
             stdin,
@@ -55,8 +86,10 @@ impl Server {
     fn send(&mut self, raw: &str) -> String {
         writeln!(self.stdin, "{raw}").unwrap();
         self.stdin.flush().unwrap();
-        let mut line = String::new();
-        self.stdout.read_line(&mut line).unwrap();
+        let line = self
+            .stdout
+            .recv_timeout(Duration::from_secs(10))
+            .expect("reply within 10 seconds");
         assert!(!line.is_empty(), "server closed without a reply");
         line
     }
@@ -92,6 +125,18 @@ fn stdio_protocol_end_to_end() {
 
     // A notification gets no reply; the next request still works (checked
     // by every later call in this test).
+
+    writeln!(
+        server.stdin,
+        "{}",
+        json!({"jsonrpc":"2.0", "method":"notifications/initialized"})
+    )
+    .unwrap();
+    server.stdin.flush().unwrap();
+    assert!(matches!(
+        server.stdout.recv_timeout(Duration::from_millis(200)),
+        Err(mpsc::RecvTimeoutError::Timeout)
+    ));
 
     // tools/list equals the fixture bytes.
     let raw = server.send(
@@ -140,12 +185,17 @@ fn stdio_protocol_end_to_end() {
     // An unknown tool name returns the catalogue's refusal, not a crash.
     let unknown = server.call(json!({
         "jsonrpc": "2.0", "id": 6, "method": "tools/call",
-        "params": {"name": "academy_no_such_tool", "arguments": {}}
+        "params": {"name": "가상학생UnknownTool", "arguments": {}}
     }));
     assert_eq!(unknown["result"]["isError"], false);
     assert_eq!(
         unknown["result"]["structuredContent"]["stop"]["code"],
-        "tool_not_in_slice_1"
+        "unknown_tool"
+    );
+
+    assert_eq!(
+        unknown["result"]["content"][0]["text"],
+        "그런 이름의 도구는 없습니다. 쓸 수 있는 도구: academy_lesson_prepare"
     );
 
     // A malformed line gets -32700 and the next valid request still works.
@@ -173,7 +223,6 @@ fn stdio_protocol_end_to_end() {
     assert!(!log_text.contains("가상학생A"), "{log_text}");
     let expected_keys = [
         "args_bytes",
-        "args_sha256",
         "code",
         "display_bytes",
         "duration_ms",
@@ -198,6 +247,8 @@ fn stdio_protocol_end_to_end() {
     assert_eq!(first["status"], "ok");
     assert_eq!(first["code"], Value::Null);
     assert_eq!(first["source_reads"], 4);
+    let fourth: Value = serde_json::from_str(lines[3]).unwrap();
+    assert_eq!(fourth["tool"], "unknown");
     let third: Value = serde_json::from_str(lines[2]).unwrap();
     assert_eq!(third["code"], "tool_not_in_slice_1");
     #[cfg(unix)]
@@ -220,4 +271,109 @@ fn missing_scenario_argument_exits_2() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_eq!(stderr.lines().count(), 1, "{stderr}");
     assert!(stderr.contains("--scenario"), "{stderr}");
+}
+
+fn assert_invalid_recovers(raw: &[u8], code: i32) {
+    let mut server = Server::start();
+    server.stdin.write_all(raw).unwrap();
+    server.stdin.flush().unwrap();
+    let line = server
+        .stdout
+        .recv_timeout(Duration::from_secs(10))
+        .expect("error within 10 seconds");
+    let reply: Value = serde_json::from_str(&line).unwrap();
+    assert_eq!(reply["error"]["code"], code);
+    if code == -32700 {
+        assert!(reply["id"].is_null());
+    }
+    let ping = server.call(json!({"id":10,"method":"ping"}));
+    assert_eq!(ping["id"], 10);
+    assert_eq!(ping["result"], json!({}));
+}
+
+#[test]
+fn invalid_utf8_recovers() {
+    assert_invalid_recovers(b"\xff\n", -32700);
+}
+#[test]
+fn invalid_json_recovers() {
+    assert_invalid_recovers(b"{broken\n", -32700);
+}
+#[test]
+fn oversized_line_recovers() {
+    let mut raw = vec![b'x'; 1_048_577];
+    raw.extend_from_slice(b"{\"id\":99,\"method\":\"ping\"}\n");
+    assert_invalid_recovers(&raw, -32700);
+}
+#[test]
+fn batch_recovers() {
+    assert_invalid_recovers(b"[]\n", -32600);
+}
+#[test]
+fn missing_method_recovers() {
+    assert_invalid_recovers(b"{\"id\":9}\n", -32600);
+}
+#[test]
+fn nonstring_method_recovers() {
+    assert_invalid_recovers(b"{\"id\":9,\"method\":3}\n", -32600);
+}
+#[test]
+fn exact_message_limit_is_accepted() {
+    let mut server = Server::start();
+    let mut raw = b"{\"id\":1,\"method\":\"ping\"}".to_vec();
+    raw.resize(1_048_576, b' ');
+    raw.push(b'\n');
+    server.stdin.write_all(&raw).unwrap();
+    server.stdin.flush().unwrap();
+    let line = server
+        .stdout
+        .recv_timeout(Duration::from_secs(10))
+        .expect("reply within 10 seconds");
+    assert_eq!(
+        serde_json::from_str::<Value>(&line).unwrap()["result"],
+        json!({})
+    );
+}
+
+#[test]
+fn existing_log_becomes_0600() {
+    use std::os::unix::fs::PermissionsExt;
+    let mut server = Server::start_with_log(Some("existing"));
+    server.call(json!({"id":1,"method":"tools/call","params":{"name":"academy_help"}}));
+    assert_eq!(
+        std::fs::metadata(&server.run_log)
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
+}
+
+#[test]
+fn symlink_log_is_not_followed() {
+    let mut server = Server::start_with_log(Some("symlink"));
+    for id in 1..=2 {
+        let reply =
+            server.call(json!({"id":id,"method":"tools/call","params":{"name":"academy_help"}}));
+        assert_eq!(reply["result"]["isError"], false);
+    }
+    assert_eq!(
+        std::fs::read_to_string(server.dir.join("target")).unwrap(),
+        "retained"
+    );
+    server.child.kill().unwrap();
+    server.child.wait().unwrap();
+    let mut stderr = String::new();
+    server
+        .child
+        .stderr
+        .take()
+        .unwrap()
+        .read_to_string(&mut stderr)
+        .unwrap();
+    assert_eq!(
+        stderr.lines().collect::<Vec<_>>(),
+        ["call_log_disabled: cannot securely open log"]
+    );
 }
