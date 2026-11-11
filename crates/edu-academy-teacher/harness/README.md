@@ -29,7 +29,7 @@ Q03 labels and academy_calls_before_answer: show all three class choices and wai
 
 `shown_unchanged` reports complete whitespace-normalised delivered-text inclusion; missing/malformed evidence is unknown (stored legacy alias: `verbatim`).
 `facts_kept` follows M21: one-to-one complete row values with multiplicity and the same part, student heading and table header; reordered rows in the same context may pass.
-Every whole line under `미확인 사항` and `다음 확인` must remain; unmatched rows/fields or lines under these parts fail; source footer/closing loss is counted separately and may pass.
+Every whole line under `미확인 사항` and `다음 확인` must remain; unmatched rows/fields or lines under these parts fail; `source_footer`/`closing_statement` count kept/total separately and may show loss without failing facts.
 At most one commentary line outside factual parts may be added, and it must contain no declared word-table state label; title context must remain.
 Presentation normalization: surrounding whitespace, ASCII/full-width bars, ` / ` versus a literal cell line break, and an outer Markdown fence; internal value edits or inline field markup are not removed.
 Structure comes from delivered reference headers/headings, including other column counts and tableless whole-line facts; unsupported/ambiguous structure or policy yields unknown, which never accepts a slice.

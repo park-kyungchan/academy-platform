@@ -241,6 +241,9 @@ def score_stream(raw, spec, allowed_tools, hook_events_requested=False, mode="is
     result["shown_unchanged"] = result["verbatim"]
     result.update(fidelity.evaluate(result["display"], result["answer"], spec.get("fidelity_policy"))
                   if not malformed else {"facts_kept": "unknown"})
+    retained = result.get("fidelity", {}).get("nonrows", {})
+    result["source_footer"] = retained.get("sources", "unknown")
+    result["closing_statement"] = retained.get("closing", "unknown")
     result["malformed_stream_lines"] = malformed
     result["isolation"] = isolation(events, allowed_tools, malformed, hook_events_requested, mode)
     result["delivery"] = "unknown" if malformed else delivery(result["calls"], call_log)
@@ -309,7 +312,7 @@ def main():
     proof = result["isolation"]
     isolation_text = proof["status"] + (":" + ",".join(proof["reasons"]) if proof["reasons"] else "")
     print(f"{args.mode} | {args.request} | {args.model} | calls={result['call_count']}/{spec['target_calls']} | "
-          f"args_bytes={result['args_bytes']} | received_text_bytes={result['received_text_bytes']} | delivery={result['delivery']} | isolation={isolation_text} | received_form={result['received_form']} | shown_unchanged={result['shown_unchanged']} | facts_kept={result['facts_kept']} | extra_chars={result['extra_chars']} | "
+          f"args_bytes={result['args_bytes']} | received_text_bytes={result['received_text_bytes']} | delivery={result['delivery']} | isolation={isolation_text} | received_form={result['received_form']} | shown_unchanged={result['shown_unchanged']} | facts_kept={result['facts_kept']} | source_footer={result['source_footer']} | closing_statement={result['closing_statement']} | extra_chars={result['extra_chars']} | "
           f"checks={';'.join(f'{k}={v}' for k, v in result['checks'].items())} | wall_s={wall:.1f} | "
           f"tokens={tokens} | cost_usd={result['cost_usd']} | exit={exit_code} | run_dir={run}")
     if args.mode == "isolated" and "first_request_tokens_not_under_6000" in proof["reasons"]:

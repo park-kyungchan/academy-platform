@@ -276,12 +276,14 @@ class HarnessTests(unittest.TestCase):
         live = run.score_stream(raw, spec, [])
         self.assertEqual(live['shown_unchanged'], 'FAIL')
         self.assertEqual(live['facts_kept'], 'pass')
+        self.assertEqual(live['source_footer'], {'total':1,'kept':0})
+        self.assertEqual(live['closing_statement'], {'total':1,'kept':1})
         with tempfile.TemporaryDirectory(prefix='teacher-fidelity-test-') as directory:
             path = Path(directory)
             (path / 'measurement.json').write_text(json.dumps({'mode':'installed', 'request':'Q01', 'model':'haiku'}))
             (path / 'claude.jsonl').write_text(raw)
             offline = rescore.score_saved(path)
-        for key in ('shown_unchanged', 'facts_kept'):
+        for key in ('shown_unchanged', 'facts_kept', 'source_footer', 'closing_statement'):
             self.assertEqual(offline[key], live[key])
         for malformed in ('not json\n' + raw, ''):
             scored = run.score_stream(malformed, spec, [])
@@ -302,7 +304,7 @@ class HarnessTests(unittest.TestCase):
             (path / "measurement.json").write_text(metadata)
             (path / "claude.jsonl").write_text(stream)
             row = rescore.score_saved(path)
-            self.assertEqual(set(row), {"mode","request","model","received_form","shown_unchanged","facts_kept","failed_rules","extra_chars","isolation","delivery"})
+            self.assertEqual(set(row), {"mode","request","model","received_form","shown_unchanged","facts_kept","source_footer","closing_statement","failed_rules","extra_chars","isolation","delivery"})
             self.assertEqual(row["received_form"], "envelope")
             self.assertEqual(row["shown_unchanged"], "pass")
             self.assertEqual(row["extra_chars"], 0)
