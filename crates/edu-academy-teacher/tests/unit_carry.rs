@@ -215,3 +215,19 @@ fn m23h_source_time_and_date_slots_are_structurally_encoded() {
     assert!(render::display_lint(&display).is_ok(), "{}", display);
     assert_eq!(l::date("x|y\nz"), "x｜y / z");
 }
+
+#[test]
+fn other_book_only_prestudy_minor_stays_unknown() {
+    use edu_academy_teacher::synthetic::PrestudyRow;
+    let mut c = Case::new(1);
+    c.scope(1, "예습");
+    c.scenario.prestudy.waiting.clear();
+    c.scenario.prestudy.completed = vec![PrestudyRow {
+        student: NAMES[0].into(), unit_label: "가우스 5-1-2 1-1".into(),
+        date: "2026-11-10".into(), key: "77001".into(),
+    }];
+    let out = c.run();
+    assert!(out.ask.is_none() && out.stop.is_none());
+    assert_eq!(out.data["prestudy"][0]["verdict"], "unknown");
+    assert!(!out.display.contains("읽은 기간에 없음"));
+}
