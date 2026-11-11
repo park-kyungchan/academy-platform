@@ -298,3 +298,6 @@ pub fn omitted_reminders(student: &str) -> String {
         "{student}의 알림부터 생략했습니다: 표시 한도(60줄·6,000바이트)를 넘어 알림 행 경계에서 중단했습니다."
     )
 }
+
+pub const VALUE_BAR: &str = "｜";
+pub const VALUE_BREAK: &str = " / ";

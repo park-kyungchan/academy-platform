@@ -210,11 +210,12 @@ fn verdict_labels_are_the_single_table() {
 }
 
 #[test]
-fn display_lint_accepts_fixtures_and_rejects_codes() {
+fn structural_lint_and_server_vocabulary_are_separate() {
     display_lint(DISPLAY_Q01).unwrap();
     display_lint(DISPLAY_Q02).unwrap();
-    assert!(display_lint("섹션: not_observed").is_err());
-    assert!(display_lint("hello world test").is_err());
+    assert!(edu_academy_teacher::render::vocabulary_lint("섹션: not_observed").is_err());
+    assert!(edu_academy_teacher::render::vocabulary_lint("hello world test").is_err());
+    display_lint("DailyTest 확인").unwrap();
     display_lint("진도: 가우스 5-1-2 1-2 유형다지기").unwrap();
 }
 
@@ -269,5 +270,31 @@ fn display_lint_checks_closing_heading_order_and_six_fields() {
         assert!(display_lint(&reversed).is_err());
         assert!(display_lint(&text.replacen("가상학생D | 오늘", "가상학생D 오늘", 1)).is_err());
         assert!(display_lint(&text.replacen(" | ", " / ", 1)).is_err());
+    }
+}
+
+#[test]
+fn server_owned_vocabulary_and_templates_do_not_leak_codes() {
+    use edu_academy_teacher::{display_labels as l, render::vocabulary_lint};
+    let source = include_str!("../src/display_labels.rs");
+    let constants =
+        regex::Regex::new(r#"(?s)pub const [A-Z_]+: &str =\s*"((?:\\.|[^"\\])*)""#).unwrap();
+    let templates = regex::Regex::new(r#"(?s)format!\(\s*"((?:\\.|[^"\\])*)""#).unwrap();
+    let slots = regex::Regex::new(r"\{[^}]*\}").unwrap();
+    let mut checked = 0;
+    for capture in constants
+        .captures_iter(source)
+        .chain(templates.captures_iter(source))
+    {
+        let text = slots.replace_all(&capture[1], "");
+        vocabulary_lint(&text).unwrap();
+        checked += 1;
+    }
+    assert!(checked > 90);
+    for label in l::PARTS.into_iter().chain(l::UNITS) {
+        vocabulary_lint(label).unwrap();
+    }
+    for verdict in Verdict::ALL {
+        vocabulary_lint(verdict.label_ko()).unwrap();
     }
 }

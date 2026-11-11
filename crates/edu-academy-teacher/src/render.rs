@@ -96,13 +96,12 @@ impl<'de> serde::Deserialize<'de> for Verdict {
     }
 }
 
-/// Reversible display-cell encoding: escape backslashes first, then controls and pipes.
+/// Teacher-facing structural encoding; original values remain in envelope data.
 pub fn cell(value: &str) -> String {
     value
-        .replace('\\', "\\\\")
-        .replace('|', "\\u007C")
-        .replace('\r', "\\r")
-        .replace('\n', "\\n")
+        .replace('|', l::VALUE_BAR)
+        .replace("\r\n", l::VALUE_BREAK)
+        .replace(['\r', '\n'], l::VALUE_BREAK)
 }
 fn row(fields: [&str; 6]) -> String {
     fields.map(cell).join(" | ")
@@ -271,50 +270,49 @@ fn student_rows(data: &LessonData, student: &StudentLesson) -> Vec<String> {
             ]));
         }
     }
-    for video in student.checks.iter().filter(|c| c.kind == "prestudy") {
-        let scope = format!("{} {} {}", video.book, video.scope, l::VIDEO);
-        let (state, source, next) = match video.verdict {
-            Verdict::Waiting => (l::WAITING, l::VIDEO_WAIT, l::VIDEO_NEXT),
-            Verdict::Completed => (l::SERVER, l::VIDEO_DONE, l::NOTE_NEXT),
-            Verdict::NotObserved => (l::MISSING_VIDEO, l::VIDEO_BOTH, l::VIDEO_NEXT),
-            other => (other.label_ko(), l::VIDEO_BOTH, l::VIDEO_NEXT),
-        };
-        let source = video
-            .observed_on
-            .as_deref()
-            .map_or(source.to_string(), |d| evidence(source, d));
-        out.push(row([who, &scope, l::VIDEO_CHECK, state, &source, next]));
-        if video.book.starts_with(l::GAUSS) {
-            let assignment = assignments
-                .iter()
-                .find(|a| a.book == video.book && a.unit == video.scope && a.assigned_on == cutoff);
-            let check = assignment.and_then(|a| {
-                facts
-                    .iter()
-                    .copied()
-                    .filter(|r| r.kind == "prestudy_notebook_check" && applies(r, a, &assignments))
-                    .max_by_key(|r| &r.reported_on)
-            });
-            let scope = format!("{} {} {}", video.book, video.scope, l::PRESTUDY_NOTE);
-            let source = check.map_or_else(
-                || evidence(l::ASSIGNMENT, cutoff),
-                |r| evidence(l::FACTS, &r.reported_on),
-            );
-            out.push(row([
-                who,
-                &scope,
-                l::PRESTUDY_CHECK,
-                &report_state(check),
-                &source,
-                l::CONCEPT_NEXT,
-            ]));
-        }
-        // Keep one complete minor block together in record order.
-        for check in student.checks.iter().filter(|c| {
-            c.kind == "section"
-                && c.book == video.book
-                && c.scope.starts_with(&format!("{} ", video.scope))
-        }) {
+    for check in &student.checks {
+        if check.kind == "prestudy" {
+            let video = check;
+            let scope = format!("{} {} {}", video.book, video.scope, l::VIDEO);
+            let (state, source, next) = match video.verdict {
+                Verdict::Waiting => (l::WAITING, l::VIDEO_WAIT, l::VIDEO_NEXT),
+                Verdict::Completed => (l::SERVER, l::VIDEO_DONE, l::NOTE_NEXT),
+                Verdict::NotObserved => (l::MISSING_VIDEO, l::VIDEO_BOTH, l::VIDEO_NEXT),
+                other => (other.label_ko(), l::VIDEO_BOTH, l::VIDEO_NEXT),
+            };
+            let source = video
+                .observed_on
+                .as_deref()
+                .map_or(source.to_string(), |d| evidence(source, d));
+            out.push(row([who, &scope, l::VIDEO_CHECK, state, &source, next]));
+            if video.book.starts_with(l::GAUSS) {
+                let assignment = assignments.iter().find(|a| {
+                    a.book == video.book && a.unit == video.scope && a.assigned_on == cutoff
+                });
+                let check = assignment.and_then(|a| {
+                    facts
+                        .iter()
+                        .copied()
+                        .filter(|r| {
+                            r.kind == "prestudy_notebook_check" && applies(r, a, &assignments)
+                        })
+                        .max_by_key(|r| &r.reported_on)
+                });
+                let scope = format!("{} {} {}", video.book, video.scope, l::PRESTUDY_NOTE);
+                let source = check.map_or_else(
+                    || evidence(l::ASSIGNMENT, cutoff),
+                    |r| evidence(l::FACTS, &r.reported_on),
+                );
+                out.push(row([
+                    who,
+                    &scope,
+                    l::PRESTUDY_CHECK,
+                    &report_state(check),
+                    &source,
+                    l::CONCEPT_NEXT,
+                ]));
+            }
+        } else if check.kind == "section" {
             let scope = format!("{} {}", check.book, check.scope);
             let state = if check.verdict == Verdict::NotObserved {
                 l::MISSING_TITLE.to_string()
@@ -473,6 +471,37 @@ fn stamp(at: &str) -> String {
     let at = local.as_deref().unwrap_or(at);
     format!("{} {}", l::date(at), time(at))
 }
+fn check_scopes(data: &LessonData, kind: &str) -> String {
+    let mut scopes = Vec::new();
+    for student in &data.students {
+        for check in student.checks.iter().filter(|c| c.kind == kind) {
+            let minor = check.scope.split_whitespace().next().unwrap_or("");
+            let same_video = student
+                .checks
+                .iter()
+                .any(|v| v.kind == "prestudy" && v.book == check.book && v.scope == minor);
+            let scope = if kind == "prestudy" || same_video {
+                format!("{} {}", student.student, minor)
+            } else {
+                format!("{} {} {}", student.student, check.book, minor)
+            };
+            if !scopes.contains(&scope) {
+                scopes.push(scope);
+            }
+        }
+    }
+    scopes.join("·")
+}
+fn not_found_scope(student: &StudentLesson) -> String {
+    let mut dates = student.searched_dates.clone();
+    dates.sort();
+    format!(
+        "{} {}: {}",
+        student.student,
+        l::search_dates(&dates),
+        l::NO_RECORD
+    )
+}
 fn footer(data: &LessonData, coverage: &Coverage) -> Vec<String> {
     let class = data.class_name.as_deref();
     let names = data
@@ -523,17 +552,16 @@ fn footer(data: &LessonData, coverage: &Coverage) -> Vec<String> {
                 "registration",
                 format!("{}({} {})", l::STUDENT_INFO, names.join("·"), l::BELONGS),
             ));
-            let student = &data.students[0];
-            let mut dates = student.searched_dates.clone();
-            dates.sort();
             groups.push((
                 "daily_record",
                 format!(
-                    "{}({} {}: {})",
+                    "{}({})",
                     l::RECORDS,
-                    student.student,
-                    l::search_dates(&dates),
-                    l::NO_RECORD
+                    data.students
+                        .iter()
+                        .map(not_found_scope)
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 ),
             ));
         } else {
@@ -555,11 +583,17 @@ fn footer(data: &LessonData, coverage: &Coverage) -> Vec<String> {
                     l::DATE_RESOLUTION,
                     l::date(date),
                     l::ASSIGNMENT_READ,
-                    data.students[0]
-                        .previous_lesson
-                        .as_ref()
-                        .map(|p| l::date(&p.date))
-                        .unwrap_or_default()
+                    data.students
+                        .iter()
+                        .filter_map(|s| s.previous_lesson.as_ref().map(|p| {
+                            if data.students.len() == 1 {
+                                l::date(&p.date)
+                            } else {
+                                format!("{} {}", s.student, l::date(&p.date))
+                            }
+                        }))
+                        .collect::<Vec<_>>()
+                        .join("·")
                 )
             } else if class.is_some() {
                 let dates = data
@@ -567,7 +601,10 @@ fn footer(data: &LessonData, coverage: &Coverage) -> Vec<String> {
                     .iter()
                     .filter_map(|s| s.previous_lesson.as_ref().map(|p| p.date.clone()))
                     .collect::<Vec<_>>();
-                if dates.windows(2).all(|p| p[0] == p[1]) {
+                if dates.len() == data.students.len()
+                    && !dates.is_empty()
+                    && dates.windows(2).all(|p| p[0] == p[1])
+                {
                     format!(
                         "{} {}",
                         l::EACH_STUDENT,
@@ -596,17 +633,7 @@ fn footer(data: &LessonData, coverage: &Coverage) -> Vec<String> {
                 )
             };
             groups.push(("daily_record", format!("{}({record_scope})", l::RECORDS)));
-            let scopes = data
-                .students
-                .iter()
-                .filter_map(|s| {
-                    s.checks
-                        .iter()
-                        .find(|c| c.kind == "prestudy")
-                        .map(|c| format!("{} {}", s.student, c.scope))
-                })
-                .collect::<Vec<_>>()
-                .join("·");
+            let scopes = check_scopes(data, "prestudy");
             if !scopes.is_empty() {
                 let lists = if class.is_some() {
                     l::BOTH_LISTS
@@ -614,6 +641,9 @@ fn footer(data: &LessonData, coverage: &Coverage) -> Vec<String> {
                     l::BOTH_LISTS_SINGLE
                 };
                 groups.push(("prestudy", format!("{}({scopes}·{lists})", l::VIDEO)));
+            }
+            let scopes = check_scopes(data, "section");
+            if !scopes.is_empty() {
                 let grade_state = if data.students.iter().any(|s| {
                     s.checks
                         .iter()
@@ -680,10 +710,14 @@ fn footer(data: &LessonData, coverage: &Coverage) -> Vec<String> {
                         .filter(|c| c.kind == "section")
                         .all(|c| c.title_read)
             }),
-            "daily_record" => data
-                .students
-                .iter()
-                .all(|s| !s.read_failed && reads.iter().any(|r| r.scope.starts_with(&s.student))),
+            "daily_record" => data.students.iter().all(|s| {
+                !s.read_failed
+                    && s.previous_lesson.as_ref().is_some_and(|p| {
+                        reads
+                            .iter()
+                            .any(|r| r.scope == format!("{} {}", s.student, p.date))
+                    })
+            }),
             "registration" => {
                 no_previous
                     || data
@@ -693,6 +727,44 @@ fn footer(data: &LessonData, coverage: &Coverage) -> Vec<String> {
             }
             _ => true,
         };
+        if code == "daily_record"
+            && (!scope_complete
+                || !same_time
+                || (data.date_resolution.is_some() && data.students.len() > 1))
+        {
+            if let Some(date) = &data.date_resolution
+                && let Some(source) = coverage
+                    .sources
+                    .iter()
+                    .find(|r| r.name == "date_resolution")
+            {
+                actual.push((
+                    "date_resolution".into(),
+                    format!("{}({}: {})", l::RECORDS, l::DATE_RESOLUTION, l::date(date)),
+                    source.read_at.clone(),
+                ));
+            }
+            for student in &data.students {
+                if student.read_failed {
+                    continue;
+                }
+                if let Some(read) = reads
+                    .iter()
+                    .find(|r| r.scope.starts_with(&format!("{} ", student.student)))
+                {
+                    let scope = student.previous_lesson.as_ref().map_or_else(
+                        || not_found_scope(student),
+                        |p| format!("{}·{}", student.student, l::date(&p.date)),
+                    );
+                    actual.push((
+                        code.into(),
+                        format!("{}({scope})", l::RECORDS),
+                        read.read_at.clone(),
+                    ));
+                }
+            }
+            continue;
+        }
         if same_time && scope_complete {
             actual.push((code.to_string(), group, reads[0].read_at.clone()));
         } else {
@@ -937,7 +1009,7 @@ pub fn lesson_prepare(data: &LessonData, coverage: &Coverage) -> String {
         let unit = &s
             .checks
             .iter()
-            .find(|c| c.kind == "prestudy")
+            .find(|c| c.kind == "prestudy" && c.verdict == Verdict::Waiting)
             .unwrap()
             .scope;
         next.push(l::video_next(&cell(&s.student), &cell(unit)));
@@ -972,6 +1044,13 @@ pub fn bounded_lesson_prepare(data: &LessonData, coverage: &mut Coverage) -> Str
     let mut omitted_reminder: Option<String> = None;
     loop {
         let mut display = lesson_prepare(&visible, coverage);
+        if omitted.is_some() || omitted_reminder.is_some() {
+            display = display.replacen(
+                &format!("\n{}\n{}\n{}\n", l::PARTS[2], l::NONE, l::PARTS[3]),
+                &format!("\n{}\n{}\n", l::PARTS[2], l::PARTS[3]),
+                1,
+            );
+        }
         if let Some(first) = &omitted {
             display = display.replacen(
                 &format!("\n{}\n", l::PARTS[3]),
@@ -1020,12 +1099,17 @@ fn latin_re() -> &'static regex::Regex {
     static RE: OnceLock<regex::Regex> = OnceLock::new();
     RE.get_or_init(|| regex::Regex::new(r"[A-Za-z_]{4,}").expect("constant"))
 }
+/// Validate server-owned vocabulary separately from teacher/source values.
+pub fn vocabulary_lint(template: &str) -> Result<(), String> {
+    if latin_re().is_match(template) {
+        Err("non_korean_display_token".into())
+    } else {
+        Ok(())
+    }
+}
 pub fn display_lint(display: &str) -> Result<(), String> {
     if display.len() > 6000 || display.lines().count() > 60 {
         return Err("display_limit".into());
-    }
-    if latin_re().is_match(display) {
-        return Err("non_korean_display_token".into());
     }
     let lines = display.lines().collect::<Vec<_>>();
     let checklist = lines.iter().any(|s| {

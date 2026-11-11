@@ -25,6 +25,7 @@ pub struct PrepareRequest {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LineRef {
+    pub starts_minor: bool,
     pub book_label: String,
     pub minor: String,
     pub activity: String,
@@ -119,12 +120,15 @@ const ACTIVITIES: [&str; 4] = [l::REQUIRED, l::PRACTICE, l::ADVANCED, l::CHAPTER
 /// Scan one record line for its book label, minor and activity.
 pub fn scan_line(line: &str) -> Option<LineRef> {
     let text = line.trim().strip_prefix("- ").unwrap_or(line.trim());
-    let book = book_re().find(text)?;
-    let rest = &text[book.end()..];
+    let mut books = book_re().find_iter(text);
+    let book = books.next()?;
+    let end = books.next().map_or(text.len(), |b| b.start());
+    let rest = &text[book.end()..end];
     let minor = minor_re().find(rest)?;
     let after = &rest[minor.end()..];
     let activity = ACTIVITIES.iter().find(|a| after.contains(**a))?;
     Some(LineRef {
+        starts_minor: rest.contains(l::START),
         book_label: book.as_str().to_string(),
         minor: minor.as_str().to_string(),
         activity: (*activity).to_string(),
@@ -147,9 +151,10 @@ pub fn homework_items(text: &str) -> Vec<LineRef> {
 /// minor, or the line says the minor starts.
 pub fn homework_minor_is_start(progress: &str, homework: &str) -> Option<LineRef> {
     let homework_ref = scan_line(homework)?;
-    let progress_minor = scan_line(progress).map(|r| r.minor);
-    if progress_minor.as_deref() != Some(homework_ref.minor.as_str()) || homework.contains(l::START)
-    {
+    let continuing = homework_items(progress)
+        .iter()
+        .any(|p| p.book_label == homework_ref.book_label && p.minor == homework_ref.minor);
+    if !continuing || homework_ref.starts_minor {
         Some(homework_ref)
     } else {
         None
@@ -305,12 +310,14 @@ fn data_value(data: &LessonData) -> serde_json::Value {
 }
 
 fn ask_envelope(display: String, data: &LessonData, ask: Ask, coverage: Coverage) -> Envelope {
-    Envelope::ask(display, data_value(data), ask, coverage).unwrap_or_else(|_| {
+    Envelope::ask(display, data_value(data), ask, coverage.clone()).unwrap_or_else(|reason| {
+        let mut coverage = coverage;
+        coverage.unknowns.push(format!("ask_invalid:{reason}"));
         Envelope::stop(
-            l::SOURCE_FAILURE.into(),
+            l::DISPLAY_FAILURE.into(),
             data_value(data),
-            Stop::new(StopCode::SourceUnavailable, l::SOURCE_FAILURE),
-            Coverage::default(),
+            Stop::new(StopCode::DisplayInvalid, l::DISPLAY_FAILURE),
+            coverage,
         )
     })
 }
@@ -352,17 +359,32 @@ fn prepare_student<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
     lesson_date: NaiveDate,
     requested_book: Option<&str>,
     require_on_date: bool,
+    search_absent: Option<&[String]>,
 ) -> Result<PreparedStudent, BackendError> {
     let read_at = backend.read_at().to_string();
     let mut sources = Vec::new();
     let mut unknowns = Vec::new();
     let carry_over = carry_over_of(facts, &student.key);
-    let on_date = if require_on_date {
+    let on_date = if search_absent.is_some() {
+        false
+    } else if require_on_date {
         backend.read_record(&student.key, lesson_date)?.is_some()
     } else {
         true
     };
-    let outcome = if on_date {
+    let outcome = if let Some(dates) = search_absent {
+        let from = dates
+            .iter()
+            .min()
+            .and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+            .unwrap_or(lesson_date);
+        let to = dates
+            .iter()
+            .max()
+            .and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+            .unwrap_or(lesson_date);
+        PreviousOutcome::NotFound { from, to }
+    } else if on_date {
         previous_lesson(backend, facts, student, lesson_date)
     } else {
         PreviousOutcome::NotFound {
@@ -406,7 +428,8 @@ fn prepare_student<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
     let mut checks = Vec::new();
     if let Some(prev) = &previous {
         let mut read_minors = Vec::new();
-        for item in homework_items(&prev.homework) {
+        let items = homework_items(&prev.homework);
+        for item in &items {
             if read_minors.contains(&(item.book_label.clone(), item.minor.clone())) {
                 continue;
             }
@@ -415,7 +438,12 @@ fn prepare_student<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
             let continuing = homework_items(&prev.progress)
                 .iter()
                 .any(|p| p.book_label == item.book_label && p.minor == item.minor);
-            if continuing && !prev.homework.contains(l::START) {
+            let starts_minor = items.iter().any(|other| {
+                other.book_label == item.book_label
+                    && other.minor == item.minor
+                    && other.starts_minor
+            });
+            if continuing && !starts_minor {
                 // The footer names registration only after this actual read, even when
                 // a continuing minor needs no new prestudy/index requirement.
                 if backend
@@ -534,7 +562,9 @@ fn prepare_student<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
         lesson: StudentLesson {
             student_key: student.key.clone(),
             class_name: student.class_name.clone(),
-            searched_dates: if on_date {
+            searched_dates: if let Some(dates) = search_absent {
+                dates.to_vec()
+            } else if on_date {
                 candidate_dates(facts, student, lesson_date)
                     .iter()
                     .map(ToString::to_string)
@@ -700,7 +730,8 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
         resolved_students.push(student);
     }
     let mut effective_date = lesson_date;
-    if previous_requested {
+    let mut resolution_absent: Option<Vec<String>> = None;
+    if previous_requested && !resolved_students.is_empty() {
         let resolved = if data.class_name.is_some() {
             let mut found = None;
             let scheduled_lower = resolved_students
@@ -715,10 +746,12 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
                 .chain(admitted_lower)
                 .min()
                 .unwrap_or(today);
+            let mut searched = Vec::new();
             'days: for offset in 1..=today.signed_duration_since(lower).num_days() {
                 let Some(day) = today.checked_sub_signed(chrono::Duration::days(offset)) else {
                     break;
                 };
+                searched.push(day.to_string());
                 for student in &resolved_students {
                     match backend.read_record(&student.key, day) {
                         Ok(Some(_)) => {
@@ -737,6 +770,9 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
                     }
                 }
             }
+            if found.is_none() {
+                resolution_absent = Some(searched);
+            }
             found
         } else {
             match resolved_students
@@ -744,41 +780,51 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
                 .map(|student| previous_lesson(backend, facts, student, today))
             {
                 Some(PreviousOutcome::Found(found)) => Some(found.date),
-                _ => None,
+                Some(PreviousOutcome::NotFound { .. }) => {
+                    resolution_absent = Some(
+                        candidate_dates(facts, &resolved_students[0], today)
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect(),
+                    );
+                    None
+                }
+                _ => {
+                    return Envelope::stop(
+                        l::SOURCE_FAILURE.into(),
+                        data_value(&data),
+                        Stop::new(StopCode::SourceUnavailable, l::SOURCE_FAILURE),
+                        coverage,
+                    );
+                }
             }
         };
-        let Some(date) = resolved else {
-            return Envelope::stop(
-                l::SOURCE_FAILURE.into(),
-                data_value(&data),
-                Stop::new(StopCode::SourceUnavailable, l::SOURCE_FAILURE),
-                coverage,
-            );
-        };
-        effective_date = date;
-        data.date_resolution = Some(date.to_string());
-        data.lesson_date = date.to_string();
-        coverage.sources.push(SourceRead {
-            name: "date_resolution".into(),
-            read_at: backend.read_at().into(),
-            scope: format!(
-                "{} {}",
-                data.class_name
-                    .as_deref()
-                    .unwrap_or(&resolved_students[0].name),
-                date
-            ),
-        });
-        if let Some(range) = facts.admitted_dates()
-            && (data.lesson_date < range.from || data.lesson_date > range.to)
-        {
-            let display = l::outside(&data.lesson_date, &range.from, &range.to);
-            return Envelope::stop(
-                display.clone(),
-                data_value(&data),
-                Stop::new(StopCode::DateNotAdmitted, &display),
-                coverage,
-            );
+        if let Some(date) = resolved {
+            effective_date = date;
+            data.date_resolution = Some(date.to_string());
+            data.lesson_date = date.to_string();
+            coverage.sources.push(SourceRead {
+                name: "date_resolution".into(),
+                read_at: backend.read_at().into(),
+                scope: format!(
+                    "{} {}",
+                    data.class_name
+                        .as_deref()
+                        .unwrap_or(&resolved_students[0].name),
+                    date
+                ),
+            });
+            if let Some(range) = facts.admitted_dates()
+                && (data.lesson_date < range.from || data.lesson_date > range.to)
+            {
+                let display = l::outside(&data.lesson_date, &range.from, &range.to);
+                return Envelope::stop(
+                    display.clone(),
+                    data_value(&data),
+                    Stop::new(StopCode::DateNotAdmitted, &display),
+                    coverage,
+                );
+            }
         }
     }
     for student in &resolved_students {
@@ -788,7 +834,8 @@ pub fn prepare<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort>(
             student,
             effective_date,
             book_arg.as_deref(),
-            previous_requested && data.class_name.is_some(),
+            previous_requested && data.class_name.is_some() && resolution_absent.is_none(),
+            resolution_absent.as_deref(),
         ) {
             Ok(prepared) => {
                 coverage.sources.extend(prepared.sources);
