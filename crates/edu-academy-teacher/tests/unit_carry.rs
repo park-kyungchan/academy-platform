@@ -397,3 +397,12 @@ fn m23f_literal_dash_source_title_is_not_a_rendered_unknown() {
     let display = unit_render::render(&mut d, &mut Coverage::default());
     assert_eq!(display.matches(l::UNIT_DASH_LEGEND).count(), 0);
 }
+
+#[test]
+fn m23a_unqualified_observation_and_unknown_codes_do_not_prescribe_retry() {
+    assert_eq!(l::unit_unknown_remedy("section_paper_search_unavailable_or_unqualified"), "시험지 검색의 제목 목록을 유효한 원천 관측으로 확인하지 못했습니다");
+    assert_eq!(l::unit_unknown_remedy("invented_unknown_739"), "원천에서 확인 가능한 정보가 없습니다");
+    for code in ["daily_unavailable", "daily_partial_page", "section_unavailable", "section_paper_search_unavailable"] {
+        assert!(l::unit_unknown_remedy(code).contains("다시 조회해"), "{code}");
+    }
+}
