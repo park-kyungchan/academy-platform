@@ -70,7 +70,10 @@ fn seed_2_comment_delimiters_cannot_survive_any_display_value() {
     let out = c.run();
     assert!(out.ask.is_none() && out.stop.is_none());
     assert!(!out.display.contains("<!--") && !out.display.contains("-->"));
-    assert!(out.display.contains(edu_academy_teacher::display_labels::UNSUPPORTED_STAGE));
+    assert!(
+        out.display
+            .contains(edu_academy_teacher::display_labels::UNSUPPORTED_STAGE)
+    );
     assert!(!out.display.contains("stage"));
     assert_eq!(out.data["judgments"][0]["stage"], "<!--stage-->");
     assert!(out.display.contains("＜!--page--＞"));
