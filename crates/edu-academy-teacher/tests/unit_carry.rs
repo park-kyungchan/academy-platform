@@ -380,3 +380,20 @@ fn other_book_only_prestudy_minor_stays_unknown() {
     assert_eq!(out.data["prestudy"][0]["verdict"], "unknown");
     assert!(!out.display.contains("읽은 기간에 없음"));
 }
+
+#[test]
+fn m23f_literal_dash_source_title_is_not_a_rendered_unknown() {
+    use edu_academy_teacher::{unit_data::{Section, SectionRead}, unit_render, envelope::Coverage};
+    let mut c = Case::new(1);
+    c.scope(2, "섹션");
+    let mut d = render_data(&c);
+    d.topic = "섹션".into();
+    for leaf in &mut d.minors { leaf.minor.activities = vec!["필수예제".into()]; }
+    d.sections = Some(SectionRead { records: d.minors.iter().map(|leaf| Section {
+        student_key: "1001".into(), student_name: NAMES[0].into(), course_key: "101".into(), book_no: "201".into(),
+        unit: leaf.minor.code.clone(), activity: "필수예제".into(), source_title: "—".into(),
+        paper_key: "1".into(), attempt_key: "2".into(), score: 70.0, items: vec![], source_date: None, date_precision: "unknown".into(),
+    }).collect(), ..Default::default() });
+    let display = unit_render::render(&mut d, &mut Coverage::default());
+    assert_eq!(display.matches(l::UNIT_DASH_LEGEND).count(), 0);
+}
