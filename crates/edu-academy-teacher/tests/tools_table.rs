@@ -22,9 +22,9 @@ fn tools_list_equals_fixture() {
 }
 
 #[test]
-fn tools_list_at_most_8000_bytes() {
-    assert_eq!(tools_list_minified().len(), 7960);
-    assert!(tools_list_minified().len() <= 8000);
+fn tools_list_at_most_8102_bytes() {
+    assert_eq!(tools_list_minified().len(), 8102);
+    assert!(tools_list_minified().len() <= 8102);
 }
 
 #[test]

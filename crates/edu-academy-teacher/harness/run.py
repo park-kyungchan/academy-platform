@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import queue
+import re
 import threading
 from pathlib import Path
 import subprocess
@@ -18,6 +19,9 @@ CRATE = HERE.parent
 ISOLATED_SYSTEM_PROMPT = "You are an assistant of a teacher. Use the tools you are given."
 # Accepted CLI builtin agents (TASK-P8-S1b-R1c).
 DEFAULT_CLI_AGENTS = ("claude", "Explore", "general-purpose", "Plan", "statusline-setup", "web-fetch")
+DISPLAY_DIRECTIVE = json.loads(re.search(
+    r'pub const DISPLAY_DIRECTIVE: &str =\s*("[^"\n]*");',
+    (CRATE / "src/tools.rs").read_text(encoding="utf-8"))[1])
 
 
 def norm(text):
@@ -46,6 +50,20 @@ def received_text(content):
     return None
 
 
+def display_text(content):
+    """M24: remove only the exact leading directive carrier, never the answer."""
+    if (isinstance(content, list) and len(content) == 2
+            and content[0] == {"type": "text", "text": DISPLAY_DIRECTIVE}):
+        return received_text(content[1:])
+    text = received_text(content)
+    if text is not None and (isinstance(content, str) or len(content) == 1):
+        for separator in ("\n\n", "\n"):
+            prefix = DISPLAY_DIRECTIVE + separator
+            if text.startswith(prefix):
+                return text[len(prefix):]
+    return text
+
+
 def measure(events):
     calls, display, payload = [], None, {}
     call_names, call_details, received_form = {}, {}, "unknown"
@@ -69,7 +87,7 @@ def measure(events):
                         call_details[block["id"]] = calls[-1]
                 elif block.get("type") == "tool_result" and str(
                         call_names.get(block.get("tool_use_id"), "")).startswith("mcp__academy__"):
-                    display = received_text(block.get("content"))
+                    display = display_text(block.get("content"))
                     received_bytes = len(display.encode("utf-8")) if display is not None else None
                     call_details[block["tool_use_id"]]["received_text_bytes"] = received_bytes
                     received_form = "unknown"
