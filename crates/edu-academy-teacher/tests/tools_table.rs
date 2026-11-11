@@ -1,5 +1,6 @@
 use edu_academy_teacher::{
     envelope::{Ask, AskField, AskOption, Envelope, Status, Stop, StopCode},
+    labels::{ASSESSMENT_LABELS, label_for_code, wire_code},
     lesson::LessonData,
     render::{Verdict, display_lint},
     tools::{TOOLS, dispatch, docs_table, tools_json, tools_list_minified},
@@ -22,7 +23,7 @@ fn tools_list_equals_fixture() {
 
 #[test]
 fn tools_list_at_most_8000_bytes() {
-    assert_eq!(tools_list_minified().len(), 7983);
+    assert_eq!(tools_list_minified().len(), 7960);
     assert!(tools_list_minified().len() <= 8000);
 }
 
@@ -145,6 +146,49 @@ fn ask_without_options_is_a_constructor_error() {
         )
         .is_ok()
     );
+}
+
+// M10/M13: every advertised enum value maps to exactly one wire code and back.
+#[test]
+fn assessment_labels_map_every_advertised_value() {
+    let write = TOOLS
+        .iter()
+        .find(|t| t.name == "academy_record_write")
+        .unwrap();
+    let schema: serde_json::Value = serde_json::from_str(write.input_schema).unwrap();
+    for (field, expected_codes) in [
+        ("daily_test", (-1..=10).collect::<Vec<i32>>()),
+        ("prev_homework", (-1..=5).collect::<Vec<i32>>()),
+    ] {
+        let advertised: Vec<&str> = schema["properties"][field]["enum"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        let mut codes = Vec::new();
+        for label in &advertised {
+            let code = wire_code(field, label).unwrap_or_else(|| panic!("{field} {label}"));
+            assert!(!codes.contains(&code), "{field} {label} duplicates {code}");
+            codes.push(code);
+            assert_eq!(label_for_code(field, code), Some(*label));
+        }
+        assert_eq!(codes, expected_codes, "{field}");
+    }
+    // The one accepted alias: prev_homework 0 is also accepted as 미실시,
+    // while daily_test 0's advertised label is 미실시 itself.
+    assert_eq!(wire_code("prev_homework", "미실시"), Some(0));
+    assert_eq!(label_for_code("prev_homework", 0), Some("미숙제"));
+    assert_eq!(wire_code("daily_test", "미실시"), Some(0));
+    assert_eq!(ASSESSMENT_LABELS.len(), 19);
+    // Attendance labels stay as they are.
+    let attendance: Vec<&str> = schema["properties"]["attendance"]["enum"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert_eq!(attendance, ["출석", "결석", "지각", "미입력"]);
 }
 
 #[test]

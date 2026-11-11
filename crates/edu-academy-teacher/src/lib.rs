@@ -5,7 +5,9 @@
 pub mod backend;
 pub mod envelope;
 pub mod facts;
+pub mod labels;
 pub mod lesson;
+pub mod log;
 pub mod render;
 pub mod synthetic;
 pub mod tools;
