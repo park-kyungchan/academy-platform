@@ -41,3 +41,27 @@ fn m23b_duplicate_course_ordinals_restart_within_each_book() {
     assert_eq!(values, ["가우스 5-1-1", "가우스 5-1-2 (등록 과정 1)", "가우스 5-1-2 (등록 과정 2)"]);
     assert!(ask.question_ko.contains("가우스 5-1-2: 같은 교재가 2개 과정에 등록되어 있습니다"));
 }
+
+#[test]
+fn m23c_book_choice_retains_the_unit_suffix() {
+    let mut c = Case::new(1);
+    c.scope(3, "클리닉");
+    let first = c.scenario.students[0].bindings[0].clone();
+    let mut second = first.clone();
+    second.course_key = "202".into();
+    second.book_no = "302".into();
+    c.scenario.students[0].bindings = vec![first.clone(), second];
+    c.request.book = Some(format!("{} 1-2", first.label));
+    let ask = c.run().ask.expect("duplicate book asks for course");
+    for option in ask.options {
+        for value in [option.value, option.label_ko] {
+            let mut answered = c.request.clone();
+            answered.book = Some(value);
+            let out = c.session().call(&answered);
+            assert!(out.ask.is_none() && out.stop.is_none(), "{}", out.display);
+            let minors = out.data["minors"].as_array().unwrap();
+            assert_eq!(minors.len(), 1);
+            assert_eq!(minors[0]["minor"]["code"], "1-2");
+        }
+    }
+}
