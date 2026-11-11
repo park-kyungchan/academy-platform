@@ -260,12 +260,12 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
     } else {
         let mut books = Vec::new();
         for b in &candidates {
-            if !books.contains(&b.book_label) {
-                books.push(&b.book_label);
+            if !books.contains(&b.book_label.as_str()) {
+                books.push(b.book_label.as_str());
             }
         }
         let duplicates: Vec<_> = books.iter().filter_map(|book| {
-            let count = candidates.iter().filter(|b| b.book_label == ***book).count();
+            let count = candidates.iter().filter(|b| b.book_label.as_str() == *book).count();
             (count > 1).then(|| l::unit_course_registration(&cell(book), count))
         }).collect();
         let question = if duplicates.is_empty() {
