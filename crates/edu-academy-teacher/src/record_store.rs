@@ -1,8 +1,14 @@
 //! Guarded synthetic filesystem boundary, without draft lifecycle or save authority.
-use crate::record_data::{OwnerScope, RecordIdentity};
+use crate::record_data::{
+    AnswerField, AnswerValue, ContentBinding, Draft, DraftState, OwnerScope, RECORD_FIELD_COUNT,
+    RecordField, RecordFields, RecordIdentity, RecordObservation, RecordValue, content_hash,
+};
 use edu_academy_core::{
-    js::{Fault, Result},
-    workflow::store::{Guard, LockOptions, lock_path},
+    js::{Fault, Js, Result, sha},
+    workflow::{
+        codec, state,
+        store::{Guard, LockOptions, lock_path},
+    },
 };
 use rustix::fs::{self as rfs, Dir, Mode, OFlags};
 use serde::{Deserialize, Serialize};
@@ -28,6 +34,12 @@ pub const MAX_ROOT_BYTES: u64 = 64 * 1024 * 1024;
 pub const LOCK_WAIT_MS: u64 = 2_000;
 pub const LOCK_POLL_MS: u64 = 20;
 pub const MAX_LOCK_WAITS: usize = (LOCK_WAIT_MS / LOCK_POLL_MS) as usize;
+pub const MAX_EXECUTION_RECORDS: usize = 4_096;
+#[derive(Clone, Copy, Debug)]
+pub enum ExecutionAdmission {
+    ReadOnly,
+    Save { selected_fields: usize },
+}
 const DIRS: &[&str] = &[
     "locks",
     "record-drafts",
@@ -48,6 +60,122 @@ fn refused() -> Fault {
 }
 fn capacity() -> Fault {
     Fault::error("record_store_capacity")
+}
+fn corrupt() -> Fault {
+    Fault::error("record_store_corrupt")
+}
+fn execution_limit() -> Fault {
+    Fault::error("record_execution_limit")
+}
+const HASH_HEX_BYTES: usize = 64;
+fn digest(s: &str) -> bool {
+    s.len() == HASH_HEX_BYTES
+        && s.bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+fn timestamp(s: &str) -> Result<i64> {
+    chrono::DateTime::parse_from_rfc3339(s)
+        .map(|t| t.timestamp_millis())
+        .map_err(|_| corrupt())
+}
+/// Validate durable intent, not current source freshness, policy or approval.
+/// Historical attempt bindings retain their own hashes; core owns their evidence.
+pub fn validate_draft(bytes: &[u8], identity: &RecordIdentity) -> Result<Draft> {
+    if bytes.len() > MAX_FILE_BYTES {
+        return Err(corrupt());
+    }
+    let d: Draft = serde_json::from_slice(bytes).map_err(|_| corrupt())?;
+    let date = chrono::NaiveDate::parse_from_str(&d.identity.lesson_date, "%Y-%m-%d")
+        .map_err(|_| corrupt())?;
+    if d.identity != *identity
+        || d.before.identity != *identity
+        || d.before.requested_date != identity.lesson_date
+        || date.format("%Y-%m-%d").to_string() != identity.lesson_date
+        || identity.owner.owner.is_empty()
+        || identity.owner.account.is_empty()
+        || identity.student_key.is_empty()
+        || d.generation.is_empty()
+        || d.preview_hash != content_hash(&d.rendered_preview)?
+    {
+        return Err(corrupt());
+    }
+    let created = timestamp(&d.created)?;
+    let used = timestamp(&d.last_used)?;
+    timestamp(&d.before.provenance.read_at)?;
+    if used < created || (d.state == DraftState::Open) != d.closed_at.is_none() {
+        return Err(corrupt());
+    }
+    if let Some(at) = &d.closed_at
+        && timestamp(at)? < created
+    {
+        return Err(corrupt());
+    }
+    let binding_valid = |b: &ContentBinding| {
+        b.identity == *identity
+            && b.generation == d.generation
+            && digest(&b.patch_hash)
+            && digest(&b.source_hash)
+    };
+    let fields = match &d.before.observation {
+        RecordObservation::Observed { occurrence, fields } if !occurrence.is_empty() => {
+            Some(fields.clone())
+        }
+        RecordObservation::NotObserved => Some(RecordFields::from_fn(|_| RecordValue::Unknown)),
+        RecordObservation::Failed { reason_code } if !reason_code.is_empty() => None,
+        _ => return Err(corrupt()),
+    };
+    if let Some(b) = &d.binding {
+        let fields = fields.as_ref().ok_or_else(corrupt)?;
+        let expected =
+            ContentBinding::new(identity.clone(), d.generation.clone(), &d.patch, fields)?;
+        if *b != expected {
+            return Err(corrupt());
+        }
+    }
+    for field in RecordField::ALL {
+        if let Some(patch) = &d.patch[field]
+            && (!d.editable[field] || patch.effect_target.is_empty())
+        {
+            return Err(corrupt());
+        }
+    }
+    for q in &d.pending_questions {
+        if q.revision != d.revision || q.reason_code.is_empty() || q.text.is_empty() {
+            return Err(corrupt());
+        }
+        for choice in &q.choices {
+            let correct = match q.field {
+                AnswerField::Progress | AnswerField::Homework => {
+                    matches!(choice.answer, AnswerValue::Lines(_))
+                }
+                AnswerField::Replace | AnswerField::Restart => {
+                    matches!(choice.answer, AnswerValue::Boolean(_))
+                }
+                _ => matches!(choice.answer, AnswerValue::Text(_)),
+            };
+            if choice.label.is_empty() || !correct {
+                return Err(corrupt());
+            }
+        }
+    }
+    if let Some(a) = &d.pending_attempt {
+        let expected = "p8s3:".to_owned()
+            + &content_hash(&(&a.binding, a.ordinal.get(), &a.instruction_hash))?;
+        if !binding_valid(&a.binding)
+            || !digest(&a.instruction_hash)
+            || a.ordinal > d.next_attempt_ordinal
+            || a.request_ref != expected
+        {
+            return Err(corrupt());
+        }
+    }
+    if d.failed_attempts
+        .as_ref()
+        .is_some_and(|f| !binding_valid(&f.binding))
+    {
+        return Err(corrupt());
+    }
+    Ok(d)
 }
 fn io<T>(r: std::io::Result<T>) -> Result<T> {
     r.map_err(|_| unavailable())
@@ -128,6 +256,20 @@ fn read_at(parent: &File, name: &OsStr) -> Result<Option<Vec<u8>>> {
         return Err(unavailable());
     }
     Ok(Some(bytes))
+}
+fn core_record(parent: &File, kind: &str, key: &str) -> Result<Option<Js>> {
+    let leaf = sha(&(kind.to_owned() + "\n" + key)) + ".json";
+    let Some(bytes) = read_at(parent, OsStr::new(&leaf))? else {
+        return Ok(None);
+    };
+    let value = codec::parse(&bytes).map_err(|_| corrupt())?;
+    if !value.get("kind").is(kind)
+        || !value.get("id").is(key)
+        || !matches!(value.get("record"), Js::Obj(_))
+    {
+        return Err(corrupt());
+    }
+    Ok(Some(value.get("record").clone()))
 }
 fn atomic(parent: &File, name: &OsStr, bytes: &[u8]) -> Result<()> {
     if bytes.len() > MAX_FILE_BYTES {
@@ -356,6 +498,78 @@ impl DraftStore {
     }
 }
 impl AccountGuard<'_> {
+    /// Read-only preflight of the files core student_executions will consume.
+    /// Supply the server-resolved core scope; owner association is the caller's job.
+    /// Keep this guard through core entry; Save reserves the entire field batch.
+    /// This neither grants approval nor writes a second counter or ledger.
+    pub fn preflight_executions(&self, scope: &Js, mode: ExecutionAdmission) -> Result<usize> {
+        self.store.verify()?;
+        for field in ["sourceNamespace", "teacherId", "studentId"] {
+            if !scope.get(field).string() || scope.get(field).units().is_empty() {
+                return Err(Fault::error("record_execution_scope_invalid"));
+            }
+        }
+        let selected = match mode {
+            ExecutionAdmission::ReadOnly => 0,
+            ExecutionAdmission::Save { selected_fields }
+                if (1..=RECORD_FIELD_COUNT).contains(&selected_fields) =>
+            {
+                selected_fields
+            }
+            _ => return Err(Fault::error("record_execution_fields_invalid")),
+        };
+        let group = state::lock_key(scope)?;
+        let ledger = directory(&self.store.root, OsStr::new("ledger"), true)?;
+        let group_dir = match rfs::openat(
+            &ledger,
+            sha(&group).as_str(),
+            flags() | OFlags::DIRECTORY,
+            Mode::empty(),
+        ) {
+            Ok(fd) => File::from(fd),
+            Err(rustix::io::Errno::NOENT) => return Ok(0),
+            Err(e) => return Err(os_error(e)),
+        };
+        private(&group_dir, true)?;
+        let mut members = Vec::new();
+        for entry in entries(&group_dir)? {
+            let entry = syscall(entry)?;
+            let Some(n) = name(&entry) else { continue };
+            if members.len() == MAX_EXECUTION_RECORDS {
+                return Err(execution_limit()); // Stop at entry 4,097 before reading it.
+            }
+            members.push(n.to_os_string());
+        }
+        let count = members.len();
+        if selected > 0
+            && (count == MAX_EXECUTION_RECORDS || count + selected > MAX_EXECUTION_RECORDS)
+        {
+            return Err(execution_limit());
+        }
+        let execution = directory(&self.store.root, OsStr::new("execution"), true)?;
+        let outcome = directory(&self.store.root, OsStr::new("outcome"), true)?;
+        let reconciliation = directory(&self.store.root, OsStr::new("reconciliation"), true)?;
+        for leaf in members {
+            let bytes = read_at(&group_dir, &leaf)?.ok_or_else(corrupt)?;
+            let member = codec::parse(&bytes).map_err(|_| corrupt())?;
+            if !member.get("group").is(&group) || !member.get("key").string() {
+                return Err(corrupt());
+            }
+            let key = String::from_utf16(member.get("key").units()).map_err(|_| corrupt())?;
+            if leaf != OsStr::new(&(sha(&key) + ".json")) {
+                return Err(corrupt());
+            }
+            if let Some(record) = core_record(&execution, "execution", &key)? {
+                if state::lock_key(record.get("scope"))? != group {
+                    return Err(corrupt());
+                }
+                core_record(&outcome, "outcome", &key)?;
+                core_record(&reconciliation, "reconciliation", &key)?;
+            }
+            // Index-only members count too, even though core skips their absent fences.
+        }
+        Ok(count)
+    }
     pub fn lock_draft(&self, identity: &RecordIdentity) -> Result<DraftGuard<'_>> {
         self.store.verify()?;
         if identity.owner != self.store.owner {
