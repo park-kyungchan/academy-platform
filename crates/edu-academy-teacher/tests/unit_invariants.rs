@@ -184,9 +184,9 @@ fn i1_every_observation_keeps_its_scope_and_multiplicity() {
                     "edition-defined comprehensive activity and wrong-item basis were dropped",
                 );
                 c.scenario.excluded_sections.push(ExcludedSection {
-        course_key: None,
-        book_no: None,
-        snapshot: None,
+                    course_key: None,
+                    book_no: None,
+                    snapshot: None,
                     student_key: "1001".into(),
                     edition: c.request.book.clone().unwrap(),
                     unit: "1-1".into(),
@@ -747,6 +747,8 @@ fn i6_every_choice_exits_its_ask_and_every_stop_offers_a_remedy() {
                         AskField::Student => next.student = value.clone(),
                         AskField::Book => next.book = Some(value.clone()),
                         AskField::Unit => next.unit = Some(value.clone()),
+                        AskField::UnitFrom => next.unit_from = Some(value.clone()),
+                        AskField::UnitTo => next.unit_to = Some(value.clone()),
                         AskField::Topic => next.topic = Some(value.clone()),
                         _ => {
                             require(

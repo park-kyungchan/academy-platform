@@ -723,7 +723,13 @@ pub fn clinic(data: &UnitData) -> Vec<ClinicCell> {
             let unread = observations
                 .iter()
                 .any(|o| o.state != SectionState::Graded && !excluded_attempt(&o.attempt_key));
-            let verdict = if excluded {
+            let ambiguous_exclusion = data
+                .excluded
+                .iter()
+                .any(|e| exclusion_scope_ambiguous(data, e, &leaf.minor.code, activity));
+            let verdict = if ambiguous_exclusion {
+                UnitVerdict::Unknown
+            } else if excluded {
                 UnitVerdict::Excluded
             } else if wrong {
                 UnitVerdict::Eligible
@@ -761,6 +767,46 @@ pub fn dependent_stage(prerequisite_finished: Option<bool>, teacher_only: bool) 
 }
 
 pub fn exclusion_applies(data: &UnitData, e: &ExcludedSection, unit: &str, activity: &str) -> bool {
+    exclusion_matches_scope(data, e, unit, activity)
+        && !exclusion_scope_ambiguous(data, e, unit, activity)
+        && e.snapshot.as_ref().is_none_or(|snapshot| {
+            data.sections.as_ref().is_some_and(|s| {
+                s.observations.iter().any(|o| {
+                    o.attempt_key == *snapshot
+                        && o.unit.as_deref() == Some(unit)
+                        && o.activity.as_deref() == Some(activity)
+                })
+            })
+        })
+}
+
+pub fn exclusion_scope_ambiguous(
+    data: &UnitData,
+    e: &ExcludedSection,
+    unit: &str,
+    activity: &str,
+) -> bool {
+    e.snapshot.is_none()
+        && exclusion_matches_scope(data, e, unit, activity)
+        && data.sections.as_ref().is_some_and(|s| {
+            s.observations
+                .iter()
+                .filter(|o| {
+                    o.unit.as_deref() == Some(unit) && o.activity.as_deref() == Some(activity)
+                })
+                .map(|o| &o.attempt_key)
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+                > 1
+        })
+}
+
+fn exclusion_matches_scope(
+    data: &UnitData,
+    e: &ExcludedSection,
+    unit: &str,
+    activity: &str,
+) -> bool {
     data.activity
         .as_ref()
         .is_none_or(|filter| filter == activity)
@@ -771,13 +817,4 @@ pub fn exclusion_applies(data: &UnitData, e: &ExcludedSection, unit: &str, activ
         && e.unit == unit
         && e.activity == activity
         && e.state == "active"
-        && e.snapshot.as_ref().is_none_or(|snapshot| {
-            data.sections.as_ref().is_some_and(|s| {
-                s.observations.iter().any(|o| {
-                    o.attempt_key == *snapshot
-                        && o.unit.as_deref() == Some(unit)
-                        && o.activity.as_deref() == Some(activity)
-                })
-            })
-        })
 }

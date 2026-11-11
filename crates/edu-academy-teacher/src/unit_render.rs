@@ -3,7 +3,7 @@ use crate::{
     display_labels as l,
     envelope::Coverage,
     render::cell,
-    unit::{exclusion_applies, leaf_label},
+    unit::{exclusion_applies, exclusion_scope_ambiguous, leaf_label},
     unit_data::*,
 };
 pub fn verdict(v: UnitVerdict) -> &'static str {
@@ -258,15 +258,23 @@ fn clinic_block(d: &UnitData, leaf: &Leaf) -> (String, Vec<String>) {
             ));
         }
     }
-    for e in d
-        .excluded
-        .iter()
-        .filter(|e| exclusion_applies(d, e, code, &e.activity))
-    {
-        details.push(l::unit_clinic_excluded(
-            &exclusion_scope(d, e),
-            &cell(&e.activity),
-        ));
+    for e in d.excluded.iter().filter(|e| {
+        exclusion_applies(d, e, code, &e.activity)
+            || exclusion_scope_ambiguous(d, e, code, &e.activity)
+    }) {
+        if exclusion_scope_ambiguous(d, e, code, &e.activity) {
+            details.push(format!(
+                "{} {}: {}",
+                cell(code),
+                cell(&e.activity),
+                l::UNIT_EXCLUSION_SCOPE_UNKNOWN
+            ));
+        } else {
+            details.push(l::unit_clinic_excluded(
+                &exclusion_scope(d, e),
+                &cell(&e.activity),
+            ));
+        }
     }
     for j in judgments(d, code, l::UNIT_TOPICS[2]) {
         details.push(l::unit_clinic_judgment(
@@ -617,6 +625,7 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
         }
     }
     lines.extend(details);
+    lines.extend(ambiguous_attempt_lines(d));
     lines.extend(unmapped_lines(d));
     if d.topic == l::UNIT_TOPICS[2] || d.topic == l::UNIT_TOPICS[0] {
         lines.extend(stage_lines(d));
@@ -635,6 +644,7 @@ fn compose(d: &UnitData, coverage: &Coverage) -> String {
     }
     for reason in &coverage.unknowns {
         if !reason.starts_with("first_omitted:")
+            && !reason.starts_with("section_ambiguous_attempts:")
             && !reason.starts_with("section_mapping_unavailable:")
             && !reason.split_once(':').is_some_and(|(code, scope)| {
                 (code == "section_grade_unavailable" || code == "section_ambiguous_attempts")
@@ -783,6 +793,14 @@ fn retained(d: &UnitData, unit: &str) -> bool {
     d.minors.iter().any(|l| l.minor.code == unit)
 }
 fn section_issue(d: &UnitData, unit: &str, activity: Option<&str>) -> Option<&'static str> {
+    if (d.topic == l::UNIT_TOPICS[0] || d.topic == l::UNIT_TOPICS[2])
+        && d.excluded.iter().any(|e| {
+            activity.is_none_or(|a| e.activity == a)
+                && exclusion_scope_ambiguous(d, e, unit, &e.activity)
+        })
+    {
+        return Some(l::UNIT_EXCLUSION_SCOPE_UNKNOWN);
+    }
     let observations = &d.sections.as_ref()?.observations;
     if observations.iter().any(|o| {
         o.unit.as_deref() == Some(unit)
@@ -800,6 +818,30 @@ fn section_issue(d: &UnitData, unit: &str, activity: Option<&str>) -> Option<&'s
         None
     }
 }
+fn ambiguous_attempt_lines(d: &UnitData) -> Vec<String> {
+    d.sections
+        .as_ref()
+        .map(|s| {
+            s.observations
+                .iter()
+                .filter(|o| {
+                    o.state == SectionState::Ambiguous
+                        && o.unit.as_deref().is_some_and(|u| retained(d, u))
+                })
+                .map(|o| {
+                    format!(
+                        "{} {} {}: {}",
+                        cell(o.unit.as_deref().unwrap_or("")),
+                        cell(o.activity.as_deref().unwrap_or("")),
+                        snapshot_scope(d, &o.attempt_key, false),
+                        l::UNIT_ATTEMPTS_AMBIGUOUS
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn snapshot_scope(d: &UnitData, snapshot: &str, daily_topic: bool) -> String {
     let section = d.sections.as_ref().and_then(|s| {
         s.records
@@ -886,11 +928,40 @@ fn stage_lines(d: &UnitData) -> Vec<String> {
                 }
             ));
         } else {
-            for s in stages {
+            let mut grouped = std::collections::HashSet::new();
+            let mut by_unit: std::collections::HashMap<&str, Vec<_>> =
+                std::collections::HashMap::new();
+            for s in &stages {
+                by_unit.entry(&s.unit).or_default().push(*s);
+            }
+            for s in &stages {
+                let unit_stages = &by_unit[s.unit.as_str()];
+                let complete_unit = d.activity.is_none()
+                    && d.minors
+                        .iter()
+                        .find(|l| l.minor.code == s.unit)
+                        .is_some_and(|leaf| {
+                            unit_stages.len() == leaf.minor.activities.len()
+                                && leaf.minor.activities.iter().all(|a| {
+                                    unit_stages
+                                        .iter()
+                                        .any(|other| other.activity.as_ref() == Some(a))
+                                })
+                        })
+                    && unit_stages
+                        .iter()
+                        .all(|other| other.snapshot.is_none() && other.verdict == s.verdict);
+                if complete_unit && !grouped.insert(&s.unit) {
+                    continue;
+                }
                 if s.verdict != default || index < 3 {
                     lines.push(format!(
                         "{} {}: {}",
-                        &stage_scope(d, s),
+                        if complete_unit {
+                            cell(&s.unit)
+                        } else {
+                            stage_scope(d, s)
+                        },
                         l::unit_stage_name(name),
                         if s.verdict == UnitVerdict::Unknown {
                             l::UNIT_SOURCE_NOT_OBSERVED

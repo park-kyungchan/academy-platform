@@ -301,6 +301,8 @@ pub fn omitted_reminders(student: &str) -> String {
 
 pub const VALUE_BAR: &str = "｜";
 pub const VALUE_BREAK: &str = " / ";
+pub const VALUE_COMMENT_OPEN: &str = "＜!--";
+pub const VALUE_COMMENT_CLOSE: &str = "--＞";
 
 // Unit status words and complete sentence templates (slice 2).
 pub const UNIT_TOPICS: [&str; 5] = ["전체", "DailyTest", "클리닉", "섹션", "예습"];
@@ -394,7 +396,7 @@ pub fn unit_fact_judgment(
             "{scope} 완료 판정: {}",
             j.recorded_at
                 .as_deref()
-                .map(unit_date_literal)
+                .map(|at| crate::render::cell(&unit_date_literal(at)))
                 .unwrap_or_else(|| UNIT_RECORDED_UNKNOWN.into())
         ),
         crate::unit_data::UnitVerdict::Deferred => format!("{scope} 보류 판정"),
@@ -606,6 +608,7 @@ pub const UNIT_NEXT_SUPPLEMENTARY: &str = "교재 자체 평가와 교사 판정
 pub const UNIT_MINOR: &str = "소단원";
 pub const UNIT_GRADE_UNREAD: &str = "미확인(성적을 읽지 못함)";
 pub const UNIT_ATTEMPTS_AMBIGUOUS: &str = "미확인(동일 제목의 시험 시도 구분 불가)";
+pub const UNIT_EXCLUSION_SCOPE_UNKNOWN: &str = "미확인(섹션 제외의 시험 시도 범위 미확인)";
 pub const UNIT_STUDENT_REQUIRED: &str =
     "이 도구는 학생 한 명의 현황을 조회합니다. 반 이름 대신 학생 이름을 알려 주세요.";
 pub const UNIT_FROM_ASK: &str = "시작 소단원을 정하지 못했습니다.\n어느 소단원부터 볼까요?";

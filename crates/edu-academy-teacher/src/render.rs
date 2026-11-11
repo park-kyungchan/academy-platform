@@ -99,6 +99,8 @@ impl<'de> serde::Deserialize<'de> for Verdict {
 /// Teacher-facing structural encoding; original values remain in envelope data.
 pub fn cell(value: &str) -> String {
     value
+        .replace("<!--", l::VALUE_COMMENT_OPEN)
+        .replace("-->", l::VALUE_COMMENT_CLOSE)
         .replace('|', l::VALUE_BAR)
         .replace("\r\n", l::VALUE_BREAK)
         .replace(['\r', '\n'], l::VALUE_BREAK)
