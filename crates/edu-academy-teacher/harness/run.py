@@ -25,7 +25,7 @@ def norm(text):
 def command(cli, model, config, allowed, mode):
     args = [cli, "--print", "--model", model, "--mcp-config", str(config),
             "--strict-mcp-config", "--allowedTools", allowed,
-            "--output-format", "stream-json", "--verbose", "--no-session-persistence"]
+            "--output-format", "stream-json", "--verbose", "--include-hook-events", "--no-session-persistence"]
     if mode == "isolated":
         args += ["--setting-sources", "", "--tools", "",
                  "--disable-slash-commands", "--system-prompt", ISOLATED_SYSTEM_PROMPT]
@@ -46,6 +46,7 @@ def received_text(content):
 
 def measure(events):
     calls, display, payload = [], None, {}
+    call_names, received_form = {}, "unknown"
     for event in events:
         if event.get("type") in ("assistant", "user"):
             blocks = event.get("message", {}).get("content", [])
@@ -55,31 +56,43 @@ def measure(events):
                 if not isinstance(block, dict):
                     continue
                 if block.get("type") == "tool_use":
+                    if isinstance(block.get("id"), str):
+                        call_names[block["id"]] = block.get("name") or ""
                     arguments = block.get("input")
                     encoded = json.dumps(arguments, ensure_ascii=False, separators=(",", ":"))
                     calls.append({"name": block.get("name"), "arguments": encoded,
                                   "args_bytes": len(encoded.encode("utf-8")) if "input" in block else None})
-                elif block.get("type") == "tool_result":
+                elif block.get("type") == "tool_result" and str(
+                        call_names.get(block.get("tool_use_id"), "")).startswith("mcp__academy__"):
                     display = received_text(block.get("content"))
+                    received_form = "unknown"
+                    if display is not None:
+                        received_form = "display_text"
+                        try:
+                            envelope = json.loads(display)
+                        except json.JSONDecodeError:
+                            envelope = None
+                        if isinstance(envelope, dict) and isinstance(envelope.get("display"), str):
+                            display = envelope["display"]
+                            received_form = "envelope"
         elif event.get("type") == "result":
             payload = event
     answer = payload.get("result")
     if not isinstance(answer, str) or payload.get("is_error"):
         answer = None
     verbatim, extra = "unknown", "unknown"
-    if display and answer is not None:
+    if display is not None and answer is not None:
         shown, final = norm(display), norm(answer)
-        if shown:
-            present = shown in final
-            verbatim = "pass" if present else "FAIL"
-            extra = len(final) - len(shown) if present else len(final)
-    return {"calls": calls, "display": display, "answer": answer,
+        present = shown in final
+        verbatim = "pass" if present else "FAIL"
+        extra = len(final) - len(shown) if present else len(final)
+    return {"calls": calls, "display": display, "received_form": received_form, "answer": answer,
             "verbatim": verbatim, "extra_chars": extra,
             "usage": payload.get("usage") or {}, "cost_usd": payload.get("total_cost_usd", "unknown"),
             "result_received": bool(payload), "is_error": payload.get("is_error", "unknown")}
 
 
-def isolation(events, allowed_tools, malformed=0):
+def isolation(events, allowed_tools, malformed=0, hook_events_requested=False):
     """Fail closed on missing evidence, allowing only CLI builtin extensions."""
     reasons = []
     inits = [e for e in events if e.get("type") == "system" and e.get("subtype") == "init"]
@@ -120,6 +133,7 @@ def isolation(events, allowed_tools, malformed=0):
              or "hook" in str(e.get("subtype", "")).lower()]
     if hooks:
         reasons.append("hook_events_present")
+    hook_condition = "unknown" if not hook_events_requested else "FAIL" if hooks else "pass"
     first = next((e.get("message", {}).get("usage") for e in events if e.get("type") == "assistant"), None)
     keys = ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
     usage, tokens = {}, None
@@ -132,7 +146,9 @@ def isolation(events, allowed_tools, malformed=0):
         reasons.append("first_request_usage_missing")
     if malformed:
         reasons.append("malformed_stream")
-    return {"status": "FAIL" if reasons else "pass", "reasons": reasons,
+    status = "FAIL" if reasons else "pass (hooks unknown)" if hook_condition == "unknown" else "pass"
+    return {"status": status, "reasons": reasons, "hook_condition": hook_condition,
+            "hook_events_requested": hook_events_requested,
             "checked_init_fields": [field for field in snapshot if field != "memory_paths"],
             "observed_init_fields": list(snapshot), "init": snapshot,
             "default_cli_agents": list(DEFAULT_CLI_AGENTS), "hook_events": hooks,
@@ -168,6 +184,30 @@ def answer_checks(spec, answer):
         check(f"line{i}", bool(lines) and all(s in joined for s in lc["must_contain"])
               and not any(s in joined for s in lc["must_not_contain"]))
     return checks
+
+
+def score_stream(raw, spec, allowed_tools, hook_events_requested=False):
+    """Shared live/offline scoring; never launches a CLI or mutates evidence."""
+    events, malformed = [], 0
+    for line in raw.splitlines():
+        try:
+            event = json.loads(line)
+            if isinstance(event, dict):
+                events.append(event)
+            else:
+                malformed += 1
+        except json.JSONDecodeError:
+            malformed += 1
+    result = measure(events)
+    if malformed:
+        result.update(verbatim="unknown", extra_chars="unknown", received_form="unknown")
+    result["malformed_stream_lines"] = malformed
+    result["isolation"] = isolation(events, allowed_tools, malformed, hook_events_requested)
+    result["checks"] = answer_checks(spec, result["answer"])
+    result["call_count"] = len(result["calls"]) if result["result_received"] and not malformed else "unknown"
+    result["args_bytes"] = sum(c["args_bytes"] for c in result["calls"]) if (
+        result["call_count"] != "unknown" and all(c["args_bytes"] is not None for c in result["calls"])) else "unknown"
+    return result
 
 
 def main():
@@ -207,33 +247,12 @@ def main():
     except OSError as exc:
         raw, stderr = "", f"{type(exc).__name__}: CLI could not start"
     wall = time.monotonic() - started
-    events, malformed = [], 0
-    for line in raw.splitlines():
-        try:
-            event = json.loads(line)
-            if isinstance(event, dict):
-                events.append(event)
-            else:
-                malformed += 1
-        except json.JSONDecodeError:
-            malformed += 1
-    result = measure(events)
-    if malformed:
-        # A discarded event could have been a later tool result.
-        result["verbatim"] = "unknown"
-        result["extra_chars"] = "unknown"
+    result = score_stream(raw, spec, allowed.split(","), "--include-hook-events" in cli_command)
     result["command"] = cli_command
     result["system_prompt"] = ISOLATED_SYSTEM_PROMPT if args.mode == "isolated" else None
-    result["isolation"] = isolation(events, allowed.split(","), malformed) if args.mode == "isolated" else {
-        "status": "not_checked", "reasons": []}
     result.update({"mode": args.mode, "request": args.request, "model": args.model,
                    "target_calls": spec["target_calls"], "wall_s": round(wall, 3),
-                   "exit_code": exit_code, "malformed_stream_lines": malformed,
-                   "checks": answer_checks(spec, result["answer"]), "run_dir": str(run)})
-    # Incomplete streams cannot establish that the observed calls are all the calls.
-    result["call_count"] = len(result["calls"]) if result["result_received"] and not malformed else "unknown"
-    result["args_bytes"] = sum(c["args_bytes"] for c in result["calls"]) if (
-        result["call_count"] != "unknown" and all(c["args_bytes"] is not None for c in result["calls"])) else "unknown"
+                   "exit_code": exit_code, "run_dir": str(run)})
     (run / "answer.txt").write_text(result["answer"] or "", encoding="utf-8")
     (run / "claude.jsonl").write_text(raw, encoding="utf-8")
     (run / "claude.stderr").write_text(stderr, encoding="utf-8")
@@ -244,10 +263,10 @@ def main():
     proof = result["isolation"]
     isolation_text = proof["status"] + (":" + ",".join(proof["reasons"]) if proof["reasons"] else "")
     print(f"{args.mode} | {args.request} | {args.model} | calls={result['call_count']}/{spec['target_calls']} | "
-          f"args_bytes={result['args_bytes']} | isolation={isolation_text} | verbatim={result['verbatim']} | extra_chars={result['extra_chars']} | "
+          f"args_bytes={result['args_bytes']} | isolation={isolation_text} | received_form={result['received_form']} | verbatim={result['verbatim']} | extra_chars={result['extra_chars']} | "
           f"checks={';'.join(f'{k}={v}' for k, v in result['checks'].items())} | wall_s={wall:.1f} | "
           f"tokens={tokens} | cost_usd={result['cost_usd']} | exit={exit_code} | run_dir={run}")
-    if "first_request_tokens_not_under_6000" in proof["reasons"]:
+    if args.mode == "isolated" and "first_request_tokens_not_under_6000" in proof["reasons"]:
         return 3  # Stop the measurement series; inspect the saved stream before any further attempt.
     return 0
 

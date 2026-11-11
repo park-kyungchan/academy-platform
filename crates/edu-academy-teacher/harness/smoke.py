@@ -11,6 +11,7 @@ import json, pathlib, sys
 args = sys.argv[1:]
 assert not list(pathlib.Path.cwd().iterdir()), "working directory must be empty"
 assert "--no-session-persistence" in args and "--strict-mcp-config" in args
+assert "--include-hook-events" in args
 assert args[args.index("--output-format")+1] == "stream-json" and "--verbose" in args
 config = json.loads(pathlib.Path(args[args.index("--mcp-config")+1]).read_text())
 assert list(config["mcpServers"]) == ["academy"]
