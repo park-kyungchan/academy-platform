@@ -272,7 +272,11 @@ def score_stream(raw, spec, allowed_tools, hook_events_requested=False, mode="is
     return result
 
 
-def drive_turns(cli_command, turns, cwd, evidence, timeout=600):
+def token_stop(mode, first_request_tokens):
+    return mode == "isolated" and type(first_request_tokens) is int and first_request_tokens >= 6000
+
+
+def drive_turns(cli_command, turns, cwd, evidence, timeout=600, mode="isolated"):
     """One process/server; submit turn N+1 only after result N. Never retry."""
     events, completed, sent = [], 0, 0
     lines = queue.Queue()
@@ -318,7 +322,7 @@ def drive_turns(cli_command, turns, cwd, evidence, timeout=600):
                     if event.get("is_error"):
                         error = "earlier_turn_error"
                         break
-                    if tokens is not None and tokens >= 6000:
+                    if token_stop(mode, tokens):
                         error = "first_request_tokens_not_under_6000"
                         break
                     if completed == len(turns):
@@ -437,7 +441,7 @@ def _valid_json(line):
         return False
 
 
-def public_row(result, request, model, mode):
+def public_row(result, request, model, mode, conversation=1):
     """The only export from private evidence: identities and numeric/category data."""
     status, reason = result["facts_kept"], result["reason_code"]
     if not result.get("turn_sent", True):
@@ -451,7 +455,7 @@ def public_row(result, request, model, mode):
     elif "unknown" in result["checks"].values() or result["delivery"] == "unknown":
         status, reason = "unknown", reason or "missing_evidence"
     return {"request": request, "turn": result["turn"], "model_tier": {"haiku": "low", "sonnet": "reference"}.get(model, model),
-            "mode": mode, "sent": result.get("turn_sent", True), "calls": result["call_count"], "argument_bytes": result["args_bytes"],
+            "mode": mode, "conversation": conversation, "sent": result.get("turn_sent", True), "calls": result["call_count"], "argument_bytes": result["args_bytes"],
             "unit_counts": result["unit_counts"], "facts_kept": result["facts_kept"],
             "result": status,
             "reason_code": reason, "shown_unchanged": result["shown_unchanged"],
@@ -459,6 +463,7 @@ def public_row(result, request, model, mode):
             "tokens": {key: result["usage"].get(key, "unknown") for key in
                        ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")},
             "elapsed_s": result["elapsed_s"],
+            "first_request_tokens": result["isolation"].get("first_request_tokens", "unknown"),
             "honest_rendering": result["facts_kept"],
             "strict_activity_scope": result["checks"].get("activity_scope", "not_applicable")}
 
@@ -478,6 +483,25 @@ def emit_rows(rows, destination=None):
                     output.write(json.dumps(row, ensure_ascii=False) + "\n")
     for row in rows:
         print(json.dumps(row, ensure_ascii=False))
+
+
+def annotate_conversations(path):
+    """Preserve previous bytes and add the legacy conversation=1 metadata."""
+    rows=[json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    if not any("conversation" not in row for row in rows):return
+    backup=path.with_name(path.stem + ".before-conversation.jsonl")
+    if backup.exists():raise ValueError("conversation_backup_exists")
+    original=path.read_bytes()
+    fd=os.open(backup,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+    with os.fdopen(fd,"wb") as output:output.write(original)
+    if backup.read_bytes()!=original:raise ValueError("conversation_backup_mismatch")
+    temporary=path.with_suffix(".tmp")
+    fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+    with os.fdopen(fd,"w",encoding="utf-8") as output:
+        for row in rows:
+            row.setdefault("conversation",1)
+            output.write(json.dumps(row,ensure_ascii=False)+"\n")
+    temporary.replace(path)
 
 
 def replay_trial(request, model, mode, spec, allowed):
@@ -507,10 +531,15 @@ def main():
     ap.add_argument("--binary", default=os.environ.get("EDU_ACADEMY_TEACHER_BINARY", ""))
     ap.add_argument("--scenario", default=None)
     ap.add_argument("--claude", default=os.environ.get("CLAUDE_BIN", "claude"))
+    ap.add_argument("--conversation", type=int, default=1, choices=range(1,1001))
+    ap.add_argument("--annotate-conversations", type=Path, help="Add conversation=1 to legacy rows; retain original bytes")
     ap.add_argument("--jsonl", type=Path, help="Append only actual sent-turn rows, mode 0600")
     ap.add_argument("--replay-trial", action="store_true", help="Re-score the single saved disposable trial without launching a client")
     ap.add_argument("--trial", action="store_true", help="Disposable two-turn contract trial; exports metadata only")
     args = ap.parse_args()
+    if args.annotate_conversations:
+        annotate_conversations(args.annotate_conversations)
+        return 0
     spec = json.loads((HERE / "checks.json").read_text(encoding="utf-8"))[args.request]
     binary = Path(args.binary or "/home/palantirkc/work/ws-replan/wt/e09d-target/debug/edu-academy-teacher").resolve()
     scenario = select_scenario(args.scenario, spec)
@@ -534,18 +563,18 @@ def main():
     if "turns" in spec:
         turns = spec["turns"]
         try:
-            raw, exit_code, error, sent = drive_turns(cli_command, turns, cwd, run)
+            raw, exit_code, error, sent = drive_turns(cli_command, turns, cwd, run, mode=args.mode)
         except OSError as exc:
             raw, exit_code, error, sent = "", None, type(exc).__name__ + ":client_start_failed", 0
         (run / "claude.jsonl").write_text(raw, encoding="utf-8")
         results = score_turns(raw, turns, allowed.split(","), args.mode, read_call_log(run / "run-log.jsonl"), error, sent)
         (run / "measurement.json").write_text(json.dumps({"command": cli_command + ["--input-format", "stream-json"],
             "request": args.request, "model": args.model, "mode": args.mode, "trial": args.trial,
-            "sent_turns": sent, "results": results, "exit_code": exit_code, "error": error}, ensure_ascii=False, indent=2), encoding="utf-8")
-        rows = [dict(public_row(result, args.request, args.model, args.mode), trial=args.trial) for result in results]
+            "conversation": args.conversation, "sent_turns": sent, "results": results, "exit_code": exit_code, "error": error}, ensure_ascii=False, indent=2), encoding="utf-8")
+        rows = [dict(public_row(result, args.request, args.model, args.mode, args.conversation), trial=args.trial) for result in results]
         emit_rows(rows, args.jsonl)
         proof = isolation([json.loads(x) for x in raw.splitlines() if _valid_json(x)], allowed.split(","), hook_events_requested=True, mode=args.mode)
-        if proof["first_request_tokens"] is not None and proof["first_request_tokens"] >= 6000:
+        if token_stop(args.mode, proof["first_request_tokens"]):
             return 3
         return 0
     started = time.monotonic()

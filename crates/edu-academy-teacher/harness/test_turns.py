@@ -217,6 +217,34 @@ for line in sys.stdin:
         events[4]['tools'].pop();events[4]['session_id']='another-session'
         self.assertEqual([r['isolation']['status'] for r in score()],['FAIL','FAIL'])
 
+    def test_token_bound_stops_only_isolated_and_reports_installed_first_request(self):
+        for mode in ('isolated','installed'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                root=Path(directory);client=root/'client.py'
+                client.write_text("""import json,sys
+for line in sys.stdin:
+ print(json.dumps({'type':'assistant','message':{'usage':{'input_tokens':1,'cache_read_input_tokens':3000,'cache_creation_input_tokens':3000}}}),flush=True)
+ print(json.dumps({'type':'result','result':'answer'}),flush=True)
+""")
+                raw,_,reason,sent=run.drive_turns([sys.executable,str(client)],self.specs(),root,root,timeout=2,mode=mode)
+                self.assertEqual(sent,1 if mode=='isolated' else 2)
+                self.assertEqual(reason,'first_request_tokens_not_under_6000' if mode=='isolated' else None)
+                rows=run.score_turns(raw,self.specs(),[],mode,None,reason,sent)
+                public=run.public_row(rows[0],'Q12','haiku',mode,conversation=2)
+                self.assertEqual(public['first_request_tokens'],6001)
+                self.assertEqual(public['conversation'],2)
+
+    def test_conversation_annotation_retains_previous_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'runs.jsonl'
+            original=b'{"request":"Q12","turn":1}\n'
+            path.write_bytes(original)
+            run.annotate_conversations(path)
+            self.assertEqual(json.loads(path.read_text())['conversation'],1)
+            self.assertEqual(path.with_name('runs.before-conversation.jsonl').read_bytes(),original)
+            run.annotate_conversations(path)
+            self.assertEqual(len(path.read_text().splitlines()),1)
+
 
 if __name__ == '__main__':
     unittest.main()
