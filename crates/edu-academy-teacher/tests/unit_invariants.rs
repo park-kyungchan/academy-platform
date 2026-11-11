@@ -184,6 +184,9 @@ fn i1_every_observation_keeps_its_scope_and_multiplicity() {
                     "edition-defined comprehensive activity and wrong-item basis were dropped",
                 );
                 c.scenario.excluded_sections.push(ExcludedSection {
+        course_key: None,
+        book_no: None,
+        snapshot: None,
                     student_key: "1001".into(),
                     edition: c.request.book.clone().unwrap(),
                     unit: "1-1".into(),
@@ -917,6 +920,9 @@ fn b13_unscoped_exclusion_does_not_silently_exclude_every_attempt() {
         section(0, 0, "1-1", "필수예제", 1),
     ]);
     c.scenario.excluded_sections.push(ExcludedSection {
+        course_key: None,
+        book_no: None,
+        snapshot: None,
         student_key: "1001".into(),
         edition: c.request.book.clone().unwrap(),
         unit: "1-1".into(),

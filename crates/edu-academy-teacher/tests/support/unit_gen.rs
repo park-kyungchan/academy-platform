@@ -214,6 +214,8 @@ impl Case {
         snapshot: Option<&str>,
     ) {
         self.scenario.teacher_judgments.push(TeacherJudgment {
+            course_key: None,
+            book_no: None,
             student_key: "1001".into(),
             edition: self.scenario.edition_trees[0].edition.clone(),
             unit: "1-1".into(),
@@ -268,6 +270,8 @@ impl Case {
             unknowns: vec!["daily_partial_page".into()],
         };
         let mut data = UnitData {
+            course_key: "101".into(),
+            book_no: "201".into(),
             student_key: "1001".into(),
             student: NAMES[0].into(),
             edition: tree.edition.clone(),
@@ -280,6 +284,7 @@ impl Case {
             activity: None,
             level: None,
             daily: Some(DailyRead {
+                unmapped_attempts: vec![],
                 sources: vec![source],
                 read_at: frame.read_at.clone(),
                 scope: frame.scope.clone(),
