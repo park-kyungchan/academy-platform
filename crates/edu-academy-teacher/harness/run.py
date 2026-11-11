@@ -183,6 +183,11 @@ def answer_checks(spec, answer):
     if order:
         positions = [text.find(name) for name in order]
         check("roster_order", all(p >= 0 for p in positions) and positions == sorted(positions))
+    units = spec.get("unit_row_order", [])
+    if units:
+        positions = [next((i for i, line in enumerate(text.splitlines())
+                           if "|" in line and line.lstrip().startswith(unit + " ")), -1) for unit in units]
+        check("unit_row_order", all(p >= 0 for p in positions) and positions == sorted(positions))
     for i, lc in enumerate(spec.get("line_checks", [])):
         lines = [x for x in text.splitlines() if all(s in x for s in lc["contains"])]
         if not lines and len(lc["contains"]) > 1:
@@ -298,7 +303,11 @@ def drive_turns(cli_command, turns, cwd, evidence, timeout=600):
                 try:
                     event = json.loads(line)
                 except ValueError:
-                    continue
+                    error = "malformed_stream"
+                    break
+                if not isinstance(event, dict):
+                    error = "malformed_stream"
+                    break
                 if event.get("type") == "result":
                     completed += 1
                     proof = isolation([json.loads(x) for x in events], [], mode="isolated")
@@ -329,10 +338,15 @@ def drive_turns(cli_command, turns, cwd, evidence, timeout=600):
 def score_turns(raw, specs, allowed, mode, call_log):
     """Result boundaries partition one conversation, retaining init proof per turn."""
     chunks, current, init = [], [], []
+    valid = [json.loads(line) for line in raw.splitlines() if _valid_json(line)]
+    proof = isolation(valid, allowed, len(raw.splitlines()) - len(valid), True, mode)
     for line in raw.splitlines():
         try:
             event = json.loads(line)
         except ValueError:
+            current.append(line)
+            continue
+        if not isinstance(event, dict):
             current.append(line)
             continue
         if event.get("type") == "system" and event.get("subtype") == "init":
@@ -354,6 +368,9 @@ def score_turns(raw, specs, allowed, mode, call_log):
         logs = None if call_log is None else call_log[offset:offset + count]
         offset += count
         result = score_stream("\n".join(chunk), spec, allowed, True, mode, logs)
+        # Isolation belongs to the conversation. Its first-request budget is
+        # never recalculated from the larger context of a later teacher turn.
+        result["isolation"] = proof
         names = [c["name"] for c in result["calls"] if str(c["name"]).startswith("mcp__academy__")]
         result["checks"]["expected_tool"] = "pass" if names == ["mcp__academy__" + spec["expected_tool"]] else "FAIL"
         fixture = (CRATE / "tests/fixtures" / spec["fixture"]).read_text(encoding="utf-8")
@@ -384,11 +401,20 @@ def _valid_json(line):
 
 def public_row(result, request, model, mode):
     """The only export from private evidence: identities and numeric/category data."""
+    status, reason = result["facts_kept"], result["reason_code"]
+    if result["isolation"]["status"] == "FAIL":
+        status, reason = "FAIL", "isolation_failed"
+    elif "FAIL" in result["checks"].values():
+        status, reason = "FAIL", reason or "request_checks_failed"
+    elif result["delivery"] == "truncated_or_changed":
+        status, reason = "FAIL", "delivery_changed"
+    elif "unknown" in result["checks"].values() or result["delivery"] == "unknown":
+        status, reason = "unknown", reason or "missing_evidence"
     return {"request": request, "turn": result["turn"], "model_tier": {"haiku": "low", "sonnet": "reference"}.get(model, model),
             "mode": mode, "calls": result["call_count"], "argument_bytes": result["args_bytes"],
             "unit_counts": result["unit_counts"], "facts_kept": result["facts_kept"],
-            "result": "FAIL" if "FAIL" in result["checks"].values() else result["facts_kept"],
-            "reason_code": result["reason_code"] or ("request_checks_failed" if "FAIL" in result["checks"].values() else None), "shown_unchanged": result["shown_unchanged"],
+            "result": status,
+            "reason_code": reason, "shown_unchanged": result["shown_unchanged"],
             "unknown_by_reason": result["unknown_by_reason"], "failed_rules": result.get("failed_rules", []),
             "tokens": {key: result["usage"].get(key, "unknown") for key in
                        ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")},

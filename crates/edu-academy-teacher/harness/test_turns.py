@@ -91,6 +91,40 @@ for line in sys.stdin:
         self.assertEqual(rows[1]['facts_kept'], 'unknown')
         self.assertEqual(rows[1]['call_count'], 'unknown')
 
+    def test_q11_order_uses_rows_instead_of_book_name_substrings(self):
+        specs = self.specs('Q11')
+        events = self.stream(specs)
+        rows = run.score_turns('\n'.join(map(json.dumps, events)), specs, ['mcp__academy__academy_unit_status'], 'isolated', None)
+        self.assertEqual(rows[0]['checks']['unit_row_order'], 'pass')
+        text = events[-1]['result'].splitlines()
+        text[3], text[4] = text[4], text[3]
+        events[-1]['result'] = '\n'.join(text)
+        row = run.score_turns('\n'.join(map(json.dumps, events)), specs, ['mcp__academy__academy_unit_status'], 'isolated', None)[0]
+        self.assertEqual(row['checks']['unit_row_order'], 'FAIL')
+
+    def test_public_result_rejects_failed_isolation_on_both_turns(self):
+        specs = self.specs()
+        events = self.stream(specs)
+        events[0]['tools'].append('Bash')
+        rows = run.score_turns('\n'.join(map(json.dumps, events)), specs, ['mcp__academy__academy_unit_status'], 'isolated', None)
+        for result in rows:
+            self.assertEqual(result['facts_kept'], 'pass')
+            row = run.public_row(result, 'Q12', 'haiku', 'isolated')
+            self.assertEqual(row['result'], 'FAIL')
+            self.assertEqual(row['reason_code'], 'isolation_failed')
+
+    def test_first_request_budget_does_not_become_second_turn_budget(self):
+        specs = self.specs()
+        events = self.stream(specs)
+        events[4]['message']['usage']['input_tokens'] = 9000
+        rows = run.score_turns('\n'.join(map(json.dumps, events)), specs, ['mcp__academy__academy_unit_status'], 'isolated', None)
+        self.assertEqual([r['isolation']['first_request_tokens'] for r in rows], [1,1])
+        self.assertEqual([r['isolation']['status'] for r in rows], ['pass','pass'])
+
+    def test_nonobject_stream_is_unknown_instead_of_crashing(self):
+        rows = run.score_turns('[]\n', self.specs(), [], 'isolated', None)
+        self.assertEqual([r['facts_kept'] for r in rows], ['unknown','unknown'])
+
 
 if __name__ == '__main__':
     unittest.main()

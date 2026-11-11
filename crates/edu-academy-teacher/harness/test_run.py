@@ -392,7 +392,7 @@ class Slice2ExportTests(unittest.TestCase):
     def test_scope_failure_remains_distinct_from_kept_delivered_facts(self):
         spec = json.loads((run.HERE / 'checks.json').read_text())['Q15']['turns'][0]
         result = run.score_turns('', [spec], [], 'isolated', None)[0]
-        result.update(facts_kept='pass', reason_code=None, checks={'raw_fixture':'FAIL'})
+        result.update(facts_kept='pass', reason_code=None, checks={'raw_fixture':'FAIL'}, isolation={'status':'pass'})
         row = run.public_row(result, 'Q15', 'sonnet', 'isolated')
         self.assertEqual(row['facts_kept'], 'pass')
         self.assertEqual(row['result'], 'FAIL')
