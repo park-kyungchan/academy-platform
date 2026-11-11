@@ -60,6 +60,8 @@ pub struct Faults {
     pub relative_rows: bool,
     pub page_at: Option<String>,
     pub header_at: Option<String>,
+    pub header_fail: bool,
+    pub prestudy_fail: bool,
 }
 #[derive(Clone, Debug)]
 pub struct ReadEvent {
@@ -308,7 +310,10 @@ impl Case {
         let audit = Rc::new(RefCell::new(Vec::new()));
         let backend = SourceBackend::new(
             SyntheticDayPort::new(s.clone()),
-            SyntheticPrestudyPort::new(s.clone()),
+            PrestudyPortWithFault {
+                inner: SyntheticPrestudyPort::new(s.clone()),
+                fail: self.faults.prestudy_fail,
+            },
             TextPort {
                 inner: SyntheticTextbookPort::new(s.clone()),
                 faults: self.faults.clone(),
@@ -380,7 +385,7 @@ pub fn section(
 }
 
 pub struct Session {
-    backend: SourceBackend<SyntheticDayPort, SyntheticPrestudyPort, TextPort>,
+    backend: SourceBackend<SyntheticDayPort, PrestudyPortWithFault, TextPort>,
     daily: DailyTestReader<DailyPort>,
     facts: SeededFacts,
     pub audit: Audit,
@@ -477,7 +482,12 @@ impl Port for DailyPort {
     }
     fn daily_page(&mut self, s: &Js, selector: &Js) -> Result<Js> {
         let scope = string(selector);
-        if self.faults.daily_fail.as_deref() == Some(&scope) {
+        if self
+            .faults
+            .daily_fail
+            .as_deref()
+            .is_some_and(|v| v == scope || v == "all")
+        {
             event(&self.audit, "daily_page", &scope, false);
             return Err(Error::error("source_unavailable"));
         }
@@ -498,11 +508,49 @@ impl Port for DailyPort {
         Ok(result)
     }
     fn paper_header(&mut self, s: &Js, code: &Js) -> Result<Js> {
+        if self.faults.header_fail {
+            return Err(Error::error("source_unavailable"));
+        }
         let mut result = self.inner.paper_header(s, code)?;
         if let Some(at) = &self.faults.header_at {
             result.set("observedAt", at.clone().into());
         }
         event(&self.audit, "daily_header", "selected", true);
         Ok(result)
+    }
+}
+
+struct PrestudyPortWithFault {
+    inner: SyntheticPrestudyPort,
+    fail: bool,
+}
+impl edu_academy_sources::prestudy::PrestudyPort for PrestudyPortWithFault {
+    fn shell(
+        &mut self,
+        k: edu_academy_sources::prestudy::ListKind,
+        n: usize,
+    ) -> Result<edu_academy_sources::http::Response> {
+        if self.fail {
+            return Err(Error::error("source_unavailable"));
+        }
+        self.inner.shell(k, n)
+    }
+    fn search(
+        &mut self,
+        k: edu_academy_sources::prestudy::ListKind,
+        f: &edu_academy_sources::prestudy::PrestudySearchForm,
+        s: &str,
+        n: usize,
+    ) -> Result<edu_academy_sources::http::Response> {
+        self.inner.search(k, f, s, n)
+    }
+    fn summary(&mut self, n: usize) -> Result<edu_academy_sources::http::Response> {
+        self.inner.summary(n)
+    }
+    fn detail(&mut self, k: &str, n: usize) -> Result<edu_academy_sources::http::Response> {
+        self.inner.detail(k, n)
+    }
+    fn report(&mut self, k: &str, n: usize) -> Result<edu_academy_sources::http::Response> {
+        self.inner.report(k, n)
     }
 }

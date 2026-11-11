@@ -949,3 +949,18 @@ fn b13_unscoped_exclusion_does_not_silently_exclude_every_attempt() {
         "B13 seed=13 unit=1-1 attempts=2 exclusion has no course/attempt scope; cannot silently apply to both"
     );
 }
+
+#[path = "support/review_r2.rs"]
+mod review_r2;
+#[test]
+fn i9_all_views_source_failures_and_activity_states() {
+    sweep("I9", review_r2::views);
+}
+#[test]
+fn i10_same_edition_courses_keep_choices_and_unscoped_facts() {
+    sweep("I10", review_r2::courses);
+}
+#[test]
+fn i11_unknown_outages_are_bounded_counted_and_actionable() {
+    sweep("I11", review_r2::unknowns);
+}

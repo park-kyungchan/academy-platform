@@ -33,6 +33,8 @@ struct TextPort {
     note_fail: bool,
     detail_fail: Option<String>,
     progress_fail: bool,
+    after_index: Option<SyntheticTextbookPort>,
+    notes_reads: usize,
 }
 impl TextbookSectionPort for TextPort {
     fn progress(
@@ -68,6 +70,12 @@ impl TextbookSectionPort for TextPort {
             self.calls.borrow_mut().timeout -= 1;
             return Err(Error::error("timeout"));
         }
+        self.notes_reads += 1;
+        if self.notes_reads > 1
+            && let Some(port) = &mut self.after_index
+        {
+            return port.wrong_notes(s, b, n, p);
+        }
         self.inner.wrong_notes(s, b, n, p)
     }
     fn detail(
@@ -98,6 +106,11 @@ impl TextbookSectionPort for TextPort {
             .push(format!("paper:{}", s.student_key()));
         if self.paper_fail {
             return Err(Error::error("source_unavailable"));
+        }
+        if self.notes_reads > 1
+            && let Some(port) = &mut self.after_index
+        {
+            return port.paper_search(s, n, p);
         }
         self.inner.paper_search(s, n, p)
     }
@@ -134,6 +147,8 @@ fn text_port(s: &Scenario) -> TextPort {
         note_fail: false,
         detail_fail: None,
         progress_fail: false,
+        after_index: None,
+        notes_reads: 0,
     }
 }
 fn call<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
@@ -799,4 +814,28 @@ fn r1_relative_page_failure_is_not_retried_as_a_new_probe() {
         "{:?}",
         events.borrow()
     );
+}
+
+#[test]
+fn r2_m22f_successful_empty_grade_is_not_a_failed_read() {
+    let s = scenario();
+    let mut later = s.clone();
+    later.sections.attempts.retain(|a| a.attempt_key != "8200");
+    let mut p = text_port(&s);
+    p.after_index = Some(SyntheticTextbookPort::new(later));
+    let mut b = backend(&s, p);
+    let mut d = reader(&s);
+    let o = call(
+        &mut b,
+        &mut d,
+        &s,
+        json!({"student":"가상학생A","unit":"1-2 필수예제","topic":"섹션"}),
+    );
+    assert!(o.stop.is_none());
+    assert!(
+        o.display.contains("미확인(두 원천 모두에 없음)"),
+        "{}",
+        o.display
+    );
+    assert!(!o.display.contains("성적을 읽지 못함"));
 }
