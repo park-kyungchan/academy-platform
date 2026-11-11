@@ -15,6 +15,7 @@ pub mod tools;
 
 pub use lesson::prepare;
 pub use synthetic::load_scenario;
+pub mod record_data;
 pub mod unit;
 pub mod unit_data;
 pub mod unit_fixture;
