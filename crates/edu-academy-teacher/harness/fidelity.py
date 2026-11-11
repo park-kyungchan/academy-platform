@@ -30,15 +30,15 @@ def validate(policy):
         'contract': 'M21', 'rows': 'one_to_one_whole_fields',
         'bindings': ['part', 'student', 'header'], 'unknown_structure': 'unknown',
         'unmatched_rows': 'reject', 'unmatched_required_lines': 'reject', 'title': 'retain',
-        'commentary_state_labels': 'reject_word_table', 'optional_nonrows': ['sources','closing'],
+        'commentary_state_labels': 'reject_word_table', 'commentary_allowed': 'outside_required_parts', 'optional_nonrows': ['sources','closing'],
         'normalization': {'surrounding_whitespace': True, 'bars': ['|','｜'],
-                          'line_break_encoding': ' / ', 'outer_fence': True},
+                          'line_break_encoding': ' / ', 'outer_fence': True, 'table_separator': 'ignore_whole_lines'},
         'structure': {'tables': 'reference_spaced_headers', 'heading_markers': ['#','**'],
                       'list_marker': '- ', 'bullet_separator': ' · ',
                       'student_heading_suffix': ' 학원 내 처리',
                       'student_heading_level': 2, 'answer_context': 'reference_markers_only', 'text_without_rows': 'whole_lines',
                       'plain_part_before_header': 'shared_first_header_or_new_width',
-                      'unmarked_cell_continuation': 'last_cell'},
+                      'unmarked_cell_continuation': 'last_cell', 'plain_empty_part': 'heading_followed_by_none'},
         'provenance': {'source_prefix': 'READ_SOURCES','closing': 'CLOSING'},
     }
     if not isinstance(policy, dict) or set(policy) != set(expected) | {'required_parts','commentary_max_lines','state_labels'}:
@@ -93,7 +93,14 @@ def physical_lines(text, policy, reference=False):
             raise Unsupported('unsupported_reference_fence')
         if valid:
             lines = [line for i,line in enumerate(lines) if i not in fences]
+    if policy['normalization']['table_separator']=='ignore_whole_lines':
+        lines=[line for line in lines if not table_separator(line,policy)]
     return lines
+
+
+def table_separator(line, policy):
+    fields=fields_of(line,policy)
+    return bool(fields) and all(re.fullmatch(r':?-+:?',cell.strip()) for cell in fields)
 
 
 def fields_of(line, policy):
@@ -134,6 +141,7 @@ def parse_reference(text, policy):
         line=lines[index]; clean=heading(line,policy)
         following=fields_of(lines[index+1],policy) if index+1<len(lines) else None
         return (clean in required or clean.startswith(prefix) or clean==closing
+                or (index+1<len(lines) and lines[index+1]==words['NONE'])
                 or line.startswith(('#','**')) or clean.endswith(policy['structure']['student_heading_suffix'])
                 or (following is not None and (not header or value(following[0],policy)==header[0] or len(following)!=len(header))))
     while i<len(lines):
@@ -157,9 +165,6 @@ def parse_reference(text, policy):
         if f is None and header and i+1<len(lines) and fields_of(lines[i+1],policy) is not None:
             line += '\n'+lines[i+1]; f=fields_of(line,policy); i+=1
         if f is not None:
-            if all(re.fullmatch(r':?-+:?',v.strip()) for v in f):
-                if not header: raise Unsupported('orphan_header_separator')
-                i+=1; continue
             if not header:
                 header=tuple(value(v,policy) for v in f)
                 if len(header)<2: raise Unsupported('invalid_reference_header')
@@ -170,7 +175,7 @@ def parse_reference(text, policy):
             i+=1
             while not line.startswith(('|','｜')) and i<len(lines) and fields_of(lines[i],policy) is None and not boundary(i):
                 # An unmarked continuation belongs to the last cell. This same
-                # complete value is reconstructed by logical_lines on both sides.
+                # complete value is matched by assignment search on both sides.
                 f[-1]+='\n'+lines[i]; i+=1
             vals=tuple(value(v,policy) for v in f)
             units.append(Unit('header' if vals==header else 'row',vals,part,student,() if vals==header else header))
@@ -210,78 +215,119 @@ def normalizers(units):
     return {char:tuple(choices.items()) for char,choices in indexed.items()}
 
 
-def logical_lines(text, units, policy):
-    """Only reference unit patterns rejoin cells; identical code for both sides."""
-    remaining='\n'.join(physical_lines(text,policy))
-    patterns=normalizers(units)
-    result=[]
-    while remaining:
-        matched=False
-        for key,regex in patterns.get(remaining[0],()):
-            hit=regex.match(remaining)
-            if hit:
-                result.append((key,remaining[:hit.end()])); remaining=remaining[hit.end():].lstrip('\n'); matched=True; break
-        if not matched:
-            line,sep,remaining=remaining.partition('\n')
-            # Table separator syntax belongs to the table-header presentation.
-            fs=fields_of(line,policy)
-            if fs and all(re.fullmatch(r':?-+:?',f.strip()) for f in fs): continue
-            result.append((None,line))
-    return result
+def match_options(text, offset, units):
+    tail=text[offset:]
+    choices=[]
+    for key,regex in normalizers(units).get(tail[:1],()):
+        hit=regex.match(tail)
+        if hit:
+            end=offset+hit.end()
+            choices.append((key,end))
+    # Ordering only accelerates the search; every grouping remains available.
+    return sorted(choices,key=lambda item:(-item[1],repr(item[0])))
+
+
+def compatible(unit, context):
+    part,student,header=context
+    return (unit.kind in ('title','parts','sources','closing')
+            or (unit.kind=='student_titles' and unit.part==part)
+            or (unit.kind=='header' and (unit.part,unit.student)==(part,student))
+            or (unit.kind=='row' and (unit.part,unit.student,unit.header)==context)
+            or (unit.kind in ('text','unknown','next') and (unit.part,unit.student)==(part,student)))
+
+
+def next_context(unit, context):
+    part,student,header=context
+    if unit.kind=='parts': return (unit.value,'',())
+    if unit.kind=='student_titles': return (part,unit.value,header)
+    if unit.kind=='header': return (part,student,unit.value)
+    if unit.kind in ('sources','closing'): return ('','',())
+    return context
+
+
+def row_like(key, raw):
+    return bool(key and key[0] in ('row','header')) or any(bar in raw for bar in ('|','｜')) or ' · ' in raw
+
+
+def find_assignment(units, answer, policy, reference=False):
+    """Search all contextual unit assignments and all cell-break groupings."""
+    text='\n'.join(physical_lines(answer,policy))
+    unique=tuple(sorted(set(units),key=repr)); counter=Counter(units)
+    initial=tuple(counter[u] for u in unique)
+    by_key={}
+    for index,u in enumerate(unique): by_key.setdefault((u.kind,u.value),[]).append(index)
+    words=vocabulary(policy); labels=tuple(words[name] for name in policy['state_labels']['constants'])
+    @lru_cache(maxsize=None)
+    def options(offset): return match_options(text,offset,units)
+    @lru_cache(maxsize=None)
+    def visit(offset,remaining,context,extras):
+        if offset==len(text):
+            return () if all(not count or (not reference and u.kind in policy['optional_nonrows']) for u,count in zip(unique,remaining)) else None
+        for key,end in options(offset):
+            for index in by_key.get(key,()):
+                if not remaining[index] or not compatible(unique[index],context): continue
+                counts=list(remaining); counts[index]-=1
+                next_offset=end+1 if end<len(text) else end
+                rest=visit(next_offset,tuple(counts),next_context(unique[index],context),extras)
+                if rest is not None: return ((unique[index],text[offset:end],context[0]),)+rest
+        end=text.find('\n',offset)
+        if end<0:end=len(text)
+        raw=text[offset:end]
+        if (not reference and extras<policy['commentary_max_lines'] and context[0] not in policy['required_parts']
+                and not row_like(None,raw) and not any(label in raw for label in labels)):
+            rest=visit(end+1 if end<len(text) else end,remaining,context,extras+1)
+            if rest is not None:return ((None,raw,context[0]),)+rest
+        return None
+    return visit(0,initial,('','',()),0)
 
 
 @lru_cache(maxsize=1024)
 def reference_units(source, serialized):
     policy=json.loads(serialized); validate(policy)
     units=parse_reference(source,policy)
-    # Every nonempty reference line must resolve to its assigned unit, including
-    # continuations; there is no tableless fallback that discards statements.
-    tokens=logical_lines(source,units,policy)
-    if Counter(key for key,raw in tokens)!=Counter((u.kind,u.value) for u in units):
+    # The same complete-assignment search validates reference coverage too.
+    if find_assignment(units,source,policy,reference=True) is None:
         raise Unsupported('unassigned_reference_line')
     return units
 
 
-def compare(units, answer, policy):
-    available=[True]*len(units); added=[]; seen_rows=Counter(); by_key={}
-    for index,unit in enumerate(units): by_key.setdefault((unit.kind,unit.value),[]).append(index)
-    part=student=''; header=(); rules=set()
-    for key,raw in logical_lines(answer,units,policy):
+def diagnostic_path(units,answer,policy):
+    """Deterministic counts for a rejected answer; never accepts a result."""
+    remaining=Counter(units); text='\n'.join(physical_lines(answer,policy)); context=('','',()); path=[]; offset=0
+    while offset<len(text):
         found=None
-        if key:
-            kind,val=key
-            if kind=='row': seen_rows[val]+=1
-            for index in by_key.get(key,()):
-                if not available[index]: continue
-                unit=units[index]
-                valid=(kind in ('title','parts','sources','closing')
-                       or (kind=='student_titles' and unit.part==part)
-                       or (kind=='header' and (unit.part,unit.student)==(part,student))
-                       or (kind=='row' and (unit.part,unit.student,unit.header)==(part,student,header))
-                       or (kind in ('text','unknown','next') and (unit.part,unit.student)==(part,student)))
-                if valid: found=index; break
-        if found is None:
-            added.append((key,raw)); continue  # Never changes context.
-        available[found]=False; unit=units[found]
-        if unit.kind=='parts': part=unit.value; student=''; header=()
-        elif unit.kind=='student_titles': student=unit.value
-        elif unit.kind=='header': header=unit.value
-        elif unit.kind in ('sources','closing'): part=student=''; header=()
-    expected_rows=Counter(u.value for u in units if u.kind=='row')
-    for unit,missing in zip(units,available):
-        if not missing or unit.kind in policy['optional_nonrows']: continue
-        if unit.kind=='row': rules.add(1 if seen_rows[unit.value]<expected_rows[unit.value] else 2)
-        elif unit.kind in ('unknown','next','text'): rules.add(3)
-        else: rules.add(2)
-    words=vocabulary(policy); labels=[words[name] for name in policy['state_labels']['constants']]
-    if any((key and key[0] in ('row','header')) or any(bar in raw for bar in ('|','｜')) or ' · ' in raw for key,raw in added): rules.add(4)
-    if len(added)>policy['commentary_max_lines'] or any(label in raw for key,raw in added for label in labels): rules.add(5)
-    nonrows={kind:{'total':sum(u.kind==kind for u in units),'kept':sum(u.kind==kind and not missing for u,missing in zip(units,available))} for kind in KINDS}
-    return {'facts_kept':'FAIL' if rules else 'pass','failed_rules':sorted(rules),'fidelity':{
-        'rows_total':sum(u.kind=='row' for u in units),'rows_kept':sum(u.kind=='row' and not missing for u,missing in zip(units,available)),
+        for key,end in match_options(text,offset,units):
+            candidates=sorted((u for u,count in remaining.items() if count and (u.kind,u.value)==key and compatible(u,context)),key=repr)
+            if candidates: found=(candidates[0],end); break
+        if found:
+            unit,end=found; remaining[unit]-=1; path.append((unit,text[offset:end],context[0])); context=next_context(unit,context)
+        else:
+            end=text.find('\n',offset)
+            if end<0:end=len(text)
+            path.append((None,text[offset:end],context[0]))
+        offset=end+1 if end<len(text) else end
+    return tuple(path)
+
+
+def compare(units, answer, policy):
+    path=find_assignment(units,answer,policy)
+    accepted=path is not None
+    if path is None:path=diagnostic_path(units,answer,policy)
+    kept=Counter(u for u,raw,part in path if u is not None); remaining=Counter(units)-kept
+    added=[(raw,part) for u,raw,part in path if u is None]; rules=set()
+    relocated={key[1] for raw,part in added for key,end in match_options(raw,0,units) if key[0]=='row' and end==len(raw)}
+    for unit,count in remaining.items():
+        if unit.kind in policy['optional_nonrows']:continue
+        rules.add((2 if unit.value in relocated else 1) if unit.kind=='row' else 3 if unit.kind in ('unknown','next','text') else 2)
+    if any(row_like(None,raw) or part in policy['required_parts'] for raw,part in added):rules.add(4)
+    words=vocabulary(policy); labels=tuple(words[name] for name in policy['state_labels']['constants'])
+    if len(added)>policy['commentary_max_lines'] or any(label in raw for raw,part in added for label in labels):rules.add(5)
+    nonrows={kind:{'total':sum(u.kind==kind for u in units),'kept':sum(n for u,n in kept.items() if u.kind==kind)} for kind in KINDS}
+    return {'facts_kept':'pass' if accepted else 'FAIL','failed_rules':[] if accepted else sorted(rules),'fidelity':{
+        'rows_total':sum(u.kind=='row' for u in units),'rows_kept':sum(n for u,n in kept.items() if u.kind=='row'),
         'cells_total':sum(len(u.value) for u in units if u.kind=='row'),
-        'cells_kept':sum(len(u.value) for u,missing in zip(units,available) if u.kind=='row' and not missing),
-        'nonrows':nonrows,'added_lines':len(added),'added_chars':sum(len(raw) for key,raw in added)}}
+        'cells_kept':sum(len(u.value)*n for u,n in kept.items() if u.kind=='row'),
+        'nonrows':nonrows,'added_lines':len(added),'added_chars':sum(len(raw) for raw,part in added)}}
 
 
 def evaluate(server, answer, policy):

@@ -42,11 +42,12 @@ class ReferenceUnitRegressions(unittest.TestCase):
         self.check(source,wrapped,'pass')
         self.check(wrapped,source,'pass')
 
-    def test_one_stateless_comment_at_every_position_has_no_context_effect(self):
+    def test_commentary_allowed_only_outside_required_parts(self):
         source=display();lines=source.splitlines()
         for position in range(len(lines)+1):
             for comment in ['Plain comment','# New heading','Invented 학원 내 처리','**Formatted comment**']:
-                self.check(source,'\n'.join(lines[:position]+[comment]+lines[position:]),'pass')
+                inside=any(x in ('미확인 사항','다음 확인') for x in lines[:position])
+                self.check(source,'\n'.join(lines[:position]+[comment]+lines[position:]),'FAIL' if inside else 'pass')
 
     def test_answer_formats_never_produce_unknown(self):
         source=display()

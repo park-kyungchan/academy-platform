@@ -30,8 +30,8 @@ Q03 labels and academy_calls_before_answer: show all three class choices and wai
 `shown_unchanged` reports complete whitespace-normalised delivered-text inclusion; missing/malformed evidence is unknown (stored legacy alias: `verbatim`).
 `facts_kept` uses M21 reference units only: title, part/student heading, table header, complete bound row, complete statement, optional footer and closing; every nonempty reference line must be assigned.
 Only reference headings change answer context; matching consumes one answer logical line per required unit with multiplicity, and rows may reorder within their original binding.
-One shared normalizer rejoins encoded/literal cell breaks in any column; surrounding whitespace, ASCII/full-width delimiters and a single outer fence are presentation; other value edits remain significant.
-Every unmatched answer line counts as added, including heading-like/formatted lines: a row-like addition, two additions, or one containing a declared state label fails; one stateless non-row addition never changes context.
-`source_footer`/`closing_statement` separately count optional unit retention; incomplete/unsupported reference structure or missing evidence gives unknown, while answer format never does; unknown never accepts a slice.
+Complete-assignment search tries every compatible cell-break grouping (including shared prefixes/duplicates); surrounding whitespace, ASCII/full-width delimiters and a single outer fence are presentation; other value edits remain significant.
+Every unmatched answer line counts as added: any addition under a required part fails; outside those parts only one stateless non-row line is allowed and never changes context.
+`source_footer`/`closing_statement` separately count optional unit retention; whole table-separator lines are explicitly normalized away on both sides and can satisfy no unit; unsupported reference structure or missing evidence gives unknown, while answer format never does; unknown never accepts a slice.
 `checks.json` declares the reference grammar, normalization, provenance and state-word policy; accept a slice on `facts_kept`, reporting `shown_unchanged` beside it.
 Offline: `python3 -I -B -m unittest discover -s crates/edu-academy-teacher/harness`; `python3 -B crates/edu-academy-teacher/harness/rescore.py <run-dir>` exports counts/categories and failed M21 numbers only.

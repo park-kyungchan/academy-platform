@@ -117,8 +117,8 @@ class StrictCoverage(unittest.TestCase):
     def test_next_action_cut_and_opposite_added_under_required_part(self):
         source=self.source()
         self.fails(source,source.split('\n다음 확인')[0],3)
-        # R2 counts one unmatched stateless plain line as commentary at any position.
-        self.assertEqual(self.result(source,source+'\nOne comment')['facts_kept'],'pass')
+        self.fails(source,source.replace('제출 필요','제출 필요\n제출 필요 없음'),4)
+        self.fails(source,source+'\nAdditional next step',4)
 
     def test_prose_omission_cannot_borrow_other_rows_field(self):
         source=self.source()
