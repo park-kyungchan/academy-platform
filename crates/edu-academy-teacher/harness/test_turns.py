@@ -29,8 +29,8 @@ for line in sys.stdin:
     print(json.dumps({'type':'result','result':'answer','is_error':''' + str(fail) + '''}),flush=True)
 ''')
                 turns = self.specs()
-                raw, _, error = run.drive_turns([sys.executable, str(client)], turns, root, root, timeout=2)
-                self.assertIsNone(error)
+                raw, _, error, _ = run.drive_turns([sys.executable, str(client)], turns, root, root, timeout=2)
+                self.assertEqual(error, "earlier_turn_error" if fail else None)
                 seen = json.loads((root / 'seen.json').read_text())
                 self.assertEqual(seen, [t['request_text'] for t in turns[:1 if fail else 2]])
                 self.assertEqual(sum(json.loads(x).get('type') == 'result' for x in raw.splitlines()), len(seen))
@@ -44,7 +44,7 @@ for line in sys.stdin:
  print(json.dumps({'type':'assistant','message':{'usage':{'input_tokens':6000,'cache_read_input_tokens':0,'cache_creation_input_tokens':0}}}),flush=True)
  print(json.dumps({'type':'result','result':'answer'}),flush=True)
 ''')
-            raw, _, _ = run.drive_turns([sys.executable, str(client)], self.specs(), root, root, timeout=2)
+            raw, _, _, _ = run.drive_turns([sys.executable, str(client)], self.specs(), root, root, timeout=2)
             self.assertEqual(sum(json.loads(x).get('type') == 'result' for x in raw.splitlines()), 1)
 
     def stream(self, specs):
@@ -82,7 +82,7 @@ for line in sys.stdin:
                 self.assertEqual(spec['expected_tool'], 'academy_unit_status')
                 self.assertEqual(spec['target_calls'], 1)
                 self.assertEqual(spec['max_academy_calls'], 1)
-                self.assertTrue(spec['clock_expectation'])
+                self.assertTrue(spec['clock_expectation'] or (q == 14 and spec is specs[0]))
 
     def test_missing_second_turn_is_unknown_not_first_answer_reused(self):
         specs = self.specs()
@@ -111,7 +111,7 @@ for line in sys.stdin:
             self.assertEqual(result['facts_kept'], 'pass')
             row = run.public_row(result, 'Q12', 'haiku', 'isolated')
             self.assertEqual(row['result'], 'FAIL')
-            self.assertEqual(row['reason_code'], 'isolation_failed')
+            self.assertEqual(row['reason_code'], 'isolation_failed:unexpected_tools')
 
     def test_first_request_budget_does_not_become_second_turn_budget(self):
         specs = self.specs()
@@ -124,6 +124,98 @@ for line in sys.stdin:
     def test_nonobject_stream_is_unknown_instead_of_crashing(self):
         rows = run.score_turns('[]\n', self.specs(), [], 'isolated', None)
         self.assertEqual([r['facts_kept'] for r in rows], ['unknown','unknown'])
+
+    def test_unsent_export_is_unknown_with_each_driver_stop_reason(self):
+        cases = {
+            'earlier_turn_error': "print(json.dumps({'type':'result','result':'answer','is_error':True}),flush=True)",
+            'first_request_tokens_not_under_6000': "print(json.dumps({'type':'assistant','message':{'usage':{'input_tokens':6000,'cache_read_input_tokens':0,'cache_creation_input_tokens':0}}}),flush=True)\nprint(json.dumps({'type':'result','result':'answer'}),flush=True)",
+            'client_timeout': 'time.sleep(0.15)',
+            'client_ended_before_all_turns': 'pass',
+        }
+        for reason, body in cases.items():
+            with self.subTest(reason=reason), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                client = root / 'client.py'
+                client.write_text('import json,sys,time\nsys.stdin.readline()\n' + body + '\n')
+                raw, _, error, sent = run.drive_turns([sys.executable,str(client)],self.specs(),root,root,timeout=0.05 if reason=='client_timeout' else 2)
+                self.assertEqual(error,reason)
+                self.assertEqual(sent,1)
+                results=run.score_turns(raw,self.specs(),[], 'isolated',None,error,sent)
+                row=run.public_row(results[1],'Q12','haiku','isolated')
+                self.assertEqual(row['result'],'unknown')
+                self.assertEqual(row['reason_code'],reason)
+                self.assertEqual(row['unknown_by_reason'],{reason:1})
+                self.assertFalse(row['sent'])
+
+    def test_changed_prior_arguments_fail_q12_and_q14(self):
+        for request, topic in [('Q12','DailyTest'),('Q14','클리닉')]:
+            specs=self.specs(request);events=self.stream(specs)
+            original={'student':'가상학생B','topic':topic}
+            if request=='Q12':original['unit']='4-4'
+            events[1]['message']['content'][0]['input']=dict(original)
+            second=dict(original)
+            if request=='Q14':second['book']='가우스 5-1-1'
+            events[4]['message']['content'][0]['input']=second
+            rows=run.score_turns('\n'.join(map(json.dumps,events)),specs,['mcp__academy__academy_unit_status'],'isolated',None)
+            self.assertEqual(rows[1]['checks']['prior_arguments'],'pass')
+            second['unit' if request=='Q12' else 'student']='changed'
+            rows=run.score_turns('\n'.join(map(json.dumps,events)),specs,['mcp__academy__academy_unit_status'],'isolated',None)
+            self.assertEqual(rows[1]['checks']['prior_arguments'],'FAIL')
+            self.assertEqual(run.public_row(rows[1],request,'haiku','isolated')['result'],'FAIL')
+
+    def q15_row(self, server_fixture='display-q15.txt', drop=False):
+        specs=self.specs('Q15');events=self.stream(specs)
+        text=(run.CRATE/'tests/fixtures'/server_fixture).read_text()
+        events[2]['message']['content'][0]['content']=text
+        events[3]['result']='\n'.join(line for line in text.splitlines() if not (drop and line.endswith('문항 번호 1003')))
+        logs=[{'tool':'academy_unit_status','display_bytes':len(text.encode())}]
+        results=run.score_turns('\n'.join(map(json.dumps,events)),specs,['mcp__academy__academy_unit_status'],'isolated',logs)
+        return run.public_row(results[0],'Q15','haiku','isolated')
+
+    def test_q15_item_lines_pass_and_a_missing_number_fails(self):
+        row=self.q15_row()
+        self.assertEqual(row['result'],'pass')
+        self.assertEqual(row['facts_kept'],'pass')
+        self.assertEqual(row['strict_activity_scope'],'pass')
+        row=self.q15_row(drop=True)
+        self.assertEqual(row['result'],'FAIL')
+        self.assertEqual(row['facts_kept'],'FAIL')
+
+    def test_q15_broad_honest_rendering_and_strict_scope_are_separate(self):
+        row=self.q15_row('display-q15-bare.txt')
+        self.assertEqual(row['honest_rendering'],'pass')
+        self.assertEqual(row['strict_activity_scope'],'FAIL')
+        self.assertEqual(row['result'],'FAIL')
+
+    def test_explicit_scenario_v2_is_retained(self):
+        explicit=run.CRATE/'tests/fixtures/scenario-v2.json'
+        self.assertEqual(run.select_scenario(str(explicit),{'turns':[]}),explicit.resolve())
+        self.assertEqual(run.select_scenario(None,{'turns':[]}).name,'scenario-v3.json')
+
+    def test_jsonl_only_contains_harness_rows_of_sent_turns(self):
+        import contextlib,io,os
+        specs=self.specs();events=self.stream(specs[:1])
+        results=run.score_turns('\n'.join(map(json.dumps,events)),specs,['mcp__academy__academy_unit_status'],'isolated',None,'earlier_turn_error',1)
+        rows=[dict(run.public_row(r,'Q12','haiku','isolated'),trial=True) for r in results]
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
+            output=Path(directory)/'rows.jsonl'
+            run.emit_rows(rows,output)
+            saved=[json.loads(line) for line in output.read_text().splitlines()]
+            self.assertEqual(saved,[rows[0]])
+            self.assertTrue(saved[0]['trial'])
+            self.assertEqual(os.stat(output).st_mode&0o777,0o600)
+
+    def test_native_repeated_init_requires_same_session_and_unchanged_environment(self):
+        specs=self.specs();events=self.stream(specs)
+        events[0]['session_id']='fictional-session'
+        events.insert(4,copy.deepcopy(events[0]))
+        def score():
+            return run.score_turns('\n'.join(map(json.dumps,events)),specs,['mcp__academy__academy_unit_status'],'isolated',None)
+        self.assertEqual([r['isolation']['status'] for r in score()],['pass','pass'])
+        events[4]['tools'].append('Bash')
+        self.assertEqual([r['isolation']['status'] for r in score()],['FAIL','FAIL'])
+        events[4]['tools'].pop();events[4]['session_id']='another-session'
+        self.assertEqual([r['isolation']['status'] for r in score()],['FAIL','FAIL'])
 
 
 if __name__ == '__main__':

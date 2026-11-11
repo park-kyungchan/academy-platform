@@ -200,6 +200,9 @@ def answer_checks(spec, answer):
         joined = "\n".join(lines)
         check(f"line{i}", bool(lines) and all(s in joined for s in lc["must_contain"])
               and not any(s in joined for s in lc["must_not_contain"]))
+    for item in spec.get("item_labels", []):
+        item_lines = [line for line in text.splitlines() if line.strip().startswith("원문 문항 순번 ")]
+        check("item:" + item, any(line.rstrip().endswith("문항 번호 " + item) for line in item_lines))
     for label in spec.get("answer_labels", []):
         check(f"option:{label}", label in text)
     return checks
@@ -312,7 +315,11 @@ def drive_turns(cli_command, turns, cwd, evidence, timeout=600):
                     completed += 1
                     proof = isolation([json.loads(x) for x in events], [], mode="isolated")
                     tokens = proof["first_request_tokens"]
-                    if event.get("is_error") or (tokens is not None and tokens >= 6000):
+                    if event.get("is_error"):
+                        error = "earlier_turn_error"
+                        break
+                    if tokens is not None and tokens >= 6000:
+                        error = "first_request_tokens_not_under_6000"
                         break
                     if completed == len(turns):
                         break
@@ -332,14 +339,37 @@ def drive_turns(cli_command, turns, cwd, evidence, timeout=600):
                     proc.wait()
             reader.join(timeout=1)
             proc.stdout.close()
-    return "".join(events), proc.returncode, error
+    return "".join(events), proc.returncode, error, sent
 
 
-def score_turns(raw, specs, allowed, mode, call_log):
+def conversation_isolation(events, allowed, malformed, mode, turns):
+    """The native client repeats init on later turns of the same session."""
+    inits=[e for e in events if e.get("type")=="system" and e.get("subtype")=="init"]
+    fields=("tools","slash_commands","terminal_slash_commands","skills","plugins","agents","memory_paths","mcp_servers")
+    per_turn, counts = 0, []
+    for event in events:
+        if event.get("type")=="system" and event.get("subtype")=="init":per_turn+=1
+        if event.get("type")=="result":counts.append(per_turn);per_turn=0
+    if per_turn:counts.append(per_turn)
+    if (1<len(inits)<=turns and all(n<=1 for n in counts)
+            and isinstance(inits[0].get("session_id"),str) and inits[0]["session_id"]
+            and all(e.get("session_id")==inits[0]["session_id"] for e in inits)
+            and all(all(e.get(k)==inits[0].get(k) for k in fields) for e in inits)):
+        first=True;canonical=[]
+        for event in events:
+            if event.get("type")=="system" and event.get("subtype")=="init":
+                if not first:continue
+                first=False
+            canonical.append(event)
+        events=canonical
+    return isolation(events,allowed,malformed,True,mode)
+
+
+def score_turns(raw, specs, allowed, mode, call_log, driver_reason=None, sent_turns=None):
     """Result boundaries partition one conversation, retaining init proof per turn."""
     chunks, current, init = [], [], []
     valid = [json.loads(line) for line in raw.splitlines() if _valid_json(line)]
-    proof = isolation(valid, allowed, len(raw.splitlines()) - len(valid), True, mode)
+    proof = conversation_isolation(valid, allowed, len(raw.splitlines()) - len(valid), mode, len(specs))
     for line in raw.splitlines():
         try:
             event = json.loads(line)
@@ -357,6 +387,8 @@ def score_turns(raw, specs, allowed, mode, call_log):
             current = []
     if current:
         chunks.append(current)
+    if sent_turns is None:
+        sent_turns = sum(any(_valid_json(x) and json.loads(x).get("type") in ("assistant", "result") for x in c) for c in chunks)
     results, offset, prior_arguments = [], 0, None
     for index, spec in enumerate(specs):
         chunk = chunks[index] if index < len(chunks) else []
@@ -372,10 +404,12 @@ def score_turns(raw, specs, allowed, mode, call_log):
         # never recalculated from the larger context of a later teacher turn.
         result["isolation"] = proof
         names = [c["name"] for c in result["calls"] if str(c["name"]).startswith("mcp__academy__")]
-        result["checks"]["expected_tool"] = "pass" if names == ["mcp__academy__" + spec["expected_tool"]] else "FAIL"
+        result["checks"]["expected_tool"] = "unknown" if not result["result_received"] else "pass" if names == ["mcp__academy__" + spec["expected_tool"]] else "FAIL"
         fixture = (CRATE / "tests/fixtures" / spec["fixture"]).read_text(encoding="utf-8")
         result["checks"]["raw_fixture"] = "unknown" if result["display"] is None else "pass" if result["display"] == fixture else "FAIL"
-        result["checks"]["clock"] = "unknown" if result["display"] is None else "pass" if spec["clock_expectation"] in result["display"] else "FAIL"
+        result["checks"]["clock"] = "not_applicable" if spec.get("clock_expectation") is None else "unknown" if result["display"] is None else "pass" if spec["clock_expectation"] in result["display"] else "FAIL"
+        if spec.get("strict_activity_scope"):
+            result["checks"]["activity_scope"] = result["checks"]["raw_fixture"]
         arguments = [json.loads(c["arguments"]) for c in result["calls"] if str(c["name"]).startswith("mcp__academy__")]
         if index and spec.get("preserve_arguments"):
             current = arguments[0] if len(arguments) == 1 and isinstance(arguments[0], dict) else None
@@ -385,6 +419,10 @@ def score_turns(raw, specs, allowed, mode, call_log):
                 "pass" if {k:v for k,v in previous.items() if k not in ignored} == {k:v for k,v in current.items() if k not in ignored} else "FAIL")
         prior_arguments = arguments[0] if len(arguments) == 1 else None
         result["turn"] = index + 1
+        result["turn_sent"] = index < sent_turns
+        result["driver_reason"] = driver_reason
+        if not result["turn_sent"]:
+            result["unknown_by_reason"] = {driver_reason or "turn_not_sent": 1}
         result["elapsed_s"] = next((json.loads(x).get("duration_ms", "unknown") for x in reversed(chunk) if _valid_json(x) and json.loads(x).get("type") == "result"), "unknown")
         if isinstance(result["elapsed_s"], (int, float)):
             result["elapsed_s"] /= 1000
@@ -402,8 +440,10 @@ def _valid_json(line):
 def public_row(result, request, model, mode):
     """The only export from private evidence: identities and numeric/category data."""
     status, reason = result["facts_kept"], result["reason_code"]
-    if result["isolation"]["status"] == "FAIL":
-        status, reason = "FAIL", "isolation_failed"
+    if not result.get("turn_sent", True):
+        status, reason = "unknown", result.get("driver_reason") or "turn_not_sent"
+    elif result["isolation"]["status"] == "FAIL":
+        status, reason = "FAIL", "isolation_failed:" + ",".join(result["isolation"].get("reasons", []))
     elif "FAIL" in result["checks"].values():
         status, reason = "FAIL", reason or "request_checks_failed"
     elif result["delivery"] == "truncated_or_changed":
@@ -411,14 +451,52 @@ def public_row(result, request, model, mode):
     elif "unknown" in result["checks"].values() or result["delivery"] == "unknown":
         status, reason = "unknown", reason or "missing_evidence"
     return {"request": request, "turn": result["turn"], "model_tier": {"haiku": "low", "sonnet": "reference"}.get(model, model),
-            "mode": mode, "calls": result["call_count"], "argument_bytes": result["args_bytes"],
+            "mode": mode, "sent": result.get("turn_sent", True), "calls": result["call_count"], "argument_bytes": result["args_bytes"],
             "unit_counts": result["unit_counts"], "facts_kept": result["facts_kept"],
             "result": status,
             "reason_code": reason, "shown_unchanged": result["shown_unchanged"],
             "unknown_by_reason": result["unknown_by_reason"], "failed_rules": result.get("failed_rules", []),
             "tokens": {key: result["usage"].get(key, "unknown") for key in
                        ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")},
-            "elapsed_s": result["elapsed_s"]}
+            "elapsed_s": result["elapsed_s"],
+            "honest_rendering": result["facts_kept"],
+            "strict_activity_scope": result["checks"].get("activity_scope", "not_applicable")}
+
+
+def select_scenario(explicit, spec):
+    return Path(explicit).resolve() if explicit is not None else CRATE / "tests/fixtures" / ("scenario-v3.json" if "turns" in spec else "scenario-v2.json")
+
+
+def emit_rows(rows, destination=None):
+    """Only harness-produced rows for sent turns enter the evidence jsonl."""
+    if destination is not None:
+        fd = os.open(destination, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "a", encoding="utf-8") as output:
+            for row in rows:
+                if row["sent"]:
+                    output.write(json.dumps(row, ensure_ascii=False) + "\n")
+    for row in rows:
+        print(json.dumps(row, ensure_ascii=False))
+
+
+def replay_trial(request, model, mode, spec, allowed):
+    candidates = []
+    for root in Path(tempfile.gettempdir()).glob(f"p8-{mode}-{request}-{model}-*"):
+        directory = root / "run"
+        try:
+            saved = json.loads((directory / "measurement.json").read_text(encoding="utf-8"))
+            command = saved.get("command", [])
+            if saved.get("trial", True) is True and "--input-format" in command and saved.get("results") and len(saved["results"]) == len(spec["turns"]):
+                candidates.append((directory, saved))
+        except (OSError, ValueError):
+            continue
+    if len(candidates) != 1:
+        raise ValueError("saved_trial_not_unique")
+    directory, saved = candidates[0]
+    raw = (directory / "claude.jsonl").read_text(encoding="utf-8")
+    results = score_turns(raw, spec["turns"], allowed, mode, read_call_log(directory / "run-log.jsonl"), saved.get("error"), saved.get("sent_turns"))
+    return [dict(public_row(result, request, model, mode), trial=True) for result in results]
 
 
 def main():
@@ -427,17 +505,23 @@ def main():
     ap.add_argument("model")
     ap.add_argument("--mode", choices=["isolated", "installed"], required=True)
     ap.add_argument("--binary", default=os.environ.get("EDU_ACADEMY_TEACHER_BINARY", ""))
-    ap.add_argument("--scenario", default=str(CRATE / "tests/fixtures/scenario-v2.json"))
+    ap.add_argument("--scenario", default=None)
     ap.add_argument("--claude", default=os.environ.get("CLAUDE_BIN", "claude"))
+    ap.add_argument("--jsonl", type=Path, help="Append only actual sent-turn rows, mode 0600")
+    ap.add_argument("--replay-trial", action="store_true", help="Re-score the single saved disposable trial without launching a client")
     ap.add_argument("--trial", action="store_true", help="Disposable two-turn contract trial; exports metadata only")
     args = ap.parse_args()
     spec = json.loads((HERE / "checks.json").read_text(encoding="utf-8"))[args.request]
     binary = Path(args.binary or "/home/palantirkc/work/ws-replan/wt/e09d-target/debug/edu-academy-teacher").resolve()
-    scenario = Path(args.scenario).resolve()
-    if "turns" in spec and args.scenario == str(CRATE / "tests/fixtures/scenario-v2.json"):
-        scenario = CRATE / "tests/fixtures/scenario-v3.json"
+    scenario = select_scenario(args.scenario, spec)
     tools = json.loads((CRATE / "tests/fixtures/tools-list.json").read_text(encoding="utf-8"))["tools"]
     allowed = ",".join(f"mcp__academy__{t['name']}" for t in tools)
+    if args.replay_trial:
+        if not args.trial:
+            ap.error("--replay-trial requires --trial")
+        rows = replay_trial(args.request, args.model, args.mode, spec, allowed.split(","))
+        emit_rows(rows, args.jsonl)
+        return 0
     root = Path(tempfile.mkdtemp(prefix=f"p8-{args.mode}-{args.request}-{args.model}-"))
     run, cwd = root / "run", root / "cwd"
     run.mkdir(mode=0o700)
@@ -450,21 +534,16 @@ def main():
     if "turns" in spec:
         turns = spec["turns"]
         try:
-            raw, exit_code, error = drive_turns(cli_command, turns, cwd, run)
+            raw, exit_code, error, sent = drive_turns(cli_command, turns, cwd, run)
         except OSError as exc:
-            raw, exit_code, error = "", None, type(exc).__name__ + ":client_start_failed"
+            raw, exit_code, error, sent = "", None, type(exc).__name__ + ":client_start_failed", 0
         (run / "claude.jsonl").write_text(raw, encoding="utf-8")
-        results = score_turns(raw, turns, allowed.split(","), args.mode, read_call_log(run / "run-log.jsonl"))
+        results = score_turns(raw, turns, allowed.split(","), args.mode, read_call_log(run / "run-log.jsonl"), error, sent)
         (run / "measurement.json").write_text(json.dumps({"command": cli_command + ["--input-format", "stream-json"],
-            "results": results, "exit_code": exit_code, "error": error}, ensure_ascii=False, indent=2), encoding="utf-8")
-        if args.trial:
-            sessions = {json.loads(x).get("session_id") for x in raw.splitlines() if _valid_json(x) and json.loads(x).get("session_id")}
-            contract = {"trial": True, "completed_turns": sum(r["result_received"] for r in results),
-                        "session_count": len(sessions), "same_process": True,
-                        "arguments_retained": results[-1]["checks"].get("prior_arguments", "unknown")}
-            print(json.dumps(contract))
-        for result in results:
-            print(json.dumps(public_row(result, args.request, args.model, args.mode), ensure_ascii=False))
+            "request": args.request, "model": args.model, "mode": args.mode, "trial": args.trial,
+            "sent_turns": sent, "results": results, "exit_code": exit_code, "error": error}, ensure_ascii=False, indent=2), encoding="utf-8")
+        rows = [dict(public_row(result, args.request, args.model, args.mode), trial=args.trial) for result in results]
+        emit_rows(rows, args.jsonl)
         proof = isolation([json.loads(x) for x in raw.splitlines() if _valid_json(x)], allowed.split(","), hook_events_requested=True, mode=args.mode)
         if proof["first_request_tokens"] is not None and proof["first_request_tokens"] >= 6000:
             return 3

@@ -259,6 +259,7 @@ fn main() {
                 ),
                 "tools/call" => {
                     let started = Instant::now();
+                    let before_reads = backend.source_reads() + daily.source_requests();
                     let params = request.get("params").cloned().unwrap_or_else(|| json!({}));
                     let name = params
                         .get("name")
@@ -294,14 +295,14 @@ fn main() {
                                 code: Some("invalid_params".into()),
                                 display_bytes: 0,
                                 duration_ms: started.elapsed().as_millis(),
-                                source_reads: 0,
+                                source_reads: (backend.source_reads() + daily.source_requests())
+                                    .saturating_sub(before_reads),
                             });
                         }
                         break 'reply json!({"jsonrpc":"2.0", "id":id,
                         "error":{"code":-32602,"message":"Invalid params"}})
                         .to_string();
                     }
-                    let before_reads = backend.source_reads() + daily.source_requests();
                     let envelope: Envelope = match tools::dispatch(&name) {
                         Some(Handler::LessonPrepare) => {
                             let text_arg = |key: &str| {

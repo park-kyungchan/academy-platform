@@ -70,12 +70,38 @@ def generated(seed, labels):
     return '\n'.join(lines)
 
 
-def reorderings(groups):
+def reorderings(groups, metadata=None):
+    """Move complete logical rows, including declared last-cell continuations."""
+    if metadata is None:
+        # Small row-only inventories used by the independent bounds tests.
+        choices=[]
+        for group in groups:
+            original=[row[1] for row in group]
+            changed=original[1:]+original[:1]
+            if changed!=original:choices.append((group,changed))
+        return choices
+    lines=metadata['lines']
+    boundaries=set(metadata['headers']+metadata['footer']+metadata['closing'])
+    boundaries.update(i for i,_ in metadata['parts']+metadata['students'])
+    boundaries.update(row[0] for row in metadata['rows'])
+    # An unmarked part preceding a header is a boundary, not cell text.
+    boundaries.update(i-1 for i in metadata['headers'] if i>0 and '|' not in lines[i-1] and '｜' not in lines[i-1])
     choices=[]
     for group in groups:
-        original=[row[1] for row in group]
-        changed=original[1:]+original[:1]
-        if changed!=original:choices.append((group,changed))
+        spans=[]
+        for row in group:
+            start=row[0];end=start+1
+            if not lines[start].startswith(('|','｜')):
+                while end<len(lines) and end not in boundaries:
+                    end+=1
+            spans.append((start,end,lines[start:end]))
+        blocks=[span[2] for span in spans]
+        rotated=blocks[1:]+blocks[:1]
+        if rotated!=blocks:
+            changed=list(lines)
+            for (start,end,_),block in reversed(list(zip(spans,rotated))):
+                changed[start:end]=block
+            choices.append((group,changed))
     return choices
 
 
@@ -118,7 +144,7 @@ class GeneratedFidelity(unittest.TestCase):
             equal_rows+=len(values)!=len(set(values))
             prefix_rows+=any(a!=b and all(y.startswith(x) for x,y in zip(a,b)) for a in values for b in values)
             breakable=[(row,c) for row in rows for c,cell in enumerate(row[2]) if ' / ' in cell]
-            reorder=reorderings(m['groups'].values())
+            reorder=reorderings(m['groups'].values(),m)
             multi=[row for row in rows if sum(' / ' in cell for cell in row[2])>1]
             move=[(row,target) for row in rows for target,name in m['parts'] if name!=row[3][0]]
             move_student=[(row,target) for row in rows for target,name in m['students'] if name!=row[3][1]]
@@ -157,9 +183,8 @@ class GeneratedFidelity(unittest.TestCase):
                 check(identifier,'required_addition',source,'\n'.join(lines[:index+1]+['Additional factual line']+lines[index+1:]),'FAIL')
             check(identifier,'one_comment',source,'One stateless comment\n'+source,'pass')
             if reorder:
-                group,reordered=reorder[0]; changed=list(lines)
-                self.assertNotEqual([row[1] for row in group],reordered)
-                for row,text in zip(group,reordered):changed[row[0]]=text
+                group,changed=reorder[0]
+                self.assertNotEqual(lines,changed)
                 check(identifier,'reorder_rows',source,'\n'.join(changed),'pass')
             if breakable:
                 row,column=breakable[sequence%len(breakable)];index,text,cells,_=row
@@ -185,3 +210,18 @@ class GeneratedFidelity(unittest.TestCase):
         elapsed=time.perf_counter()-start
         self.assertLess(elapsed,20.0)
         print('property_summary='+json.dumps({'generated':CASES,'fixtures':len(fixtures),'assertions':assertions,'seconds':round(elapsed,3),'state_labels':len(names),'limit_hits':0,'applications':{key:len(value) for key,value in sorted(applications.items())}},sort_keys=True))
+
+
+class ContinuationReordering(unittest.TestCase):
+    def test_q11_moves_the_complete_last_cell_and_rejects_detached_qualifiers(self):
+        policy=fidelity.configured_policy()
+        source=(fidelity.CRATE/'tests/fixtures/display-q11.txt').read_text()
+        inventory=metadata(source)
+        group,changed=reorderings(inventory['groups'].values(),inventory)[0]
+        self.assertEqual(fidelity.evaluate(source,'\n'.join(changed),policy)['facts_kept'],'pass')
+        # The former generator moved 2-3 without its date/level/judgment
+        # continuation, attaching those facts to a different row's last cell.
+        bare=inventory['lines'][:]
+        rotated=[r[1] for r in group][1:]+[group[0][1]]
+        for row,text in zip(group,rotated):bare[row[0]]=text
+        self.assertEqual(fidelity.evaluate(source,'\n'.join(bare),policy)['facts_kept'],'FAIL')

@@ -578,6 +578,13 @@ fn unit_protocol_q11_to_q16_display_and_distinct_frames() {
 #[test]
 fn unit_invalid_requests_read_no_sources_and_stop_is_error() {
     let mut s = Server::start_with_log(Some("unit"));
+    unit_call(
+        &mut s,
+        20,
+        json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"DailyTest"}),
+        include_str!("fixtures/display-q11.txt"),
+        "ok",
+    );
     for (i, args) in [
         json!({}),
         json!({"student":4}),
@@ -594,8 +601,10 @@ fn unit_invalid_requests_read_no_sources_and_stop_is_error() {
         assert!(out.get("result").is_none());
     }
     let text = std::fs::read_to_string(&s.run_log).unwrap();
-    assert_eq!(text.lines().count(), 5);
-    for line in text.lines() {
+    assert_eq!(text.lines().count(), 6);
+    let first: Value = serde_json::from_str(text.lines().next().unwrap()).unwrap();
+    assert!(first["source_reads"].as_u64().unwrap() > 0);
+    for line in text.lines().skip(1) {
         assert_eq!(
             serde_json::from_str::<Value>(line).unwrap()["source_reads"],
             0
@@ -613,4 +622,26 @@ fn unit_invalid_requests_read_no_sources_and_stop_is_error() {
         result["_meta"]["academy/envelope"]["display"]
     );
     assert!(result.get("structuredContent").is_none());
+}
+
+#[test]
+fn unit_generated_student_label_prints_the_same_frame_time() {
+    let mut exact = Server::start_with_log(Some("unit"));
+    let mut choice = Server::start_with_log(Some("unit"));
+    for (i, time) in [(0, "09:00"), (1, "10:00")] {
+        let mut replies = Vec::new();
+        for (server, student) in [
+            (&mut exact, "가상학생B"),
+            (&mut choice, "가상학생B (가상반A)"),
+        ] {
+            let out = server.call(json!({"id":i,"method":"tools/call","params":{"name":"academy_unit_status","arguments":{"student":student,"unit":"4-4","topic":"DailyTest"}}}));
+            let envelope = &out["result"]["_meta"]["academy/envelope"];
+            assert_eq!(envelope["status"], "ok");
+            let text = out["result"]["content"][0]["text"].as_str().unwrap();
+            assert!(text.contains(&format!("읽은 원천 (11월 11일 {time})")));
+            replies.push(envelope["data"]["read_at"].clone());
+        }
+        assert_eq!(replies[0], replies[1]);
+        assert!(replies[0].as_str().unwrap().contains(time));
+    }
 }

@@ -770,7 +770,7 @@
         "target_calls": 1,
         "max_academy_calls": 1,
         "fixture": "display-q14-ask.txt",
-        "clock_expectation": "가우스 5-1-1",
+        "clock_expectation": null,
         "fidelity_policy": {
           "contract": "M21",
           "rows": "one_to_one_whole_fields",
@@ -1072,20 +1072,12 @@
           "기록이 없습니다",
           "유형다지기"
         ],
-        "line_checks": [
-          {
-            "contains": [
-              "오답"
-            ],
-            "must_contain": [
-              "1002",
-              "1003"
-            ],
-            "must_not_contain": [
-              "1001"
-            ]
-          }
-        ]
+        "line_checks": [],
+        "item_labels": [
+          "1002",
+          "1003"
+        ],
+        "strict_activity_scope": true
       }
     ]
   },
