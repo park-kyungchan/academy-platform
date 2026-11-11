@@ -134,3 +134,30 @@ fn m23e_only_cell_affecting_teacher_report_kinds_need_course_scope() {
         }
     }
 }
+
+#[test]
+fn m23f_legend_tracks_printed_dash_values_not_source_titles() {
+    let mut c = Case::new(1);
+    c.scope(2, "섹션");
+    for minor in &mut c.scenario.edition_trees[0].chapters[0].minors {
+        minor.activities = vec!["필수예제".into()];
+    }
+    let rows: Vec<_> = ["1-1", "1-2"].into_iter().enumerate().map(|(i, unit)| {
+        let mut a = section(0, 0, unit, "필수예제", i);
+        a.title = a.title.replace("가상주제", "가상주제 — 제목");
+        a
+    }).collect();
+    c.own_sections(rows.clone());
+    let out = c.run();
+    assert!(out.ask.is_none() && out.stop.is_none());
+    assert!(out.display.contains("가상주제 — 제목"));
+    assert_eq!(out.display.matches(l::UNIT_DASH_LEGEND).count(), 0);
+    c.own_sections(vec![rows[0].clone()]);
+    let out = c.run();
+    assert!(out.display.lines().any(|line| line.ends_with(" | —")));
+    assert_eq!(out.display.matches(l::UNIT_DASH_LEGEND).count(), 1);
+    c.scope(1, "클리닉");
+    for item in &mut c.scenario.sections.attempts[0].items { item.scoring = "O".into(); }
+    let out = c.run();
+    assert_eq!(out.display.matches(l::UNIT_DASH_LEGEND).count(), 0);
+}
