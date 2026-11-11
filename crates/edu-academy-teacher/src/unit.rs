@@ -277,6 +277,13 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
         } else {
             l::unit_course_ask(&cell(&student.name), &duplicates.join("\n"))
         };
+        // The book field is replaced on the next stateless call. Carry its
+        // original unit suffix in every choice rather than widening the scope.
+        let suffix = candidates.iter().filter_map(|b| {
+            book_text.strip_prefix(&b.book_label)
+                .filter(|tail| tail.starts_with(char::is_whitespace))
+                .map(|tail| (b.book_label.len(), tail))
+        }).max_by_key(|(len, _)| *len).map_or("", |(_, tail)| tail);
         return Err(ask(
             AskField::Book,
             question,
@@ -284,7 +291,7 @@ fn compute<D: SourcePort, P: PrestudyPort, T: TextbookSectionPort, H: Port>(
                 .iter()
                 .enumerate()
                 .filter(|(_, b)| candidates.iter().any(|other| std::ptr::eq(*other, *b)))
-                .map(|(i, _)| labels[i].clone())
+                .map(|(i, _)| format!("{}{suffix}", labels[i]))
                 .collect(),
             if topic == l::UNIT_TOPICS[2] {
                 l::UNIT_BOOK_MEANING
