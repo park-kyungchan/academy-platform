@@ -257,6 +257,17 @@ fn routing_admission() -> Js {
         ("allowedThrough", "2040-01-04".into()),
     ])
 }
+fn student_source(replies: Vec<(&str, String)>) -> StudentSource<Fake> {
+    let (port, _, _) = fake(student_admission(), replies);
+    StudentSource::new(
+        port,
+        Owner::parse(&owner_value()).unwrap(),
+        student_admission(),
+        MetadataPolicy::parse(&policy_value()).unwrap(),
+        Some(PaperFormPin::parse(&form_value()).unwrap()),
+    )
+    .unwrap()
+}
 fn student_driver(replies: Vec<(&str, String)>) -> (StudentDriver<Fake>, Rc<Cell<usize>>) {
     let (port, count, _) = fake(student_admission(), replies);
     let source = StudentSource::new(
@@ -269,6 +280,14 @@ fn student_driver(replies: Vec<(&str, String)>) -> (StudentDriver<Fake>, Rc<Cell
     .unwrap();
     (StudentDriver::new(source, routing_admission()), count)
 }
+/// Serialized length exactly as the adapters measure it (tool_result + encode).
+fn serialized_len(value: &Js) -> usize {
+    encode(&edu_academy_mcp::audit::tool_result(value.clone()).unwrap())
+        .unwrap()
+        .len()
+}
+const CAP_BYTES: usize = 512 * 1024;
+const FIXED_NOW: &str = "2040-01-04T09:00:00.000Z";
 fn student_request(queries: Vec<Js>, named: bool) -> Js {
     let mut v = obj(&[
         ("purpose", "Fictional metadata read".into()),
@@ -734,6 +753,10 @@ fn paper_owner(scope: PaperScope) -> PaperOwner {
         paper_pins(&reader_shell(scope)),
     )
     .unwrap()
+}
+fn paper_source(scope: PaperScope, replies: Vec<(&str, String)>) -> PaperSource<Fake> {
+    let (port, _, _) = fake(paper_admission(scope), replies);
+    PaperSource::new(port, paper_owner(scope), paper_admission(scope)).unwrap()
 }
 fn paper_driver(
     scope: PaperScope,
@@ -1466,22 +1489,27 @@ fn r1_envelope_code_is_catalogued_and_uncatalogued_is_masked() {
 
 #[test]
 fn r2_over_cap_branches_for_metadata_and_paper() {
-    // Metadata: a small control succeeds; the big page forces the cap branch.
-    let (mut driver, _) = student_driver(vec![("metadata.daily", big_daily(2, 10))]);
-    let small = driver
-        .call(
-            "academy_student_metadata",
-            &student_request(vec![js(r#"{"kind":"daily_metadata"}"#)], false),
-        )
+    // By construction: the same fixture is run through the source directly
+    // to measure its serialized length, then through the adapter. Only the
+    // title length changes, so only the 512 KiB cap branch can differ.
+    let input = student_request(vec![js(r#"{"kind":"daily_metadata"}"#)], false);
+    let under_value = student_source(vec![("metadata.daily", big_daily(200, 1133))])
+        .metadata("academy_student_metadata", &input, FIXED_NOW)
         .unwrap();
+    let over_value = student_source(vec![("metadata.daily", big_daily(200, 1134))])
+        .metadata("academy_student_metadata", &input, FIXED_NOW)
+        .unwrap();
+    let under_len = serialized_len(&under_value);
+    let over_len = serialized_len(&over_value);
+    assert!(
+        under_len <= CAP_BYTES && over_len > CAP_BYTES && over_len - under_len <= 16384,
+        "metadata lengths must straddle the cap: under={under_len} over={over_len} cap={CAP_BYTES}"
+    );
+    let (mut driver, _) = student_driver(vec![("metadata.daily", big_daily(200, 1133))]);
+    let small = driver.call("academy_student_metadata", &input).unwrap();
     assert_eq!(small.get("status").code_units(), "observed");
-    let (mut driver, count) = student_driver(vec![("metadata.daily", big_daily(600, 1500))]);
-    let out = driver
-        .call(
-            "academy_student_metadata",
-            &student_request(vec![js(r#"{"kind":"daily_metadata"}"#)], false),
-        )
-        .unwrap();
+    let (mut driver, count) = student_driver(vec![("metadata.daily", big_daily(200, 1134))]);
+    let out = driver.call("academy_student_metadata", &input).unwrap();
     assert_eq!(out.get("status").code_units(), "unavailable");
     assert_eq!(out.get("failedSource").code_units(), "metadata");
     assert_eq!(out.get("sourceRequests"), &Js::Num(1.0));
@@ -1490,27 +1518,40 @@ fn r2_over_cap_branches_for_metadata_and_paper() {
         out.get("code").code_units()
     );
     assert_eq!(count.get(), 1);
-    // Paper inventory: same forcing through the paper adapter cap.
+    // Paper inventory: same construction through the shared cap code.
+    let p_input = paper_input(PaperScope::Paper1);
+    let under_value = paper_source(
+        PaperScope::Paper1,
+        vec![("metadata.daily", big_daily(200, 1073))],
+    )
+    .read("academy_daily_test_inventory", &p_input, DATE, FIXED_NOW)
+    .unwrap();
+    let over_value = paper_source(
+        PaperScope::Paper1,
+        vec![("metadata.daily", big_daily(200, 1074))],
+    )
+    .read("academy_daily_test_inventory", &p_input, DATE, FIXED_NOW)
+    .unwrap();
+    let under_len = serialized_len(&under_value);
+    let over_len = serialized_len(&over_value);
+    assert!(
+        under_len <= CAP_BYTES && over_len > CAP_BYTES && over_len - under_len <= 16384,
+        "paper lengths must straddle the cap: under={under_len} over={over_len} cap={CAP_BYTES}"
+    );
     let (mut driver, _) = paper_driver(
         PaperScope::Paper1,
-        vec![("metadata.daily", big_daily(2, 10))],
+        vec![("metadata.daily", big_daily(200, 1073))],
     );
     let small = driver
-        .call(
-            "academy_daily_test_inventory",
-            &paper_input(PaperScope::Paper1),
-        )
+        .call("academy_daily_test_inventory", &p_input)
         .unwrap();
     assert_eq!(small.get("status").code_units(), "observed");
     let (mut driver, count) = paper_driver(
         PaperScope::Paper1,
-        vec![("metadata.daily", big_daily(600, 1500))],
+        vec![("metadata.daily", big_daily(200, 1074))],
     );
     let out = driver
-        .call(
-            "academy_daily_test_inventory",
-            &paper_input(PaperScope::Paper1),
-        )
+        .call("academy_daily_test_inventory", &p_input)
         .unwrap();
     assert_eq!(out.get("status").code_units(), "blocked");
     assert_eq!(out.get("failedSource").code_units(), "paper");
