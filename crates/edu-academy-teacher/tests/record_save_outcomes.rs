@@ -139,3 +139,45 @@ fn c_ambiguous_preview() {
     let contract_row = "R05";
     assert_eq!(contract_row, "R05");
 }
+
+#[test]
+fn c_parent_preview() {
+    use edu_academy_teacher::{
+        record_parent::render_parent,
+        record_parse::{ParsedLines, parse_lines},
+    };
+    let fixture = RecordFixture::from_json(include_str!("fixtures/record-answers.json")).unwrap();
+    let catalog = codec::parse(
+        serde_json::json!({"books":[{
+            "studentRef":"invented-student", "bookRef":"invented-book", "label":"가상교재",
+            "edition":null, "bindingState":"confirmed", "units":[{
+                "unitRef":"invented-unit", "code":"2-1", "title":"가상주제",
+                "kind":"minor", "activities":["필수예제"], "sections":[]
+            }]
+        }]})
+        .to_string()
+        .as_bytes(),
+    )
+    .unwrap();
+    let ParsedLines::Ready(entries) = parse_lines(
+        RecordField::Homework,
+        &["가상교재 2-1 필수예제 8문항".into()],
+        &catalog,
+    )
+    .unwrap() else {
+        panic!("resolved proposal required");
+    };
+    let proposal = render_parent(&entries, &catalog).unwrap();
+    assert_eq!(
+        proposal.homework.as_deref(),
+        Some("- 가상교재, 2-1 가상주제 필수예제 8문항")
+    );
+    for field in RecordField::ALL {
+        if field != RecordField::Homework {
+            assert!(proposal[field].is_none());
+        }
+    }
+    // C-parent-preview is a proposal only (R05): this pure renderer records no
+    // durable pre-effect fact (R07), invokes no backend and makes no saved claim.
+    check(&fixture.records[0].snapshot.identity, &[], &[], &[]);
+}

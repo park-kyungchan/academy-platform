@@ -18,6 +18,7 @@ pub use synthetic::load_scenario;
 pub mod record_backend;
 pub mod record_data;
 pub mod record_fixture;
+pub mod record_parent;
 pub mod record_parse;
 pub mod record_store;
 pub mod unit;
