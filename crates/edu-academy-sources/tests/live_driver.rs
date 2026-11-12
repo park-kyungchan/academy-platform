@@ -652,6 +652,16 @@ fn modes_use_native_apply_and_status_settles_field_alone_at_due_time() {
             let before = reads.get();
             let status = live_driver::execute(&input, &mut service).unwrap();
             assert_eq!(reads.get(), before, "status before due time must not read");
+            assert_eq!(
+                status.get("reconcileReads"),
+                &Js::Num(0.),
+                "not-due reconcile attempted zero reads"
+            );
+            assert_eq!(
+                status.get("reconcileReadsFailed"),
+                &Js::Num(0.),
+                "not-due reconcile failed zero reads"
+            );
             assert!(
                 status.get("reconcileStatus").is("held"),
                 "before due core status is held"
@@ -782,6 +792,16 @@ fn modes_use_native_apply_and_status_settles_field_alone_at_due_time() {
                 local.get("reconcileCode"),
                 &Js::Null,
                 "no reconcile code when not requested"
+            );
+            assert_eq!(
+                local.get("reconcileReads"),
+                &Js::Null,
+                "no read count without reconcile"
+            );
+            assert_eq!(
+                local.get("reconcileReadsFailed"),
+                &Js::Null,
+                "no failure count without reconcile"
             );
         }
         assert_eq!(writes.get(), 1, "no write retry");
@@ -1263,7 +1283,7 @@ fn binary_store_fifo() {
 }
 
 #[test]
-fn mixed_due_read_failure_is_not_a_wait() {
+fn mixed_reconcile_read_failure_is_not_a_wait() {
     for (index, other_date) in ["2040-01-04", "2040-01-03"].into_iter().enumerate() {
         let root = PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap())
             .join(format!("mixed-due-{index}"));
@@ -1382,7 +1402,7 @@ fn mixed_due_read_failure_is_not_a_wait() {
                 result
                     .get("reconcileCode")
                     .is("readback_unavailable_reconcile_later"),
-                "a due open execution defeats a pending-only wait across fields and dates"
+                "a failed read defeats a pending-only wait across fields and dates"
             );
             let (public, exit) = live_driver::response(
                 &request,
@@ -1392,6 +1412,16 @@ fn mixed_due_read_failure_is_not_a_wait() {
                 true,
             );
             assert_eq!(exit, 3, "mixed failed settling read must exit 3");
+            assert_eq!(
+                public.get("reconcileReads"),
+                &Js::Num(1.),
+                "failure response keeps numeric read count"
+            );
+            assert_eq!(
+                public.get("reconcileReadsFailed"),
+                &Js::Num(1.),
+                "failure response keeps numeric failed count"
+            );
             assert!(
                 public
                     .get("code")
@@ -1404,4 +1434,326 @@ fn mixed_due_read_failure_is_not_a_wait() {
             );
         }
     }
+}
+
+struct AdvancingClock {
+    offset_ms: Cell<u64>,
+    ids: Cell<u64>,
+    now_calls: Cell<usize>,
+    epoch_calls: Cell<usize>,
+}
+impl AdvancingClock {
+    fn tick(&self) -> u64 {
+        let n = self.offset_ms.get();
+        self.offset_ms.set(n + 1);
+        n
+    }
+}
+impl Runtime for AdvancingClock {
+    fn now(&self) -> String {
+        self.now_calls.set(self.now_calls.get() + 1);
+        let ms = self.tick();
+        format!(
+            "2040-01-04T09:{:02}:{:02}.{:03}Z",
+            ms / 60000,
+            ms / 1000 % 60,
+            ms % 1000
+        )
+    }
+    fn epoch_ms(&self) -> u64 {
+        self.epoch_calls.set(self.epoch_calls.get() + 1);
+        edu_academy_core::instant::epoch_ms(
+            &NOW.into(),
+            edu_academy_core::instant::Grammar::DailyRecord,
+        )
+        .unwrap() as u64
+            + self.tick()
+    }
+    fn uuid(&self) -> CoreResult<String> {
+        self.ids.set(self.ids.get() + 1);
+        Ok(format!("advancing-occurrence-{}", self.ids.get()))
+    }
+}
+fn open_execution(
+    store: &Store,
+    reference: &str,
+    field: &str,
+    value: &str,
+    at: &'static str,
+) -> Js {
+    let clock = TestClock(
+        Cell::new(at),
+        Cell::new(u64::from(reference.as_bytes()[0]) * 100),
+    );
+    let mut obs = observation();
+    obs.set("observedAt", at.into());
+    let obs = Rc::new(RefCell::new(obs));
+    let writes = Rc::new(Cell::new(0));
+    let mut source = InventedSource(obs.clone(), Rc::new(Cell::new(0)));
+    let mut port = SyntheticPort {
+        observation: obs,
+        writes: writes.clone(),
+        immediate: None,
+        lost: false,
+        wrong_receipt: false,
+    };
+    let mut backend = NativeBackend::new(&mut port, admission(), Js::Null, vec![], &clock);
+    let mut service = Service {
+        store,
+        source: &mut source,
+        backend: &mut backend,
+        policy: &DisconnectedPolicy,
+        runtime: &clock,
+    };
+    let mut request = input();
+    request.set("requestRef", reference.into());
+    request.set("field", field.into());
+    request.set("value", value.into());
+    request.set("mode", "plan".into());
+    let plan = live_driver::execute(&request, &mut service).unwrap();
+    assert!(plan.get("status").is("prepared"));
+    request.set("mode", "save".into());
+    request.set("approval", plan.get("planDigest").clone());
+    let saved = live_driver::execute(&request, &mut service).unwrap();
+    assert!(saved.get("status").is("held"));
+    assert_eq!(writes.get(), 1);
+    request
+}
+struct ReconcileSequence<'a> {
+    clock: &'a AdvancingClock,
+    failed_source: &'a mut dyn edu_academy_core::workflow::service::Source,
+    calls: usize,
+    unobserved: bool,
+}
+impl edu_academy_core::workflow::service::Source for ReconcileSequence<'_> {
+    fn read(&mut self, scope: &Js, request: &Js, subject: &Js) -> CoreResult<Js> {
+        self.calls += 1;
+        if self.unobserved {
+            return Ok(obj(&[
+                ("status", "unavailable".into()),
+                ("reasonCode", "source_http_failed".into()),
+            ]));
+        }
+        if self.calls == 1 {
+            self.clock.offset_ms.set(self.clock.offset_ms.get() + 12000);
+            let obs = Rc::new(RefCell::new(observation()));
+            set_field(&obs, "attendance", "N");
+            let mut obs = obs.borrow().clone();
+            obs.set("observedAt", self.clock.now().into());
+            return Ok(obj(&[("status", "observed".into()), ("observation", obs)]));
+        }
+        self.failed_source.read(scope, request, subject)
+    }
+}
+fn advancing_reconcile_case(kind: &str) {
+    let root = PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap())
+        .join(format!("advancing-{kind}"));
+    std::fs::create_dir_all(&root).unwrap();
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let mut request = open_execution(&store, "a", "attendance", "N", NOW);
+    if kind == "three" {
+        open_execution(
+            &store,
+            "b",
+            "dailyTestAssessment",
+            "2",
+            "2040-01-04T09:00:15.000Z",
+        );
+    }
+    open_execution(
+        &store,
+        "c",
+        "previousHomeworkAssessment",
+        "5",
+        "2040-01-04T09:05:00.000Z",
+    );
+    let executions =
+        edu_academy_core::workflow::state::student_executions(&store, request.get("scope"))
+            .unwrap();
+    let refs = executions
+        .iter()
+        .map(|e| e.record.get("requestRef").code_units())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        refs,
+        if kind == "three" {
+            vec!["a", "b", "c"]
+        } else {
+            vec!["a", "c"]
+        },
+        "ledger traversal order is verified"
+    );
+    let clock = AdvancingClock {
+        offset_ms: Cell::new(605000),
+        ids: Cell::new(0),
+        now_calls: Cell::new(0),
+        epoch_calls: Cell::new(0),
+    };
+    let before = clock.offset_ms.get();
+    if kind == "three" {
+        let outcome = store
+            .get(
+                edu_academy_core::workflow::store::Kind::Outcome,
+                &executions[1].key,
+            )
+            .unwrap();
+        let due = edu_academy_core::workflow::state::settlement_at(&executions[1].record, &outcome)
+            .unwrap();
+        let base = edu_academy_core::instant::epoch_ms(
+            &NOW.into(),
+            edu_academy_core::instant::Grammar::DailyRecord,
+        )
+        .unwrap();
+        assert!(
+            due > base + before as i64,
+            "b is not due before reconcile starts"
+        );
+    }
+    let mut replies = login();
+    replies.push((MAIN.into(), 503, "invented slow-reconcile 503".into()));
+    let (transport, seen) = transport(replies);
+    let owner = Owner::new(
+        edu_academy_sources::http::Client::new(principal(), transport).unwrap(),
+        admission(),
+        None,
+        vec![],
+        credentials,
+        &clock,
+    )
+    .unwrap();
+    let mut bad = owner.source();
+    let mut source = ReconcileSequence {
+        clock: &clock,
+        failed_source: &mut bad,
+        calls: 0,
+        unobserved: kind == "unobserved",
+    };
+    let mut unused = Unused;
+    request.set("mode", "status".into());
+    request.set("reconcile", true.into());
+    let result = live_driver::execute(
+        &request,
+        &mut Service {
+            store: &store,
+            source: &mut source,
+            backend: &mut unused,
+            policy: &DisconnectedPolicy,
+            runtime: &clock,
+        },
+    )
+    .unwrap();
+    let (public, exit) = live_driver::response(
+        &request,
+        Ok(result),
+        live_driver::stored(&request, &store).unwrap(),
+        &Js::Null,
+        true,
+    );
+    let expected_reads = if kind == "three" { 2. } else { 1. };
+    let expected_failed = if kind == "equal" { 0. } else { 1. };
+    assert_eq!(
+        exit,
+        if kind == "equal" { 0 } else { 3 },
+        "actual failed reads, not a due-time snapshot, decide exit"
+    );
+    assert_eq!(
+        public.get("reconcileReads"),
+        &Js::Num(expected_reads),
+        "every attempted read is counted"
+    );
+    assert_eq!(
+        public.get("reconcileReadsFailed"),
+        &Js::Num(expected_failed),
+        "error and non-observed returns are counted as failures"
+    );
+    assert_eq!(source.calls, expected_reads as usize);
+    if kind == "equal" {
+        assert!(
+            public.get("reconcileCode").is("save_confirmation_pending"),
+            "a successful due read plus a future execution remains a wait"
+        );
+        assert_eq!(seen.borrow().len(), 0);
+    } else {
+        assert!(
+            public
+                .get("code")
+                .is("readback_unavailable_reconcile_later")
+        );
+        let stored = public.get("stored").get("executions").array();
+        assert!(stored[0].get("executionState").is(if kind == "three" {
+            "reconciled_persisted"
+        } else {
+            "reconciliation_required"
+        }));
+    }
+    if kind == "three" {
+        assert_eq!(
+            seen.borrow().len(),
+            4,
+            "b returned HTTP 503 after one scripted login"
+        );
+        assert!(
+            clock.offset_ms.get() > 617000 && clock.offset_ms.get() < 900000,
+            "slow a read crosses b due time while c stays future"
+        );
+        assert!(
+            clock.now_calls.get() > 0 && clock.epoch_calls.get() > 0,
+            "both clock methods advance during the sequence"
+        );
+    }
+}
+#[test]
+fn advancing_three_execution_failure_is_not_a_wait() {
+    advancing_reconcile_case("three");
+}
+#[test]
+fn successful_due_read_with_future_execution_is_a_wait() {
+    advancing_reconcile_case("equal");
+}
+#[test]
+fn unobserved_due_read_with_future_execution_fails() {
+    advancing_reconcile_case("unobserved");
+}
+
+#[test]
+fn reconcile_fault_preserves_zero_read_counts() {
+    let root =
+        PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap()).join("reconcile-fault");
+    std::fs::create_dir_all(&root).unwrap();
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let mut request = open_execution(&store, "a", "attendance", "N", NOW);
+    let clock = TestClock(Cell::new("invalid-clock"), Cell::new(0));
+    let reads = Rc::new(Cell::new(0));
+    let mut source = InventedSource(Rc::new(RefCell::new(observation())), reads.clone());
+    let mut backend = Unused;
+    request.set("mode", "status".into());
+    request.set("reconcile", true.into());
+    let result = live_driver::execute(
+        &request,
+        &mut Service {
+            store: &store,
+            source: &mut source,
+            backend: &mut backend,
+            policy: &DisconnectedPolicy,
+            runtime: &clock,
+        },
+    )
+    .unwrap();
+    let (public, exit) = live_driver::response(
+        &request,
+        Ok(result),
+        live_driver::stored(&request, &store).unwrap(),
+        &Js::Null,
+        true,
+    );
+    assert_eq!(exit, 3);
+    assert!(public.get("code").is("workflow_clock_invalid"));
+    for key in ["reconcileReads", "reconcileReadsFailed"] {
+        assert_eq!(
+            public.get(key),
+            &Js::Num(0.),
+            "reconcile faults retain numeric counts"
+        );
+    }
+    assert_eq!(reads.get(), 0);
 }

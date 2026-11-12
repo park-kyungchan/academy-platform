@@ -194,6 +194,23 @@ impl edu_academy_core::workflow::service::Source for GateSource<'_> {
     }
 }
 
+struct ReconcileSource<'a>(
+    &'a mut dyn edu_academy_core::workflow::service::Source,
+    [usize; 2],
+);
+impl edu_academy_core::workflow::service::Source for ReconcileSource<'_> {
+    fn read(&mut self, scope: &Js, request: &Js, subject: &Js) -> Result<Js> {
+        self.1[0] += 1;
+        let result = self.0.read(scope, request, subject);
+        self.1[1] += usize::from(
+            !result
+                .as_ref()
+                .is_ok_and(|v| v.get("status").is("observed")),
+        );
+        result
+    }
+}
+
 /// A mode runs once. The caller retains the owner lease across this entire call.
 pub fn execute(input: &Js, service: &mut Service<'_>) -> Result<Js> {
     supported(input)?;
@@ -221,36 +238,38 @@ pub fn execute(input: &Js, service: &mut Service<'_>) -> Result<Js> {
         }
         "status" => {
             let mut reconciled = Js::Null;
+            let mut counts = [Js::Null, Js::Null];
             if input.get("reconcile") == &Js::Bool(true) {
                 let wire: serde_json::Value = serde_json::from_str(&canonical(input)?)
                     .map_err(|_| Fault::error("driver_input_rejected"))?;
                 let context = j(json!({"schemaVersion":"academy.dailyrecord-user-context/1",
                     "purpose":"Read settlement status","currentRequestRef":wire["requestRef"],"scope":wire["scope"],
                     "selectedFields":[wire["field"]],"facts":[],"memoAnswer":{"kind":"no_addition","requestRef":wire["requestRef"]}}));
-                let before_reconcile = edu_academy_core::instant::epoch_ms(
-                    &service.runtime.now().into(),
-                    edu_academy_core::instant::Grammar::DailyRecord,
-                )
-                .ok_or_else(|| Fault::error("workflow_clock_invalid"))?;
-                reconciled = service.reconcile(&obj(&[("context", context)]))?;
-                if reconciled.get("reasonCode").is("save_confirmation_pending") {
-                    use edu_academy_core::workflow::{state, store::Kind};
-                    let mut only_future = true;
-                    for execution in state::student_executions(service.store, input.get("scope"))? {
-                        if execution.state.needs_reconciliation() {
-                            let outcome = service.store.get(Kind::Outcome, &execution.key)?;
-                            only_future &= state::settlement_at(&execution.record, &outcome)
-                                .is_some_and(|due| due > before_reconcile);
-                        }
-                    }
-                    if !only_future {
-                        reconciled.set("reasonCode", "readback_unavailable_reconcile_later".into());
-                    }
+                let mut source = ReconcileSource(service.source, [0, 0]);
+                let result = Service {
+                    store: service.store,
+                    source: &mut source,
+                    backend: service.backend,
+                    policy: service.policy,
+                    runtime: service.runtime,
+                }
+                .reconcile(&obj(&[("context", context)]));
+                counts = source.1.map(|n| Js::Num(n as f64));
+                reconciled = result.unwrap_or_else(|error| {
+                    obj(&[
+                        ("status", "failed".into()),
+                        ("reasonCode", code(&error.message).into()),
+                    ])
+                });
+                if reconciled.get("reasonCode").is("save_confirmation_pending") && source.1[1] > 0 {
+                    reconciled.set("reasonCode", "readback_unavailable_reconcile_later".into());
                 }
             }
             let mut output = stored(input, service.store)?;
             output.set("reconcileStatus", code_value(reconciled.get("status")));
             output.set("reconcileCode", code_value(reconciled.get("reasonCode")));
+            output.set("reconcileReads", counts[0].clone());
+            output.set("reconcileReadsFailed", counts[1].clone());
             Ok(output)
         }
         _ => Err(Fault::error("driver_mode_rejected")),
@@ -343,6 +362,9 @@ pub fn response(
     if input.get("mode").is("status") {
         for key in ["reconcileStatus", "reconcileCode"] {
             output.set(key, value.map_or(Js::Null, |v| code_value(v.get(key))));
+        }
+        for key in ["reconcileReads", "reconcileReadsFailed"] {
+            output.set(key, value.map_or(Js::Null, |v| v.get(key).clone()));
         }
     }
     (output, if called { 3 } else { 2 })
