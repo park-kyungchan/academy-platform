@@ -46,9 +46,34 @@ pub fn store(root: &std::path::Path, directory: &std::path::Path) -> Result<Stor
         return Err(Fault::error("store_inside_git_refused"));
     }
     if let Ok(metadata) = std::fs::symlink_metadata(directory)
+        && metadata.is_dir()
         && metadata.permissions().mode() & 0o077 != 0
     {
         return Err(Fault::error("store_mode_refused"));
+    }
+    if std::fs::symlink_metadata(directory).is_ok() {
+        let mut pending = vec![directory.to_path_buf()];
+        while let Some(path) = pending.pop() {
+            let metadata =
+                std::fs::symlink_metadata(&path).map_err(|_| Fault::error("store_tree_refused"))?;
+            if metadata.is_symlink()
+                || (!metadata.is_dir() && !metadata.is_file())
+                || (metadata.is_dir() && metadata.permissions().mode() & 0o077 != 0)
+            {
+                return Err(Fault::error("store_tree_refused"));
+            }
+            if metadata.is_dir() {
+                for entry in
+                    std::fs::read_dir(path).map_err(|_| Fault::error("store_tree_refused"))?
+                {
+                    pending.push(
+                        entry
+                            .map_err(|_| Fault::error("store_tree_refused"))?
+                            .path(),
+                    );
+                }
+            }
+        }
     }
     Store::open(directory, root)
 }
@@ -175,10 +200,12 @@ pub fn execute(input: &Js, service: &mut Service<'_>) -> Result<Js> {
     match input.get("mode").code_units().as_str() {
         "plan" => Ok(prepare(input, service)?.1),
         "save" => {
-            let (request, review) = prepare(input, service)?;
-            if !review.get("status").is("prepared")
-                || review.get("planDigest") != input.get("approval")
-            {
+            let (request, mut review) = prepare(input, service)?;
+            if !review.get("status").is("prepared") {
+                review.set("code", refusal_code(&review));
+                return Ok(review);
+            }
+            if review.get("planDigest") != input.get("approval") {
                 let mut result = stored(input, service.store)?;
                 result.set("status", "refused".into());
                 result.set("code", "approval_digest_mismatch".into());
@@ -189,21 +216,109 @@ pub fn execute(input: &Js, service: &mut Service<'_>) -> Result<Js> {
             let mut output = stored(input, service.store)?;
             output.set("status", result.get("status").clone());
             output.set("code", result.get("reasonCode").clone());
+            output.set("wireGate", review.get("wireGate").clone());
             Ok(output)
         }
         "status" => {
+            let mut reconciled = Js::Null;
             if input.get("reconcile") == &Js::Bool(true) {
                 let wire: serde_json::Value = serde_json::from_str(&canonical(input)?)
                     .map_err(|_| Fault::error("driver_input_rejected"))?;
                 let context = j(json!({"schemaVersion":"academy.dailyrecord-user-context/1",
                     "purpose":"Read settlement status","currentRequestRef":wire["requestRef"],"scope":wire["scope"],
                     "selectedFields":[wire["field"]],"facts":[],"memoAnswer":{"kind":"no_addition","requestRef":wire["requestRef"]}}));
-                service.reconcile(&obj(&[("context", context)]))?;
+                reconciled = service.reconcile(&obj(&[("context", context)]))?;
             }
-            stored(input, service.store)
+            let mut output = stored(input, service.store)?;
+            output.set("reconcileStatus", code_value(reconciled.get("status")));
+            output.set("reconcileCode", code_value(reconciled.get("reasonCode")));
+            Ok(output)
         }
         _ => Err(Fault::error("driver_mode_rejected")),
     }
+}
+
+/// Code-only public boundary shared by the binary and the synthetic core tests.
+fn code(s: &str) -> &str {
+    if !s.is_empty()
+        && s.len() <= 120
+        && s.bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+    {
+        s
+    } else {
+        "driver_failed"
+    }
+}
+fn code_value(value: &Js) -> Js {
+    if value.absent() {
+        Js::Null
+    } else {
+        code(&value.code_units()).into()
+    }
+}
+fn refusal_code(value: &Js) -> Js {
+    if !value.get("code").absent() {
+        return code_value(value.get("code"));
+    }
+    if !value.get("wireGate").absent() && !value.get("wireGate").is("passed") {
+        return code_value(value.get("wireGate"));
+    }
+    value
+        .get("blockers")
+        .array()
+        .first()
+        .map_or_else(|| "review_held".into(), code_value)
+}
+pub fn response(
+    input: &Js,
+    result: Result<Js>,
+    stored: Js,
+    evidence: &Js,
+    called: bool,
+) -> (Js, i32) {
+    let failed = |v: &Js| {
+        ["held", "refused", "failed", "unknown", "pending"]
+            .iter()
+            .any(|s| v.is(s))
+    };
+    let reason = match &result {
+        Err(error) => code(&error.message).into(),
+        Ok(value) if failed(value.get("status")) => refusal_code(value),
+        Ok(value)
+            if failed(value.get("reconcileStatus"))
+                && !value.get("reconcileCode").is("save_confirmation_pending") =>
+        {
+            code_value(value.get("reconcileCode"))
+        }
+        _ => Js::Null,
+    };
+    if reason.absent() {
+        return (result.unwrap_or(Js::Null), 0);
+    }
+    let value = result.as_ref().ok();
+    let mut output = obj(&[
+        ("status", if called { "failed" } else { "refused" }.into()),
+        ("code", reason),
+        ("stored", stored),
+    ]);
+    if input.get("mode").is("plan") || input.get("mode").is("save") {
+        output.set(
+            "wireGate",
+            value.map_or(Js::Null, |v| code_value(v.get("wireGate"))),
+        );
+    }
+    if input.get("mode").is("save") {
+        for key in ["httpStatus", "bodySha256", "comparison"] {
+            output.set(key, edu_academy_core::workflow::nullable(evidence.get(key)));
+        }
+    }
+    if input.get("mode").is("status") {
+        for key in ["reconcileStatus", "reconcileCode"] {
+            output.set(key, value.map_or(Js::Null, |v| code_value(v.get(key))));
+        }
+    }
+    (output, if called { 3 } else { 2 })
 }
 
 pub fn stored(input: &Js, store: &Store) -> Result<Js> {

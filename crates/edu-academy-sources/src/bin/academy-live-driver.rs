@@ -13,7 +13,7 @@ use edu_academy_sources::{
     data::fault_from_error as fault,
     http::{self, Transport},
     live_driver as driver,
-    owner_admission::TransportAdmission,
+    owner_admission::{TransportAdmission, TransportScope},
     owner_root::OwnerRoot,
     owner_workflow::{FileCredentialProvider, Owner, PinnedInput},
 };
@@ -135,7 +135,13 @@ impl Transport for Tracked<'_> {
         self.0.dispatch(request)
     }
 }
-fn run(input: &Input, value: &Js, store: &mut Option<Store>, called: &Cell<bool>) -> Result<Js> {
+fn run(
+    input: &Input,
+    value: &Js,
+    store: &mut Option<Store>,
+    called: &Cell<bool>,
+    evidence: &mut Js,
+) -> Result<Js> {
     let root = Rc::new(OwnerRoot::open(&input.owner_root).map_err(fault)?);
     *store = Some(driver::store(&input.owner_root, &input.store)?);
     let read = |pin: &Pin| {
@@ -144,7 +150,26 @@ fn run(input: &Input, value: &Js, store: &mut Option<Store>, called: &Cell<bool>
     };
     let admission =
         TransportAdmission::from_bytes(&read(&input.admission)?.bytes).map_err(fault)?;
-    let launch = read(&input.launch_admission)?.json().map_err(fault)?;
+    let launch = read(&input.launch_admission)?
+        .json()
+        .map_err(|_| Fault::error("launch_admission_refused"))?;
+    validate_launch(&launch, &admission, value.get("scope"))?;
+    if !value
+        .get("scope")
+        .get("sourceNamespace")
+        .is("academy.lms.dayrecord")
+    {
+        return Err(Fault::error("native_transport_scope_refused"));
+    }
+    admission
+        .authorize(&TransportScope {
+            owner_id: admission.owner_id.clone(),
+            source_namespace: "academy.lms.dayrecord".into(),
+            teacher_id: value.get("scope").get("teacherId").code_units(),
+            student_id: value.get("scope").get("studentId").code_units(),
+            date: value.get("scope").get("lessonDate").code_units(),
+        })
+        .map_err(fault)?;
     let principal = obj(&[
         ("teacherLabel", admission.teacher_label.as_str().into()),
         ("teacherKey", admission.teacher_id.as_str().into()),
@@ -166,7 +191,7 @@ fn run(input: &Input, value: &Js, store: &mut Option<Store>, called: &Cell<bool>
         evidence: Js::Null,
     };
     let mut backend = NativeBackend::new(&mut port, admission, owner_admission, names, &Clock);
-    let mut output = driver::execute(
+    let result = driver::execute(
         value,
         &mut Service {
             store: store.as_ref().ok_or_else(invalid)?,
@@ -175,7 +200,9 @@ fn run(input: &Input, value: &Js, store: &mut Option<Store>, called: &Cell<bool>
             policy: &driver::DisconnectedPolicy,
             runtime: &Clock,
         },
-    )?;
+    );
+    *evidence = port.evidence.clone();
+    let mut output = result?;
     if input.mode == "save" {
         for key in ["httpStatus", "bodySha256", "comparison"] {
             output.set(
@@ -186,21 +213,37 @@ fn run(input: &Input, value: &Js, store: &mut Option<Store>, called: &Cell<bool>
     }
     Ok(output)
 }
-// Only machine-code-shaped messages cross this boundary; never Display a fault.
-fn code(s: &str) -> &str {
-    if !s.is_empty()
-        && s.len() <= 120
-        && s.bytes()
-            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+fn validate_launch(launch: &Js, admission: &TransportAdmission, scope: &Js) -> Result<()> {
+    let students = launch.get("students").array();
+    let mut ids = std::collections::HashSet::new();
+    if !matches!(launch, Js::Obj(_))
+        || ["teacherId", "teacherLabel", "date", "sourceBundleSha256"]
+            .iter()
+            .any(|k| !launch.get(k).string())
+        || edu_academy_core::schema::validate("dailyRecordDateSchema", launch.get("date")).is_err()
+        || students.is_empty()
+        || students.iter().any(|s| {
+            !matches!(s, Js::Obj(_))
+                || !s.get("studentId").string()
+                || !s.get("displayName").string()
+                || !ids.insert(s.get("studentId").code_units())
+        })
+        || scope.get("teacherId") != launch.get("teacherId")
+        || scope.get("lessonDate") != launch.get("date")
+        || !students
+            .iter()
+            .any(|s| s.get("studentId") == scope.get("studentId"))
+        || !launch.get("teacherId").is(&admission.teacher_id)
+        || !launch.get("teacherLabel").is(&admission.teacher_label)
     {
-        s
-    } else {
-        "driver_failed"
+        return Err(Fault::error("launch_admission_refused"));
     }
+    Ok(())
 }
 fn main() {
     let called = Cell::new(false);
     let mut store = None;
+    let mut evidence = Js::Null;
     let mut bytes = Vec::new();
     let parsed = std::io::stdin()
         .take(1_048_577)
@@ -216,53 +259,28 @@ fn main() {
     let result = parsed
         .as_ref()
         .map_err(Clone::clone)
-        .and_then(|(input, value)| run(input, value, &mut store, &called));
-    let failure = match &result {
-        Err(f) => Some(code(&f.message).to_owned()),
-        Ok(v)
-            if ["held", "refused", "failed", "unknown", "pending"]
-                .iter()
-                .any(|s| v.get("status").is(s)) =>
-        {
-            Some(
-                code(&if v.get("code").absent() {
-                    if !v.get("wireGate").absent() && !v.get("wireGate").is("passed") {
-                        v.get("wireGate").code_units()
-                    } else {
-                        v.get("blockers")
-                            .array()
-                            .first()
-                            .map_or_else(|| "review_held".into(), Js::code_units)
-                    }
-                } else {
-                    v.get("code").code_units()
-                })
-                .to_owned(),
-            )
-        }
-        _ => None,
-    };
-    let (output, exit) = if let Some(code) = failure {
-        let stored = match (&parsed, &store) {
-            (Ok((_, value)), Some(store)) => driver::stored(value, store)
-                .unwrap_or_else(|_| obj(&[("code", "store_read_failed".into())])),
-            _ => Js::Null,
-        };
-        eprintln!("{code}");
-        (
-            obj(&[
-                (
-                    "status",
-                    if called.get() { "failed" } else { "refused" }.into(),
-                ),
-                ("code", code.into()),
-                ("stored", stored),
-            ]),
-            if called.get() { 3 } else { 2 },
-        )
-    } else {
-        (result.unwrap_or(Js::Null), 0)
-    };
+        .and_then(|(input, value)| run(input, value, &mut store, &called, &mut evidence));
+    // Preserve only the mode for refusal keys when another input key is invalid.
+    let fallback = serde_json::from_slice::<serde_json::Value>(&bytes)
+        .ok()
+        .map_or(Js::Null, |v| {
+            obj(&[(
+                "mode",
+                v.get("mode")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("")
+                    .into(),
+            )])
+        });
+    let input = parsed.as_ref().map_or(&fallback, |(_, value)| value);
+    let stored = store.as_ref().map_or(Js::Null, |store| {
+        driver::stored(input, store)
+            .unwrap_or_else(|_| obj(&[("code", "store_read_failed".into())]))
+    });
+    let (output, exit) = driver::response(input, result, stored, &evidence, called.get());
+    if exit != 0 {
+        eprintln!("{}", output.get("code").code_units());
+    }
     let encoded = match canonical(&output) {
         Ok(encoded) => encoded,
         Err(_) => {

@@ -290,7 +290,28 @@ fn product_plan_refuses_wire_with_one_login_and_releases_lease() {
             request.set("mode", "save".into());
             request.set("approval", "0".repeat(64).into());
             let refused = live_driver::execute(&request, &mut svc).unwrap();
-            assert!(refused.get("status").is("refused"));
+            assert!(
+                refused.get("status").is("held"),
+                "held save keeps plan cause"
+            );
+            let (public, exit) = live_driver::response(
+                &request,
+                Ok(refused.clone()),
+                live_driver::stored(&request, &store).unwrap(),
+                &Js::Null,
+                true,
+            );
+            assert_eq!(exit, 3);
+            assert_eq!(
+                public.get("code"),
+                result.get("wireGate"),
+                "held save reason matches plan"
+            );
+            assert_eq!(
+                public.get("wireGate"),
+                result.get("wireGate"),
+                "failure retains wire gate"
+            );
             if !failure {
                 assert!(
                     refused
@@ -615,6 +636,8 @@ fn modes_use_native_apply_and_status_settles_field_alone_at_due_time() {
         private_output_is_absent(&mismatch);
         input.set("approval", plan.get("planDigest").clone());
         let save = live_driver::execute(&input, &mut service).unwrap();
+        let save_input = input.clone();
+        let stored_after_save = live_driver::stored(&input, &store).unwrap();
         assert_eq!(writes.get(), 1, "exactly one dispatch: {save:?}");
         private_output_is_absent(&save);
         assert!(
@@ -631,11 +654,87 @@ fn modes_use_native_apply_and_status_settles_field_alone_at_due_time() {
             let status = live_driver::execute(&input, &mut service).unwrap();
             assert_eq!(reads.get(), before, "status before due time must not read");
             assert!(
+                status.get("reconcileStatus").is("held"),
+                "before due core status is held"
+            );
+            assert!(
+                status.get("reconcileCode").is("save_confirmation_pending"),
+                "before due code is pending"
+            );
+            let (_, exit) = live_driver::response(
+                &input,
+                Ok(status.clone()),
+                live_driver::stored(&input, &store).unwrap(),
+                &Js::Null,
+                true,
+            );
+            assert_eq!(exit, 0, "not-yet-due wait is successful");
+            assert!(
                 status.get("executions").array()[0]
                     .get("executionState")
                     .is("reconciliation_required")
             );
             clock.0.set("2040-01-04T09:10:00.000Z");
+            if index == 1 {
+                let mut replies = login();
+                replies.push((MAIN.into(), 503, "invented unavailable response".into()));
+                let (transport, seen503) = transport(replies);
+                let owner503 = Owner::new(
+                    edu_academy_sources::http::Client::new(principal(), transport).unwrap(),
+                    admission(),
+                    None,
+                    vec![],
+                    credentials,
+                    &clock,
+                )
+                .unwrap();
+                let mut source503 = owner503.source();
+                let mut unused = Unused;
+                let failed = live_driver::execute(
+                    &input,
+                    &mut Service {
+                        store: &store,
+                        source: &mut source503,
+                        backend: &mut unused,
+                        policy: &DisconnectedPolicy,
+                        runtime: &clock,
+                    },
+                )
+                .unwrap();
+                assert!(
+                    failed.get("reconcileStatus").is("held"),
+                    "HTTP 503 reconcile is held"
+                );
+                assert!(
+                    failed
+                        .get("reconcileCode")
+                        .is("readback_unavailable_reconcile_later"),
+                    "HTTP 503 reconcile reason retained"
+                );
+                let (failure, exit) = live_driver::response(
+                    &input,
+                    Ok(failed),
+                    live_driver::stored(&input, &store).unwrap(),
+                    &Js::Null,
+                    true,
+                );
+                assert_eq!(exit, 3, "HTTP 503 reconcile must fail the run");
+                assert!(
+                    failure
+                        .get("code")
+                        .is("readback_unavailable_reconcile_later")
+                );
+                assert_eq!(
+                    seen503.borrow().len(),
+                    4,
+                    "one login and one failed settling read"
+                );
+                assert!(
+                    failure.get("stored").get("executions").array()[0]
+                        .get("executionState")
+                        .is("reconciliation_required")
+                );
+            }
             set_field(&observation, "attendance", late);
             set_field(&observation, "homework", "- Invented sibling changed");
             let settled = live_driver::execute(&input, &mut service).unwrap();
@@ -648,11 +747,51 @@ fn modes_use_native_apply_and_status_settles_field_alone_at_due_time() {
             );
         } else {
             assert!(save.get("status").is("saved"));
+            let mut status_input = input.clone();
+            status_input.set("mode", "status".into());
+            let local = live_driver::execute(&status_input, &mut service).unwrap();
+            assert_eq!(
+                local.get("reconcileStatus"),
+                &Js::Null,
+                "no reconcile status when not requested"
+            );
+            assert_eq!(
+                local.get("reconcileCode"),
+                &Js::Null,
+                "no reconcile code when not requested"
+            );
         }
         assert_eq!(writes.get(), 1, "no write retry");
         let _ = service;
         let _ = native;
         private_output_is_absent(&evidence.evidence);
+        let (public, exit) = live_driver::response(
+            &save_input,
+            Ok(save),
+            stored_after_save,
+            &evidence.evidence,
+            true,
+        );
+        if index == 1 {
+            assert_eq!(exit, 3);
+            assert_eq!(
+                public.get("httpStatus"),
+                &Js::Num(200.),
+                "pending save retains HTTP status"
+            );
+            assert!(
+                public
+                    .get("bodySha256")
+                    .is(&hash(b"invented returned body")),
+                "pending save retains body hash"
+            );
+            assert!(
+                public.get("comparison").get("attendance").is("not_equal"),
+                "pending save retains comparison"
+            );
+            assert_eq!(public.get("comparison").props().len(), 6);
+            private_output_is_absent(&public);
+        }
         assert_eq!(evidence.evidence.get("comparison").props().len(), 6);
         assert!(evidence.evidence.get("comparison").get("attendance").is(
             if immediate == Some("N") {
@@ -718,6 +857,11 @@ fn binary_case(case: &str, expected: &str) {
             v["mode"] = "invalid-mode".into();
             v["ownerRoot"] = root.join("absent").to_str().unwrap().into();
         }
+        "save-invalid" => {
+            v["mode"] = "save".into();
+            v["approval"] = "0".repeat(64).into();
+            v["ownerRoot"] = 42.into();
+        }
         "narrative" => {
             v["field"] = "progress".into();
             v["ownerRoot"] = root.join("absent").to_str().unwrap().into();
@@ -726,6 +870,23 @@ fn binary_case(case: &str, expected: &str) {
         "git" => {
             std::fs::create_dir_all(root.join("repo/.git")).unwrap();
             v["store"] = root.join("repo/store").to_str().unwrap().into();
+        }
+        "symlink" | "child-mode" => {
+            std::fs::create_dir_all(root.join("store")).unwrap();
+            std::fs::set_permissions(root.join("store"), std::fs::Permissions::from_mode(0o700))
+                .unwrap();
+            if case == "symlink" {
+                std::fs::create_dir_all(root.join("outside")).unwrap();
+                std::os::unix::fs::symlink(root.join("outside"), root.join("store/escaped"))
+                    .unwrap();
+            } else {
+                std::fs::create_dir_all(root.join("store/wide")).unwrap();
+                std::fs::set_permissions(
+                    root.join("store/wide"),
+                    std::fs::Permissions::from_mode(0o750),
+                )
+                .unwrap();
+            }
         }
         "mode" => {
             std::fs::create_dir_all(root.join("store")).unwrap();
@@ -757,6 +918,21 @@ fn binary_case(case: &str, expected: &str) {
     let parsed: serde_json::Value =
         serde_json::from_str(&stdout).expect("ONE JSON object and no trailing stdout");
     assert!(parsed.is_object());
+    if ["plan", "save"].contains(&v["mode"].as_str().unwrap()) {
+        assert!(
+            parsed.get("wireGate").is_some(),
+            "preflight keeps wire gate key"
+        );
+    }
+    if v["mode"] == "save" {
+        for key in ["httpStatus", "bodySha256", "comparison"] {
+            assert_eq!(
+                parsed.get(key),
+                Some(&serde_json::Value::Null),
+                "preflight save evidence is explicitly null"
+            );
+        }
+    }
     assert_eq!(parsed["status"], "refused", "{case}: refusal status");
     assert_eq!(parsed["code"], expected, "{case}: guard code");
     assert_eq!(
@@ -802,4 +978,232 @@ fn binary_git_store() {
 #[test]
 fn binary_wide_store() {
     binary_case("mode", "store_mode_refused");
+}
+
+#[test]
+fn binary_store_symlink_child() {
+    binary_case("symlink", "store_tree_refused");
+}
+#[test]
+fn binary_store_wide_child() {
+    binary_case("child-mode", "store_tree_refused");
+}
+
+#[test]
+fn plan_digest_binds_value_date_and_field() {
+    let root = PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap()).join("digest-binding");
+    std::fs::create_dir_all(&root).unwrap();
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let observation = Rc::new(RefCell::new(observation()));
+    let mut source = InventedSource(observation.clone(), Rc::new(Cell::new(0)));
+    let mut unused = Unused;
+    let clock = TestClock(Cell::new(NOW), Cell::new(0));
+    let mut service = Service {
+        store: &store,
+        source: &mut source,
+        backend: &mut unused,
+        policy: &DisconnectedPolicy,
+        runtime: &clock,
+    };
+    let mut request = input();
+    request.set("mode", "plan".into());
+    let original = live_driver::execute(&request, &mut service).unwrap();
+    assert!(original.get("status").is("prepared"));
+    request.set("mode", "save".into());
+    request.set("approval", original.get("planDigest").clone());
+    request.set("value", "L".into());
+    let changed_value = live_driver::execute(&request, &mut service).unwrap();
+    assert!(
+        changed_value.get("code").is("approval_digest_mismatch"),
+        "plan for X must refuse value Y before backend/write"
+    );
+    assert!(
+        edu_academy_core::workflow::state::student_executions(&store, request.get("scope"))
+            .unwrap()
+            .is_empty()
+    );
+    request.set("mode", "plan".into());
+    request.set("field", "dailyTestAssessment".into());
+    request.set("value", "1".into());
+    let changed_field = live_driver::execute(&request, &mut service).unwrap();
+    assert!(changed_field.get("status").is("prepared"));
+    assert_ne!(
+        original.get("planDigest"),
+        changed_field.get("planDigest"),
+        "digest changes with field"
+    );
+    // Make values identical so the field-only control cannot pass due to value hashes.
+    request.set("field", "previousHomeworkAssessment".into());
+    let other_field = live_driver::execute(&request, &mut service).unwrap();
+    assert!(other_field.get("status").is("prepared"));
+    assert_ne!(
+        changed_field.get("planDigest"),
+        other_field.get("planDigest"),
+        "digest binds distinct assessment fields"
+    );
+    request.set("field", "attendance".into());
+    request.set("value", "N".into());
+    let mut scope = request.get("scope").clone();
+    scope.set("lessonDate", "2040-01-05".into());
+    request.set("scope", scope.clone());
+    let mut obs = observation.borrow_mut();
+    obs.set("scope", scope);
+    let mut target = obs.get("target").clone();
+    target.set("lessonDate", "2040-01-05".into());
+    obs.set("target", target.clone());
+    let mut fields = obs.get("fields").clone();
+    for field in ["attendance", "dailyTestAssessment"] {
+        let mut binding = fields.get(field).clone();
+        binding.set(
+            "effectTarget",
+            edu_academy_core::workflow::canonical(&target)
+                .unwrap()
+                .into(),
+        );
+        fields.set(field, binding);
+    }
+    obs.set("fields", fields);
+    obs.set("observedAt", "2040-01-05T09:00:00.000Z".into());
+    drop(obs);
+    clock.0.set("2040-01-05T09:00:00.000Z");
+    let changed_date = live_driver::execute(&request, &mut service).unwrap();
+    assert!(
+        changed_date.get("status").is("prepared"),
+        "changed date has valid matching observation"
+    );
+    assert_ne!(
+        original.get("planDigest"),
+        changed_date.get("planDigest"),
+        "digest changes with lesson date"
+    );
+}
+
+fn binary_admission_case(case: &str, expected: &str) {
+    use std::{
+        io::Write,
+        os::unix::fs::PermissionsExt,
+        process::{Command, Stdio},
+    };
+    let root = PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap())
+        .join(format!("admission-{case}"));
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let mut transport = serde_json::json!({"schemaVersion":"academy.transport-admission/1", "ownerId":"synthetic-owner", "teacherId":"99001", "teacherLabel":"Fictional Teacher", "collegeId":"88001", "allowedFrom":"2040-01-01", "allowedThrough":"2040-01-31", "studentIds":["77001"], "sourceNamespaces":["academy.lms.dayrecord"], "operations":[{"id":"inert", "sourceNamespace":"academy.lms.dayrecord", "method":"GET", "path":"/synthetic/inert", "effect":false, "query":[], "body":[]}]});
+    let mut launch: serde_json::Value =
+        serde_json::from_str(&edu_academy_core::workflow::canonical(&admission()).unwrap())
+            .unwrap();
+    match case {
+        "missing" => {
+            launch.as_object_mut().unwrap().remove("teacherLabel");
+        }
+        "date" => launch["date"] = "2040-02-30".into(),
+        "duplicate" => {
+            let duplicate = launch["students"][0].clone();
+            launch["students"].as_array_mut().unwrap().push(duplicate);
+        }
+        "identity" => launch["teacherId"] = "99002".into(),
+        "label" => launch["teacherLabel"] = "Other Fictional Teacher".into(),
+        "student" => launch["students"][0]["studentId"] = "77002".into(),
+        "scope-student" => transport["studentIds"] = serde_json::json!(["77002"]),
+        "scope-date" => transport["allowedThrough"] = "2040-01-03".into(),
+        "scope-namespace" => {
+            transport["sourceNamespaces"] = serde_json::json!(["academy.lms.metadata"]);
+            transport["operations"][0]["sourceNamespace"] = "academy.lms.metadata".into();
+        }
+        "scope-input-namespace" => (),
+        "extras" => {
+            launch["extraIgnored"] = true.into();
+        }
+        _ => unreachable!(),
+    }
+    let mut request: serde_json::Value =
+        serde_json::from_str(&edu_academy_core::workflow::canonical(&input()).unwrap()).unwrap();
+    request["mode"] = "plan".into();
+    if case == "scope-input-namespace" {
+        request["scope"]["sourceNamespace"] = "academy.lms.metadata".into();
+    }
+    request["ownerRoot"] = root.to_str().unwrap().into();
+    request["store"] = root.join("store").to_str().unwrap().into();
+    for (key, name, contents) in [
+        ("admission", "transport.json", transport.to_string()),
+        ("launchAdmission", "launch.json", launch.to_string()),
+        (
+            "credential",
+            "credential.json",
+            "synthetic_invalid_credential".into(),
+        ),
+    ] {
+        std::fs::write(root.join(name), &contents).unwrap();
+        std::fs::set_permissions(root.join(name), std::fs::Permissions::from_mode(0o600)).unwrap();
+        request[key] = serde_json::json!({"relativePath":name,"sha256":hash(contents.as_bytes())});
+    }
+    let mut child = Command::new(env!("CARGO_BIN_EXE_academy-live-driver"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(request.to_string().as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "admission refusal must precede login"
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(value["code"], expected, "{case}: admission guard code");
+    assert_eq!(stderr, format!("{expected}\n"));
+    assert!(value["stored"].is_object());
+    for private in [
+        "Fictional Teacher",
+        "Fictional Learner",
+        "fictional-request",
+        "synthetic_invalid_credential",
+        "credential.json",
+    ] {
+        assert!(
+            !stdout.contains(private) && !stderr.contains(private),
+            "admission fixture bytes escaped"
+        );
+    }
+}
+#[test]
+fn binary_launch_validation_precedes_login() {
+    for case in [
+        "missing",
+        "date",
+        "duplicate",
+        "identity",
+        "label",
+        "student",
+    ] {
+        binary_admission_case(case, "launch_admission_refused");
+    }
+}
+#[test]
+fn binary_transport_scope_precedes_login() {
+    for case in [
+        "scope-student",
+        "scope-date",
+        "scope-namespace",
+        "scope-input-namespace",
+    ] {
+        binary_admission_case(case, "native_transport_scope_refused");
+    }
+}
+#[test]
+fn binary_launch_extra_keys_and_inert_operations_are_ignored() {
+    binary_admission_case("extras", "native_owner_credential_refused");
+}
+
+#[test]
+fn binary_save_preflight_keeps_null_evidence() {
+    binary_case("save-invalid", "invalid_input");
 }
