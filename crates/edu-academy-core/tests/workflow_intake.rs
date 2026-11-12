@@ -1811,3 +1811,320 @@ fn effect_target_limit() {
         "workflow_effect_target_invalid"
     );
 }
+
+const FACT_FIELDS: [(&str, &str); 3] = [
+    ("progress", "- Updated progress"),
+    ("homework", "- Updated homework"),
+    ("previousHomeworkAssessment", "1"),
+];
+fn facts_input(store: &Store, source: &mut Source, clock: &Clock, count: usize) -> Js {
+    bound_input(store, source, clock, "facts", &FACT_FIELDS[..count]).unwrap()
+}
+fn facts_status(store: &Store, input: &Js) -> Js {
+    service::status(
+        store,
+        &obj(&[("scope", input.get("context").get("scope").clone())]),
+    )
+    .unwrap()
+}
+// Scripted claims only: no native completion or application is qualified here.
+struct FactsBackend {
+    results: Vec<Js>,
+    calls: usize,
+}
+impl service::Backend for FactsBackend {
+    fn configured(&self) -> bool {
+        true
+    }
+    fn save(
+        &mut self,
+        scope: &Js,
+        patches: &Js,
+        approval: &mut dyn Approval,
+        subject: &Js,
+    ) -> Result<Js> {
+        let mut boundary = BoundBackend(vec![]);
+        assert_eq!(
+            boundary
+                .save(scope, patches, approval, subject)
+                .unwrap_err()
+                .message,
+            "invented_answer_lost_after_fence"
+        );
+        self.calls += boundary.0.len();
+        Ok(Js::Arr(self.results.clone()))
+    }
+}
+fn facts_result(field: &str, status: &str, facts: Option<Js>) -> Js {
+    let mut r = obj(&[
+        ("field", field.into()),
+        ("status", status.into()),
+        ("dispatched", true.into()),
+        ("transport", "returned".into()),
+    ]);
+    if let Some(facts) = facts {
+        r.set("completionFacts", facts);
+    }
+    r
+}
+fn facts_save(
+    store: &Store,
+    source: &mut Source,
+    backend: &mut FactsBackend,
+    clock: &Clock,
+    input: &Js,
+) -> Result<Js> {
+    service::Service {
+        store,
+        source,
+        backend,
+        policy: &Policy::new(true),
+        runtime: clock,
+    }
+    .save(input)
+}
+fn facts_reconcile(store: &Store, source: &mut Source, clock: &Clock, input: &Js) -> Js {
+    service::Service {
+        store,
+        source,
+        backend: &mut Backend,
+        policy: &Policy::new(true),
+        runtime: clock,
+    }
+    .reconcile(&obj(&[("context", input.get("context").clone())]))
+    .unwrap()
+}
+fn assert_facts(fields: &Js, expected: &[Js], status: bool) {
+    for e in expected {
+        let field = fields
+            .array()
+            .iter()
+            .find(|r| r.get("field") == e.get("field"))
+            .unwrap();
+        let value = if status {
+            &field.get("executions").array()[0]
+        } else {
+            field
+        };
+        assert_eq!(value.has("completionFacts"), e.has("completionFacts"));
+        assert_eq!(value.get("completionFacts"), e.get("completionFacts"));
+    }
+}
+#[test]
+fn opaque_completion_facts_survive_save_reopen_and_repeat() {
+    use edu_academy_core::workflow::state;
+    for rejected in [false, true] {
+        let root = root("facts-roundtrip");
+        let store = Store::open(&root.join("store"), &root).unwrap();
+        let clock = Clock::new(NOW);
+        let mut source = Source::observed();
+        let input = facts_input(&store, &mut source, &clock, 2);
+        let results = vec![
+            facts_result(
+                "progress",
+                "persisted",
+                Some(js(
+                    json!({"unqualified":"claim", "target":"opaque-A", "unknown":{"λ":[true,3,null,"😀"]}}),
+                )),
+            ),
+            facts_result(
+                "homework",
+                if rejected {
+                    "not_persisted"
+                } else {
+                    "persisted"
+                },
+                Some(js(
+                    json!({"target":"opaque-B", "different":["retained",false]}),
+                )),
+            ),
+        ];
+        let mut backend = FactsBackend {
+            results: results.clone(),
+            calls: 0,
+        };
+        let saved = facts_save(&store, &mut source, &mut backend, &clock, &input).unwrap();
+        assert_facts(saved.get("fields"), &results, false);
+        assert_eq!(backend.calls, 2);
+        for e in state::student_executions(&store, input.get("context").get("scope")).unwrap() {
+            let original = store.get(Kind::Outcome, &e.key).unwrap();
+            let expected = results
+                .iter()
+                .find(|r| r.get("field") == e.record.get("field"))
+                .unwrap();
+            assert_eq!(
+                original.get("completionFacts"),
+                expected.get("completionFacts")
+            );
+            let mut replacement = original.clone();
+            replacement.set("completionFacts", Js::Null);
+            let (created, surviving) = store
+                .publish(Kind::Outcome, &e.key, &replacement, &clock)
+                .unwrap();
+            assert!(!created);
+            assert_eq!(surviving, original);
+        }
+        drop(store);
+        let store = Store::open(&root.join("store"), &root).unwrap();
+        let repeated = facts_save(&store, &mut source, &mut backend, &clock, &input).unwrap();
+        assert_facts(repeated.get("fields"), &results, false);
+        if !rejected {
+            assert!(
+                repeated
+                    .get("reasonCode")
+                    .is("duplicate_execution_already_settled")
+            );
+        }
+        assert_eq!(backend.calls, 2);
+        assert_facts(
+            facts_reconcile(&store, &mut source, &clock, &input).get("fields"),
+            &results,
+            false,
+        );
+        let status = facts_status(&store, &input);
+        assert_facts(status.get("fields"), &results, true);
+    }
+}
+#[test]
+fn missing_legacy_completion_facts_are_not_invented() {
+    use edu_academy_core::workflow::state;
+    let root = root("facts-absent");
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let clock = Clock::new(NOW);
+    let mut source = Source::observed();
+    let input = facts_input(&store, &mut source, &clock, 2);
+    let results = vec![
+        facts_result("progress", "not_persisted", Some(Js::Null)),
+        facts_result("homework", "not_persisted", None),
+    ];
+    let mut backend = FactsBackend {
+        results: results.clone(),
+        calls: 0,
+    };
+    let saved = facts_save(&store, &mut source, &mut backend, &clock, &input).unwrap();
+    assert_facts(saved.get("fields"), &results, false);
+    assert_facts(
+        facts_reconcile(&store, &mut source, &clock, &input).get("fields"),
+        &results,
+        false,
+    );
+    // Outcomes have no global version change: the absent member is the legacy
+    // shape. Reopen preserves it, while explicit null stays present.
+    drop(store);
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    assert_facts(facts_status(&store, &input).get("fields"), &results, true);
+    for e in state::student_executions(&store, input.get("context").get("scope")).unwrap() {
+        let outcome = store.get(Kind::Outcome, &e.key).unwrap();
+        assert_eq!(
+            outcome.has("completionFacts"),
+            e.record.get("field").is("progress")
+        );
+    }
+}
+#[test]
+fn invalid_completion_facts_keep_execution_fenced() {
+    use edu_academy_core::workflow::state;
+    for bad in [
+        "invalid".into(),
+        Js::Arr(vec![]),
+        obj(&[("lost", Js::Undefined)]),
+        obj(&[("number", Js::Num(f64::NAN))]),
+        obj(&[("number", Js::BigInt)]),
+    ] {
+        let root = root("facts-invalid");
+        let store = Store::open(&root.join("store"), &root).unwrap();
+        let clock = Clock::new(NOW);
+        let mut source = Source::observed();
+        let input = facts_input(&store, &mut source, &clock, 3);
+        // Bad FIRST of three returned results: validate all before any Outcome,
+        // retain later siblings' facts, and give all returned fields an outcome.
+        let results = vec![
+            facts_result("progress", "persisted", Some(bad)),
+            facts_result(
+                "homework",
+                "persisted",
+                Some(obj(&[("original", true.into())])),
+            ),
+            facts_result(
+                "previousHomeworkAssessment",
+                "not_persisted",
+                Some(Js::Null),
+            ),
+        ];
+        let mut backend = FactsBackend {
+            results: results.clone(),
+            calls: 0,
+        };
+        assert_eq!(
+            facts_save(&store, &mut source, &mut backend, &clock, &input)
+                .unwrap_err()
+                .message,
+            "workflow_completion_facts_invalid"
+        );
+        assert_eq!(backend.calls, 3);
+        for e in state::student_executions(&store, input.get("context").get("scope")).unwrap() {
+            assert!(e.state.needs_reconciliation());
+            let outcome = store.get(Kind::Outcome, &e.key).unwrap();
+            assert!(outcome.get("status").is("unresolved"));
+            if e.record.get("field").is("progress") {
+                assert!(!outcome.has("completionFacts"));
+            } else {
+                let r = results
+                    .iter()
+                    .find(|r| r.get("field") == e.record.get("field"))
+                    .unwrap();
+                assert_eq!(outcome.get("completionFacts"), r.get("completionFacts"));
+            }
+        }
+        let again = facts_save(&store, &mut source, &mut backend, &clock, &input).unwrap();
+        assert!(
+            again
+                .get("reasonCode")
+                .is("uncertain_dispatch_reconcile_required")
+        );
+        assert_eq!(backend.calls, 3);
+    }
+}
+#[test]
+fn completion_facts_limit() {
+    use edu_academy_core::workflow::{schema::MAX_COMPLETION_FACTS_BYTES, state};
+    let root = root("facts-limit");
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let clock = Clock::new(NOW);
+    let mut source = Source::observed();
+    let input = facts_input(&store, &mut source, &clock, 1);
+    let empty = obj(&[("p", "".into())]);
+    let mut facts = obj(&[(
+        "p",
+        "x".repeat(MAX_COMPLETION_FACTS_BYTES - codec::bytes(&empty).unwrap().len())
+            .into(),
+    )]);
+    assert_eq!(
+        codec::bytes(&facts).unwrap().len(),
+        MAX_COMPLETION_FACTS_BYTES
+    );
+    let mut backend = FactsBackend {
+        results: vec![facts_result("progress", "persisted", Some(facts.clone()))],
+        calls: 0,
+    };
+    let saved = facts_save(&store, &mut source, &mut backend, &clock, &input).unwrap();
+    assert_eq!(
+        saved.get("fields").array()[0].get("completionFacts"),
+        &facts
+    );
+    let next_store = Store::open(&root.join("next"), &root).unwrap();
+    let input = facts_input(&next_store, &mut source, &clock, 1);
+    facts.set("p", format!("{}x", facts.get("p").code_units()).into());
+    backend.results = vec![facts_result("progress", "persisted", Some(facts))];
+    assert_eq!(
+        facts_save(&next_store, &mut source, &mut backend, &clock, &input)
+            .unwrap_err()
+            .message,
+        "workflow_completion_facts_too_large"
+    );
+    assert!(
+        state::student_executions(&next_store, input.get("context").get("scope")).unwrap()[0]
+            .state
+            .needs_reconciliation()
+    );
+}

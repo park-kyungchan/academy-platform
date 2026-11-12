@@ -322,3 +322,167 @@ fn d_unresolved_unsent() {
     // R05, not a durable R07 fact. No unsupplied field can acquire a saved claim.
     check(&before.snapshot.identity, &[], &[], &[]);
 }
+
+#[test]
+fn c_core_target_refusal_rows() {
+    use edu_academy_core::{
+        js::{obj, sha},
+        workflow::{
+            Runtime,
+            approval::{Approval, RequestApproval},
+            state,
+            store::{Kind, Store},
+        },
+    };
+    struct Clock;
+    impl Runtime for Clock {
+        fn now(&self) -> String {
+            "2040-01-04T12:00:00.000Z".into()
+        }
+        fn epoch_ms(&self) -> u64 {
+            0
+        }
+        fn uuid(&self) -> edu_academy_core::js::Result<String> {
+            Ok("invented-refusal".into())
+        }
+    }
+    let fixture = RecordFixture::from_json(include_str!("fixtures/record-answers.json")).unwrap();
+    let record = &fixture.records[0];
+    let preview = &record.snapshot.identity;
+    let root = std::path::PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap())
+        .join(format!("core-checker-{}", std::process::id()));
+    edu_academy_core::workflow::store::mkdir(&root).unwrap();
+    let scope = obj(&[
+        ("sourceNamespace", "academy.lms.dayrecord".into()),
+        ("teacherId", "teacher".into()),
+        ("studentId", "student".into()),
+        ("lessonDate", "2040-01-04".into()),
+    ]);
+    for (name, code, row) in [
+        (
+            "C-core-target-missing",
+            "workflow_effect_target_required",
+            "R05",
+        ),
+        ("C-core-target-drift", "workflow_effect_target_drift", "R07"),
+        (
+            "C-core-legacy-unbound",
+            "workflow_legacy_execution_unbound",
+            "R37/R09",
+        ),
+    ] {
+        let store = Store::open(&root.join(name), &root).unwrap();
+        let reviewed = obj(&[
+            ("field", "progress".into()),
+            ("effectRecordKey", "physical".into()),
+            ("effectTarget", "reviewed-target".into()),
+            ("before", "Before".into()),
+            ("after", "After".into()),
+        ]);
+        let mut action = reviewed.clone();
+        action.set(
+            "target",
+            obj(&[
+                ("teacherKey", "teacher".into()),
+                ("studentKey", "student".into()),
+                ("date", "2040-01-04".into()),
+            ]),
+        );
+        if row == "R05" {
+            action = obj(&[
+                ("field", "progress".into()),
+                ("effectRecordKey", "physical".into()),
+            ]);
+        }
+        if row == "R07" {
+            action.set("effectTarget", "different-target".into());
+        }
+        let legacy = obj(&[
+            ("scope", scope.clone()),
+            ("requestRef", "older".into()),
+            ("field", "progress".into()),
+            ("effectRecordKey", "physical".into()),
+            ("beforeSha256", sha("Before").into()),
+            ("afterSha256", sha("After").into()),
+        ]);
+        if row == "R37/R09" {
+            store
+                .add_ledger(&state::lock_key(&scope).unwrap(), "legacy", &Clock)
+                .unwrap();
+            store
+                .publish(Kind::Execution, "legacy", &legacy, &Clock)
+                .unwrap();
+        }
+        let mut approval = RequestApproval {
+            store: &store,
+            runtime: &Clock,
+            input: obj(&[
+                ("scope", scope.clone()),
+                ("requestRef", "new".into()),
+                ("reviewed", Js::Arr(vec![reviewed])),
+            ]),
+        };
+        // This is the actual synthetic effect boundary: only verified approval
+        // could append a dispatch. The error is the returned core result.
+        let result = approval.consume(&action);
+        let mut dispatches = vec![];
+        if result
+            .as_ref()
+            .is_ok_and(|r| r.get("status").is("verified"))
+        {
+            dispatches.push(Dispatch {
+                identity: preview.clone(),
+                field: RecordField::Progress,
+                target: record.field_evidence[RecordField::Progress]
+                    .get("target")
+                    .clone(),
+                attempt: name.into(),
+                approving_call: 1,
+                fenced: true,
+                earlier_unresolved: false,
+            });
+        }
+        assert_eq!(result.unwrap_err().message, code, "{name}/{row}");
+        assert!(dispatches.is_empty());
+        check(preview, &[], &dispatches, &[]);
+        let executions = state::student_executions(&store, &scope).unwrap();
+        assert_eq!(executions.len(), usize::from(row == "R37/R09"));
+        if row == "R37/R09" {
+            assert_eq!(executions[0].record, legacy);
+            assert!(executions[0].state.needs_reconciliation());
+            assert!(store.get(Kind::Reconciliation, "legacy").unwrap().absent());
+            let status_input = obj(&[("scope", scope.clone())]);
+            let before =
+                edu_academy_core::workflow::service::status(&store, &status_input).unwrap();
+            // C-core-facts-unqualified: absent legacy facts grant no proof.
+            assert!(
+                !before.get("fields").array()[0].get("executions").array()[0]
+                    .has("completionFacts")
+            );
+            let facts = obj(&[("claim", "unqualified".into())]);
+            store
+                .publish(
+                    Kind::Outcome,
+                    "legacy",
+                    &obj(&[
+                        ("status", "unresolved".into()),
+                        ("completionFacts", facts.clone()),
+                    ]),
+                    &Clock,
+                )
+                .unwrap();
+            // C-core-facts-roundtrip: actual status reads the same Outcome.
+            let after = edu_academy_core::workflow::service::status(&store, &status_input).unwrap();
+            assert_eq!(
+                after.get("fields").array()[0].get("executions").array()[0].get("completionFacts"),
+                &facts
+            );
+            assert!(
+                state::field_state(&store, "legacy")
+                    .unwrap()
+                    .needs_reconciliation()
+            );
+            check(preview, &[], &dispatches, &[]);
+        }
+    }
+}

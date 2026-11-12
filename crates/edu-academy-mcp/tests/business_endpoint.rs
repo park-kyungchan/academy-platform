@@ -374,12 +374,14 @@ impl service::Source for FictionalSource {
 /// Fictional uncertainty only: invokes the real request approval/fence and then
 /// throws. Never returns a fabricated persisted/HTTP success.
 struct UncertainBackend {
+    facts: Option<Js>,
     calls: Rc<Cell<usize>>,
     drift: Option<PathBuf>,
 }
 impl UncertainBackend {
     fn new() -> Self {
         Self {
+            facts: None,
             calls: Rc::new(Cell::new(0)),
             drift: None,
         }
@@ -417,6 +419,15 @@ impl service::Backend for UncertainBackend {
         assert!(approval.consume(&action)?.get("status").is("verified"));
         if let Some(path) = &self.drift {
             fs::write(path, b"fictional drift after durable fence").unwrap();
+        }
+        if let Some(facts) = &self.facts {
+            return Ok(Js::Arr(vec![obj(&[
+                ("field", p.get("field").clone()),
+                ("status", "unresolved".into()),
+                ("transport", "returned".into()),
+                ("dispatched", true.into()),
+                ("completionFacts", facts.clone()),
+            ])]));
         }
         Err(Fault::error("fictional_business_uncertain"))
     }
@@ -1768,4 +1779,49 @@ fn actual_resolver_zero_multikey_malformed_and_utf16_validation_do_not_guess_or_
     assert!(next.get("studentKey").is("77001"));
     assert_eq!(credentials.get(), 1);
     assert_eq!(http.borrow().len(), 7);
+}
+
+#[test]
+fn wire_returns_opaque_completion_facts_without_qualification() {
+    let scene = Scene::new("facts", &routing_admission(), "dailyrecord");
+    let clock = Clock(Cell::new(0));
+    let store = scene.store();
+    let (owner, _, _) = owner(&clock, vec![], false);
+    let mut source = FictionalSource::new();
+    let mut backend = UncertainBackend::new();
+    let facts = js(json!({"claim":"unqualified", "target":"invented-target", "extra":[null,3]}));
+    backend.facts = Some(facts.clone());
+    let mut session = scene.session("dailyrecord");
+    let mut driver = DailyRecord::from_borrowed_service(
+        Service {
+            store: &store,
+            source: &mut source,
+            policy: &Policy,
+            backend: &mut backend,
+            runtime: &clock,
+        },
+        &owner,
+    );
+    let (handle, digest) = prepare(&mut session, &mut driver);
+    let saved = data(&invoke(
+        &mut session,
+        &mut driver,
+        "academy_dailyrecord_save",
+        save_input(&handle, &digest),
+    ));
+    assert!(saved.get("status").is("held"));
+    assert_eq!(
+        saved.get("fields").array()[0].get("completionFacts"),
+        &facts
+    );
+    let status = data(&invoke(
+        &mut session,
+        &mut driver,
+        "academy_dailyrecord_execution_status",
+        obj(&[("scope", context().get("scope").clone())]),
+    ));
+    assert_eq!(
+        status.get("fields").array()[0].get("executions").array()[0].get("completionFacts"),
+        &facts
+    );
 }

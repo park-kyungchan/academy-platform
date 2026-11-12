@@ -13,6 +13,10 @@ use crate::js::{Fault, Js, Result, obj, sha};
 pub trait Source {
     fn read(&mut self, scope: &Js, request: &Js, subject: &Js) -> Result<Js>;
 }
+/// Each result may carry completionFacts (an object or null). These are the
+/// backend's claims, bound to nothing by core. A consumer must compare the fact's
+/// target with the Execution's effectTarget before using it as proof, and must
+/// independently qualify completion, no-partial and no-late semantics.
 pub trait Backend {
     fn configured(&self) -> bool;
     fn save(
@@ -29,6 +33,13 @@ pub struct Service<'a> {
     pub policy: &'a dyn Policy,
     pub backend: &'a mut dyn Backend,
     pub runtime: &'a dyn Runtime,
+}
+fn with_completion_facts(store: &Store, key: &str, mut value: Js) -> Result<Js> {
+    let outcome = store.get(Kind::Outcome, key)?;
+    if outcome.has("completionFacts") {
+        value.set("completionFacts", outcome.get("completionFacts").clone());
+    }
+    Ok(value)
 }
 pub fn base(context: &Js) -> Js {
     let w = crate::templates::from_json(
@@ -462,7 +473,7 @@ impl Service<'_> {
             );
         }
         let report = |p: &Js, extra: Js| -> Result<Js> {
-            Ok(merge(
+            let value = merge(
                 obj(&[
                     ("field", p.get("field").clone()),
                     (
@@ -471,7 +482,8 @@ impl Service<'_> {
                     ),
                 ]),
                 &extra,
-            ))
+            );
+            with_completion_facts(self.store, &pkey(p)?, value)
         };
         let states = prior
             .get("patch")
@@ -727,23 +739,48 @@ impl Service<'_> {
                 r.get("status").clone()
             }
         };
-        for r in results.array() {
+        // Validate the whole batch before publishing any Outcome. An invalid
+        // member keeps every fence unresolved; valid siblings retain their facts.
+        let checks = results
+            .array()
+            .iter()
+            .map(|r| {
+                if r.has("completionFacts") {
+                    super::schema::completion_facts(r.get("completionFacts"))
+                } else {
+                    Ok(())
+                }
+            })
+            .collect::<Vec<_>>();
+        let failure = checks.iter().find_map(|r| r.as_ref().err()).cloned();
+        for (r, check) in results.array().iter().zip(&checks) {
             if let Some(p) = prior
                 .get("patch")
                 .array()
                 .iter()
                 .find(|p| p.get("field") == r.get("field"))
             {
-                outcome(
-                    p,
-                    obj(&[
-                        ("status", recorded(r)),
-                        ("readbackStatus", r.get("status").clone()),
-                        ("dispatched", r.get("dispatched").clone()),
-                        ("transport", nullable(r.get("transport"))),
-                    ]),
-                )?;
+                let mut record = obj(&[
+                    (
+                        "status",
+                        if failure.is_some() {
+                            "unresolved".into()
+                        } else {
+                            recorded(r)
+                        },
+                    ),
+                    ("readbackStatus", r.get("status").clone()),
+                    ("dispatched", r.get("dispatched").clone()),
+                    ("transport", nullable(r.get("transport"))),
+                ]);
+                if check.is_ok() && r.has("completionFacts") {
+                    record.set("completionFacts", r.get("completionFacts").clone());
+                }
+                outcome(p, record)?;
             }
+        }
+        if let Some(error) = failure {
+            return Err(error);
         }
         let writes = results
             .array()
@@ -811,7 +848,7 @@ impl Service<'_> {
                     .array()
                     .iter()
                     .find(|p| p.get("field") == r.get("field"));
-                Ok(obj(&[
+                let value = obj(&[
                     ("field", r.get("field").clone()),
                     ("status", recorded(r)),
                     ("dispatched", r.get("dispatched").clone()),
@@ -825,7 +862,12 @@ impl Service<'_> {
                         }
                         .into(),
                     ),
-                ]))
+                ]);
+                if let Some(p) = p {
+                    with_completion_facts(self.store, &pkey(p)?, value)
+                } else {
+                    Ok(value)
+                }
             })
             .collect::<Result<Vec<_>>>()?;
         Ok(merge(
@@ -894,7 +936,7 @@ impl Service<'_> {
                 student_executions(self.store, scope)?
                     .iter()
                     .map(|e| {
-                        obj(&[
+                        let value = obj(&[
                             ("field", e.record.get("field").clone()),
                             (
                                 "lessonDate",
@@ -902,9 +944,10 @@ impl Service<'_> {
                             ),
                             ("requestRef", e.record.get("requestRef").clone()),
                             ("executionState", e.state.name().into()),
-                        ])
+                        ]);
+                        with_completion_facts(self.store, &e.key, value)
                     })
-                    .collect(),
+                    .collect::<Result<Vec<_>>>()?,
             ))
         };
         let pending = student_executions(self.store, scope)?
@@ -1095,7 +1138,7 @@ pub fn status(store: &Store, input: &Js) -> Result<Js> {
             .filter(|e| e.record.get("field").is(field))
             .map(|e| {
                 let r = &e.record;
-                obj(&[
+                let value = obj(&[
                     ("requestRef", r.get("requestRef").clone()),
                     ("effectRecordKey", r.get("effectRecordKey").clone()),
                     ("beforeSha256", r.get("beforeSha256").clone()),
@@ -1103,9 +1146,10 @@ pub fn status(store: &Store, input: &Js) -> Result<Js> {
                     ("executionState", e.state.name().into()),
                     ("by", attribution_summary(r.get("attribution"))),
                     ("recordedAt", r.get("recordedAt").clone()),
-                ])
+                ]);
+                with_completion_facts(store, &e.key, value)
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>>>()?;
         if !values.is_empty() {
             fields.push(obj(&[
                 ("field", field.into()),
