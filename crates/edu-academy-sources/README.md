@@ -9,8 +9,13 @@ The digest binds scope, field, target, record key and before/after hashes.
 A held plan keeps its real blocker; only a prepared digest mismatch reports
 `approval_digest_mismatch`. No automatic write retry occurs.
 `status` returns stored execution metadata and nullable `reconcileStatus`/`reconcileCode`.
-With `reconcile: true`, pending waits exit 0 only if all student open executions are not due;
-failed settling reads and selected-field `reconciled_conflict` exit nonzero. Every mode logs in once.
+`reconcileReads` and `reconcileReadsFailed` count raw source attempts and errors/non-observed
+answers; both are null without reconcile. The core can reject a raw observed answer,
+so zero raw failures does not establish success. With `reconcile: true`, core `settled`
+or `held`/`save_confirmation_pending` exits 0 unless the selected field/date has
+`reconciled_conflict`. Pending requires every execution attempted in this call to be closed;
+not-yet-due executions can remain open. Other reconcile failures exit nonzero.
+Every mode logs in once.
 `save` failures retain HTTP status/body hash/six-field comparison when collected.
 Values and identities are hashes only; stderr contains typed codes only.
 Success exits 0; failure exits 2 before any service call, 3 afterwards.

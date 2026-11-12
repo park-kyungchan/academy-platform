@@ -1026,6 +1026,7 @@ impl Service<'_> {
         let mut reads: Vec<(String, Js)> = vec![];
         let mut uncertain = false;
         let mut before_window = false;
+        let mut due_keys = vec![];
         for e in pending {
             let r = &e.record;
             if r.get("effectTarget").absent() {
@@ -1059,6 +1060,7 @@ impl Service<'_> {
                     continue;
                 }
             }
+            due_keys.push(e.key.clone());
             let scope_key = if due.is_some() {
                 e.key.clone()
             } else {
@@ -1136,9 +1138,11 @@ impl Service<'_> {
             )?;
         }
         let after = fields()?;
-        let open = student_executions(self.store, scope)?
+        let remaining = student_executions(self.store, scope)?;
+        let open = remaining.iter().any(|e| e.state.needs_reconciliation());
+        let due_open = remaining
             .iter()
-            .any(|e| e.state.needs_reconciliation());
+            .any(|e| e.state.needs_reconciliation() && due_keys.contains(&e.key));
         let unavailable = reads.iter().any(|(_, r)| !r.get("status").is("observed"));
         let reason = if !open {
             Js::Null
@@ -1161,7 +1165,7 @@ impl Service<'_> {
                 ("fields", after),
             ]),
         );
-        Ok(if before_window {
+        Ok(if before_window && !due_open {
             confirmation_pending(result)
         } else {
             result

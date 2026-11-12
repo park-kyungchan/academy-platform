@@ -222,6 +222,9 @@ impl Case {
         Store::open(&self.root.join("store"), &self.root).unwrap()
     }
     fn prepare(&mut self, request: &str, value: &str) {
+        self.prepare_field(request, value, "progress");
+    }
+    fn prepare_field(&mut self, request: &str, value: &str, field: &str) {
         let store = self.open();
         let scope = self.source.0.borrow().get("scope").clone();
         self.source
@@ -231,8 +234,8 @@ impl Case {
         let context = js(
             json!({"schemaVersion":"academy.dailyrecord-user-context/1", "purpose":"Invented rule test",
             "currentRequestRef":request, "scope":serde_json::from_str::<serde_json::Value>(&edu_academy_core::js::stringify(&scope).unwrap()).unwrap(),
-            "selectedFields":["progress"], "memoAnswer":{"kind":"no_addition","requestRef":request},
-            "facts":[{"ref":"fact","field":"progress","text":value,"explicitValue":value,"requiredFragments":[],"questionCounts":[],"deadlines":[],"stageClaims":[]}]}),
+            "selectedFields":[field], "memoAnswer":{"kind":"no_addition","requestRef":request},
+            "facts":[{"ref":"fact","field":field,"text":value,"explicitValue":value,"requiredFragments":[],"questionCounts":[],"deadlines":[],"stageClaims":[]}]}),
         );
         let mut svc = service::Service {
             store: &store,
@@ -248,7 +251,7 @@ impl Case {
             (
                 "proposals",
                 js(
-                    json!([{"field":"progress","value":value,"factRefs":["fact"],"decision":{"kind":"replace","requestRef":request}}]),
+                    json!([{"field":field,"value":value,"factRefs":["fact"],"decision":{"kind":"replace","requestRef":request}}]),
                 ),
             ),
         ]);
@@ -730,4 +733,172 @@ fn t16_recovered_execution_starts_its_own_window() {
         c.execution().state,
         state::FieldState::ReconciledNotPersisted
     );
+}
+
+// Two distinct fields of one student's dated record, with independent windows.
+fn mixed_window_case(kind: &str) {
+    let mut c = Case::new("persisted", "lost", None);
+    assert!(c.save().get("status").is("held"));
+    c.at("2040-01-04T12:05:00.000Z");
+    c.prepare_field("future", "- Future homework", "homework");
+    assert!(c.save().get("status").is("held"));
+    if kind == "legacy" {
+        let old = c.open();
+        let executions =
+            state::student_executions(&old, c.input.get("context").get("scope")).unwrap();
+        c.root = c.root.join("legacy");
+        mkdir(&c.root).unwrap();
+        let store = c.open();
+        for e in executions {
+            let mut record = e.record;
+            if record.get("field").is("progress") {
+                record.set("settlementRule", Js::Null);
+                record.set("dispatchedAt", Js::Null);
+            }
+            store
+                .add_ledger(
+                    &state::lock_key(record.get("scope")).unwrap(),
+                    &e.key,
+                    &c.clock,
+                )
+                .unwrap();
+            store
+                .publish(Kind::Execution, &e.key, &record, &c.clock)
+                .unwrap();
+            let digest = record.get("reviewDigest").code_units();
+            let review = old.get(Kind::Review, &digest).unwrap();
+            let handle = review.get("observationHandle").code_units();
+            for (kind, key, value) in [
+                (Kind::Review, digest, review),
+                (
+                    Kind::Observation,
+                    handle.clone(),
+                    old.get(Kind::Observation, &handle).unwrap(),
+                ),
+                (
+                    Kind::Outcome,
+                    e.key.clone(),
+                    old.get(Kind::Outcome, &e.key).unwrap(),
+                ),
+            ] {
+                store.publish(kind, &key, &value, &c.clock).unwrap();
+            }
+        }
+    }
+    c.value(Some("- Sent"));
+    if kind == "unknown" {
+        c.value(None);
+    }
+    if kind == "unavailable" {
+        let mut observation = c.source.0.borrow_mut();
+        let mut fields = observation.get("fields").clone();
+        let mut binding = fields.get("attendance").clone();
+        binding.set("value", "invalid-attendance".into());
+        fields.set("attendance", binding);
+        observation.set("fields", fields);
+    }
+    c.at(if kind == "future_only" {
+        "2040-01-04T12:09:00.000Z"
+    } else {
+        "2040-01-04T12:10:00.000Z"
+    });
+    c.source
+        .0
+        .borrow_mut()
+        .set("observedAt", c.clock.now().into());
+    let reads = c.source.1.get();
+    let result = c.reconcile(false);
+    let expected = match kind {
+        "unavailable" => "readback_unavailable_reconcile_later",
+        "unknown" => "readback_field_unknown_reconcile_later",
+        "legacy" => "qualified_proof_or_target_repair_required",
+        _ => "save_confirmation_pending",
+    };
+    assert_eq!(
+        result.get("reasonCode"),
+        &Js::from(expected),
+        "reconcile distinguishes open due executions from future waits: {kind}"
+    );
+    assert!(result.get("status").is("held"));
+    assert_eq!(
+        c.source.1.get() - reads,
+        usize::from(kind != "future_only"),
+        "exactly the due execution is read"
+    );
+    assert_eq!(c.backend.calls, 2, "reconcile never dispatches a save");
+    let store = c.open();
+    let executions =
+        state::student_executions(&store, c.input.get("context").get("scope")).unwrap();
+    assert_eq!(executions.len(), 2);
+    let future = executions
+        .iter()
+        .find(|e| e.record.get("requestRef").is("future"))
+        .unwrap();
+    let due = executions
+        .iter()
+        .find(|e| e.record.get("requestRef").is("first"))
+        .unwrap();
+    assert!(future.state.needs_reconciliation());
+    assert!(
+        store
+            .get(Kind::Reconciliation, &future.key)
+            .unwrap()
+            .absent()
+    );
+    assert_eq!(due.state.needs_reconciliation(), kind != "equal");
+    let future_field = result
+        .get("fields")
+        .array()
+        .iter()
+        .find(|f| f.get("requestRef").is("future"))
+        .unwrap();
+    assert_eq!(
+        future_field.get("earliestSettleAtEpochMs"),
+        &Js::Num(DUE + 300_000.)
+    );
+    if kind == "equal" || kind == "future_only" {
+        assert_eq!(
+            result.get("earliestSettleAtEpochMs"),
+            &Js::Num(if kind == "equal" { DUE + 300_000. } else { DUE }),
+            "pending retains the next actual due time"
+        );
+    }
+    let key = state::request_key(c.input.get("context").get("scope"), "first").unwrap();
+    let audit = store.audit(&key, 256).unwrap();
+    for event in [
+        "reconcile_readback_unavailable",
+        "reconcile_unqualified_evidence",
+    ] {
+        let expected = (kind == "unavailable" && event == "reconcile_readback_unavailable")
+            || (kind == "legacy" && event == "reconcile_unqualified_evidence");
+        assert_eq!(
+            audit
+                .array()
+                .iter()
+                .filter(|row| row.get("event").is(event))
+                .count(),
+            usize::from(expected),
+            "existing audit events remain unchanged"
+        );
+    }
+}
+#[test]
+fn mixed_due_unavailable_keeps_failure() {
+    mixed_window_case("unavailable");
+}
+#[test]
+fn mixed_due_unknown_keeps_failure() {
+    mixed_window_case("unknown");
+}
+#[test]
+fn mixed_due_unqualified_evidence_keeps_failure() {
+    mixed_window_case("legacy");
+}
+#[test]
+fn mixed_due_closed_with_future_is_pending() {
+    mixed_window_case("equal");
+}
+#[test]
+fn mixed_only_future_is_pending_without_reads() {
+    mixed_window_case("future_only");
 }

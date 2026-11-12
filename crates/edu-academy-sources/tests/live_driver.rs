@@ -1523,12 +1523,12 @@ struct ReconcileSequence<'a> {
     clock: &'a AdvancingClock,
     failed_source: &'a mut dyn edu_academy_core::workflow::service::Source,
     calls: usize,
-    unobserved: bool,
+    kind: &'a str,
 }
 impl edu_academy_core::workflow::service::Source for ReconcileSequence<'_> {
     fn read(&mut self, scope: &Js, request: &Js, subject: &Js) -> CoreResult<Js> {
         self.calls += 1;
-        if self.unobserved {
+        if self.kind == "unobserved" {
             return Ok(obj(&[
                 ("status", "unavailable".into()),
                 ("reasonCode", "source_http_failed".into()),
@@ -1540,6 +1540,22 @@ impl edu_academy_core::workflow::service::Source for ReconcileSequence<'_> {
             set_field(&obs, "attendance", "N");
             let mut obs = obs.borrow().clone();
             obs.set("observedAt", self.clock.now().into());
+            if self.kind == "unqualified" || self.kind == "unknown" {
+                let mut fields = obs.get("fields").clone();
+                let mut binding = fields.get("attendance").clone();
+                if self.kind == "unqualified" {
+                    binding.set("value", "invalid-attendance".into());
+                } else {
+                    binding = obj(&[
+                        ("state", "unknown".into()),
+                        ("reasonCode", "invented_unknown".into()),
+                        ("effectTarget", binding.get("effectTarget").clone()),
+                        ("effectRecordKey", binding.get("effectRecordKey").clone()),
+                    ]);
+                }
+                fields.set("attendance", binding);
+                obs.set("fields", fields);
+            }
             return Ok(obj(&[("status", "observed".into()), ("observation", obs)]));
         }
         self.failed_source.read(scope, request, subject)
@@ -1626,7 +1642,7 @@ fn advancing_reconcile_case(kind: &str) {
         clock: &clock,
         failed_source: &mut bad,
         calls: 0,
-        unobserved: kind == "unobserved",
+        kind,
     };
     let mut unused = Unused;
     request.set("mode", "status".into());
@@ -1650,11 +1666,15 @@ fn advancing_reconcile_case(kind: &str) {
         true,
     );
     let expected_reads = if kind == "three" { 2. } else { 1. };
-    let expected_failed = if kind == "equal" { 0. } else { 1. };
+    let expected_failed = if ["equal", "unknown", "unqualified"].contains(&kind) {
+        0.
+    } else {
+        1.
+    };
     assert_eq!(
         exit,
         if kind == "equal" { 0 } else { 3 },
-        "actual failed reads, not a due-time snapshot, decide exit"
+        "core reconciliation result decides exit"
     );
     assert_eq!(
         public.get("reconcileReads"),
@@ -1674,11 +1694,11 @@ fn advancing_reconcile_case(kind: &str) {
         );
         assert_eq!(seen.borrow().len(), 0);
     } else {
-        assert!(
-            public
-                .get("code")
-                .is("readback_unavailable_reconcile_later")
-        );
+        assert!(public.get("code").is(if kind == "unknown" {
+            "readback_field_unknown_reconcile_later"
+        } else {
+            "readback_unavailable_reconcile_later"
+        }));
         let stored = public.get("stored").get("executions").array();
         assert!(stored[0].get("executionState").is(if kind == "three" {
             "reconciled_persisted"
@@ -1756,4 +1776,46 @@ fn reconcile_fault_preserves_zero_read_counts() {
         );
     }
     assert_eq!(reads.get(), 0);
+}
+
+#[test]
+fn raw_observed_unqualified_with_future_fails() {
+    advancing_reconcile_case("unqualified");
+}
+#[test]
+fn raw_observed_unknown_with_future_fails() {
+    advancing_reconcile_case("unknown");
+}
+
+#[test]
+fn status_wait_requires_held_and_ignores_raw_failed_count() {
+    let mut request = input();
+    request.set("mode", "status".into());
+    for (status, code, expected) in [
+        ("settled", Js::Null, 0),
+        ("held", Js::from("save_confirmation_pending"), 0),
+        ("failed", Js::from("save_confirmation_pending"), 3),
+        (
+            "held",
+            Js::from("readback_field_unknown_reconcile_later"),
+            3,
+        ),
+    ] {
+        for failed in [0., 1.] {
+            let value = obj(&[
+                ("reconcileStatus", status.into()),
+                ("reconcileCode", code.clone()),
+                ("reconcileReads", Js::Num(1.)),
+                ("reconcileReadsFailed", Js::Num(failed)),
+                ("executions", Js::Arr(vec![])),
+            ]);
+            let (public, exit) =
+                live_driver::response(&request, Ok(value), Js::Null, &Js::Null, true);
+            assert_eq!(
+                exit, expected,
+                "only settled or held/pending succeeds; counters are observations"
+            );
+            assert_eq!(public.get("reconcileReadsFailed"), &Js::Num(failed));
+        }
+    }
 }

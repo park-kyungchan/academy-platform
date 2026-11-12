@@ -261,9 +261,6 @@ pub fn execute(input: &Js, service: &mut Service<'_>) -> Result<Js> {
                         ("reasonCode", code(&error.message).into()),
                     ])
                 });
-                if reconciled.get("reasonCode").is("save_confirmation_pending") && source.1[1] > 0 {
-                    reconciled.set("reasonCode", "readback_unavailable_reconcile_later".into());
-                }
             }
             let mut output = stored(input, service.store)?;
             output.set("reconcileStatus", code_value(reconciled.get("status")));
@@ -332,8 +329,10 @@ pub fn response(
         Err(error) => code(&error.message).into(),
         Ok(value) if failed(value.get("status")) => refusal_code(value),
         Ok(value)
-            if failed(value.get("reconcileStatus"))
-                && !value.get("reconcileCode").is("save_confirmation_pending") =>
+            if !(value.get("reconcileStatus").absent()
+                || value.get("reconcileStatus").is("settled")
+                || value.get("reconcileStatus").is("held")
+                    && value.get("reconcileCode").is("save_confirmation_pending")) =>
         {
             code_value(value.get("reconcileCode"))
         }
