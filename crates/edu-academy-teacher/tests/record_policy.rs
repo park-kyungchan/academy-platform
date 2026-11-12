@@ -72,7 +72,29 @@ fn review_input(value: &str, fact: &str, deadline: Option<&str>) -> (Js, Js) {
     input["proposals"][0]["learningEntries"] = json!([{
         "bookRef":"invented-book", "unitRef":"invented-unit", "scope":"unit", "sectionRefs":[], "activity":"필수예제", "deadline":deadline
     }]);
-    (js(input), js(cases[0]["read"]["observation"].clone()))
+    let mut observation = js(cases[0]["read"]["observation"].clone());
+    let mut fields = observation.get("fields").clone();
+    for field in RecordField::ALL {
+        let target = observation.get(if field == RecordField::PreviousHomeworkAssessment {
+            "previousTarget"
+        } else {
+            "target"
+        });
+        if target.absent() {
+            continue;
+        }
+        let mut value = fields.get(field.wire_name()).clone();
+        value.set(
+            "effectTarget",
+            edu_academy_teacher::record_effect::canonical_effect_target(target)
+                .unwrap()
+                .into(),
+        );
+        value.set("effectRecordKey", target.get("recordId").clone());
+        fields.set(field.wire_name(), value);
+    }
+    observation.set("fields", fields);
+    (js(input), observation)
 }
 
 #[test]

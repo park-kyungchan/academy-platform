@@ -486,3 +486,53 @@ fn c_core_target_refusal_rows() {
         }
     }
 }
+
+#[test]
+fn e_read_failed() {
+    use edu_academy_core::{js::obj, workflow::service::Source};
+    use edu_academy_teacher::{
+        record_backend::SyntheticRecordState, record_effect::SyntheticCoreSource,
+    };
+    use std::sync::{Arc, Mutex};
+    let mut fixture =
+        RecordFixture::from_json(include_str!("fixtures/record-answers.json")).unwrap();
+    let failed = fixture.records[4].clone();
+    let mut scope = fixture.records[0].answer.get("scope").clone();
+    scope.set(
+        "studentId",
+        failed.snapshot.identity.student_key.clone().into(),
+    );
+    scope.set(
+        "lessonDate",
+        failed.snapshot.identity.lesson_date.clone().into(),
+    );
+    assert!(
+        !fixture
+            .seed
+            .records
+            .iter()
+            .any(|r| r.identity == failed.snapshot.identity)
+    );
+    fixture.records = vec![failed.clone()];
+    let root = std::path::PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap())
+        .join(format!("source-row-{}", std::process::id()));
+    let state = Arc::new(Mutex::new(
+        SyntheticRecordState::open(&root, fixture.seed, 10000).unwrap(),
+    ));
+    let mut source = SyntheticCoreSource {
+        state: Arc::clone(&state),
+        records: fixture.records,
+    };
+    let result = source
+        .read(&scope, &"invented-read".into(), &obj(&[]))
+        .unwrap();
+    assert!(result.get("status").is("unavailable"));
+    assert!(result.get("reasonCode").is("student_name_not_found"));
+    assert_eq!(result, failed.answer);
+    assert!(!result.has("observation"));
+    assert_eq!(state.lock().unwrap().read_count(), 0);
+    assert_eq!(state.lock().unwrap().dispatch_count(), 0);
+    // E-read-failed, R05: actual recorded failure, no inferred absence, no
+    // pre-effect record, dispatch or saved claim. No save actor is constructed.
+    check(&failed.snapshot.identity, &[], &[], &[]);
+}

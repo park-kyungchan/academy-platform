@@ -1,0 +1,286 @@
+//! Invented recorded answers and disposable shared state only; no native calls.
+use edu_academy_core::{
+    js::{Js, obj},
+    workflow::{codec, same},
+};
+use edu_academy_teacher::{
+    record_backend::*, record_data::*, record_effect::*, record_fixture::RecordFixture,
+    record_store::DraftStore,
+};
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
+};
+static NEXT: AtomicU64 = AtomicU64::new(0);
+const FIXTURE: &str = include_str!("fixtures/record-answers.json");
+fn fixture() -> RecordFixture {
+    RecordFixture::from_json(FIXTURE).unwrap()
+}
+fn setup(fixture: RecordFixture) -> (SyntheticCoreSource, PathBuf) {
+    let root = PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap()).join(format!(
+        "record-effect-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    let state = SyntheticRecordState::open(&root, fixture.seed, 10000).unwrap();
+    (
+        SyntheticCoreSource {
+            state: Arc::new(Mutex::new(state)),
+            records: fixture.records,
+        },
+        root,
+    )
+}
+fn scope(source: &SyntheticCoreSource, index: usize) -> Js {
+    let record = &source.records[index];
+    obj(&[
+        ("sourceNamespace", "academy.lms.dayrecord".into()),
+        ("teacherId", "9001".into()),
+        (
+            "studentId",
+            record.snapshot.identity.student_key.clone().into(),
+        ),
+        (
+            "lessonDate",
+            record.snapshot.identity.lesson_date.clone().into(),
+        ),
+    ])
+}
+fn read(source: &mut SyntheticCoreSource, index: usize) -> Js {
+    use edu_academy_core::workflow::service::Source;
+    source
+        .read(&scope(source, index), &"invented-request".into(), &Js::Null)
+        .unwrap()
+}
+#[test]
+fn exact_per_field_targets() {
+    let mut value: serde_json::Value = serde_json::from_str(FIXTURE).unwrap();
+    let homework =
+        &mut value["answers"][0]["capture"]["answer"]["structuredContent"]["fields"][1]["target"];
+    homework["courseId"] = "invented-other-course".into();
+    homework["membershipId"] = "invented-other-membership".into();
+    let fixture = RecordFixture::from_json(&value.to_string()).unwrap();
+    let expected = fixture.records[0].clone();
+    let (mut source, _) = setup(fixture);
+    let result = read(&mut source, 0);
+    let observation = result.get("observation");
+    assert!(
+        same(
+            observation.get("target"),
+            expected.field_evidence.progress.get("target")
+        )
+        .unwrap()
+    );
+    assert!(
+        same(
+            observation.get("previousTarget"),
+            expected
+                .field_evidence
+                .previous_homework_assessment
+                .get("target")
+        )
+        .unwrap()
+    );
+    for field in RecordField::ALL {
+        let target = expected.field_evidence[field].get("target");
+        let actual = observation.get("fields").get(field.wire_name());
+        assert_eq!(actual.get("effectRecordKey"), target.get("recordId"));
+        // Independent serde JSON object ordering supplies the expected full string.
+        let expected_json: serde_json::Value =
+            serde_json::from_slice(&codec::bytes(target).unwrap()).unwrap();
+        assert!(actual.get("effectTarget").is(&expected_json.to_string()));
+        assert_eq!(
+            actual.get("value"),
+            expected.field_evidence[field].get("before").get("value")
+        );
+        assert_eq!(
+            actual.get("evidenceRefs"),
+            expected.field_evidence[field]
+                .get("before")
+                .get("evidenceRefs")
+        );
+    }
+    let fields = observation.get("fields");
+    assert_eq!(
+        fields.get("progress").get("effectRecordKey"),
+        fields.get("homework").get("effectRecordKey")
+    );
+    assert_ne!(
+        fields.get("progress").get("effectTarget"),
+        fields.get("homework").get("effectTarget")
+    );
+    assert!(
+        observation.get("previousTarget").get("lessonDate").units()
+            < scope(&source, 0).get("lessonDate").units()
+    );
+    let encoded = canonical_effect_target(expected.field_evidence.progress.get("target")).unwrap();
+    assert_ne!(
+        encoded,
+        expected
+            .field_evidence
+            .progress
+            .get("target")
+            .get("recordId")
+            .code_units()
+    );
+    assert_eq!(source.state.lock().unwrap().read_count(), 1);
+}
+#[test]
+fn failed_recorded_answer_is_not_absence() {
+    for index in 4..7 {
+        let mut fixture = fixture();
+        let failed = fixture.records[index].clone();
+        assert!(
+            !fixture
+                .seed
+                .records
+                .iter()
+                .any(|r| r.identity == failed.snapshot.identity)
+        );
+        fixture.records = vec![failed.clone()];
+        let (mut source, _) = setup(fixture);
+        let output = read(&mut source, 0);
+        assert_eq!(output, failed.answer);
+        assert!(output.get("status").is("unavailable"));
+        assert!(!output.has("observation"));
+        let state = source.state.lock().unwrap();
+        assert_eq!(state.read_count(), 0);
+        assert_eq!(state.dispatch_count(), 0);
+        assert_eq!(state.source_operations(), 0);
+    }
+}
+#[test]
+fn synthetic_core_source_reloads_values() {
+    let fixture = fixture();
+    let seed = fixture.seed.clone();
+    let owner = seed.owner.clone();
+    let target = seed.writable_targets[0].synthetic_target.clone();
+    let (mut source, root) = setup(fixture);
+    let first = read(&mut source, 0);
+    let original = source.records[0].clone();
+    let store = DraftStore::open(&root, owner).unwrap();
+    {
+        let account = store.lock_account().unwrap();
+        let mut patch = RecordFields::from_fn(|_| None);
+        patch.progress = Some(FieldPatch {
+            effect_target: target,
+            operation: PatchOperation::Set,
+            value: "- Invented shared-state update".into(),
+        });
+        source
+            .state
+            .lock()
+            .unwrap()
+            .dispatch_with_account(
+                &account,
+                &original.snapshot.identity,
+                &patch,
+                &original.snapshot.provenance.read_at,
+            )
+            .unwrap();
+    }
+    let second = read(&mut source, 0);
+    assert!(
+        second
+            .get("observation")
+            .get("fields")
+            .get("progress")
+            .get("value")
+            .is("- Invented shared-state update")
+    );
+    assert_ne!(
+        first
+            .get("observation")
+            .get("fields")
+            .get("progress")
+            .get("value"),
+        second
+            .get("observation")
+            .get("fields")
+            .get("progress")
+            .get("value")
+    );
+    for key in ["sourceRevision", "wireDigest", "observedAt"] {
+        assert_eq!(
+            first.get("observation").get(key),
+            second.get("observation").get(key)
+        );
+    }
+    assert_eq!(source.records[0].snapshot, original.snapshot);
+    let state = SyntheticRecordState::open(&root, seed, 10000).unwrap();
+    let mut reopened = SyntheticCoreSource {
+        state: Arc::new(Mutex::new(state)),
+        records: source.records.clone(),
+    };
+    assert_eq!(
+        read(&mut reopened, 0).get("observation"),
+        second.get("observation")
+    );
+    assert_eq!(source.state.lock().unwrap().read_count(), 2);
+    assert_eq!(source.state.lock().unwrap().dispatch_count(), 1);
+}
+#[test]
+fn source_unknown_preserves_binding_and_refuses_scope_drift() {
+    use edu_academy_core::workflow::service::Source;
+    let mut fixture = fixture();
+    let RecordObservation::Observed { fields, .. } = &mut fixture.seed.records[0].observation
+    else {
+        panic!("observed fixture")
+    };
+    fields.homework = RecordValue::Unknown;
+    fixture.seed.records[0].provenance.field_reasons.homework = Some("invented_unknown".into());
+    let (mut source, _) = setup(fixture);
+    let value = read(&mut source, 0);
+    let homework = value.get("observation").get("fields").get("homework");
+    assert!(homework.get("state").is("unknown"));
+    assert!(homework.get("reasonCode").is("invented_unknown"));
+    assert!(homework.get("effectTarget").string());
+    let mut wrong = scope(&source, 0);
+    wrong.set("teacherId", "different-teacher".into());
+    assert_eq!(
+        source
+            .read(&wrong, &Js::Null, &Js::Null)
+            .unwrap_err()
+            .message,
+        "source_scope_conflict"
+    );
+    assert_eq!(source.state.lock().unwrap().read_count(), 1);
+    source.records[0].snapshot.identity.owner.account = "different-owner".into();
+    assert!(
+        source
+            .read(&scope(&source, 0), &Js::Null, &Js::Null)
+            .is_err()
+    );
+    assert_eq!(source.state.lock().unwrap().read_count(), 1);
+}
+#[test]
+fn synthetic_core_source_does_not_retry() {
+    use edu_academy_core::workflow::service::Source;
+    for outcome in [ReadOutcome::Timeout, ReadOutcome::Unavailable] {
+        let mut fixture = fixture();
+        let identity = fixture.records[0].snapshot.identity.clone();
+        fixture.seed.read_scripts = vec![
+            ReadScript {
+                identity: identity.clone(),
+                outcome,
+            },
+            ReadScript {
+                identity,
+                outcome: ReadOutcome::Observed { elapsed_ms: 0 },
+            },
+        ];
+        let (mut source, _) = setup(fixture);
+        assert!(
+            source
+                .read(&scope(&source, 0), &Js::Null, &Js::Null)
+                .is_err()
+        );
+        assert_eq!(source.state.lock().unwrap().read_count(), 1);
+        // A separate explicit read may succeed; the failed invocation never retries.
+        assert!(read(&mut source, 0).get("status").is("observed"));
+        assert_eq!(source.state.lock().unwrap().read_count(), 2);
+    }
+}

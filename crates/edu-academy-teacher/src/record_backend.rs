@@ -626,6 +626,34 @@ impl SyntheticRecordState {
         }
         initialize(&self.root, &bytes)
     }
+    pub(crate) fn source_store(&self, id: &RecordIdentity) -> Result<Arc<DraftStore>> {
+        valid_identity(id, &self.owner)?;
+        Ok(Arc::clone(&self.store))
+    }
+    /// The recorded-answer adapter makes one read, with no inferred deadline or retry.
+    pub(crate) fn read_once_with_account(
+        &mut self,
+        account: &AccountGuard<'_>,
+        id: &RecordIdentity,
+        read_at: &str,
+    ) -> Result<RecordSnapshot> {
+        check_root(&self.root, account)?;
+        valid_identity(id, &self.owner)?;
+        chrono::DateTime::parse_from_rfc3339(read_at).map_err(|_| invalid())?;
+        self.operation()?;
+        self.reads = self.reads.checked_add(1).ok_or_else(limit)?;
+        let mut source = self.load()?;
+        if let Some(n) = source.read_scripts.iter().position(|s| s.identity == *id) {
+            let outcome = source.read_scripts.remove(n).outcome;
+            self.persist(account, &source)?;
+            match outcome {
+                ReadOutcome::Observed { .. } => {}
+                ReadOutcome::Unavailable => return Err(unavailable()),
+                ReadOutcome::Timeout => return Err(Fault::error("record_source_timeout")),
+            }
+        }
+        Ok(observe(source, id, read_at))
+    }
     /// Exact resolved identity only. Never searches another date or projects a
     /// known blank/unknown/attribution reason to an invented academic value.
     pub fn read(&mut self, id: &RecordIdentity, read_at: &str) -> Result<RecordSnapshot> {

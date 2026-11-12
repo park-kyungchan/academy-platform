@@ -17,6 +17,7 @@ pub use lesson::prepare;
 pub use synthetic::load_scenario;
 pub mod record_backend;
 pub mod record_data;
+pub mod record_effect;
 pub mod record_fixture;
 pub mod record_parent;
 pub mod record_parse;

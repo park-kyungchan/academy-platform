@@ -297,3 +297,75 @@ fn host_recorded_answers_replay() {
         "separate later login observation missing"
     );
 }
+
+#[test]
+fn recorded_values_survive_core_source_projection() {
+    use edu_academy_core::workflow::service::Source;
+    use edu_academy_teacher::{
+        record_backend::SyntheticRecordState, record_effect::SyntheticCoreSource,
+    };
+    use std::sync::{Arc, Mutex};
+    let fixture = RecordFixture::from_json(FIXTURE).unwrap();
+    let root = std::path::PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap())
+        .join(format!("fixture-source-{}", std::process::id()));
+    let mut source = SyntheticCoreSource {
+        state: Arc::new(Mutex::new(
+            SyntheticRecordState::open(&root, fixture.seed, 10000).unwrap(),
+        )),
+        records: fixture.records,
+    };
+    for index in 0..4 {
+        let record = source.records[index].clone();
+        let result = source
+            .read(record.answer.get("scope"), &Js::Null, &Js::Null)
+            .unwrap();
+        for field in RecordField::ALL {
+            let actual = result
+                .get("observation")
+                .get("fields")
+                .get(field.wire_name());
+            let before = record.field_evidence[field].get("before");
+            assert_eq!(actual.get("state"), before.get("state"));
+            assert_eq!(actual.get("value"), before.get("value"));
+        }
+    }
+    assert_eq!(source.state.lock().unwrap().read_count(), 4);
+}
+
+#[test]
+fn native_shaped_metadata_is_shared_across_distinct_values() {
+    let fixture = RecordFixture::from_json(FIXTURE).unwrap();
+    for record in &fixture.records {
+        let source = record.answer.get("source");
+        if source.absent() {
+            assert!(matches!(
+                record.snapshot.observation,
+                RecordObservation::Failed { .. }
+            ));
+            continue;
+        }
+        for key in ["sourceRevision", "wireDigest"] {
+            let value = text(source.get(key));
+            assert_eq!(value.len(), 64);
+            assert!(
+                value
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            );
+        }
+    }
+    let first = &fixture.records[0];
+    let RecordObservation::Observed {
+        fields: first_values,
+        ..
+    } = &first.snapshot.observation
+    else {
+        panic!("observed fixture required")
+    };
+    assert!(fixture.records.iter().any(|record| {
+        record.snapshot.identity != first.snapshot.identity
+            && matches!(&record.snapshot.observation, RecordObservation::Observed {fields, ..} if fields != first_values)
+            && record.answer.get("source").get("sourceRevision") == first.answer.get("source").get("sourceRevision")
+            && record.answer.get("source").get("wireDigest") == first.answer.get("source").get("wireDigest")
+    }));
+}
