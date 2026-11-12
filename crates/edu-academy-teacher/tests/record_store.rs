@@ -922,6 +922,156 @@ fn draft_lookup_and_cleanup_256_boundaries() {
     }
 }
 #[test]
+fn prospective_candidate_capacity_preserves_continuation_and_recovers_after_cleanup() {
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    let now = "2026-11-12T18:10:00+09:00";
+    let mut originals = vec![];
+    for i in 0..MAX_DRAFT_CANDIDATES - 1 {
+        let path = put_draft(&t, &retained_draft("1001", i, false));
+        originals.push((path.clone(), fs::read(path).unwrap()));
+    }
+    let next = retained_draft("1001", MAX_DRAFT_CANDIDATES - 1, false);
+    let bytes = serde_json::to_vec(&next).unwrap();
+    a.admit_draft_write(
+        &scope(),
+        now,
+        Some(&next.identity),
+        bytes.len() as u64,
+        10000,
+    )
+    .unwrap();
+    {
+        let d = a.lock_draft(&next.identity).unwrap();
+        let path = draft_path(&next.identity, &next.generation).unwrap();
+        d.write_atomic(&path, &bytes).unwrap();
+        originals.push((t.root().join(path), bytes.clone()));
+    }
+    assert_eq!(a.lookup_drafts("1001").unwrap().len(), MAX_DRAFT_CANDIDATES);
+    assert!(
+        a.admit_draft_write(&scope(), now, None, bytes.len() as u64, 10000)
+            .is_ok()
+    );
+    assert_eq!(
+        error(a.admit_draft_write(
+            &scope(),
+            now,
+            Some(&next.identity),
+            bytes.len() as u64,
+            10000
+        )),
+        "record_store_capacity"
+    );
+    for (path, bytes) in &originals {
+        assert_eq!(fs::read(path).unwrap(), *bytes);
+    }
+    let next = retained_draft("1001", MAX_DRAFT_CANDIDATES, false);
+    let bytes = serde_json::to_vec(&next).unwrap();
+    a.admit_draft_write(
+        &scope(),
+        "2026-11-19T18:10:00+09:00",
+        Some(&next.identity),
+        bytes.len() as u64,
+        10000,
+    )
+    .unwrap();
+    assert!(a.lookup_drafts("1001").unwrap().is_empty());
+    assert!(originals.iter().all(|(p, _)| !p.exists()));
+    // The raw file writer requires an existing parent; typed create is a later
+    // part. Cleanup has removed this empty bucket, so arrange it explicitly.
+    DirBuilder::new()
+        .mode(0o700)
+        .create(originals[0].0.parent().unwrap())
+        .unwrap();
+    let d = a.lock_draft(&next.identity).unwrap();
+    d.write_atomic(
+        &draft_path(&next.identity, &next.generation).unwrap(),
+        &bytes,
+    )
+    .unwrap();
+    assert_eq!(a.lookup_drafts("1001").unwrap(), vec![next]);
+}
+#[test]
+fn empty_bucket_enumeration_at_1024_and_1025() {
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    let root = t.root().join("record-drafts");
+    for i in 0..MAX_RETAINED_GENERATIONS {
+        DirBuilder::new()
+            .mode(0o700)
+            .create(root.join(sha(&format!("bucket-{i}"))))
+            .unwrap();
+    }
+    assert_eq!(a.retained_generations().unwrap(), 0);
+    let extra = root.join(sha("bucket-extra"));
+    DirBuilder::new().mode(0o700).create(&extra).unwrap();
+    assert_eq!(error(a.retained_generations()), "record_store_capacity");
+    assert_eq!(
+        fs::read_dir(&root).unwrap().count(),
+        MAX_RETAINED_GENERATIONS + 1
+    );
+    fs::remove_dir(extra).unwrap();
+    assert_eq!(a.retained_generations().unwrap(), 0);
+    let now = "2026-11-12T18:10:00+09:00";
+    assert_eq!(
+        error(a.admit_draft_write(&scope(), now, Some(&identity()), 0, 10000)),
+        "record_store_capacity"
+    );
+    a.admit_draft_write(&scope(), now, None, 0, 10000).unwrap();
+    fs::remove_dir(root.join(sha("bucket-0"))).unwrap();
+    a.admit_draft_write(&scope(), now, Some(&identity()), 0, 10000)
+        .unwrap();
+    let bucket = edu_academy_teacher::record_data::content_hash(&(&owner(), "1001")).unwrap();
+    DirBuilder::new()
+        .mode(0o700)
+        .create(root.join(bucket))
+        .unwrap();
+    // At 1,024 buckets an existing student's bucket still has payload room.
+    a.admit_draft_write(&scope(), now, Some(&identity()), 0, 10000)
+        .unwrap();
+    assert_eq!(a.retained_generations().unwrap(), 0);
+}
+#[test]
+fn admission_failure_after_cleanup_requires_fresh_inventory_before_retry() {
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    let eligible = put_draft(&t, &retained_draft("1001", 0, false));
+    let retained = retained_draft("1001", 1, true);
+    let kept = put_draft(&t, &retained);
+    let kept_bytes = fs::read(&kept).unwrap();
+    put(
+        &t.root().join("request/retained-evidence"),
+        b"synthetic evidence",
+    );
+    assert_eq!(a.lookup_drafts("1001").unwrap().len(), 2);
+    let before = a.usage(10000).unwrap();
+    let now = "2026-11-19T18:10:00+09:00";
+    assert_eq!(
+        error(a.admit_draft_write(&scope(), now, None, u64::MAX, 10000)),
+        "record_store_capacity"
+    );
+    // The failed call already deleted an eligible payload. Never infer rollback
+    // from its error or retry with the previous inventory/byte estimate.
+    let inventory = a.lookup_drafts("1001").unwrap();
+    let after = a.usage(10000).unwrap();
+    assert_eq!(inventory, vec![retained]);
+    assert!(!eligible.exists());
+    assert!(after.bytes < before.bytes);
+    assert_eq!(fs::read(kept).unwrap(), kept_bytes);
+    assert_eq!(
+        fs::read(t.root().join("request/retained-evidence")).unwrap(),
+        b"synthetic evidence"
+    );
+    assert_eq!(
+        a.admit_draft_write(&scope(), now, None, 0, 10000).unwrap(),
+        after
+    );
+    assert_eq!(a.lookup_drafts("1001").unwrap(), inventory);
+}
+#[test]
 fn open_date_and_retained_generation_boundaries() {
     let t = Scratch::new();
     let s = t.open();
@@ -980,15 +1130,24 @@ fn open_date_and_retained_generation_boundaries() {
 }
 #[test]
 fn retention_uses_later_closure_or_last_use_at_seven_days_and_above() {
-    for over in [0, 1] {
+    for (closure_later, over) in [(false, 0), (false, 1), (true, 0), (true, 1)] {
         let t = Scratch::new();
         let s = t.open();
         let a = s.lock_account().unwrap();
         let mut d = retained_draft("1001", 0, false);
-        d.last_used = "2026-11-12T18:10:00+09:00".into();
+        if closure_later {
+            d.closed_at = Some("2026-11-12T18:10:00+09:00".into());
+        } else {
+            d.last_used = "2026-11-12T18:10:00+09:00".into();
+        }
         let path = put_draft(&t, &d);
         let bytes = fs::read(&path).unwrap();
-        let end = chrono::DateTime::parse_from_rfc3339(&d.last_used)
+        let later = if closure_later {
+            d.closed_at.as_ref().unwrap()
+        } else {
+            &d.last_used
+        };
+        let end = chrono::DateTime::parse_from_rfc3339(later)
             .unwrap()
             .timestamp_millis()
             + DRAFT_RETENTION_MS;

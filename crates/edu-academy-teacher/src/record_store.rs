@@ -290,29 +290,63 @@ fn core_record(parent: &File, kind: &str, key: &str) -> Result<Option<Js>> {
     Ok(Some(value.get("record").clone()))
 }
 fn atomic(parent: &File, name: &OsStr, bytes: &[u8]) -> Result<()> {
-    if bytes.len() > MAX_FILE_BYTES {
-        return Err(unavailable());
-    }
-    read_at(parent, name)?; // Refuse unsafe existing targets before creating a temp.
-    let tmp = format!(".record-write-{}.tmp", std::process::id());
-    if regular(parent, OsStr::new(&tmp), false)?.is_some() {
-        return Err(unavailable());
-    }
-    let mut f: File = syscall(rfs::openat(
-        parent,
-        tmp.as_str(),
-        OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
-        Mode::from_raw_mode(0o600),
-    ))?
-    .into();
-    io(f.set_permissions(Permissions::from_mode(0o600)))?;
-    let written = io(f.write_all(bytes).and_then(|()| f.sync_all()));
-    let result = written.and_then(|()| syscall(rfs::renameat(parent, tmp.as_str(), parent, name)));
-    if result.is_err() {
-        let _ = rfs::unlinkat(parent, tmp.as_str(), rfs::AtFlags::empty());
-    }
-    result?;
-    io(parent.sync_all())
+    atomic_with_sync(parent, name, bytes, || io(parent.sync_all()))
+}
+// Local filesystem fault boundary; never a source/backend or constructor seam.
+fn atomic_with_sync(
+    parent: &File,
+    name: &OsStr,
+    bytes: &[u8],
+    sync: impl FnOnce() -> Result<()>,
+) -> Result<()> {
+    let result = (|| {
+        if bytes.len() > MAX_FILE_BYTES {
+            return Err(unavailable());
+        }
+        read_at(parent, name)?; // Refuse unsafe existing targets before creating a temp.
+        let tmp = format!(".record-write-{}.tmp", std::process::id());
+        if regular(parent, OsStr::new(&tmp), false)?.is_some() {
+            return Err(unavailable());
+        }
+        let mut f: File = syscall(rfs::openat(
+            parent,
+            tmp.as_str(),
+            OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::from_raw_mode(0o600),
+        ))?
+        .into();
+        io(f.set_permissions(Permissions::from_mode(0o600)))?;
+        let written = io(f.write_all(bytes).and_then(|()| f.sync_all()));
+        let result =
+            written.and_then(|()| syscall(rfs::renameat(parent, tmp.as_str(), parent, name)));
+        if result.is_err() {
+            let _ = rfs::unlinkat(parent, tmp.as_str(), rfs::AtFlags::empty());
+        }
+        result?;
+        sync()
+    })();
+    readback_after_write(result, || read_at(parent, name), bytes)
+}
+fn readback_after_write(
+    result: Result<()>,
+    read: impl FnOnce() -> Result<Option<Vec<u8>>>,
+    expected: &[u8],
+) -> Result<()> {
+    result.map_err(|mut error| {
+        let observation = match read() {
+            Ok(Some(bytes)) if bytes == expected => "matches",
+            Ok(Some(_)) => "different",
+            Ok(None) => "missing",
+            Err(_) => "unreadable",
+        };
+        // Visibility is not durability: even matching bytes never turn a failed
+        // directory sync into success, nor authorize a blind write retry.
+        error.properties = Box::new(edu_academy_core::js::obj(&[
+            ("writeOutcome", "uncertain".into()),
+            ("targetReadback", observation.into()),
+        ]));
+        error
+    })
 }
 fn entries(f: &File) -> Result<Dir> {
     syscall(Dir::read_from(f))
@@ -575,15 +609,22 @@ impl AccountGuard<'_> {
     }
     /// Metadata-only global count; payload lookup and cleanup have their own 256 cap.
     pub fn retained_generations(&self) -> Result<usize> {
+        self.retained_inventory().map(|(count, _)| count)
+    }
+    fn retained_inventory(&self) -> Result<(usize, BTreeSet<OsString>)> {
         self.store.verify()?;
         let root = directory(&self.store.root, OsStr::new("record-drafts"), true)?;
         let mut count = 0;
-        let mut buckets = 0;
+        let mut buckets = BTreeSet::new();
         for entry in entries(&root)? {
             let entry = syscall(entry)?;
             let Some(n) = name(&entry) else { continue };
-            buckets += 1;
-            if buckets > MAX_RETAINED_GENERATIONS {
+            // Refuse an unstable enumeration rather than allowing duplicate
+            // names to evade the cap+1 iteration bound.
+            if !buckets.insert(n.to_os_string()) {
+                return Err(corrupt());
+            }
+            if buckets.len() > MAX_RETAINED_GENERATIONS {
                 return Err(capacity());
             }
             if !n.to_str().is_some_and(digest) {
@@ -600,7 +641,7 @@ impl AccountGuard<'_> {
                 regular(&dir, n, false)?.ok_or_else(corrupt)?;
             }
         }
-        Ok(count)
+        Ok((count, buckets))
     }
     /// Only on an explicit write/open attempt. Unknown unresolved references retain
     /// all candidates conservatively; the core owns execution classification.
@@ -694,13 +735,20 @@ impl AccountGuard<'_> {
             }
         }
         self.cleanup_drafts(scope, now)?;
-        let count = self.retained_generations()?;
+        let (count, buckets) = self.retained_inventory()?;
         if count + usize::from(new_generation.is_some()) > MAX_RETAINED_GENERATIONS {
             return Err(capacity());
         }
         if let Some(id) = new_generation {
-            let mut dates: BTreeSet<_> = self
-                .lookup_drafts(&id.student_key)?
+            let bucket = content_hash(&(&self.store.owner, &id.student_key))?;
+            if buckets.len() == MAX_RETAINED_GENERATIONS && !buckets.contains(OsStr::new(&bucket)) {
+                return Err(capacity());
+            }
+            let drafts = self.lookup_drafts(&id.student_key)?;
+            if drafts.len() == MAX_DRAFT_CANDIDATES {
+                return Err(capacity());
+            }
+            let mut dates: BTreeSet<_> = drafts
                 .into_iter()
                 .filter(|d| d.state == DraftState::Open)
                 .map(|d| d.identity.lesson_date)
@@ -818,28 +866,31 @@ impl AccountGuard<'_> {
             bytes: 0,
             entries: 0,
         };
-        let mut pending = vec![io(self.store.root.try_clone())?];
-        while let Some(dir) = pending.pop() {
-            for entry in entries(&dir)? {
-                let entry = syscall(entry)?;
-                let Some(n) = name(&entry) else {
-                    continue;
-                };
-                total.entries = total.entries.checked_add(1).ok_or_else(capacity)?;
-                if total.entries > entry_limit {
+        let root = io(self.store.root.try_clone())?;
+        let mut pending = vec![(entries(&root)?, root)];
+        // Traverse one child at a time: retaining every sibling descriptor would
+        // exhaust the host's 1,024-fd limit at the supported 1,024-bucket bound.
+        while let Some((iter, dir)) = pending.last_mut() {
+            let Some(entry) = iter.next() else {
+                pending.pop();
+                continue;
+            };
+            let entry = syscall(entry)?;
+            let Some(n) = name(&entry) else { continue };
+            total.entries = total.entries.checked_add(1).ok_or_else(capacity)?;
+            if total.entries > entry_limit {
+                return Err(capacity());
+            }
+            let f: File = syscall(rfs::openat(dir, n, flags(), Mode::empty()))?.into();
+            let m = io(f.metadata())?;
+            if m.is_dir() {
+                private(&f, true)?;
+                pending.push((entries(&f)?, f));
+            } else {
+                private(&f, false)?;
+                total.bytes = total.bytes.checked_add(m.len()).ok_or_else(capacity)?;
+                if total.bytes > MAX_ROOT_BYTES {
                     return Err(capacity());
-                }
-                let f: File = syscall(rfs::openat(&dir, n, flags(), Mode::empty()))?.into();
-                let m = io(f.metadata())?;
-                if m.is_dir() {
-                    private(&f, true)?;
-                    pending.push(f);
-                } else {
-                    private(&f, false)?;
-                    total.bytes = total.bytes.checked_add(m.len()).ok_or_else(capacity)?;
-                    if total.bytes > MAX_ROOT_BYTES {
-                        return Err(capacity());
-                    }
                 }
             }
         }
@@ -848,7 +899,10 @@ impl AccountGuard<'_> {
 }
 impl DraftGuard<'_> {
     /// Raw atomic file replacement only, not a draft create/replace operation.
-    /// After an I/O failure, read the target before retrying (rename may have run).
+    /// Write errors include safe writeOutcome=uncertain and targetReadback fields
+    /// (matches/different/missing/unreadable). A bounded read precedes return; even
+    /// matches is an error, since visible bytes do not prove directory durability.
+    /// Re-read inventory/target before a later retry; no automatic retry occurs.
     pub fn write_atomic(&self, relative: &Path, bytes: &[u8]) -> Result<()> {
         let first = relative.components().next().ok_or_else(refused)?;
         if matches!(first, Component::Normal(n) if n == MARKER || n == "locks") {
@@ -866,6 +920,58 @@ impl DraftGuard<'_> {
 mod tests {
     use super::*;
     use std::os::unix::fs::DirBuilderExt;
+    #[test]
+    fn write_failure_reads_once_and_never_claims_durability_or_no_effect() {
+        let expected = b"synthetic new bytes";
+        for (value, observation) in [
+            (Ok(Some(expected.to_vec())), "matches"),
+            (Ok(Some(b"old bytes".to_vec())), "different"),
+            (Ok(None), "missing"),
+            (Err(unavailable()), "unreadable"),
+        ] {
+            let reads = Cell::new(0);
+            let result = readback_after_write(
+                Err(unavailable()),
+                || {
+                    reads.set(reads.get() + 1);
+                    value
+                },
+                expected,
+            );
+            assert_eq!(reads.get(), 1);
+            let error = result.err().unwrap();
+            assert_eq!(error.message, "record_store_unavailable");
+            assert!(error.properties.get("writeOutcome").is("uncertain"));
+            assert!(error.properties.get("targetReadback").is(observation));
+        }
+        readback_after_write(Ok(()), || panic!("success must not read again"), expected).unwrap();
+    }
+    #[test]
+    fn directory_sync_failure_after_rename_reads_visible_target_and_stays_error() {
+        let root = std::env::temp_dir().join(format!("record-sync-failure-{}", std::process::id()));
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&root)
+            .unwrap();
+        let dir = absolute(&root).unwrap();
+        let leaf = OsStr::new("draft.json");
+        atomic(&dir, leaf, b"old synthetic bytes").unwrap();
+        let expected = b"new synthetic bytes";
+        let syncs = Cell::new(0);
+        let result = atomic_with_sync(&dir, leaf, expected, || {
+            syncs.set(syncs.get() + 1);
+            // The real rename has run; simulate only the following sync error.
+            assert_eq!(read_at(&dir, leaf).unwrap().unwrap(), expected);
+            Err(unavailable())
+        });
+        assert_eq!(syncs.get(), 1); // No automatic retry of a possibly applied write.
+        let error = result.err().unwrap();
+        assert!(error.properties.get("writeOutcome").is("uncertain"));
+        assert!(error.properties.get("targetReadback").is("matches"));
+        assert_eq!(read_at(&dir, leaf).unwrap().unwrap(), expected);
+        assert_eq!(std::fs::read_dir(&root).unwrap().count(), 1);
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn lock_budget_boundaries() {
         let end = u128::from(LOCK_WAIT_MS);
