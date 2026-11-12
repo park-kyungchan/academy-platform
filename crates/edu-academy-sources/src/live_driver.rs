@@ -227,7 +227,26 @@ pub fn execute(input: &Js, service: &mut Service<'_>) -> Result<Js> {
                 let context = j(json!({"schemaVersion":"academy.dailyrecord-user-context/1",
                     "purpose":"Read settlement status","currentRequestRef":wire["requestRef"],"scope":wire["scope"],
                     "selectedFields":[wire["field"]],"facts":[],"memoAnswer":{"kind":"no_addition","requestRef":wire["requestRef"]}}));
+                let before_reconcile = edu_academy_core::instant::epoch_ms(
+                    &service.runtime.now().into(),
+                    edu_academy_core::instant::Grammar::DailyRecord,
+                )
+                .ok_or_else(|| Fault::error("workflow_clock_invalid"))?;
                 reconciled = service.reconcile(&obj(&[("context", context)]))?;
+                if reconciled.get("reasonCode").is("save_confirmation_pending") {
+                    use edu_academy_core::workflow::{state, store::Kind};
+                    let mut only_future = true;
+                    for execution in state::student_executions(service.store, input.get("scope"))? {
+                        if execution.state.needs_reconciliation() {
+                            let outcome = service.store.get(Kind::Outcome, &execution.key)?;
+                            only_future &= state::settlement_at(&execution.record, &outcome)
+                                .is_some_and(|due| due > before_reconcile);
+                        }
+                    }
+                    if !only_future {
+                        reconciled.set("reasonCode", "readback_unavailable_reconcile_later".into());
+                    }
+                }
             }
             let mut output = stored(input, service.store)?;
             output.set("reconcileStatus", code_value(reconciled.get("status")));
@@ -282,7 +301,15 @@ pub fn response(
             .iter()
             .any(|s| v.is(s))
     };
+    let status_state = result.as_ref().unwrap_or(&stored);
+    let conflict = input.get("mode").is("status")
+        && status_state
+            .get("executions")
+            .array()
+            .iter()
+            .any(|execution| execution.get("executionState").is("reconciled_conflict"));
     let reason = match &result {
+        _ if conflict => "reconciled_conflict".into(),
         Err(error) => code(&error.message).into(),
         Ok(value) if failed(value.get("status")) => refusal_code(value),
         Ok(value)

@@ -514,13 +514,12 @@ impl edu_academy_core::workflow::http::HttpPort for SyntheticPort {
                 observation.get("fields").get(f).get("effectTarget").clone(),
             );
         }
+        let mut target = edu_academy_core::templates::from_json(
+            serde_json::json!({"studentName":"Fictional Learner","date":"2040-01-04","groupId":"3","teacherKey":"99001","studentKey":"77001","courseKey":"5","recordKey":"13","membershipKey":"8"}),
+        );
+        target.set("date", observation.get("scope").get("lessonDate").clone());
         Ok(obj(&[
-            (
-                "target",
-                edu_academy_core::templates::from_json(
-                    serde_json::json!({"studentName":"Fictional Learner","date":"2040-01-04","groupId":"3","teacherKey":"99001","studentKey":"77001","courseKey":"5","recordKey":"13","membershipKey":"8"}),
-                ),
-            ),
+            ("target", target),
             ("fields", fields),
             ("effectTargets", targets),
             ("previousRecordKey", "12".into()),
@@ -739,6 +738,30 @@ fn modes_use_native_apply_and_status_settles_field_alone_at_due_time() {
             set_field(&observation, "homework", "- Invented sibling changed");
             let settled = live_driver::execute(&input, &mut service).unwrap();
             private_output_is_absent(&settled);
+            if index == 3 {
+                for (called, expected_exit) in [(true, 3), (false, 2)] {
+                    let (public, exit) = live_driver::response(
+                        &input,
+                        Ok(settled.clone()),
+                        live_driver::stored(&input, &store).unwrap(),
+                        &Js::Null,
+                        called,
+                    );
+                    assert_eq!(exit, expected_exit, "reconciled conflict requires a person");
+                    assert!(public.get("code").is("reconciled_conflict"));
+                }
+                let mut local = input.clone();
+                local.set("reconcile", false.into());
+                let status = live_driver::execute(&local, &mut service).unwrap();
+                let (_, exit) = live_driver::response(
+                    &local,
+                    Ok(status),
+                    live_driver::stored(&local, &store).unwrap(),
+                    &Js::Null,
+                    true,
+                );
+                assert_eq!(exit, 3, "stored conflict fails even without reconcile");
+            }
             assert!(
                 settled.get("executions").array()[0]
                     .get("executionState")
@@ -871,14 +894,36 @@ fn binary_case(case: &str, expected: &str) {
             std::fs::create_dir_all(root.join("repo/.git")).unwrap();
             v["store"] = root.join("repo/store").to_str().unwrap().into();
         }
-        "symlink" | "child-mode" => {
+        "symlink" | "grandchild" | "fifo" | "child-mode" => {
             std::fs::create_dir_all(root.join("store")).unwrap();
             std::fs::set_permissions(root.join("store"), std::fs::Permissions::from_mode(0o700))
                 .unwrap();
-            if case == "symlink" {
+            if case == "symlink" || case == "grandchild" {
                 std::fs::create_dir_all(root.join("outside")).unwrap();
-                std::os::unix::fs::symlink(root.join("outside"), root.join("store/escaped"))
+                std::fs::set_permissions(
+                    root.join("outside"),
+                    std::fs::Permissions::from_mode(0o700),
+                )
+                .unwrap();
+                let link = if case == "grandchild" {
+                    std::fs::create_dir_all(root.join("store/review")).unwrap();
+                    std::fs::set_permissions(
+                        root.join("store/review"),
+                        std::fs::Permissions::from_mode(0o700),
+                    )
                     .unwrap();
+                    root.join("store/review/escaped")
+                } else {
+                    root.join("store/escaped")
+                };
+                std::os::unix::fs::symlink(root.join("outside"), link).unwrap();
+            } else if case == "fifo" {
+                rustix::fs::mkfifoat(
+                    rustix::fs::CWD,
+                    root.join("store/fifo"),
+                    rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR,
+                )
+                .unwrap();
             } else {
                 std::fs::create_dir_all(root.join("store/wide")).unwrap();
                 std::fs::set_permissions(
@@ -1206,4 +1251,157 @@ fn binary_launch_extra_keys_and_inert_operations_are_ignored() {
 #[test]
 fn binary_save_preflight_keeps_null_evidence() {
     binary_case("save-invalid", "invalid_input");
+}
+
+#[test]
+fn binary_store_grandchild_symlink() {
+    binary_case("grandchild", "store_tree_refused");
+}
+#[test]
+fn binary_store_fifo() {
+    binary_case("fifo", "store_tree_refused");
+}
+
+#[test]
+fn mixed_due_read_failure_is_not_a_wait() {
+    for (index, other_date) in ["2040-01-04", "2040-01-03"].into_iter().enumerate() {
+        let root = PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap())
+            .join(format!("mixed-due-{index}"));
+        std::fs::create_dir_all(&root).unwrap();
+        let store = Store::open(&root.join("store"), &root).unwrap();
+        let clock = TestClock(Cell::new(NOW), Cell::new(0));
+        let mut requests = vec![];
+        for (field, value, time, date, reference) in [
+            ("attendance", "N", NOW, "2040-01-04", "mixed-attendance"),
+            (
+                "dailyTestAssessment",
+                "1",
+                "2040-01-04T09:05:00.000Z",
+                other_date,
+                "mixed-assessment",
+            ),
+        ] {
+            clock.0.set(time);
+            let mut request = input();
+            request.set("field", field.into());
+            request.set("value", value.into());
+            request.set("requestRef", reference.into());
+            let mut scope = request.get("scope").clone();
+            scope.set("lessonDate", date.into());
+            request.set("scope", scope.clone());
+            let mut obs = observation();
+            obs.set("scope", scope);
+            let mut target = obs.get("target").clone();
+            target.set("lessonDate", date.into());
+            obs.set("target", target.clone());
+            obs.set("observedAt", time.into());
+            let mut fields = obs.get("fields").clone();
+            for f in [
+                "attendance",
+                "dailyTestAssessment",
+                "progress",
+                "homework",
+                "lessonMemo",
+            ] {
+                let mut binding = fields.get(f).clone();
+                binding.set(
+                    "effectTarget",
+                    edu_academy_core::workflow::canonical(&target)
+                        .unwrap()
+                        .into(),
+                );
+                fields.set(f, binding);
+            }
+            obs.set("fields", fields);
+            let obs = Rc::new(RefCell::new(obs));
+            let writes = Rc::new(Cell::new(0));
+            let mut source = InventedSource(obs.clone(), Rc::new(Cell::new(0)));
+            let mut port = SyntheticPort {
+                observation: obs,
+                writes: writes.clone(),
+                immediate: None,
+                lost: false,
+                wrong_receipt: false,
+            };
+            let mut launch = admission();
+            launch.set("date", date.into());
+            let mut backend = NativeBackend::new(&mut port, launch, Js::Null, vec![], &clock);
+            let mut service = Service {
+                store: &store,
+                source: &mut source,
+                backend: &mut backend,
+                policy: &DisconnectedPolicy,
+                runtime: &clock,
+            };
+            request.set("mode", "plan".into());
+            let plan = live_driver::execute(&request, &mut service).unwrap();
+            assert!(
+                plan.get("status").is("prepared"),
+                "mixed setup plan is prepared"
+            );
+            request.set("mode", "save".into());
+            request.set("approval", plan.get("planDigest").clone());
+            let save = live_driver::execute(&request, &mut service).unwrap();
+            assert!(save.get("status").is("held"), "mixed setup stays open");
+            assert_eq!(writes.get(), 1);
+            requests.push(request);
+        }
+        clock.0.set("2040-01-04T09:10:00.000Z");
+        let mut replies = login();
+        replies.extend([
+            (MAIN.into(), 503, "invented mixed failure".into()),
+            (MAIN.into(), 503, "invented mixed failure".into()),
+        ]);
+        let (transport, seen) = transport(replies);
+        let owner = Owner::new(
+            edu_academy_sources::http::Client::new(principal(), transport).unwrap(),
+            admission(),
+            None,
+            vec![],
+            credentials,
+            &clock,
+        )
+        .unwrap();
+        let mut source = owner.source();
+        let mut unused = Unused;
+        for (request_index, mut request) in requests.into_iter().enumerate() {
+            request.set("mode", "status".into());
+            request.set("reconcile", true.into());
+            let result = live_driver::execute(
+                &request,
+                &mut Service {
+                    store: &store,
+                    source: &mut source,
+                    backend: &mut unused,
+                    policy: &DisconnectedPolicy,
+                    runtime: &clock,
+                },
+            )
+            .unwrap();
+            assert!(
+                result
+                    .get("reconcileCode")
+                    .is("readback_unavailable_reconcile_later"),
+                "a due open execution defeats a pending-only wait across fields and dates"
+            );
+            let (public, exit) = live_driver::response(
+                &request,
+                Ok(result),
+                live_driver::stored(&request, &store).unwrap(),
+                &Js::Null,
+                true,
+            );
+            assert_eq!(exit, 3, "mixed failed settling read must exit 3");
+            assert!(
+                public
+                    .get("code")
+                    .is("readback_unavailable_reconcile_later")
+            );
+            assert_eq!(
+                seen.borrow().len(),
+                4 + request_index,
+                "one login, one due read per status, no read of the future execution"
+            );
+        }
+    }
 }
