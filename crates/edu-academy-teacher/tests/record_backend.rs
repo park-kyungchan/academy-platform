@@ -773,7 +773,12 @@ fn version_script_and_writable_target_boundaries() {
             if member == "writable_targets" {
                 input.writable_targets.clear();
             }
-            for n in 0..MAX_SOURCE_SCRIPTS + over {
+            let bound = if member == "writable_targets" {
+                MAX_SOURCE_RECORDS
+            } else {
+                MAX_SOURCE_SCRIPTS
+            };
+            for n in 0..bound + over {
                 match member {
                     "read_scripts" => input.read_scripts.push(ReadScript {
                         identity: identity(),
@@ -790,11 +795,13 @@ fn version_script_and_writable_target_boundaries() {
                         id.lesson_date = (chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap()
                             + chrono::Duration::days(n as i64))
                         .to_string();
-                        input.writable_targets.push(WritableTarget {
-                            synthetic_target: field_target(&id, RecordField::Progress),
-                            identity: id,
-                            field: RecordField::Progress,
-                        });
+                        for field in RecordField::ALL {
+                            input.writable_targets.push(WritableTarget {
+                                synthetic_target: field_target(&id, field),
+                                identity: id.clone(),
+                                field,
+                            });
+                        }
                     }
                 }
             }

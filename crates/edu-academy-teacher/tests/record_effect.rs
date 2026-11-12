@@ -331,6 +331,19 @@ fn per_field_writable_targets_survive_reopen() {
                 .message,
             "record_source_invalid"
         );
+        patch.progress.as_mut().unwrap().effect_target = targets.progress.clone();
+        assert_eq!(
+            state
+                .dispatch_with_account(
+                    &account,
+                    &seed.writable_targets[6].identity,
+                    &patch,
+                    &record.snapshot.provenance.read_at
+                )
+                .unwrap_err()
+                .message,
+            "record_source_invalid"
+        );
         assert_eq!(state.dispatch_count(), 0);
         for field in RecordField::ALL {
             let value = match field {

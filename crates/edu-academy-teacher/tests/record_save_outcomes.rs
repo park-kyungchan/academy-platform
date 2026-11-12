@@ -536,3 +536,455 @@ fn e_read_failed() {
     // pre-effect record, dispatch or saved claim. No save actor is constructed.
     check(&failed.snapshot.identity, &[], &[], &[]);
 }
+
+use edu_academy_core::{
+    js::{Result, obj, sha},
+    workflow::{
+        self, Runtime,
+        approval::Approval,
+        service::{self, Backend, Source},
+        state,
+        store::{Kind, Store},
+    },
+};
+use edu_academy_teacher::{
+    facts::SeededFacts, record_backend::*, record_effect::*, record_policy::RecordPolicy,
+};
+use std::{
+    cell::Cell,
+    sync::{Arc, Mutex},
+};
+fn invented(v: serde_json::Value) -> Js {
+    codec::parse(v.to_string().as_bytes()).unwrap()
+}
+fn field_of(value: &Js) -> RecordField {
+    RecordField::ALL
+        .into_iter()
+        .find(|f| value.get("field").is(f.wire_name()))
+        .unwrap()
+}
+struct SaveClock(Cell<u64>);
+impl Runtime for SaveClock {
+    fn now(&self) -> String {
+        "2026-11-13T08:35:00.000Z".into()
+    }
+    fn epoch_ms(&self) -> u64 {
+        0
+    }
+    fn uuid(&self) -> Result<String> {
+        self.0.set(self.0.get() + 1);
+        Ok(format!("invented-save-{}", self.0.get()))
+    }
+}
+struct ObservedBackend<'a> {
+    inner: SyntheticCoreBackend,
+    store: &'a Store,
+    actions: Vec<Js>,
+    invalid_later: bool,
+}
+struct FenceWatch<'a> {
+    inner: &'a mut dyn Approval,
+    store: &'a Store,
+    state: Arc<Mutex<SyntheticRecordState>>,
+    scope: &'a Js,
+    actions: &'a mut Vec<Js>,
+}
+impl Approval for FenceWatch<'_> {
+    fn consume(&mut self, action: &Js) -> Result<Js> {
+        assert_eq!(self.state.lock().unwrap().dispatch_count(), 0);
+        let result = self.inner.consume(action)?;
+        if result.get("status").is("verified") {
+            let executions = state::student_executions(self.store, self.scope)?;
+            let digest = sha(&workflow::canonical(action)?);
+            let execution = executions
+                .iter()
+                .find(|e| e.record.get("actionDigest").is(&digest))
+                .expect("actual action fenced");
+            assert!(execution.state.needs_reconciliation());
+            assert_eq!(
+                execution.record.get("effectTarget"),
+                action.get("effectTarget")
+            );
+            self.actions.push(action.clone());
+        }
+        Ok(result)
+    }
+}
+impl Backend for ObservedBackend<'_> {
+    fn configured(&self) -> bool {
+        self.inner.configured()
+    }
+    fn save(
+        &mut self,
+        scope: &Js,
+        patches: &Js,
+        approval: &mut dyn Approval,
+        subject: &Js,
+    ) -> Result<Js> {
+        let mut watch = FenceWatch {
+            inner: approval,
+            store: self.store,
+            state: Arc::clone(&self.inner.state),
+            scope,
+            actions: &mut self.actions,
+        };
+        let mut results = self.inner.save(scope, patches, &mut watch, subject)?;
+        if self.invalid_later {
+            let Js::Arr(items) = &mut results else {
+                panic!("array required")
+            };
+            items
+                .last_mut()
+                .unwrap()
+                .set("completionFacts", "invented-invalid".into());
+        }
+        Ok(results)
+    }
+}
+fn save_case(name: &str, outcomes: &[EffectOutcome]) {
+    let invalid_later = name == "E-invalid-later";
+    let create = name == "E-partial";
+    let read_failure = name == "E-readback-error";
+    let mut raw: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/record-answers.json")).unwrap();
+    for (i, row) in raw["answers"][0]["capture"]["answer"]["structuredContent"]["fields"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .enumerate()
+    {
+        row["target"]["recordId"] = format!("invented-field-{i}").into();
+    }
+    let mut fixture = RecordFixture::from_json(&raw.to_string()).unwrap();
+    let record = fixture.records[0].clone();
+    let id = &record.snapshot.identity;
+    fixture.seed.effect_scripts.clear();
+    if create {
+        fixture.seed.records.retain(|r| r.identity != *id);
+    }
+    let root = std::path::PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap())
+        .join(format!("{name}-{}", std::process::id()));
+    let mut data = SyntheticRecordState::open(&root, fixture.seed.clone(), 10000).unwrap();
+    if create {
+        let drafts =
+            edu_academy_teacher::record_store::DraftStore::open(&root, fixture.seed.owner.clone())
+                .unwrap();
+        let account = drafts.lock_account().unwrap();
+        // Actual creation with the earlier field first; reopen resets process counters.
+        for fields in [
+            vec![RecordField::PreviousHomeworkAssessment],
+            RecordField::ALL.to_vec(),
+        ] {
+            let patch = RecordFields::from_fn(|f| {
+                fields.contains(&f).then(|| FieldPatch {
+                    effect_target: canonical_effect_target(record.field_evidence[f].get("target"))
+                        .unwrap(),
+                    operation: PatchOperation::Set,
+                    value: record.field_evidence[f]
+                        .get("before")
+                        .get("value")
+                        .code_units(),
+                })
+            });
+            data.dispatch_with_account(&account, id, &patch, &SaveClock(Cell::new(0)).now())
+                .unwrap();
+        }
+        drop(account);
+        data = SyntheticRecordState::open(&root, fixture.seed.clone(), 10000).unwrap();
+    }
+    // Script installation is fixture setup, before any core intake/review/save.
+    let file = root.join(SOURCE_SNAPSHOT);
+    let mut seeded: RecordSeed = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    for (i, outcome) in outcomes.iter().enumerate() {
+        seeded.effect_scripts.push(EffectScript {
+            identity: id.clone(),
+            field: RecordField::ALL[i],
+            outcome: *outcome,
+            readback: read_failure.then_some(ReadOutcome::Unavailable),
+        });
+    }
+    std::fs::write(file, serde_json::to_vec(&seeded).unwrap()).unwrap();
+    let shared = Arc::new(Mutex::new(data));
+    let mut source = SyntheticCoreSource {
+        state: Arc::clone(&shared),
+        records: fixture.records,
+    };
+    workflow::store::mkdir(&root.join("core")).unwrap();
+    let store = Store::open(&root.join("core/store"), &root.join("core")).unwrap();
+    let mut backend = ObservedBackend {
+        inner: SyntheticCoreBackend {
+            state: Arc::clone(&shared),
+        },
+        store: &store,
+        actions: vec![],
+        invalid_later,
+    };
+    let catalog = invented(
+        serde_json::json!({"books":[{"studentRef":"1001","bookRef":"invented-book","label":"Invented Book","edition":null,"bindingState":"confirmed","units":[{"unitRef":"invented-unit","code":"2-1","title":"Invented topic","kind":"minor","activities":["필수예제"],"sections":[]}]}]}),
+    );
+    let policy = RecordPolicy::new(SeededFacts::from_scenario(&fixture.scenario), catalog);
+    let clock = SaveClock(Cell::new(0));
+    let scope = record.answer.get("scope").clone();
+    let values = [
+        "- Invented Book, 2-1 Invented topic 필수예제",
+        "- Invented Book, 2-1 Invented topic 필수예제",
+        "- Invented memo",
+        "L",
+        "3",
+        "2",
+    ];
+    let mut context: serde_json::Value = serde_json::from_str(include_str!(
+        "../../edu-academy-core/tests/fixtures/workflow-store-review-fixes-v2/CASES.json"
+    ))
+    .unwrap();
+    context = context[0]["input"]["context"].clone();
+    context["scope"] = serde_json::from_slice(&codec::bytes(&scope).unwrap()).unwrap();
+    context["currentRequestRef"] = name.into();
+    context["memoAnswer"] =
+        serde_json::json!({"kind":"content","requestRef":name,"text":values[2]});
+    context["selectedFields"] = serde_json::json!(
+        RecordField::ALL[..outcomes.len()]
+            .iter()
+            .map(|f| f.wire_name())
+            .collect::<Vec<_>>()
+    );
+    let mut facts = vec![];
+    let mut proposals = vec![];
+    for (i, field) in RecordField::ALL[..outcomes.len()].iter().enumerate() {
+        let reference = format!("invented-fact-{i}");
+        facts.push(serde_json::json!({"ref":reference,"field":field.wire_name(),"text":values[i],"origin":"user_supplied","requiredFragments":[],"questionCounts":[],"deadlines":[],"stageClaims":[],"explicitValue":values[i]}));
+        let mut p = serde_json::json!({"field":field.wire_name(),"value":values[i],"factRefs":[reference],"decision":{"kind":"replace","requestRef":name}});
+        if i < 2 {
+            p["learningEntries"] = serde_json::json!([{"bookRef":"invented-book","unitRef":"invented-unit","scope":"unit","sectionRefs":[],"activity":"필수예제","deadline":null}]);
+        }
+        proposals.push(p);
+    }
+    context["facts"] = facts.into();
+    let mut svc = service::Service {
+        store: &store,
+        source: &mut source,
+        backend: &mut backend,
+        policy: &policy,
+        runtime: &clock,
+    };
+    let intake = svc
+        .intake(&obj(&[("context", invented(context.clone()))]))
+        .unwrap();
+    let mut input = obj(&[
+        ("context", invented(context)),
+        ("observationHandle", intake.get("observationHandle").clone()),
+        ("proposals", invented(proposals.into())),
+    ]);
+    let review = svc.review(&input, true).unwrap();
+    assert!(
+        review.get("status").is("prepared"),
+        "{}",
+        workflow::canonical(&Js::Arr(
+            review
+                .get("rows")
+                .array()
+                .iter()
+                .map(|r| r.get("blockers").clone())
+                .collect()
+        ))
+        .unwrap()
+    );
+    input.set("reviewDigest", review.get("reviewDigest").clone());
+    input.set("request", invented(serde_json::json!({"requestRef":name,"instruction":{"text":"Invented explicit save instruction"}})));
+    let saved = svc.save(&input);
+    let executions = state::student_executions(&store, &scope).unwrap();
+    assert_eq!(executions.len(), outcomes.len());
+    assert_eq!(shared.lock().unwrap().dispatch_count(), 1);
+    let selected: Vec<_> = review
+        .get("patch")
+        .array()
+        .iter()
+        .map(|p| {
+            (
+                field_of(p),
+                codec::parse(p.get("effectTarget").code_units().as_bytes()).unwrap(),
+                RecordValue::Known(p.get("after").code_units()),
+            )
+        })
+        .collect();
+    let dispatches: Vec<_> = backend
+        .actions
+        .iter()
+        .map(|action| {
+            let e = executions
+                .iter()
+                .find(|e| {
+                    e.record
+                        .get("actionDigest")
+                        .is(&sha(&workflow::canonical(action).unwrap()))
+                })
+                .unwrap();
+            Dispatch {
+                identity: RecordIdentity {
+                    owner: id.owner.clone(),
+                    student_key: action.get("target").get("studentKey").code_units(),
+                    lesson_date: action.get("target").get("date").code_units(),
+                    kind: RecordKind::DailyRecord,
+                },
+                field: field_of(action),
+                target: codec::parse(action.get("effectTarget").code_units().as_bytes()).unwrap(),
+                attempt: e.key.clone(),
+                approving_call: 1,
+                fenced: !store.get(Kind::Execution, &e.key).unwrap().absent(),
+                earlier_unresolved: executions.iter().any(|old| {
+                    old.key != e.key
+                        && old.record.get("field") == e.record.get("field")
+                        && old.state.needs_reconciliation()
+                }),
+            }
+        })
+        .collect();
+    check(id, &selected, &dispatches, &[]);
+    if invalid_later {
+        assert_eq!(
+            saved.unwrap_err().message,
+            "workflow_completion_facts_invalid"
+        );
+        assert!(executions.iter().all(|e| {
+            e.state.needs_reconciliation()
+                && store
+                    .get(Kind::Outcome, &e.key)
+                    .unwrap()
+                    .get("status")
+                    .is("unresolved")
+        }));
+        assert!(
+            store
+                .get(Kind::Outcome, &executions[0].key)
+                .unwrap()
+                .has("completionFacts")
+        );
+        return;
+    }
+    let saved = saved.unwrap();
+    let fresh = source.read(&scope, &Js::Null, &Js::Null).unwrap();
+    assert!(RecordField::ALL.iter().skip(outcomes.len()).all(|f| {
+        fresh
+            .get("observation")
+            .get("fields")
+            .get(f.wire_name())
+            .get("value")
+            == record.field_evidence[*f].get("before").get("value")
+    }));
+    let status = service::status(&store, &obj(&[("scope", scope.clone())])).unwrap();
+    for (from_status, rows) in [(false, saved.get("fields")), (true, status.get("fields"))] {
+        let mut claims = vec![];
+        for row in rows.array() {
+            let e = executions
+                .iter()
+                .find(|e| e.record.get("field") == row.get("field"))
+                .unwrap();
+            let r = if from_status {
+                &row.get("executions").array()[0]
+            } else {
+                row
+            };
+            assert_eq!(
+                r.get("completionFacts"),
+                store
+                    .get(Kind::Outcome, &e.key)
+                    .unwrap()
+                    .get("completionFacts")
+            );
+            if r.has("completionFacts") {
+                assert_eq!(
+                    r.get("completionFacts").get("effectTarget"),
+                    e.record.get("effectTarget")
+                );
+            }
+            if r.get("status").is("persisted")
+                || (from_status
+                    && r.get("executionState")
+                        .is(state::FieldState::SettledPersisted.name()))
+            {
+                let field = field_of(row);
+                let readback = fresh
+                    .get("observation")
+                    .get("fields")
+                    .get(field.wire_name());
+                let action = backend
+                    .actions
+                    .iter()
+                    .find(|a| a.get("field") == row.get("field"))
+                    .unwrap();
+                assert!(readback.get("state").is("known"));
+                assert_eq!(readback.get("effectTarget"), e.record.get("effectTarget"));
+                claims.push(Saved {
+                    identity: RecordIdentity {
+                        owner: id.owner.clone(),
+                        student_key: e.record.get("scope").get("studentId").code_units(),
+                        lesson_date: e.record.get("scope").get("lessonDate").code_units(),
+                        kind: RecordKind::DailyRecord,
+                    },
+                    field,
+                    target: codec::parse(readback.get("effectTarget").code_units().as_bytes())
+                        .unwrap(),
+                    intended: action.get("after").code_units(),
+                    readback: RecordValue::Known(readback.get("value").code_units()),
+                });
+            }
+        }
+        let expected = outcomes
+            .iter()
+            .filter(|o| **o == EffectOutcome::Success && !read_failure)
+            .count();
+        assert_eq!(claims.len(), expected);
+        check(id, &selected, &dispatches, &claims);
+    }
+    if create {
+        let snapshot = shared.lock().unwrap().read(id, &clock.now()).unwrap();
+        let RecordObservation::Observed { occurrence, .. } = snapshot.observation else {
+            panic!("created record")
+        };
+        assert_eq!(
+            occurrence,
+            canonical_effect_target(
+                record
+                    .field_evidence
+                    .previous_homework_assessment
+                    .get("target")
+            )
+            .unwrap()
+        );
+    }
+    for (i, outcome) in outcomes.iter().enumerate() {
+        let e = executions
+            .iter()
+            .find(|e| e.record.get("field").is(RecordField::ALL[i].wire_name()))
+            .unwrap();
+        if !matches!(outcome, EffectOutcome::Success | EffectOutcome::Reject) || read_failure {
+            assert!(e.state.needs_reconciliation());
+        }
+    }
+}
+#[test]
+fn concrete_adapters_consume_core_fence() {
+    save_case("E-success", &[EffectOutcome::Success; 6]);
+    save_case("E-reject", &[EffectOutcome::Reject; 2]);
+}
+#[test]
+fn partial_batch_only_selected() {
+    save_case(
+        "E-partial",
+        &[
+            EffectOutcome::Success,
+            EffectOutcome::Reject,
+            EffectOutcome::Success,
+        ],
+    );
+}
+#[test]
+fn returned_timeout_and_read_failure_stay_unresolved() {
+    save_case("E-adapter-loss", &[EffectOutcome::AppliedLostAck]);
+    save_case("E-timeout", &[EffectOutcome::ReturnedTimeout]);
+    save_case("E-readback-error", &[EffectOutcome::Success]);
+}
+#[test]
+fn invalid_later_completion_facts_keep_whole_batch_fenced() {
+    save_case("E-invalid-later", &[EffectOutcome::Success; 2]);
+}

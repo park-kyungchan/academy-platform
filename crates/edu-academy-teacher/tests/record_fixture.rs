@@ -400,6 +400,12 @@ fn writable_bindings_preserve_original_identity_admission() {
     for date in ["2026-11-10", "2026-11-12"] {
         let mut value = original.clone();
         value["writable_targets"][0]["identity"]["lesson_date"] = date.into();
-        assert!(RecordFixture::from_json(&value.to_string()).is_err());
+        assert_eq!(
+            RecordFixture::from_json(&value.to_string())
+                .err()
+                .expect("binding refusal required")
+                .message,
+            "record_answer_invalid"
+        );
     }
 }

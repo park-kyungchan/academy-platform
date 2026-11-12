@@ -120,3 +120,191 @@ impl Source for SyntheticCoreSource {
         ]))
     }
 }
+
+fn effect_report(field: Js, status: &str, transport: &str, dispatched: bool) -> Js {
+    obj(&[
+        ("field", field),
+        ("status", status.into()),
+        ("transport", transport.into()),
+        ("dispatched", dispatched.into()),
+    ])
+}
+/// Concrete invented effects; core owns approval, fences and durable outcomes.
+pub struct SyntheticCoreBackend {
+    pub state: Arc<Mutex<SyntheticRecordState>>,
+}
+impl edu_academy_core::workflow::service::Backend for SyntheticCoreBackend {
+    fn configured(&self) -> bool {
+        true
+    }
+    fn save(
+        &mut self,
+        scope: &Js,
+        patches: &Js,
+        approval: &mut dyn edu_academy_core::workflow::approval::Approval,
+        _: &Js,
+    ) -> Result<Js> {
+        use crate::record_backend::{EffectOutcome, TransportOutcome};
+        let invalid = || Fault::error("record_source_invalid");
+        let (id, store) = {
+            let state = self.state.lock().map_err(|_| invalid())?;
+            let id = state.adapter_identity(
+                &scope.get("studentId").code_units(),
+                &scope.get("lessonDate").code_units(),
+            )?;
+            let store = state.source_store(&id)?;
+            (id, store)
+        };
+        let mut patch = RecordFields::from_fn(|_| None);
+        for p in patches.array() {
+            let field = RecordField::ALL
+                .into_iter()
+                .find(|f| p.get("field").is(f.wire_name()))
+                .ok_or_else(invalid)?;
+            let target = edu_academy_core::workflow::codec::parse(
+                p.get("effectTarget").code_units().as_bytes(),
+            )?;
+            if patch[field].is_some()
+                || !p.get("value").string()
+                || !p.get("effectTarget").is(&canonical_effect_target(&target)?)
+                || ["sourceNamespace", "teacherId", "studentId"]
+                    .iter()
+                    .any(|k| target.get(k) != scope.get(k))
+                || target.get("recordId") != p.get("effectRecordKey")
+            {
+                return Err(invalid());
+            }
+            patch[field] = Some(FieldPatch {
+                effect_target: p.get("effectTarget").code_units(),
+                operation: PatchOperation::Set,
+                value: p.get("value").code_units(),
+            });
+        }
+        let account = store.lock_account()?;
+        let before = self
+            .state
+            .lock()
+            .map_err(|_| invalid())?
+            .admitted_read(&account, &id, &patch)?;
+        let RecordObservation::Observed { fields, .. } = &before.observation else {
+            return Err(invalid());
+        };
+        if patches.array().iter().any(|p| {
+            let field = RecordField::ALL
+                .into_iter()
+                .find(|f| p.get("field").is(f.wire_name()))
+                .expect("checked field");
+            !matches!(&fields[field], RecordValue::Known(v) if p.get("before").is(v))
+        }) {
+            return Ok(Js::Arr(
+                patches
+                    .array()
+                    .iter()
+                    .map(|p| {
+                        effect_report(p.get("field").clone(), "before_drift", "not_invoked", false)
+                    })
+                    .collect(),
+            ));
+        }
+        // Do not hold the state mutex during the callback. Every selected item is
+        // durably fenced before this batch can mutate any academic value.
+        for p in patches.array() {
+            let action = obj(&[
+                (
+                    "attemptId",
+                    format!("invented-{}", p.get("field").code_units()).into(),
+                ),
+                (
+                    "target",
+                    obj(&[
+                        ("teacherKey", scope.get("teacherId").clone()),
+                        ("studentKey", scope.get("studentId").clone()),
+                        ("date", scope.get("lessonDate").clone()),
+                    ]),
+                ),
+                ("field", p.get("field").clone()),
+                ("effectTarget", p.get("effectTarget").clone()),
+                ("effectRecordKey", p.get("effectRecordKey").clone()),
+                ("before", p.get("before").clone()),
+                ("after", p.get("value").clone()),
+                ("wireDigest", p.get("wireDigest").clone()),
+            ]);
+            if !approval.consume(&action)?.get("status").is("verified") {
+                return Err(Fault::error("record_core_approval_rejected"));
+            }
+        }
+        let mut state = self.state.lock().map_err(|_| invalid())?;
+        let effects =
+            state.dispatch_with_account(&account, &id, &patch, &before.provenance.read_at)?;
+        let read = state.read_once_with_account(&account, &id, &before.provenance.read_at);
+        Ok(Js::Arr(
+            effects
+                .into_iter()
+                .map(|effect| {
+                    let p = patches
+                        .array()
+                        .iter()
+                        .find(|p| p.get("field").is(effect.field.wire_name()))
+                        .expect("selected field");
+                    let value = match &read {
+                        Ok(snapshot) => match &snapshot.observation {
+                            RecordObservation::Observed { fields, .. } => {
+                                fields[effect.field].clone()
+                            }
+                            _ => RecordValue::Unknown,
+                        },
+                        Err(_) => RecordValue::Unknown,
+                    };
+                    let known = matches!(value, RecordValue::Known(_));
+                    let equal = matches!(&value, RecordValue::Known(v) if p.get("value").is(v));
+                    let status = match (effect.outcome, known, equal) {
+                        (EffectOutcome::Success, true, true) => "persisted",
+                        (EffectOutcome::Reject, true, _) => "not_persisted",
+                        _ => "unresolved",
+                    };
+                    let transport = match effect.transport {
+                        TransportOutcome::Returned => "returned",
+                        TransportOutcome::Lost => "lost",
+                        TransportOutcome::ReturnedTimeout => "returned_timeout",
+                    };
+                    let mut result =
+                        effect_report(effect.field.wire_name().into(), status, transport, true);
+                    result.set(
+                        "readback",
+                        edu_academy_core::templates::from_json(
+                            serde_json::to_value(value).expect("typed record value"),
+                        ),
+                    );
+                    result.set("effectTarget", p.get("effectTarget").clone());
+                    if matches!(
+                        effect.outcome,
+                        EffectOutcome::Success | EffectOutcome::Reject
+                    ) {
+                        result.set(
+                            "completionFacts",
+                            obj(&[
+                                ("profile", "invented.synthetic-record".into()),
+                                ("version", Js::Num(1.)),
+                                ("field", effect.field.wire_name().into()),
+                                ("effectTarget", p.get("effectTarget").clone()),
+                                ("completion", "final_return".into()),
+                                (
+                                    "outcome",
+                                    if effect.outcome == EffectOutcome::Success {
+                                        "applied"
+                                    } else {
+                                        "rejected"
+                                    }
+                                    .into(),
+                                ),
+                                ("noPartialEffect", true.into()),
+                                ("noLateEffect", true.into()),
+                            ]),
+                        );
+                    }
+                    result
+                })
+                .collect(),
+        ))
+    }
+}

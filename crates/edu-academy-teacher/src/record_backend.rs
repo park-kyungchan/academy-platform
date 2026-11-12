@@ -456,7 +456,12 @@ fn validate(seed: &RecordSeed, owner: &OwnerScope) -> Result<()> {
     if seed.records.len() > MAX_SOURCE_RECORDS {
         return Err(limit());
     }
-    if seed.writable_targets.len() > MAX_SOURCE_RECORDS
+    let writable_identities = seed
+        .writable_targets
+        .iter()
+        .map(|t| t.identity.key())
+        .collect::<Result<BTreeSet<_>>>()?;
+    if writable_identities.len() > MAX_SOURCE_RECORDS
         || seed.read_scripts.len() > MAX_SOURCE_SCRIPTS
         || seed.effect_scripts.len() > MAX_SOURCE_SCRIPTS
     {
@@ -546,6 +551,23 @@ fn initialize(root: &File, bytes: &[u8]) -> Result<()> {
         error
     })
 }
+fn writable_patch(source: &RecordSeed, id: &RecordIdentity, patch: &RecordPatch) -> Result<()> {
+    if !source.writable_targets.iter().any(|t| t.identity == *id) {
+        return Err(Fault::error("record_source_not_writable"));
+    }
+    if RecordField::ALL.iter().all(|&f| patch[f].is_none())
+        || RecordField::ALL.iter().any(|&f| {
+            patch[f].as_ref().is_some_and(|p| {
+                !source.writable_targets.iter().any(|t| {
+                    t.identity == *id && t.field == f && t.synthetic_target == p.effect_target
+                })
+            })
+        })
+    {
+        return Err(invalid());
+    }
+    Ok(())
+}
 impl SyntheticRecordState {
     /// Open the marked owner root first. Seed only an absent snapshot; an existing
     /// snapshot is validated and reopened, never merged with or replaced by seed.
@@ -629,6 +651,35 @@ impl SyntheticRecordState {
             return Err(Fault::error("record_store_capacity"));
         }
         initialize(&self.root, &bytes)
+    }
+    pub(crate) fn adapter_identity(&self, student: &str, date: &str) -> Result<RecordIdentity> {
+        let id = RecordIdentity {
+            owner: self.owner.clone(),
+            student_key: student.into(),
+            lesson_date: date.into(),
+            kind: RecordKind::DailyRecord,
+        };
+        valid_identity(&id, &self.owner)?;
+        Ok(id)
+    }
+    pub(crate) fn admitted_read(
+        &mut self,
+        account: &AccountGuard<'_>,
+        id: &RecordIdentity,
+        patch: &RecordPatch,
+    ) -> Result<RecordSnapshot> {
+        check_root(&self.root, account)?;
+        let source = self.load()?;
+        writable_patch(&source, id, patch)?;
+        let at = source
+            .records
+            .iter()
+            .find(|r| r.identity == *id)
+            .ok_or_else(|| Fault::error("record_source_not_observed"))?
+            .provenance
+            .read_at
+            .clone();
+        self.read_once_with_account(account, id, &at)
     }
     pub(crate) fn source_store(&self, id: &RecordIdentity) -> Result<Arc<DraftStore>> {
         valid_identity(id, &self.owner)?;
@@ -714,20 +765,7 @@ impl SyntheticRecordState {
         valid_identity(id, &self.owner)?;
         chrono::DateTime::parse_from_rfc3339(at).map_err(|_| invalid())?;
         let mut source = self.load()?;
-        if !source.writable_targets.iter().any(|t| t.identity == *id) {
-            return Err(Fault::error("record_source_not_writable"));
-        }
-        if RecordField::ALL.iter().all(|&f| patch[f].is_none())
-            || RecordField::ALL.iter().any(|&f| {
-                patch[f].as_ref().is_some_and(|p| {
-                    !source.writable_targets.iter().any(|t| {
-                        t.identity == *id && t.field == f && t.synthetic_target == p.effect_target
-                    })
-                })
-            })
-        {
-            return Err(invalid());
-        }
+        writable_patch(&source, id, patch)?;
         let mut record = observe(source.clone(), id, at);
         let mut applied = false;
         let mut results = Vec::new();
