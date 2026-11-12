@@ -21,6 +21,7 @@ pub mod record_fixture;
 pub mod record_parent;
 pub mod record_parse;
 pub mod record_store;
+pub mod record_words;
 pub mod unit;
 pub mod unit_data;
 pub mod unit_fixture;

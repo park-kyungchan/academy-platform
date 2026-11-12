@@ -1,7 +1,7 @@
 //! The one code-to-label table for the two assessment fields (M10, M13).
 //! `label` is the advertised Korean label, `wire_code` the LMS wire code,
 //! and `aliases` other accepted teacher words for the same code. Attendance
-//! labels are not in this table; they stay as advertised in the tool table.
+//! labels are separate application wording, not observed LMS option text.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AssessmentLabel {
@@ -143,4 +143,15 @@ pub fn label_for_code(field: &str, wire_code: i32) -> Option<&'static str> {
         .iter()
         .find(|entry| entry.field == field && entry.wire_code == wire_code)
         .map(|entry| entry.label)
+}
+
+/// Application labels from DISPLAY-SPEC-S3; only L has native option evidence.
+pub fn attendance_label(wire: &str) -> Option<&'static str> {
+    match wire {
+        "Y" => Some("출석"),
+        "N" => Some("결석"),
+        "L" => Some("지각"),
+        " " | "" => Some("미입력"),
+        _ => None,
+    }
 }

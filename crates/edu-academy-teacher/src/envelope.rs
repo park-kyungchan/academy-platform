@@ -71,6 +71,15 @@ pub enum AskField {
     UnitFrom,
     UnitTo,
     Draft,
+    Progress,
+    Homework,
+    Memo,
+    Attendance,
+    DailyTest,
+    PrevHomework,
+    Replace,
+    Restart,
+    TeacherWords,
 }
 
 impl AskField {
@@ -85,6 +94,15 @@ impl AskField {
             Self::UnitFrom => "unit_from",
             Self::UnitTo => "unit_to",
             Self::Draft => "draft",
+            Self::Progress => "progress",
+            Self::Homework => "homework",
+            Self::Memo => "memo",
+            Self::Attendance => "attendance",
+            Self::DailyTest => "daily_test",
+            Self::PrevHomework => "prev_homework",
+            Self::Replace => "replace",
+            Self::Restart => "restart",
+            Self::TeacherWords => "teacher_words",
         }
     }
 }
@@ -92,6 +110,25 @@ impl AskField {
 impl Serialize for AskField {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.as_str())
+    }
+}
+
+impl From<crate::record_data::AnswerField> for AskField {
+    fn from(field: crate::record_data::AnswerField) -> Self {
+        use crate::record_data::AnswerField as A;
+        match field {
+            A::Student => Self::Student,
+            A::Date => Self::Date,
+            A::Progress => Self::Progress,
+            A::Homework => Self::Homework,
+            A::Memo => Self::Memo,
+            A::Attendance => Self::Attendance,
+            A::DailyTest => Self::DailyTest,
+            A::PrevHomework => Self::PrevHomework,
+            A::Replace => Self::Replace,
+            A::Restart => Self::Restart,
+            A::TeacherWords => Self::TeacherWords,
+        }
     }
 }
 
@@ -148,6 +185,10 @@ pub struct Envelope {
     pub display: String,
     pub data: serde_json::Value,
     pub ask: Option<Ask>,
+    /// Full record questions; `ask` is only the legacy first-question projection.
+    /// Omitted for old lesson/unit producers, keeping their serialized shape.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub questions: Vec<crate::record_words::RecordQuestion>,
     pub next: Option<NextCall>,
     pub stop: Option<Stop>,
     pub coverage: Coverage,
@@ -190,6 +231,7 @@ impl Envelope {
             display,
             data,
             ask,
+            questions: Vec::new(),
             next,
             stop,
             coverage,
@@ -197,6 +239,48 @@ impl Envelope {
     }
     pub fn ok(display: String, data: serde_json::Value, coverage: Coverage) -> Self {
         Self::new(Status::Ok, display, data, None, None, None, coverage).expect("ok invariant")
+    }
+    /// One merged record ask. Text/line/boolean answers remain typed in questions;
+    /// the legacy string projection carries JSON for line/boolean values only.
+    /// Free-text record questions need no canned option. Old `ask` keeps its
+    /// nonempty-options contract and its existing display composition.
+    pub fn record_ask(
+        display: String,
+        data: serde_json::Value,
+        questions: crate::record_words::AskSet,
+        coverage: Coverage,
+    ) -> Result<Self, String> {
+        use crate::record_data::AnswerValue;
+        let first = &questions.questions()[0];
+        let mut options = Vec::new();
+        for choice in &first.choices {
+            let value = match &choice.answer {
+                AnswerValue::Text(text) => text.clone(),
+                AnswerValue::Lines(lines) => {
+                    serde_json::to_string(lines).map_err(|_| "record_choice_not_json")?
+                }
+                AnswerValue::Boolean(value) => value.to_string(),
+            };
+            options.push(AskOption {
+                value,
+                label_ko: choice.label.clone(),
+                meaning_ko: String::new(),
+            });
+        }
+        let ask = Ask {
+            field: first.field.into(),
+            question_ko: first.question.clone(),
+            options,
+        };
+        let body = questions.display();
+        let display = if display.is_empty() {
+            body
+        } else {
+            format!("{display}\n{body}")
+        };
+        let mut envelope = Self::new(Status::Ask, display, data, Some(ask), None, None, coverage)?;
+        envelope.questions = questions.questions().to_vec();
+        Ok(envelope)
     }
     /// An ask with no option can never be answered, so building one is a
     /// constructor error the caller must handle; it never panics.

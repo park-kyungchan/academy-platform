@@ -181,3 +181,43 @@ fn c_parent_preview() {
     // durable pre-effect fact (R07), invokes no backend and makes no saved claim.
     check(&fixture.records[0].snapshot.identity, &[], &[], &[]);
 }
+
+#[test]
+fn d_missing_fields() {
+    use edu_academy_teacher::{
+        envelope::{Coverage, Envelope, Status},
+        record_words::{AskSet, RecordQuestion},
+    };
+    let fixture = RecordFixture::from_json(include_str!("fixtures/record-answers.json")).unwrap();
+    let set = AskSet::new(vec![
+        RecordQuestion {
+            field: AnswerField::DailyTest,
+            question: "일일시험 평가는 어떻게 기록할까요?".into(),
+            choices: vec![QuestionChoice {
+                label: "미확인".into(),
+                answer: AnswerValue::Text("미확인".into()),
+            }],
+        },
+        RecordQuestion {
+            field: AnswerField::Memo,
+            question: "메모 문장을 그대로 답해 주세요.".into(),
+            choices: vec![],
+        },
+    ])
+    .unwrap();
+    let result = Envelope::record_ask(
+        "가상학생A 입력 확인".into(),
+        serde_json::json!({}),
+        set,
+        Coverage::default(),
+    )
+    .unwrap();
+    assert_eq!(result.status, Status::Ask);
+    assert_eq!(result.questions.len(), 2);
+    assert!(result.display.contains("일일시험 평가 선택"));
+    assert!(result.display.contains("메모 선택"));
+    assert!(!result.display.contains("출석 선택"));
+    // D-missing-fields: R05 content only, no durable R07 fact. Grouped questions
+    // expose no dispatch/saved API; the shared checker receives empty traces.
+    check(&fixture.records[0].snapshot.identity, &[], &[], &[]);
+}
