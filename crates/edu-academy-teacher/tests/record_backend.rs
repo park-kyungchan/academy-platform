@@ -195,14 +195,23 @@ fn shared_native_projection_and_legacy_consumers_see_save_and_reopen() {
     };
     let s = scenario();
     let t = Scratch::new();
-    let state = Arc::new(Mutex::new(t.open(native_seed(&s))));
+    let mut input = native_seed(&s);
+    let mut closer_other = input.records[0].clone();
+    closer_other.identity.student_key = "1003".into();
+    closer_other.identity.lesson_date = "2026-11-08".into();
+    closer_other.requested_date = "2026-11-08".into();
+    input.records.push(closer_other);
+    let state = Arc::new(Mutex::new(t.open(input)));
     let mut backend = shared_backend(state.clone(), s.clone());
     let date = chrono::NaiveDate::from_ymd_opt(2026, 11, 9).unwrap();
     let before = backend.read_record("1001", date).unwrap().unwrap();
     let store = DraftStore::open(&t.root(), owner()).unwrap();
     let mut patch = progress_patch();
     patch.progress.as_mut().unwrap().value = "- 가우스 5-1-2 2-2 유형다지기".into();
-    patch.homework = Some(patch.progress.clone().unwrap());
+    patch.homework = Some(FieldPatch {
+        value: "- 가우스 5-1-2 2-1 필수예제".into(),
+        ..patch.progress.clone().unwrap()
+    });
     {
         let account = store.lock_account().unwrap();
         state
@@ -318,6 +327,11 @@ fn native_port_refuses_missing_or_failed_latest_predecessor_and_target_drift() {
         let t = Scratch::new();
         let s = scenario();
         let mut input = native_seed(&s);
+        let mut closer_other = input.records[0].clone();
+        closer_other.identity.student_key = "1003".into();
+        closer_other.identity.lesson_date = "2026-11-08".into();
+        closer_other.requested_date = "2026-11-08".into();
+        input.records.push(closer_other);
         if failure == "missing" {
             input
                 .records
@@ -354,18 +368,27 @@ fn native_port_refuses_missing_or_failed_latest_predecessor_and_target_drift() {
             .port
             .execute(&native_request("2026-11-09"))
             .unwrap();
-        let mut wrong = edu_academy_sources::native::target(&raw.get("dayRecords").array()[0]);
-        wrong.set("recordKey", "other-occurrence".into());
-        assert_eq!(
-            backend
-                .day
-                .port
-                .journal_state(&wrong)
-                .err()
-                .unwrap()
-                .message,
-            "native_dailyrecord_state_conflict"
-        );
+        let target = edu_academy_sources::native::target(&raw.get("dayRecords").array()[0]);
+        for field in [
+            "recordKey",
+            "courseKey",
+            "teacherKey",
+            "studentName",
+            "membershipKey",
+        ] {
+            let mut wrong = target.clone();
+            wrong.set(field, "other-occurrence".into());
+            assert_eq!(
+                backend
+                    .day
+                    .port
+                    .journal_state(&wrong)
+                    .err()
+                    .unwrap()
+                    .message,
+                "native_dailyrecord_state_conflict"
+            );
+        }
         assert_eq!(state.lock().unwrap().dispatch_count(), 0);
         assert_eq!(state.lock().unwrap().notification_count(), 0);
     }
