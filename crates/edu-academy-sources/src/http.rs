@@ -1525,7 +1525,7 @@ impl<T: Transport> edu_academy_core::workflow::http::HttpPort for JournalHttpPor
                 fault
             })
     }
-    fn write(&mut self, action: &Js) -> edu_academy_core::js::Result<()> {
+    fn write(&mut self, action: &Js) -> edu_academy_core::js::Result<Js> {
         let (method, path, selector, parameter) = match action.get("field").code_units().as_str() {
             "progress" => ("GET", MAIN, "udtPrg", "prg_txt"),
             "homework" => ("GET", MAIN, "udtHw", "hw_txt"),
@@ -1577,7 +1577,12 @@ impl<T: Transport> edu_academy_core::workflow::http::HttpPort for JournalHttpPor
         };
         self.client
             .request(method, path, query, body, false, None)
-            .map(|_| ())
+            .map(|r| {
+                obj(&[
+                    ("httpStatus", Js::Num(f64::from(r.status))),
+                    ("bodySha256", hash(&r.bytes).into()),
+                ])
+            })
             .map_err(|error| edu_academy_core::js::Fault::error(error.message))
     }
 }
@@ -1656,7 +1661,7 @@ mod owner_http_write_tests {
             ),
         ])
     }
-    fn write(client: &mut Client<Fictional>, action: &Js) -> edu_academy_core::js::Result<()> {
+    fn write(client: &mut Client<Fictional>, action: &Js) -> edu_academy_core::js::Result<Js> {
         // Intentionally tests ONLY the private wire seam, never a qualified apply.
         JournalHttpPort {
             client,
@@ -1717,7 +1722,13 @@ mod owner_http_write_tests {
             ),
         ] {
             let mut c = client();
-            write(&mut c, &action(field, after)).unwrap();
+            let receipt = write(&mut c, &action(field, after)).unwrap();
+            assert_eq!(receipt.get("httpStatus"), &Js::Num(200.0));
+            assert!(
+                receipt
+                    .get("bodySha256")
+                    .is(&hash(b"response body is not persistence evidence"))
+            );
             assert_eq!(c.transport.requests.len(), 1);
             let r = &c.transport.requests[0];
             assert_eq!(r.method, method);

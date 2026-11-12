@@ -68,6 +68,8 @@ impl Approval for RequestApproval<'_> {
             ),
             ("actionDigest", digest.clone().into()),
             ("recordedAt", self.runtime.wall_now().into()),
+            ("settlementRule", SETTLEMENT_RULE.into()),
+            ("dispatchedAt", self.runtime.now().into()),
         ]);
         let created = self
             .store

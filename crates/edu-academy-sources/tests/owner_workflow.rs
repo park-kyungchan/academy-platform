@@ -1454,7 +1454,7 @@ impl edu_academy_core::workflow::http::HttpPort for DriftPort {
     fn read(&mut self, _: &Js) -> CoreResult<Js> {
         Ok(self.state.clone())
     }
-    fn write(&mut self, _: &Js) -> CoreResult<()> {
+    fn write(&mut self, _: &Js) -> CoreResult<Js> {
         self.applied += 1;
         Err(Fault::error("unexpected_http_write"))
     }

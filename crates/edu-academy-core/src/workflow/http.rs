@@ -141,7 +141,7 @@ pub fn verified_state(a: &Js, s: &Js) -> Result<()> {
 
 pub trait HttpPort {
     fn read(&mut self, target: &Js) -> Result<Js>;
-    fn write(&mut self, action: &Js) -> Result<()>;
+    fn write(&mut self, action: &Js) -> Result<Js>;
 }
 pub fn apply(action: &Js, port: &mut dyn HttpPort, approval: &mut dyn Approval) -> Result<Js> {
     validate_action(action)?;
@@ -151,11 +151,13 @@ pub fn apply(action: &Js, port: &mut dyn HttpPort, approval: &mut dyn Approval) 
     if before.get("fields").get(&field) != action.get("before") {
         return Err(Fault::error("journal_http_before_drift"));
     }
-    let result = |status: &str, transport: &str, after: Option<Js>| {
+    let mut receipt = Js::Null;
+    let result = |receipt: &Js, status: &str, transport: &str, after: Option<Js>| {
         let mut out = obj(&[
             ("status", status.into()),
             ("action", action.clone()),
             ("before", before.clone()),
+            ("receipt", receipt.clone()),
         ]);
         if let Some(after) = after {
             out.set("after", after);
@@ -166,7 +168,12 @@ pub fn apply(action: &Js, port: &mut dyn HttpPort, approval: &mut dyn Approval) 
         out
     };
     if action.get("before") == action.get("after") {
-        return Ok(result("noop", "not_invoked", Some(before.clone())));
+        return Ok(result(
+            &receipt,
+            "noop",
+            "not_invoked",
+            Some(before.clone()),
+        ));
     }
     let decision = approval.consume(action)?;
     if !decision.get("status").is("verified")
@@ -174,17 +181,20 @@ pub fn apply(action: &Js, port: &mut dyn HttpPort, approval: &mut dyn Approval) 
     {
         return Err(Fault::error("journal_http_approval_rejected"));
     }
-    let transport = if port.write(action).is_ok() {
-        "returned"
-    } else {
-        "uncertain"
+    let transport = match port.write(action) {
+        Ok(mut r) => {
+            r.set("actionDigest", sha(&canonical(action)?).into());
+            receipt = r;
+            "returned"
+        }
+        Err(_) => "uncertain",
     };
     let after = match port.read(action.get("target")).and_then(|s| {
         verified_state(action, &s)?;
         Ok(s)
     }) {
         Ok(s) => s,
-        Err(_) => return Ok(result("unresolved", transport, None)),
+        Err(_) => return Ok(result(&receipt, "unresolved", transport, None)),
     };
     let preserved = before.get("fields").props().iter().all(|(k, v)| {
         k == &text(&field) || after.get("fields").get(&String::from_utf16_lossy(k)) == v
@@ -196,5 +206,5 @@ pub fn apply(action: &Js, port: &mut dyn HttpPort, approval: &mut dyn Approval) 
     } else {
         "conflict"
     };
-    Ok(result(status, transport, Some(after)))
+    Ok(result(&receipt, status, transport, Some(after)))
 }

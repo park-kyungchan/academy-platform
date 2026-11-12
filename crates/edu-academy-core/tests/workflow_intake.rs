@@ -962,8 +962,7 @@ fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() 
         input.set("request", js(json!({"requestRef":"later-🚀","instruction":{"text":"Save this reviewed fictional field."}})));
         let held = svc.save(&input).unwrap();
         assert!(
-            held.get("reasonCode")
-                .is("uncertain_dispatch_reconcile_required"),
+            held.get("reasonCode").is("save_confirmation_pending"),
             "{}",
             stringify(&held).unwrap()
         );
@@ -1642,13 +1641,24 @@ fn retained_fence_status_after_target_drift_requires_manual_reconciliation() {
     let executions = state::student_executions(&store, input.get("context").get("scope")).unwrap();
     assert_eq!(executions.len(), 1);
     let e = &executions[0];
-    // R09 manual_reconciliation: a drift refusal cannot settle or release E1.
-    let error = service::Service {
+    // Before Q confirmation is pending; at Q a drift still cannot release E1.
+    let pending = service::Service {
         store: &store,
         source: &mut source,
         policy: &policy,
         backend: &mut backend,
         runtime: &clock,
+    }
+    .reconcile(&obj(&[("context", next.get("context").clone())]))
+    .unwrap();
+    assert!(pending.get("reasonCode").is("save_confirmation_pending"));
+    let at_q = Clock::new("2040-01-04T12:10:00.000Z");
+    let error = service::Service {
+        store: &store,
+        source: &mut source,
+        policy: &policy,
+        backend: &mut backend,
+        runtime: &at_q,
     }
     .reconcile(&obj(&[("context", next.get("context").clone())]))
     .unwrap_err();
@@ -1995,11 +2005,7 @@ fn opaque_completion_facts_survive_save_reopen_and_repeat() {
         let store = Store::open(&root.join("store"), &root).unwrap();
         let repeated = facts_save(&store, &mut source, &mut backend, &clock, &input).unwrap();
         assert_facts(repeated.get("fields"), &results, false);
-        assert!(
-            repeated
-                .get("reasonCode")
-                .is("uncertain_dispatch_reconcile_required")
-        );
+        assert!(repeated.get("reasonCode").is("save_confirmation_pending"));
         assert_eq!(backend.calls, 2);
         assert_facts(
             facts_reconcile(&store, &mut source, &clock, &input).get("fields"),
@@ -2102,11 +2108,7 @@ fn invalid_completion_facts_keep_execution_fenced() {
             }
         }
         let again = facts_save(&store, &mut source, &mut backend, &clock, &input).unwrap();
-        assert!(
-            again
-                .get("reasonCode")
-                .is("uncertain_dispatch_reconcile_required")
-        );
+        assert!(again.get("reasonCode").is("save_confirmation_pending"));
         assert_eq!(backend.calls, 3);
     }
 }
@@ -2155,7 +2157,7 @@ fn completion_facts_limit() {
 }
 
 // S1/S2 use real Service admission/fences with explicitly unqualified scripted
-// answers. Readback and teacher words never establish finality for the attempt.
+// answers. Before Q, readback and teacher words cannot settle the attempt.
 fn unqualified_settlement_sequence(transport: &str, desired: bool, assertion: bool) {
     use edu_academy_core::workflow::state;
     let root = root("settlement-held");
@@ -2232,11 +2234,7 @@ fn unqualified_settlement_sequence(transport: &str, desired: bool, assertion: bo
     )
     .unwrap();
     let blocked = facts_save(&store, &mut source, &mut backend, &clock, &next).unwrap();
-    assert!(
-        blocked
-            .get("reasonCode")
-            .is("uncertain_dispatch_reconcile_required")
-    );
+    assert!(blocked.get("reasonCode").is("save_confirmation_pending"));
     // A second reopen proves both durable consumption and zero second dispatch.
     let reopened = Store::open(&root.join("store"), &root).unwrap();
     let executions = state::student_executions(&reopened, scope).unwrap();
@@ -2424,10 +2422,7 @@ fn occurrence_alias_sequence(field: &str, next_date: bool, missing_review: bool)
     } else {
         let held = result.unwrap();
         assert!(held.get("status").is("held"));
-        assert!(
-            held.get("reasonCode")
-                .is("uncertain_dispatch_reconcile_required")
-        );
+        assert!(held.get("reasonCode").is("save_confirmation_pending"));
     }
     let reopened = Store::open(&root.join("store"), &root).unwrap();
     let executions =

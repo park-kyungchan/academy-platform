@@ -127,11 +127,74 @@ impl FieldState {
         )
     }
 }
+pub const SETTLEMENT_RULE: &str = "academy.rule-b/1";
+// Four measured live saves showed no change later than 10 minutes;
+// change this window only on an observed late save.
+pub const SETTLEMENT_WINDOW_SECONDS: i64 = 600;
+pub fn settlement_at(record: &Js) -> Option<i64> {
+    if !record.get("settlementRule").is(SETTLEMENT_RULE) {
+        return None;
+    }
+    crate::instant::epoch_ms(
+        record.get("dispatchedAt"),
+        crate::instant::Grammar::DailyRecord,
+    )
+    .map(|at| at + SETTLEMENT_WINDOW_SECONDS * 1000)
+}
+pub fn returned_receipt(record: &Js) -> bool {
+    record.get("transport").is("returned")
+        && matches!(record.get("receipt").get("httpStatus"), Js::Num(n) if n.fract() == 0.0 && (200.0..300.0).contains(n))
+        && crate::js::test("^[a-f0-9]{64}$", record.get("receipt").get("bodySha256"))
+}
 pub fn field_state(store: &Store, key: &str) -> Result<FieldState> {
-    // R0 deliberately qualifies no settlement profile. Existing status labels
-    // and opaque completionFacts do not bind finality to this exact attempt.
-    // Keep the immutable records for the shared classifier; never release a
-    // historical fence from a label, transport receipt, equality or assertion.
+    let execution = store.get(Kind::Execution, key)?;
+    let outcome = store.get(Kind::Outcome, key)?;
+    if let Some(due) = settlement_at(&execution) {
+        let reconciliation = store.get(Kind::Reconciliation, key)?;
+        let marked = |r: &Js| {
+            r.get("settlementRule").is(SETTLEMENT_RULE)
+                && r.get("actionDigest") == execution.get("actionDigest")
+                && crate::js::test("^[a-f0-9]{64}$", execution.get("actionDigest"))
+        };
+        if marked(&reconciliation)
+            && crate::instant::epoch_ms(
+                reconciliation.get("readAt"),
+                crate::instant::Grammar::DailyRecord,
+            )
+            .is_some_and(|at| at >= due)
+            && reconciliation.get("current").string()
+        {
+            let review = store.get(Kind::Review, &execution.get("reviewDigest").code_units())?;
+            let patch = review
+                .get("patch")
+                .array()
+                .iter()
+                .find(|p| {
+                    p.get("field") == execution.get("field")
+                        && p.get("before").string()
+                        && p.get("after").string()
+                })
+                .ok_or_else(|| Fault::error("workflow_execution_review_target_unavailable"))?;
+            return Ok(if reconciliation.get("current") == patch.get("after") {
+                FieldState::ReconciledPersisted
+            } else if reconciliation.get("current") == patch.get("before") {
+                FieldState::ReconciledNotPersisted
+            } else {
+                FieldState::ReconciledConflict
+            });
+        }
+        if marked(&outcome)
+            && returned_receipt(&outcome)
+            && outcome.get("receipt").get("actionDigest") == execution.get("actionDigest")
+        {
+            if outcome.get("readbackStatus").is("persisted") {
+                return Ok(FieldState::SettledPersisted);
+            }
+            if outcome.get("readbackStatus").is("conflict") {
+                return Ok(FieldState::SettledNotPersisted);
+            }
+        }
+    }
     Ok(if store.get(Kind::Execution, key)?.absent() {
         if store.get(Kind::Outcome, key)?.absent() && store.get(Kind::Reconciliation, key)?.absent()
         {

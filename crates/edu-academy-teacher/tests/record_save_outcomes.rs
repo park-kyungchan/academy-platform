@@ -982,8 +982,8 @@ fn save_case(name: &str, outcomes: &[EffectOutcome]) {
                 });
             }
         }
-        // R0 qualifies no profile: even synthetic final claims are held until
-        // an exact-attempt proof is accepted by the shared classifier.
+        // These synthetic claims supply no HTTP receipt, so rule B3 keeps
+        // them unresolved even when the immediate values match.
         assert!(claims.is_empty());
         check(id, &selected, &dispatches, &claims);
     }

@@ -537,11 +537,7 @@ fn backend_catalog_exception_keeps_original_audit_reason_and_reconciliation_fenc
                 .is("unresolved")
         );
         let second = svc.save(&input).unwrap();
-        assert!(
-            second
-                .get("reasonCode")
-                .is("uncertain_dispatch_reconcile_required")
-        );
+        assert!(second.get("reasonCode").is("save_confirmation_pending"));
         assert_eq!(backend.calls, 1, "no automatic backend retry");
     }
 }

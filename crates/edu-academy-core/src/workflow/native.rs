@@ -186,19 +186,21 @@ impl Backend for NativeBackend<'_> {
                 ("wireDigest", state.get("wireDigest").clone()),
             ]);
             let result = self.port.apply(&action, approval);
-            let (status, dispatched, transport) = match result {
+            let (status, dispatched, transport, receipt) = match result {
                 Ok(r) => (
                     r.get("status").clone(),
                     !r.get("transport").is("not_invoked"),
                     r.get("transport").clone(),
+                    r.get("receipt").clone(),
                 ),
-                Err(_) => ("unresolved".into(), true, "uncertain".into()),
+                Err(_) => ("unresolved".into(), true, "uncertain".into(), Js::Null),
             };
             fields.push(obj(&[
                 ("field", p.get("field").clone()),
                 ("status", status.clone()),
                 ("dispatched", dispatched.into()),
                 ("transport", transport),
+                ("receipt", receipt),
             ]));
             if !status.is("persisted") && !status.is("noop") {
                 for p in patches.array().iter().skip(i + 1) {

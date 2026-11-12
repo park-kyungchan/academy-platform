@@ -41,8 +41,27 @@ fn with_completion_facts(store: &Store, key: &str, mut value: Js) -> Result<Js> 
     }
     if field_state(store, key)?.needs_reconciliation() {
         manual_reconciliation(&mut value);
+        if let Some(at) = settlement_at(&store.get(Kind::Execution, key)?) {
+            value.set("earliestSettleAtEpochMs", Js::Num(at as f64));
+        }
     }
     Ok(value)
+}
+fn confirmation_pending(mut value: Js) -> Js {
+    if let Some(at) = value
+        .get("fields")
+        .array()
+        .iter()
+        .filter_map(|f| match f.get("earliestSettleAtEpochMs") {
+            Js::Num(n) => Some(*n),
+            _ => None,
+        })
+        .min_by(f64::total_cmp)
+    {
+        value.set("reasonCode", "save_confirmation_pending".into());
+        value.set("earliestSettleAtEpochMs", Js::Num(at));
+    }
+    value
 }
 pub fn base(context: &Js) -> Js {
     let w = crate::templates::from_json(
@@ -479,10 +498,10 @@ impl Service<'_> {
             }
         }
         if !unresolved.is_empty() {
-            return hold(
+            return Ok(confirmation_pending(hold(
                 "uncertain_dispatch_reconcile_required",
                 obj(&[("fields", Js::Arr(unresolved))]),
-            );
+            )?));
         }
         let report = |p: &Js, extra: Js| -> Result<Js> {
             let mut value = merge(
@@ -691,6 +710,14 @@ impl Service<'_> {
                         &obj(&[
                             ("recordedBy", by.clone()),
                             ("recordedAt", self.runtime.now().into()),
+                            ("settlementRule", SETTLEMENT_RULE.into()),
+                            (
+                                "actionDigest",
+                                self.store
+                                    .get(Kind::Execution, &k)?
+                                    .get("actionDigest")
+                                    .clone(),
+                            ),
                         ]),
                     ),
                     self.runtime,
@@ -754,9 +781,15 @@ impl Service<'_> {
                 ));
             }
         };
-        // No target profile is qualified by this bounded repair. Preserve raw
-        // claims separately, but publish only unresolved outcomes after fencing.
-        let recorded = |_: &Js| Js::from("unresolved");
+        let recorded = |r: &Js| {
+            if returned_receipt(r)
+                && (r.get("status").is("persisted") || r.get("status").is("conflict"))
+            {
+                r.get("status").clone()
+            } else {
+                Js::from("unresolved")
+            }
+        };
         // Validate the whole batch before publishing any Outcome. An invalid
         // member keeps every fence unresolved; valid siblings retain their facts.
         let checks = results
@@ -787,7 +820,15 @@ impl Service<'_> {
                             recorded(r)
                         },
                     ),
-                    ("readbackStatus", r.get("status").clone()),
+                    (
+                        "readbackStatus",
+                        if failure.is_some() {
+                            "unresolved".into()
+                        } else {
+                            r.get("status").clone()
+                        },
+                    ),
+                    ("receipt", nullable(r.get("receipt"))),
                     ("dispatched", r.get("dispatched").clone()),
                     ("transport", nullable(r.get("transport"))),
                 ]);
@@ -813,6 +854,8 @@ impl Service<'_> {
             });
         let reason = if settled {
             Js::Null
+        } else if results.array().iter().any(|r| recorded(r).is("conflict")) {
+            "readback_conflict_new_review_required".into()
         } else if results.array().iter().any(|r| {
             r.get("status").is("unresolved")
                 || r.get("status").is("conflict")
@@ -870,7 +913,18 @@ impl Service<'_> {
                     .find(|p| p.get("field") == r.get("field"));
                 let value = obj(&[
                     ("field", r.get("field").clone()),
-                    ("status", recorded(r)),
+                    (
+                        "status",
+                        if let Some(p) = p {
+                            if field_state(self.store, &pkey(p)?)?.needs_reconciliation() {
+                                "unresolved".into()
+                            } else {
+                                recorded(r)
+                            }
+                        } else {
+                            recorded(r)
+                        },
+                    ),
                     ("dispatched", r.get("dispatched").clone()),
                     ("transport", nullable(r.get("transport"))),
                     (
@@ -900,10 +954,20 @@ impl Service<'_> {
                 ("fields", Js::Arr(fields)),
             ]),
         );
-        if !settled {
+        if result.get("fields").array().is_empty()
+            || result
+                .get("fields")
+                .array()
+                .iter()
+                .any(|r| r.get("status").is("unresolved"))
+        {
             manual_reconciliation(&mut result);
         }
-        Ok(result)
+        Ok(if settled {
+            result
+        } else {
+            confirmation_pending(result)
+        })
     }
     pub fn reconcile(&mut self, input: &Js) -> Result<Js> {
         let input = super::schema::validate("dailyRecordReconcileSchema", input)?;
@@ -965,12 +1029,29 @@ impl Service<'_> {
             .collect::<Vec<_>>();
         let mut reads: Vec<(String, Js)> = vec![];
         let mut uncertain = false;
+        let mut before_window = false;
         for e in pending {
             let r = &e.record;
             if r.get("effectTarget").absent() {
                 return Err(Fault::error("workflow_legacy_execution_unbound"));
             }
-            let scope_key = crate::js::stringify(r.get("scope"))?;
+            let read_at = self.runtime.now();
+            if let Some(due) = settlement_at(r) {
+                let now = crate::instant::epoch_ms(
+                    &read_at.clone().into(),
+                    crate::instant::Grammar::DailyRecord,
+                )
+                .ok_or_else(|| Fault::error("workflow_clock_invalid"))?;
+                if now < due {
+                    before_window = true;
+                    continue;
+                }
+            }
+            let scope_key = if settlement_at(r).is_some() {
+                e.key.clone()
+            } else {
+                crate::js::stringify(r.get("scope"))?
+            };
             if !reads.iter().any(|(k, _)| k == &scope_key) {
                 let review = self
                     .store
@@ -1017,9 +1098,20 @@ impl Service<'_> {
             if !current.get("state").is("known") {
                 continue;
             }
-            // R28/R30/R31/R36/R39: a returned transport, current equality
-            // or teacher instruction cannot prove finality/no late work.
-            // Keep any older Reconciliation bytes, but do not trust their label.
+            if settlement_at(r).is_some() {
+                self.store.publish(
+                    Kind::Reconciliation,
+                    &e.key,
+                    &obj(&[
+                        ("settlementRule", SETTLEMENT_RULE.into()),
+                        ("actionDigest", r.get("actionDigest").clone()),
+                        ("readAt", read_at.into()),
+                        ("current", current.get("value").clone()),
+                    ]),
+                    self.runtime,
+                )?;
+                continue;
+            }
             uncertain = true;
             self.store.append_audit(
                 &req_key,
@@ -1048,7 +1140,7 @@ impl Service<'_> {
             }
             .into()
         };
-        Ok(merge(
+        let result = merge(
             b,
             &obj(&[
                 ("status", if open { "held" } else { "settled" }.into()),
@@ -1056,7 +1148,12 @@ impl Service<'_> {
                 ("by", by),
                 ("fields", after),
             ]),
-        ))
+        );
+        Ok(if before_window {
+            confirmation_pending(result)
+        } else {
+            result
+        })
     }
 }
 // ask_person retains the fence; the answer must supply qualified proof or

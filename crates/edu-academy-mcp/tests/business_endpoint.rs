@@ -861,11 +861,7 @@ fn seven_wire_routes_persist_exact_review_and_reconcile_unknown_dispatch_after_r
         "academy_dailyrecord_save",
         save_input(&handle, &review_digest),
     ));
-    assert!(
-        replay
-            .get("reasonCode")
-            .is("uncertain_dispatch_reconcile_required")
-    );
+    assert!(replay.get("reasonCode").is("save_confirmation_pending"));
     assert_eq!(writes.get(), 1);
     let unresolved = data(&invoke(
         &mut session,
@@ -873,11 +869,7 @@ fn seven_wire_routes_persist_exact_review_and_reconcile_unknown_dispatch_after_r
         "academy_dailyrecord_reconcile",
         obj(&[("context", context())]),
     ));
-    assert!(
-        unresolved
-            .get("reasonCode")
-            .is("qualified_proof_or_target_repair_required")
-    );
+    assert!(unresolved.get("reasonCode").is("save_confirmation_pending"));
     drop(driver);
     // R30: a new Store and RpcSession retain the fence even after equality;
     // readback cannot establish final completion of the lost answer.
@@ -1544,11 +1536,7 @@ fn graph_drift_after_save_preserves_unknown_effect_fence_and_reentry_status_with
         "academy_dailyrecord_save",
         save_input(&handle, &digest),
     ));
-    assert!(
-        replay
-            .get("reasonCode")
-            .is("uncertain_dispatch_reconcile_required")
-    );
+    assert!(replay.get("reasonCode").is("save_confirmation_pending"));
     assert_eq!(writes.get(), 1);
 }
 
