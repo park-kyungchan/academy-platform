@@ -37,7 +37,10 @@ class DiagnosticTests(unittest.TestCase):
         candidates=ds.candidates()
         self.assertEqual([c['tools_list_bytes_added'] for c in candidates[2:]],[0,0])
         self.assertTrue(all(c['tools_list_bytes_added']>0 for c in candidates[:2]))
-        self.assertEqual(ds.line_kind('- Choice: Meaning',2,ask=True),'choice')
+        self.assertEqual(ds.line_kind('- Choice: Meaning',2,'ask'),'choice')
+        self.assertEqual(ds.line_kind('Reason. Remedy.',0,'stop'),'stop_reason_and_remedy')
+        missing,_=ds.display_diff('Reason. Remedy.','Changed.',fidelity.configured_policy(),'stop')
+        self.assertEqual({key[0] for key in missing},{'stop_reason_and_remedy'})
 
     def test_book_ask_probes_cannot_advance_or_replace_original_display(self):
         spec=specs('Q14')[0]; initial=envelope(spec,'Original ask')

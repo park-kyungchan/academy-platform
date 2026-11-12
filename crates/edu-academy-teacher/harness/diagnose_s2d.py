@@ -87,9 +87,10 @@ def wrong_elements(spec, args, envelope):
     return result
 
 
-def line_kind(line, index, ask=False):
+def line_kind(line, index, kind='result'):
     """Physical-line roles from DISPLAY-SPEC-S2, not M21 logical unit kinds."""
-    if ask: return 'choice' if line.startswith('- ') else 'question' if line.endswith('？') or line.endswith('?') else 'missing_fact'
+    if kind=='ask': return 'choice' if line.startswith('- ') else 'question' if line.endswith('？') or line.endswith('?') else 'missing_fact'
+    if kind=='stop': return 'stop_reason_and_remedy'
     if index==0: return 'result_title'
     if line.startswith('읽은 원천'): return 'source_footer'
     if line.startswith(('학생·교재 등록','교사 사실')): return 'source_footer_continuation'
@@ -113,7 +114,7 @@ def line_key(line, policy):
     return f.statement(f.heading(line,policy),policy)
 
 
-def display_diff(source, answer, policy):
+def display_diff(source, answer, policy, kind='result'):
     refs=f.physical_lines(source,policy,True); lines=f.physical_lines(answer,policy)
     remaining=Counter(line_key(line,policy) for line in lines)
     missing=Counter()
@@ -121,7 +122,7 @@ def display_diff(source, answer, policy):
         key=line_key(line,policy)
         if remaining[key]: remaining[key]-=1; continue
         category=d.missing_class(line,lines,refs[:i]+refs[i+1:],d.Budget())
-        missing[(line_kind(line,i),'lost' if category=='absent' else 'changed',category)]+=1
+        missing[(line_kind(line,i,kind),'lost' if category=='absent' else 'changed',category)]+=1
     available=Counter(line_key(line,policy) for line in refs); matched=[]; added=[]
     for i,line in enumerate(lines):
         key=line_key(line,policy)
@@ -200,10 +201,12 @@ def analyze(rows):
             shapes[key+(fields,locate_word(args,WORD['level']),locate_word(args,WORD['activity']))]+=1
         if row['request'] in ('Q11','Q13','Q14','Q16'):
             source=result['display']; lines=source.splitlines()
-            kinds=tuple(sorted(Counter(line_kind(line,i,row['request']=='Q14' and row['turn']==1) for i,line in enumerate(lines)).items()))
+            kinds=tuple(sorted(Counter(line_kind(line,i,'ask' if row['request']=='Q14' and row['turn']==1 else 'result') for i,line in enumerate(lines)).items()))
             profiles[key+(len(lines),len(source.encode()),kinds)]+=1
         if (row['request'],row['turn']) in (('Q13',1),('Q16',1),('Q12',2)) and row['facts_kept']!='pass':
-            missing,added=display_diff(result['display'],result['answer'],spec['fidelity_policy'])
+            last=envs[-1] if envs else {}
+            kind='stop' if last.get('stop') else 'ask' if last.get('ask') else 'result'
+            missing,added=display_diff(result['display'],result['answer'],spec['fidelity_policy'],kind)
             failed_displays.append(dict(request=key[0],turn=key[1],mode=key[2],conversation=row['conversation'],
                 losses=[dict(line_kind=k,change=v,classification=c,count=n) for (k,v,c),n in sorted(missing.items())],
                 added_positions=dict(added)))
