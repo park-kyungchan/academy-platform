@@ -1,8 +1,14 @@
 name: Rust
+# Budget rule (private repository, the plan's included minutes): a push to a DRAFT pull request does not run the job;
+# the agent's run of the same commands on the host is the evidence for a part. The job runs when the pull request is
+# ready for review, on every push after that, on main, and on demand (`gh workflow run rust.yml --ref <branch>`).
+# A draft pull request cannot be merged, so the required check `rust` is always a real run on the merged head.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -11,6 +17,7 @@ concurrency:
 jobs:
   rust:
     name: rust
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
