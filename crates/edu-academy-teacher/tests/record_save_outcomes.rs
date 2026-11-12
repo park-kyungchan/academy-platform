@@ -491,7 +491,8 @@ fn c_core_target_refusal_rows() {
 fn e_read_failed() {
     use edu_academy_core::{js::obj, workflow::service::Source};
     use edu_academy_teacher::{
-        record_backend::SyntheticRecordState, record_effect::SyntheticCoreSource,
+        record_backend::SyntheticRecordState,
+        record_effect::{HeldSource, SyntheticCoreSource},
     };
     use std::sync::{Arc, Mutex};
     let mut fixture =
@@ -523,9 +524,19 @@ fn e_read_failed() {
         state: Arc::clone(&state),
         records: fixture.records,
     };
-    let result = source
-        .read(&scope, &"invented-read".into(), &obj(&[]))
-        .unwrap();
+    let drafts = edu_academy_teacher::record_store::DraftStore::open(
+        &root,
+        failed.snapshot.identity.owner.clone(),
+    )
+    .unwrap();
+    let account = drafts.lock_account().unwrap();
+    let result = HeldSource {
+        inner: &mut source,
+        account: &account,
+        read_at: &failed.snapshot.provenance.read_at,
+    }
+    .read(&scope, &"invented-read".into(), &obj(&[]))
+    .unwrap();
     assert!(result.get("status").is("unavailable"));
     assert!(result.get("reasonCode").is("student_name_not_found"));
     assert_eq!(result, failed.answer);
@@ -579,6 +590,9 @@ impl Runtime for SaveClock {
 struct ObservedBackend<'a> {
     inner: SyntheticCoreBackend,
     store: &'a Store,
+    account: &'a edu_academy_teacher::record_store::AccountGuard<'a>,
+    identity: &'a RecordIdentity,
+    drafts: &'a edu_academy_teacher::record_store::DraftStore,
     actions: Vec<Js>,
     invalid_later: bool,
 }
@@ -612,7 +626,7 @@ impl Approval for FenceWatch<'_> {
 }
 impl Backend for ObservedBackend<'_> {
     fn configured(&self) -> bool {
-        self.inner.configured()
+        true
     }
     fn save(
         &mut self,
@@ -628,7 +642,20 @@ impl Backend for ObservedBackend<'_> {
             scope,
             actions: &mut self.actions,
         };
-        let mut results = self.inner.save(scope, patches, &mut watch, subject)?;
+        // S4: the caller already holds account and draft when core holds student.
+        assert!(self.drafts.lock_account().is_err());
+        assert!(self.account.lock_draft(self.identity).is_err());
+        assert!(
+            matches!(self.store.lock(&state::lock_key(scope)?, workflow::store::LockOptions {
+            wait: std::time::Duration::ZERO,
+            ..Default::default()
+        }, &|| false), Err(e) if e.message == "shared_writer_lock_busy")
+        );
+        let mut results = HeldBackend {
+            inner: &mut self.inner,
+            account: self.account,
+        }
+        .save(scope, patches, &mut watch, subject)?;
         if self.invalid_later {
             let Js::Arr(items) = &mut results else {
                 panic!("array required")
@@ -711,11 +738,37 @@ fn save_case(name: &str, outcomes: &[EffectOutcome]) {
     };
     workflow::store::mkdir(&root.join("core")).unwrap();
     let store = Store::open(&root.join("core/store"), &root.join("core")).unwrap();
+    let drafts =
+        edu_academy_teacher::record_store::DraftStore::open(&root, fixture.seed.owner.clone())
+            .unwrap();
+    let account = drafts.lock_account().unwrap();
+    let _draft = account.lock_draft(id).unwrap();
+    // Account and draft precede core's student lock, which is still available.
+    let student = store
+        .lock(
+            &state::lock_key(record.answer.get("scope")).unwrap(),
+            workflow::store::LockOptions {
+                wait: std::time::Duration::ZERO,
+                ..Default::default()
+            },
+            &|| false,
+        )
+        .unwrap();
+    drop(student);
+    let read_at = SaveClock(Cell::new(0)).now();
+    let mut source = HeldSource {
+        inner: &mut source,
+        account: &account,
+        read_at: &read_at,
+    };
     let mut backend = ObservedBackend {
         inner: SyntheticCoreBackend {
             state: Arc::clone(&shared),
         },
         store: &store,
+        account: &account,
+        identity: id,
+        drafts: &drafts,
         actions: vec![],
         invalid_later,
     };
@@ -935,7 +988,11 @@ fn save_case(name: &str, outcomes: &[EffectOutcome]) {
         check(id, &selected, &dispatches, &claims);
     }
     if create {
-        let snapshot = shared.lock().unwrap().read(id, &clock.now()).unwrap();
+        let snapshot = shared
+            .lock()
+            .unwrap()
+            .read_with_account(&account, id, &clock.now())
+            .unwrap();
         let RecordObservation::Observed { occurrence, .. } = snapshot.observation else {
             panic!("created record")
         };
@@ -961,7 +1018,7 @@ fn save_case(name: &str, outcomes: &[EffectOutcome]) {
     }
 }
 #[test]
-fn concrete_adapters_consume_core_fence() {
+fn s4_concrete_adapters_observe_account_draft_student_order() {
     save_case("E-success", &[EffectOutcome::Success; 6]);
     save_case("E-reject", &[EffectOutcome::Reject; 2]);
 }

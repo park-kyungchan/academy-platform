@@ -228,6 +228,7 @@ impl Service<'_> {
                     .map(|p| {
                         obj(&[
                             ("field", p.get("field").clone()),
+                            ("target", p.get("target").clone()),
                             ("before", p.get("before").clone()),
                             ("after", p.get("after").clone()),
                             ("effectRecordKey", p.get("effectRecordKey").clone()),
@@ -454,6 +455,7 @@ impl Service<'_> {
                 s,
                 &p.get("field").code_units(),
                 p.get("effectRecordKey").clone(),
+                p.get("target"),
             )?;
             if pending
                 .iter()

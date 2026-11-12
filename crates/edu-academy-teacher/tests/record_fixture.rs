@@ -302,7 +302,8 @@ fn host_recorded_answers_replay() {
 fn recorded_values_survive_core_source_projection() {
     use edu_academy_core::workflow::service::Source;
     use edu_academy_teacher::{
-        record_backend::SyntheticRecordState, record_effect::SyntheticCoreSource,
+        record_backend::SyntheticRecordState,
+        record_effect::{HeldSource, SyntheticCoreSource},
     };
     use std::sync::{Arc, Mutex};
     let fixture = RecordFixture::from_json(FIXTURE).unwrap();
@@ -316,9 +317,19 @@ fn recorded_values_survive_core_source_projection() {
     };
     for index in 0..4 {
         let record = source.records[index].clone();
-        let result = source
-            .read(record.answer.get("scope"), &Js::Null, &Js::Null)
-            .unwrap();
+        let drafts = edu_academy_teacher::record_store::DraftStore::open(
+            &root,
+            record.snapshot.identity.owner.clone(),
+        )
+        .unwrap();
+        let account = drafts.lock_account().unwrap();
+        let result = HeldSource {
+            inner: &mut source,
+            account: &account,
+            read_at: &record.snapshot.provenance.read_at,
+        }
+        .read(record.answer.get("scope"), &Js::Null, &Js::Null)
+        .unwrap();
         for field in RecordField::ALL {
             let actual = result
                 .get("observation")

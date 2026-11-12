@@ -184,16 +184,36 @@ pub fn unresolved_on_field(
     scope: &Js,
     field: &str,
     record: impl Into<Js>,
+    target: &Js,
 ) -> Result<Vec<Execution>> {
     let record = record.into();
-    Ok(student_executions(store, scope)?
-        .into_iter()
-        .filter(|e| {
-            e.record.get("field").is(field)
-                && e.record.get("effectRecordKey") == &record
-                && e.state.needs_reconciliation()
-        })
-        .collect())
+    let mut pending = vec![];
+    for execution in student_executions(store, scope)? {
+        if !execution.record.get("field").is(field) || !execution.state.needs_reconciliation() {
+            continue;
+        }
+        let missing = || Fault::error("workflow_execution_review_target_unavailable");
+        let digest = execution.record.get("reviewDigest");
+        if !digest.string() {
+            return Err(missing());
+        }
+        let review = store.get(Kind::Review, &digest.code_units())?;
+        let prior = review
+            .get("patch")
+            .array()
+            .iter()
+            .find(|patch| patch.get("field").is(field))
+            .ok_or_else(missing)?;
+        if prior.get("target").absent() {
+            return Err(missing());
+        }
+        if execution.record.get("effectRecordKey") == &record
+            || super::same(prior.get("target"), target)?
+        {
+            pending.push(execution);
+        }
+    }
+    Ok(pending)
 }
 pub fn attribution_summary(a: &Js) -> Js {
     obj(&[

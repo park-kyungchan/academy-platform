@@ -860,6 +860,21 @@ fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() 
         let root = root("unicode-fence");
         let store = Store::open(&root.join("store"), &root).unwrap();
         let scope = context().get("scope").clone();
+        let target = observation().get("target").clone();
+        store
+            .publish(
+                Kind::Review,
+                "crash-review",
+                &obj(&[(
+                    "patch",
+                    Js::Arr(vec![obj(&[
+                        ("field", "progress".into()),
+                        ("target", target.clone()),
+                    ])]),
+                )]),
+                &Clock::new(NOW),
+            )
+            .unwrap();
         let reviewed = js(
             json!({"field":"progress", "effectRecordKey":physical,"effectTarget":"synthetic-target",
             "before":"- Existing progress", "after":"- Updated progress"}),
@@ -868,6 +883,7 @@ fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() 
             store: &store,
             input: obj(&[
                 ("requestRef", "req-😀".into()),
+                ("reviewDigest", "crash-review".into()),
                 ("scope", scope.clone()),
                 ("reviewed", Js::Arr(vec![reviewed.clone()])),
             ]),
@@ -895,7 +911,7 @@ fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() 
         .unwrap();
         assert!(!store.get(Kind::Execution, &exact_key).unwrap().absent());
         assert_eq!(
-            state::unresolved_on_field(&store, &scope, "progress", physical)
+            state::unresolved_on_field(&store, &scope, "progress", physical, &target)
                 .unwrap()
                 .len(),
             1
@@ -1387,6 +1403,10 @@ fn bound_input(
 ) -> Result<Js> {
     let policy = Policy::new(true);
     let mut context = context();
+    context.set(
+        "scope",
+        source.result.get("observation").get("scope").clone(),
+    );
     context.set("currentRequestRef", req.into());
     context.set(
         "selectedFields",
@@ -2313,4 +2333,118 @@ fn empty_backend_result_keeps_fence_held_with_question() {
             .needs_reconciliation()
     );
     assert_eq!(backend.calls, 1);
+}
+
+// S3: immutable review occurrence aliases survive key changes and restart.
+fn occurrence_alias_sequence(field: &str, next_date: bool, missing_review: bool) {
+    use edu_academy_core::workflow::state;
+    let root = root("occurrence-alias");
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let clock = Clock::new(NOW);
+    let mut source = Source::observed();
+    let first = bound_input(
+        &store,
+        &mut source,
+        &clock,
+        "alias-first",
+        &[(
+            field,
+            if field == "progress" {
+                "- First update"
+            } else {
+                "3"
+            },
+        )],
+    )
+    .unwrap();
+    let mut backend = FactsBackend {
+        results: vec![facts_result(field, "unresolved", None)],
+        calls: 0,
+    };
+    assert!(
+        facts_save(&store, &mut source, &mut backend, &clock, &first)
+            .unwrap()
+            .get("status")
+            .is("held")
+    );
+    drop(store);
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let mut observation = source.result.get("observation").clone();
+    if next_date {
+        let mut scope = observation.get("scope").clone();
+        scope.set("lessonDate", "2040-01-05".into());
+        observation.set("scope", scope);
+        let mut current = observation.get("target").clone();
+        current.set("lessonDate", "2040-01-05".into());
+        current.set("recordId", "invented-next-current".into());
+        observation.set("target", current);
+        // previousTarget remains the same actual previous occurrence.
+    }
+    source.result.set("observation", observation);
+    let effect = source
+        .result
+        .get("observation")
+        .get("fields")
+        .get(field)
+        .get("effectTarget")
+        .clone();
+    bind_field(&mut source, field, effect, "invented-alias-second");
+    let second = bound_input(
+        &store,
+        &mut source,
+        &clock,
+        "alias-second",
+        &[(
+            field,
+            if field == "progress" {
+                "- Second update"
+            } else {
+                "2"
+            },
+        )],
+    )
+    .unwrap();
+    if missing_review {
+        let digest = first.get("reviewDigest").code_units();
+        fs::remove_file(
+            store
+                .root()
+                .join("review")
+                .join(format!("{}.json", sha(&format!("review\n{digest}")))),
+        )
+        .unwrap();
+    }
+    let result = facts_save(&store, &mut source, &mut backend, &clock, &second);
+    if missing_review {
+        assert_eq!(
+            result.unwrap_err().message,
+            "workflow_execution_review_target_unavailable"
+        );
+    } else {
+        let held = result.unwrap();
+        assert!(held.get("status").is("held"));
+        assert!(
+            held.get("reasonCode")
+                .is("uncertain_dispatch_reconcile_required")
+        );
+    }
+    let reopened = Store::open(&root.join("store"), &root).unwrap();
+    let executions =
+        state::student_executions(&reopened, second.get("context").get("scope")).unwrap();
+    assert_eq!(executions.len(), 1);
+    assert!(executions[0].record.get("requestRef").is("alias-first"));
+    assert!(executions[0].state.needs_reconciliation());
+    assert_eq!(backend.calls, 1);
+}
+#[test]
+fn s3_record_key_alias_is_held_after_restart() {
+    occurrence_alias_sequence("progress", false, false);
+}
+#[test]
+fn s3_previous_occurrence_alias_across_current_dates_is_held() {
+    occurrence_alias_sequence("previousHomeworkAssessment", true, false);
+}
+#[test]
+fn s3_missing_immutable_review_refuses_before_second_dispatch() {
+    occurrence_alias_sequence("progress", false, true);
 }

@@ -56,11 +56,21 @@ fn scope(source: &SyntheticCoreSource, index: usize) -> Js {
         ),
     ])
 }
-fn read(source: &mut SyntheticCoreSource, index: usize) -> Js {
-    use edu_academy_core::workflow::service::Source;
-    source
-        .read(&scope(source, index), &"invented-request".into(), &Js::Null)
-        .unwrap()
+fn read_scope(source: &mut SyntheticCoreSource, root: &std::path::Path, scope: &Js) -> Result<Js> {
+    let record = &source.records[0];
+    let read_at = record.snapshot.provenance.read_at.clone();
+    let drafts = DraftStore::open(root, record.snapshot.identity.owner.clone())?;
+    let account = drafts.lock_account()?;
+    HeldSource {
+        inner: source,
+        account: &account,
+        read_at: &read_at,
+    }
+    .read(scope, &Js::Null, &Js::Null)
+}
+fn read(source: &mut SyntheticCoreSource, root: &std::path::Path, index: usize) -> Js {
+    let scope = scope(source, index);
+    read_scope(source, root, &scope).unwrap()
 }
 #[test]
 fn exact_per_field_targets() {
@@ -71,8 +81,8 @@ fn exact_per_field_targets() {
     homework["membershipId"] = "invented-other-membership".into();
     let fixture = RecordFixture::from_json(&value.to_string()).unwrap();
     let expected = fixture.records[0].clone();
-    let (mut source, _) = setup(fixture);
-    let result = read(&mut source, 0);
+    let (mut source, root) = setup(fixture);
+    let result = read(&mut source, &root, 0);
     let observation = result.get("observation");
     assert!(
         same(
@@ -148,8 +158,8 @@ fn failed_recorded_answer_is_not_absence() {
                 .any(|r| r.identity == failed.snapshot.identity)
         );
         fixture.records = vec![failed.clone()];
-        let (mut source, _) = setup(fixture);
-        let output = read(&mut source, 0);
+        let (mut source, root) = setup(fixture);
+        let output = read(&mut source, &root, 0);
         assert_eq!(output, failed.answer);
         assert!(output.get("status").is("unavailable"));
         assert!(!output.has("observation"));
@@ -166,7 +176,7 @@ fn synthetic_core_source_reloads_values() {
     let owner = seed.owner.clone();
     let target = seed.writable_targets[0].synthetic_target.clone();
     let (mut source, root) = setup(fixture);
-    let first = read(&mut source, 0);
+    let first = read(&mut source, &root, 0);
     let original = source.records[0].clone();
     let store = DraftStore::open(&root, owner).unwrap();
     {
@@ -189,7 +199,7 @@ fn synthetic_core_source_reloads_values() {
             )
             .unwrap();
     }
-    let second = read(&mut source, 0);
+    let second = read(&mut source, &root, 0);
     assert!(
         second
             .get("observation")
@@ -223,7 +233,7 @@ fn synthetic_core_source_reloads_values() {
         records: source.records.clone(),
     };
     assert_eq!(
-        read(&mut reopened, 0).get("observation"),
+        read(&mut reopened, &root, 0).get("observation"),
         second.get("observation")
     );
     assert_eq!(source.state.lock().unwrap().read_count(), 2);
@@ -231,7 +241,6 @@ fn synthetic_core_source_reloads_values() {
 }
 #[test]
 fn source_unknown_preserves_binding_and_refuses_scope_drift() {
-    use edu_academy_core::workflow::service::Source;
     let mut fixture = fixture();
     let RecordObservation::Observed { fields, .. } = &mut fixture.seed.records[0].observation
     else {
@@ -239,8 +248,8 @@ fn source_unknown_preserves_binding_and_refuses_scope_drift() {
     };
     fields.homework = RecordValue::Unknown;
     fixture.seed.records[0].provenance.field_reasons.homework = Some("invented_unknown".into());
-    let (mut source, _) = setup(fixture);
-    let value = read(&mut source, 0);
+    let (mut source, root) = setup(fixture);
+    let value = read(&mut source, &root, 0);
     let homework = value.get("observation").get("fields").get("homework");
     assert!(homework.get("state").is("unknown"));
     assert!(homework.get("reasonCode").is("invented_unknown"));
@@ -248,24 +257,23 @@ fn source_unknown_preserves_binding_and_refuses_scope_drift() {
     let mut wrong = scope(&source, 0);
     wrong.set("teacherId", "different-teacher".into());
     assert_eq!(
-        source
-            .read(&wrong, &Js::Null, &Js::Null)
-            .unwrap_err()
-            .message,
+        read_scope(&mut source, &root, &wrong).unwrap_err().message,
         "source_scope_conflict"
     );
     assert_eq!(source.state.lock().unwrap().read_count(), 1);
     source.records[0].snapshot.identity.owner.account = "different-owner".into();
     assert!(
-        source
-            .read(&scope(&source, 0), &Js::Null, &Js::Null)
-            .is_err()
+        read_scope(
+            &mut source,
+            &root,
+            &value.get("observation").get("scope").clone()
+        )
+        .is_err()
     );
     assert_eq!(source.state.lock().unwrap().read_count(), 1);
 }
 #[test]
 fn synthetic_core_source_does_not_retry() {
-    use edu_academy_core::workflow::service::Source;
     for outcome in [ReadOutcome::Timeout, ReadOutcome::Unavailable] {
         let mut fixture = fixture();
         let identity = fixture.records[0].snapshot.identity.clone();
@@ -279,15 +287,12 @@ fn synthetic_core_source_does_not_retry() {
                 outcome: ReadOutcome::Observed { elapsed_ms: 0 },
             },
         ];
-        let (mut source, _) = setup(fixture);
-        assert!(
-            source
-                .read(&scope(&source, 0), &Js::Null, &Js::Null)
-                .is_err()
-        );
+        let (mut source, root) = setup(fixture);
+        let scope = scope(&source, 0);
+        assert!(read_scope(&mut source, &root, &scope).is_err());
         assert_eq!(source.state.lock().unwrap().read_count(), 1);
         // A separate explicit read may succeed; the failed invocation never retries.
-        assert!(read(&mut source, 0).get("status").is("observed"));
+        assert!(read(&mut source, &root, 0).get("status").is("observed"));
         assert_eq!(source.state.lock().unwrap().read_count(), 2);
     }
 }
@@ -413,7 +418,7 @@ fn held_entry_points_do_not_reacquire_account() {
     let owner = fixture.seed.owner.clone();
     let (mut source, root) = setup(fixture);
     let scope = scope(&source, 0);
-    let before = read(&mut source, 0);
+    let before = read(&mut source, &root, 0);
     let field = before.get("observation").get("fields").get("progress");
     let patches = Js::Arr(vec![obj(&[
         ("field", "progress".into()),
@@ -444,32 +449,13 @@ fn held_entry_points_do_not_reacquire_account() {
     };
     let drafts = DraftStore::open(&root, owner).unwrap();
     let account = drafts.lock_account().unwrap();
-    // The standalone methods fail before consuming approval or invoking effects.
-    assert_eq!(
-        source
-            .read(&scope, &Js::Null, &Js::Null)
-            .unwrap_err()
-            .message,
-        "shared_writer_lock_busy"
-    );
-    assert_eq!(
-        backend
-            .save(&scope, &patches, &mut approval, &Js::Null)
-            .unwrap_err()
-            .message,
-        "shared_writer_lock_busy"
-    );
-    assert_eq!(source.state.lock().unwrap().dispatch_count(), 0);
-    assert!(state::student_executions(&core, &scope).unwrap().is_empty());
-    assert_eq!(
-        std::fs::read_dir(core.root().join("execution"))
-            .unwrap()
-            .count(),
-        0
-    );
-    let held = source
-        .read_with_account(&account, &scope, &Js::Null, &HeldClock.now())
-        .unwrap();
+    let held = HeldSource {
+        inner: &mut source,
+        account: &account,
+        read_at: &HeldClock.now(),
+    }
+    .read(&scope, &Js::Null, &Js::Null)
+    .unwrap();
     assert_eq!(
         held.get("observation")
             .get("fields")
@@ -477,9 +463,12 @@ fn held_entry_points_do_not_reacquire_account() {
             .get("value"),
         field.get("value")
     );
-    let saved = backend
-        .save_with_account(&account, &scope, &patches, &mut approval, &Js::Null)
-        .unwrap();
+    let saved = HeldBackend {
+        inner: &mut backend,
+        account: &account,
+    }
+    .save(&scope, &patches, &mut approval, &Js::Null)
+    .unwrap();
     assert!(saved.array()[0].get("status").is("persisted"));
     assert_eq!(source.state.lock().unwrap().dispatch_count(), 1);
     let executions = state::student_executions(&core, &scope).unwrap();
@@ -507,7 +496,7 @@ fn held_read_reports_caller_read_time() {
     let owner = fixture.seed.owner.clone();
     let (mut source, root) = setup(fixture);
     let scope = scope(&source, 0);
-    let recorded = read(&mut source, 0);
+    let recorded = read(&mut source, &root, 0);
     let read_at = HeldClock.now();
     assert!(!recorded.get("observation").get("observedAt").is(&read_at));
     let drafts = DraftStore::open(&root, owner).unwrap();
@@ -539,5 +528,63 @@ fn held_read_reports_caller_read_time() {
         }
     }
     assert_eq!(source.state.lock().unwrap().read_count(), 2);
+    assert_eq!(source.state.lock().unwrap().dispatch_count(), 0);
+}
+
+#[test]
+fn s4_busy_account_refuses_before_core_entry_and_fence() {
+    let fixture_data = fixture();
+    let owner = fixture_data.seed.owner.clone();
+    let (mut source, root) = setup(fixture_data);
+    let scope = scope(&source, 0);
+    let id = source.records[0].snapshot.identity.clone();
+    let core = Store::open(&root.join("core"), &root).unwrap();
+    let drafts = DraftStore::open(&root, owner).unwrap();
+    let busy = drafts.lock_account().unwrap();
+    let entered = std::cell::Cell::new(false);
+    let mut inner = SyntheticCoreBackend {
+        state: Arc::clone(&source.state),
+    };
+    let mut entry = || -> Result<Js> {
+        let account = drafts.lock_account()?;
+        let _draft = account.lock_draft(&id)?;
+        let mut held_source = HeldSource {
+            inner: &mut source,
+            account: &account,
+            read_at: &HeldClock.now(),
+        };
+        let mut backend = HeldBackend {
+            inner: &mut inner,
+            account: &account,
+        };
+        entered.set(true);
+        edu_academy_core::workflow::service::Service {
+            store: &core,
+            source: &mut held_source,
+            backend: &mut backend,
+            policy: &edu_academy_teacher::record_policy::RecordPolicy::new(
+                edu_academy_teacher::facts::SeededFacts::from_scenario(&fixture().scenario),
+                obj(&[]),
+            ),
+            runtime: &HeldClock,
+        }
+        .save(&obj(&[]))
+    };
+    assert_eq!(entry().unwrap_err().message, "shared_writer_lock_busy");
+    assert!(!entered.get());
+    drop(busy);
+    let reopened = Store::open(&root.join("core"), &root).unwrap();
+    assert!(
+        state::student_executions(&reopened, &scope)
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        std::fs::read_dir(reopened.root().join("execution"))
+            .unwrap()
+            .count(),
+        0
+    );
+    assert_eq!(source.state.lock().unwrap().read_count(), 0);
     assert_eq!(source.state.lock().unwrap().dispatch_count(), 0);
 }

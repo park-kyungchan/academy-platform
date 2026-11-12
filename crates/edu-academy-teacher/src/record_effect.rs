@@ -36,8 +36,7 @@ impl SyntheticCoreSource {
             return Err(Fault::error("record_source_record_ambiguous"));
         }
         let unavailable = || Fault::error("record_source_unavailable");
-        // Release the mutex before acquiring account; the existing account ->
-        // state order is also used by callers holding the same owner account.
+        // Release the mutex before reading under the caller-held account.
         let store = self
             .state
             .lock()
@@ -148,18 +147,16 @@ impl SyntheticCoreSource {
         ]))
     }
 }
-impl Source for SyntheticCoreSource {
+/// Core callbacks borrow the account acquired before draft and student locks.
+pub struct HeldSource<'a> {
+    pub inner: &'a mut SyntheticCoreSource,
+    pub account: &'a AccountGuard<'a>,
+    pub read_at: &'a str,
+}
+impl Source for HeldSource<'_> {
     fn read(&mut self, scope: &Js, _: &Js, subject: &Js) -> Result<Js> {
-        let (record, store) = self.selected(scope)?;
-        if matches!(
-            record.snapshot.observation,
-            RecordObservation::Failed { .. }
-        ) {
-            return Ok(record.answer.clone());
-        }
-        let read_at = record.snapshot.provenance.read_at.clone();
-        let account = store.lock_account()?;
-        self.read_with_account(&account, scope, subject, &read_at)
+        self.inner
+            .read_with_account(self.account, scope, subject, self.read_at)
     }
 }
 
@@ -355,7 +352,12 @@ impl SyntheticCoreBackend {
         ))
     }
 }
-impl edu_academy_core::workflow::service::Backend for SyntheticCoreBackend {
+/// Backend callback cannot acquire an account after entering core.
+pub struct HeldBackend<'a> {
+    pub inner: &'a mut SyntheticCoreBackend,
+    pub account: &'a AccountGuard<'a>,
+}
+impl edu_academy_core::workflow::service::Backend for HeldBackend<'_> {
     fn configured(&self) -> bool {
         true
     }
@@ -366,10 +368,7 @@ impl edu_academy_core::workflow::service::Backend for SyntheticCoreBackend {
         approval: &mut dyn edu_academy_core::workflow::approval::Approval,
         subject: &Js,
     ) -> Result<Js> {
-        let (_, store) = self.identity(scope)?;
-        // Preserve validation before lock acquisition for standalone callers.
-        Self::patch(scope, patches)?;
-        let account = store.lock_account()?;
-        self.save_with_account(&account, scope, patches, approval, subject)
+        self.inner
+            .save_with_account(self.account, scope, patches, approval, subject)
     }
 }

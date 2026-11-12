@@ -107,24 +107,38 @@ fn index_only_is_available_and_physical_fence_ignores_request_and_date() {
         ("field", "progress".into()),
         ("effectRecordKey", "physical".into()),
         ("effectTarget", "synthetic-target".into()),
+        ("reviewDigest", "physical-review".into()),
     ]);
+    s.publish(
+        Kind::Review,
+        "physical-review",
+        &obj(&[(
+            "patch",
+            Js::Arr(vec![obj(&[
+                ("field", "progress".into()),
+                ("target", scope.clone()),
+            ])]),
+        )]),
+        &Clock,
+    )
+    .unwrap();
     s.publish(Kind::Execution, "index-only", &r, &Clock)
         .unwrap();
     let mut other = scope.clone();
     other.set("lessonDate", "2040-01-05".into());
     assert_eq!(
-        state::unresolved_on_field(&s, &other, "progress", "physical")
+        state::unresolved_on_field(&s, &other, "progress", "physical", &other)
             .unwrap()
             .len(),
         1
     );
     assert!(
-        state::unresolved_on_field(&s, &other, "homework", "physical")
+        state::unresolved_on_field(&s, &other, "homework", "physical", &other)
             .unwrap()
             .is_empty()
     );
     assert!(
-        state::unresolved_on_field(&s, &other, "progress", "other")
+        state::unresolved_on_field(&s, &other, "progress", "other", &other)
             .unwrap()
             .is_empty()
     );
@@ -243,7 +257,21 @@ fn new_target_keys_preserve_exact_unicode_identity() {
             ("field", "progress".into()),
             ("effectTarget", expected.get("effectTarget").clone()),
             ("effectRecordKey", case.get("effectRecordKey").clone()),
+            ("reviewDigest", "unicode-review".into()),
         ]);
+        s.publish(
+            Kind::Review,
+            "unicode-review",
+            &obj(&[(
+                "patch",
+                Js::Arr(vec![obj(&[
+                    ("field", "progress".into()),
+                    ("target", scope.clone()),
+                ])]),
+            )]),
+            &Clock,
+        )
+        .unwrap();
         s.add_ledger(&state::lock_key(scope).unwrap(), &key, &Clock)
             .unwrap();
         s.publish(Kind::Execution, &key, &record, &Clock).unwrap();
@@ -266,7 +294,8 @@ fn new_target_keys_preserve_exact_unicode_identity() {
                 &reopened,
                 scope,
                 "progress",
-                case.get("effectRecordKey").clone()
+                case.get("effectRecordKey").clone(),
+                scope,
             )
             .unwrap()
             .len(),
@@ -457,4 +486,43 @@ fn legacy_settlement_labels_remain_held_after_reopen() {
             );
         }
     }
+}
+
+#[test]
+fn execution_without_review_metadata_refuses_even_a_different_record_key() {
+    let p = root("missing-review-metadata");
+    let store = Store::open(&p.join("store"), &p).unwrap();
+    let scope = obj(&[
+        ("sourceNamespace", "invented".into()),
+        ("teacherId", "teacher".into()),
+        ("studentId", "student".into()),
+    ]);
+    store
+        .add_ledger(&state::lock_key(&scope).unwrap(), "unbound-review", &Clock)
+        .unwrap();
+    store
+        .publish(
+            Kind::Execution,
+            "unbound-review",
+            &obj(&[
+                ("field", "progress".into()),
+                ("effectRecordKey", "first".into()),
+            ]),
+            &Clock,
+        )
+        .unwrap();
+    let reopened = Store::open(&p.join("store"), &p).unwrap();
+    for key in ["first", "second"] {
+        assert_eq!(
+            state::unresolved_on_field(&reopened, &scope, "progress", key, &scope)
+                .err()
+                .unwrap()
+                .message,
+            "workflow_execution_review_target_unavailable"
+        );
+    }
+    assert_eq!(
+        state::student_executions(&reopened, &scope).unwrap().len(),
+        1
+    );
 }
