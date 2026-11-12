@@ -2,6 +2,7 @@
 use crate::{
     record_backend::*,
     record_data::*,
+    record_effect::canonical_effect_target,
     synthetic::{Scenario, load_scenario},
 };
 use edu_academy_core::{
@@ -174,6 +175,46 @@ impl RecordFixture {
                 identity,
             )?);
         }
+        // The retained fixture list admits identities, not a shared field target.
+        let mut writable_targets = vec![];
+        let mut admitted = std::collections::BTreeSet::new();
+        for entry in value["writable_targets"].as_array().ok_or_else(invalid)? {
+            if entry
+                .as_object()
+                .ok_or_else(invalid)?
+                .keys()
+                .any(|key| !["identity", "synthetic_target"].contains(&key.as_str()))
+            {
+                return Err(invalid());
+            }
+            let identity: RecordIdentity =
+                serde_json::from_value(entry["identity"].clone()).map_err(|_| invalid())?;
+            if identity.owner != owner
+                || !admitted.insert(identity.key()?)
+                || entry["synthetic_target"].as_str().is_none_or(str::is_empty)
+            {
+                return Err(invalid());
+            }
+            let mut matching = records.iter().filter(|r| r.snapshot.identity == identity);
+            let record = matching.next().ok_or_else(invalid)?;
+            if matching.next().is_some()
+                || !matches!(
+                    record.snapshot.observation,
+                    RecordObservation::Observed { .. }
+                )
+            {
+                return Err(invalid());
+            }
+            for field in RecordField::ALL {
+                writable_targets.push(WritableTarget {
+                    identity: identity.clone(),
+                    field,
+                    synthetic_target: canonical_effect_target(
+                        record.field_evidence[field].get("target"),
+                    )?,
+                });
+            }
+        }
         let seed = RecordSeed {
             format: RECORD_SOURCE_FORMAT.into(),
             owner,
@@ -182,8 +223,7 @@ impl RecordFixture {
                 .filter(|r| matches!(r.snapshot.observation, RecordObservation::Observed { .. }))
                 .map(|r| r.snapshot.clone())
                 .collect(),
-            writable_targets: serde_json::from_value(value["writable_targets"].clone())
-                .map_err(|_| invalid())?,
+            writable_targets,
             read_scripts: vec![],
             effect_scripts: serde_json::from_value(value["effect_scripts"].clone())
                 .map_err(|_| invalid())?,

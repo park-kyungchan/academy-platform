@@ -59,14 +59,33 @@ fn identity() -> RecordIdentity {
         kind: RecordKind::DailyRecord,
     }
 }
+fn field_target(id: &RecordIdentity, field: RecordField) -> String {
+    edu_academy_teacher::record_effect::canonical_effect_target(&obj(&[
+        ("sourceNamespace", "invented.synthetic".into()),
+        ("teacherId", TEACHER_ID.into()),
+        ("studentId", id.student_key.clone().into()),
+        ("lessonDate", id.lesson_date.clone().into()),
+        (
+            "recordId",
+            format!("invented-{}-{}", id.lesson_date, field.wire_name()).into(),
+        ),
+        ("courseId", "invented-course".into()),
+        ("membershipId", "invented-membership".into()),
+    ]))
+    .unwrap()
+}
 fn seed() -> RecordSeed {
     RecordSeed {
         format: RECORD_SOURCE_FORMAT.into(),
         owner: owner(),
-        writable_targets: vec![WritableTarget {
-            identity: identity(),
-            synthetic_target: "synthetic-1001-20261109".into(),
-        }],
+        writable_targets: RecordField::ALL
+            .into_iter()
+            .map(|field| WritableTarget {
+                identity: identity(),
+                field,
+                synthetic_target: field_target(&identity(), field),
+            })
+            .collect(),
         read_scripts: vec![],
         effect_scripts: vec![],
         records: vec![RecordSnapshot {
@@ -116,7 +135,7 @@ fn changed_record() -> RecordSnapshot {
 fn progress_patch() -> RecordPatch {
     let mut patch = RecordFields::from_fn(|_| None);
     patch.progress = Some(FieldPatch {
-        effect_target: "synthetic-1001-20261109".into(),
+        effect_target: field_target(&identity(), RecordField::Progress),
         operation: PatchOperation::Set,
         value: "persisted synthetic progress".into(),
     });
@@ -209,6 +228,7 @@ fn shared_native_projection_and_legacy_consumers_see_save_and_reopen() {
     let mut patch = progress_patch();
     patch.progress.as_mut().unwrap().value = "- 가우스 5-1-2 2-2 유형다지기".into();
     patch.homework = Some(FieldPatch {
+        effect_target: field_target(&identity(), RecordField::Homework),
         value: "- 가우스 5-1-2 2-1 필수예제".into(),
         ..patch.progress.clone().unwrap()
     });
@@ -600,6 +620,7 @@ fn synthetic_success_failure_ack_loss_and_reopen() {
             result,
             vec![EffectResult {
                 field: RecordField::Progress,
+                outcome,
                 transport
             }]
         );
@@ -723,7 +744,7 @@ fn full_record_exact_date_and_owner_timeout_and_retry_boundaries() {
 }
 #[test]
 fn version_script_and_writable_target_boundaries() {
-    for member in ["format", "another version"] {
+    for member in ["format", "another version", "academy.record-source/2"] {
         let t = Scratch::new();
         t.open(seed());
         let mut value = serde_json::to_value(seed()).unwrap();
@@ -732,16 +753,26 @@ fn version_script_and_writable_target_boundaries() {
         } else {
             value["format"] = member.into();
         }
-        fs::write(t.path(), serde_json::to_vec(&value).unwrap()).unwrap();
+        if member == "academy.record-source/2" {
+            for target in value["writable_targets"].as_array_mut().unwrap() {
+                target.as_object_mut().unwrap().remove("field");
+            }
+        }
+        let original = serde_json::to_vec(&value).unwrap();
+        fs::write(t.path(), &original).unwrap();
         assert_eq!(
             error(SyntheticRecordState::open(&t.root(), seed(), 10000)),
             "record_source_format_unsupported"
         );
+        assert_eq!(fs::read(t.path()).unwrap(), original);
     }
     for member in ["read_scripts", "effect_scripts", "writable_targets"] {
         for over in [0, 1] {
             let t = Scratch::new();
             let mut input = seed();
+            if member == "writable_targets" {
+                input.writable_targets.clear();
+            }
             for n in 0..MAX_SOURCE_SCRIPTS + over {
                 match member {
                     "read_scripts" => input.read_scripts.push(ReadScript {
@@ -760,14 +791,12 @@ fn version_script_and_writable_target_boundaries() {
                             + chrono::Duration::days(n as i64))
                         .to_string();
                         input.writable_targets.push(WritableTarget {
+                            synthetic_target: field_target(&id, RecordField::Progress),
                             identity: id,
-                            synthetic_target: format!("synthetic-{n}"),
+                            field: RecordField::Progress,
                         });
                     }
                 }
-            }
-            if member == "writable_targets" {
-                input.writable_targets.remove(0);
             }
             assert_eq!(
                 SyntheticRecordState::open(&t.root(), input, 10000).is_ok(),
@@ -793,6 +822,7 @@ fn partial_batch_creates_only_applied_fields_and_rejects_unbound_targets() {
     let mut patch = progress_patch();
     patch.progress.as_mut().unwrap().value.clear();
     patch.homework = Some(FieldPatch {
+        effect_target: field_target(&identity(), RecordField::Homework),
         value: "rejected synthetic homework".into(),
         ..patch.progress.clone().unwrap()
     });
@@ -805,7 +835,7 @@ fn partial_batch_creates_only_applied_fields_and_rejects_unbound_targets() {
     let RecordObservation::Observed { occurrence, fields } = observed.observation else {
         panic!("created record required")
     };
-    assert_eq!(occurrence, "synthetic-1001-20261109");
+    assert_eq!(occurrence, patch.progress.as_ref().unwrap().effect_target);
     assert_eq!(fields.progress, RecordValue::Known(String::new()));
     for field in RecordField::ALL
         .into_iter()

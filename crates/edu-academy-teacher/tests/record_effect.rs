@@ -284,3 +284,91 @@ fn synthetic_core_source_does_not_retry() {
         assert_eq!(source.state.lock().unwrap().read_count(), 2);
     }
 }
+
+#[test]
+fn per_field_writable_targets_survive_reopen() {
+    let mut value: serde_json::Value = serde_json::from_str(FIXTURE).unwrap();
+    for (i, row) in value["answers"][0]["capture"]["answer"]["structuredContent"]["fields"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .enumerate()
+    {
+        row["target"]["recordId"] = format!("invented-record-{i}").into();
+    }
+    let mut fixture = RecordFixture::from_json(&value.to_string()).unwrap();
+    fixture.seed.effect_scripts.clear();
+    let seed = fixture.seed.clone();
+    let record = fixture.records[0].clone();
+    let id = &record.snapshot.identity;
+    let targets = RecordFields::from_fn(|field| {
+        canonical_effect_target(record.field_evidence[field].get("target")).unwrap()
+    });
+    assert_eq!(
+        RecordField::ALL
+            .iter()
+            .map(|f| &targets[*f])
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        RECORD_FIELD_COUNT
+    );
+    let (source, root) = setup(fixture);
+    let store = DraftStore::open(&root, seed.owner.clone()).unwrap();
+    let mut expected = RecordFields::from_fn(|_| RecordValue::Unknown);
+    {
+        let account = store.lock_account().unwrap();
+        let mut state = source.state.lock().unwrap();
+        let mut patch = RecordFields::from_fn(|_| None);
+        patch.progress = Some(FieldPatch {
+            effect_target: targets.homework.clone(),
+            operation: PatchOperation::Set,
+            value: "- Invented progress".into(),
+        });
+        assert_eq!(
+            state
+                .dispatch_with_account(&account, id, &patch, &record.snapshot.provenance.read_at)
+                .unwrap_err()
+                .message,
+            "record_source_invalid"
+        );
+        assert_eq!(state.dispatch_count(), 0);
+        for field in RecordField::ALL {
+            let value = match field {
+                RecordField::Attendance => "L",
+                RecordField::DailyTestAssessment => "3",
+                RecordField::PreviousHomeworkAssessment => "2",
+                _ => "- Invented field update",
+            };
+            let mut patch = RecordFields::from_fn(|_| None);
+            patch[field] = Some(FieldPatch {
+                effect_target: targets[field].clone(),
+                operation: PatchOperation::Set,
+                value: value.into(),
+            });
+            let result = state
+                .dispatch_with_account(&account, id, &patch, &record.snapshot.provenance.read_at)
+                .unwrap();
+            assert_eq!(
+                result,
+                vec![EffectResult {
+                    field,
+                    outcome: EffectOutcome::Success,
+                    transport: TransportOutcome::Returned
+                }]
+            );
+            expected[field] = RecordValue::Known(value.into());
+        }
+        assert_eq!(state.dispatch_count(), RECORD_FIELD_COUNT as u64);
+    }
+    let persisted: RecordSeed =
+        serde_json::from_slice(&std::fs::read(root.join(SOURCE_SNAPSHOT)).unwrap()).unwrap();
+    assert_eq!(persisted.writable_targets, seed.writable_targets);
+    let mut reopened = SyntheticRecordState::open(&root, seed, 10000).unwrap();
+    let read = reopened
+        .read(id, &record.snapshot.provenance.read_at)
+        .unwrap();
+    let RecordObservation::Observed { fields, .. } = read.observation else {
+        panic!("observed required")
+    };
+    assert_eq!(fields, expected);
+}

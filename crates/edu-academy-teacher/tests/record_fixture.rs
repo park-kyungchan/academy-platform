@@ -369,3 +369,37 @@ fn native_shaped_metadata_is_shared_across_distinct_values() {
             && record.answer.get("source").get("wireDigest") == first.answer.get("source").get("wireDigest")
     }));
 }
+
+#[test]
+fn writable_bindings_preserve_original_identity_admission() {
+    let mut value: serde_json::Value = serde_json::from_str(FIXTURE).unwrap();
+    value["writable_targets"]
+        .as_array_mut()
+        .unwrap()
+        .truncate(1);
+    let fixture = RecordFixture::from_json(&value.to_string()).unwrap();
+    assert_eq!(fixture.seed.writable_targets.len(), RECORD_FIELD_COUNT);
+    for target in &fixture.seed.writable_targets {
+        assert_eq!(target.identity, fixture.records[0].snapshot.identity);
+        assert_eq!(
+            target.synthetic_target,
+            edu_academy_teacher::record_effect::canonical_effect_target(
+                fixture.records[0].field_evidence[target.field].get("target")
+            )
+            .unwrap()
+        );
+    }
+    let original = value.clone();
+    let duplicate = value["writable_targets"][0].clone();
+    value["writable_targets"]
+        .as_array_mut()
+        .unwrap()
+        .push(duplicate);
+    assert!(RecordFixture::from_json(&value.to_string()).is_err());
+    // Missing and ambiguous failed records cannot introduce writable absence.
+    for date in ["2026-11-10", "2026-11-12"] {
+        let mut value = original.clone();
+        value["writable_targets"][0]["identity"]["lesson_date"] = date.into();
+        assert!(RecordFixture::from_json(&value.to_string()).is_err());
+    }
+}

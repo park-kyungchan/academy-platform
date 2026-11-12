@@ -24,7 +24,7 @@ pub const MAX_SOURCE_RECORDS: usize = 256;
 pub const MAX_SOURCE_OPERATIONS: usize = 128;
 pub const MAX_SOURCE_JSON_DEPTH: usize = 32;
 pub const SOURCE_SNAPSHOT: &str = "record-source.json";
-pub const RECORD_SOURCE_FORMAT: &str = "academy.record-source/2";
+pub const RECORD_SOURCE_FORMAT: &str = "academy.record-source/3";
 pub const MAX_SOURCE_SCRIPTS: usize = 256;
 pub const SOURCE_READ_DEADLINE_MS: u64 = 2_000;
 pub const MAX_SOURCE_READ_RETRIES: usize = 1;
@@ -250,6 +250,7 @@ impl SourcePort for SyntheticRecordDayPort {
 #[serde(deny_unknown_fields)]
 pub struct WritableTarget {
     pub identity: RecordIdentity,
+    pub field: RecordField,
     pub synthetic_target: String,
 }
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -291,6 +292,7 @@ pub enum TransportOutcome {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EffectResult {
     pub field: RecordField,
+    pub outcome: EffectOutcome,
     pub transport: TransportOutcome,
 }
 
@@ -463,7 +465,9 @@ fn validate(seed: &RecordSeed, owner: &OwnerScope) -> Result<()> {
     let mut targets = BTreeSet::new();
     for t in &seed.writable_targets {
         valid_identity(&t.identity, owner)?;
-        if t.synthetic_target.is_empty() || !targets.insert(t.identity.key()?) {
+        if t.synthetic_target.is_empty()
+            || !targets.insert((t.identity.key()?, t.field.wire_name()))
+        {
             return Err(invalid());
         }
     }
@@ -710,17 +714,17 @@ impl SyntheticRecordState {
         valid_identity(id, &self.owner)?;
         chrono::DateTime::parse_from_rfc3339(at).map_err(|_| invalid())?;
         let mut source = self.load()?;
-        let target = source
-            .writable_targets
-            .iter()
-            .find(|t| t.identity == *id)
-            .ok_or_else(|| Fault::error("record_source_not_writable"))?
-            .synthetic_target
-            .clone();
+        if !source.writable_targets.iter().any(|t| t.identity == *id) {
+            return Err(Fault::error("record_source_not_writable"));
+        }
         if RecordField::ALL.iter().all(|&f| patch[f].is_none())
-            || RecordField::ALL
-                .iter()
-                .any(|&f| patch[f].as_ref().is_some_and(|p| p.effect_target != target))
+            || RecordField::ALL.iter().any(|&f| {
+                patch[f].as_ref().is_some_and(|p| {
+                    !source.writable_targets.iter().any(|t| {
+                        t.identity == *id && t.field == f && t.synthetic_target == p.effect_target
+                    })
+                })
+            })
         {
             return Err(invalid());
         }
@@ -749,7 +753,7 @@ impl SyntheticRecordState {
             ) {
                 if matches!(record.observation, RecordObservation::NotObserved) {
                     record.observation = RecordObservation::Observed {
-                        occurrence: target.clone(),
+                        occurrence: p.effect_target.clone(),
                         fields: RecordFields::from_fn(|_| RecordValue::Unknown),
                     };
                 }
@@ -761,6 +765,7 @@ impl SyntheticRecordState {
             }
             results.push(EffectResult {
                 field,
+                outcome,
                 transport: match outcome {
                     EffectOutcome::AppliedLostAck | EffectOutcome::UnappliedLostAck => {
                         TransportOutcome::Lost
