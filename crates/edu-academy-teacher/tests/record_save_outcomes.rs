@@ -1,7 +1,8 @@
 //! Initial read-only rows. Later packets add real dispatch/result traces here.
 use edu_academy_core::{js::Js, workflow::codec};
 use edu_academy_teacher::{record_data::*, record_fixture::*};
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, panic::catch_unwind};
+#[derive(Clone)]
 struct Dispatch {
     identity: RecordIdentity,
     field: RecordField,
@@ -11,6 +12,7 @@ struct Dispatch {
     fenced: bool,
     earlier_unresolved: bool,
 }
+#[derive(Clone)]
 struct Saved {
     identity: RecordIdentity,
     field: RecordField,
@@ -65,6 +67,63 @@ fn check(
     }
 }
 #[test]
+fn shared_checker_rejects_wrong_identity_duplicate_and_unequal_readback() {
+    let fixture = RecordFixture::from_json(include_str!("fixtures/record-answers.json")).unwrap();
+    let record = &fixture.records[0];
+    let preview = &record.snapshot.identity;
+    let field = RecordField::Attendance;
+    let target = record.field_evidence[field].get("target").clone();
+    let selected = [(field, target.clone(), RecordValue::Known("L".into()))];
+    let dispatched = Dispatch {
+        identity: preview.clone(),
+        field,
+        target: target.clone(),
+        attempt: "invented-attempt".into(),
+        approving_call: 1,
+        fenced: true,
+        earlier_unresolved: false,
+    };
+    let saved = Saved {
+        identity: preview.clone(),
+        field,
+        target,
+        intended: "L".into(),
+        readback: RecordValue::Known("L".into()),
+    };
+    // Establish that each negative starts from a checker-accepted trace.
+    check(
+        preview,
+        &selected,
+        std::slice::from_ref(&dispatched),
+        std::slice::from_ref(&saved),
+    );
+    for wrong_student in [true, false] {
+        let mut wrong = dispatched.clone();
+        if wrong_student {
+            wrong.identity.student_key = "invented-other-student".into();
+        } else {
+            wrong.identity.lesson_date = "2040-01-01".into();
+        }
+        assert!(catch_unwind(|| check(preview, &selected, &[wrong], &[])).is_err());
+    }
+    assert!(
+        catch_unwind(|| check(
+            preview,
+            &selected,
+            &[dispatched.clone(), dispatched.clone()],
+            &[]
+        ))
+        .is_err()
+    );
+    let mut repeated_call = dispatched.clone();
+    repeated_call.attempt = "invented-second-attempt".into();
+    assert!(catch_unwind(|| check(preview, &selected, &[dispatched, repeated_call], &[])).is_err());
+    let mut unequal = saved;
+    unequal.readback = RecordValue::Known("Y".into());
+    assert!(catch_unwind(|| check(preview, &selected, &[], &[unequal])).is_err());
+}
+
+#[test]
 fn b2_save_outcome_rows() {
     let input = include_str!("fixtures/record-answers.json");
     let fixture = RecordFixture::from_json(input).unwrap();
@@ -83,7 +142,10 @@ fn b2_save_outcome_rows() {
         let capture = codec::parse(item["capture"].to_string().as_bytes()).unwrap();
         let result = decode_record_answer(&capture, identity);
         if wrong_identity {
-            assert!(result.is_err(), "misbound read admitted");
+            assert_eq!(
+                result.err().expect("misbound read admitted").message,
+                "record_answer_identity_conflict"
+            );
         } else {
             assert!(matches!(
                 result.unwrap().snapshot.observation,
@@ -99,6 +161,18 @@ fn b2_save_outcome_rows() {
         );
         assert!(name.starts_with("B-"));
     }
+    // Mutate a later field independently; checking only the first field fails this case.
+    let mut capture = value["answers"][0]["capture"].clone();
+    capture["answer"]["structuredContent"]["fields"][3]["target"]["studentId"] =
+        "invented-other-student".into();
+    let result = decode_record_answer(
+        &codec::parse(capture.to_string().as_bytes()).unwrap(),
+        fixture.records[0].snapshot.identity.clone(),
+    );
+    assert_eq!(
+        result.err().expect("later field mismatch admitted").message,
+        "record_answer_identity_conflict"
+    );
     assert!(fixture.seed.read_scripts.is_empty());
 }
 
