@@ -18,7 +18,9 @@ def specs(request):
 def envelope(spec, display='Title\nStatement'):
     r = spec['required_arguments']
     if r.get('ask'):
-        return {'status':'ask', 'ask':{'field':r['ask']}, 'display':display, 'data':{}}
+        scope=dict(student=r['student'],topic=r['topic'],minors=[{'minor':{'code':'1-1'}}])
+        return {'status':'ask', 'ask':{'field':r['ask']}, 'display':display, 'data':{},
+                '_book_scope':scope,'_whole_book':copy.deepcopy(scope)}
     return {'status':'ok', 'display':display, 'data':dict(r, minors=[{'minor':{'code':u}} for u in r['minors']])}
 
 
@@ -70,11 +72,32 @@ class RequestChecks(unittest.TestCase):
                     for key in ('student','topic'):
                         wrong=copy.deepcopy(value); args=json.loads(wrong['arguments']); args[key]='wrong'
                         wrong['arguments']=json.dumps(args)
-                        self.assertEqual(c.evaluate(spec,[wrong],[response],previous)['required_arguments'],'FAIL')
+                        rejected=copy.deepcopy(response)
+                        rejected['_book_scope' if spec['required_arguments'].get('ask') else 'data'][key]='wrong'
+                        self.assertEqual(c.evaluate(spec,[wrong],[rejected],previous)['required_arguments'],'FAIL')
                     wrong=copy.deepcopy(response)
                     if spec['required_arguments'].get('ask'): wrong['ask']['field']='student'
                     else: wrong['data']['minors']=[]
                     self.assertEqual(c.evaluate(spec,[value],[wrong],previous)['required_arguments'],'FAIL')
+
+    def test_server_resolved_student_topic_and_range_override_raw_spelling(self):
+        spec=specs('Q16')[0]; response=envelope(spec)
+        alternatives=[{'student':'  가상학생A  ','unit':'2-3','topic':'섹션'},
+                      {'student':'가상학생A','unit':'2-3 섹션'},
+                      {'student':'가상학생A','unit_from':'2-3','unit_to':'2-3','topic':'섹션'}]
+        for args in alternatives:
+            value=dict(call(spec),arguments=json.dumps(args))
+            self.assertEqual(c.evaluate(spec,[value],[response],None)['required_arguments'],'pass')
+        wrong=copy.deepcopy(response); wrong['data']['topic']='전체'
+        self.assertEqual(c.evaluate(spec,[value],[wrong],None)['required_arguments'],'FAIL')
+
+    def test_book_ask_uses_separate_server_resolution_and_rejects_guessed_scope(self):
+        spec=specs('Q14')[0]; response=envelope(spec); value=call(spec)
+        args=json.loads(value['arguments']); args['student']='  가상학생B  '
+        value['arguments']=json.dumps(args)
+        self.assertEqual(c.evaluate(spec,[value],[response],None)['required_arguments'],'pass')
+        response['_book_scope']['minors']=[]
+        self.assertEqual(c.evaluate(spec,[value],[response],None)['required_arguments'],'FAIL')
 
     def test_q12_level_omission_fails_even_when_broader_display_is_delivered_honestly(self):
         spec=specs('Q12')[0]; value=call(spec); response=envelope(spec)

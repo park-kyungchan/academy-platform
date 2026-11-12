@@ -3,7 +3,7 @@ import json
 import subprocess
 
 
-def replay(binary, scenario, calls, today='2026-11-11'):
+def replay(binary, scenario, calls, today='2026-11-11', probe_books=True):
     academy = [c for c in calls if str(c['name']).startswith('mcp__academy__')]
     if len(academy) > 32:
         raise ValueError('replay_call_limit')
@@ -20,7 +20,23 @@ def replay(binary, scenario, calls, today='2026-11-11'):
     responses = [json.loads(line) for line in proc.stdout.splitlines()]
     if len(responses) != len(messages) or any(r.get('id') != i for i, r in enumerate(responses)):
         raise ValueError('replay_response_order')
-    return [r.get('result', {}).get('_meta', {}).get('academy/envelope') for r in responses]
+    envelopes = [r.get('result', {}).get('_meta', {}).get('academy/envelope') for r in responses]
+    # Book asks have empty data. Separate synthetic probes expose resolution
+    # without advancing the original conversation's frame/cache or changing display.
+    for call, envelope in zip(academy, envelopes):
+        ask = (envelope or {}).get('ask') or {}
+        if probe_books and ask.get('field') == 'book' and ask.get('options'):
+            args = dict(json.loads(call['arguments']), book=ask['options'][0]['value'])
+            probe = dict(call, arguments=json.dumps(args))
+            resolved = replay(binary, scenario, [probe], today, False)[0]
+            if resolved and resolved.get('status') == 'ok':
+                data = resolved['data']
+                canonical = {k:data[k] for k in ('student','topic')}
+                canonical['book'] = data['edition']
+                baseline = replay(binary, scenario, [dict(probe, arguments=json.dumps(canonical))], today, False)[0]
+                envelope['_book_scope'] = data
+                envelope['_whole_book'] = (baseline or {}).get('data', {})
+    return envelopes
 
 
 def evaluate(spec, calls, envelopes, previous):
@@ -35,18 +51,19 @@ def evaluate(spec, calls, envelopes, previous):
         return checks
     arguments = json.loads(academy[-1]['arguments'])
     valid = isinstance(arguments, dict)
-    student = arguments.get('student') if valid else None
-    valid = valid and student in (required['student'], required['student']+' (가상반A)')
-    valid = valid and arguments.get('topic') == required['topic']
     if required.get('book_explicit'):
         valid = valid and isinstance(arguments.get('book'), str) and bool(arguments['book'].strip())
-    if required.get('ask'):
-        valid = valid and not any(arguments.get(k) for k in ('book','unit','unit_from','unit_to'))
     envelope = envelopes[-1] if envelopes else None
     scope = 'unknown'
     if envelope is not None:
         if required.get('ask'):
-            scope = 'pass' if (envelope.get('ask') or {}).get('field') == required['ask'] else 'FAIL'
+            data = envelope.get('_book_scope', {})
+            whole = envelope.get('_whole_book', {})
+            ok = (envelope.get('status') == 'ask' and (envelope.get('ask') or {}).get('field') == required['ask']
+                  and data.get('student') == required['student'] and data.get('topic') == required['topic']
+                  and bool(data.get('minors')) and data.get('minors') == whole.get('minors')
+                  and data.get('activity') is None and data.get('level') is None)
+            scope = 'pass' if ok else 'FAIL'
         else:
             data = envelope.get('data', {})
             minors = [leaf['minor']['code'] for leaf in data.get('minors', [])]
