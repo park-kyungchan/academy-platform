@@ -322,7 +322,7 @@ class HarnessTests(unittest.TestCase):
             (path / "measurement.json").write_text(metadata)
             (path / "claude.jsonl").write_text(stream)
             row = rescore.score_saved(path)
-            self.assertEqual(set(row), {"mode","request","model","received_form","shown_unchanged","facts_kept","source_footer","closing_statement","failed_rules","extra_chars","isolation","delivery","reason_code","unknown_by_reason","unit_counts"})
+            self.assertEqual(set(row), {"mode","request","model","received_form","shown_unchanged","facts_kept","source_footer","closing_statement","failed_rules","extra_chars","isolation","delivery","reason_code","unknown_by_reason","unit_counts","failed_request_checks"})
             self.assertEqual(row["received_form"], "envelope")
             self.assertEqual(row["shown_unchanged"], "pass")
             self.assertEqual(row["extra_chars"], 0)
@@ -373,3 +373,27 @@ class HarnessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Slice2ExportTests(unittest.TestCase):
+    def test_public_row_exports_counts_and_categories_only(self):
+        spec = json.loads((run.HERE / 'checks.json').read_text())['Q14']['turns'][0]
+        result = run.score_turns('', [spec], [], 'isolated', None)[0]
+        result['answer'] = result['display'] = '/synthetic/private/text'
+        result['calls'] = [{'arguments':'private arguments'}]
+        result['usage'] = {'input_tokens':7, 'private_payload':'never exported'}
+        row = run.public_row(result, 'Q14', 'haiku', 'isolated')
+        encoded = json.dumps(row)
+        self.assertNotIn('private', encoded)
+        self.assertEqual(row['tokens']['input_tokens'], 7)
+        self.assertEqual(row['facts_kept'], 'unknown')
+        self.assertEqual(row['model_tier'], 'low')
+
+    def test_scope_failure_remains_distinct_from_kept_delivered_facts(self):
+        spec = json.loads((run.HERE / 'checks.json').read_text())['Q15']['turns'][0]
+        result = run.score_turns('', [spec], [], 'isolated', None)[0]
+        result.update(facts_kept='pass', reason_code=None, checks={'raw_fixture':'FAIL'}, isolation={'status':'pass'}, turn_sent=True)
+        row = run.public_row(result, 'Q15', 'sonnet', 'isolated')
+        self.assertEqual(row['facts_kept'], 'pass')
+        self.assertEqual(row['result'], 'FAIL')
+        self.assertEqual(row['reason_code'], 'request_checks_failed')

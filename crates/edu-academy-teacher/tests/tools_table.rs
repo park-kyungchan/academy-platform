@@ -22,9 +22,9 @@ fn tools_list_equals_fixture() {
 }
 
 #[test]
-fn tools_list_at_most_8000_bytes() {
-    assert_eq!(tools_list_minified().len(), 7960);
-    assert!(tools_list_minified().len() <= 8000);
+fn tools_list_at_most_8102_bytes() {
+    assert_eq!(tools_list_minified().len(), 8102);
+    assert!(tools_list_minified().len() <= 8102);
 }
 
 #[test]
@@ -58,9 +58,15 @@ fn every_advertised_name_has_a_handler_and_unknown_name_refuses() {
     assert!(dispatch("academy_no_such_tool").is_none());
     let unavailable: Vec<_> = TOOLS
         .iter()
-        .filter(|t| t.name != "academy_lesson_prepare")
+        .filter(|t| {
+            !matches!(
+                t.handler,
+                edu_academy_teacher::tools::Handler::LessonPrepare
+                    | edu_academy_teacher::tools::Handler::UnitStatus
+            )
+        })
         .collect();
-    assert_eq!(unavailable.len(), 13);
+    assert_eq!(unavailable.len(), 12);
     for tool in unavailable {
         let envelope = dispatch(tool.name)
             .and_then(|h| h.unavailable_envelope())

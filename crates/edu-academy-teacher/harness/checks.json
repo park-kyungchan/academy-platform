@@ -342,5 +342,844 @@
         "search_states": 10000
       }
     }
+  },
+  "Q11": {
+    "turns": [
+      {
+        "request_text": "가상학생A 가우스 5-1-2 소단원별 DailyTest 현황 줘",
+        "expected_tool": "academy_unit_status",
+        "target_calls": 1,
+        "fixture": "display-q11.txt",
+        "fidelity_policy": {
+          "contract": "M21",
+          "rows": "one_to_one_whole_fields",
+          "bindings": [
+            "part",
+            "student",
+            "header"
+          ],
+          "required_parts": [
+            "미확인 사항",
+            "다음 확인"
+          ],
+          "unknown_structure": "unknown",
+          "unmatched_rows": "reject",
+          "unmatched_required_lines": "reject",
+          "title": "retain",
+          "commentary_max_lines": 1,
+          "commentary_state_labels": "reject_word_table",
+          "optional_nonrows": [
+            "sources",
+            "closing"
+          ],
+          "normalization": {
+            "surrounding_whitespace": true,
+            "bars": [
+              "|",
+              "｜"
+            ],
+            "line_break_encoding": " / ",
+            "outer_fence": true,
+            "table_separator": "ignore_whole_lines"
+          },
+          "structure": {
+            "tables": "reference_spaced_headers",
+            "heading_markers": [
+              "#",
+              "**"
+            ],
+            "list_marker": "- ",
+            "bullet_separator": " · ",
+            "student_heading_suffix": " 학원 내 처리",
+            "text_without_rows": "whole_lines",
+            "student_heading_level": 2,
+            "answer_context": "reference_markers_only",
+            "plain_part_before_header": "shared_first_header_or_new_width",
+            "unmarked_cell_continuation": "last_cell",
+            "plain_empty_part": "heading_followed_by_none"
+          },
+          "state_labels": {
+            "path": "src/display_labels.rs",
+            "constants": [
+              "TEACHER",
+              "SERVER",
+              "PHYSICAL",
+              "WAITING",
+              "UNJUDGED",
+              "DEFERRED",
+              "MISSING_VIDEO",
+              "MISSING_TITLE",
+              "NOT_OBSERVED",
+              "NOT_IN_RANGE",
+              "NOT_IN_EITHER",
+              "NOT_YET",
+              "NOT_APPLICABLE",
+              "UNAVAILABLE",
+              "EXCLUDED",
+              "ELIGIBLE",
+              "NOT_ELIGIBLE",
+              "PERSISTED",
+              "NOT_PERSISTED",
+              "CONFLICT",
+              "UNRESOLVED"
+            ]
+          },
+          "provenance": {
+            "source_prefix": "READ_SOURCES",
+            "closing": "CLOSING"
+          },
+          "commentary_allowed": "outside_required_parts",
+          "limits": {
+            "reference_units": 4096,
+            "answer_bytes": 65536,
+            "search_states": 10000
+          }
+        },
+        "required_arguments": {
+          "student": "가상학생A",
+          "topic": "DailyTest",
+          "edition": "가우스 5-1-2",
+          "minors": [
+            "1-1",
+            "1-2",
+            "1-3",
+            "1-4",
+            "2-1",
+            "2-2",
+            "2-3"
+          ],
+          "book_explicit": true
+        }
+      }
+    ]
+  },
+  "Q12": {
+    "turns": [
+      {
+        "request_text": "가상학생B 4-4 기본 DailyTest 있어?",
+        "expected_tool": "academy_unit_status",
+        "target_calls": 1,
+        "fixture": "display-q12-basic-first.txt",
+        "fidelity_policy": {
+          "contract": "M21",
+          "rows": "one_to_one_whole_fields",
+          "bindings": [
+            "part",
+            "student",
+            "header"
+          ],
+          "required_parts": [
+            "미확인 사항",
+            "다음 확인"
+          ],
+          "unknown_structure": "unknown",
+          "unmatched_rows": "reject",
+          "unmatched_required_lines": "reject",
+          "title": "retain",
+          "commentary_max_lines": 1,
+          "commentary_state_labels": "reject_word_table",
+          "optional_nonrows": [
+            "sources",
+            "closing"
+          ],
+          "normalization": {
+            "surrounding_whitespace": true,
+            "bars": [
+              "|",
+              "｜"
+            ],
+            "line_break_encoding": " / ",
+            "outer_fence": true,
+            "table_separator": "ignore_whole_lines"
+          },
+          "structure": {
+            "tables": "reference_spaced_headers",
+            "heading_markers": [
+              "#",
+              "**"
+            ],
+            "list_marker": "- ",
+            "bullet_separator": " · ",
+            "student_heading_suffix": " 학원 내 처리",
+            "text_without_rows": "whole_lines",
+            "student_heading_level": 2,
+            "answer_context": "reference_markers_only",
+            "plain_part_before_header": "shared_first_header_or_new_width",
+            "unmarked_cell_continuation": "last_cell",
+            "plain_empty_part": "heading_followed_by_none"
+          },
+          "state_labels": {
+            "path": "src/display_labels.rs",
+            "constants": [
+              "TEACHER",
+              "SERVER",
+              "PHYSICAL",
+              "WAITING",
+              "UNJUDGED",
+              "DEFERRED",
+              "MISSING_VIDEO",
+              "MISSING_TITLE",
+              "NOT_OBSERVED",
+              "NOT_IN_RANGE",
+              "NOT_IN_EITHER",
+              "NOT_YET",
+              "NOT_APPLICABLE",
+              "UNAVAILABLE",
+              "EXCLUDED",
+              "ELIGIBLE",
+              "NOT_ELIGIBLE",
+              "PERSISTED",
+              "NOT_PERSISTED",
+              "CONFLICT",
+              "UNRESOLVED"
+            ]
+          },
+          "provenance": {
+            "source_prefix": "READ_SOURCES",
+            "closing": "CLOSING"
+          },
+          "commentary_allowed": "outside_required_parts",
+          "limits": {
+            "reference_units": 4096,
+            "answer_bytes": 65536,
+            "search_states": 10000
+          }
+        },
+        "required_arguments": {
+          "student": "가상학생B",
+          "topic": "DailyTest",
+          "edition": "가우스 5-1-1",
+          "minors": [
+            "4-4"
+          ],
+          "level": "기본"
+        }
+      },
+      {
+        "request_text": "같은 학생 4-4 기본 DailyTest 지금 다시 확인해줘",
+        "expected_tool": "academy_unit_status",
+        "target_calls": 1,
+        "fixture": "display-q12-basic-later.txt",
+        "fidelity_policy": {
+          "contract": "M21",
+          "rows": "one_to_one_whole_fields",
+          "bindings": [
+            "part",
+            "student",
+            "header"
+          ],
+          "required_parts": [
+            "미확인 사항",
+            "다음 확인"
+          ],
+          "unknown_structure": "unknown",
+          "unmatched_rows": "reject",
+          "unmatched_required_lines": "reject",
+          "title": "retain",
+          "commentary_max_lines": 1,
+          "commentary_state_labels": "reject_word_table",
+          "optional_nonrows": [
+            "sources",
+            "closing"
+          ],
+          "normalization": {
+            "surrounding_whitespace": true,
+            "bars": [
+              "|",
+              "｜"
+            ],
+            "line_break_encoding": " / ",
+            "outer_fence": true,
+            "table_separator": "ignore_whole_lines"
+          },
+          "structure": {
+            "tables": "reference_spaced_headers",
+            "heading_markers": [
+              "#",
+              "**"
+            ],
+            "list_marker": "- ",
+            "bullet_separator": " · ",
+            "student_heading_suffix": " 학원 내 처리",
+            "text_without_rows": "whole_lines",
+            "student_heading_level": 2,
+            "answer_context": "reference_markers_only",
+            "plain_part_before_header": "shared_first_header_or_new_width",
+            "unmarked_cell_continuation": "last_cell",
+            "plain_empty_part": "heading_followed_by_none"
+          },
+          "state_labels": {
+            "path": "src/display_labels.rs",
+            "constants": [
+              "TEACHER",
+              "SERVER",
+              "PHYSICAL",
+              "WAITING",
+              "UNJUDGED",
+              "DEFERRED",
+              "MISSING_VIDEO",
+              "MISSING_TITLE",
+              "NOT_OBSERVED",
+              "NOT_IN_RANGE",
+              "NOT_IN_EITHER",
+              "NOT_YET",
+              "NOT_APPLICABLE",
+              "UNAVAILABLE",
+              "EXCLUDED",
+              "ELIGIBLE",
+              "NOT_ELIGIBLE",
+              "PERSISTED",
+              "NOT_PERSISTED",
+              "CONFLICT",
+              "UNRESOLVED"
+            ]
+          },
+          "provenance": {
+            "source_prefix": "READ_SOURCES",
+            "closing": "CLOSING"
+          },
+          "commentary_allowed": "outside_required_parts",
+          "limits": {
+            "reference_units": 4096,
+            "answer_bytes": 65536,
+            "search_states": 10000
+          }
+        },
+        "required_arguments": {
+          "student": "가상학생B",
+          "topic": "DailyTest",
+          "edition": "가우스 5-1-1",
+          "minors": [
+            "4-4"
+          ],
+          "level": "기본"
+        },
+        "followup": true
+      }
+    ]
+  },
+  "Q13": {
+    "turns": [
+      {
+        "request_text": "가상학생A 오답클리닉 대상 섹션 알려줘",
+        "expected_tool": "academy_unit_status",
+        "target_calls": 1,
+        "fixture": "display-q13.txt",
+        "fidelity_policy": {
+          "contract": "M21",
+          "rows": "one_to_one_whole_fields",
+          "bindings": [
+            "part",
+            "student",
+            "header"
+          ],
+          "required_parts": [
+            "미확인 사항",
+            "다음 확인"
+          ],
+          "unknown_structure": "unknown",
+          "unmatched_rows": "reject",
+          "unmatched_required_lines": "reject",
+          "title": "retain",
+          "commentary_max_lines": 1,
+          "commentary_state_labels": "reject_word_table",
+          "optional_nonrows": [
+            "sources",
+            "closing"
+          ],
+          "normalization": {
+            "surrounding_whitespace": true,
+            "bars": [
+              "|",
+              "｜"
+            ],
+            "line_break_encoding": " / ",
+            "outer_fence": true,
+            "table_separator": "ignore_whole_lines"
+          },
+          "structure": {
+            "tables": "reference_spaced_headers",
+            "heading_markers": [
+              "#",
+              "**"
+            ],
+            "list_marker": "- ",
+            "bullet_separator": " · ",
+            "student_heading_suffix": " 학원 내 처리",
+            "text_without_rows": "whole_lines",
+            "student_heading_level": 2,
+            "answer_context": "reference_markers_only",
+            "plain_part_before_header": "shared_first_header_or_new_width",
+            "unmarked_cell_continuation": "last_cell",
+            "plain_empty_part": "heading_followed_by_none"
+          },
+          "state_labels": {
+            "path": "src/display_labels.rs",
+            "constants": [
+              "TEACHER",
+              "SERVER",
+              "PHYSICAL",
+              "WAITING",
+              "UNJUDGED",
+              "DEFERRED",
+              "MISSING_VIDEO",
+              "MISSING_TITLE",
+              "NOT_OBSERVED",
+              "NOT_IN_RANGE",
+              "NOT_IN_EITHER",
+              "NOT_YET",
+              "NOT_APPLICABLE",
+              "UNAVAILABLE",
+              "EXCLUDED",
+              "ELIGIBLE",
+              "NOT_ELIGIBLE",
+              "PERSISTED",
+              "NOT_PERSISTED",
+              "CONFLICT",
+              "UNRESOLVED"
+            ]
+          },
+          "provenance": {
+            "source_prefix": "READ_SOURCES",
+            "closing": "CLOSING"
+          },
+          "commentary_allowed": "outside_required_parts",
+          "limits": {
+            "reference_units": 4096,
+            "answer_bytes": 65536,
+            "search_states": 10000
+          }
+        },
+        "required_arguments": {
+          "student": "가상학생A",
+          "topic": "클리닉",
+          "edition": "가우스 5-1-2",
+          "minors": [
+            "1-1",
+            "1-2",
+            "1-3",
+            "1-4",
+            "2-1",
+            "2-2",
+            "2-3"
+          ]
+        }
+      }
+    ]
+  },
+  "Q14": {
+    "turns": [
+      {
+        "request_text": "가상학생B 클리닉 봐줘",
+        "expected_tool": "academy_unit_status",
+        "target_calls": 1,
+        "fixture": "display-q14-ask.txt",
+        "fidelity_policy": {
+          "contract": "M21",
+          "rows": "one_to_one_whole_fields",
+          "bindings": [
+            "part",
+            "student",
+            "header"
+          ],
+          "required_parts": [
+            "미확인 사항",
+            "다음 확인"
+          ],
+          "unknown_structure": "unknown",
+          "unmatched_rows": "reject",
+          "unmatched_required_lines": "reject",
+          "title": "retain",
+          "commentary_max_lines": 1,
+          "commentary_state_labels": "reject_word_table",
+          "optional_nonrows": [
+            "sources",
+            "closing"
+          ],
+          "normalization": {
+            "surrounding_whitespace": true,
+            "bars": [
+              "|",
+              "｜"
+            ],
+            "line_break_encoding": " / ",
+            "outer_fence": true,
+            "table_separator": "ignore_whole_lines"
+          },
+          "structure": {
+            "tables": "reference_spaced_headers",
+            "heading_markers": [
+              "#",
+              "**"
+            ],
+            "list_marker": "- ",
+            "bullet_separator": " · ",
+            "student_heading_suffix": " 학원 내 처리",
+            "text_without_rows": "whole_lines",
+            "student_heading_level": 2,
+            "answer_context": "reference_markers_only",
+            "plain_part_before_header": "shared_first_header_or_new_width",
+            "unmarked_cell_continuation": "last_cell",
+            "plain_empty_part": "heading_followed_by_none"
+          },
+          "state_labels": {
+            "path": "src/display_labels.rs",
+            "constants": [
+              "TEACHER",
+              "SERVER",
+              "PHYSICAL",
+              "WAITING",
+              "UNJUDGED",
+              "DEFERRED",
+              "MISSING_VIDEO",
+              "MISSING_TITLE",
+              "NOT_OBSERVED",
+              "NOT_IN_RANGE",
+              "NOT_IN_EITHER",
+              "NOT_YET",
+              "NOT_APPLICABLE",
+              "UNAVAILABLE",
+              "EXCLUDED",
+              "ELIGIBLE",
+              "NOT_ELIGIBLE",
+              "PERSISTED",
+              "NOT_PERSISTED",
+              "CONFLICT",
+              "UNRESOLVED"
+            ]
+          },
+          "provenance": {
+            "source_prefix": "READ_SOURCES",
+            "closing": "CLOSING"
+          },
+          "commentary_allowed": "outside_required_parts",
+          "limits": {
+            "reference_units": 4096,
+            "answer_bytes": 65536,
+            "search_states": 10000
+          }
+        },
+        "required_arguments": {
+          "student": "가상학생B",
+          "topic": "클리닉",
+          "ask": "book"
+        }
+      },
+      {
+        "request_text": "가우스 5-1-1",
+        "expected_tool": "academy_unit_status",
+        "target_calls": 1,
+        "fixture": "display-q14-result.txt",
+        "fidelity_policy": {
+          "contract": "M21",
+          "rows": "one_to_one_whole_fields",
+          "bindings": [
+            "part",
+            "student",
+            "header"
+          ],
+          "required_parts": [
+            "미확인 사항",
+            "다음 확인"
+          ],
+          "unknown_structure": "unknown",
+          "unmatched_rows": "reject",
+          "unmatched_required_lines": "reject",
+          "title": "retain",
+          "commentary_max_lines": 1,
+          "commentary_state_labels": "reject_word_table",
+          "optional_nonrows": [
+            "sources",
+            "closing"
+          ],
+          "normalization": {
+            "surrounding_whitespace": true,
+            "bars": [
+              "|",
+              "｜"
+            ],
+            "line_break_encoding": " / ",
+            "outer_fence": true,
+            "table_separator": "ignore_whole_lines"
+          },
+          "structure": {
+            "tables": "reference_spaced_headers",
+            "heading_markers": [
+              "#",
+              "**"
+            ],
+            "list_marker": "- ",
+            "bullet_separator": " · ",
+            "student_heading_suffix": " 학원 내 처리",
+            "text_without_rows": "whole_lines",
+            "student_heading_level": 2,
+            "answer_context": "reference_markers_only",
+            "plain_part_before_header": "shared_first_header_or_new_width",
+            "unmarked_cell_continuation": "last_cell",
+            "plain_empty_part": "heading_followed_by_none"
+          },
+          "state_labels": {
+            "path": "src/display_labels.rs",
+            "constants": [
+              "TEACHER",
+              "SERVER",
+              "PHYSICAL",
+              "WAITING",
+              "UNJUDGED",
+              "DEFERRED",
+              "MISSING_VIDEO",
+              "MISSING_TITLE",
+              "NOT_OBSERVED",
+              "NOT_IN_RANGE",
+              "NOT_IN_EITHER",
+              "NOT_YET",
+              "NOT_APPLICABLE",
+              "UNAVAILABLE",
+              "EXCLUDED",
+              "ELIGIBLE",
+              "NOT_ELIGIBLE",
+              "PERSISTED",
+              "NOT_PERSISTED",
+              "CONFLICT",
+              "UNRESOLVED"
+            ]
+          },
+          "provenance": {
+            "source_prefix": "READ_SOURCES",
+            "closing": "CLOSING"
+          },
+          "commentary_allowed": "outside_required_parts",
+          "limits": {
+            "reference_units": 4096,
+            "answer_bytes": 65536,
+            "search_states": 10000
+          }
+        },
+        "required_arguments": {
+          "student": "가상학생B",
+          "topic": "클리닉",
+          "edition": "가우스 5-1-1",
+          "minors": [
+            "1-1",
+            "1-2",
+            "1-3",
+            "4-1",
+            "4-2",
+            "4-3",
+            "4-4",
+            "대단원 4"
+          ],
+          "book_explicit": true
+        },
+        "followup": true
+      }
+    ]
+  },
+  "Q15": {
+    "turns": [
+      {
+        "request_text": "가상학생A 1-2 필수예제 점수랑 오답 보여줘",
+        "expected_tool": "academy_unit_status",
+        "target_calls": 1,
+        "fixture": "display-q15.txt",
+        "fidelity_policy": {
+          "contract": "M21",
+          "rows": "one_to_one_whole_fields",
+          "bindings": [
+            "part",
+            "student",
+            "header"
+          ],
+          "required_parts": [
+            "미확인 사항",
+            "다음 확인"
+          ],
+          "unknown_structure": "unknown",
+          "unmatched_rows": "reject",
+          "unmatched_required_lines": "reject",
+          "title": "retain",
+          "commentary_max_lines": 1,
+          "commentary_state_labels": "reject_word_table",
+          "optional_nonrows": [
+            "sources",
+            "closing"
+          ],
+          "normalization": {
+            "surrounding_whitespace": true,
+            "bars": [
+              "|",
+              "｜"
+            ],
+            "line_break_encoding": " / ",
+            "outer_fence": true,
+            "table_separator": "ignore_whole_lines"
+          },
+          "structure": {
+            "tables": "reference_spaced_headers",
+            "heading_markers": [
+              "#",
+              "**"
+            ],
+            "list_marker": "- ",
+            "bullet_separator": " · ",
+            "student_heading_suffix": " 학원 내 처리",
+            "text_without_rows": "whole_lines",
+            "student_heading_level": 2,
+            "answer_context": "reference_markers_only",
+            "plain_part_before_header": "shared_first_header_or_new_width",
+            "unmarked_cell_continuation": "last_cell",
+            "plain_empty_part": "heading_followed_by_none"
+          },
+          "state_labels": {
+            "path": "src/display_labels.rs",
+            "constants": [
+              "TEACHER",
+              "SERVER",
+              "PHYSICAL",
+              "WAITING",
+              "UNJUDGED",
+              "DEFERRED",
+              "MISSING_VIDEO",
+              "MISSING_TITLE",
+              "NOT_OBSERVED",
+              "NOT_IN_RANGE",
+              "NOT_IN_EITHER",
+              "NOT_YET",
+              "NOT_APPLICABLE",
+              "UNAVAILABLE",
+              "EXCLUDED",
+              "ELIGIBLE",
+              "NOT_ELIGIBLE",
+              "PERSISTED",
+              "NOT_PERSISTED",
+              "CONFLICT",
+              "UNRESOLVED"
+            ]
+          },
+          "provenance": {
+            "source_prefix": "READ_SOURCES",
+            "closing": "CLOSING"
+          },
+          "commentary_allowed": "outside_required_parts",
+          "limits": {
+            "reference_units": 4096,
+            "answer_bytes": 65536,
+            "search_states": 10000
+          }
+        },
+        "required_arguments": {
+          "student": "가상학생A",
+          "topic": "섹션",
+          "edition": "가우스 5-1-2",
+          "minors": [
+            "1-2"
+          ],
+          "activity": "필수예제"
+        }
+      }
+    ]
+  },
+  "Q16": {
+    "turns": [
+      {
+        "request_text": "가상학생A 2-3 섹션 결과 있어?",
+        "expected_tool": "academy_unit_status",
+        "target_calls": 1,
+        "fixture": "display-q16.txt",
+        "fidelity_policy": {
+          "contract": "M21",
+          "rows": "one_to_one_whole_fields",
+          "bindings": [
+            "part",
+            "student",
+            "header"
+          ],
+          "required_parts": [
+            "미확인 사항",
+            "다음 확인"
+          ],
+          "unknown_structure": "unknown",
+          "unmatched_rows": "reject",
+          "unmatched_required_lines": "reject",
+          "title": "retain",
+          "commentary_max_lines": 1,
+          "commentary_state_labels": "reject_word_table",
+          "optional_nonrows": [
+            "sources",
+            "closing"
+          ],
+          "normalization": {
+            "surrounding_whitespace": true,
+            "bars": [
+              "|",
+              "｜"
+            ],
+            "line_break_encoding": " / ",
+            "outer_fence": true,
+            "table_separator": "ignore_whole_lines"
+          },
+          "structure": {
+            "tables": "reference_spaced_headers",
+            "heading_markers": [
+              "#",
+              "**"
+            ],
+            "list_marker": "- ",
+            "bullet_separator": " · ",
+            "student_heading_suffix": " 학원 내 처리",
+            "text_without_rows": "whole_lines",
+            "student_heading_level": 2,
+            "answer_context": "reference_markers_only",
+            "plain_part_before_header": "shared_first_header_or_new_width",
+            "unmarked_cell_continuation": "last_cell",
+            "plain_empty_part": "heading_followed_by_none"
+          },
+          "state_labels": {
+            "path": "src/display_labels.rs",
+            "constants": [
+              "TEACHER",
+              "SERVER",
+              "PHYSICAL",
+              "WAITING",
+              "UNJUDGED",
+              "DEFERRED",
+              "MISSING_VIDEO",
+              "MISSING_TITLE",
+              "NOT_OBSERVED",
+              "NOT_IN_RANGE",
+              "NOT_IN_EITHER",
+              "NOT_YET",
+              "NOT_APPLICABLE",
+              "UNAVAILABLE",
+              "EXCLUDED",
+              "ELIGIBLE",
+              "NOT_ELIGIBLE",
+              "PERSISTED",
+              "NOT_PERSISTED",
+              "CONFLICT",
+              "UNRESOLVED"
+            ]
+          },
+          "provenance": {
+            "source_prefix": "READ_SOURCES",
+            "closing": "CLOSING"
+          },
+          "commentary_allowed": "outside_required_parts",
+          "limits": {
+            "reference_units": 4096,
+            "answer_bytes": 65536,
+            "search_states": 10000
+          }
+        },
+        "required_arguments": {
+          "student": "가상학생A",
+          "topic": "섹션",
+          "edition": "가우스 5-1-2",
+          "minors": [
+            "2-3"
+          ]
+        }
+      }
+    ]
   }
 }

@@ -1,4 +1,5 @@
 //! Stdio protocol test: drive the built binary one line at a time.
+use edu_academy_teacher::tools::DISPLAY_DIRECTIVE;
 use serde_json::{Value, json};
 use std::{
     io::{BufRead, BufReader, Read, Write},
@@ -46,8 +47,11 @@ impl Server {
             std::fs::write(dir.join("target"), "retained").unwrap();
             std::os::unix::fs::symlink(dir.join("target"), &run_log).unwrap();
         }
-        let scenario =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/scenario-v2.json");
+        let scenario = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(if kind == Some("unit") {
+            "tests/fixtures/scenario-v3.json"
+        } else {
+            "tests/fixtures/scenario-v2.json"
+        });
         let scenario = if kind == Some("empty_roster") {
             let mut value: Value =
                 serde_json::from_str(&std::fs::read_to_string(&scenario).unwrap()).unwrap();
@@ -105,7 +109,16 @@ impl Server {
         line
     }
     fn call(&mut self, value: Value) -> Value {
-        serde_json::from_str(&self.send(&value.to_string())).unwrap()
+        let reply: Value = serde_json::from_str(&self.send(&value.to_string())).unwrap();
+        if let Some(content) = reply["result"].get("content") {
+            assert_eq!(content.as_array().unwrap().len(), 2);
+            assert_eq!(content[0], json!({"type":"text","text":DISPLAY_DIRECTIVE}));
+            assert_eq!(
+                content[1],
+                json!({"type":"text","text":reply["result"]["_meta"]["academy/envelope"]["display"]})
+            );
+        }
+        reply
     }
 }
 
@@ -168,10 +181,10 @@ fn stdio_protocol_end_to_end() {
     assert_eq!(q01["result"]["isError"], false);
     assert_eq!(
         q01["result"]["content"],
-        json!([{"type":"text","text":DISPLAY_Q01}])
+        json!([{"type":"text","text":DISPLAY_DIRECTIVE},{"type":"text","text":DISPLAY_Q01}])
     );
     assert!(q01["result"].get("structuredContent").is_none());
-    assert_eq!(q01["result"]["content"][0]["text"], DISPLAY_Q01);
+    assert_eq!(q01["result"]["content"][1]["text"], DISPLAY_Q01);
     assert_eq!(q01["result"]["_meta"]["academy/envelope"]["status"], "ok");
     // checks.json Q01 data assertion, at the protocol level.
     assert_eq!(
@@ -184,19 +197,19 @@ fn stdio_protocol_end_to_end() {
         "jsonrpc": "2.0", "id": 4, "method": "tools/call",
         "params": {"name": "academy_lesson_prepare", "arguments": {"class_name": "가상반A"}}
     }));
-    assert_eq!(q02["result"]["content"][0]["text"], DISPLAY_Q02);
+    assert_eq!(q02["result"]["content"][1]["text"], DISPLAY_Q02);
     assert_eq!(q02["result"]["_meta"]["academy/envelope"]["status"], "ok");
 
     assert_eq!(
         q02["result"]["content"],
-        json!([{"type":"text","text":DISPLAY_Q02}])
+        json!([{"type":"text","text":DISPLAY_DIRECTIVE},{"type":"text","text":DISPLAY_Q02}])
     );
     for result in [&q01["result"], &q02["result"]] {
         assert_eq!(result.as_object().unwrap().len(), 3);
         assert_eq!(result["_meta"].as_object().unwrap().len(), 1);
         assert_eq!(
             result["_meta"]["academy/envelope"]["display"],
-            result["content"][0]["text"]
+            result["content"][1]["text"]
         );
         assert!(result.get("structuredContent").is_none());
     }
@@ -206,7 +219,7 @@ fn stdio_protocol_end_to_end() {
         "jsonrpc": "2.0", "id": 5, "method": "tools/call",
         "params": {"name": "academy_help", "arguments": {"topic": "x"}}
     }));
-    assert_eq!(other["result"]["isError"], false);
+    assert_eq!(other["result"]["isError"], true);
     assert_eq!(
         other["result"]["_meta"]["academy/envelope"]["stop"]["code"],
         "tool_not_in_slice_1"
@@ -217,24 +230,9 @@ fn stdio_protocol_end_to_end() {
         "jsonrpc": "2.0", "id": 6, "method": "tools/call",
         "params": {"name": "가상학생UnknownTool", "arguments": {}}
     }));
-    assert_eq!(unknown["result"]["isError"], false);
-    assert_eq!(
-        unknown["result"]["_meta"]["academy/envelope"]["stop"]["code"],
-        "unknown_tool"
-    );
-
-    assert_eq!(
-        unknown["result"]["content"][0]["text"],
-        format!(
-            "그런 이름의 도구는 없습니다. 쓸 수 있는 도구: {}",
-            edu_academy_teacher::tools::TOOLS
-                .iter()
-                .filter(|tool| tool.handler == edu_academy_teacher::tools::Handler::LessonPrepare)
-                .map(|tool| tool.name)
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    );
+    assert_eq!(unknown["error"]["code"], -32602);
+    assert_eq!(unknown["id"], 6);
+    assert!(unknown.get("result").is_none());
 
     // A malformed line gets -32700 and the next valid request still works.
     let bad = server.send("{not json");
@@ -394,7 +392,7 @@ fn symlink_log_is_not_followed() {
     for id in 1..=2 {
         let reply =
             server.call(json!({"id":id,"method":"tools/call","params":{"name":"academy_help"}}));
-        assert_eq!(reply["result"]["isError"], false);
+        assert_eq!(reply["result"]["isError"], true);
     }
     assert_eq!(
         std::fs::read_to_string(server.dir.join("target")).unwrap(),
@@ -492,12 +490,171 @@ fn seven_contract_targets_through_tools_call() {
         let response=server.call(json!({"id":1,"method":"tools/call","params":{"name":"academy_lesson_prepare","arguments":arguments}}));
         assert_eq!(
             response["result"]["content"],
-            json!([{"type":"text","text":expected}])
+            json!([{"type":"text","text":DISPLAY_DIRECTIVE},{"type":"text","text":expected}])
         );
         assert_eq!(
             response["result"]["_meta"]["academy/envelope"]["display"],
             expected
         );
         assert!(response["result"].get("structuredContent").is_none());
+    }
+}
+
+fn unit_call(server: &mut Server, id: i32, args: Value, fixture: &str, status: &str) -> Value {
+    let reply = server.call(json!({"jsonrpc":"2.0", "id":id,"method":"tools/call",
+        "params":{"name":"academy_unit_status","arguments":args}}));
+    assert_eq!(reply["id"], id);
+    let result = &reply["result"];
+    assert_eq!(
+        result["content"],
+        json!([{"type":"text","text":DISPLAY_DIRECTIVE},{"type":"text","text":fixture}])
+    );
+    assert_eq!(result["_meta"]["academy/envelope"]["status"], status);
+    assert_eq!(result["_meta"]["academy/envelope"]["display"], fixture);
+    assert_eq!(result["isError"], false);
+    assert!(result.get("structuredContent").is_none());
+    reply
+}
+
+#[test]
+fn unit_protocol_q11_to_q16_display_and_distinct_frames() {
+    let mut s = Server::start_with_log(Some("unit"));
+    let list = s.send(r#"{"id":0,"method":"tools/list"}"#);
+    assert_eq!(TOOLS_FIXTURE.len(), 8102);
+    assert!(list.contains(std::str::from_utf8(TOOLS_FIXTURE).unwrap()));
+    unit_call(
+        &mut s,
+        11,
+        json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"DailyTest"}),
+        include_str!("fixtures/display-q11.txt"),
+        "ok",
+    );
+    let args = json!({"student":"가상학생B","unit":"4-4 기본","topic":"DailyTest"});
+    unit_call(
+        &mut s,
+        12,
+        args.clone(),
+        include_str!("fixtures/display-q12-basic-first.txt"),
+        "ok",
+    );
+    unit_call(
+        &mut s,
+        13,
+        args,
+        include_str!("fixtures/display-q12-basic-later.txt"),
+        "ok",
+    );
+    unit_call(
+        &mut s,
+        14,
+        json!({"student":"가상학생A","topic":"클리닉"}),
+        include_str!("fixtures/display-q13.txt"),
+        "ok",
+    );
+    unit_call(
+        &mut s,
+        15,
+        json!({"student":"가상학생B","topic":"클리닉"}),
+        include_str!("fixtures/display-q14-ask.txt"),
+        "ask",
+    );
+    unit_call(
+        &mut s,
+        16,
+        json!({"student":"가상학생B","topic":"클리닉","book":"가우스 5-1-1"}),
+        include_str!("fixtures/display-q14-result.txt"),
+        "ok",
+    );
+    unit_call(
+        &mut s,
+        17,
+        json!({"student":"가상학생A","unit":"1-2 필수예제","topic":"섹션"}),
+        include_str!("fixtures/display-q15.txt"),
+        "ok",
+    );
+    unit_call(
+        &mut s,
+        18,
+        json!({"student":"가상학생A","unit":"1-2","topic":"섹션"}),
+        include_str!("fixtures/display-q15-bare.txt"),
+        "ok",
+    );
+    unit_call(
+        &mut s,
+        19,
+        json!({"student":"가상학생A","unit":"2-3","topic":"섹션"}),
+        include_str!("fixtures/display-q16.txt"),
+        "ok",
+    );
+}
+
+#[test]
+fn unit_invalid_requests_read_no_sources_and_stop_is_error() {
+    let mut s = Server::start_with_log(Some("unit"));
+    unit_call(
+        &mut s,
+        20,
+        json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"DailyTest"}),
+        include_str!("fixtures/display-q11.txt"),
+        "ok",
+    );
+    for (i, args) in [
+        json!({}),
+        json!({"student":4}),
+        json!({"student":"가상학생A","unit":null}),
+        json!({"student":"가상학생A","offset":1}),
+        json!([]),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let out = s.call(json!({"id":i,"method":"tools/call","params":{"name":"academy_unit_status","arguments":args}}));
+        assert_eq!(out["error"]["code"], -32602);
+        assert_eq!(out["id"], i);
+        assert!(out.get("result").is_none());
+    }
+    let text = std::fs::read_to_string(&s.run_log).unwrap();
+    assert_eq!(text.lines().count(), 6);
+    let first: Value = serde_json::from_str(text.lines().next().unwrap()).unwrap();
+    assert!(first["source_reads"].as_u64().unwrap() > 0);
+    for line in text.lines().skip(1) {
+        assert_eq!(
+            serde_json::from_str::<Value>(line).unwrap()["source_reads"],
+            0
+        );
+    }
+    let stopped = s.call(json!({"id":6,"method":"tools/call","params":{"name":"academy_unit_status","arguments":{"student":"가상학생Z"}}}));
+    let result = &stopped["result"];
+    assert_eq!(result["isError"], true);
+    assert_eq!(
+        result["_meta"]["academy/envelope"]["stop"]["code"],
+        "student_not_found"
+    );
+    assert_eq!(
+        result["content"][1]["text"],
+        result["_meta"]["academy/envelope"]["display"]
+    );
+    assert!(result.get("structuredContent").is_none());
+}
+
+#[test]
+fn unit_generated_student_label_prints_the_same_frame_time() {
+    let mut exact = Server::start_with_log(Some("unit"));
+    let mut choice = Server::start_with_log(Some("unit"));
+    for (i, time) in [(0, "09:00"), (1, "10:00")] {
+        let mut replies = Vec::new();
+        for (server, student) in [
+            (&mut exact, "가상학생B"),
+            (&mut choice, "가상학생B (가상반A)"),
+        ] {
+            let out = server.call(json!({"id":i,"method":"tools/call","params":{"name":"academy_unit_status","arguments":{"student":student,"unit":"4-4","topic":"DailyTest"}}}));
+            let envelope = &out["result"]["_meta"]["academy/envelope"];
+            assert_eq!(envelope["status"], "ok");
+            let text = out["result"]["content"][1]["text"].as_str().unwrap();
+            assert!(text.contains(&format!("읽은 원천 (11월 11일 {time})")));
+            replies.push(envelope["data"]["read_at"].clone());
+        }
+        assert_eq!(replies[0], replies[1]);
+        assert!(replies[0].as_str().unwrap().contains(time));
     }
 }

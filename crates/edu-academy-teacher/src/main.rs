@@ -2,14 +2,17 @@
 //! The synthetic backend is the only backend in this slice.
 use chrono::NaiveDate;
 use edu_academy_teacher::{
-    backend::SourceBackend,
+    backend::{ReadClock, SourceBackend},
     envelope::{Envelope, Status},
     facts::SeededFacts,
     lesson::PrepareRequest,
     load_scenario,
     log::{CallLog, CallLogEntry},
-    synthetic::{SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPort},
+    synthetic::{SyntheticDayPort, SyntheticPrestudyPort, SyntheticTextbookPort, TEACHER_ID},
     tools::{self, Handler, tools_list_minified},
+    unit_data::UnitStatusRequest,
+    unit_fixture::{SharedFrameClock, SyntheticDailyTestPort},
+    unit_sources::DailyTestReader,
 };
 use serde_json::{Value, json};
 use std::{
@@ -18,7 +21,7 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
-// Variant B: only display is model-visible; the envelope is client metadata.
+// M24: the directive precedes the display; the envelope is client metadata.
 const ENVELOPE_META_KEY: &str = "academy/envelope";
 const INSTRUCTIONS: &str = "Each tool result of this server is finished Korean text for the teacher. Show that text to the teacher exactly as it is and in full, with nothing added before or after it: no summary, no rewording, no advice, no extra question. When the text asks the teacher something or lists choices, stop there and wait for the teacher's answer, then call the tool again with that answer and the other arguments of the previous call unchanged. When the teacher later asks about a result already shown and no tool is needed, answer briefly in your own words from that result only. Call a tool again only when the teacher asks for something else or answers a question.";
 
@@ -168,7 +171,19 @@ fn main() {
     };
     let facts = SeededFacts::from_scenario(&scenario);
     let read_at = format!("{}T09:00:00+09:00", today.format("%Y-%m-%d"));
-    let mut backend: Backend = SourceBackend::synthetic(scenario, &read_at);
+    let clock = SharedFrameClock::new(scenario.dailytest_frames.clone());
+    let mut daily = DailyTestReader::new(
+        SyntheticDailyTestPort::new(scenario.clone(), clock.clone()),
+        clock,
+        TEACHER_ID,
+    );
+    let unit_clock = ReadClock {
+        read_at: scenario
+            .unit_read_at
+            .clone()
+            .unwrap_or_else(|| read_at.clone()),
+    };
+    let mut backend: Backend = SourceBackend::synthetic(scenario.clone(), &read_at);
 
     let mut run_log = run_log.and_then(|path| CallLog::open(&path));
     let stdin = std::io::stdin();
@@ -211,114 +226,196 @@ fn main() {
             // Notification (including notifications/initialized): no reply.
             continue;
         };
-        let response_line = match method {
-            "initialize" => {
-                let requested = request
-                    .get("params")
-                    .and_then(|p| p.get("protocolVersion"))
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
-                let version = if SUPPORTED_VERSIONS.contains(&requested) {
-                    requested
-                } else {
-                    SUPPORTED_VERSIONS[0]
-                };
-                let response = json!({
-                    "jsonrpc": "2.0",
-                    "id": id,
-                    "result": {
-                        "protocolVersion": version,
-                        "instructions": INSTRUCTIONS,
-                        "capabilities": {"tools": {}},
-                        "serverInfo": {"name": "academy", "version": env!("CARGO_PKG_VERSION")}
-                    }
-                });
-                response.to_string()
-            }
-            "ping" => json!({"jsonrpc": "2.0", "id": id, "result": {}}).to_string(),
-            "tools/list" => format!(
-                "{{\"jsonrpc\":\"2.0\",\"id\":{},\"result\":{}}}",
-                serde_json::to_string(&id).unwrap_or_else(|_| "null".into()),
-                tools_list_minified()
-            ),
-            "tools/call" => {
-                let started = Instant::now();
-                let params = request.get("params").cloned().unwrap_or_else(|| json!({}));
-                let name = params
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .unwrap_or("")
-                    .to_string();
-                let arguments = params
-                    .get("arguments")
-                    .cloned()
-                    .unwrap_or_else(|| json!({}));
-                let args_text = serde_json::to_string(&arguments).unwrap_or_default();
-                let before_reads = backend.source_reads();
-                let envelope: Envelope = match tools::dispatch(&name) {
-                    Some(Handler::LessonPrepare) => {
-                        let text_arg = |key: &str| {
-                            arguments
-                                .get(key)
-                                .and_then(Value::as_str)
-                                .map(str::to_string)
-                        };
-                        let req = PrepareRequest {
-                            student: text_arg("student"),
-                            class_name: text_arg("class_name"),
-                            date: text_arg("date"),
-                            book: text_arg("book"),
-                        };
-                        edu_academy_teacher::prepare(&mut backend, &facts, &req, today)
-                    }
-                    Some(Handler::NotInSlice1) => Handler::NotInSlice1
-                        .unavailable_envelope()
-                        .unwrap_or_else(Envelope::unavailable_tool),
-                    None => Envelope::unknown_tool(),
-                };
-                let source_reads = backend.source_reads().saturating_sub(before_reads);
-                if let Some(log) = &mut run_log {
-                    let code = if let Some(stop) = &envelope.stop {
-                        Some(stop.code.as_str().to_string())
+        let response_line = 'reply: {
+            match method {
+                "initialize" => {
+                    let requested = request
+                        .get("params")
+                        .and_then(|p| p.get("protocolVersion"))
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    let version = if SUPPORTED_VERSIONS.contains(&requested) {
+                        requested
                     } else {
-                        envelope
-                            .ask
-                            .as_ref()
-                            .map(|ask| format!("ask:{}", ask.field.as_str()))
+                        SUPPORTED_VERSIONS[0]
                     };
-                    // A log write failure never fails the call.
-                    log.append(&CallLogEntry {
-                        tool: if tools::dispatch(&name).is_some() {
-                            name.clone()
-                        } else {
-                            "unknown".into()
-                        },
-                        args_bytes: args_text.len(),
-                        status: status_str(envelope.status).to_string(),
-                        code,
-                        display_bytes: envelope.display.len(),
-                        duration_ms: started.elapsed().as_millis(),
-                        source_reads,
+                    let response = json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "result": {
+                            "protocolVersion": version,
+                            "instructions": INSTRUCTIONS,
+                            "capabilities": {"tools": {}},
+                            "serverInfo": {"name": "academy", "version": env!("CARGO_PKG_VERSION")}
+                        }
                     });
+                    response.to_string()
                 }
-                let structured = serde_json::to_value(&envelope).unwrap_or_else(|_| json!({}));
-                let response = json!({
+                "ping" => json!({"jsonrpc": "2.0", "id": id, "result": {}}).to_string(),
+                "tools/list" => format!(
+                    "{{\"jsonrpc\":\"2.0\",\"id\":{},\"result\":{}}}",
+                    serde_json::to_string(&id).unwrap_or_else(|_| "null".into()),
+                    tools_list_minified()
+                ),
+                "tools/call" => {
+                    let started = Instant::now();
+                    let before_reads = backend.source_reads() + daily.source_requests();
+                    let params = request.get("params").cloned().unwrap_or_else(|| json!({}));
+                    let name = params
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string();
+                    let arguments = params
+                        .get("arguments")
+                        .cloned()
+                        .unwrap_or_else(|| json!({}));
+                    let args_text = serde_json::to_string(&arguments).unwrap_or_default();
+                    let handler = tools::dispatch(&name);
+                    let unit_request = if handler == Some(Handler::UnitStatus) {
+                        serde_json::from_value::<UnitStatusRequest>(arguments.clone())
+                            .ok()
+                            .filter(|_| arguments.get("student").is_some_and(Value::is_string))
+                    } else {
+                        None
+                    };
+                    if handler.is_none()
+                        || (handler == Some(Handler::UnitStatus) && unit_request.is_none())
+                    {
+                        if let Some(log) = &mut run_log {
+                            log.append(&CallLogEntry {
+                                tool: if handler.is_none() {
+                                    "unknown"
+                                } else {
+                                    "academy_unit_status"
+                                }
+                                .into(),
+                                args_bytes: args_text.len(),
+                                status: "error".into(),
+                                code: Some("invalid_params".into()),
+                                display_bytes: 0,
+                                duration_ms: started.elapsed().as_millis(),
+                                source_reads: (backend.source_reads() + daily.source_requests())
+                                    .saturating_sub(before_reads),
+                            });
+                        }
+                        break 'reply json!({"jsonrpc":"2.0", "id":id,
+                        "error":{"code":-32602,"message":"Invalid params"}})
+                        .to_string();
+                    }
+                    let envelope: Envelope = match tools::dispatch(&name) {
+                        Some(Handler::LessonPrepare) => {
+                            let text_arg = |key: &str| {
+                                arguments
+                                    .get(key)
+                                    .and_then(Value::as_str)
+                                    .map(str::to_string)
+                            };
+                            let req = PrepareRequest {
+                                student: text_arg("student"),
+                                class_name: text_arg("class_name"),
+                                date: text_arg("date"),
+                                book: text_arg("book"),
+                            };
+                            edu_academy_teacher::prepare(&mut backend, &facts, &req, today)
+                        }
+                        Some(Handler::UnitStatus) => {
+                            let req = unit_request.unwrap();
+                            // Peek the next synthetic clock without consuming a frame. The
+                            // library alone resolves the student and latches the logical read.
+                            let students: Vec<_> = scenario
+                                .students
+                                .iter()
+                                .filter(|s| s.name == req.student.trim())
+                                .collect();
+                            let at = if matches!(
+                                req.topic.as_deref(),
+                                None | Some("전체" | "DailyTest")
+                            ) {
+                                if let [student] = students.as_slice() {
+                                    let frames: Vec<_> = scenario
+                                        .dailytest_frames
+                                        .iter()
+                                        .filter(|f| f.student_key == student.key)
+                                        .collect();
+                                    frames
+                                        .get(
+                                            daily
+                                                .clock
+                                                .reads(&student.key)
+                                                .min(frames.len().saturating_sub(1)),
+                                        )
+                                        .map(|f| f.read_at.clone())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            };
+                            let clock = ReadClock {
+                                read_at: at.unwrap_or_else(|| unit_clock.read_at.clone()),
+                            };
+                            edu_academy_teacher::unit::status(
+                                &mut backend,
+                                &mut daily,
+                                &facts,
+                                &req,
+                                &clock,
+                            )
+                        }
+                        Some(Handler::NotInSlice1) => Handler::NotInSlice1
+                            .unavailable_envelope()
+                            .unwrap_or_else(Envelope::unavailable_tool),
+                        None => Envelope::unknown_tool(),
+                    };
+                    let source_reads = (backend.source_reads() + daily.source_requests())
+                        .saturating_sub(before_reads);
+                    if let Some(log) = &mut run_log {
+                        let code = if let Some(stop) = &envelope.stop {
+                            Some(stop.code.as_str().to_string())
+                        } else {
+                            envelope
+                                .ask
+                                .as_ref()
+                                .map(|ask| format!("ask:{}", ask.field.as_str()))
+                        };
+                        // A log write failure never fails the call.
+                        log.append(&CallLogEntry {
+                            tool: if tools::dispatch(&name).is_some() {
+                                name.clone()
+                            } else {
+                                "unknown".into()
+                            },
+                            args_bytes: args_text.len(),
+                            status: status_str(envelope.status).to_string(),
+                            code,
+                            display_bytes: envelope.display.len(),
+                            duration_ms: started.elapsed().as_millis(),
+                            source_reads,
+                        });
+                    }
+                    let structured = serde_json::to_value(&envelope).unwrap_or_else(|_| json!({}));
+                    let response = json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "result": {
+                            "content": [
+                                {"type": "text", "text": tools::DISPLAY_DIRECTIVE},
+                                {"type": "text", "text": envelope.display}
+                            ],
+                            "_meta": {(ENVELOPE_META_KEY): structured},
+                            "isError": envelope.stop.is_some()
+                        }
+                    });
+                    response.to_string()
+                }
+                _ => json!({
                     "jsonrpc": "2.0",
                     "id": id,
-                    "result": {
-                        "content": [{"type": "text", "text": envelope.display}],
-                        "_meta": {(ENVELOPE_META_KEY): structured},
-                        "isError": false
-                    }
-                });
-                response.to_string()
+                    "error": {"code": -32601, "message": "Method not found"}
+                })
+                .to_string(),
             }
-            _ => json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "error": {"code": -32601, "message": "Method not found"}
-            })
-            .to_string(),
         };
         let _ = writeln!(stdout, "{response_line}");
         let _ = stdout.flush();
