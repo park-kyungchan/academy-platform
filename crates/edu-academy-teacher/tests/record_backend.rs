@@ -84,13 +84,30 @@ fn error<T>(result: edu_academy_core::js::Result<T>) -> String {
 fn snapshot(path: &Path, value: &RecordSeed) {
     fs::write(path, serde_json::to_vec(value).unwrap()).unwrap();
 }
+fn changed_record() -> RecordSnapshot {
+    let mut row = seed().records.remove(0);
+    row.observation = RecordObservation::Observed {
+        occurrence: "changed-synthetic-occurrence".into(),
+        fields: RecordFields::from_fn(|f| RecordValue::Known(format!("changed {f:?}"))),
+    };
+    row.provenance.evidence_refs = vec!["S-021".into()];
+    row.provenance.source_revision = Some("changed-revision".into());
+    row.provenance.wire_digest = Some("a".repeat(64));
+    row.provenance.field_reasons = RecordFields::from_fn(|_| Some("changed-reason".into()));
+    row
+}
 
 #[test]
 fn full_record_exact_date_and_owner_persistent_reads() {
     let t = Scratch::new();
     let expected = seed().records.remove(0);
-    let mut state = t.open(seed());
+    let mut two = seed();
+    let mut second = changed_record();
+    second.identity.student_key = "1003".into();
+    two.records.push(second.clone());
+    let mut state = t.open(two);
     assert_eq!(state.read(&identity(), NOW).unwrap(), expected);
+    assert_eq!(state.read(&second.identity, NOW).unwrap(), second);
     let mut id = identity();
     for date in ["2026-11-05", "2026-11-11"] {
         id.lesson_date = date.into();
@@ -100,7 +117,7 @@ fn full_record_exact_date_and_owner_persistent_reads() {
         assert_eq!(absent.identity, id);
     }
     id = identity();
-    id.student_key = "1003".into();
+    id.student_key = "1002".into();
     assert_eq!(
         state.read(&id, NOW).unwrap().observation,
         RecordObservation::NotObserved
@@ -130,9 +147,7 @@ fn synthetic_snapshot_reopens_without_reseeding_and_reloads_external_changes() {
     let t = Scratch::new();
     let mut first = t.open(seed());
     let mut changed = seed();
-    if let RecordObservation::Observed { fields, .. } = &mut changed.records[0].observation {
-        fields.progress = RecordValue::Known("persisted synthetic value".into());
-    }
+    changed.records[0] = changed_record();
     // A cooperating source writer publishes while holding the same account lock.
     let store = DraftStore::open(&t.root(), owner()).unwrap();
     {
@@ -221,6 +236,7 @@ fn corruption_absence_and_unattributed_success_remain_distinct() {
     for damage in [
         "json",
         "owner",
+        "empty_foreign",
         "date",
         "duplicate",
         "seventh_field",
@@ -229,6 +245,10 @@ fn corruption_absence_and_unattributed_success_remain_distinct() {
         let mut value = serde_json::to_value(seed()).unwrap();
         match damage {
             "owner" => value["records"][0]["identity"]["owner"]["account"] = "other".into(),
+            "empty_foreign" => {
+                value["owner"]["account"] = "other".into();
+                value["records"] = serde_json::json!([]);
+            }
             "date" => value["records"][0]["requested_date"] = "2026-11-11".into(),
             "duplicate" => {
                 let row = value["records"][0].clone();
@@ -275,6 +295,65 @@ fn corruption_absence_and_unattributed_success_remain_distinct() {
         error(state.read(&identity(), NOW)),
         "record_source_unavailable"
     );
+    assert!(!t.path().exists());
+}
+#[test]
+fn held_account_lock_times_out_then_allows_the_source_read() {
+    let t = Scratch::new();
+    let mut state = t.open(seed());
+    let store = DraftStore::open(&t.root(), owner()).unwrap();
+    let held = store.lock_account().unwrap();
+    let start = std::time::Instant::now();
+    assert_eq!(
+        error(state.read(&identity(), NOW)),
+        "shared_writer_lock_busy"
+    );
+    assert!(
+        start.elapsed().as_millis() >= u128::from(edu_academy_teacher::record_store::LOCK_WAIT_MS)
+    );
+    drop(held);
+    assert_eq!(state.read(&identity(), NOW).unwrap(), seed().records[0]);
+}
+#[test]
+fn initial_capacity_exact_entries_and_root_bytes_and_stale_temp_recovery() {
+    use edu_academy_teacher::record_store::MAX_ROOT_BYTES;
+    for extra in [0, 1, 2] {
+        let t = Scratch::new();
+        let store = DraftStore::open(&t.root(), owner()).unwrap();
+        let entries = store.lock_account().unwrap().usage(10000).unwrap().entries;
+        let result = SyntheticRecordState::open(&t.root(), seed(), entries - 1 + extra);
+        assert_eq!(result.is_ok(), extra == 2);
+        assert_eq!(t.path().exists(), extra == 2);
+    }
+    for extra in [0, 1] {
+        let t = Scratch::new();
+        let store = DraftStore::open(&t.root(), owner()).unwrap();
+        let used = store.lock_account().unwrap().usage(10000).unwrap().bytes;
+        let filler = t.root().join("synthetic-capacity");
+        let f = fs::File::create(&filler).unwrap();
+        fs::set_permissions(&filler, fs::Permissions::from_mode(0o600)).unwrap();
+        f.set_len(
+            MAX_ROOT_BYTES - used - serde_json::to_vec(&seed()).unwrap().len() as u64 + extra,
+        )
+        .unwrap();
+        let result = SyntheticRecordState::open(&t.root(), seed(), 10000);
+        assert_eq!(result.is_ok(), extra == 0);
+        assert_eq!(t.path().exists(), extra == 0);
+    }
+    let t = Scratch::new();
+    DraftStore::open(&t.root(), owner()).unwrap();
+    let temp = t
+        .root()
+        .join(format!(".record-source-{}.tmp", std::process::id()));
+    fs::write(&temp, b"stale disposable bytes").unwrap();
+    t.open(seed());
+    assert!(!temp.exists());
+    fs::remove_file(t.path()).unwrap();
+    fs::create_dir(&temp).unwrap();
+    let refused = SyntheticRecordState::open(&t.root(), seed(), 10000)
+        .err()
+        .unwrap();
+    assert!(!refused.properties.get("writeOutcome").is("uncertain"));
     assert!(!t.path().exists());
 }
 #[test]

@@ -1,7 +1,7 @@
 //! Persistent invented record observations only; no transport or save authority.
 use crate::{
     record_data::*,
-    record_store::{DraftStore, MAX_ROOT_BYTES},
+    record_store::{AccountGuard, DraftStore, MAX_ROOT_BYTES},
 };
 use edu_academy_core::js::{Fault, Result};
 use rustix::fs::{self as rfs, Mode, OFlags};
@@ -84,6 +84,23 @@ fn private(file: &File) -> Result<()> {
         return Err(invalid());
     }
     Ok(())
+}
+fn check_root(root: &File, account: &AccountGuard<'_>) -> Result<()> {
+    let m = io(root.metadata())?;
+    if (m.dev(), m.ino()) != account.root_identity()? {
+        return Err(Fault::error("record_source_root_mismatch"));
+    }
+    Ok(())
+}
+fn remove_temp(root: &File) -> Result<()> {
+    match rfs::unlinkat(
+        root,
+        format!(".record-source-{}.tmp", std::process::id()),
+        rfs::AtFlags::empty(),
+    ) {
+        Ok(()) | Err(rustix::io::Errno::NOENT) => Ok(()),
+        Err(_) => Err(unavailable()),
+    }
 }
 fn read_bytes(root: &File) -> Result<Option<Vec<u8>>> {
     let file: File = match rfs::openat(
@@ -189,10 +206,12 @@ fn initialize(root: &File, bytes: &[u8]) -> Result<()> {
         Mode::from_raw_mode(0o600),
     ))?
     .into();
+    let mut published = false;
     let result = (|| {
         private(&file)?;
         io(file.write_all(bytes).and_then(|()| file.sync_all()))?;
         io(rfs::renameat(root, temp.as_str(), root, SOURCE_SNAPSHOT))?;
+        published = true;
         io(root.sync_all())
     })();
     if result.is_err() {
@@ -200,6 +219,10 @@ fn initialize(root: &File, bytes: &[u8]) -> Result<()> {
         let _ = rfs::unlinkat(root, temp.as_str(), rfs::AtFlags::empty());
     }
     result.map_err(|mut error| {
+        if !published {
+            error.properties.set("writeOutcome", "not_published".into());
+            return error;
+        }
         let status = match read_bytes(root) {
             Ok(Some(value)) if value == bytes => "matches",
             Ok(Some(_)) => "different",
@@ -219,9 +242,11 @@ impl SyntheticRecordState {
         let store = DraftStore::open(root, seed.owner.clone())?;
         let account = store.lock_account()?;
         let directory = root_file(root)?;
+        check_root(&directory, &account)?;
         if let Some(bytes) = read_bytes(&directory)? {
             decode(&bytes, &seed.owner)?;
         } else {
+            remove_temp(&directory)?;
             validate(&seed, &seed.owner)?;
             let bytes = serde_json::to_vec(&seed).map_err(|_| invalid())?;
             decode(&bytes, &seed.owner)?;

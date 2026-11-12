@@ -589,6 +589,12 @@ impl DraftStore {
     }
 }
 impl AccountGuard<'_> {
+    /// Identity of the verified root whose account lock this guard retains.
+    pub fn root_identity(&self) -> Result<(u64, u64)> {
+        self.store.verify()?;
+        let m = io(self.store.root.metadata())?;
+        Ok((m.dev(), m.ino()))
+    }
     fn draft_scope(&self, scope: &Js, id: &RecordIdentity) -> Result<()> {
         if id.owner != self.store.owner || !scope.get("studentId").is(&id.student_key) {
             return Err(corrupt());
