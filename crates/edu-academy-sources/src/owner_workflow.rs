@@ -51,8 +51,14 @@ struct OwnerClient<'a, T: Transport, C: CredentialProvider> {
 impl<T: Transport, C: CredentialProvider> native::SourcePort for OwnerClient<'_, T, C> {
     fn authenticate(&mut self) -> Result<Js> {
         let credential = self.credential.credential()?;
-        self.client
-            .authenticate(&credential.username, &credential.password)
+        let result = self
+            .client
+            .authenticate(&credential.username, &credential.password)?;
+        if self.runtime.epoch_ms() >= credential.expires_at_ms.unwrap_or(u64::MAX) {
+            self.client.close();
+            return Err(Error::error("native_owner_credential_expired"));
+        }
+        Ok(result)
     }
     fn discover(&mut self, input: &Js) -> Result<Js> {
         self.client.discover(input, &self.runtime.now())
@@ -115,6 +121,45 @@ impl<'a, T: Transport, C: CredentialProvider> Owner<'a, T, C> {
         Ok(Self {
             state: Rc::new(RefCell::new(state)),
         })
+    }
+    /// Account exclusion is owned by the shared Client transport until all views drop.
+    pub fn leased(
+        root: Rc<crate::owner_root::OwnerRoot>,
+        principal: Js,
+        transport: T,
+        admission: Js,
+        owner: Option<&Js>,
+        mut provider: C,
+        runtime: &'a dyn Runtime,
+    ) -> Result<Owner<'a, impl Transport + 'a, impl CredentialProvider + 'a>>
+    where
+        T: 'a,
+    {
+        let (credential, lease) = account_credential(&root, &mut provider, runtime)?;
+        let client = Client::new(
+            principal,
+            CredentialTransport {
+                inner: transport,
+                runtime,
+                expires_at_ms: credential.expires_at_ms.unwrap_or(u64::MAX),
+                expired: false,
+                cancellation: crate::http::Cancellation::default(),
+                _lease: Some(lease),
+            },
+        )?;
+        let mut credential = Some(credential);
+        Owner::new(
+            client,
+            admission,
+            owner,
+            vec![],
+            move || {
+                credential
+                    .take()
+                    .ok_or_else(|| Error::error("native_owner_credential_refused"))
+            },
+            runtime,
+        )
     }
     pub fn source(&self) -> SourceView<'a, T, C> {
         SourceView {
@@ -281,6 +326,34 @@ impl CredentialProvider for FileCredentialProvider<'_> {
         })
     }
 }
+fn account_credential(
+    root: &Rc<crate::owner_root::OwnerRoot>,
+    provider: &mut impl CredentialProvider,
+    runtime: &dyn Runtime,
+) -> Result<(Credentials, crate::owner_root::AccountLease)> {
+    let credential = provider
+        .credential()
+        .map_err(|_| Error::error("native_owner_credential_refused"))?;
+    if credential.username.is_empty() || credential.password.is_empty() {
+        return Err(Error::error("native_owner_credential_refused"));
+    }
+    // Production requires an expiring owner-published credential document.
+    // Synthetic injected providers may supply an explicit Credentials value.
+    let expires_at_ms = credential.expires_at_ms.unwrap_or(u64::MAX);
+    if expires_at_ms <= runtime.epoch_ms() {
+        return Err(Error::error("native_owner_credential_refused"));
+    }
+    let account = hash(
+        format!(
+            "{origin}\0{username}",
+            origin = crate::http::ORIGIN,
+            username = credential.username
+        )
+        .as_bytes(),
+    );
+    let lease = root.account(&account)?;
+    Ok((credential, lease))
+}
 /// Generic source session for every retained family. Family DTO parsing and
 /// workflow approvals remain with their owners. This is not an MCP business
 /// implementation, production qualification, or permission to call Academy.
@@ -302,6 +375,7 @@ struct CredentialTransport<'a, T: Transport> {
     runtime: &'a dyn Runtime,
     expires_at_ms: u64,
     expired: bool,
+    _lease: Option<crate::owner_root::AccountLease>,
     cancellation: crate::http::Cancellation,
 }
 impl<T: Transport> Transport for CredentialTransport<'_, T> {
@@ -351,27 +425,8 @@ impl<'a, T: Transport> NativeSession<'a, T> {
     ) -> Result<Self> {
         admission.validate()?;
         cancellation.check()?;
-        let credential = provider
-            .credential()
-            .map_err(|_| Error::error("native_owner_credential_refused"))?;
-        if credential.username.is_empty() || credential.password.is_empty() {
-            return Err(Error::error("native_owner_credential_refused"));
-        }
-        // Production requires an expiring owner-published credential document.
-        // Synthetic injected providers may supply an explicit Credentials value.
+        let (credential, lease) = account_credential(&root, &mut provider, runtime)?;
         let expires_at_ms = credential.expires_at_ms.unwrap_or(u64::MAX);
-        if expires_at_ms <= runtime.epoch_ms() {
-            return Err(Error::error("native_owner_credential_refused"));
-        }
-        let account = hash(
-            format!(
-                "{origin}\0{username}",
-                origin = crate::http::ORIGIN,
-                username = credential.username
-            )
-            .as_bytes(),
-        );
-        let lease = root.account(&account)?;
         let principal = obj(&[
             ("teacherLabel", admission.teacher_label.as_str().into()),
             ("teacherKey", admission.teacher_id.as_str().into()),
@@ -385,6 +440,7 @@ impl<'a, T: Transport> NativeSession<'a, T> {
                     runtime,
                     expires_at_ms,
                     expired: false,
+                    _lease: None,
                     cancellation: cancellation.clone(),
                 },
             )?,
