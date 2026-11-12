@@ -2335,7 +2335,8 @@ fn empty_backend_result_keeps_fence_held_with_question() {
     assert_eq!(backend.calls, 1);
 }
 
-// S3: immutable review occurrence aliases survive key changes and restart.
+// S3 synthetic-only shape: the key shifts independently of target.recordId.
+// Product-shaped target/key drift is covered separately below.
 fn occurrence_alias_sequence(field: &str, next_date: bool, missing_review: bool) {
     use edu_academy_core::workflow::state;
     let root = root("occurrence-alias");
@@ -2447,4 +2448,126 @@ fn s3_previous_occurrence_alias_across_current_dates_is_held() {
 #[test]
 fn s3_missing_immutable_review_refuses_before_second_dispatch() {
     occurrence_alias_sequence("progress", false, true);
+}
+
+// Mirror product sources: key = target.recordId; effectTarget = canonical(target).
+fn product_occurrence_source(source: &mut Source, change: &str) {
+    let mut observation = source.result.get("observation").clone();
+    for name in ["target", "previousTarget"] {
+        let mut target = observation.get(name).clone();
+        target.set("recordId", format!("invented-{name}-{change}").into());
+        if change == "membership" {
+            target.set("membershipId", "invented-other-membership".into());
+        }
+        if change == "course" {
+            target.set("courseId", "invented-other-course".into());
+        }
+        if change == "date" || (change == "previous" && name == "target") {
+            target.set(
+                "lessonDate",
+                if name == "target" {
+                    "2040-01-05"
+                } else {
+                    "2040-01-04"
+                }
+                .into(),
+            );
+        }
+        observation.set(name, target);
+    }
+    let mut scope = observation.get("scope").clone();
+    scope.set(
+        "lessonDate",
+        observation.get("target").get("lessonDate").clone(),
+    );
+    observation.set("scope", scope);
+    let mut fields = observation.get("fields").clone();
+    for field in review::FIELDS {
+        let target = observation.get(if field == "previousHomeworkAssessment" {
+            "previousTarget"
+        } else {
+            "target"
+        });
+        let mut value = fields.get(field).clone();
+        value.set("effectRecordKey", target.get("recordId").clone());
+        value.set(
+            "effectTarget",
+            edu_academy_core::workflow::canonical(target)
+                .unwrap()
+                .into(),
+        );
+        fields.set(field, value);
+    }
+    observation.set("fields", fields);
+    source.result.set("observation", observation);
+}
+fn product_occurrence_sequence(field: &str, change: &str, blocked: bool) {
+    use edu_academy_core::workflow::state;
+    let root = root("product-occurrence");
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let clock = Clock::new(NOW);
+    let mut source = Source::observed();
+    product_occurrence_source(&mut source, "first");
+    let values = &[(
+        field,
+        if field == "progress" {
+            "- Product-shaped update"
+        } else {
+            "3"
+        },
+    )];
+    let first = bound_input(&store, &mut source, &clock, "product-first", values).unwrap();
+    let mut backend = FactsBackend {
+        results: vec![facts_result(field, "unresolved", None)],
+        calls: 0,
+    };
+    facts_save(&store, &mut source, &mut backend, &clock, &first).unwrap();
+    drop(store);
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    product_occurrence_source(&mut source, change);
+    let second = bound_input(&store, &mut source, &clock, "product-second", values).unwrap();
+    let result = facts_save(&store, &mut source, &mut backend, &clock, &second);
+    if blocked {
+        // Existing Service drift refusal holds the alias before another fence.
+        assert_eq!(result.unwrap_err().message, "workflow_effect_target_drift");
+    } else {
+        assert!(result.unwrap().get("status").is("held")); // dispatched, unqualified outcome
+    }
+    let reopened = Store::open(&root.join("store"), &root).unwrap();
+    let executions =
+        state::student_executions(&reopened, second.get("context").get("scope")).unwrap();
+    let expected = if blocked { 1 } else { 2 };
+    assert_eq!(executions.len(), expected);
+    assert_eq!(backend.calls, expected);
+    assert!(executions.iter().all(|e| e.state.needs_reconciliation()));
+    assert_eq!(
+        executions
+            .iter()
+            .any(|e| e.record.get("requestRef").is("product-second")),
+        !blocked
+    );
+    for e in executions {
+        let target = codec::parse(e.record.get("effectTarget").code_units().as_bytes()).unwrap();
+        assert_eq!(e.record.get("effectRecordKey"), target.get("recordId"));
+    }
+}
+#[test]
+fn s3_product_record_id_shift_is_held_after_restart() {
+    product_occurrence_sequence("progress", "record", true);
+}
+#[test]
+fn s3_product_membership_shift_is_held_after_restart() {
+    product_occurrence_sequence("progress", "membership", true);
+}
+#[test]
+fn s3_product_different_course_is_admitted_after_restart() {
+    product_occurrence_sequence("progress", "course", false);
+}
+#[test]
+fn s3_product_different_date_is_admitted_after_restart() {
+    product_occurrence_sequence("progress", "date", false);
+}
+#[test]
+fn s3_product_previous_occurrence_record_id_shift_is_held() {
+    product_occurrence_sequence("previousHomeworkAssessment", "previous", true);
 }

@@ -102,6 +102,8 @@ fn index_only_is_available_and_physical_fence_ignores_request_and_date() {
         state::field_state(&s, "index-only").unwrap(),
         FieldState::Available
     );
+    let mut target = scope.clone();
+    target.set("courseId", "invented-course".into());
     let r = obj(&[
         ("scope", scope.clone()),
         ("field", "progress".into()),
@@ -116,7 +118,7 @@ fn index_only_is_available_and_physical_fence_ignores_request_and_date() {
             "patch",
             Js::Arr(vec![obj(&[
                 ("field", "progress".into()),
-                ("target", scope.clone()),
+                ("target", target.clone()),
             ])]),
         )]),
         &Clock,
@@ -253,6 +255,8 @@ fn new_target_keys_preserve_exact_unicode_identity() {
             case.get("requestKey")
                 .is(&state::request_key(scope, case.get("requestRef").clone()).unwrap())
         );
+        let mut target = scope.clone();
+        target.set("courseId", "invented-course".into());
         let record = obj(&[
             ("field", "progress".into()),
             ("effectTarget", expected.get("effectTarget").clone()),
@@ -266,7 +270,7 @@ fn new_target_keys_preserve_exact_unicode_identity() {
                 "patch",
                 Js::Arr(vec![obj(&[
                     ("field", "progress".into()),
-                    ("target", scope.clone()),
+                    ("target", target.clone()),
                 ])]),
             )]),
             &Clock,
@@ -525,4 +529,59 @@ fn execution_without_review_metadata_refuses_even_a_different_record_key() {
         state::student_executions(&reopened, &scope).unwrap().len(),
         1
     );
+}
+
+#[test]
+fn incomplete_stored_occurrence_target_refuses_physical_match() {
+    for missing in ["sourceNamespace", "studentId", "lessonDate", "courseId"] {
+        let p = root("incomplete-occurrence");
+        let store = Store::open(&p.join("store"), &p).unwrap();
+        let scope = obj(&[
+            ("sourceNamespace", "invented".into()),
+            ("teacherId", "teacher".into()),
+            ("studentId", "student".into()),
+            ("lessonDate", "2040-01-04".into()),
+        ]);
+        let mut target = scope.clone();
+        target.set("courseId", "invented-course".into());
+        let candidate = target.clone();
+        target.set(missing, Js::Undefined);
+        store
+            .publish(
+                Kind::Review,
+                "incomplete-review",
+                &obj(&[(
+                    "patch",
+                    Js::Arr(vec![obj(&[
+                        ("field", "progress".into()),
+                        ("target", target),
+                    ])]),
+                )]),
+                &Clock,
+            )
+            .unwrap();
+        store
+            .add_ledger(&state::lock_key(&scope).unwrap(), "attempt", &Clock)
+            .unwrap();
+        store
+            .publish(
+                Kind::Execution,
+                "attempt",
+                &obj(&[
+                    ("field", "progress".into()),
+                    ("effectRecordKey", "physical".into()),
+                    ("reviewDigest", "incomplete-review".into()),
+                ]),
+                &Clock,
+            )
+            .unwrap();
+        let reopened = Store::open(&p.join("store"), &p).unwrap();
+        assert_eq!(
+            state::unresolved_on_field(&reopened, &scope, "progress", "physical", &candidate)
+                .err()
+                .unwrap()
+                .message,
+            "workflow_execution_review_target_unavailable"
+        );
+    }
 }

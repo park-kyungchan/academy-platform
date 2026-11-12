@@ -204,11 +204,15 @@ pub fn unresolved_on_field(
             .iter()
             .find(|patch| patch.get("field").is(field))
             .ok_or_else(missing)?;
-        if prior.get("target").absent() {
+        let occurrence = ["sourceNamespace", "studentId", "lessonDate", "courseId"];
+        let previous = prior.get("target");
+        if occurrence.iter().any(|key| previous.get(key).absent()) {
             return Err(missing());
         }
         if execution.record.get("effectRecordKey") == &record
-            || super::same(prior.get("target"), target)?
+            || occurrence
+                .iter()
+                .all(|key| previous.get(key) == target.get(key))
         {
             pending.push(execution);
         }
