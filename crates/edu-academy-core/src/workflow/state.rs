@@ -128,27 +128,21 @@ impl FieldState {
     }
 }
 pub fn field_state(store: &Store, key: &str) -> Result<FieldState> {
-    let r = store.get(Kind::Reconciliation, key)?;
-    if !r.absent() {
-        return Ok(match r.get("classification").code_units().as_str() {
-            "persisted" => FieldState::ReconciledPersisted,
-            "not_persisted" => FieldState::ReconciledNotPersisted,
-            _ => FieldState::ReconciledConflict,
-        });
-    }
-    let o = store.get(Kind::Outcome, key)?;
-    if !o.absent() {
-        return Ok(match o.get("status").code_units().as_str() {
-            "persisted" => FieldState::SettledPersisted,
-            "noop" => FieldState::SettledNoop,
-            "not_persisted" => FieldState::SettledNotPersisted,
-            _ => FieldState::ReconciliationRequired,
-        });
-    }
+    // R0 deliberately qualifies no settlement profile. Existing status labels
+    // and opaque completionFacts do not bind finality to this exact attempt.
+    // Keep the immutable records for the shared classifier; never release a
+    // historical fence from a label, transport receipt, equality or assertion.
     Ok(if store.get(Kind::Execution, key)?.absent() {
-        FieldState::Available
-    } else {
+        if store.get(Kind::Outcome, key)?.absent() && store.get(Kind::Reconciliation, key)?.absent()
+        {
+            FieldState::Available
+        } else {
+            FieldState::ReconciliationRequired
+        }
+    } else if store.get(Kind::Outcome, key)?.absent() {
         FieldState::DispatchUnknown
+    } else {
+        FieldState::ReconciliationRequired
     })
 }
 pub struct Execution {
@@ -173,6 +167,11 @@ pub fn student_executions(store: &Store, scope: &Js) -> Result<Vec<Execution>> {
         // fence. A crash between them never authorized dispatch, so skip the
         // index-only entry and permit a fresh save. Keep exact Unicode keys.
         if record.absent() {
+            if !store.get(Kind::Outcome, &key)?.absent()
+                || !store.get(Kind::Reconciliation, &key)?.absent()
+            {
+                return Err(Fault::error("workflow_execution_missing_with_evidence"));
+            }
             continue;
         }
         let state = field_state(store, &key)?;

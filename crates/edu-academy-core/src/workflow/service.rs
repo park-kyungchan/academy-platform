@@ -39,6 +39,9 @@ fn with_completion_facts(store: &Store, key: &str, mut value: Js) -> Result<Js> 
     if outcome.has("completionFacts") {
         value.set("completionFacts", outcome.get("completionFacts").clone());
     }
+    if field_state(store, key)?.needs_reconciliation() {
+        manual_reconciliation(&mut value);
+    }
     Ok(value)
 }
 pub fn base(context: &Js) -> Js {
@@ -460,10 +463,17 @@ impl Service<'_> {
             }
             let count = pending.len();
             if count > 0 {
-                unresolved.push(obj(&[
+                let mut field = obj(&[
                     ("field", p.get("field").clone()),
                     ("unresolvedExecutions", count.into()),
-                ]));
+                ]);
+                manual_reconciliation(&mut field);
+                // A repeated save must still return the original opaque facts;
+                // holding an attempt does not discard its durable evidence.
+                if let [execution] = pending.as_slice() {
+                    field = with_completion_facts(self.store, &execution.key, field)?;
+                }
+                unresolved.push(field);
             }
         }
         if !unresolved.is_empty() {
@@ -473,7 +483,7 @@ impl Service<'_> {
             );
         }
         let report = |p: &Js, extra: Js| -> Result<Js> {
-            let value = merge(
+            let mut value = merge(
                 obj(&[
                     ("field", p.get("field").clone()),
                     (
@@ -483,6 +493,9 @@ impl Service<'_> {
                 ]),
                 &extra,
             );
+            if field_state(self.store, &pkey(p)?)?.needs_reconciliation() {
+                value.set("status", "unresolved".into());
+            }
             with_completion_facts(self.store, &pkey(p)?, value)
         };
         let states = prior
@@ -491,9 +504,16 @@ impl Service<'_> {
             .iter()
             .map(|p| field_state(self.store, &pkey(p)?))
             .collect::<Result<Vec<_>>>()?;
-        if states.iter().any(|s| s.consumed_without_effect()) {
+        if states
+            .iter()
+            .any(|s| s.needs_reconciliation() || s.consumed_without_effect())
+        {
             return hold(
-                "transition_already_attempted_new_request_required",
+                if states.iter().any(|s| s.needs_reconciliation()) {
+                    "uncertain_dispatch_reconcile_required"
+                } else {
+                    "transition_already_attempted_new_request_required"
+                },
                 obj(&[(
                     "fields",
                     Js::Arr(
@@ -732,13 +752,9 @@ impl Service<'_> {
                 ));
             }
         };
-        let recorded = |r: &Js| {
-            if r.get("status").is("not_persisted") && !r.get("transport").is("returned") {
-                "unresolved".into()
-            } else {
-                r.get("status").clone()
-            }
-        };
+        // No target profile is qualified by this bounded repair. Preserve raw
+        // claims separately, but publish only unresolved outcomes after fencing.
+        let recorded = |_: &Js| Js::from("unresolved");
         // Validate the whole batch before publishing any Outcome. An invalid
         // member keeps every fence unresolved; valid siblings retain their facts.
         let checks = results
@@ -787,10 +803,12 @@ impl Service<'_> {
             .iter()
             .filter(|r| r.get("dispatched").truthy())
             .count();
-        let settled = results
-            .array()
-            .iter()
-            .all(|r| r.get("status").is("persisted") || r.get("status").is("noop"));
+        let settled = !prior.get("patch").array().is_empty()
+            && prior.get("patch").array().iter().all(|p| {
+                pkey(p)
+                    .and_then(|k| field_state(self.store, &k))
+                    .is_ok_and(|state| state.settled_effect())
+            });
         let reason = if settled {
             Js::Null
         } else if results.array().iter().any(|r| {
@@ -870,7 +888,7 @@ impl Service<'_> {
                 }
             })
             .collect::<Result<Vec<_>>>()?;
-        Ok(merge(
+        let mut result = merge(
             b,
             &obj(&[
                 ("status", if settled { "saved" } else { "held" }.into()),
@@ -879,7 +897,11 @@ impl Service<'_> {
                 ("execution", "owner_request_bound".into()),
                 ("fields", Js::Arr(fields)),
             ]),
-        ))
+        );
+        if !settled {
+            manual_reconciliation(&mut result);
+        }
+        Ok(result)
     }
     pub fn reconcile(&mut self, input: &Js) -> Result<Js> {
         let input = super::schema::validate("dailyRecordReconcileSchema", input)?;
@@ -913,21 +935,6 @@ impl Service<'_> {
                 ]),
             ));
         }
-        let resolved_by = if resolution.absent() {
-            Js::Null
-        } else {
-            obj(&[
-                ("requestRef", resolution.get("requestRef").clone()),
-                ("instruction", resolution.get("instruction").clone()),
-                (
-                    "instructionSha256",
-                    sha(&String::from_utf16_lossy(
-                        resolution.get("instruction").get("text").units(),
-                    ))
-                    .into(),
-                ),
-            ])
-        };
         let _guard = self
             .store
             .lock(&lock_key(scope)?, LockOptions::default(), &|| false)?;
@@ -1008,77 +1015,15 @@ impl Service<'_> {
             if !current.get("state").is("known") {
                 continue;
             }
-            let value = sha(&String::from_utf16_lossy(current.get("value").units()));
-            let classification = if r.get("afterSha256").is(&value) {
-                "persisted"
-            } else if r.get("beforeSha256").is(&value) {
-                "not_persisted"
-            } else {
-                "conflict"
-            };
-            let returned = self
-                .store
-                .get(Kind::Outcome, &e.key)?
-                .get("transport")
-                .is("returned");
-            let resolves = !resolved_by.absent()
-                && same(r.get("scope"), scope)?
-                && input
-                    .get("resolution")
-                    .get("executions")
-                    .array()
-                    .iter()
-                    .any(|x| {
-                        x.get("requestRef") == r.get("requestRef")
-                            && x.get("field") == r.get("field")
-                    });
-            if classification != "persisted" && !returned && !resolves {
-                uncertain = true;
-                continue;
-            }
-            let basis = if classification == "persisted" {
-                "readback_new_value"
-            } else if returned {
-                "readback_after_returned_transport"
-            } else {
-                "user_instruction"
-            };
-            self.store.publish(
-                Kind::Reconciliation,
-                &e.key,
-                &obj(&[
-                    ("classification", classification.into()),
-                    ("basis", basis.into()),
-                    (
-                        "resolvedBy",
-                        if basis == "user_instruction" {
-                            resolved_by.clone()
-                        } else {
-                            Js::Null
-                        },
-                    ),
-                    ("sourceRevision", observed.get("sourceRevision").clone()),
-                    ("observedAt", observed.get("observedAt").clone()),
-                    ("by", by.clone()),
-                    ("reconciledAt", self.runtime.now().into()),
-                ]),
-                self.runtime,
-            )?;
+            // R28/R30/R31/R36/R39: a returned transport, current equality
+            // or teacher instruction cannot prove finality/no late work.
+            // Keep any older Reconciliation bytes, but do not trust their label.
+            uncertain = true;
             self.store.append_audit(
                 &req_key,
                 &obj(&[
-                    ("event", "reconciled".into()),
+                    ("event", "reconcile_unqualified_evidence".into()),
                     ("field", r.get("field").clone()),
-                    ("classification", classification.into()),
-                    ("basis", basis.into()),
-                    (
-                        "instructionSha256",
-                        if basis == "user_instruction" {
-                            resolved_by.get("instructionSha256").clone()
-                        } else {
-                            Js::Null
-                        },
-                    ),
                     ("by", by.clone()),
                 ]),
                 self.runtime,
@@ -1095,7 +1040,7 @@ impl Service<'_> {
             if unavailable {
                 "readback_unavailable_reconcile_later"
             } else if uncertain {
-                "uncertain_dispatch_not_landed_user_resolution_required"
+                "qualified_proof_or_target_repair_required"
             } else {
                 "readback_field_unknown_reconcile_later"
             }
@@ -1111,6 +1056,16 @@ impl Service<'_> {
             ]),
         ))
     }
+}
+// ask_person retains the fence; the answer must supply qualified proof or
+// repair the target, not merely assert that the save failed.
+fn manual_reconciliation(value: &mut Js) {
+    value.set("reconciliation", "manual_reconciliation".into());
+    value.set("nextStep", "ask_person".into());
+    value.set(
+        "question",
+        "Can you provide qualified proof for this exact attempt or repair its target identity? The field remains held.".into(),
+    );
 }
 pub fn status(store: &Store, input: &Js) -> Result<Js> {
     let input = super::schema::validate("dailyRecordExecutionStatusSchema", input)?;

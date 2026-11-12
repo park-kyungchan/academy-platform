@@ -1112,7 +1112,7 @@ fn index_only_crash_allows_a_fresh_save_after_reopen() {
         input.set("request", js(json!({"requestRef":request,"instruction":{"text":"Save this reviewed fictional field."}})));
         let saved = svc.save(&input).unwrap();
         assert!(
-            saved.get("status").is("saved"),
+            saved.get("status").is("held"),
             "{}",
             stringify(&saved).unwrap()
         );
@@ -1120,7 +1120,10 @@ fn index_only_crash_allows_a_fresh_save_after_reopen() {
         assert_eq!(backend.dispatches, 1);
         let executions = state::student_executions(&store, &scope).unwrap();
         assert_eq!(executions.len(), 1);
-        assert_eq!(executions[0].state, state::FieldState::SettledPersisted);
+        assert_eq!(
+            executions[0].state,
+            state::FieldState::ReconciliationRequired
+        );
         assert!(executions[0].record.get("requestRef").is(request));
         if request != "req-😀" {
             assert!(store.get(Kind::Execution, &key).unwrap().absent());
@@ -1229,7 +1232,7 @@ fn supplementary_request_refs_remain_exact_through_save_and_distinct_store_keys(
         );
         let saved = svc.save(&input).unwrap();
         assert!(
-            saved.get("status").is("saved"),
+            saved.get("status").is("held"),
             "{}",
             stringify(&saved).unwrap()
         );
@@ -1239,19 +1242,16 @@ fn supplementary_request_refs_remain_exact_through_save_and_distinct_store_keys(
         keys.push(key);
     }
     assert_ne!(keys[0], keys[1]);
-    assert_eq!(backend.0, 2);
+    assert_eq!(backend.0, 1);
     let executions = state::student_executions(&store, &scope).unwrap();
-    assert_eq!(executions.len(), 2);
-    assert_ne!(executions[0].key, executions[1].key);
-    for request in ["req😀", "req😃"] {
-        assert_eq!(
-            executions
-                .iter()
-                .filter(|e| e.record.get("requestRef").is(request))
-                .count(),
-            1
-        );
-    }
+    assert_eq!(executions.len(), 1);
+    assert_eq!(
+        executions
+            .iter()
+            .filter(|e| e.record.get("requestRef").is("req😀"))
+            .count(),
+        1
+    );
     assert!(
         source
             .calls
@@ -1557,7 +1557,7 @@ fn reviewed_effect_target_reaches_backend_and_fence() {
     );
 }
 #[test]
-fn changed_or_missing_effect_target_refuses_before_dispatch() {
+fn retained_fence_status_after_target_drift_requires_manual_reconciliation() {
     use edu_academy_core::workflow::state;
     let root = root("target-drift");
     let store = Store::open(&root.join("store"), &root).unwrap();
@@ -1634,6 +1634,13 @@ fn changed_or_missing_effect_target_refuses_before_dispatch() {
     .unwrap_err();
     assert_eq!(error.message, "workflow_effect_target_drift");
     assert!(store.get(Kind::Reconciliation, &e.key).unwrap().absent());
+    let reopened = Store::open(&root.join("store"), &root).unwrap();
+    let status = facts_status(&reopened, &input);
+    let retained = &status.get("fields").array()[0].get("executions").array()[0];
+    assert!(retained.get("reconciliation").is("manual_reconciliation"));
+    assert!(retained.get("nextStep").is("ask_person"));
+    assert!(retained.get("question").string());
+    assert!(!reopened.get(Kind::Execution, &e.key).unwrap().absent());
     assert!(
         state::field_state(&store, &e.key)
             .unwrap()
@@ -1968,13 +1975,11 @@ fn opaque_completion_facts_survive_save_reopen_and_repeat() {
         let store = Store::open(&root.join("store"), &root).unwrap();
         let repeated = facts_save(&store, &mut source, &mut backend, &clock, &input).unwrap();
         assert_facts(repeated.get("fields"), &results, false);
-        if !rejected {
-            assert!(
-                repeated
-                    .get("reasonCode")
-                    .is("duplicate_execution_already_settled")
-            );
-        }
+        assert!(
+            repeated
+                .get("reasonCode")
+                .is("uncertain_dispatch_reconcile_required")
+        );
         assert_eq!(backend.calls, 2);
         assert_facts(
             facts_reconcile(&store, &mut source, &clock, &input).get("fields"),
@@ -2127,4 +2132,185 @@ fn completion_facts_limit() {
             .state
             .needs_reconciliation()
     );
+}
+
+// S1/S2 use real Service admission/fences with explicitly unqualified scripted
+// answers. Readback and teacher words never establish finality for the attempt.
+fn unqualified_settlement_sequence(transport: &str, desired: bool, assertion: bool) {
+    use edu_academy_core::workflow::state;
+    let root = root("settlement-held");
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let clock = Clock::new(NOW);
+    let mut source = Source::observed();
+    let input = facts_input(&store, &mut source, &clock, 1);
+    let mut result = facts_result("progress", "unresolved", None);
+    result.set("transport", transport.into());
+    let mut backend = FactsBackend {
+        results: vec![result],
+        calls: 0,
+    };
+    let saved = facts_save(&store, &mut source, &mut backend, &clock, &input).unwrap();
+    assert!(saved.get("status").is("held"));
+    assert!(
+        saved.get("fields").array()[0]
+            .get("status")
+            .is("unresolved")
+    );
+    assert_eq!(backend.calls, 1);
+    drop(store);
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let scope = input.get("context").get("scope");
+    let original = state::student_executions(&store, scope).unwrap().remove(0);
+    let outcome = store.get(Kind::Outcome, &original.key).unwrap();
+    if desired {
+        let mut observation = source.result.get("observation").clone();
+        let mut fields = observation.get("fields").clone();
+        let mut progress = fields.get("progress").clone();
+        progress.set("value", "- Updated progress".into());
+        fields.set("progress", progress);
+        observation.set("fields", fields);
+        source.result.set("observation", observation);
+    }
+    let mut reconcile = obj(&[("context", input.get("context").clone())]);
+    if assertion {
+        reconcile.set(
+            "resolution",
+            js(json!({
+                "request":{"requestRef":"facts","instruction":{"text":"It failed. Save again."}},
+                "executions":[{"requestRef":"facts","field":"progress"}]
+            })),
+        );
+    }
+    let held = service::Service {
+        store: &store,
+        source: &mut source,
+        backend: &mut backend,
+        policy: &Policy::new(true),
+        runtime: &clock,
+    }
+    .reconcile(&reconcile)
+    .unwrap();
+    assert!(held.get("status").is("held"));
+    assert!(
+        held.get("fields").array()[0]
+            .get("nextStep")
+            .is("ask_person")
+    );
+    assert!(
+        store
+            .get(Kind::Reconciliation, &original.key)
+            .unwrap()
+            .absent()
+    );
+    assert_eq!(store.get(Kind::Outcome, &original.key).unwrap(), outcome);
+    let next = bound_input(
+        &store,
+        &mut source,
+        &clock,
+        "new-approved-intent",
+        &[("progress", "- Next progress")],
+    )
+    .unwrap();
+    let blocked = facts_save(&store, &mut source, &mut backend, &clock, &next).unwrap();
+    assert!(
+        blocked
+            .get("reasonCode")
+            .is("uncertain_dispatch_reconcile_required")
+    );
+    // A second reopen proves both durable consumption and zero second dispatch.
+    let reopened = Store::open(&root.join("store"), &root).unwrap();
+    let executions = state::student_executions(&reopened, scope).unwrap();
+    assert_eq!(executions.len(), 1);
+    assert_eq!(executions[0].key, original.key);
+    assert!(executions[0].state.needs_reconciliation());
+    assert_eq!(backend.calls, 1);
+}
+#[test]
+fn s1_loss_and_timeout_equality_remain_held_after_restart() {
+    for transport in ["lost", "returned_timeout"] {
+        unqualified_settlement_sequence(transport, true, false);
+    }
+}
+#[test]
+fn s2_returned_ack_and_teacher_assertion_cannot_release_attempt() {
+    for transport in ["returned", "lost", "returned_timeout"] {
+        unqualified_settlement_sequence(transport, false, true);
+    }
+}
+
+#[test]
+fn outcome_without_execution_fence_never_authorizes_dispatch() {
+    use edu_academy_core::workflow::state;
+    for indexed in [false, true] {
+        let root = root("missing-fence");
+        let store = Store::open(&root.join("store"), &root).unwrap();
+        let clock = Clock::new(NOW);
+        let mut source = Source::observed();
+        let input = facts_input(&store, &mut source, &clock, 1);
+        let review = store
+            .get(Kind::Review, &input.get("reviewDigest").code_units())
+            .unwrap();
+        let scope = input.get("context").get("scope");
+        let patch = &review.get("patch").array()[0];
+        let key = state::checked_execution_key(&store, &"facts".into(), scope, patch).unwrap();
+        store
+            .publish(
+                Kind::Outcome,
+                &key,
+                &obj(&[("status", "not_persisted".into())]),
+                &clock,
+            )
+            .unwrap();
+        if indexed {
+            store
+                .add_ledger(&state::lock_key(scope).unwrap(), &key, &clock)
+                .unwrap();
+        }
+        let reopened = Store::open(&root.join("store"), &root).unwrap();
+        assert!(
+            state::field_state(&reopened, &key)
+                .unwrap()
+                .needs_reconciliation()
+        );
+        let mut backend = FactsBackend {
+            results: vec![],
+            calls: 0,
+        };
+        let result = facts_save(&reopened, &mut source, &mut backend, &clock, &input);
+        if indexed {
+            assert_eq!(
+                result.unwrap_err().message,
+                "workflow_execution_missing_with_evidence"
+            );
+        } else {
+            assert!(result.unwrap().get("status").is("held"));
+        }
+        assert_eq!(backend.calls, 0);
+        assert!(reopened.get(Kind::Execution, &key).unwrap().absent());
+    }
+}
+
+#[test]
+fn empty_backend_result_keeps_fence_held_with_question() {
+    use edu_academy_core::workflow::state;
+    let root = root("empty-result");
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let clock = Clock::new(NOW);
+    let mut source = Source::observed();
+    let input = facts_input(&store, &mut source, &clock, 1);
+    let mut backend = FactsBackend {
+        results: vec![],
+        calls: 0,
+    };
+    let held = facts_save(&store, &mut source, &mut backend, &clock, &input).unwrap();
+    assert!(held.get("status").is("held"));
+    assert!(held.get("nextStep").is("ask_person"));
+    assert!(held.get("question").string());
+    let reopened = Store::open(&root.join("store"), &root).unwrap();
+    assert!(
+        state::student_executions(&reopened, input.get("context").get("scope")).unwrap()[0]
+            .state
+            .needs_reconciliation()
+    );
+    assert_eq!(backend.calls, 1);
 }

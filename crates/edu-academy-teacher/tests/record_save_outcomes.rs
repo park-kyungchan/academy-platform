@@ -929,11 +929,9 @@ fn save_case(name: &str, outcomes: &[EffectOutcome]) {
                 });
             }
         }
-        let expected = outcomes
-            .iter()
-            .filter(|o| **o == EffectOutcome::Success && !read_failure)
-            .count();
-        assert_eq!(claims.len(), expected);
+        // R0 qualifies no profile: even synthetic final claims are held until
+        // an exact-attempt proof is accepted by the shared classifier.
+        assert!(claims.is_empty());
         check(id, &selected, &dispatches, &claims);
     }
     if create {

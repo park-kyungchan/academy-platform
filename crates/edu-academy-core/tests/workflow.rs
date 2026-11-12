@@ -137,7 +137,7 @@ fn index_only_is_available_and_physical_fence_ignores_request_and_date() {
     .unwrap();
     assert_eq!(
         state::field_state(&s, "index-only").unwrap(),
-        FieldState::SettledPersisted
+        FieldState::ReconciliationRequired
     );
     s.publish(
         Kind::Reconciliation,
@@ -148,7 +148,7 @@ fn index_only_is_available_and_physical_fence_ignores_request_and_date() {
     .unwrap();
     assert_eq!(
         state::field_state(&s, "index-only").unwrap(),
-        FieldState::ReconciledConflict
+        FieldState::ReconciliationRequired
     );
 }
 #[test]
@@ -418,4 +418,43 @@ fn large_korean_json_parses_with_a_linear_utf8_scan() {
         elapsed < Duration::from_millis(500),
         "UTF-8 rescanning: {elapsed:?}"
     );
+}
+
+#[test]
+fn legacy_settlement_labels_remain_held_after_reopen() {
+    for label in ["persisted", "noop", "not_persisted", "unresolved"] {
+        for basis in [
+            "readback_new_value",
+            "readback_after_returned_transport",
+            "user_instruction",
+        ] {
+            let p = root("legacy-settlement");
+            let store = Store::open(&p.join("store"), &p).unwrap();
+            let execution = obj(&[("field", "progress".into())]);
+            let outcome = obj(&[("status", label.into())]);
+            let reconciliation = obj(&[
+                ("classification", "not_persisted".into()),
+                ("basis", basis.into()),
+            ]);
+            for (kind, value) in [
+                (Kind::Execution, &execution),
+                (Kind::Outcome, &outcome),
+                (Kind::Reconciliation, &reconciliation),
+            ] {
+                store.publish(kind, "old-attempt", value, &Clock).unwrap();
+            }
+            drop(store);
+            let reopened = Store::open(&p.join("store"), &p).unwrap();
+            assert!(
+                state::field_state(&reopened, "old-attempt")
+                    .unwrap()
+                    .needs_reconciliation()
+            );
+            assert_eq!(reopened.get(Kind::Outcome, "old-attempt").unwrap(), outcome);
+            assert_eq!(
+                reopened.get(Kind::Reconciliation, "old-attempt").unwrap(),
+                reconciliation
+            );
+        }
+    }
 }

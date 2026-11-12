@@ -475,7 +475,9 @@ fn execution_record_4096_boundary() {
     let core = Store::open(&t.root(), &t.root()).unwrap();
     let history = state::student_executions(&core, &scope).unwrap();
     assert_eq!(history.len(), MAX_EXECUTION_RECORDS);
-    assert!(history.iter().all(|e| !e.state.needs_reconciliation()));
+    // Contract v2 section 2: a fenced status-only noop is not settled proof.
+    // All 4096 attempts remain held; reaching capacity cannot release them.
+    assert!(history.iter().all(|e| e.state.needs_reconciliation()));
     // An extra orphan counts, and its oversized bytes must not be parsed at preflight.
     let orphan = history_dir(&t, &scope).join(sha("synthetic-orphan") + ".json");
     let f = file(&orphan);
@@ -1208,12 +1210,13 @@ fn unresolved_execution_protects_its_generation_and_unknown_references_are_conse
         &serde_json::to_vec(&json!({"kind":"outcome", "id": key, "record":{"status":"noop"}}))
             .unwrap(),
     );
-    assert_eq!(
-        a.cleanup_drafts(&scope, "2026-11-20T18:10:00+09:00")
-            .unwrap()
-            .removed,
-        1
-    );
+    // Contract v2 section 5.4-5.5 and ask_person: an unqualified noop
+    // neither releases the fence nor permits deleting its retained draft.
+    let clean = a
+        .cleanup_drafts(&scope, "2026-11-20T18:10:00+09:00")
+        .unwrap();
+    assert_eq!((clean.removed, clean.protected), (0, 1));
+    assert!(path.exists());
     assert!(execution.exists());
     assert!(history_dir(&t, &scope).join(sha(&key) + ".json").exists());
 }

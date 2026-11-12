@@ -876,11 +876,11 @@ fn seven_wire_routes_persist_exact_review_and_reconcile_unknown_dispatch_after_r
     assert!(
         unresolved
             .get("reasonCode")
-            .is("uncertain_dispatch_not_landed_user_resolution_required")
+            .is("qualified_proof_or_target_repair_required")
     );
     drop(driver);
-    // A new Store and RpcSession read the same journal and can settle by an
-    // authoritative fictional readback, never by replaying a save.
+    // R30: a new Store and RpcSession retain the fence even after equality;
+    // readback cannot establish final completion of the lost answer.
     let reopened = scene.store();
     let mut session = scene.session("dailyrecord");
     let mut observed = value.borrow().clone();
@@ -906,16 +906,15 @@ fn seven_wire_routes_persist_exact_review_and_reconcile_unknown_dispatch_after_r
         "academy_dailyrecord_reconcile",
         obj(&[("context", context())]),
     ));
-    assert!(settled.get("status").is("settled"));
+    assert!(settled.get("status").is("held"));
     let executions = state::student_executions(&reopened, context().get("scope")).unwrap();
     assert_eq!(executions.len(), 1);
-    assert_eq!(executions[0].state, state::FieldState::ReconciledPersisted);
+    assert!(executions[0].state.needs_reconciliation());
     assert!(
         reopened
             .get(Kind::Reconciliation, &executions[0].key)
             .unwrap()
-            .get("basis")
-            .is("readback_new_value")
+            .absent()
     );
     assert_eq!(writes.get(), 1);
     assert_eq!(credentials.get(), 1);
@@ -936,7 +935,7 @@ fn seven_wire_routes_persist_exact_review_and_reconcile_unknown_dispatch_after_r
             .iter()
             .filter(|e| e.get("event").is("reconciled"))
             .count(),
-        1
+        0
     );
 }
 
