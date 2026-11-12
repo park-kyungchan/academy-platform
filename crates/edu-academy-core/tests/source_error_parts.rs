@@ -263,6 +263,7 @@ impl service::Backend for Backend {
                 ]),
             ),
             ("field", p.get("field").clone()),
+            ("effectTarget", p.get("effectTarget").clone()),
             ("effectRecordKey", "current-record".into()),
             ("before", p.get("before").clone()),
             ("after", p.get("value").clone()),
@@ -347,7 +348,7 @@ fn observation() -> Js {
     let mut previous = target.clone();
     previous.set("recordId", "previous-record".into());
     previous.set("lessonDate", "2040-01-03".into());
-    let fields = obj(&[
+    let mut fields = obj(&[
         ("progress", known("- Existing progress")),
         ("homework", known("- Existing homework")),
         ("lessonMemo", known("- Existing memo")),
@@ -355,6 +356,29 @@ fn observation() -> Js {
         ("dailyTestAssessment", known("0")),
         ("previousHomeworkAssessment", known("0")),
     ]);
+    for field in review::FIELDS {
+        let previous_field = field == "previousHomeworkAssessment";
+        let mut value = fields.get(field).clone();
+        value.set(
+            "effectTarget",
+            if previous_field {
+                "synthetic-previous-target"
+            } else {
+                "synthetic-target"
+            }
+            .into(),
+        );
+        value.set(
+            "effectRecordKey",
+            if previous_field {
+                previous.get("recordId")
+            } else {
+                target.get("recordId")
+            }
+            .clone(),
+        );
+        fields.set(field, value);
+    }
     obj(&[
         ("scope", scope),
         ("target", target),
@@ -498,6 +522,7 @@ fn backend_catalog_exception_keeps_original_audit_reason_and_reconciliation_fenc
             "current-record",
             &"- Existing progress".into(),
             &"- Updated progress".into(),
+            &"synthetic-target".into(),
         )
         .unwrap();
         assert_eq!(

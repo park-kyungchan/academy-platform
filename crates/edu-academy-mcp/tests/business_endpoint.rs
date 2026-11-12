@@ -409,6 +409,7 @@ impl service::Backend for UncertainBackend {
                 ]),
             ),
             ("field", p.get("field").clone()),
+            ("effectTarget", p.get("effectTarget").clone()),
             ("effectRecordKey", "current-record".into()),
             ("before", p.get("before").clone()),
             ("after", p.get("value").clone()),
@@ -546,7 +547,7 @@ fn observation() -> Js {
     let mut previous = target.clone();
     previous.set("recordId", "previous-record".into());
     previous.set("lessonDate", "2040-01-03".into());
-    let fields = obj(&[
+    let mut fields = obj(&[
         ("progress", known("- Existing progress")),
         ("homework", known("- Existing homework")),
         ("lessonMemo", known("- Existing memo")),
@@ -554,6 +555,29 @@ fn observation() -> Js {
         ("dailyTestAssessment", known("0")),
         ("previousHomeworkAssessment", known("0")),
     ]);
+    for field in review::FIELDS {
+        let previous_field = field == "previousHomeworkAssessment";
+        let mut value = fields.get(field).clone();
+        value.set(
+            "effectTarget",
+            if previous_field {
+                "synthetic-previous-target"
+            } else {
+                "synthetic-target"
+            }
+            .into(),
+        );
+        value.set(
+            "effectRecordKey",
+            if previous_field {
+                previous.get("recordId")
+            } else {
+                target.get("recordId")
+            }
+            .clone(),
+        );
+        fields.set(field, value);
+    }
     obj(&[
         ("scope", scope),
         ("target", target),
@@ -850,7 +874,9 @@ fn seven_wire_routes_persist_exact_review_and_reconcile_unknown_dispatch_after_r
     let mut session = scene.session("dailyrecord");
     let mut observed = value.borrow().clone();
     let mut fields = observed.get("fields").clone();
-    fields.set("progress", known("- Updated progress"));
+    let mut progress = fields.get("progress").clone();
+    progress.set("value", "- Updated progress".into());
+    fields.set("progress", progress);
     observed.set("fields", fields);
     *value.borrow_mut() = observed;
     let mut driver = DailyRecord::from_borrowed_service(

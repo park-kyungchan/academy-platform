@@ -116,6 +116,14 @@ fn actual_client_before_read_error_retains_typed_properties_through_core_roundtr
         ("membershipKey", "8".into()),
     ]);
     let action = obj(&[
+        (
+            "effectTarget",
+            edu_academy_core::workflow::canonical(
+                &edu_academy_sources::native::observation_target(&target),
+            )
+            .unwrap()
+            .into(),
+        ),
         ("attemptId", "fictional-error-parts".into()),
         ("target", target),
         ("field", "progress".into()),

@@ -44,6 +44,12 @@ pub fn base(context: &Js) -> Js {
     ])
 }
 pub fn qualified_observation(value: &Js, scope: &Js) -> Result<Js> {
+    for field in review::FIELDS {
+        let binding = value.get("fields").get(field);
+        if binding.has("effectTarget") {
+            super::schema::effect_binding(binding)?;
+        }
+    }
     let observation = crate::schema::validate("dailyRecordObservationSchema", value)?;
     let t = observation.get("target");
     let p = observation.get("previousTarget");
@@ -169,6 +175,19 @@ impl Service<'_> {
         } else {
             Js::Null
         };
+        if !persist && !fresh.get("observation").absent() {
+            for field in c.get("selectedFields").array() {
+                let name = field.code_units();
+                let before = held.get("observation").get("fields").get(&name);
+                let after = fresh.get("observation").get("fields").get(&name);
+                if before.has("effectTarget")
+                    && (before.get("effectTarget") != after.get("effectTarget")
+                        || before.get("effectRecordKey") != after.get("effectRecordKey"))
+                {
+                    return Err(Fault::error("workflow_effect_target_drift"));
+                }
+            }
+        }
         let mut result = review::review_read(
             &input,
             held.get("observation"),
@@ -177,6 +196,9 @@ impl Service<'_> {
             self.runtime,
         )?;
         if persist && result.get("status").is("prepared") {
+            for patch in result.get("patch").array() {
+                super::schema::effect_binding(patch)?;
+            }
             let fallback = super::observe_attribution(self.runtime, input.get("actor"));
             let attribution = if input.get("attribution").absent() {
                 &fallback
@@ -194,12 +216,14 @@ impl Service<'_> {
                             ("field", p.get("field").clone()),
                             ("before", p.get("before").clone()),
                             ("after", p.get("after").clone()),
-                            ("effectRecordKey", p.get("target").get("recordId").clone()),
+                            ("effectRecordKey", p.get("effectRecordKey").clone()),
+                            ("effectTarget", p.get("effectTarget").clone()),
                         ])
                     })
                     .collect(),
             );
             let record = obj(&[
+                ("effectBindingVersion", Js::Num(2.0)),
                 ("reviewDigest", result.get("reviewDigest").clone()),
                 ("status", "prepared".into()),
                 ("scope", scope.clone()),
@@ -362,6 +386,18 @@ impl Service<'_> {
         if prior.absent() {
             return hold("prior_review_record_required", obj(&[]));
         }
+        if prior.get("effectBindingVersion") != &Js::Num(2.0)
+            || prior
+                .get("patch")
+                .array()
+                .iter()
+                .any(|p| p.get("effectTarget").absent())
+        {
+            return Err(Fault::error("workflow_legacy_review_unbound"));
+        }
+        for patch in prior.get("patch").array() {
+            super::schema::effect_binding(patch)?;
+        }
         let digest = sha(&canonical(&obj(&[
             ("context", c.clone()),
             ("proposals", input.get("proposals").clone()),
@@ -392,13 +428,26 @@ impl Service<'_> {
         let pkey = |p: &Js| checked_execution_key(self.store, request, s, p);
         let mut unresolved = vec![];
         for p in prior.get("patch").array() {
-            let count = unresolved_on_field(
+            if student_executions(self.store, s)?.iter().any(|e| {
+                e.record.get("field") == p.get("field")
+                    && e.state.needs_reconciliation()
+                    && e.record.get("effectTarget").absent()
+            }) {
+                return Err(Fault::error("workflow_legacy_execution_unbound"));
+            }
+            let pending = unresolved_on_field(
                 self.store,
                 s,
                 &p.get("field").code_units(),
                 p.get("effectRecordKey").clone(),
-            )?
-            .len();
+            )?;
+            if pending
+                .iter()
+                .any(|e| e.record.get("effectTarget") != p.get("effectTarget"))
+            {
+                return Err(Fault::error("workflow_effect_target_drift"));
+            }
+            let count = pending.len();
             if count > 0 {
                 unresolved.push(obj(&[
                     ("field", p.get("field").clone()),
@@ -554,6 +603,8 @@ impl Service<'_> {
                         ("value", p.get("after").clone()),
                         ("before", p.get("before").clone()),
                         ("wireDigest", fresh.get("wireDigest").clone()),
+                        ("effectTarget", p.get("effectTarget").clone()),
+                        ("effectRecordKey", p.get("effectRecordKey").clone()),
                     ])
                 })
                 .collect(),
@@ -861,10 +912,12 @@ impl Service<'_> {
             .filter(|e| e.state.needs_reconciliation())
             .collect::<Vec<_>>();
         let mut reads: Vec<(String, Js)> = vec![];
-        let mut not_observed = false;
         let mut uncertain = false;
         for e in pending {
             let r = &e.record;
+            if r.get("effectTarget").absent() {
+                return Err(Fault::error("workflow_legacy_execution_unbound"));
+            }
             let scope_key = crate::js::stringify(r.get("scope"))?;
             if !reads.iter().any(|(k, _)| k == &scope_key) {
                 let review = self
@@ -902,23 +955,11 @@ impl Service<'_> {
             let observed =
                 super::schema::validate("dailyRecordObservationSchema", read.get("observation"))?;
             let field = r.get("field").code_units();
-            let target = if field == "previousHomeworkAssessment" {
-                observed.get("previousTarget")
-            } else {
-                observed.get("target")
-            };
-            if r.get("effectRecordKey") != target.get("recordId") {
-                not_observed = true;
-                self.store.append_audit(
-                    &req_key,
-                    &obj(&[
-                        ("event", "reconcile_effect_record_not_observed".into()),
-                        ("field", r.get("field").clone()),
-                        ("by", by.clone()),
-                    ]),
-                    self.runtime,
-                )?;
-                continue;
+            let binding = observed.get("fields").get(&field);
+            if binding.get("effectTarget") != r.get("effectTarget")
+                || binding.get("effectRecordKey") != r.get("effectRecordKey")
+            {
+                return Err(Fault::error("workflow_effect_target_drift"));
             }
             let current = observed.get("fields").get(&field);
             if !current.get("state").is("known") {
@@ -1010,8 +1051,6 @@ impl Service<'_> {
         } else {
             if unavailable {
                 "readback_unavailable_reconcile_later"
-            } else if not_observed {
-                "affected_record_not_observed_manual_reconcile_required"
             } else if uncertain {
                 "uncertain_dispatch_not_landed_user_resolution_required"
             } else {

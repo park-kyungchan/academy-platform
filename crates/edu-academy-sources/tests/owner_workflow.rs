@@ -86,6 +86,14 @@ fn target() -> Js {
 }
 fn action() -> Js {
     obj(&[
+        (
+            "effectTarget",
+            edu_academy_core::workflow::canonical(
+                &edu_academy_sources::native::observation_target(&target()),
+            )
+            .unwrap()
+            .into(),
+        ),
         ("attemptId", "fictional-attempt".into()),
         ("target", target()),
         ("field", "progress".into()),

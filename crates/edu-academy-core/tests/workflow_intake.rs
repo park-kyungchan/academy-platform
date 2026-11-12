@@ -198,7 +198,7 @@ fn observation() -> Js {
     let mut previous = target.clone();
     previous.set("recordId", "previous-record".into());
     previous.set("lessonDate", "2040-01-03".into());
-    let fields = obj(&[
+    let mut fields = obj(&[
         ("progress", known("- Existing progress")),
         ("homework", known("- Existing homework")),
         ("lessonMemo", known("- Existing memo")),
@@ -206,6 +206,29 @@ fn observation() -> Js {
         ("dailyTestAssessment", known("0")),
         ("previousHomeworkAssessment", known("0")),
     ]);
+    for field in review::FIELDS {
+        let previous_field = field == "previousHomeworkAssessment";
+        let mut value = fields.get(field).clone();
+        value.set(
+            "effectTarget",
+            if previous_field {
+                "synthetic-previous-target"
+            } else {
+                "synthetic-target"
+            }
+            .into(),
+        );
+        value.set(
+            "effectRecordKey",
+            if previous_field {
+                previous.get("recordId")
+            } else {
+                target.get("recordId")
+            }
+            .clone(),
+        );
+        fields.set(field, value);
+    }
     obj(&[
         ("scope", scope),
         ("target", target),
@@ -837,8 +860,10 @@ fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() 
         let root = root("unicode-fence");
         let store = Store::open(&root.join("store"), &root).unwrap();
         let scope = context().get("scope").clone();
-        let reviewed = js(json!({"field":"progress", "effectRecordKey":physical,
-            "before":"- Existing progress", "after":"- Updated progress"}));
+        let reviewed = js(
+            json!({"field":"progress", "effectRecordKey":physical,"effectTarget":"synthetic-target",
+            "before":"- Existing progress", "after":"- Updated progress"}),
+        );
         let mut approval = RequestApproval {
             store: &store,
             input: obj(&[
@@ -850,7 +875,7 @@ fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() 
         };
         let action = js(
             json!({"target":{"studentKey":"student", "teacherKey":"teacher", "date":"2040-01-04"},
-            "field":"progress", "effectRecordKey":physical,"before":"- Existing progress","after":"- Updated progress"}),
+            "field":"progress", "effectRecordKey":physical,"effectTarget":"synthetic-target","before":"- Existing progress","after":"- Updated progress"}),
         );
         assert_eq!(
             approval.consume(&action).unwrap_err().message,
@@ -865,6 +890,7 @@ fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() 
             physical,
             &"- Existing progress".into(),
             &"- Updated progress".into(),
+            &"synthetic-target".into(),
         )
         .unwrap();
         assert!(!store.get(Kind::Execution, &exact_key).unwrap().absent());
@@ -879,6 +905,11 @@ fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() 
         let mut target = observation.get("target").clone();
         target.set("recordId", physical.into());
         observation.set("target", target);
+        let mut progress = observation.get("fields").get("progress").clone();
+        progress.set("effectRecordKey", physical.into());
+        let mut fields = observation.get("fields").clone();
+        fields.set("progress", progress);
+        observation.set("fields", fields);
         source.result.set("observation", observation);
         let mut context = context();
         context.set("currentRequestRef", "later-🚀".into());
@@ -969,6 +1000,7 @@ fn index_only_crash_allows_a_fresh_save_after_reopen() {
                 ),
                 ("attemptId", "fictional-attempt".into()),
                 ("field", patch.get("field").clone()),
+                ("effectTarget", patch.get("effectTarget").clone()),
                 ("effectRecordKey", "record-😀".into()),
                 ("before", patch.get("before").clone()),
                 ("after", patch.get("value").clone()),
@@ -985,8 +1017,10 @@ fn index_only_crash_allows_a_fresh_save_after_reopen() {
         let root = root("index-only-recovery");
         let store = Store::open(&root.join("store"), &root).unwrap();
         let scope = context().get("scope").clone();
-        let reviewed = js(json!({"field":"progress","effectRecordKey":"record-😀",
-            "before":"- Existing progress","after":"- Updated progress"}));
+        let reviewed = js(
+            json!({"field":"progress","effectRecordKey":"record-😀","effectTarget":"synthetic-target",
+            "before":"- Existing progress","after":"- Updated progress"}),
+        );
         let key = state::execution_key(
             "req-😀",
             &scope,
@@ -994,6 +1028,7 @@ fn index_only_crash_allows_a_fresh_save_after_reopen() {
             "record-😀",
             reviewed.get("before"),
             reviewed.get("after"),
+            &"synthetic-target".into(),
         )
         .unwrap();
         let crash_clock = CrashAfterIndex(Clock::new(NOW));
@@ -1008,7 +1043,7 @@ fn index_only_crash_allows_a_fresh_save_after_reopen() {
         };
         let action = js(
             json!({"target":{"studentKey":"student","teacherKey":"teacher","date":"2040-01-04"},
-            "field":"progress","effectRecordKey":"record-😀","before":"- Existing progress","after":"- Updated progress"}),
+            "field":"progress","effectRecordKey":"record-😀","effectTarget":"synthetic-target","before":"- Existing progress","after":"- Updated progress"}),
         );
         assert_eq!(
             approval.consume(&action).unwrap_err().message,
@@ -1036,6 +1071,11 @@ fn index_only_crash_allows_a_fresh_save_after_reopen() {
         let mut target = observation.get("target").clone();
         target.set("recordId", "record-😀".into());
         observation.set("target", target);
+        let mut fields = observation.get("fields").clone();
+        let mut progress = fields.get("progress").clone();
+        progress.set("effectRecordKey", "record-😀".into());
+        fields.set("progress", progress);
+        observation.set("fields", fields);
         source.result.set("observation", observation);
         let mut context = context();
         context.set("currentRequestRef", request.into());
@@ -1122,6 +1162,7 @@ fn supplementary_request_refs_remain_exact_through_save_and_distinct_store_keys(
                 ),
                 ("attemptId", "fictional-exact-ref".into()),
                 ("field", patch.get("field").clone()),
+                ("effectTarget", patch.get("effectTarget").clone()),
                 ("effectRecordKey", "current-record".into()),
                 ("before", patch.get("before").clone()),
                 ("after", patch.get("value").clone()),
@@ -1295,4 +1336,478 @@ fn historical_parent_codes_remain_readable_but_new_wording_requires_admission() 
             before
         );
     }
+}
+
+// These fictional dispatches use the real RequestApproval/Store fence, then lose
+// their answer. No native effect, final completion or saved claim is fabricated.
+struct BoundBackend(Vec<Js>);
+impl service::Backend for BoundBackend {
+    fn configured(&self) -> bool {
+        true
+    }
+    fn save(
+        &mut self,
+        scope: &Js,
+        patches: &Js,
+        approval: &mut dyn Approval,
+        _: &Js,
+    ) -> Result<Js> {
+        for p in patches.array() {
+            let action = obj(&[
+                (
+                    "target",
+                    obj(&[
+                        ("studentKey", scope.get("studentId").clone()),
+                        ("teacherKey", scope.get("teacherId").clone()),
+                        ("date", scope.get("lessonDate").clone()),
+                    ]),
+                ),
+                (
+                    "attemptId",
+                    format!("invented-{}", p.get("field").code_units()).into(),
+                ),
+                ("field", p.get("field").clone()),
+                ("effectTarget", p.get("effectTarget").clone()),
+                ("effectRecordKey", p.get("effectRecordKey").clone()),
+                ("before", p.get("before").clone()),
+                ("after", p.get("value").clone()),
+            ]);
+            assert!(approval.consume(&action)?.get("status").is("verified"));
+            self.0.push(action);
+        }
+        Err(Fault::error("invented_answer_lost_after_fence"))
+    }
+}
+fn bound_input(
+    store: &Store,
+    source: &mut Source,
+    clock: &Clock,
+    req: &str,
+    fields: &[(&str, &str)],
+) -> Result<Js> {
+    let policy = Policy::new(true);
+    let mut context = context();
+    context.set("currentRequestRef", req.into());
+    context.set(
+        "selectedFields",
+        Js::Arr(fields.iter().map(|(f, _)| (*f).into()).collect()),
+    );
+    context.set(
+        "facts",
+        Js::Arr(fields.iter().map(|(f, v)| fact(f, v)).collect()),
+    );
+    let mut proposals = Vec::new();
+    for (field, value) in fields {
+        let mut p = proposal(field, value);
+        p.set("decision", js(json!({"kind":"replace","requestRef":req})));
+        proposals.push(p);
+    }
+    let mut svc = service::Service {
+        store,
+        source,
+        policy: &policy,
+        backend: &mut Backend,
+        runtime: clock,
+    };
+    let intake = svc.intake(&obj(&[("context", context.clone())]))?;
+    let mut input = obj(&[
+        ("context", context),
+        ("observationHandle", intake.get("observationHandle").clone()),
+        ("proposals", Js::Arr(proposals)),
+    ]);
+    let reviewed = svc.review(&input, true)?;
+    assert!(
+        reviewed.get("status").is("prepared"),
+        "{}",
+        stringify(&reviewed)?
+    );
+    input.set("reviewDigest", reviewed.get("reviewDigest").clone());
+    input.set(
+        "request",
+        js(json!({"requestRef":req,"instruction":{"text":"Invented explicit save instruction"}})),
+    );
+    Ok(input)
+}
+fn bind_field(source: &mut Source, field: &str, target: Js, key: &str) {
+    let mut o = source.result.get("observation").clone();
+    let mut fields = o.get("fields").clone();
+    let mut value = fields.get(field).clone();
+    value.set("effectTarget", target);
+    value.set("effectRecordKey", key.into());
+    fields.set(field, value);
+    o.set("fields", fields);
+    source.result.set("observation", o);
+}
+#[test]
+fn reviewed_effect_target_reaches_backend_and_fence() {
+    use edu_academy_core::workflow::{canonical, state};
+    let root = root("bound-target");
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let clock = Clock::new(NOW);
+    let policy = Policy::new(true);
+    let mut source = Source::observed();
+    for field in ["progress", "previousHomeworkAssessment"] {
+        let target = source
+            .result
+            .get("observation")
+            .get(if field == "progress" {
+                "target"
+            } else {
+                "previousTarget"
+            })
+            .clone();
+        bind_field(
+            &mut source,
+            field,
+            canonical(&target).unwrap().into(),
+            if field == "progress" {
+                "current-record"
+            } else {
+                "previous-record"
+            },
+        );
+    }
+    let input = bound_input(
+        &store,
+        &mut source,
+        &clock,
+        "bound-request",
+        &[
+            ("progress", "- Updated progress"),
+            ("previousHomeworkAssessment", "1"),
+        ],
+    )
+    .unwrap();
+    let review = store
+        .get(Kind::Review, &input.get("reviewDigest").code_units())
+        .unwrap();
+    assert_eq!(review.get("effectBindingVersion"), &Js::Num(2.0));
+    let mut backend = BoundBackend(vec![]);
+    let result = service::Service {
+        store: &store,
+        source: &mut source,
+        policy: &policy,
+        backend: &mut backend,
+        runtime: &clock,
+    }
+    .save(&input)
+    .unwrap();
+    assert!(result.get("status").is("held"));
+    assert_eq!(backend.0.len(), 2);
+    let executions = state::student_executions(&store, input.get("context").get("scope")).unwrap();
+    assert_eq!(executions.len(), 2);
+    for action in &backend.0 {
+        let p = review
+            .get("patch")
+            .array()
+            .iter()
+            .find(|p| p.get("field") == action.get("field"))
+            .unwrap();
+        assert_eq!(p.get("effectTarget"), action.get("effectTarget"));
+        assert_eq!(p.get("effectRecordKey"), action.get("effectRecordKey"));
+        let e = executions
+            .iter()
+            .find(|e| e.record.get("field") == action.get("field"))
+            .unwrap();
+        assert_eq!(e.record.get("effectTarget"), action.get("effectTarget"));
+        assert!(e.state.needs_reconciliation());
+        assert_eq!(
+            e.record.get("actionDigest"),
+            &sha(&canonical(action).unwrap()).into()
+        );
+        assert_eq!(
+            codec::parse(e.key.as_bytes()).unwrap().get("effectTarget"),
+            action.get("effectTarget")
+        );
+    }
+    assert_ne!(
+        backend.0[0].get("effectTarget"),
+        backend.0[1].get("effectTarget")
+    );
+    let p = &review.get("patch").array()[0];
+    let mut drifted = p.clone();
+    drifted.set("effectTarget", "different-course/membership".into());
+    assert_eq!(
+        state::checked_execution_key(
+            &store,
+            review.get("requestRef"),
+            input.get("context").get("scope"),
+            &drifted
+        )
+        .unwrap_err()
+        .message,
+        "workflow_execution_key_encoding_conflict"
+    );
+    let mut approval = edu_academy_core::workflow::approval::RequestApproval {
+        store: &store,
+        runtime: &clock,
+        input: obj(&[("reviewed", review.get("patch").clone())]),
+    };
+    let mut action = backend.0[0].clone();
+    action.set("effectTarget", "different-course/membership".into());
+    assert_eq!(
+        approval.consume(&action).unwrap_err().message,
+        "workflow_effect_target_drift"
+    );
+    assert_eq!(
+        state::student_executions(&store, input.get("context").get("scope"))
+            .unwrap()
+            .len(),
+        2
+    );
+}
+#[test]
+fn changed_or_missing_effect_target_refuses_before_dispatch() {
+    use edu_academy_core::workflow::state;
+    let root = root("target-drift");
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let clock = Clock::new(NOW);
+    let policy = Policy::new(true);
+    let mut source = Source::observed();
+    bind_field(&mut source, "progress", "C1/M1/R".into(), "current-record");
+    let input = bound_input(
+        &store,
+        &mut source,
+        &clock,
+        "first",
+        &[("progress", "- Updated progress")],
+    )
+    .unwrap();
+    let mut backend = BoundBackend(vec![]);
+    // Drift between review and save, before any fence.
+    bind_field(&mut source, "progress", "C2/M2/R".into(), "current-record");
+    let error = service::Service {
+        store: &store,
+        source: &mut source,
+        policy: &policy,
+        backend: &mut backend,
+        runtime: &clock,
+    }
+    .save(&input)
+    .unwrap_err();
+    assert_eq!(error.message, "workflow_effect_target_drift");
+    assert!(backend.0.is_empty());
+    bind_field(&mut source, "progress", "C1/M1/R".into(), "current-record");
+    service::Service {
+        store: &store,
+        source: &mut source,
+        policy: &policy,
+        backend: &mut backend,
+        runtime: &clock,
+    }
+    .save(&input)
+    .unwrap();
+    assert_eq!(backend.0.len(), 1);
+    bind_field(&mut source, "progress", "C2/M2/R".into(), "current-record");
+    // B1: a NEW request cannot narrow away the older unresolved T1/R fence.
+    let next = bound_input(
+        &store,
+        &mut source,
+        &clock,
+        "second",
+        &[("progress", "- Updated progress")],
+    )
+    .unwrap();
+    let error = service::Service {
+        store: &store,
+        source: &mut source,
+        policy: &policy,
+        backend: &mut backend,
+        runtime: &clock,
+    }
+    .save(&next)
+    .unwrap_err();
+    assert_eq!(error.message, "workflow_effect_target_drift");
+    assert_eq!(backend.0.len(), 1);
+    let executions = state::student_executions(&store, input.get("context").get("scope")).unwrap();
+    assert_eq!(executions.len(), 1);
+    let e = &executions[0];
+    // R09 manual_reconciliation: a drift refusal cannot settle or release E1.
+    let error = service::Service {
+        store: &store,
+        source: &mut source,
+        policy: &policy,
+        backend: &mut backend,
+        runtime: &clock,
+    }
+    .reconcile(&obj(&[("context", next.get("context").clone())]))
+    .unwrap_err();
+    assert_eq!(error.message, "workflow_effect_target_drift");
+    assert!(store.get(Kind::Reconciliation, &e.key).unwrap().absent());
+    assert!(
+        state::field_state(&store, &e.key)
+            .unwrap()
+            .needs_reconciliation()
+    );
+    let fresh_root = root.join("missing");
+    let empty_store = Store::open(&fresh_root, &root).unwrap();
+    let mut absent = Source::observed();
+    let mut o = absent.result.get("observation").clone();
+    let mut fields = o.get("fields").clone();
+    fields.set("progress", known("- Existing progress"));
+    o.set("fields", fields);
+    absent.result.set("observation", o);
+    assert_eq!(
+        bound_input(
+            &empty_store,
+            &mut absent,
+            &clock,
+            "missing",
+            &[("progress", "- Updated progress")]
+        )
+        .unwrap_err()
+        .message,
+        "workflow_effect_target_required"
+    );
+    assert_eq!(
+        fs::read_dir(empty_store.root().join("review"))
+            .unwrap()
+            .count(),
+        0
+    );
+}
+#[test]
+fn legacy_review_and_execution_keep_their_fences() {
+    use edu_academy_core::{js::text, workflow::state};
+    let root = root("legacy-binding");
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let clock = Clock::new(NOW);
+    let policy = Policy::new(true);
+    let mut source = Source::observed();
+    let input = bound_input(
+        &store,
+        &mut source,
+        &clock,
+        "legacy",
+        &[("progress", "- Updated progress")],
+    )
+    .unwrap();
+    let reviewed = store
+        .get(Kind::Review, &input.get("reviewDigest").code_units())
+        .unwrap();
+    let old = Js::Obj(
+        reviewed
+            .props()
+            .iter()
+            .filter(|(k, _)| k != &text("effectBindingVersion"))
+            .cloned()
+            .collect(),
+    );
+    let old_store = Store::open(&root.join("old-store"), &root).unwrap();
+    old_store
+        .publish(
+            Kind::Review,
+            &input.get("reviewDigest").code_units(),
+            &old,
+            &clock,
+        )
+        .unwrap();
+    let mut backend = BoundBackend(vec![]);
+    assert_eq!(
+        service::Service {
+            store: &old_store,
+            source: &mut source,
+            policy: &policy,
+            backend: &mut backend,
+            runtime: &clock
+        }
+        .save(&input)
+        .unwrap_err()
+        .message,
+        "workflow_legacy_review_unbound"
+    );
+    let scope = input.get("context").get("scope");
+    let legacy = obj(&[
+        ("scope", scope.clone()),
+        ("requestRef", "older".into()),
+        ("field", "progress".into()),
+        ("effectRecordKey", "current-record".into()),
+    ]);
+    store
+        .add_ledger(&state::lock_key(scope).unwrap(), "legacy-key", &clock)
+        .unwrap();
+    store
+        .publish(Kind::Execution, "legacy-key", &legacy, &clock)
+        .unwrap();
+    assert_eq!(
+        service::Service {
+            store: &store,
+            source: &mut source,
+            policy: &policy,
+            backend: &mut backend,
+            runtime: &clock
+        }
+        .save(&input)
+        .unwrap_err()
+        .message,
+        "workflow_legacy_execution_unbound"
+    );
+    assert_eq!(
+        service::Service {
+            store: &store,
+            source: &mut source,
+            policy: &policy,
+            backend: &mut backend,
+            runtime: &clock
+        }
+        .reconcile(&obj(&[("context", input.get("context").clone())]))
+        .unwrap_err()
+        .message,
+        "workflow_legacy_execution_unbound"
+    );
+    assert_eq!(store.get(Kind::Execution, "legacy-key").unwrap(), legacy);
+    assert!(
+        store
+            .get(Kind::Reconciliation, "legacy-key")
+            .unwrap()
+            .absent()
+    );
+    assert!(backend.0.is_empty());
+}
+#[test]
+fn effect_target_limit() {
+    use edu_academy_core::workflow::schema::MAX_EFFECT_TARGET_UNITS;
+    let root = root("target-limit");
+    let store = Store::open(&root.join("store"), &root).unwrap();
+    let clock = Clock::new(NOW);
+    let mut source = Source::observed();
+    bind_field(
+        &mut source,
+        "progress",
+        "x".repeat(MAX_EFFECT_TARGET_UNITS).into(),
+        "current-record",
+    );
+    let input = bound_input(
+        &store,
+        &mut source,
+        &clock,
+        "limit",
+        &[("progress", "- Updated progress")],
+    )
+    .unwrap();
+    let review = store
+        .get(Kind::Review, &input.get("reviewDigest").code_units())
+        .unwrap();
+    assert_eq!(
+        review.get("patch").array()[0]
+            .get("effectTarget")
+            .units()
+            .len(),
+        MAX_EFFECT_TARGET_UNITS
+    );
+    bind_field(
+        &mut source,
+        "progress",
+        "x".repeat(MAX_EFFECT_TARGET_UNITS + 1).into(),
+        "current-record",
+    );
+    assert_eq!(
+        service::qualified_observation(
+            source.result.get("observation"),
+            input.get("context").get("scope")
+        )
+        .unwrap_err()
+        .message,
+        "workflow_effect_target_invalid"
+    );
 }

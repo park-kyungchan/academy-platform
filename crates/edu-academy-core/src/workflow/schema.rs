@@ -1,5 +1,23 @@
 //! Additional workflow schemas. Existing accepted sub-schemas remain their owner.
 use crate::js::{Fault, Js, Result, obj, test, text, trim};
+pub const MAX_EFFECT_TARGET_UNITS: usize = 4096;
+pub(crate) fn effect_target(v: &Js) -> Result<()> {
+    if v.absent() {
+        return Err(Fault::error("workflow_effect_target_required"));
+    }
+    if !v.string() || v.units().is_empty() || v.units().len() > MAX_EFFECT_TARGET_UNITS {
+        return Err(Fault::error("workflow_effect_target_invalid"));
+    }
+    Ok(())
+}
+pub(crate) fn effect_binding(v: &Js) -> Result<()> {
+    effect_target(v.get("effectTarget"))?;
+    if !v.get("effectRecordKey").string() || v.get("effectRecordKey").units().is_empty() {
+        return Err(Fault::error("workflow_effect_target_required"));
+    }
+    crate::schema::validate("dailyRecordIdSchema", v.get("effectRecordKey"))?;
+    Ok(())
+}
 fn reject() -> Fault {
     Fault::error("workflow_input_rejected")
 }

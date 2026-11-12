@@ -30,6 +30,11 @@ impl Approval for RequestApproval<'_> {
         else {
             return Ok(rejected());
         };
+        super::schema::effect_binding(p)?;
+        super::schema::effect_binding(a)?;
+        if a.get("effectTarget") != p.get("effectTarget") {
+            return Err(crate::js::Fault::error("workflow_effect_target_drift"));
+        }
         if a.get("target").get("studentKey") != s.get("studentId")
             || a.get("target").get("teacherKey") != s.get("teacherId")
             || a.get("target").get("date") != s.get("lessonDate")
@@ -44,6 +49,8 @@ impl Approval for RequestApproval<'_> {
         self.store.add_ledger(&lock_key(s)?, &key, self.runtime)?;
         self.runtime.indexed()?;
         let record = obj(&[
+            ("effectBindingVersion", Js::Num(2.0)),
+            ("effectTarget", p.get("effectTarget").clone()),
             ("requestRef", self.input.get("requestRef").clone()),
             ("scope", s.clone()),
             ("field", p.get("field").clone()),

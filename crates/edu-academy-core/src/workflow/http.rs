@@ -59,11 +59,13 @@ pub fn validate_action(a: &Js) -> Result<()> {
             "target",
             "field",
             "effectRecordKey",
+            "effectTarget",
             "before",
             "after",
             "wireDigest",
         ],
     )?;
+    super::schema::effect_binding(a)?;
     require_text(a.get("attemptId"), "attempt")?;
     if !test(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$", a.get("attemptId")) {
         return Err(Fault::error("journal_http_attempt_rejected"));
@@ -101,6 +103,7 @@ pub fn verified_state(a: &Js, s: &Js) -> Result<()> {
             "previousRecordKey",
             "previousDate",
             "wireDigest",
+            "effectTargets",
         ],
     )?;
     http_target(s.get("target"))?;
@@ -108,6 +111,9 @@ pub fn verified_state(a: &Js, s: &Js) -> Result<()> {
         || s.get("wireDigest") != a.get("wireDigest")
     {
         return Err(Fault::error("journal_http_source_drift"));
+    }
+    if s.get("effectTargets").get(&a.get("field").code_units()) != a.get("effectTarget") {
+        return Err(Fault::error("workflow_effect_target_drift"));
     }
     let previous = a.get("field").is("previousHomeworkAssessment");
     let record = if previous {

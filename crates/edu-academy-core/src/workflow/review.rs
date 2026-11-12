@@ -243,7 +243,14 @@ fn normalize_observation(v: &Js) -> Js {
                     text(f),
                     ordered(
                         v.get("fields").get(f),
-                        &["state", "value", "evidenceRefs", "reasonCode"],
+                        &[
+                            "state",
+                            "value",
+                            "evidenceRefs",
+                            "reasonCode",
+                            "effectTarget",
+                            "effectRecordKey",
+                        ],
                     ),
                 )
             })
@@ -798,9 +805,19 @@ pub(crate) fn review_read(
                                             ordered(
                                                 o.get("fields").get(f),
                                                 if o.get("fields").get(f).get("state").is("known") {
-                                                    &["state", "value"]
+                                                    &[
+                                                        "state",
+                                                        "value",
+                                                        "effectTarget",
+                                                        "effectRecordKey",
+                                                    ]
                                                 } else {
-                                                    &["state", "reasonCode"]
+                                                    &[
+                                                        "state",
+                                                        "reasonCode",
+                                                        "effectTarget",
+                                                        "effectRecordKey",
+                                                    ]
                                                 },
                                             ),
                                         )
@@ -1019,11 +1036,20 @@ pub(crate) fn review_read(
             ),
         ]));
     }
+    // Optional metadata is copied only when supplied; legacy pure-review bytes stay exact.
+    for row in &mut rows {
+        let field = row.get("field").code_units();
+        for key in ["effectTarget", "effectRecordKey"] {
+            if source.get("fields").get(&field).has(key) {
+                row.set(key, source.get("fields").get(&field).get(key).clone());
+            }
+        }
+    }
     let patch = Js::Arr(
         rows.iter()
             .filter(|r| r.get("disposition").is("proposed"))
             .map(|r| {
-                obj(&[
+                let mut patch = obj(&[
                     ("field", r.get("field").clone()),
                     ("target", r.get("target").clone()),
                     (
@@ -1037,7 +1063,13 @@ pub(crate) fn review_read(
                     ("after", r.get("after").clone()),
                     ("factRefs", r.get("factRefs").clone()),
                     ("learningEntries", r.get("learningEntries").clone()),
-                ])
+                ]);
+                for key in ["effectTarget", "effectRecordKey"] {
+                    if r.has(key) {
+                        patch.set(key, r.get(key).clone());
+                    }
+                }
+                patch
             })
             .collect(),
     );

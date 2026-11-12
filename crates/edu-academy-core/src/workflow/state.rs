@@ -23,12 +23,15 @@ pub fn execution_key(
     record: impl Into<Js>,
     before: &Js,
     after: &Js,
+    effect_target: &Js,
 ) -> Result<String> {
+    super::schema::effect_target(effect_target)?;
     canonical(&obj(&[
         ("requestRef", request.into()),
         ("student", lock_key(scope)?.into()),
         ("field", field.into()),
         ("effectRecordKey", record.into()),
+        ("effectTarget", effect_target.clone()),
         (
             "beforeSha256",
             sha(&String::from_utf16_lossy(before.units())).into(),
@@ -58,11 +61,18 @@ pub fn checked_execution_key(
         record.clone(),
         before,
         after,
+        transition.get("effectTarget"),
     )?;
     let before_sha = sha(&String::from_utf16_lossy(before.units()));
     let after_sha = sha(&String::from_utf16_lossy(after.units()));
     for prior in student_executions(store, scope)? {
         let r = &prior.record;
+        if r.get("field").is(&field)
+            && r.get("effectTarget").absent()
+            && (prior.state.needs_reconciliation() || r.get("requestRef") == request)
+        {
+            return Err(Fault::error("workflow_legacy_execution_unbound"));
+        }
         if r.get("requestRef") == request
             && r.get("field").is(&field)
             && r.get("effectRecordKey") == record

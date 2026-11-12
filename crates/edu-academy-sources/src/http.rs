@@ -1473,8 +1473,29 @@ impl<T: Transport> Client<T> {
         let mut fields = row.get("fields").clone();
         fields.set("dailyTestAssessment", assessment("h_daily_test")?);
         fields.set("previousHomeworkAssessment", assessment("h_homework_rate")?);
+        let mut previous = target.clone();
+        previous.set("recordKey", previous_key.clone());
+        previous.set("date", values[1].into());
+        let effect_targets = obj(&edu_academy_core::workflow::review::FIELDS
+            .map(|field| {
+                let physical = if field == "previousHomeworkAssessment" {
+                    &previous
+                } else {
+                    target
+                };
+                let full = crate::native::observation_target(physical);
+                Ok((
+                    field,
+                    edu_academy_core::workflow::canonical(&full)
+                        .map_err(journal_core_error)?
+                        .into(),
+                ))
+            })
+            .into_iter()
+            .collect::<Result<Vec<_>>>()?);
         Ok(obj(&[
             ("target", target.clone()),
+            ("effectTargets", effect_targets),
             ("fields", fields),
             ("previousRecordKey", previous_key),
             ("previousDate", values[1].into()),
@@ -3226,10 +3247,38 @@ mod review_fixes_fictional_journal {
                 let mut fields = row.get("fields").clone();
                 fields.set("dailyTestAssessment", "0".into());
                 fields.set("previousHomeworkAssessment", "3".into());
+                let effect_targets =
+                    obj(&edu_academy_core::workflow::review::FIELDS.map(|field| {
+                        let previous = field == "previousHomeworkAssessment";
+                        let full = obj(&[
+                            ("sourceNamespace", "academy.lms.dayrecord".into()),
+                            ("teacherId", "99001".into()),
+                            ("studentId", "77001".into()),
+                            ("courseId", "5".into()),
+                            ("membershipId", "8".into()),
+                            ("recordId", if previous { "12" } else { "13" }.into()),
+                            (
+                                "lessonDate",
+                                if !previous {
+                                    "2040-01-04"
+                                } else if variant == "success" {
+                                    "2040-01-02"
+                                } else {
+                                    "2040-00-00"
+                                }
+                                .into(),
+                            ),
+                        ]);
+                        (
+                            field,
+                            edu_academy_core::workflow::canonical(&full).unwrap().into(),
+                        )
+                    }));
                 assert_eq!(
                     result,
                     obj(&[
                         ("target", target.clone()),
+                        ("effectTargets", effect_targets),
                         ("fields", fields),
                         ("previousRecordKey", "12".into()),
                         (

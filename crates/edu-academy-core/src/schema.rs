@@ -258,11 +258,24 @@ fn observation() -> S {
                     ("state", lit("known")),
                     ("value", st(8192)),
                     ("evidenceRefs", ar(id(), 1, 32)),
+                    (
+                        "effectTarget",
+                        opt(st(crate::workflow::schema::MAX_EFFECT_TARGET_UNITS)),
+                    ),
+                    ("effectRecordKey", opt(id())),
                 ]),
             ),
             (
                 "unknown",
-                o(vec![("state", lit("unknown")), ("reasonCode", id())]),
+                o(vec![
+                    ("state", lit("unknown")),
+                    ("reasonCode", id()),
+                    (
+                        "effectTarget",
+                        opt(st(crate::workflow::schema::MAX_EFFECT_TARGET_UNITS)),
+                    ),
+                    ("effectRecordKey", opt(id())),
+                ]),
             ),
         ],
     );

@@ -106,6 +106,7 @@ fn index_only_is_available_and_physical_fence_ignores_request_and_date() {
         ("scope", scope.clone()),
         ("field", "progress".into()),
         ("effectRecordKey", "physical".into()),
+        ("effectTarget", "synthetic-target".into()),
     ]);
     s.publish(Kind::Execution, "index-only", &r, &Clock)
         .unwrap();
@@ -212,9 +213,13 @@ fn old_json_preserves_utf16_key_order_duplicate_keys_and_numeric_values() {
 }
 
 #[test]
-fn unicode_ledger_keys_match_actual_typescript_encoding_and_file_hashes() {
+fn new_target_keys_preserve_exact_unicode_identity() {
     let cases = codec::parse(include_bytes!("fixtures/workflow-unicode-keys.json")).unwrap();
+    let bound = codec::parse(include_bytes!("fixtures/workflow-target-keys-v2.json")).unwrap();
     for (index, case) in cases.array().iter().enumerate() {
+        let expected = &bound.array()[index];
+        let legacy = codec::parse(case.get("executionKey").code_units().as_bytes()).unwrap();
+        assert!(legacy.get("effectTarget").absent());
         let p = root(&format!("unicode-key-{index}"));
         let s = Store::open(&p.join("store"), &p).unwrap();
         let scope = case.get("scope");
@@ -225,15 +230,18 @@ fn unicode_ledger_keys_match_actual_typescript_encoding_and_file_hashes() {
             case.get("effectRecordKey").clone(),
             case.get("before"),
             case.get("after"),
+            &"synthetic-target".into(),
         )
         .unwrap();
-        assert!(case.get("executionKey").is(&key));
+        assert!(expected.get("executionKey").is(&key));
+        assert_ne!(case.get("executionKey"), expected.get("executionKey"));
         assert!(
             case.get("requestKey")
                 .is(&state::request_key(scope, case.get("requestRef").clone()).unwrap())
         );
         let record = obj(&[
             ("field", "progress".into()),
+            ("effectTarget", expected.get("effectTarget").clone()),
             ("effectRecordKey", case.get("effectRecordKey").clone()),
         ]);
         s.add_ledger(&state::lock_key(scope).unwrap(), &key, &Clock)
@@ -249,7 +257,7 @@ fn unicode_ledger_keys_match_actual_typescript_encoding_and_file_hashes() {
                 .join("execution")
                 .join(format!(
                     "{}.json",
-                    String::from_utf16(case.get("executionFileHash").units()).unwrap()
+                    String::from_utf16(expected.get("executionFileHash").units()).unwrap()
                 ))
                 .exists()
         );
@@ -315,6 +323,7 @@ fn legacy_lossy_settled_key_cannot_be_replayed_as_a_new_exact_key() {
         "physical",
         &before,
         &after,
+        &"synthetic-target".into(),
     )
     .unwrap();
     let exact = state::execution_key(
@@ -324,6 +333,7 @@ fn legacy_lossy_settled_key_cannot_be_replayed_as_a_new_exact_key() {
         "physical",
         &before,
         &after,
+        &"synthetic-target".into(),
     )
     .unwrap();
     assert_ne!(legacy, exact);
@@ -332,6 +342,7 @@ fn legacy_lossy_settled_key_cannot_be_replayed_as_a_new_exact_key() {
         ("scope", scope.clone()),
         ("field", "progress".into()),
         ("effectRecordKey", "physical".into()),
+        ("effectTarget", "synthetic-target".into()),
         ("beforeSha256", sha("before").into()),
         ("afterSha256", sha("after").into()),
     ]);
@@ -352,6 +363,7 @@ fn legacy_lossy_settled_key_cannot_be_replayed_as_a_new_exact_key() {
     let reviewed = obj(&[
         ("field", "progress".into()),
         ("effectRecordKey", "physical".into()),
+        ("effectTarget", "synthetic-target".into()),
         ("before", before.clone()),
         ("after", after.clone()),
     ]);
@@ -375,6 +387,7 @@ fn legacy_lossy_settled_key_cannot_be_replayed_as_a_new_exact_key() {
         ),
         ("field", "progress".into()),
         ("effectRecordKey", "physical".into()),
+        ("effectTarget", "synthetic-target".into()),
         ("before", before),
         ("after", after),
     ]);
