@@ -221,3 +221,30 @@ fn d_missing_fields() {
     // expose no dispatch/saved API; the shared checker receives empty traces.
     check(&fixture.records[0].snapshot.identity, &[], &[], &[]);
 }
+
+#[test]
+fn d_unresolved_unsent() {
+    use edu_academy_teacher::record_policy::settle_fields;
+    let mut fixture =
+        RecordFixture::from_json(include_str!("fixtures/record-answers.json")).unwrap();
+    let mut before = fixture.records.remove(0);
+    let RecordObservation::Observed { fields, .. } = &mut before.snapshot.observation else {
+        panic!("observed fixture required");
+    };
+    *fields = RecordFields::from_fn(|_| RecordValue::Unknown);
+    fields.homework = RecordValue::Known("".into());
+    let input = TeacherInputs {
+        homework: Some(vec!["가상 숙제".into()]),
+        ..Default::default()
+    };
+    let dispositions = settle_fields(&before, &input).unwrap();
+    assert_eq!(dispositions.homework, FieldDisposition::ProposalConfirmed);
+    for field in RecordField::ALL {
+        if field != RecordField::Homework {
+            assert_eq!(dispositions[field], FieldDisposition::Unresolved);
+        }
+    }
+    // D-unresolved-unsent: only input dispositions, no preview/approval/attempt.
+    // R05, not a durable R07 fact. No unsupplied field can acquire a saved claim.
+    check(&before.snapshot.identity, &[], &[], &[]);
+}
