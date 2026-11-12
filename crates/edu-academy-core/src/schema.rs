@@ -175,6 +175,10 @@ fn context() -> S {
                             o(vec![("kind", lit("no_addition")), ("requestRef", id())]),
                         ),
                         (
+                            "clear",
+                            o(vec![("kind", lit("clear")), ("requestRef", id())]),
+                        ),
+                        (
                             "content",
                             o(vec![
                                 ("kind", lit("content")),

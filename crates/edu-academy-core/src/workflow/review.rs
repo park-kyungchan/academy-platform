@@ -471,6 +471,7 @@ pub(super) fn proposal_blockers(p: &Js, c: &Js) -> Vec<Js> {
     if field == "lessonMemo" && c.get("memoAnswer").get("kind").is("not_supplied") {
         b.push("today_memo_interview_required".into());
     }
+    b.extend(crate::decision::memo_answer_blocker(c, Some(p)));
     b
 }
 fn hold_actions(scope: &Js, field: &Js, b: &[Js], entries: &Js) -> Js {
@@ -771,6 +772,14 @@ pub(crate) fn review_read(
     let learning = !policy.learning_pins().absent();
     let mut events = vec![];
     let mut global = global_blockers(&input, &source, now_epoch)?;
+    let memo_blocker = crate::decision::memo_answer_blocker(
+        &context,
+        proposals
+            .array()
+            .iter()
+            .find(|p| p.get("field").is("lessonMemo")),
+    );
+    global.extend(memo_blocker.clone());
     let fresh = held && global.is_empty();
     if fresh {
         events.push(obj(&[
@@ -1079,7 +1088,10 @@ pub(crate) fn review_read(
             ("reasonCode", "today_student_specific_memo_required".into()),
         ])]
     } else {
-        vec![]
+        memo_blocker
+            .into_iter()
+            .map(|code| obj(&[("field", "lessonMemo".into()), ("reasonCode", code)]))
+            .collect()
     };
     let input_digest = digest(
         &obj(&[

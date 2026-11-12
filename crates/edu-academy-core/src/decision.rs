@@ -392,6 +392,23 @@ fn qualify(observation: &Js, scope: &Js) -> Option<Js> {
     }
     None
 }
+/// One deletion-answer rule for both review paths and their supplied proposals.
+pub(crate) fn memo_answer_blocker(c: &Js, proposal: Option<&Js>) -> Option<Js> {
+    let clear = c.get("memoAnswer").get("kind").is("clear");
+    match proposal {
+        None if clear => Some("memo_clear_proposal_required".into()),
+        Some(p) if p.get("field").is("lessonMemo") => {
+            if p.get("decision").get("kind").is("clear") && !clear {
+                Some("memo_clear_answer_required".into())
+            } else if clear && !p.get("decision").get("kind").is("clear") {
+                Some("memo_clear_answer_requires_clear_decision".into())
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
 fn proposal_blockers(p: &Js, c: &Js) -> Vec<Js> {
     let mut b = vec![];
     let field = p.get("field").code_units();
@@ -453,6 +470,7 @@ fn proposal_blockers(p: &Js, c: &Js) -> Vec<Js> {
     if field == "lessonMemo" && c.get("memoAnswer").get("kind").is("not_supplied") {
         b.push("today_memo_interview_required".into());
     }
+    b.extend(memo_answer_blocker(c, Some(p)));
     b
 }
 fn hold_actions(scope: &Js, field: &Js, b: &[Js], entries: &Js) -> Js {
@@ -968,11 +986,19 @@ fn review_core(
         handle
     };
     let held = !handle.absent();
+    let memo_blocker = memo_answer_blocker(
+        &context,
+        proposals
+            .array()
+            .iter()
+            .find(|p| p.get("field").is("lessonMemo")),
+    );
     let mut global = if held {
         vec![]
     } else {
         vec!["qualified_before_source_unavailable".into()]
     };
+    global.extend(memo_blocker.clone());
     if trace.is_some() && review_input.get("cismObservationHandle").truthy() {
         global.push("exact_fresh_cism_observation_handle_required".into());
     }
@@ -1260,7 +1286,10 @@ fn review_core(
             ("reasonCode", "today_student_specific_memo_required".into()),
         ])]
     } else {
-        vec![]
+        memo_blocker
+            .into_iter()
+            .map(|code| obj(&[("field", "lessonMemo".into()), ("reasonCode", code)]))
+            .collect()
     };
     let input_digest = digest(
         &obj(&[
