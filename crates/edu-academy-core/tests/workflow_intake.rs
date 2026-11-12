@@ -962,10 +962,12 @@ fn astral_request_crash_before_resolution_blocks_a_later_request_after_reopen() 
         input.set("request", js(json!({"requestRef":"later-🚀","instruction":{"text":"Save this reviewed fictional field."}})));
         let held = svc.save(&input).unwrap();
         assert!(
-            held.get("reasonCode").is("save_confirmation_pending"),
+            held.get("reasonCode")
+                .is("uncertain_dispatch_reconcile_required"),
             "{}",
             stringify(&held).unwrap()
         );
+        assert!(held.get("earliestSettleAtEpochMs").absent());
         assert_eq!(held.get("academyWrites"), &Js::Num(0.0));
     }
 }

@@ -41,7 +41,7 @@ fn with_completion_facts(store: &Store, key: &str, mut value: Js) -> Result<Js> 
     }
     if field_state(store, key)?.needs_reconciliation() {
         manual_reconciliation(&mut value);
-        if let Some(at) = settlement_at(&store.get(Kind::Execution, key)?) {
+        if let Some(at) = settlement_at(&store.get(Kind::Execution, key)?, &outcome) {
             value.set("earliestSettleAtEpochMs", Js::Num(at as f64));
         }
     }
@@ -782,9 +782,7 @@ impl Service<'_> {
             }
         };
         let recorded = |r: &Js| {
-            if returned_receipt(r)
-                && (r.get("status").is("persisted") || r.get("status").is("conflict"))
-            {
+            if returned_receipt(r) && r.get("status").is("persisted") {
                 r.get("status").clone()
             } else {
                 Js::from("unresolved")
@@ -854,8 +852,6 @@ impl Service<'_> {
             });
         let reason = if settled {
             Js::Null
-        } else if results.array().iter().any(|r| recorded(r).is("conflict")) {
-            "readback_conflict_new_review_required".into()
         } else if results.array().iter().any(|r| {
             r.get("status").is("unresolved")
                 || r.get("status").is("conflict")
@@ -1036,7 +1032,23 @@ impl Service<'_> {
                 return Err(Fault::error("workflow_legacy_execution_unbound"));
             }
             let read_at = self.runtime.now();
-            if let Some(due) = settlement_at(r) {
+            let mut outcome = self.store.get(Kind::Outcome, &e.key)?;
+            if r.get("settlementRule").is(SETTLEMENT_RULE) && outcome.absent() {
+                outcome = obj(&[
+                    ("status", "unresolved".into()),
+                    ("settlementRule", SETTLEMENT_RULE.into()),
+                    ("actionDigest", r.get("actionDigest").clone()),
+                    ("recordedAt", read_at.clone().into()),
+                ]);
+                self.store
+                    .publish(Kind::Outcome, &e.key, &outcome, self.runtime)?;
+            }
+            let due = settlement_at(r, &outcome);
+            if r.get("settlementRule").is(SETTLEMENT_RULE) && due.is_none() {
+                uncertain = true;
+                continue;
+            }
+            if let Some(due) = due {
                 let now = crate::instant::epoch_ms(
                     &read_at.clone().into(),
                     crate::instant::Grammar::DailyRecord,
@@ -1047,7 +1059,7 @@ impl Service<'_> {
                     continue;
                 }
             }
-            let scope_key = if settlement_at(r).is_some() {
+            let scope_key = if due.is_some() {
                 e.key.clone()
             } else {
                 crate::js::stringify(r.get("scope"))?
@@ -1098,7 +1110,7 @@ impl Service<'_> {
             if !current.get("state").is("known") {
                 continue;
             }
-            if settlement_at(r).is_some() {
+            if due.is_some() {
                 self.store.publish(
                     Kind::Reconciliation,
                     &e.key,

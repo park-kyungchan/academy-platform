@@ -4,7 +4,7 @@ use edu_academy_core::{
     workflow::{
         Runtime,
         approval::Approval,
-        canonical, codec, review, service, state,
+        canonical, codec, http, native, review, service, state,
         store::{Kind, Store, mkdir},
     },
 };
@@ -22,7 +22,7 @@ const NOW: &str = "2040-01-04T12:00:00.000Z";
 const DUE: f64 = 2209291800000.0;
 static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Clock {
-    now: RefCell<String>,
+    now: Rc<RefCell<String>>,
     seq: Cell<u64>,
 }
 impl Runtime for Clock {
@@ -77,6 +77,8 @@ impl service::Source for Source {
     }
 }
 struct Backend {
+    clock: Rc<RefCell<String>>,
+    return_at: Option<&'static str>,
     calls: usize,
     status: &'static str,
     transport: &'static str,
@@ -114,6 +116,13 @@ impl service::Backend for Backend {
         ]);
         assert!(approval.consume(&action)?.get("status").is("verified"));
         self.calls += 1;
+        assert_ne!(
+            self.status, "crash",
+            "invented process ended after consumption"
+        );
+        if let Some(at) = self.return_at {
+            *self.clock.borrow_mut() = at.into();
+        }
         if let Some(value) = &self.application {
             let mut observation = self.observation.borrow_mut();
             let mut fields = observation.get("fields").clone();
@@ -149,20 +158,20 @@ impl Case {
         ));
         mkdir(&root).unwrap();
         let scope = js(
-            json!({"sourceNamespace":"invented:rule-b","teacherId":"teacher",
-            "studentId":"student","lessonDate":"2040-01-04"}),
+            json!({"sourceNamespace":"academy.lms.dayrecord","teacherId":"11",
+            "studentId":"12","lessonDate":"2040-01-04"}),
         );
         let mut target = scope.clone();
         for (k, v) in [
-            ("courseId", "course"),
-            ("membershipId", "membership"),
-            ("recordId", "record"),
+            ("courseId", "13"),
+            ("membershipId", "14"),
+            ("recordId", "15"),
         ] {
             target.set(k, v.into());
         }
         let mut previous = target.clone();
         previous.set("lessonDate", "2040-01-03".into());
-        previous.set("recordId", "previous".into());
+        previous.set("recordId", "16".into());
         let mut fields = obj(&[]);
         for field in review::FIELDS {
             let value = match field {
@@ -171,7 +180,7 @@ impl Case {
                 _ => "- Before",
             };
             fields.set(field,js(json!({"state":"known","value":value,"evidenceRefs":["invented-read"],
-                "effectRecordKey":if field=="previousHomeworkAssessment" {"previous"} else {"record"},
+                "effectRecordKey":if field=="previousHomeworkAssessment" {"16"} else {"15"},
                 "effectTarget":if field=="previousHomeworkAssessment" {"previous-target"} else {"target"}})));
         }
         let observation = obj(&[
@@ -186,10 +195,13 @@ impl Case {
             ("transmissionState", "not_sent".into()),
         ]);
         let observation = Rc::new(RefCell::new(observation));
+        let clock = Rc::new(RefCell::new(NOW.into()));
         let mut case = Self {
             root,
             source: Source(observation.clone(), Rc::new(Cell::new(0))),
             backend: Backend {
+                clock: clock.clone(),
+                return_at: None,
                 calls: 0,
                 status,
                 transport,
@@ -198,7 +210,7 @@ impl Case {
                 observation,
             },
             clock: Clock {
-                now: RefCell::new(NOW.into()),
+                now: clock,
                 seq: Cell::new(0),
             },
             input: Js::Null,
@@ -314,10 +326,14 @@ impl Case {
         );
     }
     fn pending(result: &Js) {
-        assert!(result.get("status").is("held"), "{result:?}");
-        assert!(
-            result.get("reasonCode").is("save_confirmation_pending"),
-            "{result:?}"
+        assert_eq!(
+            result.get("status"),
+            &Js::from("held"),
+            "confirmation must remain pending"
+        );
+        assert_eq!(
+            result.get("reasonCode"),
+            &Js::from("save_confirmation_pending")
         );
         assert_eq!(result.get("earliestSettleAtEpochMs"), &Js::Num(DUE));
     }
@@ -395,36 +411,24 @@ fn t4_lost_answer_other_value_conflicts() {
     assert_eq!(c.backend.calls, 1);
 }
 #[test]
-fn t5_receipted_immediate_conflict_consumes_attempt() {
+fn t5_receipted_third_value_fences_second_dispatch_until_q() {
     let mut c = Case::new("conflict", "returned", Some(200));
     c.backend.application = Some("- Other".into());
-    let conflict = c.save();
-    assert!(
-        conflict.get("fields").array()[0]
-            .get("status")
-            .is("conflict")
-    );
-    assert!(
-        conflict
-            .get("reasonCode")
-            .is("readback_conflict_new_review_required")
-    );
-    assert!(conflict.get("nextStep").absent());
-    assert_eq!(c.execution().state, state::FieldState::SettledNotPersisted);
-    assert!(
-        c.save()
-            .get("reasonCode")
-            .is("transition_already_attempted_new_request_required")
-    );
-    assert_eq!(c.backend.calls, 1);
+    let first = c.save();
     c.prepare("second", "- Next");
-    let review = c
-        .open()
-        .get(Kind::Review, &c.input.get("reviewDigest").code_units())
-        .unwrap();
-    assert!(review.get("patch").array()[0].get("before").is("- Other"));
-    c.save();
-    assert_eq!(c.backend.calls, 2);
+    let second = c.save();
+    assert_eq!(c.backend.calls, 1, "second dispatch admitted inside Q");
+    Case::pending(&first);
+    Case::pending(&second);
+    c.at("2040-01-04T12:01:40.000Z");
+    c.value(Some("- Sent")); // The first write may still apply inside Q.
+    Case::pending(&c.save());
+    assert_eq!(c.backend.calls, 1);
+    c.value(Some("- Other"));
+    assert!(c.execution().state.needs_reconciliation());
+    c.at("2040-01-04T12:10:00.000Z");
+    assert!(c.reconcile(false).get("status").is("settled"));
+    assert_eq!(c.execution().state, state::FieldState::ReconciledConflict);
 }
 #[test]
 fn t6_2xx_before_value_remains_held_until_q() {
@@ -560,4 +564,170 @@ fn t13_clock_before_dispatch_is_before_q() {
     Case::pending(&c.reconcile(false));
     c.no_settlement();
     assert_eq!(c.backend.calls, 1);
+}
+
+// Synthetic owner port: NativeBackend calls the real http::apply, never a network.
+impl http::HttpPort for Backend {
+    fn read(&mut self, _: &Js) -> Result<Js> {
+        let mut fields = obj(&[]);
+        let mut targets = obj(&[]);
+        for f in review::FIELDS {
+            fields.set(
+                f,
+                self.observation
+                    .borrow()
+                    .get("fields")
+                    .get(f)
+                    .get("value")
+                    .clone(),
+            );
+            targets.set(
+                f,
+                self.observation
+                    .borrow()
+                    .get("fields")
+                    .get(f)
+                    .get("effectTarget")
+                    .clone(),
+            );
+        }
+        if self.calls > 0 {
+            fields.set("progress", self.application.as_deref().unwrap().into());
+            if self.status == "sibling" || self.status == "before-sibling" {
+                fields.set("homework", "- Other actor".into());
+            }
+        }
+        Ok(obj(&[
+            (
+                "target",
+                js(
+                    json!({"studentName":"Invented Rule Student","date":"2040-01-04","groupId":"17","teacherKey":"11","studentKey":"12","courseKey":"13","recordKey":"15","membershipKey":"14"}),
+                ),
+            ),
+            ("fields", fields),
+            ("effectTargets", targets),
+            ("previousRecordKey", "16".into()),
+            ("previousDate", "2040-01-03".into()),
+            ("wireDigest", "2".repeat(64).into()),
+        ]))
+    }
+    fn write(&mut self, _: &Js) -> Result<Js> {
+        self.calls += 1;
+        Ok(js(
+            json!({"httpStatus":200,"bodySha256":sha("invented response")}),
+        ))
+    }
+}
+impl native::SourcePort for Backend {
+    fn authenticate(&mut self) -> Result<()> {
+        Ok(())
+    }
+    fn discover_groups(&mut self, _: &Js) -> Result<Js> {
+        Ok(js(json!({"groups":[{"groupId":"17"}]})))
+    }
+    fn execute(&mut self, _: &Js) -> Result<Js> {
+        Ok(obj(&[(
+            "dayRecords",
+            Js::Arr(vec![
+                http::HttpPort::read(self, &Js::Null)?.get("target").clone(),
+            ]),
+        )]))
+    }
+    fn journal_state(&mut self, target: &Js) -> Result<Js> {
+        http::HttpPort::read(self, target)
+    }
+    fn apply(&mut self, action: &Js, approval: &mut dyn Approval) -> Result<Js> {
+        http::apply(action, self, approval)
+    }
+}
+#[test]
+fn t14_native_equal_read_requires_unchanged_siblings() {
+    for mode in ["persisted", "sibling", "third", "before-sibling"] {
+        let mut c = Case::new(mode, "returned", Some(200));
+        c.backend.application = Some(
+            match mode {
+                "third" => "- Other",
+                "before-sibling" => "- Before",
+                _ => "- Sent",
+            }
+            .into(),
+        );
+        let store = c.open();
+        let admission = js(
+            json!({"teacherId":"11","date":"2040-01-04","students":[{"studentId":"12","displayName":"Invented Rule Student"}]}),
+        );
+        let mut native =
+            native::NativeBackend::new(&mut c.backend, admission, Js::Null, vec![], &c.clock);
+        let r = service::Service {
+            store: &store,
+            source: &mut c.source,
+            backend: &mut native,
+            policy: &Policy,
+            runtime: &c.clock,
+        }
+        .save(&c.input)
+        .unwrap();
+        if mode != "persisted" {
+            Case::pending(&r);
+            assert!(c.execution().state.needs_reconciliation());
+            c.no_settlement();
+        } else {
+            assert!(r.get("status").is("saved"), "{r:?}");
+        }
+        assert_eq!(c.backend.calls, 1);
+    }
+}
+#[test]
+fn t15_window_starts_after_backend_return() {
+    let mut c = Case::new("not_persisted", "returned", Some(200));
+    c.backend.return_at = Some("2040-01-04T12:03:20.000Z");
+    let saved = c.save();
+    assert_eq!(
+        saved.get("earliestSettleAtEpochMs"),
+        &Js::Num(DUE + 200_000.0)
+    );
+    c.at("2040-01-04T12:10:00.000Z");
+    assert!(
+        c.reconcile(false).get("status").is("held"),
+        "settled before return + Q"
+    );
+    c.no_settlement();
+    c.at("2040-01-04T12:13:20.000Z");
+    assert!(c.reconcile(false).get("status").is("settled"));
+    assert_eq!(
+        c.execution().state,
+        state::FieldState::ReconciledNotPersisted
+    );
+}
+#[test]
+fn t16_recovered_execution_starts_its_own_window() {
+    let mut c = Case::new("crash", "lost", None);
+    assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.save())).is_err());
+    let e = c.execution();
+    assert!(c.open().get(Kind::Outcome, &e.key).unwrap().absent());
+    c.at("2040-01-04T12:03:20.000Z");
+    let recovered = c.reconcile(false);
+    assert_eq!(
+        recovered.get("earliestSettleAtEpochMs"),
+        &Js::Num(DUE + 200_000.0)
+    );
+    assert!(
+        c.open()
+            .get(Kind::Outcome, &e.key)
+            .unwrap()
+            .get("recordedAt")
+            .is("2040-01-04T12:03:20.000Z")
+    );
+    c.at("2040-01-04T12:10:00.000Z");
+    assert!(
+        c.reconcile(false).get("status").is("held"),
+        "recovery settled before recovery + Q"
+    );
+    c.no_settlement();
+    c.at("2040-01-04T12:13:20.000Z");
+    assert!(c.reconcile(false).get("status").is("settled"));
+    assert_eq!(
+        c.execution().state,
+        state::FieldState::ReconciledNotPersisted
+    );
 }
