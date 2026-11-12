@@ -1,7 +1,14 @@
 //! Invented recorded answers and disposable shared state only; no native calls.
 use edu_academy_core::{
-    js::{Js, obj},
-    workflow::{codec, same},
+    js::{Js, Result, obj},
+    workflow::{
+        Runtime,
+        approval::RequestApproval,
+        codec, same,
+        service::{Backend, Source},
+        state,
+        store::Store,
+    },
 };
 use edu_academy_teacher::{
     record_backend::*, record_data::*, record_effect::*, record_fixture::RecordFixture,
@@ -384,4 +391,153 @@ fn per_field_writable_targets_survive_reopen() {
         panic!("observed required")
     };
     assert_eq!(fields, expected);
+}
+
+struct HeldClock;
+impl Runtime for HeldClock {
+    fn now(&self) -> String {
+        "2026-11-13T09:00:00Z".into()
+    }
+    fn epoch_ms(&self) -> u64 {
+        0
+    }
+    fn uuid(&self) -> Result<String> {
+        Ok(format!("held-{}", NEXT.fetch_add(1, Ordering::Relaxed)))
+    }
+}
+
+#[test]
+fn held_entry_points_do_not_reacquire_account() {
+    let mut fixture = fixture();
+    fixture.seed.effect_scripts.clear();
+    let owner = fixture.seed.owner.clone();
+    let (mut source, root) = setup(fixture);
+    let scope = scope(&source, 0);
+    let before = read(&mut source, 0);
+    let field = before.get("observation").get("fields").get("progress");
+    let patches = Js::Arr(vec![obj(&[
+        ("field", "progress".into()),
+        ("value", "- Invented held-account update".into()),
+        ("before", field.get("value").clone()),
+        ("effectTarget", field.get("effectTarget").clone()),
+        ("effectRecordKey", field.get("effectRecordKey").clone()),
+        (
+            "wireDigest",
+            before.get("observation").get("wireDigest").clone(),
+        ),
+    ])]);
+    let mut reviewed = patches.array()[0].clone();
+    reviewed.set("after", reviewed.get("value").clone());
+    let core = Store::open(&root.join("core"), &root).unwrap();
+    let mut approval = RequestApproval {
+        store: &core,
+        input: obj(&[
+            ("scope", scope.clone()),
+            ("requestRef", "invented-held-request".into()),
+            ("reviewed", Js::Arr(vec![reviewed])),
+            ("reviewDigest", "invented-held-review".into()),
+        ]),
+        runtime: &HeldClock,
+    };
+    let mut backend = SyntheticCoreBackend {
+        state: Arc::clone(&source.state),
+    };
+    let drafts = DraftStore::open(&root, owner).unwrap();
+    let account = drafts.lock_account().unwrap();
+    // The standalone methods fail before consuming approval or invoking effects.
+    assert_eq!(
+        source
+            .read(&scope, &Js::Null, &Js::Null)
+            .unwrap_err()
+            .message,
+        "shared_writer_lock_busy"
+    );
+    assert_eq!(
+        backend
+            .save(&scope, &patches, &mut approval, &Js::Null)
+            .unwrap_err()
+            .message,
+        "shared_writer_lock_busy"
+    );
+    assert_eq!(source.state.lock().unwrap().dispatch_count(), 0);
+    assert!(state::student_executions(&core, &scope).unwrap().is_empty());
+    assert_eq!(
+        std::fs::read_dir(core.root().join("execution"))
+            .unwrap()
+            .count(),
+        0
+    );
+    let held = source
+        .read_with_account(&account, &scope, &Js::Null, &HeldClock.now())
+        .unwrap();
+    assert_eq!(
+        held.get("observation")
+            .get("fields")
+            .get("progress")
+            .get("value"),
+        field.get("value")
+    );
+    let saved = backend
+        .save_with_account(&account, &scope, &patches, &mut approval, &Js::Null)
+        .unwrap();
+    assert!(saved.array()[0].get("status").is("persisted"));
+    assert_eq!(source.state.lock().unwrap().dispatch_count(), 1);
+    let executions = state::student_executions(&core, &scope).unwrap();
+    assert_eq!(executions.len(), 1);
+    assert_eq!(
+        executions[0].record.get("effectTarget"),
+        field.get("effectTarget")
+    );
+    let current = source
+        .read_with_account(&account, &scope, &Js::Null, &HeldClock.now())
+        .unwrap();
+    assert_eq!(
+        current
+            .get("observation")
+            .get("fields")
+            .get("progress")
+            .get("value"),
+        patches.array()[0].get("value")
+    );
+}
+
+#[test]
+fn held_read_reports_caller_read_time() {
+    let fixture = fixture();
+    let owner = fixture.seed.owner.clone();
+    let (mut source, root) = setup(fixture);
+    let scope = scope(&source, 0);
+    let recorded = read(&mut source, 0);
+    let read_at = HeldClock.now();
+    assert!(!recorded.get("observation").get("observedAt").is(&read_at));
+    let drafts = DraftStore::open(&root, owner).unwrap();
+    let account = drafts.lock_account().unwrap();
+    let result = source
+        .read_with_account(&account, &scope, &Js::Null, &read_at)
+        .unwrap();
+    assert!(result.get("observation").get("observedAt").is(&read_at));
+    for field in RecordField::ALL {
+        let old = recorded
+            .get("observation")
+            .get("fields")
+            .get(field.wire_name());
+        let current = result
+            .get("observation")
+            .get("fields")
+            .get(field.wire_name());
+        assert_eq!(current.get("value"), old.get("value"));
+        assert_eq!(current.get("effectTarget"), old.get("effectTarget"));
+        if current.get("state").is("known") {
+            assert_ne!(current.get("evidenceRefs"), old.get("evidenceRefs"));
+            assert!(
+                current
+                    .get("evidenceRefs")
+                    .array()
+                    .iter()
+                    .all(|r| r.code_units().contains(&read_at))
+            );
+        }
+    }
+    assert_eq!(source.state.lock().unwrap().read_count(), 2);
+    assert_eq!(source.state.lock().unwrap().dispatch_count(), 0);
 }

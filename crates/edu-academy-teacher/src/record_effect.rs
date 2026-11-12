@@ -1,5 +1,10 @@
 //! Owned recorded-answer metadata with current synthetic values; no native transport.
-use crate::{record_backend::SyntheticRecordState, record_data::*, record_fixture::AnswerRecord};
+use crate::{
+    record_backend::SyntheticRecordState,
+    record_data::*,
+    record_fixture::AnswerRecord,
+    record_store::{AccountGuard, DraftStore},
+};
 use edu_academy_core::{
     js::{Fault, Js, Result, obj},
     workflow::{
@@ -18,8 +23,8 @@ pub struct SyntheticCoreSource {
     pub state: Arc<Mutex<SyntheticRecordState>>,
     pub records: Vec<AnswerRecord>,
 }
-impl Source for SyntheticCoreSource {
-    fn read(&mut self, scope: &Js, _: &Js, subject: &Js) -> Result<Js> {
+impl SyntheticCoreSource {
+    fn selected(&self, scope: &Js) -> Result<(&AnswerRecord, Arc<DraftStore>)> {
         let mut matching = self.records.iter().filter(|r| {
             scope.get("studentId").is(&r.snapshot.identity.student_key)
                 && scope.get("lessonDate").is(&r.snapshot.identity.lesson_date)
@@ -42,21 +47,33 @@ impl Source for SyntheticCoreSource {
             record.snapshot.observation,
             RecordObservation::Failed { .. }
         ) {
-            return Ok(record.answer.clone());
+            return Ok((record, store));
         }
         if !same(record.answer.get("scope"), scope)? {
             return Err(Fault::error("source_scope_conflict"));
         }
-        let account = store.lock_account()?;
+        Ok((record, store))
+    }
+    /// Read under the caller's account lock, with the time of this observation.
+    pub fn read_with_account(
+        &mut self,
+        account: &AccountGuard<'_>,
+        scope: &Js,
+        subject: &Js,
+        read_at: &str,
+    ) -> Result<Js> {
+        let (record, _) = self.selected(scope)?;
+        if matches!(
+            record.snapshot.observation,
+            RecordObservation::Failed { .. }
+        ) {
+            return Ok(record.answer.clone());
+        }
         let current = self
             .state
             .lock()
-            .map_err(|_| unavailable())?
-            .read_once_with_account(
-                &account,
-                &record.snapshot.identity,
-                &record.snapshot.provenance.read_at,
-            )?;
+            .map_err(|_| Fault::error("record_source_unavailable"))?
+            .read_once_with_account(account, &record.snapshot.identity, read_at)?;
         let RecordObservation::Observed { fields: values, .. } = current.observation else {
             return Err(Fault::error("record_source_not_observed"));
         };
@@ -70,7 +87,21 @@ impl Source for SyntheticCoreSource {
                     ("value", value.clone().into()),
                     (
                         "evidenceRefs",
-                        evidence.get("before").get("evidenceRefs").clone(),
+                        if read_at == record.snapshot.provenance.read_at {
+                            evidence.get("before").get("evidenceRefs").clone()
+                        } else {
+                            // A fresh synthetic read is its own evidence, not the capture.
+                            Js::Arr(vec![
+                                format!(
+                                    "synthetic-read:{read_at}:{}",
+                                    edu_academy_core::js::sha(&canonical(&obj(&[
+                                        ("target", target.clone()),
+                                        ("field", field.wire_name().into()),
+                                    ]))?)
+                                )
+                                .into(),
+                            ])
+                        },
                     ),
                 ]),
                 RecordValue::Unknown => obj(&[
@@ -103,10 +134,7 @@ impl Source for SyntheticCoreSource {
                     .get("target")
                     .clone(),
             ),
-            (
-                "observedAt",
-                record.snapshot.provenance.read_at.clone().into(),
-            ),
+            ("observedAt", read_at.into()),
             ("sourceRevision", source.get("sourceRevision").clone()),
             ("wireDigest", source.get("wireDigest").clone()),
             ("fields", fields),
@@ -118,6 +146,20 @@ impl Source for SyntheticCoreSource {
             ("observation", qualified_observation(&observation, scope)?),
             ("subject", subject.clone()),
         ]))
+    }
+}
+impl Source for SyntheticCoreSource {
+    fn read(&mut self, scope: &Js, _: &Js, subject: &Js) -> Result<Js> {
+        let (record, store) = self.selected(scope)?;
+        if matches!(
+            record.snapshot.observation,
+            RecordObservation::Failed { .. }
+        ) {
+            return Ok(record.answer.clone());
+        }
+        let read_at = record.snapshot.provenance.read_at.clone();
+        let account = store.lock_account()?;
+        self.read_with_account(&account, scope, subject, &read_at)
     }
 }
 
@@ -133,28 +175,19 @@ fn effect_report(field: Js, status: &str, transport: &str, dispatched: bool) -> 
 pub struct SyntheticCoreBackend {
     pub state: Arc<Mutex<SyntheticRecordState>>,
 }
-impl edu_academy_core::workflow::service::Backend for SyntheticCoreBackend {
-    fn configured(&self) -> bool {
-        true
-    }
-    fn save(
-        &mut self,
-        scope: &Js,
-        patches: &Js,
-        approval: &mut dyn edu_academy_core::workflow::approval::Approval,
-        _: &Js,
-    ) -> Result<Js> {
-        use crate::record_backend::{EffectOutcome, TransportOutcome};
+impl SyntheticCoreBackend {
+    fn identity(&self, scope: &Js) -> Result<(RecordIdentity, Arc<DraftStore>)> {
         let invalid = || Fault::error("record_source_invalid");
-        let (id, store) = {
-            let state = self.state.lock().map_err(|_| invalid())?;
-            let id = state.adapter_identity(
-                &scope.get("studentId").code_units(),
-                &scope.get("lessonDate").code_units(),
-            )?;
-            let store = state.source_store(&id)?;
-            (id, store)
-        };
+        let state = self.state.lock().map_err(|_| invalid())?;
+        let id = state.adapter_identity(
+            &scope.get("studentId").code_units(),
+            &scope.get("lessonDate").code_units(),
+        )?;
+        let store = state.source_store(&id)?;
+        Ok((id, store))
+    }
+    fn patch(scope: &Js, patches: &Js) -> Result<RecordFields<Option<FieldPatch>>> {
+        let invalid = || Fault::error("record_source_invalid");
         let mut patch = RecordFields::from_fn(|_| None);
         for p in patches.array() {
             let field = RecordField::ALL
@@ -180,12 +213,26 @@ impl edu_academy_core::workflow::service::Backend for SyntheticCoreBackend {
                 value: p.get("value").code_units(),
             });
         }
-        let account = store.lock_account()?;
+        Ok(patch)
+    }
+    /// Consume core approval and save under the caller's account lock.
+    pub fn save_with_account(
+        &mut self,
+        account: &AccountGuard<'_>,
+        scope: &Js,
+        patches: &Js,
+        approval: &mut dyn edu_academy_core::workflow::approval::Approval,
+        _: &Js,
+    ) -> Result<Js> {
+        use crate::record_backend::{EffectOutcome, TransportOutcome};
+        let invalid = || Fault::error("record_source_invalid");
+        let (id, _) = self.identity(scope)?;
+        let patch = Self::patch(scope, patches)?;
         let before = self
             .state
             .lock()
             .map_err(|_| invalid())?
-            .admitted_read(&account, &id, &patch)?;
+            .admitted_read(account, &id, &patch)?;
         let RecordObservation::Observed { fields, .. } = &before.observation else {
             return Err(invalid());
         };
@@ -235,8 +282,8 @@ impl edu_academy_core::workflow::service::Backend for SyntheticCoreBackend {
         }
         let mut state = self.state.lock().map_err(|_| invalid())?;
         let effects =
-            state.dispatch_with_account(&account, &id, &patch, &before.provenance.read_at)?;
-        let read = state.read_once_with_account(&account, &id, &before.provenance.read_at);
+            state.dispatch_with_account(account, &id, &patch, &before.provenance.read_at)?;
+        let read = state.read_once_with_account(account, &id, &before.provenance.read_at);
         Ok(Js::Arr(
             effects
                 .into_iter()
@@ -306,5 +353,23 @@ impl edu_academy_core::workflow::service::Backend for SyntheticCoreBackend {
                 })
                 .collect(),
         ))
+    }
+}
+impl edu_academy_core::workflow::service::Backend for SyntheticCoreBackend {
+    fn configured(&self) -> bool {
+        true
+    }
+    fn save(
+        &mut self,
+        scope: &Js,
+        patches: &Js,
+        approval: &mut dyn edu_academy_core::workflow::approval::Approval,
+        subject: &Js,
+    ) -> Result<Js> {
+        let (_, store) = self.identity(scope)?;
+        // Preserve validation before lock acquisition for standalone callers.
+        Self::patch(scope, patches)?;
+        let account = store.lock_account()?;
+        self.save_with_account(&account, scope, patches, approval, subject)
     }
 }
