@@ -45,6 +45,16 @@ fn assert_display(value: serde_json::Value, target: &str) {
     assert_eq!(out.display, target);
 }
 #[test]
+fn b1_equivalent_student_topic_and_range_encodings_resolve_identically() {
+    for args in [
+        json!({"student":"  가상학생A  ","unit":"2-3","topic":"섹션"}),
+        json!({"student":"가상학생A","unit":"2-3 섹션"}),
+        json!({"student":"가상학생A","unit_from":"2-3","unit_to":"2-3","topic":"섹션"}),
+    ] {
+        assert_display(args, include_str!("fixtures/display-q16.txt"));
+    }
+}
+#[test]
 fn q11_enumerates_complete_tree_and_scoped_scores() {
     assert_display(
         json!({"student":"가상학생A","book":"가우스 5-1-2","topic":"DailyTest"}),

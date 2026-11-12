@@ -21,7 +21,7 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
-// Variant B: only display is model-visible; the envelope is client metadata.
+// M24: the directive precedes the display; the envelope is client metadata.
 const ENVELOPE_META_KEY: &str = "academy/envelope";
 const INSTRUCTIONS: &str = "Each tool result of this server is finished Korean text for the teacher. Show that text to the teacher exactly as it is and in full, with nothing added before or after it: no summary, no rewording, no advice, no extra question. When the text asks the teacher something or lists choices, stop there and wait for the teacher's answer, then call the tool again with that answer and the other arguments of the previous call unchanged. When the teacher later asks about a result already shown and no tool is needed, answer briefly in your own words from that result only. Call a tool again only when the teacher asks for something else or answers a question.";
 
@@ -399,7 +399,10 @@ fn main() {
                         "jsonrpc": "2.0",
                         "id": id,
                         "result": {
-                            "content": [{"type": "text", "text": envelope.display}],
+                            "content": [
+                                {"type": "text", "text": tools::DISPLAY_DIRECTIVE},
+                                {"type": "text", "text": envelope.display}
+                            ],
                             "_meta": {(ENVELOPE_META_KEY): structured},
                             "isError": envelope.stop.is_some()
                         }

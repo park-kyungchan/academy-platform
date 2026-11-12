@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import queue
+import re
 import threading
 from pathlib import Path
 import subprocess
@@ -12,12 +13,16 @@ import tempfile
 import time
 
 import fidelity
+import request_checks
 
 HERE = Path(__file__).resolve().parent
 CRATE = HERE.parent
 ISOLATED_SYSTEM_PROMPT = "You are an assistant of a teacher. Use the tools you are given."
 # Accepted CLI builtin agents (TASK-P8-S1b-R1c).
 DEFAULT_CLI_AGENTS = ("claude", "Explore", "general-purpose", "Plan", "statusline-setup", "web-fetch")
+DISPLAY_DIRECTIVE = json.loads(re.search(
+    r'pub const DISPLAY_DIRECTIVE: &str =\s*("[^"\n]*");',
+    (CRATE / "src/tools.rs").read_text(encoding="utf-8"))[1])
 
 
 def norm(text):
@@ -46,6 +51,20 @@ def received_text(content):
     return None
 
 
+def display_text(content):
+    """M24: remove only the exact leading directive carrier, never the answer."""
+    if (isinstance(content, list) and len(content) == 2
+            and content[0] == {"type": "text", "text": DISPLAY_DIRECTIVE}):
+        return received_text(content[1:])
+    text = received_text(content)
+    if text is not None and (isinstance(content, str) or len(content) == 1):
+        for separator in ("\n\n", "\n"):
+            prefix = DISPLAY_DIRECTIVE + separator
+            if text.startswith(prefix):
+                return text[len(prefix):]
+    return text
+
+
 def measure(events):
     calls, display, payload = [], None, {}
     call_names, call_details, received_form = {}, {}, "unknown"
@@ -69,9 +88,10 @@ def measure(events):
                         call_details[block["id"]] = calls[-1]
                 elif block.get("type") == "tool_result" and str(
                         call_names.get(block.get("tool_use_id"), "")).startswith("mcp__academy__"):
-                    display = received_text(block.get("content"))
+                    display = display_text(block.get("content"))
                     received_bytes = len(display.encode("utf-8")) if display is not None else None
                     call_details[block["tool_use_id"]]["received_text_bytes"] = received_bytes
+                    call_details[block["tool_use_id"]]["received_display"] = display
                     received_form = "unknown"
                     if display is not None:
                         received_form = "display_text"
@@ -272,7 +292,11 @@ def score_stream(raw, spec, allowed_tools, hook_events_requested=False, mode="is
     return result
 
 
-def drive_turns(cli_command, turns, cwd, evidence, timeout=600):
+def token_stop(mode, first_request_tokens):
+    return mode == "isolated" and type(first_request_tokens) is int and first_request_tokens >= 6000
+
+
+def drive_turns(cli_command, turns, cwd, evidence, timeout=600, mode="isolated"):
     """One process/server; submit turn N+1 only after result N. Never retry."""
     events, completed, sent = [], 0, 0
     lines = queue.Queue()
@@ -318,7 +342,7 @@ def drive_turns(cli_command, turns, cwd, evidence, timeout=600):
                     if event.get("is_error"):
                         error = "earlier_turn_error"
                         break
-                    if tokens is not None and tokens >= 6000:
+                    if token_stop(mode, tokens):
                         error = "first_request_tokens_not_under_6000"
                         break
                     if completed == len(turns):
@@ -365,7 +389,7 @@ def conversation_isolation(events, allowed, malformed, mode, turns):
     return isolation(events,allowed,malformed,True,mode)
 
 
-def score_turns(raw, specs, allowed, mode, call_log, driver_reason=None, sent_turns=None):
+def score_turns(raw, specs, allowed, mode, call_log, driver_reason=None, sent_turns=None, replayed=None):
     """Result boundaries partition one conversation, retaining init proof per turn."""
     chunks, current, init = [], [], []
     valid = [json.loads(line) for line in raw.splitlines() if _valid_json(line)]
@@ -389,7 +413,7 @@ def score_turns(raw, specs, allowed, mode, call_log, driver_reason=None, sent_tu
         chunks.append(current)
     if sent_turns is None:
         sent_turns = sum(any(_valid_json(x) and json.loads(x).get("type") in ("assistant", "result") for x in c) for c in chunks)
-    results, offset, prior_arguments = [], 0, None
+    results, offset, previous_envelope = [], 0, None
     for index, spec in enumerate(specs):
         chunk = chunks[index] if index < len(chunks) else []
         if index:
@@ -403,21 +427,9 @@ def score_turns(raw, specs, allowed, mode, call_log, driver_reason=None, sent_tu
         # Isolation belongs to the conversation. Its first-request budget is
         # never recalculated from the larger context of a later teacher turn.
         result["isolation"] = proof
-        names = [c["name"] for c in result["calls"] if str(c["name"]).startswith("mcp__academy__")]
-        result["checks"]["expected_tool"] = "unknown" if not result["result_received"] else "pass" if names == ["mcp__academy__" + spec["expected_tool"]] else "FAIL"
-        fixture = (CRATE / "tests/fixtures" / spec["fixture"]).read_text(encoding="utf-8")
-        result["checks"]["raw_fixture"] = "unknown" if result["display"] is None else "pass" if result["display"] == fixture else "FAIL"
-        result["checks"]["clock"] = "not_applicable" if spec.get("clock_expectation") is None else "unknown" if result["display"] is None else "pass" if spec["clock_expectation"] in result["display"] else "FAIL"
-        if spec.get("strict_activity_scope"):
-            result["checks"]["activity_scope"] = result["checks"]["raw_fixture"]
-        arguments = [json.loads(c["arguments"]) for c in result["calls"] if str(c["name"]).startswith("mcp__academy__")]
-        if index and spec.get("preserve_arguments"):
-            current = arguments[0] if len(arguments) == 1 and isinstance(arguments[0], dict) else None
-            previous = prior_arguments if isinstance(prior_arguments, dict) else None
-            ignored = set(spec.get("answer_fields", []))
-            result["checks"]["prior_arguments"] = ("unknown" if previous is None or current is None else
-                "pass" if {k:v for k,v in previous.items() if k not in ignored} == {k:v for k,v in current.items() if k not in ignored} else "FAIL")
-        prior_arguments = arguments[0] if len(arguments) == 1 else None
+        envelopes = None if replayed is None else replayed[offset-count:offset]
+        result["checks"] = request_checks.evaluate(spec, result["calls"], envelopes, previous_envelope)
+        previous_envelope = envelopes[-1] if envelopes else None
         result["turn"] = index + 1
         result["turn_sent"] = index < sent_turns
         result["driver_reason"] = driver_reason
@@ -437,7 +449,13 @@ def _valid_json(line):
         return False
 
 
-def public_row(result, request, model, mode):
+def failed_request_checks(result):
+    """Applicable request checks without a pass; no check values or payloads."""
+    return sorted(name for name, value in result["checks"].items()
+                  if value not in ("pass", "not_applicable"))
+
+
+def public_row(result, request, model, mode, conversation=1):
     """The only export from private evidence: identities and numeric/category data."""
     status, reason = result["facts_kept"], result["reason_code"]
     if not result.get("turn_sent", True):
@@ -451,14 +469,16 @@ def public_row(result, request, model, mode):
     elif "unknown" in result["checks"].values() or result["delivery"] == "unknown":
         status, reason = "unknown", reason or "missing_evidence"
     return {"request": request, "turn": result["turn"], "model_tier": {"haiku": "low", "sonnet": "reference"}.get(model, model),
-            "mode": mode, "sent": result.get("turn_sent", True), "calls": result["call_count"], "argument_bytes": result["args_bytes"],
+            "mode": mode, "conversation": conversation, "sent": result.get("turn_sent", True), "calls": result["call_count"], "argument_bytes": result["args_bytes"],
             "unit_counts": result["unit_counts"], "facts_kept": result["facts_kept"],
             "result": status,
             "reason_code": reason, "shown_unchanged": result["shown_unchanged"],
             "unknown_by_reason": result["unknown_by_reason"], "failed_rules": result.get("failed_rules", []),
+            "failed_request_checks": failed_request_checks(result),
             "tokens": {key: result["usage"].get(key, "unknown") for key in
                        ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")},
             "elapsed_s": result["elapsed_s"],
+            "first_request_tokens": result["isolation"].get("first_request_tokens", "unknown"),
             "honest_rendering": result["facts_kept"],
             "strict_activity_scope": result["checks"].get("activity_scope", "not_applicable")}
 
@@ -478,6 +498,25 @@ def emit_rows(rows, destination=None):
                     output.write(json.dumps(row, ensure_ascii=False) + "\n")
     for row in rows:
         print(json.dumps(row, ensure_ascii=False))
+
+
+def annotate_conversations(path):
+    """Preserve previous bytes and add the legacy conversation=1 metadata."""
+    rows=[json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    if not any("conversation" not in row for row in rows):return
+    backup=path.with_name(path.stem + ".before-conversation.jsonl")
+    if backup.exists():raise ValueError("conversation_backup_exists")
+    original=path.read_bytes()
+    fd=os.open(backup,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+    with os.fdopen(fd,"wb") as output:output.write(original)
+    if backup.read_bytes()!=original:raise ValueError("conversation_backup_mismatch")
+    temporary=path.with_suffix(".tmp")
+    fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+    with os.fdopen(fd,"w",encoding="utf-8") as output:
+        for row in rows:
+            row.setdefault("conversation",1)
+            output.write(json.dumps(row,ensure_ascii=False)+"\n")
+    temporary.replace(path)
 
 
 def replay_trial(request, model, mode, spec, allowed):
@@ -507,10 +546,15 @@ def main():
     ap.add_argument("--binary", default=os.environ.get("EDU_ACADEMY_TEACHER_BINARY", ""))
     ap.add_argument("--scenario", default=None)
     ap.add_argument("--claude", default=os.environ.get("CLAUDE_BIN", "claude"))
+    ap.add_argument("--conversation", type=int, default=1, choices=range(1,1001))
+    ap.add_argument("--annotate-conversations", type=Path, help="Add conversation=1 to legacy rows; retain original bytes")
     ap.add_argument("--jsonl", type=Path, help="Append only actual sent-turn rows, mode 0600")
     ap.add_argument("--replay-trial", action="store_true", help="Re-score the single saved disposable trial without launching a client")
     ap.add_argument("--trial", action="store_true", help="Disposable two-turn contract trial; exports metadata only")
     args = ap.parse_args()
+    if args.annotate_conversations:
+        annotate_conversations(args.annotate_conversations)
+        return 0
     spec = json.loads((HERE / "checks.json").read_text(encoding="utf-8"))[args.request]
     binary = Path(args.binary or "/home/palantirkc/work/ws-replan/wt/e09d-target/debug/edu-academy-teacher").resolve()
     scenario = select_scenario(args.scenario, spec)
@@ -534,18 +578,22 @@ def main():
     if "turns" in spec:
         turns = spec["turns"]
         try:
-            raw, exit_code, error, sent = drive_turns(cli_command, turns, cwd, run)
+            raw, exit_code, error, sent = drive_turns(cli_command, turns, cwd, run, mode=args.mode)
         except OSError as exc:
             raw, exit_code, error, sent = "", None, type(exc).__name__ + ":client_start_failed", 0
         (run / "claude.jsonl").write_text(raw, encoding="utf-8")
-        results = score_turns(raw, turns, allowed.split(","), args.mode, read_call_log(run / "run-log.jsonl"), error, sent)
+        try:
+            replayed = request_checks.replay(binary, scenario, measure([json.loads(x) for x in raw.splitlines() if _valid_json(x)])["calls"])
+        except (OSError, ValueError, subprocess.SubprocessError):
+            replayed = None
+        results = score_turns(raw, turns, allowed.split(","), args.mode, read_call_log(run / "run-log.jsonl"), error, sent, replayed)
         (run / "measurement.json").write_text(json.dumps({"command": cli_command + ["--input-format", "stream-json"],
             "request": args.request, "model": args.model, "mode": args.mode, "trial": args.trial,
-            "sent_turns": sent, "results": results, "exit_code": exit_code, "error": error}, ensure_ascii=False, indent=2), encoding="utf-8")
-        rows = [dict(public_row(result, args.request, args.model, args.mode), trial=args.trial) for result in results]
+            "conversation": args.conversation, "sent_turns": sent, "results": results, "exit_code": exit_code, "error": error}, ensure_ascii=False, indent=2), encoding="utf-8")
+        rows = [dict(public_row(result, args.request, args.model, args.mode, args.conversation), trial=args.trial) for result in results]
         emit_rows(rows, args.jsonl)
         proof = isolation([json.loads(x) for x in raw.splitlines() if _valid_json(x)], allowed.split(","), hook_events_requested=True, mode=args.mode)
-        if proof["first_request_tokens"] is not None and proof["first_request_tokens"] >= 6000:
+        if token_stop(args.mode, proof["first_request_tokens"]):
             return 3
         return 0
     started = time.monotonic()

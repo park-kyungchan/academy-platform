@@ -322,7 +322,7 @@ class HarnessTests(unittest.TestCase):
             (path / "measurement.json").write_text(metadata)
             (path / "claude.jsonl").write_text(stream)
             row = rescore.score_saved(path)
-            self.assertEqual(set(row), {"mode","request","model","received_form","shown_unchanged","facts_kept","source_footer","closing_statement","failed_rules","extra_chars","isolation","delivery","reason_code","unknown_by_reason","unit_counts"})
+            self.assertEqual(set(row), {"mode","request","model","received_form","shown_unchanged","facts_kept","source_footer","closing_statement","failed_rules","extra_chars","isolation","delivery","reason_code","unknown_by_reason","unit_counts","failed_request_checks"})
             self.assertEqual(row["received_form"], "envelope")
             self.assertEqual(row["shown_unchanged"], "pass")
             self.assertEqual(row["extra_chars"], 0)
