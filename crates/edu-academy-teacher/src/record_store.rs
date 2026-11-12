@@ -1,7 +1,8 @@
-//! Guarded synthetic filesystem boundary, without draft lifecycle or save authority.
+//! Durable synthetic drafts and guarded filesystem boundary; no save authority.
 use crate::record_data::{
-    AnswerField, AnswerValue, ContentBinding, Draft, DraftState, OwnerScope, RECORD_FIELD_COUNT,
-    RecordField, RecordFields, RecordIdentity, RecordObservation, RecordValue, content_hash,
+    AnswerField, AnswerValue, ContentBinding, Draft, DraftState, FieldDisposition, OwnerScope,
+    RECORD_FIELD_COUNT, RecordField, RecordFields, RecordIdentity, RecordObservation,
+    RecordSnapshot, RecordValue, content_hash,
 };
 use edu_academy_core::{
     js::{Fault, Js, Result, sha},
@@ -18,6 +19,7 @@ use std::{
     ffi::{OsStr, OsString},
     fs::{File, Permissions},
     io::{Read, Write},
+    num::NonZeroU64,
     os::{
         fd::AsRawFd,
         unix::{
@@ -40,6 +42,43 @@ pub const MAX_DRAFT_CANDIDATES: usize = 256;
 pub const MAX_OPEN_DATES: usize = 32;
 pub const MAX_RETAINED_GENERATIONS: usize = 1_024;
 pub const DRAFT_RETENTION_MS: i64 = 7 * 24 * 60 * 60 * 1_000;
+pub const DRAFT_IDLE_MS: i64 = 24 * 60 * 60 * 1_000;
+pub const GENERATION_NONCE_BYTES: usize = 16;
+#[derive(Debug)]
+pub struct RevalidatedDraft {
+    pub draft: Draft,
+    pub source_changed: bool,
+}
+fn bump(d: &Draft) -> Result<NonZeroU64> {
+    d.revision
+        .get()
+        .checked_add(1)
+        .and_then(NonZeroU64::new)
+        .ok_or_else(capacity)
+}
+fn version(d: &mut Draft, revision: NonZeroU64) {
+    d.revision = revision;
+    for question in &mut d.pending_questions {
+        question.revision = revision;
+    }
+}
+fn encoded(d: &Draft) -> Result<Vec<u8>> {
+    let bytes = serde_json::to_vec(d).map_err(|_| corrupt())?;
+    validate_draft(&bytes, &d.identity)?;
+    Ok(bytes)
+}
+fn generation_nonce() -> Result<String> {
+    // Fixed kernel entropy device, never a caller path or a source transport.
+    let mut entropy: File = syscall(rfs::open(
+        "/dev/urandom",
+        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+        Mode::empty(),
+    ))?
+    .into();
+    let mut bytes = [0; GENERATION_NONCE_BYTES];
+    io(entropy.read_exact(&mut bytes))?;
+    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
+}
 #[derive(Debug, Default)]
 pub struct DraftCleanup {
     pub examined: usize,
@@ -550,6 +589,264 @@ impl DraftStore {
     }
 }
 impl AccountGuard<'_> {
+    fn draft_scope(&self, scope: &Js, id: &RecordIdentity) -> Result<()> {
+        if id.owner != self.store.owner || !scope.get("studentId").is(&id.student_key) {
+            return Err(corrupt());
+        }
+        Ok(())
+    }
+    /// Read-only durable intent, without refresh, source freshness or presentation.
+    /// A supplied unknown/superseded generation always refuses, even after purge.
+    pub fn load_draft(
+        &self,
+        id: &RecordIdentity,
+        generation: Option<&str>,
+    ) -> Result<Option<Draft>> {
+        if id.owner != self.store.owner {
+            return Err(refused());
+        }
+        let drafts: Vec<_> = self
+            .lookup_drafts(&id.student_key)?
+            .into_iter()
+            .filter(|d| d.identity == *id)
+            .collect();
+        let current = drafts.iter().max_by_key(|d| d.revision);
+        if let Some(top) = current
+            && drafts.iter().any(|d| {
+                d.generation != top.generation
+                    && (d.revision == top.revision || d.state == DraftState::Open)
+            })
+        {
+            return Err(corrupt());
+        }
+        if generation.is_some_and(|g| current.is_none_or(|d| d.generation != g)) {
+            return Err(Fault::error("draft_replaced"));
+        }
+        Ok(current.cloned())
+    }
+    fn compare(&self, expected: &Draft) -> Result<Draft> {
+        let d = self
+            .load_draft(&expected.identity, Some(&expected.generation))?
+            .ok_or_else(corrupt)?;
+        if d.revision != expected.revision {
+            return Err(Fault::error("draft_revision_conflict"));
+        }
+        Ok(d)
+    }
+    fn persist(
+        &self,
+        scope: &Js,
+        old: &Draft,
+        next: Draft,
+        now: &str,
+        entry_limit: usize,
+    ) -> Result<Draft> {
+        self.draft_scope(scope, &next.identity)?;
+        let bytes = encoded(&next)?;
+        self.admit_draft_write(scope, now, None, bytes.len() as u64, entry_limit)?;
+        let guard = self.lock_draft(&next.identity)?;
+        self.compare(old)?; // Re-read inventory after cleanup, before any write.
+        guard.write_atomic(&draft_path(&next.identity, &next.generation)?, &bytes)?;
+        Ok(next)
+    }
+    fn live(&self, scope: &Js, d: &Draft, now: &str, entry_limit: usize) -> Result<()> {
+        self.draft_scope(scope, &d.identity)?;
+        if d.state != DraftState::Open {
+            return Err(Fault::error(if d.state == DraftState::Expired {
+                "draft_expired"
+            } else {
+                "save_no_open_draft"
+            }));
+        }
+        let idle = timestamp(now)?
+            .checked_sub(timestamp(&d.last_used)?)
+            .filter(|n| *n >= 0)
+            .ok_or_else(corrupt)?;
+        if idle >= DRAFT_IDLE_MS {
+            let mut closed = d.clone();
+            version(&mut closed, bump(d)?);
+            closed.state = DraftState::Expired;
+            closed.closed_at = Some(now.into());
+            self.persist(scope, d, closed, now, entry_limit)?;
+            return Err(Fault::error("draft_expired"));
+        }
+        Ok(())
+    }
+    /// Explicit creation, never a fallback for an unknown generation.
+    pub fn create_draft(
+        &self,
+        scope: &Js,
+        seed: Draft,
+        now: &str,
+        entry_limit: usize,
+    ) -> Result<Draft> {
+        self.open_draft(scope, seed, None, now, entry_limit)
+    }
+    /// Explicit restart closes/retains the old generation before publishing a new
+    /// one. A crash/error between the two writes leaves a closed old draft;
+    /// callers must reload, never blindly replay the old expected revision.
+    pub fn restart_draft(
+        &self,
+        scope: &Js,
+        expected: &Draft,
+        seed: Draft,
+        now: &str,
+        entry_limit: usize,
+    ) -> Result<Draft> {
+        self.open_draft(scope, seed, Some(expected), now, entry_limit)
+    }
+    fn open_draft(
+        &self,
+        scope: &Js,
+        mut seed: Draft,
+        expected: Option<&Draft>,
+        now: &str,
+        entry_limit: usize,
+    ) -> Result<Draft> {
+        self.draft_scope(scope, &seed.identity)?;
+        let old = self.load_draft(&seed.identity, None)?;
+        if let Some(e) = expected {
+            if e.identity != seed.identity {
+                return Err(corrupt());
+            }
+            self.compare(e)?;
+        } else if old.as_ref().is_some_and(|d| d.state == DraftState::Open) {
+            return Err(Fault::error("draft_exists"));
+        }
+        let at = timestamp(now)?;
+        if seed.pending_attempt.is_some()
+            || seed.failed_attempts.is_some()
+            || old
+                .as_ref()
+                .is_some_and(|d| timestamp(&d.last_used).is_ok_and(|used| at < used))
+        {
+            return Err(corrupt());
+        }
+        let mut closed = old.clone().filter(|d| d.state == DraftState::Open);
+        if let Some(d) = &mut closed {
+            version(d, bump(old.as_ref().ok_or_else(corrupt)?)?);
+            d.state = DraftState::Expired;
+            d.closed_at = Some(now.into());
+        }
+        let base = closed.as_ref().or(old.as_ref());
+        version(
+            &mut seed,
+            base.map(bump).transpose()?.unwrap_or(NonZeroU64::MIN),
+        );
+        seed.generation = generation_nonce()?;
+        if let Some(binding) = &mut seed.binding {
+            binding.generation = seed.generation.clone();
+        }
+        seed.next_attempt_ordinal = NonZeroU64::MIN;
+        seed.created = now.into();
+        seed.last_used = now.into();
+        seed.state = DraftState::Open;
+        seed.closed_at = None;
+        let bytes = encoded(&seed)?;
+        let closing = closed.as_ref().map(encoded).transpose()?;
+        let budget = bytes.len() + closing.as_ref().map_or(0, Vec::len);
+        self.admit_draft_write(scope, now, Some(&seed.identity), budget as u64, entry_limit)?;
+        let guard = self.lock_draft(&seed.identity)?;
+        let observed = self.load_draft(&seed.identity, None)?;
+        if let Some(e) = expected {
+            self.compare(e)?;
+        } else if observed
+            .as_ref()
+            .is_some_and(|d| d.state == DraftState::Open)
+        {
+            return Err(Fault::error("draft_exists"));
+        }
+        let path = draft_path(&seed.identity, &seed.generation)?;
+        let root = directory(&self.store.root, OsStr::new("record-drafts"), true)?;
+        let bucket = path
+            .parent()
+            .and_then(Path::file_name)
+            .ok_or_else(corrupt)?;
+        let created = match rfs::mkdirat(&root, bucket, Mode::from_raw_mode(0o700)) {
+            Ok(()) => true,
+            Err(rustix::io::Errno::EXIST) => false,
+            Err(e) => return Err(os_error(e)),
+        };
+        directory(&root, bucket, true)?;
+        if created {
+            io(root.sync_all())?;
+        }
+        if self.read_bytes(&path)?.is_some() {
+            return Err(corrupt());
+        }
+        if let (Some(d), Some(bytes)) = (&closed, &closing) {
+            guard.write_atomic(&draft_path(&d.identity, &d.generation)?, bytes)?;
+        }
+        guard.write_atomic(&path, &bytes)?;
+        Ok(seed)
+    }
+    /// Versioned edit/closure. Identity, generation, creation and captured source
+    /// cannot be replaced through this API; source changes go through revalidation.
+    pub fn replace_draft(
+        &self,
+        scope: &Js,
+        expected: &Draft,
+        mut next: Draft,
+        now: &str,
+        entry_limit: usize,
+    ) -> Result<Draft> {
+        let old = self.compare(expected)?;
+        self.live(scope, &old, now, entry_limit)?;
+        if next.identity != old.identity
+            || next.generation != old.generation
+            || next.created != old.created
+            || next.before != old.before
+        {
+            return Err(corrupt());
+        }
+        version(&mut next, bump(&old)?);
+        next.last_used = now.into();
+        next.closed_at = (next.state != DraftState::Open).then(|| now.into());
+        self.persist(scope, &old, next, now, entry_limit)
+    }
+    /// Successful use refreshes only this draft. Same-value read metadata does not
+    /// advance question/edit revision; source drift clears all content authority.
+    /// Caller must regenerate/review a preview before presenting changed content.
+    pub fn revalidate_draft(
+        &self,
+        scope: &Js,
+        expected: &Draft,
+        fresh: &RecordSnapshot,
+        now: &str,
+        entry_limit: usize,
+    ) -> Result<RevalidatedDraft> {
+        let old = self.compare(expected)?;
+        self.live(scope, &old, now, entry_limit)?;
+        if fresh.identity != old.identity || fresh.requested_date != old.identity.lesson_date {
+            return Err(corrupt());
+        }
+        let changed = old.before.observation != fresh.observation
+            || old.before.provenance.source_revision != fresh.provenance.source_revision;
+        let mut next = old.clone();
+        if changed {
+            version(&mut next, bump(&old)?);
+            next.binding = None;
+            next.patch = RecordFields::from_fn(|_| None);
+            next.rendered_preview.clear();
+            next.preview_hash = content_hash(&next.rendered_preview)?;
+            next.pending_questions.clear();
+            next.teacher_inputs.replace = None;
+            for field in RecordField::ALL {
+                if matches!(
+                    next.dispositions[field],
+                    FieldDisposition::ConfirmedExisting | FieldDisposition::ProposalConfirmed
+                ) {
+                    next.dispositions[field] = FieldDisposition::Unresolved;
+                }
+            }
+        }
+        next.before = fresh.clone();
+        next.last_used = now.into();
+        Ok(RevalidatedDraft {
+            draft: self.persist(scope, &old, next, now, entry_limit)?,
+            source_changed: changed,
+        })
+    }
     /// Read-only, at most 256 payloads for this owner/student; no expiry or deletion.
     pub fn lookup_drafts(&self, student: &str) -> Result<Vec<Draft>> {
         self.store.verify()?;
@@ -930,8 +1227,10 @@ mod tests {
             (Err(unavailable()), "unreadable"),
         ] {
             let reads = Cell::new(0);
+            let original =
+                Fault::from_parts("SyntheticWriteFault", "synthetic_sync_failed", Js::Null);
             let result = readback_after_write(
-                Err(unavailable()),
+                Err(original),
                 || {
                     reads.set(reads.get() + 1);
                     value
@@ -940,7 +1239,8 @@ mod tests {
             );
             assert_eq!(reads.get(), 1);
             let error = result.err().unwrap();
-            assert_eq!(error.message, "record_store_unavailable");
+            assert_eq!(error.name, "SyntheticWriteFault");
+            assert_eq!(error.message, "synthetic_sync_failed");
             assert!(error.properties.get("writeOutcome").is("uncertain"));
             assert!(error.properties.get("targetReadback").is(observation));
         }
@@ -966,6 +1266,8 @@ mod tests {
         });
         assert_eq!(syncs.get(), 1); // No automatic retry of a possibly applied write.
         let error = result.err().unwrap();
+        assert_eq!(error.name, "Error");
+        assert_eq!(error.message, "record_store_unavailable");
         assert!(error.properties.get("writeOutcome").is("uncertain"));
         assert!(error.properties.get("targetReadback").is("matches"));
         assert_eq!(read_at(&dir, leaf).unwrap().unwrap(), expected);

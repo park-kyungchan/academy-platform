@@ -1331,3 +1331,414 @@ fn cleanup_takes_the_draft_lock_before_deleting_an_eligible_payload() {
     );
     assert!(!path.parent().unwrap().exists());
 }
+
+fn draft_seed() -> edu_academy_teacher::record_data::Draft {
+    let mut d = stored_draft();
+    d.pending_attempt = None;
+    d.failed_attempts = None;
+    d.teacher_inputs.memo = Some("explicit synthetic intent".into());
+    d.teacher_inputs.replace = Some(true);
+    d
+}
+const DRAFT_NOW: &str = "2026-11-11T18:10:00+09:00";
+fn draft_start_ms() -> i64 {
+    chrono::DateTime::parse_from_rfc3339(DRAFT_NOW)
+        .unwrap()
+        .timestamp_millis()
+}
+#[test]
+fn draft_reopens_expires_and_revalidates() {
+    use edu_academy_teacher::record_data::{
+        DraftState, RecordFields, RecordObservation, RecordValue, content_hash,
+    };
+    let t = Scratch::new();
+    let first = {
+        let s = t.open();
+        let a = s.lock_account().unwrap();
+        assert!(a.load_draft(&identity(), None).unwrap().is_none());
+        assert_eq!(
+            error(a.load_draft(&identity(), Some("unknown"))),
+            "draft_replaced"
+        );
+        assert_eq!(
+            error(a.create_draft(&scope(), draft_seed(), DRAFT_NOW, 0)),
+            "record_store_capacity"
+        );
+        let d = a
+            .create_draft(&scope(), draft_seed(), DRAFT_NOW, 10000)
+            .unwrap();
+        assert_eq!(d.generation.len(), GENERATION_NONCE_BYTES * 2);
+        assert!(d.generation.bytes().all(|b| b.is_ascii_hexdigit()));
+        assert_ne!(d.generation, draft_seed().generation);
+        assert_eq!(d.revision.get(), 1);
+        d
+    };
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    let path = t
+        .root()
+        .join(draft_path(&first.identity, &first.generation).unwrap());
+    let original = fs::read(&path).unwrap();
+    assert_eq!(
+        a.load_draft(&identity(), Some(&first.generation)).unwrap(),
+        Some(first.clone())
+    );
+    assert_eq!(fs::read(&path).unwrap(), original); // Reads never refresh idle time.
+    assert_eq!(
+        error(a.load_draft(&identity(), Some("unknown-generation"))),
+        "draft_replaced"
+    );
+    assert_eq!(
+        error(a.create_draft(&scope(), draft_seed(), DRAFT_NOW, 10000)),
+        "draft_exists"
+    );
+    let mut fresh = first.before.clone();
+    fresh.provenance.read_at = clock_at(draft_start_ms() + 1);
+    fresh
+        .provenance
+        .evidence_refs
+        .push("new-read-only-evidence".into());
+    let used = a
+        .revalidate_draft(&scope(), &first, &fresh, &fresh.provenance.read_at, 10000)
+        .unwrap();
+    assert!(!used.source_changed);
+    assert_eq!(used.draft.revision, first.revision);
+    assert_eq!(used.draft.binding, first.binding);
+    assert_eq!(used.draft.last_used, fresh.provenance.read_at);
+    let mut next = used.draft.clone();
+    next.teacher_inputs.memo = Some("edited intent".into());
+    let edited = a
+        .replace_draft(
+            &scope(),
+            &used.draft,
+            next,
+            &fresh.provenance.read_at,
+            10000,
+        )
+        .unwrap();
+    assert!(edited.revision > first.revision);
+    assert!(
+        edited
+            .pending_questions
+            .iter()
+            .all(|q| q.revision == edited.revision)
+    );
+    let saved_bytes = fs::read(&path).unwrap();
+    assert_eq!(
+        error(a.replace_draft(&scope(), &first, first.clone(), DRAFT_NOW, 10000)),
+        "draft_revision_conflict"
+    );
+    assert_eq!(fs::read(&path).unwrap(), saved_bytes);
+    let mut raw = RecordFields::from_fn(|_| RecordValue::Unknown);
+    raw.lesson_memo = RecordValue::Known("가".repeat(601) + "raw suffix A");
+    fresh.observation = RecordObservation::Observed {
+        occurrence: "synthetic-occurrence".into(),
+        fields: raw.clone(),
+    };
+    let changed = a
+        .revalidate_draft(&scope(), &edited, &fresh, &fresh.provenance.read_at, 10000)
+        .unwrap();
+    assert!(changed.source_changed);
+    let d = changed.draft;
+    assert!(d.revision > edited.revision);
+    assert!(d.binding.is_none() && d.pending_questions.is_empty() && d.rendered_preview.is_empty());
+    assert_eq!(d.preview_hash, content_hash(&String::new()).unwrap());
+    assert!(d.patch.lesson_memo.is_none());
+    assert_eq!(d.teacher_inputs.memo, edited.teacher_inputs.memo);
+    assert_eq!(d.entries, edited.entries);
+    assert!(d.teacher_inputs.replace.is_none());
+    // Same visible prefix, different complete raw value must invalidate again.
+    raw.lesson_memo = RecordValue::Known("가".repeat(601) + "raw suffix B");
+    fresh.observation = RecordObservation::Observed {
+        occurrence: "synthetic-occurrence".into(),
+        fields: raw,
+    };
+    let d2 = a
+        .revalidate_draft(&scope(), &d, &fresh, &fresh.provenance.read_at, 10000)
+        .unwrap();
+    assert!(d2.source_changed);
+    fresh.provenance.source_revision = Some("source-revision-2".into());
+    let d3 = a
+        .revalidate_draft(
+            &scope(),
+            &d2.draft,
+            &fresh,
+            &fresh.provenance.read_at,
+            10000,
+        )
+        .unwrap();
+    assert!(d3.source_changed && d3.draft.revision > d2.draft.revision);
+    let replacement = a
+        .restart_draft(
+            &scope(),
+            &d3.draft,
+            draft_seed(),
+            &fresh.provenance.read_at,
+            10000,
+        )
+        .unwrap();
+    assert_ne!(replacement.generation, first.generation);
+    assert!(replacement.revision > d3.draft.revision);
+    let retained = validate_draft(&fs::read(&path).unwrap(), &identity()).unwrap();
+    assert_eq!(retained.state, DraftState::Expired);
+    assert!(replacement.revision > retained.revision);
+    a.cleanup_drafts(
+        &scope(),
+        &clock_at(draft_start_ms() + DRAFT_RETENTION_MS + 2),
+    )
+    .unwrap();
+    assert!(!path.exists());
+    assert_eq!(
+        error(a.load_draft(&identity(), Some(&first.generation))),
+        "draft_replaced"
+    );
+    assert_eq!(
+        error(a.replace_draft(&scope(), &first, first.clone(), DRAFT_NOW, 10000)),
+        "draft_replaced"
+    );
+    assert_eq!(a.load_draft(&identity(), None).unwrap(), Some(replacement));
+    for delta in [DRAFT_IDLE_MS - 1, DRAFT_IDLE_MS, DRAFT_IDLE_MS + 1] {
+        let t = Scratch::new();
+        let s = t.open();
+        let a = s.lock_account().unwrap();
+        let d = a
+            .create_draft(&scope(), draft_seed(), DRAFT_NOW, 10000)
+            .unwrap();
+        let now = clock_at(draft_start_ms() + delta);
+        let result = a.revalidate_draft(&scope(), &d, &d.before, &now, 10000);
+        if delta < DRAFT_IDLE_MS {
+            let refreshed = result.unwrap().draft;
+            assert_eq!(refreshed.last_used, now);
+            let later = clock_at(draft_start_ms() + DRAFT_IDLE_MS);
+            assert!(
+                a.revalidate_draft(&scope(), &refreshed, &refreshed.before, &later, 10000)
+                    .is_ok()
+            );
+        } else {
+            assert_eq!(error(result), "draft_expired");
+            let closed = a
+                .load_draft(&identity(), Some(&d.generation))
+                .unwrap()
+                .unwrap();
+            assert_eq!(closed.state, DraftState::Expired);
+            assert_eq!(closed.last_used, d.last_used);
+            assert_eq!(closed.closed_at.as_deref(), Some(now.as_str()));
+            assert!(closed.revision > d.revision);
+            assert_eq!(
+                error(a.replace_draft(&scope(), &closed, closed.clone(), &now, 10000)),
+                "draft_expired"
+            );
+            let new = a
+                .restart_draft(&scope(), &closed, draft_seed(), &now, 10000)
+                .unwrap();
+            assert!(new.revision > closed.revision && new.generation != closed.generation);
+        }
+    }
+}
+#[test]
+fn draft_capacity_scope_and_revision_fail_before_mutation() {
+    use std::num::NonZeroU64;
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    let d = a
+        .create_draft(&scope(), draft_seed(), DRAFT_NOW, 10000)
+        .unwrap();
+    let path = t
+        .root()
+        .join(draft_path(&identity(), &d.generation).unwrap());
+    let before = fs::read(&path).unwrap();
+    assert_eq!(
+        error(a.replace_draft(&scope(), &d, d.clone(), DRAFT_NOW, 0)),
+        "record_store_capacity"
+    );
+    assert_eq!(
+        error(a.revalidate_draft(&scope(), &d, &d.before, DRAFT_NOW, 0)),
+        "record_store_capacity"
+    );
+    let mut invalid = draft_seed();
+    invalid.identity.student_key = "1002".into();
+    assert_eq!(
+        error(a.restart_draft(&scope(), &d, invalid, DRAFT_NOW, 10000)),
+        "record_store_corrupt"
+    );
+    for i in 0..MAX_DRAFT_CANDIDATES - 1 {
+        let mut old = retained_draft("1001", i, false);
+        old.identity.lesson_date = "2026-11-10".into();
+        old.before.identity = old.identity.clone();
+        old.before.requested_date = old.identity.lesson_date.clone();
+        old.binding.as_mut().unwrap().identity = old.identity.clone();
+        put_draft(&t, &old);
+    }
+    assert_eq!(
+        error(a.restart_draft(&scope(), &d, draft_seed(), DRAFT_NOW, 10000)),
+        "record_store_capacity"
+    );
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(a.lookup_drafts("1001").unwrap().len(), MAX_DRAFT_CANDIDATES);
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    let mut d = draft_seed();
+    d.revision = NonZeroU64::new(u64::MAX).unwrap();
+    for q in &mut d.pending_questions {
+        q.revision = d.revision;
+    }
+    let path = put_draft(&t, &d);
+    let before = fs::read(&path).unwrap();
+    assert_eq!(
+        error(a.replace_draft(&scope(), &d, d.clone(), DRAFT_NOW, 10000)),
+        "record_store_capacity"
+    );
+    assert_eq!(fs::read(path).unwrap(), before);
+}
+fn wait_control(path: &Path) {
+    let start = Instant::now();
+    while !path.exists() {
+        assert!(
+            start.elapsed() < Duration::from_secs(3),
+            "synthetic barrier deadline"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+#[test]
+fn draft_process_writer() {
+    let Some(root) = std::env::var_os("A2B3_ROOT") else {
+        return;
+    };
+    let root = PathBuf::from(root);
+    let control = root.parent().unwrap();
+    let role = std::env::var("A2B3_ROLE").unwrap();
+    let phase = std::env::var("A2B3_PHASE").unwrap();
+    let s = DraftStore::open(&root, owner()).unwrap();
+    let expected = s
+        .lock_account()
+        .unwrap()
+        .load_draft(&identity(), None)
+        .unwrap()
+        .unwrap();
+    put(&control.join(format!("ready-{role}")), b"ready");
+    wait_control(&control.join(format!("go-{role}")));
+    let a = s.lock_account().unwrap();
+    let result = if phase == "restart" && role == "a" {
+        a.restart_draft(&scope(), &expected, draft_seed(), DRAFT_NOW, 10000)
+    } else {
+        let mut next = expected.clone();
+        next.teacher_inputs.memo = Some(role.clone());
+        a.replace_draft(&scope(), &expected, next, DRAFT_NOW, 10000)
+    };
+    let status = result.map(|_| "ok".into()).unwrap_or_else(|e| e.message);
+    put(&control.join(format!("result-{role}")), status.as_bytes());
+}
+#[test]
+fn draft_two_processes_one_record() {
+    for phase in ["edit", "restart"] {
+        let t = Scratch::new();
+        let s = t.open();
+        let initial = s
+            .lock_account()
+            .unwrap()
+            .create_draft(&scope(), draft_seed(), DRAFT_NOW, 10000)
+            .unwrap();
+        let mut children: Vec<_> = ["a", "b"]
+            .iter()
+            .map(|role| {
+                Command::new(std::env::current_exe().unwrap())
+                    .args(["--exact", "draft_process_writer"])
+                    .env("A2B3_ROOT", t.root())
+                    .env("A2B3_ROLE", role)
+                    .env("A2B3_PHASE", phase)
+                    .stdout(Stdio::null())
+                    .spawn()
+                    .unwrap()
+            })
+            .collect();
+        for role in ["a", "b"] {
+            wait_control(&t.0.join(format!("ready-{role}")));
+        }
+        put(&t.0.join("go-a"), b"go");
+        if phase == "restart" {
+            wait_control(&t.0.join("result-a"));
+        }
+        put(&t.0.join("go-b"), b"go");
+        for child in &mut children {
+            finish(child);
+        }
+        let statuses: Vec<_> = ["a", "b"]
+            .iter()
+            .map(|role| fs::read_to_string(t.0.join(format!("result-{role}"))).unwrap())
+            .collect();
+        assert_eq!(statuses.iter().filter(|s| s.as_str() == "ok").count(), 1);
+        let a = s.lock_account().unwrap();
+        let current = a.load_draft(&identity(), None).unwrap().unwrap();
+        if phase == "edit" {
+            assert!(statuses.iter().any(|s| s == "draft_revision_conflict"));
+            assert_eq!(current.generation, initial.generation);
+            assert_eq!(current.revision.get(), initial.revision.get() + 1);
+            let winner = if statuses[0] == "ok" { "a" } else { "b" };
+            assert_eq!(current.teacher_inputs.memo.as_deref(), Some(winner));
+        } else {
+            assert_eq!(statuses, ["ok", "draft_replaced"]);
+            assert_ne!(current.generation, initial.generation);
+            assert_eq!(
+                current.teacher_inputs.memo,
+                draft_seed().teacher_inputs.memo
+            );
+            let old_path = draft_path(&initial.identity, &initial.generation).unwrap();
+            let archived =
+                validate_draft(&a.read_bytes(&old_path).unwrap().unwrap(), &identity()).unwrap();
+            assert_eq!(
+                archived.state,
+                edu_academy_teacher::record_data::DraftState::Expired
+            );
+            assert_eq!(archived.teacher_inputs, initial.teacher_inputs);
+        }
+        assert_eq!(
+            a.lookup_drafts("1001")
+                .unwrap()
+                .iter()
+                .filter(|d| d.state == edu_academy_teacher::record_data::DraftState::Open)
+                .count(),
+            1
+        );
+    }
+}
+#[test]
+fn usage_breadth_under_child_descriptor_limit() {
+    use rustix::process::{Resource, Rlimit, getrlimit, setrlimit};
+    if std::env::var_os("A2B3_FD_CHILD").is_none() {
+        let mut child = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "usage_breadth_under_child_descriptor_limit"])
+            .env("A2B3_FD_CHILD", "1")
+            .stdout(Stdio::null())
+            .spawn()
+            .unwrap();
+        finish(&mut child);
+        return;
+    }
+    let limit = getrlimit(Resource::Nofile);
+    setrlimit(
+        Resource::Nofile,
+        Rlimit {
+            current: Some(64.min(limit.current.unwrap_or(64))),
+            maximum: limit.maximum,
+        },
+    )
+    .unwrap();
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    for i in 0..MAX_RETAINED_GENERATIONS {
+        DirBuilder::new()
+            .mode(0o700)
+            .create(
+                t.root()
+                    .join("record-drafts")
+                    .join(sha(&format!("empty-{i}"))),
+            )
+            .unwrap();
+    }
+    assert_eq!(a.retained_generations().unwrap(), 0);
+    assert!(a.usage(10000).unwrap().entries >= MAX_RETAINED_GENERATIONS);
+}
