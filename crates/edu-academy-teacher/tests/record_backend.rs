@@ -113,6 +113,124 @@ fn progress_patch() -> RecordPatch {
     patch
 }
 #[test]
+fn remaining_effect_scripts_survive_reopen_in_order() {
+    let t = Scratch::new();
+    let mut input = seed();
+    input.effect_scripts = [EffectOutcome::Reject, EffectOutcome::AppliedLostAck]
+        .into_iter()
+        .map(|outcome| EffectScript {
+            identity: identity(),
+            field: RecordField::Progress,
+            outcome,
+            readback: None,
+        })
+        .collect();
+    let mut state = t.open(input);
+    let store = DraftStore::open(&t.root(), owner()).unwrap();
+    {
+        let held = store.lock_account().unwrap();
+        assert_eq!(
+            state
+                .dispatch_with_account(&held, &identity(), &progress_patch(), NOW)
+                .unwrap()[0]
+                .transport,
+            TransportOutcome::Returned
+        );
+    }
+    let remaining: RecordSeed = serde_json::from_slice(&fs::read(t.path()).unwrap()).unwrap();
+    assert_eq!(remaining.effect_scripts.len(), 1);
+    assert_eq!(
+        remaining.effect_scripts[0].outcome,
+        EffectOutcome::AppliedLostAck
+    );
+    drop(state);
+    let mut state = t.open(seed());
+    let held = store.lock_account().unwrap();
+    assert_eq!(
+        state
+            .dispatch_with_account(&held, &identity(), &progress_patch(), NOW)
+            .unwrap()[0]
+            .transport,
+        TransportOutcome::Lost
+    );
+    let RecordObservation::Observed { fields, .. } = state
+        .read_with_account(&held, &identity(), NOW)
+        .unwrap()
+        .observation
+    else {
+        panic!("record required")
+    };
+    assert_eq!(
+        fields.progress,
+        RecordValue::Known(progress_patch().progress.unwrap().value)
+    );
+    let remaining: RecordSeed = serde_json::from_slice(&fs::read(t.path()).unwrap()).unwrap();
+    assert!(remaining.effect_scripts.is_empty());
+}
+#[test]
+fn interleaved_read_scripts_consume_only_the_queried_identity() {
+    let t = Scratch::new();
+    let mut other = identity();
+    other.student_key = "1003".into();
+    let unrelated = ReadScript {
+        identity: other,
+        outcome: ReadOutcome::Unavailable,
+    };
+    let mut input = seed();
+    input.read_scripts = vec![
+        unrelated.clone(),
+        ReadScript {
+            identity: identity(),
+            outcome: ReadOutcome::Timeout,
+        },
+        unrelated.clone(),
+        ReadScript {
+            identity: identity(),
+            outcome: ReadOutcome::Observed { elapsed_ms: 0 },
+        },
+    ];
+    let mut state = t.open(input);
+    assert_eq!(state.read(&identity(), NOW).unwrap(), seed().records[0]);
+    assert_eq!(state.read_count(), 2);
+    let remaining: RecordSeed = serde_json::from_slice(&fs::read(t.path()).unwrap()).unwrap();
+    assert_eq!(
+        remaining.read_scripts,
+        vec![unrelated.clone(), unrelated.clone()]
+    );
+    assert!(state.read(&unrelated.identity, NOW).is_err());
+    let remaining: RecordSeed = serde_json::from_slice(&fs::read(t.path()).unwrap()).unwrap();
+    assert_eq!(remaining.read_scripts, vec![unrelated]);
+}
+#[test]
+fn foreign_dispatch_guard_preserves_source_and_every_counter() {
+    let t = Scratch::new();
+    let mut state = t.open(seed());
+    let other = Scratch::new();
+    let store = DraftStore::open(&other.root(), owner()).unwrap();
+    let held = store.lock_account().unwrap();
+    let bytes = fs::read(t.path()).unwrap();
+    let counters = (
+        state.read_count(),
+        state.dispatch_count(),
+        state.notification_count(),
+        state.source_operations(),
+    );
+    assert_eq!(
+        error(state.dispatch_with_account(&held, &identity(), &progress_patch(), NOW)),
+        "record_source_root_mismatch"
+    );
+    assert_eq!(fs::read(t.path()).unwrap(), bytes);
+    assert_eq!(
+        (
+            state.read_count(),
+            state.dispatch_count(),
+            state.notification_count(),
+            state.source_operations()
+        ),
+        counters
+    );
+}
+#[test]
 fn synthetic_success_failure_ack_loss_and_reopen() {
     use EffectOutcome::*;
     for (outcome, readback, transport, applied) in [
