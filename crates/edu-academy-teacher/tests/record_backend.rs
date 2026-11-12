@@ -1,8 +1,18 @@
+use edu_academy_core::js::Js;
+use edu_academy_sources::{data::obj, native::SourcePort};
+use edu_academy_teacher::{
+    backend::{BackendIdentity, SourceBackend, StudentEntry},
+    synthetic::{
+        Scenario, SyntheticPrestudyPort, SyntheticTextbookPort, TEACHER_ID, TEACHER_KEY,
+        TEACHER_LABEL, load_scenario,
+    },
+};
 use edu_academy_teacher::{record_backend::*, record_data::*, record_store::DraftStore};
 use std::{
     fs,
     os::unix::fs::{PermissionsExt, symlink},
     path::{Path, PathBuf},
+    sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 const NOW: &str = "2026-11-11T18:10:00+09:00";
@@ -111,6 +121,304 @@ fn progress_patch() -> RecordPatch {
         value: "persisted synthetic progress".into(),
     });
     patch
+}
+fn scenario() -> Scenario {
+    load_scenario(include_str!("fixtures/scenario-v3.json")).unwrap()
+}
+fn native_seed(s: &Scenario) -> RecordSeed {
+    let mut input = seed();
+    input.records = s
+        .records
+        .iter()
+        .map(|r| {
+            let mut row = seed().records.remove(0);
+            row.identity.student_key = s.student_by_name(&r.student).unwrap().key.clone();
+            row.identity.lesson_date = r.date.clone();
+            row.requested_date = r.date.clone();
+            row.provenance.evidence_refs.clear();
+            if let RecordObservation::Observed { occurrence, fields } = &mut row.observation {
+                *occurrence = format!(
+                    "synthetic-{}-{}",
+                    row.identity.student_key,
+                    r.date.replace('-', "")
+                );
+                fields.progress = RecordValue::Known(r.progress.clone());
+                fields.homework = RecordValue::Known(r.homework.clone());
+            }
+            row
+        })
+        .collect();
+    input
+}
+type SharedBackend =
+    SourceBackend<SyntheticRecordDayPort, SyntheticPrestudyPort, SyntheticTextbookPort>;
+fn shared_backend(state: Arc<Mutex<SyntheticRecordState>>, s: Scenario) -> SharedBackend {
+    let directory = s
+        .students
+        .iter()
+        .map(|p| StudentEntry {
+            name: p.name.clone(),
+            key: p.key.clone(),
+            class_name: p.class_name.clone(),
+        })
+        .collect();
+    SourceBackend::new(
+        SyntheticRecordDayPort::new(state, s.students.clone(), NOW).unwrap(),
+        SyntheticPrestudyPort::new(s.clone()),
+        SyntheticTextbookPort::new(s),
+        directory,
+        BackendIdentity {
+            teacher_id: TEACHER_ID.into(),
+            teacher_label: TEACHER_LABEL.into(),
+            teacher_key: TEACHER_KEY.into(),
+            read_at: NOW.into(),
+        },
+    )
+}
+fn native_request(date: &str) -> Js {
+    obj(&[
+        ("family", "day_record".into()),
+        ("teacherLabel", TEACHER_LABEL.into()),
+        ("date", date.into()),
+        ("groupIds", Js::Arr(vec!["1".into()])),
+        ("studentNames", Js::Arr(vec!["가상학생A".into()])),
+    ])
+}
+#[test]
+fn shared_native_projection_and_legacy_consumers_see_save_and_reopen() {
+    use edu_academy_teacher::{
+        facts::SeededFacts,
+        lesson::{LessonData, PrepareRequest, prepare},
+        unit::status,
+        unit_fixture::{ReadClock, SharedFrameClock, SyntheticDailyTestPort},
+        unit_sources::DailyTestReader,
+    };
+    let s = scenario();
+    let t = Scratch::new();
+    let state = Arc::new(Mutex::new(t.open(native_seed(&s))));
+    let mut backend = shared_backend(state.clone(), s.clone());
+    let date = chrono::NaiveDate::from_ymd_opt(2026, 11, 9).unwrap();
+    let before = backend.read_record("1001", date).unwrap().unwrap();
+    let store = DraftStore::open(&t.root(), owner()).unwrap();
+    let mut patch = progress_patch();
+    patch.progress.as_mut().unwrap().value = "- 가우스 5-1-2 2-2 유형다지기".into();
+    patch.homework = Some(patch.progress.clone().unwrap());
+    {
+        let account = store.lock_account().unwrap();
+        state
+            .lock()
+            .unwrap()
+            .dispatch_with_account(&account, &identity(), &patch, NOW)
+            .unwrap();
+    }
+    let saved = backend.read_record("1001", date).unwrap().unwrap();
+    assert_ne!(saved, before);
+    assert_eq!(saved.progress, patch.progress.as_ref().unwrap().value);
+    assert_eq!(saved.homework, patch.homework.as_ref().unwrap().value);
+    let facts = SeededFacts::from_scenario(&s);
+    let req = PrepareRequest {
+        student: Some("가상학생A".into()),
+        date: Some("2026-11-11".into()),
+        book: Some("가우스 5-1-2".into()),
+        ..Default::default()
+    };
+    let lesson = prepare(&mut backend, &facts, &req, date + chrono::Duration::days(2));
+    assert!(
+        lesson.stop.is_none() && lesson.ask.is_none(),
+        "{}",
+        lesson.display
+    );
+    let parsed: LessonData = serde_json::from_value(lesson.data).unwrap();
+    let previous = parsed.students[0].previous_lesson.as_ref().unwrap();
+    assert_eq!(
+        (&previous.progress, &previous.homework),
+        (&saved.progress, &saved.homework)
+    );
+    let frames = SharedFrameClock::new(s.dailytest_frames.clone());
+    let mut daily = DailyTestReader::new(
+        SyntheticDailyTestPort::new(s.clone(), frames.clone()),
+        frames,
+        TEACHER_ID,
+    );
+    let request = serde_json::from_value(serde_json::json!({"student":"가상학생A","book":"가우스 5-1-2","unit":"2-1","topic":"DailyTest"})).unwrap();
+    let count = state.lock().unwrap().read_count();
+    let units = status(
+        &mut backend,
+        &mut daily,
+        &facts,
+        &request,
+        &ReadClock {
+            read_at: s.unit_read_at.clone().unwrap(),
+        },
+    );
+    assert!(
+        units.stop.is_none() && units.ask.is_none(),
+        "{}",
+        units.display
+    );
+    assert_eq!(state.lock().unwrap().read_count(), count); // Unit status has no day-record query.
+    assert_eq!(backend.read_record("1001", date).unwrap().unwrap(), saved);
+    let scope = obj(&[
+        ("sourceNamespace", "academy.lms.dayrecord".into()),
+        ("teacherId", TEACHER_ID.into()),
+        ("studentId", "1001".into()),
+        ("lessonDate", "2026-11-09".into()),
+    ]);
+    let projected = backend.day.read(&scope, NOW, "native-six-fields").unwrap();
+    let fields = projected.get("observation").get("fields");
+    assert!(fields.get("progress").get("value").is(&saved.progress));
+    assert!(fields.get("homework").get("value").is(&saved.homework));
+    assert!(fields.get("lessonMemo").get("value").is(""));
+    assert!(fields.get("attendance").get("value").is("Y"));
+    assert!(fields.get("dailyTestAssessment").get("state").is("unknown"));
+    assert!(
+        fields
+            .get("previousHomeworkAssessment")
+            .get("value")
+            .is("-1")
+    );
+    assert!(
+        projected
+            .get("observation")
+            .get("previousTarget")
+            .get("lessonDate")
+            .is("2026-11-05")
+    );
+    drop(backend);
+    drop(state);
+    let reopened = Arc::new(Mutex::new(t.open(native_seed(&s))));
+    let mut backend = shared_backend(reopened.clone(), s.clone());
+    assert_eq!(backend.read_record("1001", date).unwrap().unwrap(), saved);
+    let lesson = prepare(&mut backend, &facts, &req, date + chrono::Duration::days(2));
+    assert!(lesson.stop.is_none() && lesson.ask.is_none());
+    let parsed: LessonData = serde_json::from_value(lesson.data).unwrap();
+    let prior = parsed.students[0].previous_lesson.as_ref().unwrap();
+    assert_eq!(
+        (&prior.progress, &prior.homework),
+        (&saved.progress, &saved.homework)
+    );
+    let count = reopened.lock().unwrap().read_count();
+    let units = status(
+        &mut backend,
+        &mut daily,
+        &facts,
+        &request,
+        &ReadClock {
+            read_at: s.unit_read_at.unwrap(),
+        },
+    );
+    assert!(units.stop.is_none() && units.ask.is_none());
+    assert_eq!(reopened.lock().unwrap().read_count(), count);
+    assert_eq!(backend.read_record("1001", date).unwrap().unwrap(), saved);
+    assert_eq!(reopened.lock().unwrap().dispatch_count(), 0);
+}
+#[test]
+fn native_port_refuses_missing_or_failed_latest_predecessor_and_target_drift() {
+    for failure in ["missing", "failed"] {
+        let t = Scratch::new();
+        let s = scenario();
+        let mut input = native_seed(&s);
+        if failure == "missing" {
+            input
+                .records
+                .retain(|r| r.identity.lesson_date.as_str() >= "2026-11-09");
+        } else {
+            let mut prior = identity();
+            prior.lesson_date = "2026-11-05".into();
+            input.read_scripts.push(ReadScript {
+                identity: prior,
+                outcome: ReadOutcome::Unavailable,
+            });
+        }
+        let state = Arc::new(Mutex::new(t.open(input)));
+        let mut backend = shared_backend(state.clone(), s);
+        assert!(
+            backend
+                .read_record(
+                    "1001",
+                    chrono::NaiveDate::from_ymd_opt(2026, 11, 9).unwrap()
+                )
+                .is_err()
+        );
+        assert!(
+            backend
+                .read_record(
+                    "1001",
+                    chrono::NaiveDate::from_ymd_opt(2026, 11, 10).unwrap()
+                )
+                .unwrap()
+                .is_none()
+        );
+        let raw = backend
+            .day
+            .port
+            .execute(&native_request("2026-11-09"))
+            .unwrap();
+        let mut wrong = edu_academy_sources::native::target(&raw.get("dayRecords").array()[0]);
+        wrong.set("recordKey", "other-occurrence".into());
+        assert_eq!(
+            backend
+                .day
+                .port
+                .journal_state(&wrong)
+                .err()
+                .unwrap()
+                .message,
+            "native_dailyrecord_state_conflict"
+        );
+        assert_eq!(state.lock().unwrap().dispatch_count(), 0);
+        assert_eq!(state.lock().unwrap().notification_count(), 0);
+    }
+}
+#[test]
+fn native_port_directory_binding_and_operation_bounds() {
+    let t = Scratch::new();
+    let state = Arc::new(Mutex::new(t.open(seed())));
+    let student = scenario().students.remove(0);
+    for n in [MAX_RECORD_STUDENTS, MAX_RECORD_STUDENTS + 1] {
+        assert_eq!(
+            SyntheticRecordDayPort::new(state.clone(), vec![student.clone(); n], NOW).is_ok(),
+            n == MAX_RECORD_STUDENTS
+        );
+    }
+    for n in [MAX_RECORD_BINDINGS, MAX_RECORD_BINDINGS + 1] {
+        let mut s = student.clone();
+        s.bindings = vec![s.bindings[0].clone(); n];
+        assert_eq!(
+            SyntheticRecordDayPort::new(state.clone(), vec![s], NOW).is_ok(),
+            n == MAX_RECORD_BINDINGS
+        );
+    }
+    let mut port = SyntheticRecordDayPort::new(state.clone(), vec![student.clone()], NOW).unwrap();
+    assert!(port.set_read_at("invalid").is_err());
+    port.set_read_at("2026-11-11T18:11:00+09:00").unwrap();
+    for _ in 0..MAX_SOURCE_OPERATIONS {
+        port.authenticate().unwrap();
+    }
+    assert_eq!(
+        port.discover(&obj(&[("teacherLabel", TEACHER_LABEL.into())]))
+            .err()
+            .unwrap()
+            .message,
+        "record_source_limit"
+    );
+    state.lock().unwrap().begin_call();
+    let mut invalid = native_request("2026-11-09");
+    invalid.set("teacherLabel", "other".into());
+    assert!(port.execute(&invalid).is_err());
+    assert_eq!(state.lock().unwrap().source_operations(), 0);
+    let mut other = student.clone();
+    other.key = "1003".into();
+    let mut ambiguous =
+        SyntheticRecordDayPort::new(state.clone(), vec![student, other], NOW).unwrap();
+    assert_eq!(
+        ambiguous
+            .execute(&native_request("2026-11-09"))
+            .err()
+            .unwrap()
+            .message,
+        "record_source_name_ambiguous"
+    );
 }
 #[test]
 fn remaining_effect_scripts_survive_reopen_in_order() {

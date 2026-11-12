@@ -4,15 +4,19 @@ use crate::{
     record_store::{AccountGuard, DraftStore, MAX_ROOT_BYTES},
 };
 use edu_academy_core::js::{Fault, Result};
+use edu_academy_sources::{
+    data::{self, obj},
+    native::{self, SourcePort},
+};
 use rustix::fs::{self as rfs, Mode, OFlags};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs::File,
     io::{Read, Write},
     os::unix::fs::MetadataExt,
     path::{Component, Path},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 pub const MAX_SOURCE_SNAPSHOT_BYTES: usize = 1_048_576;
@@ -24,6 +28,223 @@ pub const RECORD_SOURCE_FORMAT: &str = "academy.record-source/2";
 pub const MAX_SOURCE_SCRIPTS: usize = 256;
 pub const SOURCE_READ_DEADLINE_MS: u64 = 2_000;
 pub const MAX_SOURCE_READ_RETRIES: usize = 1;
+pub const MAX_RECORD_STUDENTS: usize = 256;
+pub const MAX_RECORD_BINDINGS: usize = 32;
+
+/// Metadata is invented scenario data; every academic read uses the shared state.
+pub struct SyntheticRecordDayPort {
+    state: Arc<Mutex<SyntheticRecordState>>,
+    students: Vec<crate::synthetic::ScenarioStudent>,
+    read_at: String,
+}
+impl SyntheticRecordDayPort {
+    pub fn new(
+        state: Arc<Mutex<SyntheticRecordState>>,
+        students: Vec<crate::synthetic::ScenarioStudent>,
+        read_at: &str,
+    ) -> Result<Self> {
+        if students.len() > MAX_RECORD_STUDENTS {
+            return Err(limit());
+        }
+        chrono::DateTime::parse_from_rfc3339(read_at).map_err(|_| invalid())?;
+        let mut seen = BTreeMap::new();
+        for student in &students {
+            native::literal_name(&student.name.clone().into()).map_err(data::fault_from_error)?;
+            native::literal_key(&student.key.clone().into()).map_err(data::fault_from_error)?;
+            if student.bindings.is_empty() {
+                return Err(invalid());
+            }
+            if student.bindings.len() > MAX_RECORD_BINDINGS {
+                return Err(limit());
+            }
+            for binding in &student.bindings {
+                native::literal_key(&binding.course_key.clone().into())
+                    .map_err(data::fault_from_error)?;
+            }
+            let signature = (&student.name, &student.bindings[0].course_key);
+            if seen
+                .insert(&student.key, signature)
+                .is_some_and(|old| old != signature)
+            {
+                return Err(invalid());
+            }
+        }
+        Ok(Self {
+            state,
+            students,
+            read_at: read_at.into(),
+        })
+    }
+    pub fn set_read_at(&mut self, read_at: &str) -> Result<()> {
+        chrono::DateTime::parse_from_rfc3339(read_at).map_err(|_| invalid())?;
+        self.read_at = read_at.into();
+        Ok(())
+    }
+    // Never retain the mutex while waiting for account: adapter callers already
+    // holding account can acquire the same mutex without an inverted lock order.
+    fn locked<T>(
+        &self,
+        f: impl FnOnce(&mut SyntheticRecordState, &AccountGuard<'_>) -> Result<T>,
+    ) -> data::Result<T> {
+        let store = self
+            .state
+            .lock()
+            .map_err(|_| data::Error::error("record_source_unavailable"))?
+            .store
+            .clone();
+        let account = store.lock_account().map_err(data::error_from_fault)?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| data::Error::error("record_source_unavailable"))?;
+        f(&mut state, &account).map_err(data::error_from_fault)
+    }
+    fn snapshot(
+        &self,
+        state: &mut SyntheticRecordState,
+        account: &AccountGuard<'_>,
+        student: &crate::synthetic::ScenarioStudent,
+        date: &str,
+    ) -> Result<RecordSnapshot> {
+        let id = RecordIdentity {
+            owner: state.owner.clone(),
+            student_key: student.key.clone(),
+            lesson_date: date.into(),
+            kind: RecordKind::DailyRecord,
+        };
+        state.read_with_account(account, &id, &self.read_at)
+    }
+    fn row(
+        &self,
+        student: &crate::synthetic::ScenarioStudent,
+        record: &RecordSnapshot,
+    ) -> Result<edu_academy_core::js::Js> {
+        let RecordObservation::Observed { occurrence, fields } = &record.observation else {
+            return Err(invalid());
+        };
+        let mut values = obj(&[]);
+        for field in RecordField::ALL {
+            if let RecordValue::Known(value) = &fields[field] {
+                values.set(field.wire_name(), value.clone().into());
+            }
+        }
+        Ok(obj(&[
+            ("studentName", student.name.clone().into()),
+            ("date", record.requested_date.clone().into()),
+            ("groupId", "1".into()),
+            ("teacherKey", crate::synthetic::TEACHER_ID.into()),
+            ("studentKey", student.key.clone().into()),
+            ("courseKey", student.bindings[0].course_key.clone().into()),
+            ("recordKey", occurrence.clone().into()),
+            ("membershipKey", "601".into()),
+            ("fields", values),
+        ]))
+    }
+}
+impl SourcePort for SyntheticRecordDayPort {
+    fn authenticate(&mut self) -> data::Result<edu_academy_core::js::Js> {
+        self.locked(|state, _| {
+            state.operation()?;
+            Ok(obj(&[("status", "authenticated".into())]))
+        })
+    }
+    fn discover(
+        &mut self,
+        input: &edu_academy_core::js::Js,
+    ) -> data::Result<edu_academy_core::js::Js> {
+        if !input
+            .get("teacherLabel")
+            .is(crate::synthetic::TEACHER_LABEL)
+        {
+            return Err(data::Error::error("record_source_request_invalid"));
+        }
+        self.locked(|state, _| {
+            state.operation()?;
+            Ok(obj(&[(
+                "groups",
+                edu_academy_core::js::Js::Arr(vec![obj(&[("groupId", "1".into())])]),
+            )]))
+        })
+    }
+    fn execute(
+        &mut self,
+        input: &edu_academy_core::js::Js,
+    ) -> data::Result<edu_academy_core::js::Js> {
+        let names = input.get("studentNames").array();
+        let groups = input.get("groupIds").array();
+        if !input.get("family").is("day_record")
+            || !input
+                .get("teacherLabel")
+                .is(crate::synthetic::TEACHER_LABEL)
+            || names.len() != 1
+            || !names[0].string()
+            || groups.len() != 1
+            || !groups[0].is("1")
+            || !input.get("date").string()
+        {
+            return Err(data::Error::error("record_source_request_invalid"));
+        }
+        self.locked(|state, account| {
+            let matching: Vec<_> = self
+                .students
+                .iter()
+                .filter(|s| names[0].is(&s.name))
+                .collect();
+            let rows = if let Some(student) = matching.first() {
+                if matching.iter().any(|s| s.key != student.key) {
+                    return Err(Fault::error("record_source_name_ambiguous"));
+                }
+                let date = String::from_utf16(input.get("date").units()).map_err(|_| invalid())?;
+                let record = self.snapshot(state, account, student, &date)?;
+                if matches!(record.observation, RecordObservation::Observed { .. }) {
+                    vec![self.row(student, &record)?]
+                } else {
+                    vec![]
+                }
+            } else {
+                state.operation()?;
+                vec![]
+            };
+            Ok(obj(&[("dayRecords", edu_academy_core::js::Js::Arr(rows))]))
+        })
+    }
+    fn journal_state(
+        &mut self,
+        target: &edu_academy_core::js::Js,
+    ) -> data::Result<edu_academy_core::js::Js> {
+        self.locked(|state, account| {
+            let student = self
+                .students
+                .iter()
+                .find(|s| target.get("studentKey").is(&s.key))
+                .ok_or_else(invalid)?;
+            let date = String::from_utf16(target.get("date").units()).map_err(|_| invalid())?;
+            let current = self.snapshot(state, account, student, &date)?;
+            let current_row = self.row(student, &current)?;
+            if native::target(&current_row) != native::target(target) {
+                return Err(Fault::error("native_dailyrecord_state_conflict"));
+            }
+            state.operation()?;
+            state.reads = state.reads.checked_add(1).ok_or_else(limit)?;
+            let source = state.load()?;
+            let prior = source
+                .records
+                .iter()
+                .filter(|r| r.identity.student_key == student.key && r.identity.lesson_date < date)
+                .max_by_key(|r| &r.identity.lesson_date)
+                .ok_or_else(|| Fault::error("native_dailyrecord_previous_unverified"))?;
+            let previous = self.snapshot(state, account, student, &prior.identity.lesson_date)?;
+            let previous_row = self.row(student, &previous)?;
+            Ok(obj(&[
+                ("target", native::target(&current_row)),
+                ("previousDate", previous_row.get("date").clone()),
+                ("previousRecordKey", previous_row.get("recordKey").clone()),
+                ("fields", current_row.get("fields").clone()),
+                ("wireDigest", content_hash(&current.observation)?.into()),
+            ]))
+        })
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
