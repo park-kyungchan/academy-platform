@@ -51,7 +51,14 @@ fn identity() -> RecordIdentity {
 }
 fn seed() -> RecordSeed {
     RecordSeed {
+        format: RECORD_SOURCE_FORMAT.into(),
         owner: owner(),
+        writable_targets: vec![WritableTarget {
+            identity: identity(),
+            synthetic_target: "synthetic-1001-20261109".into(),
+        }],
+        read_scripts: vec![],
+        effect_scripts: vec![],
         records: vec![RecordSnapshot {
             identity: identity(),
             requested_date: "2026-11-09".into(),
@@ -95,6 +102,291 @@ fn changed_record() -> RecordSnapshot {
     row.provenance.wire_digest = Some("a".repeat(64));
     row.provenance.field_reasons = RecordFields::from_fn(|_| Some("changed-reason".into()));
     row
+}
+fn progress_patch() -> RecordPatch {
+    let mut patch = RecordFields::from_fn(|_| None);
+    patch.progress = Some(FieldPatch {
+        effect_target: "synthetic-1001-20261109".into(),
+        operation: PatchOperation::Set,
+        value: "persisted synthetic progress".into(),
+    });
+    patch
+}
+#[test]
+fn synthetic_success_failure_ack_loss_and_reopen() {
+    use EffectOutcome::*;
+    for (outcome, readback, transport, applied) in [
+        (Success, None, TransportOutcome::Returned, true),
+        (Reject, None, TransportOutcome::Returned, false),
+        (AppliedLostAck, None, TransportOutcome::Lost, true),
+        (UnappliedLostAck, None, TransportOutcome::Lost, false),
+        (
+            ReturnedTimeout,
+            None,
+            TransportOutcome::ReturnedTimeout,
+            false,
+        ),
+        (
+            Success,
+            Some(ReadOutcome::Unavailable),
+            TransportOutcome::Returned,
+            true,
+        ),
+    ] {
+        let t = Scratch::new();
+        let mut input = seed();
+        input.effect_scripts.push(EffectScript {
+            identity: identity(),
+            field: RecordField::Progress,
+            outcome,
+            readback: readback.clone(),
+        });
+        let mut state = t.open(input);
+        let store = DraftStore::open(&t.root(), owner()).unwrap();
+        let held = store.lock_account().unwrap();
+        let result = state
+            .dispatch_with_account(&held, &identity(), &progress_patch(), NOW)
+            .unwrap();
+        assert_eq!(
+            result,
+            vec![EffectResult {
+                field: RecordField::Progress,
+                transport
+            }]
+        );
+        assert_eq!(state.dispatch_count(), 1);
+        assert_eq!(state.notification_count(), 0);
+        if readback.is_some() {
+            assert_eq!(
+                error(state.read_with_account(&held, &identity(), NOW)),
+                "record_source_unavailable"
+            );
+        }
+        let observed = state.read_with_account(&held, &identity(), NOW).unwrap();
+        let RecordObservation::Observed { fields, .. } = observed.observation else {
+            panic!("record required")
+        };
+        let RecordObservation::Observed { fields: before, .. } =
+            seed().records.remove(0).observation
+        else {
+            unreachable!()
+        };
+        for field in RecordField::ALL {
+            assert_eq!(
+                fields[field],
+                if applied && field == RecordField::Progress {
+                    RecordValue::Known(progress_patch().progress.unwrap().value)
+                } else {
+                    before[field].clone()
+                }
+            );
+        }
+        assert_eq!(state.read_count(), 1 + u64::from(readback.is_some()));
+        drop(held);
+        drop(state);
+        let mut reopened = t.open(seed());
+        assert_eq!(
+            reopened.read(&identity(), NOW).unwrap().observation,
+            RecordObservation::Observed {
+                occurrence: "synthetic-1001-20261109".into(),
+                fields
+            }
+        );
+        let stored: RecordSeed = serde_json::from_slice(&fs::read(t.path()).unwrap()).unwrap();
+        assert!(stored.effect_scripts.is_empty() && stored.read_scripts.is_empty());
+        assert_eq!(reopened.dispatch_count(), 0); // Process counters never replay effects.
+    }
+}
+#[test]
+fn full_record_exact_date_and_owner_timeout_and_retry_boundaries() {
+    for (outcomes, expected_reads, success) in [
+        (
+            vec![ReadOutcome::Observed {
+                elapsed_ms: SOURCE_READ_DEADLINE_MS - 1,
+            }],
+            1,
+            true,
+        ),
+        (
+            vec![
+                ReadOutcome::Observed {
+                    elapsed_ms: SOURCE_READ_DEADLINE_MS,
+                },
+                ReadOutcome::Timeout,
+            ],
+            2,
+            false,
+        ),
+        (
+            vec![
+                ReadOutcome::Observed {
+                    elapsed_ms: SOURCE_READ_DEADLINE_MS + 1,
+                },
+                ReadOutcome::Timeout,
+            ],
+            2,
+            false,
+        ),
+        (vec![ReadOutcome::Timeout], 2, true),
+        (vec![ReadOutcome::Unavailable], 1, false),
+    ] {
+        let t = Scratch::new();
+        let mut input = seed();
+        input.read_scripts = outcomes
+            .into_iter()
+            .map(|outcome| ReadScript {
+                identity: identity(),
+                outcome,
+            })
+            .collect();
+        let mut state = t.open(input);
+        assert_eq!(state.read(&identity(), NOW).is_ok(), success);
+        assert_eq!(state.read_count(), expected_reads);
+        assert!(expected_reads <= (MAX_SOURCE_READ_RETRIES + 1) as u64);
+        let mut reopened = t.open(seed());
+        assert!(reopened.read(&identity(), NOW).is_ok()); // Consumed failures survive restart.
+    }
+    let t = Scratch::new();
+    let mut state = t.open(seed());
+    let store = DraftStore::open(&t.root(), owner()).unwrap();
+    let held = store.lock_account().unwrap();
+    assert_eq!(
+        state.read_with_account(&held, &identity(), NOW).unwrap(),
+        seed().records[0]
+    );
+    let other = Scratch::new();
+    let other_store = DraftStore::open(&other.root(), owner()).unwrap();
+    let foreign = other_store.lock_account().unwrap();
+    assert_eq!(
+        error(state.read_with_account(&foreign, &identity(), NOW)),
+        "record_source_root_mismatch"
+    );
+    for _ in 1..MAX_SOURCE_OPERATIONS {
+        state.read_with_account(&held, &identity(), NOW).unwrap();
+    }
+    let bytes = fs::read(t.path()).unwrap();
+    assert_eq!(
+        error(state.dispatch_with_account(&held, &identity(), &progress_patch(), NOW)),
+        "record_source_limit"
+    );
+    assert_eq!(state.dispatch_count(), 0);
+    assert_eq!(fs::read(t.path()).unwrap(), bytes);
+}
+#[test]
+fn version_script_and_writable_target_boundaries() {
+    for member in ["format", "another version"] {
+        let t = Scratch::new();
+        t.open(seed());
+        let mut value = serde_json::to_value(seed()).unwrap();
+        if member == "format" {
+            value.as_object_mut().unwrap().remove("format");
+        } else {
+            value["format"] = member.into();
+        }
+        fs::write(t.path(), serde_json::to_vec(&value).unwrap()).unwrap();
+        assert_eq!(
+            error(SyntheticRecordState::open(&t.root(), seed(), 10000)),
+            "record_source_format_unsupported"
+        );
+    }
+    for member in ["read_scripts", "effect_scripts", "writable_targets"] {
+        for over in [0, 1] {
+            let t = Scratch::new();
+            let mut input = seed();
+            for n in 0..MAX_SOURCE_SCRIPTS + over {
+                match member {
+                    "read_scripts" => input.read_scripts.push(ReadScript {
+                        identity: identity(),
+                        outcome: ReadOutcome::Unavailable,
+                    }),
+                    "effect_scripts" => input.effect_scripts.push(EffectScript {
+                        identity: identity(),
+                        field: RecordField::Progress,
+                        outcome: EffectOutcome::Reject,
+                        readback: None,
+                    }),
+                    _ => {
+                        let mut id = identity();
+                        id.lesson_date = (chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap()
+                            + chrono::Duration::days(n as i64))
+                        .to_string();
+                        input.writable_targets.push(WritableTarget {
+                            identity: id,
+                            synthetic_target: format!("synthetic-{n}"),
+                        });
+                    }
+                }
+            }
+            if member == "writable_targets" {
+                input.writable_targets.remove(0);
+            }
+            assert_eq!(
+                SyntheticRecordState::open(&t.root(), input, 10000).is_ok(),
+                over == 0
+            );
+        }
+    }
+}
+#[test]
+fn partial_batch_creates_only_applied_fields_and_rejects_unbound_targets() {
+    let t = Scratch::new();
+    let mut input = seed();
+    input.records.clear();
+    input.effect_scripts.push(EffectScript {
+        identity: identity(),
+        field: RecordField::Homework,
+        outcome: EffectOutcome::Reject,
+        readback: None,
+    });
+    let mut state = t.open(input);
+    let store = DraftStore::open(&t.root(), owner()).unwrap();
+    let held = store.lock_account().unwrap();
+    let mut patch = progress_patch();
+    patch.progress.as_mut().unwrap().value.clear();
+    patch.homework = Some(FieldPatch {
+        value: "rejected synthetic homework".into(),
+        ..patch.progress.clone().unwrap()
+    });
+    let result = state
+        .dispatch_with_account(&held, &identity(), &patch, NOW)
+        .unwrap();
+    assert_eq!(result.len(), 2);
+    assert_eq!(state.dispatch_count(), 1);
+    let observed = state.read_with_account(&held, &identity(), NOW).unwrap();
+    let RecordObservation::Observed { occurrence, fields } = observed.observation else {
+        panic!("created record required")
+    };
+    assert_eq!(occurrence, "synthetic-1001-20261109");
+    assert_eq!(fields.progress, RecordValue::Known(String::new()));
+    for field in RecordField::ALL
+        .into_iter()
+        .filter(|f| *f != RecordField::Progress)
+    {
+        assert_eq!(fields[field], RecordValue::Unknown);
+    }
+    let bytes = fs::read(t.path()).unwrap();
+    patch.progress.as_mut().unwrap().effect_target = "unbound target".into();
+    assert_eq!(
+        error(state.dispatch_with_account(&held, &identity(), &patch, NOW)),
+        "record_source_invalid"
+    );
+    let mut absent = identity();
+    absent.lesson_date = "2026-11-11".into();
+    assert_eq!(
+        error(state.dispatch_with_account(&held, &absent, &progress_patch(), NOW)),
+        "record_source_not_writable"
+    );
+    assert_eq!(state.dispatch_count(), 1);
+    assert_eq!(fs::read(t.path()).unwrap(), bytes);
+    let count = state.read_count();
+    assert_eq!(
+        state
+            .read_with_account(&held, &absent, NOW)
+            .unwrap()
+            .observation,
+        RecordObservation::NotObserved
+    );
+    assert_eq!(state.read_count(), count + 1); // Never retries a successful no-match.
 }
 
 #[test]

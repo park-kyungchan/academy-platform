@@ -1,4 +1,4 @@
-//! Persistent invented record observations only; no transport or save authority.
+//! Persistent invented records and scripted effects; no live transport or approval authority.
 use crate::{
     record_data::*,
     record_store::{AccountGuard, DraftStore, MAX_ROOT_BYTES},
@@ -12,6 +12,7 @@ use std::{
     io::{Read, Write},
     os::unix::fs::MetadataExt,
     path::{Component, Path},
+    sync::Arc,
 };
 
 pub const MAX_SOURCE_SNAPSHOT_BYTES: usize = 1_048_576;
@@ -19,21 +20,79 @@ pub const MAX_SOURCE_RECORDS: usize = 256;
 pub const MAX_SOURCE_OPERATIONS: usize = 128;
 pub const MAX_SOURCE_JSON_DEPTH: usize = 32;
 pub const SOURCE_SNAPSHOT: &str = "record-source.json";
+pub const RECORD_SOURCE_FORMAT: &str = "academy.record-source/2";
+pub const MAX_SOURCE_SCRIPTS: usize = 256;
+pub const SOURCE_READ_DEADLINE_MS: u64 = 2_000;
+pub const MAX_SOURCE_READ_RETRIES: usize = 1;
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct WritableTarget {
+    pub identity: RecordIdentity,
+    pub synthetic_target: String,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ReadOutcome {
+    Observed { elapsed_ms: u64 },
+    Timeout,
+    Unavailable,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ReadScript {
+    pub identity: RecordIdentity,
+    pub outcome: ReadOutcome,
+}
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum EffectOutcome {
+    Success,
+    Reject,
+    AppliedLostAck,
+    UnappliedLostAck,
+    ReturnedTimeout,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct EffectScript {
+    pub identity: RecordIdentity,
+    pub field: RecordField,
+    pub outcome: EffectOutcome,
+    pub readback: Option<ReadOutcome>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TransportOutcome {
+    Returned,
+    Lost,
+    ReturnedTimeout,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EffectResult {
+    pub field: RecordField,
+    pub transport: TransportOutcome,
+}
 
 /// Only concrete owned synthetic data can enter this constructor boundary.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct RecordSeed {
+    pub format: String,
     pub owner: OwnerScope,
     pub records: Vec<RecordSnapshot>,
+    pub writable_targets: Vec<WritableTarget>,
+    pub read_scripts: Vec<ReadScript>,
+    pub effect_scripts: Vec<EffectScript>,
 }
 /// Counters belong to this process, while every read reloads the durable source.
 pub struct SyntheticRecordState {
-    store: DraftStore,
+    store: Arc<DraftStore>,
     root: File,
     owner: OwnerScope,
     reads: u64,
     operations: usize,
+    dispatches: u64,
+    entry_limit: usize,
 }
 fn unavailable() -> Fault {
     Fault::error("record_source_unavailable")
@@ -165,11 +224,35 @@ fn valid_identity(id: &RecordIdentity, owner: &OwnerScope) -> Result<()> {
     Ok(())
 }
 fn validate(seed: &RecordSeed, owner: &OwnerScope) -> Result<()> {
+    if seed.format != RECORD_SOURCE_FORMAT {
+        return Err(Fault::error("record_source_format_unsupported"));
+    }
     if &seed.owner != owner || owner.owner.is_empty() || owner.account.is_empty() {
         return Err(invalid());
     }
     if seed.records.len() > MAX_SOURCE_RECORDS {
         return Err(limit());
+    }
+    if seed.writable_targets.len() > MAX_SOURCE_RECORDS
+        || seed.read_scripts.len() > MAX_SOURCE_SCRIPTS
+        || seed.effect_scripts.len() > MAX_SOURCE_SCRIPTS
+    {
+        return Err(limit());
+    }
+    let mut targets = BTreeSet::new();
+    for t in &seed.writable_targets {
+        valid_identity(&t.identity, owner)?;
+        if t.synthetic_target.is_empty() || !targets.insert(t.identity.key()?) {
+            return Err(invalid());
+        }
+    }
+    for id in seed
+        .read_scripts
+        .iter()
+        .map(|s| &s.identity)
+        .chain(seed.effect_scripts.iter().map(|s| &s.identity))
+    {
+        valid_identity(id, owner)?;
     }
     let mut identities = BTreeSet::new();
     for record in &seed.records {
@@ -193,6 +276,10 @@ fn decode(bytes: &[u8], owner: &OwnerScope) -> Result<RecordSeed> {
         return Err(limit());
     }
     depth(bytes)?;
+    let version: serde_json::Value = serde_json::from_slice(bytes).map_err(|_| invalid())?;
+    if version.get("format").and_then(|v| v.as_str()) != Some(RECORD_SOURCE_FORMAT) {
+        return Err(Fault::error("record_source_format_unsupported"));
+    }
     let seed: RecordSeed = serde_json::from_slice(bytes).map_err(|_| invalid())?;
     validate(&seed, owner)?;
     Ok(seed)
@@ -263,11 +350,13 @@ impl SyntheticRecordState {
         }
         drop(account);
         Ok(Self {
-            store,
+            store: Arc::new(store),
             root: directory,
             owner: seed.owner,
             reads: 0,
             operations: 0,
+            dispatches: 0,
+            entry_limit,
         })
     }
     /// The server starts one logical teacher call; this is not an approval gate.
@@ -280,38 +369,201 @@ impl SyntheticRecordState {
     pub fn source_operations(&self) -> usize {
         self.operations
     }
+    pub fn dispatch_count(&self) -> u64 {
+        self.dispatches
+    }
+    /// This backend has no parent transmission operation.
+    pub fn notification_count(&self) -> u64 {
+        0
+    }
+    fn operation(&mut self) -> Result<()> {
+        if self.operations == MAX_SOURCE_OPERATIONS {
+            return Err(limit());
+        }
+        self.operations += 1;
+        Ok(())
+    }
+    fn load(&self) -> Result<RecordSeed> {
+        decode(
+            &read_bytes(&self.root)?.ok_or_else(unavailable)?,
+            &self.owner,
+        )
+    }
+    fn persist(&self, account: &AccountGuard<'_>, source: &RecordSeed) -> Result<()> {
+        check_root(&self.root, account)?;
+        let bytes = serde_json::to_vec(source).map_err(|_| invalid())?;
+        decode(&bytes, &self.owner)?;
+        remove_temp(&self.root)?;
+        let usage = account.usage(self.entry_limit)?;
+        if usage
+            .bytes
+            .checked_add(bytes.len() as u64)
+            .is_none_or(|n| n > MAX_ROOT_BYTES)
+            || usage.entries >= self.entry_limit
+        {
+            return Err(Fault::error("record_store_capacity"));
+        }
+        initialize(&self.root, &bytes)
+    }
     /// Exact resolved identity only. Never searches another date or projects a
     /// known blank/unknown/attribution reason to an invented academic value.
     pub fn read(&mut self, id: &RecordIdentity, read_at: &str) -> Result<RecordSnapshot> {
         valid_identity(id, &self.owner)?;
         chrono::DateTime::parse_from_rfc3339(read_at).map_err(|_| invalid())?;
-        if self.operations == MAX_SOURCE_OPERATIONS {
-            return Err(limit());
-        }
-        self.operations += 1;
-        self.reads = self.reads.checked_add(1).ok_or_else(limit)?;
-        let _account = self.store.lock_account()?;
-        let bytes = read_bytes(&self.root)?.ok_or_else(unavailable)?;
-        let source = decode(&bytes, &self.owner)?;
-        let mut record = source
-            .records
-            .into_iter()
-            .find(|r| r.identity == *id)
-            .unwrap_or_else(|| RecordSnapshot {
-                identity: id.clone(),
-                requested_date: id.lesson_date.clone(),
-                provenance: RecordProvenance {
-                    read_at: read_at.into(),
-                    evidence_refs: vec![],
-                    source_revision: None,
-                    wire_digest: None,
-                    field_reasons: RecordFields::from_fn(|_| None),
-                },
-                observation: RecordObservation::NotObserved,
-            });
-        record.provenance.read_at = read_at.into();
-        Ok(record)
+        let store = Arc::clone(&self.store);
+        let account = store.lock_account()?;
+        self.read_with_account(&account, id, read_at)
     }
+    /// Evidence of the same held root lock; never acquires an account lock again.
+    pub fn read_with_account(
+        &mut self,
+        account: &AccountGuard<'_>,
+        id: &RecordIdentity,
+        read_at: &str,
+    ) -> Result<RecordSnapshot> {
+        check_root(&self.root, account)?;
+        valid_identity(id, &self.owner)?;
+        chrono::DateTime::parse_from_rfc3339(read_at).map_err(|_| invalid())?;
+        let mut source;
+        for retry in 0..=MAX_SOURCE_READ_RETRIES {
+            self.operation()?;
+            self.reads = self.reads.checked_add(1).ok_or_else(limit)?;
+            source = self.load()?;
+            let outcome =
+                if let Some(n) = source.read_scripts.iter().position(|s| s.identity == *id) {
+                    let outcome = source.read_scripts.remove(n).outcome;
+                    self.persist(account, &source)?;
+                    outcome
+                } else {
+                    ReadOutcome::Observed { elapsed_ms: 0 }
+                };
+            match outcome {
+                ReadOutcome::Unavailable => return Err(unavailable()),
+                ReadOutcome::Observed { elapsed_ms } if elapsed_ms < SOURCE_READ_DEADLINE_MS => {
+                    return Ok(observe(source, id, read_at));
+                }
+                _ if retry < MAX_SOURCE_READ_RETRIES => continue,
+                _ => return Err(Fault::error("record_source_timeout")),
+            }
+        }
+        unreachable!("bounded read always returns")
+    }
+    /// One invented batch, under the caller's lock. Core approval/fences remain
+    /// the adapter's responsibility; this API never retries an effect.
+    pub fn dispatch_with_account(
+        &mut self,
+        account: &AccountGuard<'_>,
+        id: &RecordIdentity,
+        patch: &RecordPatch,
+        at: &str,
+    ) -> Result<Vec<EffectResult>> {
+        check_root(&self.root, account)?;
+        valid_identity(id, &self.owner)?;
+        chrono::DateTime::parse_from_rfc3339(at).map_err(|_| invalid())?;
+        let mut source = self.load()?;
+        let target = source
+            .writable_targets
+            .iter()
+            .find(|t| t.identity == *id)
+            .ok_or_else(|| Fault::error("record_source_not_writable"))?
+            .synthetic_target
+            .clone();
+        if RecordField::ALL.iter().all(|&f| patch[f].is_none())
+            || RecordField::ALL
+                .iter()
+                .any(|&f| patch[f].as_ref().is_some_and(|p| p.effect_target != target))
+        {
+            return Err(invalid());
+        }
+        let mut record = observe(source.clone(), id, at);
+        let mut applied = false;
+        let mut results = Vec::new();
+        for field in RecordField::ALL {
+            let Some(p) = &patch[field] else { continue };
+            let script = source
+                .effect_scripts
+                .iter()
+                .position(|s| s.identity == *id && s.field == field)
+                .map(|n| source.effect_scripts.remove(n));
+            let outcome = script
+                .as_ref()
+                .map_or(EffectOutcome::Success, |s| s.outcome);
+            if let Some(readback) = script.and_then(|s| s.readback) {
+                source.read_scripts.push(ReadScript {
+                    identity: id.clone(),
+                    outcome: readback,
+                });
+            }
+            if matches!(
+                outcome,
+                EffectOutcome::Success | EffectOutcome::AppliedLostAck
+            ) {
+                if matches!(record.observation, RecordObservation::NotObserved) {
+                    record.observation = RecordObservation::Observed {
+                        occurrence: target.clone(),
+                        fields: RecordFields::from_fn(|_| RecordValue::Unknown),
+                    };
+                }
+                if let RecordObservation::Observed { fields, .. } = &mut record.observation {
+                    fields[field] = RecordValue::Known(p.value.clone());
+                }
+                record.provenance.field_reasons[field] = None;
+                applied = true;
+            }
+            results.push(EffectResult {
+                field,
+                transport: match outcome {
+                    EffectOutcome::AppliedLostAck | EffectOutcome::UnappliedLostAck => {
+                        TransportOutcome::Lost
+                    }
+                    EffectOutcome::ReturnedTimeout => TransportOutcome::ReturnedTimeout,
+                    _ => TransportOutcome::Returned,
+                },
+            });
+        }
+        if applied {
+            record.provenance.source_revision = Some(content_hash(&record.observation)?);
+            record.provenance.wire_digest = record.provenance.source_revision.clone();
+            if let Some(row) = source.records.iter_mut().find(|r| r.identity == *id) {
+                *row = record;
+            } else {
+                source.records.push(record);
+            }
+        }
+        validate(&source, &self.owner)?;
+        self.operation()?;
+        let next_count = self.dispatches.checked_add(1).ok_or_else(limit)?;
+        let published = self.persist(account, &source);
+        if published.is_ok()
+            || published
+                .as_ref()
+                .is_err_and(|e| e.properties.get("writeOutcome").is("uncertain"))
+        {
+            self.dispatches = next_count;
+        }
+        published?;
+        Ok(results)
+    }
+}
+fn observe(source: RecordSeed, id: &RecordIdentity, read_at: &str) -> RecordSnapshot {
+    let mut record = source
+        .records
+        .into_iter()
+        .find(|r| r.identity == *id)
+        .unwrap_or_else(|| RecordSnapshot {
+            identity: id.clone(),
+            requested_date: id.lesson_date.clone(),
+            provenance: RecordProvenance {
+                read_at: read_at.into(),
+                evidence_refs: vec![],
+                source_revision: None,
+                wire_digest: None,
+                field_reasons: RecordFields::from_fn(|_| None),
+            },
+            observation: RecordObservation::NotObserved,
+        });
+    record.provenance.read_at = read_at.into();
+    record
 }
 #[cfg(test)]
 mod tests {
