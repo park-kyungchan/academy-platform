@@ -101,3 +101,41 @@ fn b2_save_outcome_rows() {
     }
     assert!(fixture.seed.read_scripts.is_empty());
 }
+
+#[test]
+fn c_ambiguous_preview() {
+    use edu_academy_teacher::record_parse::{ParsedLines, parse_lines};
+    let fixture = RecordFixture::from_json(include_str!("fixtures/record-answers.json")).unwrap();
+    let mut books = Vec::new();
+    for edition in ["edition-A", "edition-B"] {
+        books.push(serde_json::json!({
+            "studentRef":"invented-student", "bookRef":edition,
+            "label":"invented-book", "edition":edition,
+            "bindingState":"confirmed", "units":[{
+                "unitRef":"invented-unit", "code":"2-1", "title":"invented-topic",
+                "kind":"minor", "activities":["필수예제"], "sections":[]
+            }]
+        }));
+    }
+    let catalog = codec::parse(serde_json::json!({"books":books}).to_string().as_bytes()).unwrap();
+    let result = parse_lines(
+        RecordField::Homework,
+        &["invented-book 2-1 필수예제 8문항".into()],
+        &catalog,
+    )
+    .unwrap();
+    let ParsedLines::Ask(questions) = result else {
+        panic!("ambiguous edition must ask");
+    };
+    assert_eq!(questions.len(), 1);
+    assert_eq!(questions[0].field, AnswerField::Homework);
+    assert_eq!(questions[0].choices.len(), 2);
+    assert!(questions[0].choices.iter().all(|choice| matches!(
+        &choice.answer, AnswerValue::Lines(lines) if lines.len() == 1 && lines[0].ends_with("8문항")
+    )));
+    // C-ambiguous-preview: lexical questions create neither a durable fence nor
+    // dispatch/saved traces. That is R05, not the conditional later R07.
+    check(&fixture.records[0].snapshot.identity, &[], &[], &[]);
+    let contract_row = "R05";
+    assert_eq!(contract_row, "R05");
+}
