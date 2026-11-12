@@ -15,6 +15,7 @@ pub mod tools;
 
 pub use lesson::prepare;
 pub use synthetic::load_scenario;
+pub mod record_backend;
 pub mod record_data;
 pub mod record_store;
 pub mod unit;

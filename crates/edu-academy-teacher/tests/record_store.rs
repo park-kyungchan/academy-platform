@@ -1347,6 +1347,104 @@ fn draft_start_ms() -> i64 {
         .timestamp_millis()
 }
 #[test]
+fn direct_replace_expires_a_still_open_idle_draft() {
+    use edu_academy_teacher::record_data::DraftState;
+    for delta in [DRAFT_IDLE_MS - 1, DRAFT_IDLE_MS, DRAFT_IDLE_MS + 1] {
+        let t = Scratch::new();
+        let s = t.open();
+        let a = s.lock_account().unwrap();
+        let d = a
+            .create_draft(&scope(), draft_seed(), DRAFT_NOW, 10000)
+            .unwrap();
+        assert_eq!(
+            a.load_draft(&identity(), None).unwrap().unwrap().state,
+            DraftState::Open
+        );
+        let mut next = d.clone();
+        next.teacher_inputs.memo = Some("late synthetic edit".into());
+        let now = clock_at(draft_start_ms() + delta);
+        let result = a.replace_draft(&scope(), &d, next, &now, 10000);
+        let stored = a.load_draft(&identity(), None).unwrap().unwrap();
+        if delta < DRAFT_IDLE_MS {
+            assert_eq!(result.unwrap(), stored);
+            assert_eq!(
+                stored.teacher_inputs.memo.as_deref(),
+                Some("late synthetic edit")
+            );
+            assert_eq!(stored.last_used, now);
+        } else {
+            assert_eq!(error(result), "draft_expired");
+            assert_eq!(stored.state, DraftState::Expired);
+            assert_eq!(stored.closed_at.as_deref(), Some(now.as_str()));
+            assert_eq!(stored.teacher_inputs, d.teacher_inputs);
+            assert_eq!(stored.last_used, d.last_used);
+            assert!(stored.revision > d.revision);
+        }
+    }
+}
+#[test]
+fn drift_invalidates_a_nonempty_bound_patch_and_retains_parsed_intent() {
+    use edu_academy_teacher::record_data::*;
+    let t = Scratch::new();
+    let s = t.open();
+    let a = s.lock_account().unwrap();
+    let mut seed = draft_seed();
+    seed.patch.progress = Some(FieldPatch {
+        effect_target: "synthetic-target-1001".into(),
+        operation: PatchOperation::Replace,
+        value: "explicit synthetic progress".into(),
+    });
+    seed.editable.progress = true;
+    seed.dispositions.progress = FieldDisposition::ProposalConfirmed;
+    seed.dispositions.homework = FieldDisposition::ConfirmedExisting;
+    seed.entries.push(RecordEntry {
+        field: RecordField::Progress,
+        raw_line: "가우스 5-1-2 2-1 필수예제".into(),
+        book_ref: "201".into(),
+        unit_ref: "2-1".into(),
+        unit_code: "2-1".into(),
+        minor_title: "가상주제E".into(),
+        activity: "필수예제".into(),
+        qualifiers: vec![],
+        scope: EntryScope::Unit,
+        section_refs: vec![],
+        deadline: None,
+    });
+    let fields = match &seed.before.observation {
+        RecordObservation::Observed { fields, .. } => fields.clone(),
+        RecordObservation::NotObserved => RecordFields::from_fn(|_| RecordValue::Unknown),
+        _ => panic!("successful synthetic before required"),
+    };
+    seed.binding = Some(
+        ContentBinding::new(
+            seed.identity.clone(),
+            seed.generation.clone(),
+            &seed.patch,
+            &fields,
+        )
+        .unwrap(),
+    );
+    let old = a.create_draft(&scope(), seed, DRAFT_NOW, 10000).unwrap();
+    assert!(old.patch.progress.is_some() && old.binding.is_some());
+    assert_eq!(old.entries.len(), 1);
+    let mut fresh = old.before.clone();
+    fresh.provenance.source_revision = Some("changed-synthetic-revision".into());
+    let changed = a
+        .revalidate_draft(&scope(), &old, &fresh, DRAFT_NOW, 10000)
+        .unwrap();
+    assert!(changed.source_changed);
+    let d = changed.draft;
+    assert!(RecordField::ALL.iter().all(|&f| d.patch[f].is_none()));
+    assert!(d.binding.is_none());
+    assert_eq!(d.dispositions.progress, FieldDisposition::Unresolved);
+    assert_eq!(d.dispositions.homework, FieldDisposition::Unresolved);
+    assert_eq!(d.entries, old.entries);
+    assert_eq!(d.teacher_inputs.memo, old.teacher_inputs.memo);
+    assert!(d.teacher_inputs.replace.is_none());
+    assert!(d.pending_questions.is_empty() && d.rendered_preview.is_empty());
+    assert_eq!(a.load_draft(&identity(), None).unwrap(), Some(d));
+}
+#[test]
 fn draft_reopens_expires_and_revalidates() {
     use edu_academy_teacher::record_data::{
         DraftState, RecordFields, RecordObservation, RecordValue, content_hash,
