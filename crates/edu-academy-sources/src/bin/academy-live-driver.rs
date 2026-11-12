@@ -1,0 +1,278 @@
+//! Opt-in native driver. This program has no environment credential discovery.
+use edu_academy_core::{
+    js::{Fault, Js, Result, obj},
+    templates::from_json as j,
+    workflow::{
+        Runtime, canonical,
+        native::{NativeBackend, SourcePort},
+        service::Service,
+        store::Store,
+    },
+};
+use edu_academy_sources::{
+    data::fault_from_error as fault,
+    http::{self, Transport},
+    live_driver as driver,
+    owner_admission::TransportAdmission,
+    owner_root::OwnerRoot,
+    owner_workflow::{FileCredentialProvider, Owner, PinnedInput},
+};
+use serde::Deserialize;
+use std::{
+    cell::Cell,
+    io::{Read, Write},
+    path::PathBuf,
+    rc::Rc,
+    time::{Duration, UNIX_EPOCH},
+};
+
+// M/prestudy.rs:52-57; http.rs:3443-3450 supplies the other default limits.
+const LIMITS: http::TransportLimits = http::TransportLimits {
+    request_bytes: http::MAX_REQUEST_BYTES,
+    response_bytes: edu_academy_sources::prestudy::MAX_SOURCE_BYTES + 1,
+    timeout: Duration::from_secs(20),
+};
+struct Clock;
+// UTC arithmetic repeats M/audit.rs:98-127. Kernel-generated UUID replaces occurrence():79.
+#[rustfmt::skip]
+impl Runtime for Clock {
+    fn epoch_ms(&self) -> u64 { std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64 }
+    fn uuid(&self) -> Result<String> {
+        std::fs::read_to_string("/proc/sys/kernel/random/uuid")
+            .map(|s| s.trim().to_owned()).map_err(|_| Fault::error("occurrence_entropy_unavailable"))
+    }
+    fn now(&self) -> String {
+        let ms = self.epoch_ms();
+        let z = (ms / 86_400_000) as i64 + 719468;
+        let era = z.div_euclid(146097);
+        let doe = z - era * 146097;
+        let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let day = doy - (153 * mp + 2) / 5 + 1;
+        let month = mp + if mp < 10 { 3 } else { -9 };
+        let year = yoe + era * 400 + i64::from(month <= 2);
+        let second = ms / 1000;
+        format!("{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}.{:03}Z", second / 3600 % 24, second / 60 % 60, second % 60, ms % 1000)
+    }
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Pin {
+    relative_path: String,
+    sha256: String,
+}
+impl Pin {
+    fn owned(&self) -> PinnedInput {
+        PinnedInput {
+            relative_path: self.relative_path.clone(),
+            sha256: self.sha256.clone(),
+        }
+    }
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Input {
+    mode: String,
+    scope: serde_json::Value,
+    request_ref: String,
+    field: String,
+    value: Option<String>,
+    approval: Option<String>,
+    reconcile: Option<bool>,
+    owner_root: PathBuf,
+    admission: Pin,
+    credential: Pin,
+    launch_admission: Pin,
+    store: PathBuf,
+}
+fn invalid() -> Fault {
+    Fault::error("invalid_input")
+}
+fn parse(bytes: &[u8]) -> Result<(Input, Js)> {
+    let input: Input = serde_json::from_slice(bytes).map_err(|_| invalid())?;
+    let value = j(serde_json::from_slice(bytes).map_err(|_| invalid())?);
+    if ["value", "approval"]
+        .iter()
+        .any(|key| value.has(key) && !matches!(value.get(key), Js::Str(_)))
+        || (value.has("reconcile") && !matches!(value.get("reconcile"), Js::Bool(_)))
+    {
+        return Err(invalid());
+    }
+    let hash = |s: &str| {
+        s.len() == 64
+            && s.bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    };
+    if !["plan", "save", "status"].contains(&input.mode.as_str())
+        || !input.owner_root.is_absolute()
+        || !input.store.is_absolute()
+        || input.field.is_empty()
+        || (input.mode != "status" && input.value.is_none())
+        || (input.mode == "save" && !input.approval.as_deref().is_some_and(hash))
+        || [&input.admission, &input.credential, &input.launch_admission]
+            .iter()
+            .any(|p| p.relative_path.is_empty() || !hash(&p.sha256))
+    {
+        return Err(invalid());
+    }
+    edu_academy_core::schema::validate("dailyRecordScopeSchema", &j(input.scope.clone()))
+        .map_err(|_| invalid())?;
+    edu_academy_core::schema::validate("dailyRecordIdSchema", &input.request_ref.as_str().into())
+        .map_err(|_| invalid())?;
+    // Read by serde even when the mode does not use these optional keys.
+    let _ = input.reconcile;
+    driver::supported(&value)?;
+    Ok((input, value))
+}
+struct Tracked<'a>(http::NativeTransport, &'a Cell<bool>);
+impl Transport for Tracked<'_> {
+    fn dispatch(
+        &mut self,
+        request: &http::Request,
+    ) -> edu_academy_sources::data::Result<http::Response> {
+        self.1.set(true);
+        self.0.dispatch(request)
+    }
+}
+fn run(input: &Input, value: &Js, store: &mut Option<Store>, called: &Cell<bool>) -> Result<Js> {
+    let root = Rc::new(OwnerRoot::open(&input.owner_root).map_err(fault)?);
+    *store = Some(driver::store(&input.owner_root, &input.store)?);
+    let read = |pin: &Pin| {
+        root.read(&pin.relative_path, &pin.sha256, 256 * 1024)
+            .map_err(fault)
+    };
+    let admission =
+        TransportAdmission::from_bytes(&read(&input.admission)?.bytes).map_err(fault)?;
+    let launch = read(&input.launch_admission)?.json().map_err(fault)?;
+    let principal = obj(&[
+        ("teacherLabel", admission.teacher_label.as_str().into()),
+        ("teacherKey", admission.teacher_id.as_str().into()),
+        ("collegeKey", admission.college_id.as_str().into()),
+    ]);
+    let provider = FileCredentialProvider::new(root.clone(), input.credential.owned(), &Clock);
+    let transport = Tracked(
+        http::NativeTransport::new(LIMITS, http::Cancellation::default()).map_err(fault)?,
+        called,
+    );
+    let owner =
+        Owner::leased(root, principal, transport, launch, None, provider, &Clock).map_err(fault)?;
+    let (admission, owner_admission, names) = owner.write_configuration()?;
+    let mut source = owner.source();
+    let mut writer = owner.writer();
+    writer.authenticate()?;
+    let mut port = driver::EvidencePort {
+        inner: &mut writer,
+        evidence: Js::Null,
+    };
+    let mut backend = NativeBackend::new(&mut port, admission, owner_admission, names, &Clock);
+    let mut output = driver::execute(
+        value,
+        &mut Service {
+            store: store.as_ref().ok_or_else(invalid)?,
+            source: &mut source,
+            backend: &mut backend,
+            policy: &driver::DisconnectedPolicy,
+            runtime: &Clock,
+        },
+    )?;
+    if input.mode == "save" {
+        for key in ["httpStatus", "bodySha256", "comparison"] {
+            output.set(
+                key,
+                edu_academy_core::workflow::nullable(port.evidence.get(key)),
+            );
+        }
+    }
+    Ok(output)
+}
+// Only machine-code-shaped messages cross this boundary; never Display a fault.
+fn code(s: &str) -> &str {
+    if !s.is_empty()
+        && s.len() <= 120
+        && s.bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+    {
+        s
+    } else {
+        "driver_failed"
+    }
+}
+fn main() {
+    let called = Cell::new(false);
+    let mut store = None;
+    let mut bytes = Vec::new();
+    let parsed = std::io::stdin()
+        .take(1_048_577)
+        .read_to_end(&mut bytes)
+        .map_err(|_| invalid())
+        .and_then(|_| {
+            if bytes.len() > 1_048_576 {
+                Err(invalid())
+            } else {
+                parse(&bytes)
+            }
+        });
+    let result = parsed
+        .as_ref()
+        .map_err(Clone::clone)
+        .and_then(|(input, value)| run(input, value, &mut store, &called));
+    let failure = match &result {
+        Err(f) => Some(code(&f.message).to_owned()),
+        Ok(v)
+            if ["held", "refused", "failed", "unknown", "pending"]
+                .iter()
+                .any(|s| v.get("status").is(s)) =>
+        {
+            Some(
+                code(&if v.get("code").absent() {
+                    if !v.get("wireGate").absent() && !v.get("wireGate").is("passed") {
+                        v.get("wireGate").code_units()
+                    } else {
+                        v.get("blockers")
+                            .array()
+                            .first()
+                            .map_or_else(|| "review_held".into(), Js::code_units)
+                    }
+                } else {
+                    v.get("code").code_units()
+                })
+                .to_owned(),
+            )
+        }
+        _ => None,
+    };
+    let (output, exit) = if let Some(code) = failure {
+        let stored = match (&parsed, &store) {
+            (Ok((_, value)), Some(store)) => driver::stored(value, store)
+                .unwrap_or_else(|_| obj(&[("code", "store_read_failed".into())])),
+            _ => Js::Null,
+        };
+        eprintln!("{code}");
+        (
+            obj(&[
+                (
+                    "status",
+                    if called.get() { "failed" } else { "refused" }.into(),
+                ),
+                ("code", code.into()),
+                ("stored", stored),
+            ]),
+            if called.get() { 3 } else { 2 },
+        )
+    } else {
+        (result.unwrap_or(Js::Null), 0)
+    };
+    let encoded = match canonical(&output) {
+        Ok(encoded) => encoded,
+        Err(_) => {
+            eprintln!("output_failed");
+            std::process::exit(if called.get() { 3 } else { 2 });
+        }
+    };
+    if writeln!(std::io::stdout(), "{encoded}").is_err() {
+        eprintln!("stdout_failed");
+        std::process::exit(if called.get() { 3 } else { 2 });
+    }
+    std::process::exit(exit);
+}

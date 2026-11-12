@@ -1,4 +1,4 @@
-//! Finite invented documents and in-memory transports only. No native I/O.
+//! Finite invented documents, scripted transports and offline binary preflight.
 use edu_academy_core::{
     js::Result as CoreResult,
     workflow::{
@@ -681,4 +681,125 @@ fn private_output_is_absent(value: &Js) {
             "unsafe_fixture_token_in_output"
         );
     }
+}
+
+// The native binary gets only malformed synthetic pins: even a removed preflight
+// guard cannot reach login or a network dispatch.
+fn binary_case(case: &str, expected: &str) {
+    use std::{
+        io::Write,
+        os::unix::fs::PermissionsExt,
+        process::{Command, Stdio},
+    };
+    let root = PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap())
+        .join(format!("driver-binary-{case}"));
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let poison = "SYNTHETIC_FILE_CONTENT_NEVER_OUTPUT_948271";
+    for name in ["transport.json", "credential.json", "launch.json"] {
+        std::fs::write(root.join(name), poison).unwrap();
+        std::fs::set_permissions(root.join(name), std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
+    let mut v: serde_json::Value =
+        serde_json::from_str(&edu_academy_core::workflow::canonical(&input()).unwrap()).unwrap();
+    v["mode"] = "plan".into();
+    v["requestRef"] = "request-secret-never-output-129831".into();
+    v["ownerRoot"] = root.to_str().unwrap().into();
+    v["store"] = root.join("store").to_str().unwrap().into();
+    for (key, name) in [
+        ("admission", "transport.json"),
+        ("credential", "credential.json"),
+        ("launchAdmission", "launch.json"),
+    ] {
+        v[key] = serde_json::json!({"relativePath":name,"sha256":"0".repeat(64)});
+    }
+    match case {
+        "invalid" => {
+            v["mode"] = "invalid-mode".into();
+            v["ownerRoot"] = root.join("absent").to_str().unwrap().into();
+        }
+        "narrative" => {
+            v["field"] = "progress".into();
+            v["ownerRoot"] = root.join("absent").to_str().unwrap().into();
+        }
+        "absent" => v["ownerRoot"] = root.join("absent").to_str().unwrap().into(),
+        "git" => {
+            std::fs::create_dir_all(root.join("repo/.git")).unwrap();
+            v["store"] = root.join("repo/store").to_str().unwrap().into();
+        }
+        "mode" => {
+            std::fs::create_dir_all(root.join("store")).unwrap();
+            std::fs::set_permissions(root.join("store"), std::fs::Permissions::from_mode(0o755))
+                .unwrap();
+        }
+        _ => unreachable!(),
+    }
+    let mut child = Command::new(env!("CARGO_BIN_EXE_academy-live-driver"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(v.to_string().as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "{case}: pre-network refusal exit"
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("ONE JSON object and no trailing stdout");
+    assert!(parsed.is_object());
+    assert_eq!(parsed["status"], "refused", "{case}: refusal status");
+    assert_eq!(parsed["code"], expected, "{case}: guard code");
+    assert_eq!(
+        parsed["stored"],
+        serde_json::Value::Null,
+        "{case}: store not opened"
+    );
+    assert_eq!(stderr, format!("{expected}\n"), "typed code only on stderr");
+    for secret in [
+        v["value"].as_str().unwrap(),
+        v["requestRef"].as_str().unwrap(),
+        poison,
+        "credential.json",
+    ] {
+        assert!(
+            !stdout.contains(secret) && !stderr.contains(secret),
+            "{case}: private bytes escaped"
+        );
+    }
+    if case == "narrative" {
+        assert!(
+            !root.join("store").exists(),
+            "narrative: root/store untouched"
+        );
+    }
+}
+#[test]
+fn binary_invalid_input() {
+    binary_case("invalid", "invalid_input");
+}
+#[test]
+fn binary_narrative_before_root() {
+    binary_case("narrative", "field_not_supported");
+}
+#[test]
+fn binary_nonexistent_root() {
+    binary_case("absent", "owner_root_walk_refused");
+}
+#[test]
+fn binary_git_store() {
+    binary_case("git", "store_inside_git_refused");
+}
+#[test]
+fn binary_wide_store() {
+    binary_case("mode", "store_mode_refused");
 }

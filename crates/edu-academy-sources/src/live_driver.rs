@@ -41,8 +41,14 @@ pub fn supported(input: &Js) -> Result<()> {
     Ok(())
 }
 pub fn store(root: &std::path::Path, directory: &std::path::Path) -> Result<Store> {
+    use std::os::unix::fs::PermissionsExt;
     if directory.ancestors().any(|p| p.join(".git").exists()) {
         return Err(Fault::error("store_inside_git_refused"));
+    }
+    if let Ok(metadata) = std::fs::symlink_metadata(directory)
+        && metadata.permissions().mode() & 0o077 != 0
+    {
+        return Err(Fault::error("store_mode_refused"));
     }
     Store::open(directory, root)
 }
