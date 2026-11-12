@@ -13,6 +13,7 @@ import tempfile
 import time
 
 import fidelity
+import request_checks
 
 HERE = Path(__file__).resolve().parent
 CRATE = HERE.parent
@@ -90,6 +91,7 @@ def measure(events):
                     display = display_text(block.get("content"))
                     received_bytes = len(display.encode("utf-8")) if display is not None else None
                     call_details[block["tool_use_id"]]["received_text_bytes"] = received_bytes
+                    call_details[block["tool_use_id"]]["received_display"] = display
                     received_form = "unknown"
                     if display is not None:
                         received_form = "display_text"
@@ -387,7 +389,7 @@ def conversation_isolation(events, allowed, malformed, mode, turns):
     return isolation(events,allowed,malformed,True,mode)
 
 
-def score_turns(raw, specs, allowed, mode, call_log, driver_reason=None, sent_turns=None):
+def score_turns(raw, specs, allowed, mode, call_log, driver_reason=None, sent_turns=None, replayed=None):
     """Result boundaries partition one conversation, retaining init proof per turn."""
     chunks, current, init = [], [], []
     valid = [json.loads(line) for line in raw.splitlines() if _valid_json(line)]
@@ -411,7 +413,7 @@ def score_turns(raw, specs, allowed, mode, call_log, driver_reason=None, sent_tu
         chunks.append(current)
     if sent_turns is None:
         sent_turns = sum(any(_valid_json(x) and json.loads(x).get("type") in ("assistant", "result") for x in c) for c in chunks)
-    results, offset, prior_arguments = [], 0, None
+    results, offset, previous_envelope = [], 0, None
     for index, spec in enumerate(specs):
         chunk = chunks[index] if index < len(chunks) else []
         if index:
@@ -425,21 +427,9 @@ def score_turns(raw, specs, allowed, mode, call_log, driver_reason=None, sent_tu
         # Isolation belongs to the conversation. Its first-request budget is
         # never recalculated from the larger context of a later teacher turn.
         result["isolation"] = proof
-        names = [c["name"] for c in result["calls"] if str(c["name"]).startswith("mcp__academy__")]
-        result["checks"]["expected_tool"] = "unknown" if not result["result_received"] else "pass" if names == ["mcp__academy__" + spec["expected_tool"]] else "FAIL"
-        fixture = (CRATE / "tests/fixtures" / spec["fixture"]).read_text(encoding="utf-8")
-        result["checks"]["raw_fixture"] = "unknown" if result["display"] is None else "pass" if result["display"] == fixture else "FAIL"
-        result["checks"]["clock"] = "not_applicable" if spec.get("clock_expectation") is None else "unknown" if result["display"] is None else "pass" if spec["clock_expectation"] in result["display"] else "FAIL"
-        if spec.get("strict_activity_scope"):
-            result["checks"]["activity_scope"] = result["checks"]["raw_fixture"]
-        arguments = [json.loads(c["arguments"]) for c in result["calls"] if str(c["name"]).startswith("mcp__academy__")]
-        if index and spec.get("preserve_arguments"):
-            current = arguments[0] if len(arguments) == 1 and isinstance(arguments[0], dict) else None
-            previous = prior_arguments if isinstance(prior_arguments, dict) else None
-            ignored = set(spec.get("answer_fields", []))
-            result["checks"]["prior_arguments"] = ("unknown" if previous is None or current is None else
-                "pass" if {k:v for k,v in previous.items() if k not in ignored} == {k:v for k,v in current.items() if k not in ignored} else "FAIL")
-        prior_arguments = arguments[0] if len(arguments) == 1 else None
+        envelopes = None if replayed is None else replayed[offset-count:offset]
+        result["checks"] = request_checks.evaluate(spec, result["calls"], envelopes, previous_envelope)
+        previous_envelope = envelopes[-1] if envelopes else None
         result["turn"] = index + 1
         result["turn_sent"] = index < sent_turns
         result["driver_reason"] = driver_reason
@@ -592,7 +582,11 @@ def main():
         except OSError as exc:
             raw, exit_code, error, sent = "", None, type(exc).__name__ + ":client_start_failed", 0
         (run / "claude.jsonl").write_text(raw, encoding="utf-8")
-        results = score_turns(raw, turns, allowed.split(","), args.mode, read_call_log(run / "run-log.jsonl"), error, sent)
+        try:
+            replayed = request_checks.replay(binary, scenario, measure([json.loads(x) for x in raw.splitlines() if _valid_json(x)])["calls"])
+        except (OSError, ValueError, subprocess.SubprocessError):
+            replayed = None
+        results = score_turns(raw, turns, allowed.split(","), args.mode, read_call_log(run / "run-log.jsonl"), error, sent, replayed)
         (run / "measurement.json").write_text(json.dumps({"command": cli_command + ["--input-format", "stream-json"],
             "request": args.request, "model": args.model, "mode": args.mode, "trial": args.trial,
             "conversation": args.conversation, "sent_turns": sent, "results": results, "exit_code": exit_code, "error": error}, ensure_ascii=False, indent=2), encoding="utf-8")

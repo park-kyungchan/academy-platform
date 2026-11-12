@@ -18,6 +18,10 @@ class DifferenceClasses(unittest.TestCase):
     def pair(self, reference, answer):
         return d.analyze('Title\n' + reference, 'Title\n' + answer, self.policy)
 
+    def test_marker_equivalent_line_wins_the_reviewers_overlap_tie(self):
+        self.assertEqual(d.missing_class('alpha beta', ['beta alpha', '- alpha beta'], [], d.Budget()),
+                         'equal_after_marker_strip')
+
     def test_all_missing_classes_from_constructed_pairs(self):
         cases = [
             ('equal_after_marker_strip', 'alpha beta gamma', '1. **alpha beta gamma**:'),

@@ -529,19 +529,19 @@ fn unit_protocol_q11_to_q16_display_and_distinct_frames() {
         include_str!("fixtures/display-q11.txt"),
         "ok",
     );
-    let args = json!({"student":"가상학생B","unit":"4-4","topic":"DailyTest"});
+    let args = json!({"student":"가상학생B","unit":"4-4 기본","topic":"DailyTest"});
     unit_call(
         &mut s,
         12,
         args.clone(),
-        include_str!("fixtures/display-q12-first.txt"),
+        include_str!("fixtures/display-q12-basic-first.txt"),
         "ok",
     );
     unit_call(
         &mut s,
         13,
         args,
-        include_str!("fixtures/display-q12-later.txt"),
+        include_str!("fixtures/display-q12-basic-later.txt"),
         "ok",
     );
     unit_call(

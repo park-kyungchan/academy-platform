@@ -67,7 +67,7 @@ for line in sys.stdin:
         self.assertEqual([r['call_count'] for r in rows], [1,1])
         self.assertEqual([r['shown_unchanged'] for r in rows], ['pass','pass'])
         self.assertEqual([r['facts_kept'] for r in rows], ['pass','pass'])
-        self.assertEqual([r['checks']['raw_fixture'] for r in rows], ['pass','pass'])
+        self.assertEqual([r['checks']['server_replay'] for r in rows], ['unknown','unknown'])
         self.assertEqual([r['usage']['input_tokens'] for r in rows], [1,2])
         # A later answer must not conceal a failed first answer.
         events[3]['result'] = 'omitted'
@@ -83,8 +83,7 @@ for line in sys.stdin:
                 self.assertTrue(spec['request_text'])
                 self.assertEqual(spec['expected_tool'], 'academy_unit_status')
                 self.assertEqual(spec['target_calls'], 1)
-                self.assertEqual(spec['max_academy_calls'], 1)
-                self.assertTrue(spec['clock_expectation'] or (q == 14 and spec is specs[0]))
+                self.assertIn('student', spec['required_arguments'])
 
     def test_missing_second_turn_is_unknown_not_first_answer_reused(self):
         specs = self.specs()
@@ -92,17 +91,6 @@ for line in sys.stdin:
         rows = run.score_turns('\n'.join(map(json.dumps, events)), specs, [], 'isolated', None)
         self.assertEqual(rows[1]['facts_kept'], 'unknown')
         self.assertEqual(rows[1]['call_count'], 'unknown')
-
-    def test_q11_order_uses_rows_instead_of_book_name_substrings(self):
-        specs = self.specs('Q11')
-        events = self.stream(specs)
-        rows = run.score_turns('\n'.join(map(json.dumps, events)), specs, ['mcp__academy__academy_unit_status'], 'isolated', None)
-        self.assertEqual(rows[0]['checks']['unit_row_order'], 'pass')
-        text = events[-1]['result'].splitlines()
-        text[3], text[4] = text[4], text[3]
-        events[-1]['result'] = '\n'.join(text)
-        row = run.score_turns('\n'.join(map(json.dumps, events)), specs, ['mcp__academy__academy_unit_status'], 'isolated', None)[0]
-        self.assertEqual(row['checks']['unit_row_order'], 'FAIL')
 
     def test_public_result_rejects_failed_isolation_on_both_turns(self):
         specs = self.specs()
@@ -149,29 +137,18 @@ for line in sys.stdin:
                 self.assertEqual(row['unknown_by_reason'],{reason:1})
                 self.assertFalse(row['sent'])
 
-    def test_changed_prior_arguments_fail_q12_and_q14(self):
-        for request, topic in [('Q12','DailyTest'),('Q14','클리닉')]:
-            specs=self.specs(request);events=self.stream(specs)
-            original={'student':'가상학생B','topic':topic}
-            if request=='Q12':original['unit']='4-4'
-            events[1]['message']['content'][0]['input']=dict(original)
-            second=dict(original)
-            if request=='Q14':second['book']='가우스 5-1-1'
-            events[4]['message']['content'][0]['input']=second
-            rows=run.score_turns('\n'.join(map(json.dumps,events)),specs,['mcp__academy__academy_unit_status'],'isolated',None)
-            self.assertEqual(rows[1]['checks']['prior_arguments'],'pass')
-            second['unit' if request=='Q12' else 'student']='changed'
-            rows=run.score_turns('\n'.join(map(json.dumps,events)),specs,['mcp__academy__academy_unit_status'],'isolated',None)
-            self.assertEqual(rows[1]['checks']['prior_arguments'],'FAIL')
-            self.assertEqual(run.public_row(rows[1],request,'haiku','isolated')['result'],'FAIL')
-
     def q15_row(self, server_fixture='display-q15.txt', drop=False):
         specs=self.specs('Q15');events=self.stream(specs)
         text=(run.CRATE/'tests/fixtures'/server_fixture).read_text()
         events[2]['message']['content'][0]['content']=text
         events[3]['result']='\n'.join(line for line in text.splitlines() if not (drop and line.endswith('문항 번호 1003')))
         logs=[{'tool':'academy_unit_status','display_bytes':len(text.encode())}]
-        results=run.score_turns('\n'.join(map(json.dumps,events)),specs,['mcp__academy__academy_unit_status'],'isolated',logs)
+        from test_request_checks import call, envelope
+        args=json.loads(call(specs[0])['arguments'])
+        if server_fixture.endswith('-bare.txt'): args['unit']='1-2'
+        events[1]['message']['content'][0]['input']=args
+        replay=envelope(specs[0],text)
+        results=run.score_turns('\n'.join(map(json.dumps,events)),specs,['mcp__academy__academy_unit_status'],'isolated',logs,replayed=[replay])
         return run.public_row(results[0],'Q15','haiku','isolated')
 
     def test_q15_item_lines_pass_and_a_missing_number_fails(self):
@@ -248,11 +225,15 @@ for line in sys.stdin:
             self.assertEqual(len(path.read_text().splitlines()),1)
 
     def test_export_names_all_failed_checks_and_none_for_a_passing_turn(self):
+        from test_request_checks import call, envelope
         specs = self.specs('Q15')
+        events = self.stream(specs)
+        events[1]['message']['content'][0]['input'] = json.loads(call(specs[0])['arguments'])
         text = (run.CRATE / 'tests/fixtures' / specs[0]['fixture']).read_text()
         log = [{'tool': 'academy_unit_status', 'display_bytes': len(text.encode())}]
-        result = run.score_turns('\n'.join(map(json.dumps, self.stream(specs))), specs,
-                                ['mcp__academy__academy_unit_status'], 'isolated', log)[0]
+        result = run.score_turns('\n'.join(map(json.dumps, events)), specs,
+                                ['mcp__academy__academy_unit_status'], 'isolated', log,
+                                replayed=[envelope(specs[0], text)])[0]
         self.assertEqual(run.public_row(result, 'Q15', 'haiku', 'isolated')['failed_request_checks'], [])
         result['checks'] = {'zeta': 'FAIL', 'alpha': 'FAIL', 'good': 'pass', 'clock': 'not_applicable'}
         row = run.public_row(result, 'Q15', 'haiku', 'isolated')
@@ -273,7 +254,7 @@ for line in sys.stdin:
         result = run.score_turns(raw, specs, ['mcp__academy__academy_unit_status'], 'isolated', log)[0]
         row = dict(run.public_row(result, 'Q15', 'haiku', 'isolated'), trial=False)
         expected = row.pop('failed_request_checks')
-        self.assertIn('raw_fixture', expected)
+        self.assertIn('required_arguments', expected)
         with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
             root = Path(directory)
             (root / 'measurement.json').write_text(json.dumps({'sent_turns': 1, 'error': None}))

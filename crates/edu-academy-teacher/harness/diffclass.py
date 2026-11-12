@@ -93,18 +93,15 @@ def subsequence(needle, haystack, budget):
 
 
 def missing_class(text, lines, other_units, budget):
-    """Highest multiset-Dice word-token overlap; ties use first answer line."""
+    """Marker equality precedes punctuation equality and overlap pairing."""
+    for strip, category in ((marker_strip, MISSING[0]), (punctuation_strip, MISSING[1])):
+        for line in lines:
+            budget.spend(len(text) + len(line) + 1)
+            if strip(text) == strip(line):
+                return category
     needle = tokens(text)
     line_tokens = [tokens(line) for line in lines]
     scores = [overlap(needle, values, budget) for values in line_tokens]
-    closest = max(range(len(lines)), key=lambda i: scores[i]) if lines else None
-    if closest is not None:
-        line = lines[closest]
-        budget.spend(len(text) + len(line) + 1)
-        if marker_strip(text) == marker_strip(line):
-            return MISSING[0]
-        if punctuation_strip(text) == punctuation_strip(line):
-            return MISSING[1]
     # All tokens in order across any two lines, with both contributing.
     for i, first in enumerate(line_tokens):
         if subsequence(needle, first, budget):
