@@ -1655,7 +1655,7 @@ fn retained_fence_status_after_target_drift_requires_manual_reconciliation() {
     .unwrap();
     assert!(pending.get("reasonCode").is("save_confirmation_pending"));
     let at_q = Clock::new("2040-01-04T12:10:00.000Z");
-    let error = service::Service {
+    let reconciled = service::Service {
         store: &store,
         source: &mut source,
         policy: &policy,
@@ -1663,8 +1663,19 @@ fn retained_fence_status_after_target_drift_requires_manual_reconciliation() {
         runtime: &at_q,
     }
     .reconcile(&obj(&[("context", next.get("context").clone())]))
-    .unwrap_err();
-    assert_eq!(error.message, "workflow_effect_target_drift");
+    .unwrap();
+    assert!(reconciled.get("status").is("held"));
+    assert!(
+        reconciled
+            .get("reasonCode")
+            .is("qualified_proof_or_target_repair_required")
+    );
+    assert_eq!(reconciled.get("fields").array().len(), 1);
+    let field = &reconciled.get("fields").array()[0];
+    assert!(field.get("field").is("progress"));
+    assert!(field.get("status").is("uncertain"));
+    assert!(field.get("reasonCode").is("workflow_effect_target_drift"));
+    assert!(field.get("executionState").is(e.state.name()));
     assert!(store.get(Kind::Reconciliation, &e.key).unwrap().absent());
     let reopened = Store::open(&root.join("store"), &root).unwrap();
     let status = facts_status(&reopened, &input);
