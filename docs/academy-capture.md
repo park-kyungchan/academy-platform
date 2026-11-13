@@ -81,3 +81,26 @@ search. Additional pinned fields are verified but never sent by search.
 Stdout/stderr expose only fixed codes, counts and booleans; candidate content
 stays in the explicit output file. Proposal is not publication: the owner decides
 whether to publish the candidate as the independent comparison pin.
+
+Replay recorded answers offline (the spool must not exist):
+```sh
+academy-capture replay --raw-dir "$RAW_DIR" --students "$STUDENTS" --identity "$IDENTITY" --paper-form "$PAPER_FORM" --spool "$NEW_SPOOL" --no-detail --max-requests 13
+```
+The identity supplies the same four keys as prepare-owner. No credential,
+account lock, owner root or network is opened. Raw files are read only.
+Optional --date selects the local admission date (default 2000-01-01); it does
+not filter saved responses. Each dispatched operation is rendered with the
+same contracts and answered by the latest sequence with identical operation,
+query and body parameters. The saved status is used; size and sha256 must match.
+No match ends that student as replay_body_missing with operation and the count
+of answered requests. Existing spool, missing index/body and bad digests refuse
+with replay_* codes. The private new spool remains for inspection on refusal.
+Recorder indexes do not retain response headers or redirect destinations;
+replay reconstructs no such evidence and cannot verify header-dependent failures.
+Both modes run the same student parser and partition publisher. Capture-path
+paper metadata uses the TypeScript whole-page result-list expression; unrelated
+script syntax and token counts cannot reject a matched literal. Extracted JSON,
+row, identity, scope and form-pin checks remain in force.
+Failed student reports carry cause: up to four safe fixed refusal codes from
+inner to outer. Success has no cause. Neither cause nor missing-operation output
+contains private values, labels, keys or paths.

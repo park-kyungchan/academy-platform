@@ -7,7 +7,7 @@ use std::{collections::HashSet, fmt::Write, sync::OnceLock};
 // ECMAScript \s, which differs from Rust regexp Unicode whitespace (notably FEFF/0085).
 const SPACE: &str = r"[\x09-\x0d\x20\u{00a0}\u{1680}\u{2000}-\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}]";
 
-pub(super) fn password_input(html: &str) -> bool {
+pub(crate) fn password_input(html: &str) -> bool {
     static PATTERN: OnceLock<Regex> = OnceLock::new();
     PATTERN
         .get_or_init(|| {
@@ -41,7 +41,7 @@ fn source_key(value: &Js) -> Result<String> {
     Err(Error::error("invalid_source_key"))
 }
 
-fn decode_single_quoted(source: &str) -> Result<Text> {
+pub(crate) fn decode_single_quoted(source: &str) -> Result<Text> {
     let units = text(source);
     let mut decoded = Vec::with_capacity(units.len());
     let mut i = 0;
@@ -90,7 +90,7 @@ fn decode_single_quoted(source: &str) -> Result<Text> {
 /// The central JSON codec takes UTF-8. Preserve raw UTF-16 surrogate units by
 /// spelling them as JSON escapes, without parsing a second grammar. A surrogate
 /// after an odd backslash run is an invalid JSON escape, never a repaired value.
-fn parse_decoded(units: &[u16]) -> Result<Js> {
+pub(crate) fn parse_decoded(units: &[u16]) -> Result<Js> {
     let mut json_text = String::with_capacity(units.len());
     let mut escaped = false;
     for unit in units {
@@ -112,22 +112,8 @@ pub(super) fn inspect(html: &str, requested_name: &Js) -> Result<Js> {
     if html.encode_utf16().count() > 2_000_000 || password_input(html) {
         return Err(Error::error("student_search_source_rejected"));
     }
-    static LITERAL: OnceLock<Regex> = OnceLock::new();
-    let pattern = LITERAL.get_or_init(|| {
-        // JS non-u \b is ASCII; JS dot excludes all four line terminators.
-        Regex::new(&format!(
-            r"(?-u:\b)testResultList{SPACE}*:{SPACE}*JSON\.parse\({SPACE}*'((?:\\[^\n\r\u{{2028}}\u{{2029}}]|[^'\\])*)'{SPACE}*\)"
-        ))
-        .expect("fixed result-list regexp")
-    });
-    let mut matches = pattern.captures_iter(html);
-    let first = matches
-        .next()
-        .ok_or_else(|| Error::error("result_list_missing_or_ambiguous"))?;
-    if matches.next().is_some() {
-        return Err(Error::error("result_list_missing_or_ambiguous"));
-    }
-    let raw = parse_decoded(&decode_single_quoted(&first[1])?)?;
+    let literal = result_literal(html)?;
+    let raw = parse_decoded(&decode_single_quoted(literal)?)?;
     if !array(&raw) || raw.array().len() > 2000 {
         return Err(Error::error("student_search_list_rejected"));
     }
@@ -152,6 +138,25 @@ pub(super) fn inspect(html: &str, requested_name: &Js) -> Result<Js> {
         return Err(Error::error("student_search_list_rejected"));
     }
     Ok(Js::Arr(pairs))
+}
+
+pub(crate) fn result_literal(html: &str) -> Result<&str> {
+    static LITERAL: OnceLock<Regex> = OnceLock::new();
+    let pattern = LITERAL.get_or_init(|| {
+        // JS non-u \b is ASCII; JS dot excludes all four line terminators.
+        Regex::new(&format!(
+            r"(?-u:\b)testResultList{SPACE}*:{SPACE}*JSON\.parse\({SPACE}*'((?:\\[^\n\r\u{{2028}}\u{{2029}}]|[^'\\])*)'{SPACE}*\)"
+        ))
+        .expect("fixed result-list regexp")
+    });
+    let mut matches = pattern.captures_iter(html);
+    let first = matches
+        .next()
+        .ok_or_else(|| Error::error("result_list_missing_or_ambiguous"))?;
+    if matches.next().is_some() {
+        return Err(Error::error("result_list_missing_or_ambiguous"));
+    }
+    Ok(first.get(1).expect("literal capture").as_str())
 }
 
 #[cfg(test)]

@@ -60,12 +60,50 @@ pub struct StudentReport {
     /// One-based roster position, never a private source identity.
     pub roster_ordinal: usize,
     pub status: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub cause: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub operation: Option<String>,
     pub requests: usize,
     pub registered_books: usize,
     pub section_attempts: usize,
 }
 fn fail(code: &str) -> Error {
     Error::refusal(code)
+}
+pub fn causes(error: &Error) -> Vec<String> {
+    let mut codes: Vec<String> = error
+        .properties
+        .get("capture_causes")
+        .array()
+        .iter()
+        .filter_map(|v| {
+            if v.string() {
+                Some(crate::data::string(v))
+            } else {
+                None
+            }
+        })
+        .collect();
+    codes.push(error.message.clone());
+    codes.retain(|c| {
+        !c.is_empty()
+            && c.len() <= 64
+            && c.bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+    });
+    let mut seen = HashSet::new();
+    codes.retain(|code| seen.insert(code.clone()));
+    codes.truncate(4);
+    codes
+}
+pub fn context(error: Error, code: &str) -> Error {
+    let mut outer = fail(code);
+    outer.properties.set(
+        "capture_causes",
+        crate::data::Js::Arr(causes(&error).into_iter().map(Into::into).collect()),
+    );
+    outer
 }
 fn scope(a: &TransportAdmission, s: &Student, date: &str, ns: &str) -> TransportScope {
     TransportScope {
@@ -108,7 +146,7 @@ struct Bounded<'a, P> {
     port: &'a mut P,
     max: usize,
     count: Rc<Cell<usize>>,
-    failure: Rc<RefCell<Option<&'static str>>>,
+    failure: Rc<RefCell<Option<Error>>>,
 }
 impl<P: ReadPort> ReadPort for Bounded<'_, P> {
     fn transport_admission(&self) -> &TransportAdmission {
@@ -124,17 +162,22 @@ impl<P: ReadPort> ReadPort for Bounded<'_, P> {
             return Err(fail("capture_request_failed"));
         }
         if self.count.get() >= self.max {
-            *self.failure.borrow_mut() = Some("capture_request_limit");
+            *self.failure.borrow_mut() = Some(fail("capture_request_limit"));
             return Err(fail("capture_request_limit"));
         }
         self.count.set(self.count.get() + 1);
         let result = self.port.read(scope, operation, arguments);
         if let Err(error) = &result {
-            *self.failure.borrow_mut() = Some(if error.message == "capture_raw_request_mismatch" {
-                "capture_raw_request_mismatch"
-            } else {
-                "capture_request_failed"
-            });
+            *self.failure.borrow_mut() = Some(context(
+                error.clone(),
+                if error.message.starts_with("replay_")
+                    || error.message == "capture_raw_request_mismatch"
+                {
+                    &error.message
+                } else {
+                    "capture_request_failed"
+                },
+            ));
         }
         result
     }
@@ -146,9 +189,34 @@ pub fn capture<P: ReadPort>(
     options: &Options,
     runtime: &dyn Runtime,
 ) -> Vec<StudentReport> {
-    if port.recorder.dir != options.raw_dir
-        || preflight(port.transport_admission(), roster, options).is_err()
-    {
+    if port.recorder.dir != options.raw_dir {
+        return admission_reports(roster);
+    }
+    capture_with(port, roster, options, runtime)
+}
+fn admission_reports(roster: &Roster) -> Vec<StudentReport> {
+    roster
+        .students
+        .iter()
+        .enumerate()
+        .map(|(i, _)| StudentReport {
+            roster_ordinal: i + 1,
+            status: "capture_admission_refused".into(),
+            cause: vec!["capture_admission_refused".into()],
+            operation: None,
+            requests: 0,
+            registered_books: 0,
+            section_attempts: 0,
+        })
+        .collect()
+}
+pub(crate) fn capture_with<P: ReadPort>(
+    port: &mut P,
+    roster: &Roster,
+    options: &Options,
+    runtime: &dyn Runtime,
+) -> Vec<StudentReport> {
+    if let Err(error) = preflight(port.transport_admission(), roster, options) {
         return roster
             .students
             .iter()
@@ -156,6 +224,8 @@ pub fn capture<P: ReadPort>(
             .map(|(i, _)| StudentReport {
                 roster_ordinal: i + 1,
                 status: "capture_admission_refused".into(),
+                cause: causes(&context(error.clone(), "capture_admission_refused")),
+                operation: None,
                 requests: 0,
                 registered_books: 0,
                 section_attempts: 0,
@@ -176,8 +246,18 @@ pub fn capture<P: ReadPort>(
                 failure: failure.clone(),
             };
             let result = read_student(bounded, student, &roster.paper_form, options, runtime);
-            let result = match *failure.borrow() {
-                Some(code) => Err(fail(code)),
+            let result = match failure.borrow().clone() {
+                Some(mut error) => {
+                    if let Err(read_error) = &result {
+                        error.properties.set(
+                            "capture_causes",
+                            crate::data::Js::Arr(
+                                causes(read_error).into_iter().map(Into::into).collect(),
+                            ),
+                        );
+                    }
+                    Err(error)
+                }
                 None => result,
             };
             let result = result.and_then(|(books, sections)| {
@@ -185,13 +265,15 @@ pub fn capture<P: ReadPort>(
                     .map_err(|_| fail("capture_publish_failed"))?;
                 Ok((books.len(), sections.len()))
             });
-            let (status, books, sections) = match result {
-                Ok((b, s)) => ("refreshed".into(), b, s),
-                Err(e) => (e.message, 0, 0),
+            let (status, cause, books, sections) = match result {
+                Ok((b, s)) => ("refreshed".into(), vec![], b, s),
+                Err(e) => (e.message.clone(), causes(&e), 0, 0),
             };
             StudentReport {
                 roster_ordinal: i + 1,
                 status,
+                cause,
+                operation: None,
                 requests: count.get(),
                 registered_books: books,
                 section_attempts: sections,
@@ -211,14 +293,14 @@ fn read_student<P: ReadPort>(
     let course = scope(a, student, &options.date, COURSE_NS);
     let metadata = scope(a, student, &options.date, METADATA_NS);
     let pin = PaperFormPin::parse(&from_json(paper_form.clone()))
-        .map_err(|_| fail("capture_form_invalid"))?;
+        .map_err(|e| context(e, "capture_form_invalid"))?;
     let session = SessionTextbookSectionPort::new(&mut port, course, metadata, pin);
     let mut source = TextbookIndexSource::new(session, teacher.clone());
     let who = TextbookStudent::new(&student.student_id, &student.student_name)
-        .map_err(|_| fail("capture_student_invalid"))?;
+        .map_err(|e| context(e, "capture_student_invalid"))?;
     let bindings = source
         .bindings(&teacher, &who)
-        .map_err(|_| fail("capture_bindings_failed"))?;
+        .map_err(|e| context(e, "capture_bindings_failed"))?;
     let bindings_observed_at = runtime.epoch_ms() / 1000;
     let mut books = vec![];
     let mut sections = vec![];
@@ -229,18 +311,22 @@ fn read_student<P: ReadPort>(
             return Err(fail("capture_duplicate_book"));
         }
         let scope = BookScope::new(&binding.course_key, &binding.book_no)
-            .map_err(|_| fail("capture_scope_invalid"))?;
+            .map_err(|e| context(e, "capture_scope_invalid"))?;
         let index = source.index(&teacher, &who, &scope);
         if source.dropped_paper_rows() > 0 {
             return Err(fail("capture_paper_row_dropped"));
         }
-        let index = index.map_err(|_| fail("capture_index_failed"))?;
+        let index = index.map_err(|e| context(e, "capture_index_failed"))?;
         // A structural/form/source error can also be swallowed by the typed index.
         if matches!(
             index.paper_search,
             crate::textbook_index::PaperSearchStatus::Unavailable
         ) {
-            return Err(fail("capture_paper_search_failed"));
+            return Err(source
+                .paper_failure()
+                .cloned()
+                .map(|e| context(e, "capture_paper_search_failed"))
+                .unwrap_or_else(|| fail("capture_paper_search_failed")));
         }
         books.push(json!({"type":"registered_book", "key":book_key, "observed_at":bindings_observed_at,
             "student_id":student.student_id, "student":student.student_id, "book_no":binding.book_no,
@@ -254,9 +340,15 @@ fn read_student<P: ReadPort>(
                 if source.dropped_paper_rows() > 0 {
                     return Err(fail("capture_paper_row_dropped"));
                 }
-                match outcome.map_err(|_| fail("capture_grade_failed"))? {
+                match outcome.map_err(|e| context(e, "capture_grade_failed"))? {
                     GradeOutcome::Graded(g) if g.paper_search_observed => graded.extend(g.records),
-                    _ => return Err(fail("capture_grade_incomplete")),
+                    _ => {
+                        return Err(source
+                            .paper_failure()
+                            .cloned()
+                            .map(|e| context(e, "capture_grade_incomplete"))
+                            .unwrap_or_else(|| fail("capture_grade_incomplete")));
+                    }
                 }
             }
         }
@@ -477,7 +569,7 @@ impl<P: ReadPort> ReadPort for RecordingPort<'_, P> {
 
 /// Existing private-root checks reject symlinks, writable ancestors and foreign owners.
 fn validate_raw_root(dir: &Path) -> Result<()> {
-    crate::owner_root::OwnerRoot::open(dir).map_err(|_| fail("capture_raw_root_refused"))?;
+    crate::owner_root::OwnerRoot::open(dir).map_err(|e| context(e, "capture_raw_root_refused"))?;
     if dir
         .ancestors()
         .any(|p| fs::symlink_metadata(p.join(".git")).is_ok())
