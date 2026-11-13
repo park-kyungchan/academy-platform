@@ -219,6 +219,7 @@ fn product_plan_refuses_wire_with_one_login_and_releases_lease() {
     std::fs::create_dir_all(&root).unwrap();
     std::fs::set_permissions(&root, std::os::unix::fs::PermissionsExt::from_mode(0o700)).unwrap();
     let root = std::fs::canonicalize(root).unwrap();
+    configure_account_lock(&root);
     let owner_root = Rc::new(OwnerRoot::open(&root).unwrap());
     let account = hash(format!("{ORIGIN}\0fictional-user").as_bytes());
     for failure in [false, true] {
@@ -1874,4 +1875,19 @@ fn store_refuses_file_form_directory() {
             .exists()
     );
     std::fs::remove_dir_all(owner).unwrap();
+}
+
+fn configure_account_lock(root: &std::path::Path) {
+    let lock = root.join("shared.lock");
+    std::fs::write(&lock, b"").unwrap();
+    let config = root.join("account-lock.json");
+    std::fs::write(
+        &config,
+        serde_json::to_vec(&serde_json::json!({
+            "schemaVersion":"academy.account-lock/1", "path":lock
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::set_permissions(config, std::os::unix::fs::PermissionsExt::from_mode(0o600)).unwrap();
 }

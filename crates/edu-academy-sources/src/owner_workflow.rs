@@ -126,7 +126,7 @@ impl<'a, T: Transport, C: CredentialProvider> Owner<'a, T, C> {
     pub fn leased(
         root: Rc<crate::owner_root::OwnerRoot>,
         principal: Js,
-        transport: T,
+        mut transport: T,
         admission: Js,
         owner: Option<&Js>,
         mut provider: C,
@@ -136,6 +136,8 @@ impl<'a, T: Transport, C: CredentialProvider> Owner<'a, T, C> {
         T: 'a,
     {
         let (credential, lease) = account_credential(&root, &mut provider, runtime)?;
+        let lease = Rc::new(lease);
+        transport.bind_account(Rc::clone(&lease));
         let client = Client::new(
             principal,
             CredentialTransport {
@@ -361,7 +363,7 @@ fn account_credential(
 pub struct NativeSession<'a, T: Transport> {
     client: Client<CredentialTransport<'a, T>>,
     admission: crate::owner_admission::TransportAdmission,
-    lease: crate::owner_root::AccountLease,
+    lease: Rc<crate::owner_root::AccountLease>,
     credential: Option<Credentials>,
     authentication: Option<Result<Js>>,
     expires_at_ms: u64,
@@ -375,7 +377,7 @@ struct CredentialTransport<'a, T: Transport> {
     runtime: &'a dyn Runtime,
     expires_at_ms: u64,
     expired: bool,
-    _lease: Option<crate::owner_root::AccountLease>,
+    _lease: Option<Rc<crate::owner_root::AccountLease>>,
     cancellation: crate::http::Cancellation,
 }
 impl<T: Transport> Transport for CredentialTransport<'_, T> {
@@ -418,7 +420,7 @@ impl<'a, T: Transport> NativeSession<'a, T> {
     pub fn open(
         root: Rc<crate::owner_root::OwnerRoot>,
         admission: crate::owner_admission::TransportAdmission,
-        transport: T,
+        mut transport: T,
         mut provider: impl CredentialProvider,
         cancellation: crate::http::Cancellation,
         runtime: &'a dyn Runtime,
@@ -426,6 +428,8 @@ impl<'a, T: Transport> NativeSession<'a, T> {
         admission.validate()?;
         cancellation.check()?;
         let (credential, lease) = account_credential(&root, &mut provider, runtime)?;
+        let lease = Rc::new(lease);
+        transport.bind_account(Rc::clone(&lease));
         let expires_at_ms = credential.expires_at_ms.unwrap_or(u64::MAX);
         let principal = obj(&[
             ("teacherLabel", admission.teacher_label.as_str().into()),
