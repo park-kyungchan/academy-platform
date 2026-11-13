@@ -1,0 +1,302 @@
+{
+  "format": "ontology-schema/v1",
+  "domain": "academy_read",
+  "version": 1,
+  "namespace": {
+    "instance": "academy://read",
+    "account": "teacher"
+  },
+  "scope_keys": [],
+  "value_types": {},
+  "sources": {
+    "registered_book": {
+      "kind": "records",
+      "glob": "/var/lib/academy-read/spool/registered_book/*.jsonl",
+      "time_member": "observed_at",
+      "type_member": "type",
+      "complete_listing": true,
+      "fresh_for_s": 129600
+    },
+    "section_attempt": {
+      "kind": "records",
+      "glob": "/var/lib/academy-read/spool/section_attempt/*.jsonl",
+      "time_member": "observed_at",
+      "type_member": "type",
+      "complete_listing": true,
+      "fresh_for_s": 129600
+    }
+  },
+  "object_types": {
+    "registered_book": {
+      "description": "A book registered to one student, as the capture read it. The key is built from student_id and book_no (the capture's own key value), so a line without either fails its source.",
+      "owner": {
+        "source": "registered_book"
+      },
+      "primary_key": {
+        "template": "{student_id}|{book_no}"
+      },
+      "properties": {
+        "student_id": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 256,
+          "from": "/student_id",
+          "description": "Student id, digits only; no name is stored."
+        },
+        "book_no": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 256,
+          "from": "/book_no"
+        },
+        "book_label": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 256,
+          "from": "/book_label"
+        },
+        "course_key": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 256,
+          "from": "/course_key"
+        },
+        "binding_ordinal": {
+          "type": "integer",
+          "required": true,
+          "from": "/binding_ordinal"
+        },
+        "hint": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 256,
+          "from": "/hint",
+          "description": "First index title of the book; absent when the source had none."
+        },
+        "student": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 256,
+          "from": "/student",
+          "description": "The student id again, as the capture writes it."
+        }
+      }
+    },
+    "section_attempt": {
+      "description": "One section result of a registered book, in the source's order. The record's `score` (a JSON number such as 50.0) is not mapped: the engine's decimal type takes a string and its integer type refuses a fraction, so the source would fail; correct_count and item_count carry the same information.",
+      "owner": {
+        "source": "section_attempt"
+      },
+      "primary_key": {
+        "from": "/key"
+      },
+      "properties": {
+        "student_id": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 256,
+          "from": "/student_id"
+        },
+        "student": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 256,
+          "from": "/student"
+        },
+        "book": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 256,
+          "from": "/book",
+          "description": "Key of the registered book."
+        },
+        "book_no": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 256,
+          "from": "/book_no"
+        },
+        "book_number": {
+          "type": "integer",
+          "required": false,
+          "from": "/book_no",
+          "transform": "parse_integer",
+          "description": "book_no as an integer, for ordering only."
+        },
+        "book_book_label": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 256,
+          "from": "/book_book_label"
+        },
+        "index_ordinal": {
+          "type": "integer",
+          "required": true,
+          "from": "/index_ordinal"
+        },
+        "source_title": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 256,
+          "from": "/source_title"
+        },
+        "source_date_literal": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 256,
+          "from": "/source_date_literal"
+        },
+        "source_date_precision": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 256,
+          "from": "/source_date_precision"
+        },
+        "correct_count": {
+          "type": "integer",
+          "required": false,
+          "from": "/correct_count"
+        },
+        "item_count": {
+          "type": "integer",
+          "required": false,
+          "from": "/item_count"
+        },
+        "graded": {
+          "type": "boolean",
+          "required": true,
+          "from": "/graded"
+        },
+        "wrong_ordinals": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 256,
+          "from": "/wrong_ordinals"
+        }
+      }
+    }
+  },
+  "views": {
+    "registered_books": {
+      "object_type": "registered_book",
+      "args": [
+        "student_id"
+      ],
+      "filter": {
+        "eq": [
+          "student_id",
+          "$student_id"
+        ]
+      },
+      "order": [
+        {
+          "property": "binding_ordinal",
+          "direction": "asc"
+        }
+      ],
+      "limit": 1000,
+      "columns": [
+        {
+          "header": "Binding ordinal",
+          "property": "binding_ordinal"
+        },
+        {
+          "header": "Book number",
+          "property": "book_no"
+        },
+        {
+          "header": "Book label",
+          "property": "book_label"
+        },
+        {
+          "header": "Hint",
+          "property": "hint"
+        },
+        {
+          "header": "Observed at",
+          "property": "$observed_at"
+        }
+      ]
+    },
+    "section_results": {
+      "object_type": "section_attempt",
+      "args": [
+        "student_id"
+      ],
+      "filter": {
+        "eq": [
+          "student_id",
+          "$student_id"
+        ]
+      },
+      "order": [
+        {
+          "property": "book_number",
+          "direction": "asc"
+        },
+        {
+          "property": "index_ordinal",
+          "direction": "asc"
+        }
+      ],
+      "limit": 1000,
+      "columns": [
+        {
+          "header": "Book number",
+          "property": "book_no"
+        },
+        {
+          "header": "Book label",
+          "property": "book_book_label"
+        },
+        {
+          "header": "Index ordinal",
+          "property": "index_ordinal"
+        },
+        {
+          "header": "Title",
+          "property": "source_title"
+        },
+        {
+          "header": "Date literal",
+          "property": "source_date_literal"
+        },
+        {
+          "header": "Date precision",
+          "property": "source_date_precision"
+        },
+        {
+          "header": "Correct count",
+          "property": "correct_count"
+        },
+        {
+          "header": "Item count",
+          "property": "item_count"
+        },
+        {
+          "header": "Wrong ordinals",
+          "property": "wrong_ordinals"
+        },
+        {
+          "header": "Observed at",
+          "property": "$observed_at"
+        }
+      ]
+    }
+  },
+  "link_types": {},
+  "action_types": {},
+  "functions": {},
+  "grants": [
+    {
+      "principal": "agent",
+      "scope": {},
+      "read": [
+        "registered_book",
+        "section_attempt"
+      ],
+      "derive": [],
+      "actions": []
+    }
+  ]
+}

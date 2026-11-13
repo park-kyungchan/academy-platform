@@ -104,3 +104,16 @@ row, identity, scope and form-pin checks remain in force.
 Failed student reports carry cause: up to four safe fixed refusal codes from
 inner to outer. Success has no cause. Neither cause nor missing-operation output
 contains private values, labels, keys or paths.
+
+From the spool to a read store: `ontology/academy-read.schema.json` (domain
+`academy_read`, `edu_academy_ontology::ACADEMY_READ_SCHEMA`) declares one `records`
+source per partition directory under the spool root `/var/lib/academy-read/spool`.
+After a capture the spool is indexed with `ont index` into a store of its own;
+`ont render` then answers, for one student id, the views `registered_books` and
+`section_results` (each row with the time the source was read, `$observed_at`).
+`observed_at` is not a stored property, so an unchanged record captured again
+appends nothing and only moves that time; a record without a required member fails
+its source and leaves the earlier rows. Rows turn stale 36 hours after the last
+index run. The engine has no override of the glob root: a test rewrites the root
+string in the schema text before installing it into a temporary store. The schema
+carries no student name; a student is identified by id only.
