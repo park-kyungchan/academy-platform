@@ -74,7 +74,7 @@ fn selectors(html: &str) -> Result<Vec<(String, String)>> {
     }
     let control = controls[0];
     if control.value().attr("form").is_some() {
-        return Err(fail("contract_drift"));
+        return Err(fail("daily_history_selector_drift"));
     }
     if let Some(form) = dom::closest(control, "form") {
         verify_form_ownership(&d, form)?;
@@ -167,7 +167,20 @@ pub(crate) fn read_student<P: ReadPort>(
         let html = if selector == "1" {
             current.clone()
         } else {
-            read_page(&mut port, &scope, &source, selector)?
+            let html = read_page(&mut port, &scope, &source, selector)?;
+            // Every fetched page passes the control checks of the first one, and the
+            // requested selector must be one of its enabled options, before its rows
+            // are taken. (TypeScript `readDailyTestHistory` checks the first page only
+            // and never which option a page marks as selected: neither is added here.)
+            let options =
+                selectors(&html).map_err(|e| context(e, "capture_daily_selector_failed"))?;
+            if !options.iter().any(|(value, _)| value == selector) {
+                return Err(context(
+                    fail("daily_history_selector_drift"),
+                    "capture_daily_selector_failed",
+                ));
+            }
+            html
         };
         let page = metadata_rows_by_expression(&html, &source)
             .map_err(|e| context(e, "capture_daily_parse_failed"))?;

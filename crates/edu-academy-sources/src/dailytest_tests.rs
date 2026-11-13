@@ -876,3 +876,76 @@ fn replay_binary_equals_the_capture_and_a_missing_answer_names_the_operation() {
     assert_eq!(out["students"][0]["requests"], 1);
     assert!(!partition(&f.0.join("missing")).exists());
 }
+
+/// The period `11` page is replaced by `html`: refused, old partition untouched.
+fn later_page_refused(label: &str, html: impl Fn(&str, &str) -> String) {
+    let f = Fixture::new();
+    let options = f.options(4);
+    {
+        let mut s = session(
+            &f,
+            &[Family::DailyTest],
+            pages(false),
+            None,
+            None,
+            Rc::default(),
+        );
+        assert_eq!(
+            capture_dailytest(&mut s, &students(), &options, &Clock)[0].status,
+            "refreshed"
+        );
+    }
+    let old = fs::read(partition(&options.spool)).unwrap();
+    let literal = format!(
+        "<script>const r = {{testResultList: JSON.parse('[{}]')}};</script>",
+        period_eleven().join(",")
+    );
+    let mut p = pages(false);
+    p.insert("11".into(), html(OPTIONS, &literal));
+    let mut s = session(&f, &[Family::DailyTest], p, None, None, Rc::default());
+    let r = capture_dailytest(&mut s, &students(), &options, &Clock);
+    assert_eq!(
+        r[0].status, "capture_daily_selector_failed",
+        "{label}: {:?}",
+        r[0].cause
+    );
+    assert!(
+        r[0].cause
+            .contains(&"daily_history_selector_drift".to_string()),
+        "{label}: {:?}",
+        r[0].cause
+    );
+    assert_eq!(r[0].requests, 2, "{label}");
+    assert!(
+        fs::read(partition(&options.spool)).unwrap() == old,
+        "{label}: partition changed"
+    );
+}
+#[test]
+fn later_page_without_sort_date_control_is_refused() {
+    later_page_refused("missing", |_, literal| literal.to_string());
+}
+#[test]
+fn later_page_with_duplicated_sort_date_control_is_refused() {
+    later_page_refused("duplicated", |options, literal| {
+        format!(
+            "<form><select name=\"sort_date\">{options}</select></form><select name=\"sort_date\">{options}</select>{literal}"
+        )
+    });
+}
+#[test]
+fn later_page_with_form_owned_sort_date_control_is_refused() {
+    later_page_refused("form_owned", |options, literal| {
+        format!(
+            "<form id=\"other\"></form><select name=\"sort_date\" form=\"other\">{options}</select>{literal}"
+        )
+    });
+}
+#[test]
+fn later_page_without_the_requested_selector_among_enabled_options_is_refused() {
+    later_page_refused("requested_absent", |_, literal| {
+        format!(
+            "<select name=\"sort_date\"><option value=\"1\">Recent week</option><option value=\"12\">Previous month</option><option value=\"11\" disabled>Recent month</option></select>{literal}"
+        )
+    });
+}
