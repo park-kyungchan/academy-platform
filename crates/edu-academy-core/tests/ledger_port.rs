@@ -953,3 +953,35 @@ fn legacy_root_refused() {
     );
     fs::remove_dir_all(owner).unwrap();
 }
+
+#[test]
+fn open_with_ledger_refuses_file_attempts() {
+    let owner = root("file-form");
+    let store_root = owner.join("store");
+    let file_store = Store::open(&store_root, &owner).unwrap();
+    let s = scope("12");
+    let e = execution(
+        &file_store,
+        &s,
+        "progress",
+        "15".into(),
+        &target(&s),
+        "review",
+    );
+    file_store
+        .publish(Kind::Execution, "existing", &e, &Clock)
+        .unwrap();
+    file_store
+        .add_ledger(&state::lock_key(&s).unwrap(), "existing", &Clock)
+        .unwrap();
+    drop(file_store);
+    assert_eq!(
+        Store::open_with_ledger(&store_root, &owner, Box::<MemoryLedger>::default())
+            .err()
+            .unwrap()
+            .message,
+        "workflow_ledger_legacy_root",
+        "file attempts must not lose their fences"
+    );
+    fs::remove_dir_all(owner).unwrap();
+}

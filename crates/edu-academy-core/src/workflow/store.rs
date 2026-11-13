@@ -68,6 +68,9 @@ impl Store {
         if Path::new(&ledger_root).exists() {
             return Err(Fault::error("workflow_ledger_legacy_root"));
         }
+        Self::initialize(root, owner_root)
+    }
+    fn initialize(root: &Path, owner_root: &Path) -> Result<Self> {
         if !root.is_absolute()
             || !owner_root.is_absolute()
             || !root.starts_with(owner_root)
@@ -124,7 +127,16 @@ impl Store {
         owner_root: &Path,
         ledger: Box<dyn AttemptLedger>,
     ) -> Result<Self> {
-        let mut store = Self::open(root, owner_root)?;
+        let mut store = Self::initialize(root, owner_root)?;
+        if fs::read_dir(root.join("ledger"))
+            .map_err(io_fault)?
+            .next()
+            .transpose()
+            .map_err(io_fault)?
+            .is_some()
+        {
+            return Err(Fault::error("workflow_ledger_legacy_root"));
+        }
         store.attempts = Some(ledger);
         Ok(store)
     }

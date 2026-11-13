@@ -181,6 +181,12 @@
           "required": true,
           "max_bytes": 10,
           "description": "This is the lesson date of the request scope, independently of the target date."
+        },
+        "execution_key": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 8192,
+          "description": "The original execution key is stored for enumeration, never matched."
         }
       }
     }
@@ -286,6 +292,12 @@
           "required": true,
           "max_bytes": 10,
           "description": "This is the lesson date of the request scope, independently of the target date."
+        },
+        "execution_key": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 8192,
+          "description": "The original execution key is stored for enumeration, never matched."
         }
       },
       "submission_criteria": [
@@ -384,7 +396,8 @@
             "course_id": "$course_id",
             "request_ref": "$request_ref",
             "execution_sha256": "$execution_sha256",
-            "request_lesson_date": "$request_lesson_date"
+            "request_lesson_date": "$request_lesson_date",
+            "execution_key": "$execution_key"
           }
         }
       ]

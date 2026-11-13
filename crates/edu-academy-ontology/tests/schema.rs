@@ -1,4 +1,4 @@
-//! Independent schema qualification. These tests do not qualify the unbuilt ledger port.
+//! Schema and completed engine-ledger contract controls on disposable stores.
 use edu_academy_core::workflow::{Runtime, ledger_cases::Clock};
 use edu_academy_ontology::SCHEMA;
 use ont::{
@@ -137,7 +137,7 @@ impl Scene {
         ))
     }
     fn params(group: &str, key: &str) -> Value {
-        json!({"attempt":id("save_attempt",key),"student":id("student",group),"field":"homework","record_key":"R1","source_namespace":"invented","student_id":group,"lesson_date":"2040-01-03","request_lesson_date":"2040-01-04","course_id":"C1","request_ref":"request","execution_sha256":hash("execution")})
+        json!({"attempt":id("save_attempt",key),"student":id("student",group),"field":"homework","record_key":"R1","source_namespace":"invented","student_id":group,"lesson_date":"2040-01-03","request_lesson_date":"2040-01-04","course_id":"C1","request_ref":"request","execution_sha256":hash("execution"),"execution_key":key})
     }
     fn begin(&self, group: &str, key: &str) -> std::result::Result<Answer, Failure> {
         apply(
@@ -413,7 +413,7 @@ fn engine_fence_matches_open_filter() {
     }
 }
 #[test]
-fn engine_identity_and_qualified_search() {
+fn identity_is_readable() {
     let s = Scene::new();
     for group in ["S1", "S2"] {
         s.register(group);
@@ -461,19 +461,17 @@ fn engine_identity_and_qualified_search() {
     println!("VIEW {markdown}");
 }
 #[test]
-fn packet_identity_gap_is_reproducible() {
+fn enumeration_preserves_original_key() {
+    use edu_academy_core::workflow::ledger::AttemptLedger;
     let s = Scene::new();
-    s.register("S1");
     let original = "original-execution-key-\u{10000}";
-    assert_eq!(applied(s.begin("S1", original)), "applied");
-    let found = s.search(json!({"eq":["student",id("student","S1")]}));
-    assert_eq!(found["objects"][0]["id"]["native_key"], hash(original));
     assert!(
-        !found.to_string().contains(original),
-        "packet stores no original execution key in the returned object"
+        adapter(&s)
+            .begin(original, &target("S1"), &hash("execution"), &Clock)
+            .unwrap()
     );
-    // The production port requires this exact string as Attempt.key for body paths.
-    assert_ne!(found["objects"][0]["id"]["native_key"], original);
+    assert_eq!(adapter(&s).attempts("S1", 10).unwrap()[0].key, original);
+    assert_eq!(adapter(&s).open_on(&target("S1")).unwrap()[0].key, original);
 }
 #[test]
 #[ignore = "manual ledger cost measurement"]
@@ -540,18 +538,43 @@ fn engine_costs_with_other_students() {
 }
 
 #[test]
-fn packet_constructor_gap_is_reproducible() {
+fn legacy_root_refused() {
     use edu_academy_core::workflow::{ledger_cases::MemoryLedger, store::Store as CoreStore};
     let s = Scene::new();
     let core_root = s.root.join("store");
-    fs::create_dir(s.root.join("store.ledger")).unwrap();
-    let result = CoreStore::open_with_ledger(&core_root, &s.root, Box::<MemoryLedger>::default());
+    fs::create_dir(core_root.clone()).unwrap();
+    fs::create_dir(core_root.join("ledger")).unwrap();
+    fs::write(core_root.join("ledger/old"), "invented").unwrap();
     assert_eq!(
-        result.err().unwrap().message,
-        "workflow_ledger_legacy_root",
-        "the specified file guard is also reached from open_with_ledger"
+        CoreStore::open_with_ledger(&core_root, &s.root, Box::<MemoryLedger>::default())
+            .err()
+            .unwrap()
+            .message,
+        "workflow_ledger_legacy_root"
     );
-    assert!(!core_root.exists());
+    assert_eq!(
+        edu_academy_ontology::open_store(&core_root, &s.root, &Clock)
+            .err()
+            .unwrap()
+            .message,
+        "workflow_ledger_legacy_root"
+    );
+    assert!(!s.root.join("store.ledger").exists());
+    fs::remove_file(core_root.join("ledger/old")).unwrap();
+    assert!(
+        edu_academy_ontology::open_store(&core_root, &s.root, &Clock)
+            .unwrap()
+            .ledgered()
+    );
+    assert!(
+        edu_academy_ontology::open_store(&core_root, &s.root, &Clock)
+            .unwrap()
+            .ledgered()
+    );
+    assert_eq!(
+        CoreStore::open(&core_root, &s.root).err().unwrap().message,
+        "workflow_ledger_legacy_root"
+    );
 }
 
 fn adapter(s: &Scene) -> edu_academy_ontology::EngineLedger {
@@ -795,6 +818,9 @@ fn previous_target_date() {
             .begin("previous", &previous, &hash("execution"), &Clock)
             .unwrap()
     );
+    use edu_academy_core::workflow::ledger::AttemptLedger;
+    assert_eq!(ledger.open_on(&previous).unwrap()[0].key, "previous");
+    assert_eq!(ledger.attempts("S1", 10).unwrap()[0].key, "previous");
     let raw = s.get("previous");
     let fields = &raw["objects"][0]["observations"][0]["fields"];
     assert_eq!(fields["lesson_date"]["value"], "2040-01-03");
@@ -815,4 +841,421 @@ fn previous_target_date() {
             .begin("other-date", &alias, &hash("execution"), &Clock)
             .unwrap()
     );
+}
+
+#[test]
+fn shared_cases_on_engine() {
+    use edu_academy_core::workflow::ledger_cases;
+    let factory = |root: &std::path::Path, owner: &std::path::Path| {
+        edu_academy_ontology::open_store(root, owner, &Clock)
+    };
+    ledger_cases::run(&factory);
+    ledger_cases::run_ledgered(&factory);
+}
+
+fn append_changed(s: &Scene, key: &str, change: impl FnOnce(&mut ont_core::Observation)) {
+    let mut db = Store::open_schema_existing_writable(&s.ctx.store).unwrap();
+    let head = db.head(&id("save_attempt", key)).unwrap().unwrap();
+    let mut observation = head.head.observation;
+    observation.supersedes = Some(observation.revision.clone());
+    observation.revision = hash("invented correction");
+    observation.change = ont_core::Change::Correction;
+    change(&mut observation);
+    db.append_schema(
+        &[ont_store::Append {
+            id: head.id,
+            scope: head.scope,
+            observation,
+        }],
+        Clock.epoch_ms() / 1000,
+    )
+    .unwrap();
+}
+#[test]
+fn stored_key_tamper_fails_every_read() {
+    use edu_academy_core::workflow::ledger::AttemptLedger;
+    let s = Scene::new();
+    let ledger = adapter(&s);
+    assert!(
+        ledger
+            .begin("key", &target("S1"), &hash("execution"), &Clock)
+            .unwrap()
+    );
+    append_changed(&s, "key", |o| {
+        o.fields.insert(
+            "execution_key".into(),
+            ont_core::Knowledge::Value(json!("tampered")),
+        );
+    });
+    assert_eq!(
+        ledger.attempt("key").unwrap_err().message,
+        "workflow_ledger_unavailable"
+    );
+    assert_eq!(
+        ledger.attempts("S1", 10).unwrap_err().message,
+        "workflow_ledger_unavailable"
+    );
+    assert_eq!(
+        ledger.open_on(&target("S1")).unwrap_err().message,
+        "workflow_ledger_unavailable"
+    );
+}
+#[test]
+fn unqualified_and_refused_reads_are_errors() {
+    use edu_academy_core::workflow::ledger::AttemptLedger;
+    let s = Scene::new();
+    let ledger = adapter(&s);
+    ledger
+        .begin("key", &target("S1"), &hash("execution"), &Clock)
+        .unwrap();
+    append_changed(&s, "key", |o| o.coverage = ont_core::Coverage::Partial);
+    assert_eq!(
+        ledger.attempts("S1", 10).unwrap_err().message,
+        "workflow_ledger_unavailable"
+    );
+    assert_eq!(
+        ledger.open_on(&target("S1")).unwrap_err().message,
+        "workflow_ledger_unavailable"
+    );
+    let missing = edu_academy_ontology::EngineLedger::new(s.root.join("missing.sqlite"), &Clock);
+    assert_eq!(
+        missing.attempts("S1", 10).unwrap_err().message,
+        "workflow_ledger_unavailable"
+    );
+    assert_eq!(
+        missing.open_on(&target("S1")).unwrap_err().message,
+        "workflow_ledger_unavailable"
+    );
+}
+#[test]
+fn attempts_and_open_on_are_paged_without_bodies() {
+    use edu_academy_core::workflow::ledger::AttemptLedger;
+    let s = Scene::new();
+    let ledger = adapter(&s);
+    ledger
+        .begin("seed", &target("S1"), &hash("execution"), &Clock)
+        .unwrap();
+    let mut db = Store::open_schema_existing_writable(&s.ctx.store).unwrap();
+    let head = db.head(&id("save_attempt", "seed")).unwrap().unwrap();
+    let rows = (0..1002)
+        .map(|i| {
+            let key = format!("invented-page-{i}");
+            let mut observation = head.head.observation.clone();
+            observation.revision = hash(&key);
+            observation.fields.insert(
+                "execution_key".into(),
+                ont_core::Knowledge::Value(json!(key)),
+            );
+            ont_store::Append {
+                id: id("save_attempt", &key),
+                scope: head.scope.clone(),
+                observation,
+            }
+        })
+        .collect::<Vec<_>>();
+    db.append_schema(&rows, Clock.epoch_ms() / 1000).unwrap();
+    drop(db);
+    assert_eq!(ledger.attempts("S1", 0).unwrap().len(), 0);
+    assert_eq!(ledger.attempts("S1", 3).unwrap().len(), 3);
+    let attempts = ledger.attempts("S1", usize::MAX).unwrap();
+    assert_eq!(attempts.len(), 1003);
+    assert_eq!(
+        attempts
+            .iter()
+            .map(|a| &a.key)
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        1003
+    );
+    assert_eq!(ledger.open_on(&target("S1")).unwrap().len(), 1003);
+    assert!(!s.root.join("execution").exists());
+}
+#[test]
+fn open_on_reads_one_student() {
+    use edu_academy_core::workflow::{ledger::AttemptLedger, state::FieldState};
+    let s = Scene::new();
+    let ledger = adapter(&s);
+    for group in ["S1", "S2"] {
+        ledger
+            .begin(group, &target(group), &hash("execution"), &Clock)
+            .unwrap();
+        ledger
+            .record_outcome(group, &hash("out"), FieldState::SettledPersisted, &Clock)
+            .unwrap();
+    }
+    assert!(
+        ledger.open_on(&target("S1")).unwrap().is_empty(),
+        "closed attempts must be excluded"
+    );
+    ledger
+        .begin("open", &target("S1"), &hash("execution"), &Clock)
+        .unwrap();
+    assert_eq!(
+        ledger
+            .open_on(&target("S1"))
+            .unwrap()
+            .iter()
+            .map(|a| a.key.as_str())
+            .collect::<Vec<_>>(),
+        ["open"]
+    );
+    let raw = s.search(Scene::open_filter(&Scene::params("S1", "open")));
+    assert_eq!(raw["basis"]["qualified"], true);
+    assert_eq!(raw["basis"]["scanned"], 2);
+    let rendered = result(
+        ont::render::render(
+            &s.ctx,
+            &ont::render::RenderRequest {
+                op: None,
+                view: "pending_attempts".into(),
+                args: Default::default(),
+            },
+        )
+        .unwrap(),
+    );
+    assert_eq!(rendered["rows"], 1);
+    assert!(
+        rendered["markdown"]
+            .as_str()
+            .unwrap()
+            .contains("S1 | 2040-01-03 | C1 | homework")
+    );
+    assert_eq!(ledger.attempts("S2", 10).unwrap().len(), 1);
+}
+#[test]
+fn fence_matches_open_on() {
+    use edu_academy_core::workflow::{ledger::AttemptLedger, state::FieldState};
+    for closed in [false, true] {
+        let s = Scene::new();
+        let ledger = adapter(&s);
+        let original = target("S1");
+        ledger
+            .begin("seed", &original, &hash("execution"), &Clock)
+            .unwrap();
+        if closed {
+            ledger
+                .record_outcome("seed", &hash("out"), FieldState::SettledPersisted, &Clock)
+                .unwrap();
+        }
+        for case in 0..14 {
+            let mut candidate = original.clone();
+            match case {
+                0 => {}
+                1 => candidate.field = "progress".into(),
+                2 => candidate.record_key = "other-record".into(),
+                3..=6 => {
+                    candidate.occurrence[case - 3] = match case {
+                        5 => "2040-01-02",
+                        _ => "other",
+                    }
+                    .into()
+                }
+                7 => {
+                    candidate.group = "S2".into();
+                    candidate.scope_student_id = "S2".into();
+                }
+                8 => {
+                    candidate.record_key = "other".into();
+                    candidate.occurrence[2] = "2040-01-02".into();
+                }
+                9 => {
+                    candidate.request_ref = "other-request".into();
+                    candidate.request_lesson_date = "2040-01-05".into();
+                }
+                10..=13 => {
+                    candidate.record_key = "different-record".into();
+                    candidate.occurrence[case - 10] =
+                        if case == 12 { "2040-01-02" } else { "other" }.into();
+                }
+                _ => unreachable!(),
+            }
+            let matches = !ledger.open_on(&candidate).unwrap().is_empty();
+            let expected = !closed && ![1, 7, 8, 10, 11, 12, 13].contains(&case);
+            assert_eq!(matches, expected, "selection case={case} closed={closed}");
+            let key = format!("candidate-{case}");
+            let admitted = ledger.begin(&key, &candidate, &hash("execution"), &Clock);
+            if matches {
+                assert_eq!(admitted.unwrap_err().message, "workflow_attempt_fenced");
+            } else {
+                assert!(admitted.unwrap());
+                ledger
+                    .record_outcome(&key, &hash("out"), FieldState::SettledPersisted, &Clock)
+                    .unwrap();
+            }
+        }
+    }
+}
+#[test]
+fn reopen_after_restart_and_store_beside_root() {
+    use edu_academy_core::workflow::{ledger::AttemptLedger, store::Store as CoreStore};
+    let s = Scene::new();
+    let root = s.root.join("store");
+    assert_eq!(
+        edu_academy_ontology::open_store(&s.root, &s.root, &Clock)
+            .err()
+            .unwrap()
+            .message,
+        "workflow_ledger_root_required"
+    );
+    assert_eq!(
+        edu_academy_ontology::open_store(&s.root.join("../escape"), &s.root, &Clock)
+            .err()
+            .unwrap()
+            .message,
+        "workflow_ledger_root_required"
+    );
+    let core = edu_academy_ontology::open_store(&root, &s.root, &Clock).unwrap();
+    assert!(core.ledgered());
+    assert!(!root.join("academy.sqlite").exists());
+    assert_eq!(
+        fs::metadata(s.root.join("store.ledger")).unwrap().mode() & 0o777,
+        0o700
+    );
+    let path = s.root.join("store.ledger/academy.sqlite");
+    assert_eq!(fs::metadata(&path).unwrap().mode() & 0o777, 0o600);
+    let ledger = edu_academy_ontology::EngineLedger::new(path.clone(), &Clock);
+    assert!(
+        ledger
+            .begin("original", &target("S1"), &hash("execution"), &Clock)
+            .unwrap()
+    );
+    let before = fs::read(&path).unwrap();
+    drop(core);
+    assert!(
+        edu_academy_ontology::open_store(&root, &s.root, &Clock)
+            .unwrap()
+            .ledgered()
+    );
+    assert_eq!(fs::read(&path).unwrap(), before, "reopen installs nothing");
+    assert_eq!(
+        edu_academy_ontology::EngineLedger::new(path, &Clock)
+            .attempts("S1", 10)
+            .unwrap()[0]
+            .key,
+        "original"
+    );
+    assert_eq!(
+        CoreStore::open(&root, &s.root).err().unwrap().message,
+        "workflow_ledger_legacy_root"
+    );
+    let legacy = s.root.join("old");
+    fs::create_dir(&legacy).unwrap();
+    fs::create_dir(legacy.join("execution")).unwrap();
+    fs::write(
+        legacy
+            .join("execution")
+            .join(format!("{}.json", "a".repeat(64))),
+        "invented",
+    )
+    .unwrap();
+    assert_eq!(
+        edu_academy_ontology::open_store(&legacy, &s.root, &Clock)
+            .err()
+            .unwrap()
+            .message,
+        "workflow_ledger_legacy_root"
+    );
+    assert!(!s.root.join("old.ledger").exists());
+}
+
+#[test]
+fn startup_writable_open_upgrades_old_projection() {
+    use edu_academy_core::workflow::ledger::AttemptLedger;
+    let s = Scene::new();
+    let root = s.root.join("store");
+    edu_academy_ontology::open_store(&root, &s.root, &Clock).unwrap();
+    let path = s.root.join("store.ledger/academy.sqlite");
+    let ledger = edu_academy_ontology::EngineLedger::new(path.clone(), &Clock);
+    ledger
+        .begin("original", &target("S1"), &hash("execution"), &Clock)
+        .unwrap();
+    // Only the disposable fixture is changed: reproduce the older projection marker.
+    let output = std::process::Command::new("python3").args(["-c", "import sqlite3,sys\nwith sqlite3.connect(sys.argv[1]) as db:\n db.execute('UPDATE candidate_generation SET semantics_version=0 WHERE singleton=1')"]).arg(&path).output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        Store::open_schema_existing(&path).err().unwrap().code,
+        "store_upgrade_required"
+    );
+    edu_academy_ontology::open_store(&root, &s.root, &Clock)
+        .expect("startup writable open must upgrade older projection before reads");
+    assert_eq!(ledger.attempts("S1", 10).unwrap()[0].key, "original");
+    assert!(Store::open_schema_existing(&path).is_ok());
+}
+
+#[test]
+fn closed_attempt_answers_false() {
+    use edu_academy_core::workflow::state::FieldState as F;
+    let s = Scene::new();
+    let ledger = adapter(&s);
+    for (key, settled) in [("settled", true), ("reconciled", false)] {
+        assert!(
+            ledger
+                .begin(key, &target("S1"), &hash("execution"), &Clock)
+                .unwrap()
+        );
+        assert!(
+            ledger
+                .record_outcome(
+                    key,
+                    &hash("out"),
+                    if settled {
+                        F::SettledPersisted
+                    } else {
+                        F::ReconciliationRequired
+                    },
+                    &Clock
+                )
+                .unwrap()
+        );
+        if !settled {
+            assert!(
+                ledger
+                    .record_reconciliation(key, &hash("rec"), F::ReconciledConflict, &Clock)
+                    .unwrap()
+            );
+        }
+        let before = ledger.attempt(key).unwrap().unwrap();
+        assert!(
+            !ledger
+                .record_outcome(key, &hash("changed-out"), F::ReconciliationRequired, &Clock)
+                .unwrap()
+        );
+        assert!(
+            !ledger
+                .record_reconciliation(key, &hash("changed-rec"), F::ReconciledPersisted, &Clock)
+                .unwrap()
+        );
+        let after = ledger.attempt(key).unwrap().unwrap();
+        assert_eq!(
+            (
+                after.key,
+                after.state,
+                after.execution,
+                after.outcome,
+                after.reconciliation
+            ),
+            (
+                before.key,
+                before.state,
+                before.execution,
+                before.outcome,
+                before.reconciliation
+            )
+        );
+    }
+    ledger
+        .begin("open", &target("S1"), &hash("execution"), &Clock)
+        .unwrap();
+    assert_eq!(
+        ledger
+            .record_reconciliation("open", &hash("rec"), F::ReconciledConflict, &Clock)
+            .unwrap_err()
+            .message,
+        "workflow_ledger_unavailable"
+    );
+    assert!(ledger.attempt("open").unwrap().unwrap().outcome.is_none());
 }

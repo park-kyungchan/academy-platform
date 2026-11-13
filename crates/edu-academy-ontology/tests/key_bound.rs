@@ -1,4 +1,4 @@
-//! Reproduces the validator/key-size contradiction in the LB continuation.
+//! The engine ledger applies its explicit 8192-byte execution-key policy.
 use edu_academy_core::{
     decision::FIELDS,
     js::{Js, obj, sha},
@@ -6,7 +6,7 @@ use edu_academy_core::{
 };
 
 #[test]
-fn qualified_effect_target_exceeds_the_requested_key_bound() {
+fn qualified_large_key_is_refused_without_creating_a_store() {
     let scope = ledger_cases::scope("12");
     let mut target = ledger_cases::target(&scope);
     target.set("membershipId", "membership".into());
@@ -60,14 +60,51 @@ fn qualified_effect_target_exceeds_the_requested_key_bound() {
     .unwrap();
     let effect_json = canonical(&effect_target).unwrap();
     assert_eq!(effect_json.len(), 4096 * 6 + 2);
+    assert_eq!(key.len(), 24_916);
+    let owner = ledger_cases::root("key-bound");
+    let missing = owner.join("not-created.sqlite");
+    let ledger = edu_academy_ontology::EngineLedger::new(missing.clone(), &ledger_cases::Clock);
+    let target = edu_academy_core::workflow::ledger::AttemptTarget {
+        group: "invented".into(),
+        source_namespace: "invented".into(),
+        teacher_id: "11".into(),
+        scope_student_id: "12".into(),
+        request_lesson_date: "2040-01-04".into(),
+        field: "progress".into(),
+        record_key: "record".into(),
+        request_ref: "request".into(),
+        occurrence: [
+            "invented".into(),
+            "12".into(),
+            "2040-01-04".into(),
+            "course".into(),
+        ],
+    };
+    for oversized in [&key, &"x".repeat(8193)] {
+        let fault = ledger
+            .begin(oversized, &target, &sha("execution"), &ledger_cases::Clock)
+            .unwrap_err();
+        assert_eq!(fault.message, "workflow_ledger_unavailable");
+        assert!(
+            fault
+                .properties
+                .get("engineCode")
+                .is("execution_key_too_large")
+        );
+        assert!(!missing.exists(), "no engine call for an oversized key");
+    }
+    let root = owner.join("store");
+    edu_academy_ontology::open_store(&root, &owner, &ledger_cases::Clock).unwrap();
+    let ledger = edu_academy_ontology::EngineLedger::new(
+        owner.join("store.ledger/academy.sqlite"),
+        &ledger_cases::Clock,
+    );
+    let exact = "x".repeat(8192);
     assert!(
-        key.len() > 16_384,
-        "current qualified route inputs exceed the Lead's allowed maximum"
+        ledger
+            .begin(&exact, &target, &sha("execution"), &ledger_cases::Clock)
+            .unwrap()
     );
-    println!(
-        "BOUND_REPRO qualified_observation=true effect_utf16_units={} effect_json_bytes={} execution_key_bytes={} requested_max_bytes=16384",
-        effect_target.units().len(),
-        effect_json.len(),
-        key.len()
-    );
+    assert_eq!(ledger.attempt(&exact).unwrap().unwrap().key, exact);
+    std::fs::remove_dir_all(owner).unwrap();
 }
