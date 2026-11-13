@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# The one check of this repository. An agent runs it before a push; the CI job
+# `rust` runs it unchanged. Call it from any directory, or as `bash <path>`.
+#   ./check       format, clippy, offline teacher harness, build, tests: the default members
+#   ./check all   the same steps over the whole workspace, so the frozen crate
+#                 edu-academy-mcp is built and tested too
+# Outside CI, on the host that has the build lock, it takes that lock (one Cargo
+# build at a time on the host) and refuses to build under 10,240 MiB free. It
+# makes its own fixture parent: a fresh mode-0700 directory under CHECK_FIXTURE_BASE
+# (default: the directory of the lock file; in CI $RUNNER_TEMP), which must be
+# outside any Git work tree and have trusted ancestors, and removes it on exit.
+set -euo pipefail
+self=$(realpath "$0")
+cd "$(dirname "$self")"
+mode=${1:-default}
+case "$mode" in
+  default | all) ;;
+  *) echo "usage: ./check [all]" >&2; exit 2 ;;
+esac
+[ "$#" -le 1 ] || { echo "usage: ./check [all]" >&2; exit 2; }
+
+lock=${HOST_CARGO_LOCK:-/home/palantirkc/work/ws-replan/wt/.host-cargo.lock}
+if [ "${CI:-}" != true ] && [ -z "${CHECK_LOCKED:-}" ] && [ -e "$lock" ]; then
+  free=$(df -BM --output=avail . | tail -n 1 | tr -dc 0-9)
+  if [ "$free" -lt 10240 ]; then
+    echo "disk_floor@check: ${free} MiB free, 10240 needed" >&2
+    exit 3
+  fi
+  export CHECK_LOCKED=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+  export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}" RUST_TEST_THREADS="${RUST_TEST_THREADS:-2}"
+  exec flock "$lock" bash "$self" "$@"
+fi
+# Large debug symbols can exceed the bounded synthetic artifact size.
+export CARGO_PROFILE_DEV_DEBUG=${CARGO_PROFILE_DEV_DEBUG:-0} CARGO_PROFILE_TEST_DEBUG=${CARGO_PROFILE_TEST_DEBUG:-0}
+
+if [ -n "${CHECK_FIXTURE_BASE:-}" ]; then
+  base=$CHECK_FIXTURE_BASE
+elif [ "${CI:-}" = true ] && [ -n "${RUNNER_TEMP:-}" ]; then
+  base=$RUNNER_TEMP
+elif [ -e "$lock" ]; then
+  base=$(dirname "$lock")
+else
+  base=${TMPDIR:-/tmp}
+fi
+fixture_parent=$(mktemp -d "$base/edu-check.XXXXXX")
+chmod 0700 "$fixture_parent"
+trap 'rm -rf -- "$fixture_parent"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+scope=()
+mcp=()
+if [ "$mode" = all ]; then
+  scope=(--workspace)
+  mcp=(with-mcp)
+fi
+
+cargo fmt --all -- --check
+cargo clippy ${scope[@]+"${scope[@]}"} --all-targets --locked -- -D warnings
+python3 -B -m unittest discover -s crates/edu-academy-teacher/harness
+cargo build ${scope[@]+"${scope[@]}"} --bins --examples --locked
+# shellcheck source=scripts/rust-test-env.sh
+source scripts/rust-test-env.sh "$fixture_parent" ${mcp[@]+"${mcp[@]}"}
+cargo test ${scope[@]+"${scope[@]}"} --locked
+echo "check: ok"
