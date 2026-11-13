@@ -1113,6 +1113,7 @@ fn native_session_uses_exact_mirrored_wire_one_authentication_and_releases_lease
     let path = parent.join(format!("e09a-native-{}", std::process::id()));
     fs::create_dir(&path).unwrap();
     fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+    configure_account_lock(&path);
     let root = Rc::new(OwnerRoot::open(&path).unwrap());
     let mut random = [0u8; 32];
     fs::File::open("/dev/urandom")
@@ -1412,6 +1413,7 @@ fn native_owner_path_and_operation_set_mismatch_refuse_with_zero_loopback_reques
         let path = parent.join(format!("e09a-mismatch-{}-{mode}", std::process::id()));
         fs::create_dir(&path).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        configure_account_lock(&path);
         let root = Rc::new(OwnerRoot::open(&path).unwrap());
         let mut actual = admission();
         match mode {
@@ -1867,4 +1869,19 @@ fn fix1_valid_scalar_scope_duplicates_keep_their_typed_refusal() {
         );
         assert_eq!(count.get(), 0);
     }
+}
+
+fn configure_account_lock(root: &std::path::Path) {
+    let lock = root.join("shared.lock");
+    std::fs::write(&lock, b"").unwrap();
+    let config = root.join("account-lock.json");
+    std::fs::write(
+        &config,
+        serde_json::to_vec(&serde_json::json!({
+            "schemaVersion":"academy.account-lock/1", "path":lock
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::set_permissions(config, std::os::unix::fs::PermissionsExt::from_mode(0o600)).unwrap();
 }

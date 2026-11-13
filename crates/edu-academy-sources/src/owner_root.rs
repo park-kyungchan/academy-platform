@@ -465,6 +465,7 @@ pub struct AccountLease {
     fd: OwnedFd,
     name: String,
     identity: Identity,
+    shared: SharedAccountLock,
 }
 impl Drop for AccountLease {
     fn drop(&mut self) {
@@ -474,12 +475,103 @@ impl Drop for AccountLease {
         while let Err(rustix::io::Errno::INTR) = fs::flock(&self.fd, fs::FlockOperation::Unlock) {}
     }
 }
+/// Read-only descriptor for the launcher-owned inode. Rust never publishes or
+/// modifies this file. Same-UID malicious path replacement is outside admission.
+struct SharedAccountLock {
+    fd: OwnedFd,
+    path: std::path::PathBuf,
+    identity: Identity,
+}
+impl Drop for SharedAccountLock {
+    fn drop(&mut self) {
+        while let Err(rustix::io::Errno::INTR) = fs::flock(&self.fd, fs::FlockOperation::Unlock) {}
+    }
+}
+impl SharedAccountLock {
+    fn validate(&self) -> Result<()> {
+        let linked = os(
+            fs::statat(fs::CWD, &self.path, AtFlags::SYMLINK_NOFOLLOW),
+            "owner_shared_account_replaced",
+        )?;
+        if !Identity::of(&linked).same_directory(&self.identity)
+            || FileType::from_raw_mode(linked.st_mode) != FileType::RegularFile
+            || std::fs::canonicalize(&self.path).ok().as_ref() != Some(&self.path)
+        {
+            return Err(admission("owner_shared_account_replaced"));
+        }
+        Ok(())
+    }
+}
 impl OwnerRoot {
+    fn shared_account_lock(&self) -> Result<SharedAccountLock> {
+        // Use the same private-file capture/revalidation as pinned owner inputs.
+        // This document is explicit owner configuration, not credential discovery.
+        let fd = os(
+            fs::openat(
+                &self.fds[self.root],
+                "account-lock.json",
+                OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+                Mode::empty(),
+            ),
+            "owner_shared_account_configuration_required",
+        )?;
+        let stat = os(
+            fs::fstat(&fd),
+            "owner_shared_account_configuration_required",
+        )?;
+        if FileType::from_raw_mode(stat.st_mode) != FileType::RegularFile {
+            return Err(admission("owner_shared_account_configuration_required"));
+        }
+        let mut bytes = [0u8; 16385];
+        let n = os(
+            rustix::io::pread(&fd, &mut bytes, 0),
+            "owner_shared_account_configuration_required",
+        )?;
+        let capture = self.read("account-lock.json", &hash(&bytes[..n]), 16384)?;
+        #[derive(serde::Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct Configuration {
+            schema_version: String,
+            path: std::path::PathBuf,
+        }
+        let config: Configuration = serde_json::from_slice(&capture.bytes)
+            .map_err(|_| admission("owner_shared_account_configuration_required"))?;
+        if config.schema_version != "academy.account-lock/1"
+            || !config.path.is_absolute()
+            || std::fs::canonicalize(&config.path).ok().as_ref() != Some(&config.path)
+        {
+            return Err(admission("owner_shared_account_path_refused"));
+        }
+        let fd = os(
+            fs::open(
+                &config.path,
+                OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+                Mode::empty(),
+            ),
+            "owner_shared_account_open_refused",
+        )?;
+        let stat = os(fs::fstat(&fd), "owner_shared_account_stat_failed")?;
+        if FileType::from_raw_mode(stat.st_mode) != FileType::RegularFile {
+            return Err(admission("owner_shared_account_regular_file_required"));
+        }
+        fs::flock(&fd, fs::FlockOperation::NonBlockingLockExclusive)
+            .map_err(|_| admission("owner_account_busy"))?;
+        let shared = SharedAccountLock {
+            fd,
+            path: config.path,
+            identity: Identity::of(&stat),
+        };
+        shared.validate()?;
+        Ok(shared)
+    }
+    /// Lock order everywhere: launcher-owned shared file FIRST, owner pending
+    /// marker SECOND, both nonblocking. Busy shared admission creates no marker.
     pub fn account(self: &std::rc::Rc<Self>, account_sha256: &str) -> Result<AccountLease> {
         if !sha_valid(&account_sha256.into()) {
             return Err(admission("owner_account_identity_required"));
         }
         self.revalidate()?;
+        let shared = self.shared_account_lock()?;
         let name = format!("account-{account_sha256}.lock");
         let fd = os(
             fs::openat(
@@ -511,6 +603,7 @@ impl OwnerRoot {
             fd,
             name,
             identity: Identity::of(&stat),
+            shared,
         };
         lease.validate()?;
         os(fs::fsync(&self.fds[self.root]), "owner_account_sync_failed")?;
@@ -520,7 +613,8 @@ impl OwnerRoot {
     }
 }
 impl AccountLease {
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
+        self.shared.validate()?;
         self.root.revalidate()?;
         let linked = Identity::of(&os(
             fs::statat(
@@ -613,16 +707,31 @@ fn account_drop_releases_flock_with_retained_file_description() {
         .mode(0o700)
         .create(&path)
         .unwrap();
+    let shared = path.join("shared.lock");
+    std::fs::write(&shared, b"").unwrap();
+    let config = path.join("account-lock.json");
+    std::fs::write(
+        &config,
+        serde_json::to_vec(&serde_json::json!({
+            "schemaVersion":"academy.account-lock/1", "path":shared
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(config, std::fs::Permissions::from_mode(0o600)).unwrap();
     let root = std::rc::Rc::new(OwnerRoot::open(&path).unwrap());
     let key = hash(b"synthetic-retained-description");
     let lease = root.account(&key).unwrap();
     // dup retains the same open file description, as an unrelated fork does
     // before CLOEXEC takes effect. No unsafe code, child or credential is needed.
     let inherited = rustix::io::dup(&lease.fd).unwrap();
+    let shared_inherited = rustix::io::dup(&lease.shared.fd).unwrap();
     drop(lease);
     let reacquired = root.account(&key);
     let released = reacquired.is_ok();
     drop(inherited);
+    drop(shared_inherited);
     if released {
         assert!(root.account(&key).is_err());
     }

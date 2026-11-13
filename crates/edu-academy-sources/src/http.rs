@@ -43,6 +43,9 @@ impl Response {
     }
 }
 pub trait Transport {
+    /// Wrappers around NativeTransport must forward this binding. The production
+    /// transport refuses dispatch without a retained, valid account lease.
+    fn bind_account(&mut self, _lease: std::rc::Rc<crate::owner_root::AccountLease>) {}
     fn dispatch(&mut self, request: &Request) -> Result<Response>;
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3486,6 +3489,7 @@ impl Cancellation {
 /// loopback SocketAddr for synthetic qualification; it cannot name a remote host.
 /// No environment/proxy/credential discovery and no executable invocation.
 pub struct NativeTransport {
+    account: Option<std::rc::Rc<crate::owner_root::AccountLease>>,
     destination: url::Url,
     limits: TransportLimits,
     cancellation: Cancellation,
@@ -3567,6 +3571,7 @@ impl NativeTransport {
             .chain(ureq::unversioned::transport::RustlsConnector::default());
         let agent = ureq::Agent::with_parts(agent, connector, resolver);
         Ok(Self {
+            account: None,
             destination,
             limits,
             cancellation,
@@ -3586,8 +3591,20 @@ impl NativeTransport {
     }
 }
 impl Transport for NativeTransport {
+    fn bind_account(&mut self, lease: std::rc::Rc<crate::owner_root::AccountLease>) {
+        // Never replace a live lease: closing the transport releases its account.
+        if self.account.is_none() {
+            self.account = Some(lease);
+        }
+    }
     fn dispatch(&mut self, request: &Request) -> Result<Response> {
         self.cancellation.check()?;
+        if self.destination.scheme() == "https" {
+            self.account
+                .as_ref()
+                .ok_or_else(|| err("owner_account_lease_required"))?
+                .validate()?;
+        }
         if !matches!(request.method.as_str(), "GET" | "POST")
             || !request.path.starts_with('/')
             || request.path.starts_with("//")
