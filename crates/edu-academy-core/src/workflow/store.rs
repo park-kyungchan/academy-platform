@@ -1,9 +1,14 @@
-use super::{Runtime, codec, io_fault};
+use super::{
+    Runtime, canonical, codec, io_fault,
+    ledger::{AttemptLedger, AttemptTarget},
+    state::{self, FieldState},
+};
 use crate::js::{Fault, Js, Result, obj, sha};
+use sha2::{Digest, Sha256};
 use std::{
     fs::{self, DirBuilder, File, OpenOptions},
-    io::Write,
-    os::unix::fs::{DirBuilderExt, OpenOptionsExt},
+    io::{Read, Write},
+    os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
@@ -53,6 +58,7 @@ pub fn sync_dir(path: &Path) -> Result<()> {
 }
 pub struct Store {
     root: PathBuf,
+    attempts: Option<Box<dyn AttemptLedger>>,
 }
 impl Store {
     pub const SCOPE: &'static str = "single_host_owner_filesystem";
@@ -101,7 +107,98 @@ impl Store {
         ] {
             mkdir(&root.join(k))?;
         }
-        Ok(Self { root: root.into() })
+        Ok(Self {
+            root: root.into(),
+            attempts: None,
+        })
+    }
+    pub fn open_with_ledger(
+        root: &Path,
+        owner_root: &Path,
+        ledger: Box<dyn AttemptLedger>,
+    ) -> Result<Self> {
+        let mut store = Self::open(root, owner_root)?;
+        store.attempts = Some(ledger);
+        Ok(store)
+    }
+    pub fn ledgered(&self) -> bool {
+        self.attempts.is_some()
+    }
+    pub(crate) fn attempt_ledger(&self) -> Option<&dyn AttemptLedger> {
+        self.attempts.as_deref()
+    }
+    pub fn attempt_target(&self, execution: &Js) -> Result<AttemptTarget> {
+        let missing = || Fault::error("workflow_execution_review_target_unavailable");
+        let field = required_text(execution, "field")?;
+        let digest = required_text(execution, "reviewDigest")?;
+        let review = self.get(Kind::Review, &digest)?;
+        let row = review
+            .get("patch")
+            .array()
+            .iter()
+            .find(|p| p.get("field").is(&field))
+            .ok_or_else(missing)?;
+        if !execution.has("effectRecordKey") || !execution.has("requestRef") {
+            return Err(missing());
+        }
+        target_from_parts(
+            execution.get("scope"),
+            &field,
+            execution.get("effectRecordKey"),
+            execution.get("requestRef"),
+            row.get("target"),
+        )
+    }
+    fn body_path(&self, kind: Kind, id: &str, digest: &str) -> PathBuf {
+        self.path(kind, id).with_file_name(format!(
+            "{}.{}.json",
+            sha(&(kind.name().to_owned() + "\n" + id)),
+            digest
+        ))
+    }
+    fn checked_body(&self, kind: Kind, id: &str, digest: &str) -> Result<Js> {
+        let fail = || Fault::error("workflow_attempt_body_unavailable");
+        if digest.len() != 64
+            || !digest
+                .bytes()
+                .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+        {
+            return Err(fail());
+        }
+        // Linux O_NOFOLLOW | O_NONBLOCK: refuse links and avoid blocking on a FIFO.
+        let file = OpenOptions::new()
+            .read(true)
+            .custom_flags(0o400000 | 0o4000)
+            .open(self.body_path(kind, id, digest))
+            .map_err(|_| fail())?;
+        let meta = file.metadata().map_err(|_| fail())?;
+        let status = fs::read_to_string("/proc/self/status").map_err(|_| fail())?;
+        let uid = status
+            .lines()
+            .find(|s| s.starts_with("Uid:"))
+            .and_then(|s| s.split_whitespace().nth(2))
+            .and_then(|s| s.parse::<u32>().ok())
+            .ok_or_else(fail)?;
+        if !meta.is_file()
+            || meta.uid() != uid
+            || meta.mode() & 0o7777 != 0o600
+            || meta.nlink() != 1
+            || meta.len() > 65_536
+        {
+            return Err(fail());
+        }
+        let mut bytes = vec![];
+        file.take(65_537)
+            .read_to_end(&mut bytes)
+            .map_err(|_| fail())?;
+        if bytes.len() > 65_536 || format!("{:x}", Sha256::digest(&bytes)) != digest {
+            return Err(fail());
+        }
+        let wrapper = codec::parse(&bytes).map_err(|_| fail())?;
+        if !wrapper.get("kind").is(kind.name()) || !wrapper.get("id").is(id) {
+            return Err(fail());
+        }
+        Ok(wrapper.get("record").clone())
     }
     pub fn root(&self) -> &Path {
         &self.root
@@ -112,6 +209,18 @@ impl Store {
             .join(sha(&(kind.name().to_owned() + "\n" + id)) + ".json")
     }
     pub fn get(&self, kind: Kind, id: &str) -> Result<Js> {
+        if let Some(ledger) = self.attempts.as_deref().filter(|_| attempt_kind(kind)) {
+            let Some(attempt) = ledger.attempt(id)? else {
+                return Ok(Js::Null);
+            };
+            let digest = match kind {
+                Kind::Execution => Some(attempt.execution),
+                Kind::Outcome => attempt.outcome,
+                Kind::Reconciliation => attempt.reconciliation,
+                _ => unreachable!(),
+            };
+            return digest.map_or(Ok(Js::Null), |digest| self.checked_body(kind, id, &digest));
+        }
         let bytes = match fs::read(self.path(kind, id)) {
             Ok(b) => b,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Js::Null),
@@ -135,7 +244,56 @@ impl Store {
             ("id", id.into()),
             ("record", record.clone()),
         ]);
-        let created = publish(&self.path(kind, id), &codec::bytes(&v)?, clock)?;
+        let created = if let Some(ledger) = self.attempts.as_deref().filter(|_| attempt_kind(kind))
+        {
+            let target = if matches!(kind, Kind::Execution) {
+                Some(self.attempt_target(record)?)
+            } else {
+                None
+            };
+            let state = match kind {
+                Kind::Outcome => state::classify(
+                    &self.get(Kind::Execution, id)?,
+                    record,
+                    &self.get(Kind::Reconciliation, id)?,
+                    &|d| self.get(Kind::Review, d),
+                )?,
+                Kind::Reconciliation => {
+                    let state = state::classify(
+                        &self.get(Kind::Execution, id)?,
+                        &self.get(Kind::Outcome, id)?,
+                        record,
+                        &|d| self.get(Kind::Review, d),
+                    )?;
+                    if !matches!(
+                        state,
+                        FieldState::ReconciledPersisted
+                            | FieldState::ReconciledNotPersisted
+                            | FieldState::ReconciledConflict
+                    ) {
+                        return Err(Fault::error("workflow_reconciliation_not_closing"));
+                    }
+                    state
+                }
+                _ => FieldState::DispatchUnknown,
+            };
+            let bytes = codec::bytes(&v)?;
+            let digest = format!("{:x}", Sha256::digest(&bytes));
+            publish(&self.body_path(kind, id, &digest), &bytes, clock)?;
+            match kind {
+                Kind::Execution => ledger.begin(
+                    id,
+                    target.as_ref().expect("execution target"),
+                    &digest,
+                    clock,
+                )?,
+                Kind::Outcome => ledger.record_outcome(id, &digest, state, clock)?,
+                Kind::Reconciliation => ledger.record_reconciliation(id, &digest, state, clock)?,
+                _ => unreachable!(),
+            }
+        } else {
+            publish(&self.path(kind, id), &codec::bytes(&v)?, clock)?
+        };
         Ok((
             created,
             if created {
@@ -146,6 +304,9 @@ impl Store {
         ))
     }
     pub fn add_ledger(&self, group: &str, key: &str, clock: &dyn Runtime) -> Result<()> {
+        if self.ledgered() {
+            return Ok(());
+        }
         let dir = self.root.join("ledger").join(sha(group));
         mkdir(&dir)?;
         publish(
@@ -156,6 +317,9 @@ impl Store {
         Ok(())
     }
     pub fn ledger(&self, group: &str) -> Result<Vec<String>> {
+        if self.ledgered() {
+            return Err(Fault::error("workflow_ledger_unavailable"));
+        }
         let mut keys = vec![];
         for p in names(&self.root.join("ledger").join(sha(group)))? {
             let v = codec::parse(&fs::read(p).map_err(io_fault)?)?;
@@ -213,6 +377,42 @@ impl Store {
             cancel,
         )
     }
+}
+fn attempt_kind(kind: Kind) -> bool {
+    matches!(kind, Kind::Execution | Kind::Outcome | Kind::Reconciliation)
+}
+fn required_text(record: &Js, key: &str) -> Result<String> {
+    if !record.get(key).string() {
+        return Err(Fault::error("workflow_execution_review_target_unavailable"));
+    }
+    String::from_utf16(record.get(key).units())
+        .map_err(|_| Fault::error("workflow_execution_review_target_unavailable"))
+}
+pub(crate) fn target_from_parts(
+    scope: &Js,
+    field: &str,
+    record: &Js,
+    request: &Js,
+    target: &Js,
+) -> Result<AttemptTarget> {
+    Ok(AttemptTarget {
+        group: state::lock_key(scope)?,
+        source_namespace: required_text(scope, "sourceNamespace")?,
+        teacher_id: required_text(scope, "teacherId")?,
+        scope_student_id: required_text(scope, "studentId")?,
+        request_lesson_date: required_text(scope, "lessonDate")?,
+        field: field.into(),
+        record_key: canonical(record)
+            .map_err(|_| Fault::error("workflow_execution_review_target_unavailable"))?,
+        request_ref: canonical(request)
+            .map_err(|_| Fault::error("workflow_execution_review_target_unavailable"))?,
+        occurrence: [
+            required_text(target, "sourceNamespace")?,
+            required_text(target, "studentId")?,
+            required_text(target, "lessonDate")?,
+            required_text(target, "courseId")?,
+        ],
+    })
 }
 pub fn names(dir: &Path) -> Result<Vec<PathBuf>> {
     let entries = match fs::read_dir(dir) {

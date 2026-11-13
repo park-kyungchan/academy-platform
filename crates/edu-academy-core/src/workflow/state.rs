@@ -150,16 +150,37 @@ pub fn returned_receipt(record: &Js) -> bool {
         && crate::js::test("^[a-f0-9]{64}$", record.get("receipt").get("bodySha256"))
 }
 pub fn field_state(store: &Store, key: &str) -> Result<FieldState> {
+    if let Some(ledger) = store.attempt_ledger() {
+        return Ok(ledger
+            .attempt(key)?
+            .map_or(FieldState::Available, |a| a.state));
+    }
     let execution = store.get(Kind::Execution, key)?;
     let outcome = store.get(Kind::Outcome, key)?;
-    if let Some(due) = settlement_at(&execution, &outcome) {
-        let reconciliation = store.get(Kind::Reconciliation, key)?;
+    let reconciliation = if settlement_at(&execution, &outcome).is_some()
+        || (execution.absent() && outcome.absent())
+    {
+        store.get(Kind::Reconciliation, key)?
+    } else {
+        Js::Null
+    };
+    classify(&execution, &outcome, &reconciliation, &|d| {
+        store.get(Kind::Review, d)
+    })
+}
+pub fn classify(
+    execution: &Js,
+    outcome: &Js,
+    reconciliation: &Js,
+    review: &dyn Fn(&str) -> Result<Js>,
+) -> Result<FieldState> {
+    if let Some(due) = settlement_at(execution, outcome) {
         let marked = |r: &Js| {
             r.get("settlementRule").is(SETTLEMENT_RULE)
                 && r.get("actionDigest") == execution.get("actionDigest")
                 && crate::js::test("^[a-f0-9]{64}$", execution.get("actionDigest"))
         };
-        if marked(&reconciliation)
+        if marked(reconciliation)
             && crate::instant::epoch_ms(
                 reconciliation.get("readAt"),
                 crate::instant::Grammar::DailyRecord,
@@ -167,7 +188,7 @@ pub fn field_state(store: &Store, key: &str) -> Result<FieldState> {
             .is_some_and(|at| at >= due)
             && reconciliation.get("current").string()
         {
-            let review = store.get(Kind::Review, &execution.get("reviewDigest").code_units())?;
+            let review = review(&execution.get("reviewDigest").code_units())?;
             let patch = review
                 .get("patch")
                 .array()
@@ -186,22 +207,21 @@ pub fn field_state(store: &Store, key: &str) -> Result<FieldState> {
                 FieldState::ReconciledConflict
             });
         }
-        if marked(&outcome)
-            && returned_receipt(&outcome)
+        if marked(outcome)
+            && returned_receipt(outcome)
             && outcome.get("receipt").get("actionDigest") == execution.get("actionDigest")
             && outcome.get("readbackStatus").is("persisted")
         {
             return Ok(FieldState::SettledPersisted);
         }
     }
-    Ok(if store.get(Kind::Execution, key)?.absent() {
-        if store.get(Kind::Outcome, key)?.absent() && store.get(Kind::Reconciliation, key)?.absent()
-        {
+    Ok(if execution.absent() {
+        if outcome.absent() && reconciliation.absent() {
             FieldState::Available
         } else {
             FieldState::ReconciliationRequired
         }
-    } else if store.get(Kind::Outcome, key)?.absent() {
+    } else if outcome.absent() {
         FieldState::DispatchUnknown
     } else {
         FieldState::ReconciliationRequired
@@ -222,6 +242,20 @@ impl Execution {
     }
 }
 pub fn student_executions(store: &Store, scope: &Js) -> Result<Vec<Execution>> {
+    if let Some(ledger) = store.attempt_ledger() {
+        let mut attempts = ledger.attempts(&lock_key(scope)?, usize::MAX)?;
+        attempts.sort_by_key(|a| a.key.encode_utf16().collect::<Vec<_>>());
+        return attempts
+            .into_iter()
+            .map(|a| {
+                Ok(Execution {
+                    record: store.get(Kind::Execution, &a.key)?,
+                    key: a.key,
+                    state: a.state,
+                })
+            })
+            .collect();
+    }
     let mut out = vec![];
     for key in store.ledger(&lock_key(scope)?)? {
         let record = store.get(Kind::Execution, &key)?;
@@ -249,6 +283,21 @@ pub fn unresolved_on_field(
     target: &Js,
 ) -> Result<Vec<Execution>> {
     let record = record.into();
+    if let Some(ledger) = store.attempt_ledger() {
+        // This query has no request identity; it is not part of fence matching.
+        let target = super::store::target_from_parts(scope, field, &record, &Js::Null, target)?;
+        return ledger
+            .open_on(&target)?
+            .into_iter()
+            .map(|a| {
+                Ok(Execution {
+                    record: store.get(Kind::Execution, &a.key)?,
+                    key: a.key,
+                    state: a.state,
+                })
+            })
+            .collect();
+    }
     let mut pending = vec![];
     for execution in student_executions(store, scope)? {
         if !execution.record.get("field").is(field) || !execution.state.needs_reconciliation() {
