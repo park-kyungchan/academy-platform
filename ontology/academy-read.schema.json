@@ -54,7 +54,7 @@
           "required": true,
           "max_bytes": 600,
           "from": "/book_label",
-          "description": "At most 200 UTF-16 units in the capture (prestudy MAX_BOOK_LABEL_UNITS), 3 bytes each: 600 bytes."
+          "description": "At most 200 UTF-16 units in the capture (textbook_index.rs MAX_BOOK_LABEL_UNITS), 3 bytes each: 600 bytes."
         },
         "course_key": {
           "type": "string",
