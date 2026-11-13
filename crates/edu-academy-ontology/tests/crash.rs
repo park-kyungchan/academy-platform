@@ -10,7 +10,11 @@ use edu_academy_core::{
     },
 };
 use edu_academy_ontology::{EngineLedger, open_store};
-use std::{cell::Cell, fs, path::PathBuf, rc::Rc};
+use std::{
+    fs,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 struct Fixture {
     owner: PathBuf,
@@ -58,7 +62,7 @@ enum Call {
 struct FaultLedger {
     inner: EngineLedger,
     root: PathBuf,
-    fail: Rc<Cell<Option<(Call, bool)>>>,
+    fail: Arc<Mutex<Option<(Call, bool)>>>,
 }
 impl FaultLedger {
     fn around(
@@ -80,14 +84,14 @@ impl FaultLedger {
             digest,
             "action must name the already durable bytes"
         );
-        let fault = self.fail.get();
+        let fault = *self.fail.lock().unwrap();
         if fault == Some((call, false)) {
-            self.fail.set(None);
+            *self.fail.lock().unwrap() = None;
             return Err(Fault::error("invented_before_action"));
         }
         let answer = apply()?;
         if fault == Some((call, true)) {
-            self.fail.set(None);
+            *self.fail.lock().unwrap() = None;
             return Err(Fault::error("invented_lost_answer"));
         }
         Ok(answer)
@@ -134,7 +138,7 @@ fn crash_walk() {
                 continue;
             }
             let f = Fixture::new(&format!("crash-{row}-{settle}"));
-            let fail = Rc::new(Cell::new(None));
+            let fail = Arc::new(Mutex::new(None));
             let store = Store::open_with_ledger(
                 &f.root,
                 &f.owner,
@@ -147,7 +151,7 @@ fn crash_walk() {
             .unwrap();
             let e = f.execution(&store);
             if row == 1 {
-                fail.set(Some((Call::Begin, false)));
+                *fail.lock().unwrap() = Some((Call::Begin, false));
                 assert!(store.publish(Kind::Execution, "key", &e, &Clock).is_err());
                 assert_eq!(store.get(Kind::Execution, "key").unwrap(), Js::Null);
                 let mut retry = e.clone();
@@ -162,7 +166,7 @@ fn crash_walk() {
                 continue;
             }
             if row == 3 || row == 4 {
-                fail.set(Some((Call::Begin, true)));
+                *fail.lock().unwrap() = Some((Call::Begin, true));
             }
             let begun = store.publish(Kind::Execution, "key", &e, &Clock);
             if row == 3 || row == 4 {
@@ -179,10 +183,10 @@ fn crash_walk() {
                 assert!(begun.unwrap().0);
             }
             if row == 5 {
-                fail.set(Some((Call::Outcome, false)));
+                *fail.lock().unwrap() = Some((Call::Outcome, false));
             }
             if row == 6 || (row == 7 && settle) {
-                fail.set(Some((Call::Outcome, true)));
+                *fail.lock().unwrap() = Some((Call::Outcome, true));
             }
             let out = outcome(settle);
             let answer = store.publish(Kind::Outcome, "key", &out, &Clock);
@@ -212,10 +216,10 @@ fn crash_walk() {
                     FieldState::ReconciliationRequired
                 );
                 if row == 2 {
-                    fail.set(Some((Call::Reconciliation, false)));
+                    *fail.lock().unwrap() = Some((Call::Reconciliation, false));
                 }
                 if row == 7 {
-                    fail.set(Some((Call::Reconciliation, true)));
+                    *fail.lock().unwrap() = Some((Call::Reconciliation, true));
                 }
                 let rec = reconciliation("- Before".into());
                 let answer = store.publish(Kind::Reconciliation, "key", &rec, &Clock);

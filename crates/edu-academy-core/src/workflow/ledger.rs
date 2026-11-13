@@ -35,7 +35,8 @@ pub struct Attempt {
 /// A mutation of an unknown key returns `Err(workflow_ledger_unavailable)`.
 /// `attempts(group, limit)` returns every attempt of that group when there are
 /// at most `limit`, otherwise any `limit` attempts, in no promised order.
-pub trait AttemptLedger {
+/// The ledger is shared between threads and processes, so every implementor is `Send + Sync`.
+pub trait AttemptLedger: Send + Sync {
     fn begin(
         &self,
         key: &str,

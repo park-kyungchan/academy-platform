@@ -2085,3 +2085,10 @@ fn open_refuses_engine_root() {
     let _core = engine_core(&t);
     refused(DraftStore::open(&t.root(), owner()));
 }
+
+#[test]
+fn store_and_draft_store_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<Store>();
+    assert_send_sync::<DraftStore>();
+}

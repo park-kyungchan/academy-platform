@@ -12,11 +12,13 @@ use edu_academy_core::{
     },
 };
 use std::{
-    cell::Cell,
     fs,
     os::unix::fs::{PermissionsExt, symlink},
     path::{Path, PathBuf},
-    rc::Rc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
 };
 fn memory(root: &Path, owner: &Path) -> Result<Store> {
     Store::open_with_ledger(root, owner, Box::<MemoryLedger>::default())
@@ -33,13 +35,13 @@ fn ledger_cases_on_memory() {
 
 #[derive(Default)]
 struct Probe {
-    ledger: Rc<MemoryLedger>,
+    ledger: Arc<MemoryLedger>,
     override_state: bool,
     named_digest: Option<String>,
-    fail_after_begin: Cell<bool>,
+    fail_after_begin: AtomicBool,
     require_body: Option<PathBuf>,
-    attempt_reads: Rc<Cell<usize>>,
-    group_reads: Rc<Cell<usize>>,
+    attempt_reads: Arc<AtomicUsize>,
+    group_reads: Arc<AtomicUsize>,
 }
 impl AttemptLedger for Probe {
     fn begin(
@@ -50,7 +52,7 @@ impl AttemptLedger for Probe {
         clock: &dyn Runtime,
     ) -> Result<bool> {
         let result = self.ledger.begin(key, target, digest, clock)?;
-        if self.fail_after_begin.replace(false) {
+        if self.fail_after_begin.swap(false, Ordering::SeqCst) {
             // Simulate an action committed but its answer lost. The next request
             // must be able to read the committed attempt's already durable body.
             let path = self
@@ -90,7 +92,7 @@ impl AttemptLedger for Probe {
         self.ledger.record_reconciliation(key, digest, state, clock)
     }
     fn attempt(&self, key: &str) -> Result<Option<Attempt>> {
-        self.attempt_reads.set(self.attempt_reads.get() + 1);
+        self.attempt_reads.fetch_add(1, Ordering::SeqCst);
         if let Some(digest) = &self.named_digest {
             return Ok(Some(Attempt {
                 key: key.into(),
@@ -108,7 +110,7 @@ impl AttemptLedger for Probe {
         }))
     }
     fn attempts(&self, group: &str, limit: usize) -> Result<Vec<Attempt>> {
-        self.group_reads.set(self.group_reads.get() + 1);
+        self.group_reads.fetch_add(1, Ordering::SeqCst);
         let mut attempts = self.ledger.attempts(group, limit)?;
         if self.override_state {
             for a in &mut attempts {
@@ -214,18 +216,18 @@ fn state_is_the_ledgers() {
         .unwrap(),
         FieldState::ReconciliationRequired
     );
-    attempt_reads.set(0);
+    attempt_reads.store(0, Ordering::SeqCst);
     assert_eq!(
         state::field_state(&store, "key").unwrap(),
         FieldState::ReconciledConflict,
         "field_state must use ledger state"
     );
     assert_eq!(
-        attempt_reads.get(),
+        attempt_reads.load(Ordering::SeqCst),
         1,
         "state lookup reads only the attempt"
     );
-    group_reads.set(0);
+    group_reads.store(0, Ordering::SeqCst);
 
     assert_eq!(
         state::student_executions(&store, &scope).unwrap()[0].state,
@@ -233,7 +235,7 @@ fn state_is_the_ledgers() {
         "student_executions must use ledger state"
     );
     assert_eq!(
-        group_reads.get(),
+        group_reads.load(Ordering::SeqCst),
         1,
         "student query reads the attempts once"
     );
@@ -426,7 +428,7 @@ fn body_only_through_digest() {
 #[test]
 fn reconciliation_must_close() {
     let root = root("closing");
-    let ledger = Rc::new(MemoryLedger::default());
+    let ledger = Arc::new(MemoryLedger::default());
     let store = Store::open_with_ledger(
         &root.join("store"),
         &root,
@@ -486,7 +488,7 @@ fn body_precedes_ledger_even_when_answer_is_lost() {
         &path,
         &root,
         Box::new(Probe {
-            fail_after_begin: Cell::new(true),
+            fail_after_begin: AtomicBool::new(true),
             require_body: Some(path.clone()),
             ..Probe::default()
         }),
@@ -618,7 +620,10 @@ mod route {
         cell::{Cell, RefCell},
         path::PathBuf,
         rc::Rc,
-        sync::atomic::{AtomicU64, Ordering},
+        sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        },
     };
     fn js(v: serde_json::Value) -> Js {
         codec::parse(&serde_json::to_vec(&v).unwrap()).unwrap()
@@ -747,7 +752,7 @@ mod route {
         }
     }
     struct Case {
-        ledger: Option<Rc<super::MemoryLedger>>,
+        ledger: Option<Arc<super::MemoryLedger>>,
         root: PathBuf,
         source: Source,
         backend: Backend,
@@ -807,7 +812,7 @@ mod route {
             let observation = Rc::new(RefCell::new(observation));
             let clock = Rc::new(RefCell::new(NOW.into()));
             let mut case = Self {
-                ledger: ledgered.then(|| Rc::new(super::MemoryLedger::default())),
+                ledger: ledgered.then(|| Arc::new(super::MemoryLedger::default())),
                 root,
                 source: Source(observation.clone(), Rc::new(Cell::new(0))),
                 backend: Backend {

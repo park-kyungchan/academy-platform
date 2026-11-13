@@ -43,5 +43,6 @@ every attempt is forgotten. Pass roots without `..`; both forms refuse it.
 
 Until the engine revision with item G3 is pinned, one `begin` costs about
 0.2 to 0.33 ms per closed attempt (measured: 597 ms at 2,700 attempts).
+The full-bound control `preflight_limit_on_engine` is run once after the engine revision with G3 is pinned.
 The first production save waits for that pin.
 Before a production store exists, rollback consists of reverting packet LC.
