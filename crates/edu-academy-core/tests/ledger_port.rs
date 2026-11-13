@@ -937,3 +937,19 @@ mod route {
         );
     }
 }
+
+#[test]
+fn legacy_root_refused() {
+    let owner = root("engine-sibling");
+    let store_root = owner.join("store");
+    fs::create_dir(owner.join("store.ledger")).unwrap();
+    assert_eq!(
+        Store::open(&store_root, &owner).err().unwrap().message,
+        "workflow_ledger_legacy_root"
+    );
+    assert!(
+        !store_root.exists(),
+        "refuse before creating file-store directories"
+    );
+    fs::remove_dir_all(owner).unwrap();
+}

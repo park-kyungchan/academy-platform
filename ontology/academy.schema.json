@@ -1,0 +1,697 @@
+{
+  "format": "ontology-schema/v1",
+  "domain": "academy",
+  "version": 1,
+  "namespace": {
+    "instance": "academy://owner",
+    "account": "teacher"
+  },
+  "scope_keys": [],
+  "value_types": {
+    "sha256": {
+      "base": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "attempt_state": {
+      "base": "string",
+      "enum": [
+        "dispatch_outcome_unknown",
+        "reconciliation_required",
+        "settled_persisted",
+        "reconciled_persisted",
+        "reconciled_not_persisted",
+        "reconciled_conflict"
+      ]
+    },
+    "record_field": {
+      "base": "string",
+      "enum": [
+        "progress",
+        "homework",
+        "lessonMemo",
+        "attendance",
+        "dailyTestAssessment",
+        "previousHomeworkAssessment"
+      ]
+    },
+    "iso_date": {
+      "base": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    }
+  },
+  "sources": {},
+  "object_types": {
+    "student": {
+      "description": "A student is identified within a source namespace and teacher account.",
+      "owner": "ontology",
+      "primary_key": {
+        "from": "/native_key"
+      },
+      "properties": {
+        "source_namespace": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The source namespace identifies the system that owns the student identity."
+        },
+        "teacher_id": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The teacher identifier selects the account that owns this student group."
+        },
+        "student_id": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The student identifier belongs to the stated source namespace."
+        }
+      },
+      "title": "student_id"
+    },
+    "save_attempt": {
+      "description": "A save attempt records identity, state and the digests of private record bodies.",
+      "owner": "ontology",
+      "primary_key": {
+        "from": "/native_key"
+      },
+      "title": "field",
+      "properties": {
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "A student is identified within a source namespace and teacher account."
+        },
+        "field": {
+          "type": {
+            "value_type": "record_field"
+          },
+          "required": true,
+          "max_bytes": 64,
+          "description": "The field identifies the DailyRecord member affected by this attempt."
+        },
+        "state": {
+          "type": {
+            "value_type": "attempt_state"
+          },
+          "required": true,
+          "description": "The state records the authoritative progress of the save attempt."
+        },
+        "begun_at": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 40,
+          "description": "The engine records the time at which the attempt began."
+        },
+        "open_in": {
+          "type": {
+            "ref": "student"
+          },
+          "required": false,
+          "description": "This reference is present exactly while the attempt fences its student group."
+        },
+        "record_key": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The canonical record key identifies the record affected by the attempt."
+        },
+        "source_namespace": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The source namespace identifies the system that owns the student identity."
+        },
+        "student_id": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The student identifier belongs to the stated source namespace."
+        },
+        "lesson_date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "max_bytes": 10,
+          "description": "The lesson date belongs to the reviewed target occurrence."
+        },
+        "course_id": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The course identifier belongs to the reviewed target occurrence."
+        },
+        "request_ref": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The canonical request reference identifies the save request."
+        },
+        "execution_sha256": {
+          "type": {
+            "value_type": "sha256"
+          },
+          "required": true,
+          "max_bytes": 64,
+          "description": "This digest identifies the private execution body file."
+        },
+        "outcome_sha256": {
+          "type": {
+            "value_type": "sha256"
+          },
+          "required": false,
+          "max_bytes": 64,
+          "description": "This digest identifies the private outcome body file."
+        },
+        "reconciliation_sha256": {
+          "type": {
+            "value_type": "sha256"
+          },
+          "required": false,
+          "max_bytes": 64,
+          "description": "This digest identifies the private reconciliation body file."
+        },
+        "request_lesson_date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "max_bytes": 10,
+          "description": "This is the lesson date of the request scope, independently of the target date."
+        }
+      }
+    }
+  },
+  "link_types": {
+    "attempt_student": {
+      "from": "save_attempt",
+      "via": "student",
+      "to": "student",
+      "cardinality": "many_to_one",
+      "names": {
+        "forward": "attempt_student",
+        "reverse": "attempts"
+      }
+    },
+    "attempt_open_in": {
+      "from": "save_attempt",
+      "via": "open_in",
+      "to": "student",
+      "cardinality": "many_to_one",
+      "names": {
+        "forward": "attempt_open_in",
+        "reverse": "open_attempts"
+      }
+    }
+  },
+  "action_types": {
+    "begin_attempt": {
+      "description": "Create an attempt only when its key is new and its field is not fenced.",
+      "parameters": {
+        "attempt": {
+          "type": {
+            "ref": "save_attempt"
+          },
+          "required": true,
+          "description": "This reference identifies the save attempt affected by the action."
+        },
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "A student is identified within a source namespace and teacher account."
+        },
+        "field": {
+          "type": {
+            "value_type": "record_field"
+          },
+          "required": true,
+          "max_bytes": 64,
+          "description": "The field identifies the DailyRecord member affected by this attempt."
+        },
+        "record_key": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The canonical record key identifies the record affected by the attempt."
+        },
+        "source_namespace": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The source namespace identifies the system that owns the student identity."
+        },
+        "student_id": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The student identifier belongs to the stated source namespace."
+        },
+        "lesson_date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "max_bytes": 10,
+          "description": "The lesson date belongs to the reviewed target occurrence."
+        },
+        "course_id": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The course identifier belongs to the reviewed target occurrence."
+        },
+        "request_ref": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The canonical request reference identifies the save request."
+        },
+        "execution_sha256": {
+          "type": {
+            "value_type": "sha256"
+          },
+          "required": true,
+          "max_bytes": 64,
+          "description": "This digest identifies the private execution body file."
+        },
+        "request_lesson_date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "max_bytes": 10,
+          "description": "This is the lesson date of the request scope, independently of the target date."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "scope_missing",
+          "message": "Apply register_student for this student first.",
+          "all": [
+            {
+              "exists": "$student"
+            }
+          ]
+        },
+        {
+          "code": "attempt_exists",
+          "message": "This execution key already has an attempt.",
+          "none": [
+            {
+              "exists": "$attempt"
+            }
+          ]
+        },
+        {
+          "code": "field_fenced",
+          "message": "An attempt on this field of this record or occurrence is open.",
+          "none": [
+            {
+              "linked": {
+                "from": "$student",
+                "link": "open_attempts",
+                "where": {
+                  "all": [
+                    {
+                      "eq": [
+                        "field",
+                        "$field"
+                      ]
+                    },
+                    {
+                      "any": [
+                        {
+                          "eq": [
+                            "record_key",
+                            "$record_key"
+                          ]
+                        },
+                        {
+                          "all": [
+                            {
+                              "eq": [
+                                "source_namespace",
+                                "$source_namespace"
+                              ]
+                            },
+                            {
+                              "eq": [
+                                "student_id",
+                                "$student_id"
+                              ]
+                            },
+                            {
+                              "eq": [
+                                "lesson_date",
+                                "$lesson_date"
+                              ]
+                            },
+                            {
+                              "eq": [
+                                "course_id",
+                                "$course_id"
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "create_or_modify_object": "save_attempt",
+          "set": {
+            "student": "$student",
+            "open_in": "$student",
+            "field": "$field",
+            "state": "dispatch_outcome_unknown",
+            "begun_at": "$now",
+            "record_key": "$record_key",
+            "source_namespace": "$source_namespace",
+            "student_id": "$student_id",
+            "lesson_date": "$lesson_date",
+            "course_id": "$course_id",
+            "request_ref": "$request_ref",
+            "execution_sha256": "$execution_sha256",
+            "request_lesson_date": "$request_lesson_date"
+          }
+        }
+      ]
+    },
+    "record_outcome": {
+      "description": "Record an outcome digest while keeping the attempt open for reconciliation.",
+      "parameters": {
+        "attempt": {
+          "type": {
+            "ref": "save_attempt"
+          },
+          "required": true,
+          "description": "This reference identifies the save attempt affected by the action."
+        },
+        "outcome_sha256": {
+          "type": {
+            "value_type": "sha256"
+          },
+          "required": true,
+          "max_bytes": 64,
+          "description": "This digest identifies the private outcome body file."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "attempt_not_open",
+          "message": "The attempt is missing or closed.",
+          "all": [
+            {
+              "present": "$attempt.open_in"
+            }
+          ]
+        },
+        {
+          "code": "outcome_exists",
+          "message": "The attempt already has an outcome.",
+          "none": [
+            {
+              "present": "$attempt.outcome_sha256"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "modify_object": "save_attempt",
+          "set": {
+            "state": "reconciliation_required",
+            "outcome_sha256": "$outcome_sha256"
+          }
+        }
+      ]
+    },
+    "record_reconciliation": {
+      "description": "Record a reconciliation digest and close the attempt in a reconciled state.",
+      "parameters": {
+        "attempt": {
+          "type": {
+            "ref": "save_attempt"
+          },
+          "required": true,
+          "description": "This reference identifies the save attempt affected by the action."
+        },
+        "state": {
+          "type": {
+            "value_type": "attempt_state"
+          },
+          "required": true,
+          "description": "The state records the authoritative progress of the save attempt."
+        },
+        "reconciliation_sha256": {
+          "type": {
+            "value_type": "sha256"
+          },
+          "required": true,
+          "max_bytes": 64,
+          "description": "This digest identifies the private reconciliation body file."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "attempt_not_open",
+          "message": "The attempt is missing or closed.",
+          "all": [
+            {
+              "present": "$attempt.open_in"
+            }
+          ]
+        },
+        {
+          "code": "outcome_missing",
+          "message": "A reconciliation follows an outcome.",
+          "all": [
+            {
+              "present": "$attempt.outcome_sha256"
+            }
+          ]
+        },
+        {
+          "code": "state_not_reconciled",
+          "message": "A reconciliation closes the attempt with a reconciled state.",
+          "any": [
+            {
+              "eq": [
+                "$state",
+                "reconciled_persisted"
+              ]
+            },
+            {
+              "eq": [
+                "$state",
+                "reconciled_not_persisted"
+              ]
+            },
+            {
+              "eq": [
+                "$state",
+                "reconciled_conflict"
+              ]
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "modify_object": "save_attempt",
+          "set": {
+            "state": "$state",
+            "reconciliation_sha256": "$reconciliation_sha256"
+          }
+        },
+        {
+          "clear_reference": {
+            "object_type": "save_attempt",
+            "property": "open_in"
+          }
+        }
+      ]
+    },
+    "register_student": {
+      "description": "Register the identity of a student before creating a save attempt.",
+      "parameters": {
+        "scope": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "This reference identifies the student group registered by the action."
+        },
+        "source_namespace": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The source namespace identifies the system that owns the student identity."
+        },
+        "teacher_id": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The teacher identifier selects the account that owns this student group."
+        },
+        "student_id": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1024,
+          "description": "The student identifier belongs to the stated source namespace."
+        }
+      },
+      "submission_criteria": [],
+      "rules": [
+        {
+          "create_or_modify_object": "student",
+          "set": {
+            "source_namespace": "$source_namespace",
+            "teacher_id": "$teacher_id",
+            "student_id": "$student_id"
+          }
+        }
+      ]
+    },
+    "settle_outcome": {
+      "description": "Record a persisted outcome digest and close the attempt.",
+      "parameters": {
+        "attempt": {
+          "type": {
+            "ref": "save_attempt"
+          },
+          "required": true,
+          "description": "This reference identifies the save attempt affected by the action."
+        },
+        "outcome_sha256": {
+          "type": {
+            "value_type": "sha256"
+          },
+          "required": true,
+          "max_bytes": 64,
+          "description": "This digest identifies the private outcome body file."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "attempt_not_open",
+          "message": "The attempt is missing or closed.",
+          "all": [
+            {
+              "present": "$attempt.open_in"
+            }
+          ]
+        },
+        {
+          "code": "outcome_exists",
+          "message": "The attempt already has an outcome.",
+          "none": [
+            {
+              "present": "$attempt.outcome_sha256"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "modify_object": "save_attempt",
+          "set": {
+            "state": "settled_persisted",
+            "outcome_sha256": "$outcome_sha256"
+          }
+        },
+        {
+          "clear_reference": {
+            "object_type": "save_attempt",
+            "property": "open_in"
+          }
+        }
+      ]
+    }
+  },
+  "functions": {},
+  "grants": [
+    {
+      "principal": "agent",
+      "scope": {},
+      "read": [
+        "student",
+        "save_attempt"
+      ],
+      "derive": [
+        "student",
+        "save_attempt"
+      ],
+      "actions": [
+        "begin_attempt",
+        "register_student",
+        "record_outcome",
+        "record_reconciliation",
+        "settle_outcome"
+      ]
+    }
+  ],
+  "views": {
+    "pending_attempts": {
+      "object_type": "save_attempt",
+      "args": [],
+      "filter": {
+        "all": [
+          {
+            "in": [
+              "state",
+              [
+                "dispatch_outcome_unknown",
+                "reconciliation_required"
+              ]
+            ]
+          }
+        ]
+      },
+      "order": [
+        {
+          "property": "begun_at",
+          "direction": "asc"
+        }
+      ],
+      "columns": [
+        {
+          "header": "Student",
+          "property": "student_id"
+        },
+        {
+          "header": "Lesson date",
+          "property": "lesson_date"
+        },
+        {
+          "header": "Course",
+          "property": "course_id"
+        },
+        {
+          "header": "Field",
+          "property": "field"
+        },
+        {
+          "header": "State",
+          "property": "state"
+        },
+        {
+          "header": "Begun",
+          "property": "begun_at"
+        }
+      ]
+    }
+  }
+}

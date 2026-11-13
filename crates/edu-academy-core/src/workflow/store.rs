@@ -63,6 +63,11 @@ pub struct Store {
 impl Store {
     pub const SCOPE: &'static str = "single_host_owner_filesystem";
     pub fn open(root: &Path, owner_root: &Path) -> Result<Self> {
+        let mut ledger_root = root.as_os_str().to_os_string();
+        ledger_root.push(".ledger");
+        if Path::new(&ledger_root).exists() {
+            return Err(Fault::error("workflow_ledger_legacy_root"));
+        }
         if !root.is_absolute()
             || !owner_root.is_absolute()
             || !root.starts_with(owner_root)
