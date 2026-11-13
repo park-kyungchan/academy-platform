@@ -36,13 +36,13 @@ pub fn contracts() -> Vec<OperationContract> {
         .filter(|op| OPERATIONS.contains(&op.id.as_str()))
         .collect()
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Student {
     pub student_id: String,
     pub student_name: String,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Roster {
     pub students: Vec<Student>,
@@ -129,8 +129,12 @@ impl<P: ReadPort> ReadPort for Bounded<'_, P> {
         }
         self.count.set(self.count.get() + 1);
         let result = self.port.read(scope, operation, arguments);
-        if result.is_err() {
-            *self.failure.borrow_mut() = Some("capture_request_failed");
+        if let Err(error) = &result {
+            *self.failure.borrow_mut() = Some(if error.message == "capture_raw_request_mismatch" {
+                "capture_raw_request_mismatch"
+            } else {
+                "capture_request_failed"
+            });
         }
         result
     }
@@ -226,9 +230,11 @@ fn read_student<P: ReadPort>(
         }
         let scope = BookScope::new(&binding.course_key, &binding.book_no)
             .map_err(|_| fail("capture_scope_invalid"))?;
-        let index = source
-            .index(&teacher, &who, &scope)
-            .map_err(|_| fail("capture_index_failed"))?;
+        let index = source.index(&teacher, &who, &scope);
+        if source.dropped_paper_rows() > 0 {
+            return Err(fail("capture_paper_row_dropped"));
+        }
+        let index = index.map_err(|_| fail("capture_index_failed"))?;
         // A structural/form/source error can also be swallowed by the typed index.
         if matches!(
             index.paper_search,
@@ -244,10 +250,11 @@ fn read_student<P: ReadPort>(
         if !options.no_detail {
             let titles: Vec<String> = index.rows.iter().map(|r| r.source_title.clone()).collect();
             for batch in titles.chunks(MAX_SOURCE_TITLES) {
-                match source
-                    .grade(&teacher, &who, &scope, batch)
-                    .map_err(|_| fail("capture_grade_failed"))?
-                {
+                let outcome = source.grade(&teacher, &who, &scope, batch);
+                if source.dropped_paper_rows() > 0 {
+                    return Err(fail("capture_paper_row_dropped"));
+                }
+                match outcome.map_err(|_| fail("capture_grade_failed"))? {
                     GradeOutcome::Graded(g) if g.paper_search_observed => graded.extend(g.records),
                     _ => return Err(fail("capture_grade_incomplete")),
                 }
@@ -368,6 +375,7 @@ fn publish(
 pub struct Recorder<'a> {
     dir: Option<PathBuf>,
     pending: Rc<RefCell<Option<Pending>>>,
+    mismatch: Rc<Cell<bool>>,
     runtime: &'a dyn Runtime,
 }
 struct Pending {
@@ -388,6 +396,7 @@ impl<'a> Recorder<'a> {
         Self {
             dir,
             pending: Rc::default(),
+            mismatch: Rc::new(Cell::new(false)),
             runtime,
         }
     }
@@ -409,25 +418,29 @@ impl<T: crate::http::Transport> crate::http::Transport for RecordingTransport<'_
         self.inner.bind_account(lease);
     }
     fn dispatch(&mut self, request: &crate::http::Request) -> Result<crate::http::Response> {
+        let pending = self.recorder.pending.borrow();
+        if let Some(p) = pending.as_ref()
+            && (request.method != p.request.method
+                || request.path != p.request.path
+                || request.query != p.request.query
+                || request.body != p.request.body)
+        {
+            self.recorder.mismatch.set(true);
+            return Err(fail("capture_raw_request_mismatch"));
+        }
         let response = self.inner.dispatch(request)?;
-        if let Some(dir) = &self.recorder.dir {
-            let pending = self.recorder.pending.borrow();
-            if let Some(p) = pending.as_ref()
-                && request.method == p.request.method
-                && request.path == p.request.path
-                && request.query == p.request.query
-                && request.body == p.request.body
-            {
-                save_raw(
-                    dir,
-                    &p.student_id,
-                    &p.operation,
-                    request,
-                    &response,
-                    self.recorder.runtime,
-                )
-                .map_err(|_| fail("capture_raw_failed"))?;
-            }
+        if let Some(dir) = &self.recorder.dir
+            && let Some(p) = pending.as_ref()
+        {
+            save_raw(
+                dir,
+                &p.student_id,
+                &p.operation,
+                request,
+                &response,
+                self.recorder.runtime,
+            )
+            .map_err(|_| fail("capture_raw_failed"))?;
         }
         Ok(response)
     }
@@ -446,6 +459,8 @@ impl<P: ReadPort> ReadPort for RecordingPort<'_, P> {
             .inner
             .transport_admission()
             .request(scope, operation, arguments, false)?;
+        // Authenticate while unarmed: login exchanges are never source bodies.
+        self.inner.authenticate_for_reads()?;
         *self.recorder.pending.borrow_mut() = Some(Pending {
             student_id: scope.student_id.clone(),
             operation: operation.into(),
@@ -453,6 +468,9 @@ impl<P: ReadPort> ReadPort for RecordingPort<'_, P> {
         });
         let result = self.inner.read(scope, operation, arguments);
         self.recorder.pending.borrow_mut().take();
+        if self.recorder.mismatch.get() {
+            return Err(fail("capture_raw_request_mismatch"));
+        }
         result
     }
 }

@@ -1492,6 +1492,7 @@ pub struct TextbookIndexSource<P: TextbookSectionPort> {
     port: P,
     principal_label: String,
     requests: usize,
+    dropped_paper_rows: usize,
 }
 impl<P: TextbookSectionPort> TextbookIndexSource<P> {
     pub fn new(port: P, principal_label: impl Into<String>) -> Self {
@@ -1499,7 +1500,11 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
             port,
             principal_label: principal_label.into(),
             requests: 0,
+            dropped_paper_rows: 0,
         }
+    }
+    pub fn dropped_paper_rows(&self) -> usize {
+        self.dropped_paper_rows
     }
     pub fn requests(&self) -> usize {
         self.requests
@@ -1563,7 +1568,7 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
         )?;
         // A row whose title or keys are not strings is dropped, as TS drops a
         // row whose `titles.testingName` is not a string.
-        Ok(rows
+        let selected: Vec<PaperSearchRow> = rows
             .iter()
             .filter_map(|r| {
                 Some(PaperSearchRow {
@@ -1573,7 +1578,9 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
                     apply_date_literal: optional_string(r.get("titles").get("applyDate")),
                 })
             })
-            .collect())
+            .collect();
+        self.dropped_paper_rows += rows.len() - selected.len();
+        Ok(selected)
     }
     /// The paper-search hook: any failure is `Unavailable`, never an error.
     fn paper_search(&mut self, student: &TextbookStudent) -> PaperObservation {

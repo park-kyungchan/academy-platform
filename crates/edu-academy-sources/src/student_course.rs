@@ -208,6 +208,9 @@ pub(crate) fn screen(reason: &str) -> Js {
 /// Injected READ only. NativeSession retains E07 authentication, expiry, lease,
 /// cancellation and abnormal-response invalidation. No raw Transport is accepted by the facade.
 pub trait ReadPort {
+    fn authenticate_for_reads(&mut self) -> Result<()> {
+        Ok(())
+    }
     fn transport_admission(&self) -> &TransportAdmission;
     fn read(
         &mut self,
@@ -217,6 +220,9 @@ pub trait ReadPort {
     ) -> Result<Response>;
 }
 impl<T: Transport> ReadPort for NativeSession<'_, T> {
+    fn authenticate_for_reads(&mut self) -> Result<()> {
+        NativeSession::authenticate_for_reads(self)
+    }
     fn transport_admission(&self) -> &TransportAdmission {
         NativeSession::transport_admission(self)
     }

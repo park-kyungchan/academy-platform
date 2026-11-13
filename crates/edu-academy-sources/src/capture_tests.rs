@@ -97,6 +97,7 @@ struct Synthetic {
     rows: usize,
     details: usize,
     fail_detail: Option<usize>,
+    drop_paper_row: bool,
 }
 impl Transport for Synthetic {
     fn dispatch(&mut self, r: &Request) -> Result<Response> {
@@ -137,6 +138,16 @@ impl Transport for Synthetic {
         } else if field("reqCmd") == "getTextBookProgress" {
             include_str!("../tests/fixtures/textbook_index/progress-single.html").into()
         } else if field("p_process") == "getWrongAnswerNoteResult" {
+            if self.drop_paper_row {
+                return Ok(Response {
+                    status: 200,
+                    headers: vec![],
+                    bytes: include_bytes!("../tests/fixtures/textbook_index/wrong-notes.json")
+                        .to_vec(),
+                    url: format!("{}{}", http::ORIGIN, r.path),
+                    stalled: false,
+                });
+            }
             if self.rows == 0 {
                 return Ok(Response {
                     status: 200,
@@ -158,6 +169,10 @@ impl Transport for Synthetic {
         } else if field("p_process") == "UserByMain" {
             format!("{OWNER}{SEARCH}")
         } else if field("p_process") == "UserBySearchTestResult" {
+            if self.drop_paper_row {
+                let raw=json!([{"priNo":"77001","userName":"Invented Learner","pNo":"81099","testingNo":"82099","testingName":42}]).to_string();
+                return Ok(Response {status:200,headers:vec![],bytes:format!("{OWNER}<script>const results={{testResultList:JSON.parse('{raw}')}};</script>").into_bytes(),url:format!("{}{}",http::ORIGIN,r.path),stalled:false});
+            }
             format!("{OWNER}<script>const results={{testResultList:JSON.parse('[]')}};</script>")
         } else {
             format!("{OWNER}<a>로그아웃</a>")
@@ -195,6 +210,7 @@ fn session_with_raw(
             rows,
             details: 0,
             fail_detail,
+            drop_paper_row: false,
         }),
         || {
             Ok(Credentials::new(
@@ -428,4 +444,261 @@ fn raw_directory_inside_git_refuses_without_dispatch() {
         "capture_admission_refused"
     );
     assert!(seen.borrow().is_empty());
+}
+
+#[test]
+fn prepare_owner_binary_documents_feed_native_capture_and_partial_write_rolls_back() {
+    let f = Fixture::new();
+    let put = |name: &str, value: &[u8]| {
+        let path = f.0.join(name);
+        fs::write(&path, value).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        path
+    };
+    let identity=put("identity.json",br#"{"teacherSourceKey":"99001","teacherLabel":"Fictional Teacher","collegeSourceKey":"88001","sourceUsername":"OwnerUsername_CANARY"}"#);
+    let secret = put("secret.env", b"SYNTHETIC_KEY=\"OwnerPassword_CANARY\"\n");
+    let students = put(
+        "students.json",
+        &serde_json::to_vec(&roster().students).unwrap(),
+    );
+    let form = put(
+        "form.json",
+        &serde_json::to_vec(&roster().paper_form).unwrap(),
+    );
+    let output_root = f.0.join("prepared");
+    let binary = std::env::current_exe()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("academy-capture");
+    let out = std::process::Command::new(binary)
+        .args(["prepare-owner", "--identity"])
+        .arg(&identity)
+        .arg("--secret-env")
+        .arg(&secret)
+        .args(["--secret-key", "SYNTHETIC_KEY", "--lock"])
+        .arg(f.0.join("shared.lock"))
+        .arg("--students")
+        .arg(&students)
+        .arg("--paper-form")
+        .arg(&form)
+        .args([
+            "--allowed-from",
+            "2040-01-01",
+            "--allowed-through",
+            "2040-01-31",
+            "--expires-at",
+            "2040-01-31T23:00:00Z",
+            "--owner-root",
+        ])
+        .arg(&output_root)
+        .output()
+        .unwrap();
+    for payload in [&out.stdout, &out.stderr] {
+        for value in [
+            "OwnerUsername_CANARY",
+            "OwnerPassword_CANARY",
+            "Invented Learner",
+            "Fictional Teacher",
+            "77001",
+            "99001",
+            "88001",
+        ] {
+            assert!(
+                !String::from_utf8_lossy(payload).contains(value),
+                "CLI privacy violation"
+            );
+        }
+    }
+    assert!(out.status.success());
+    let output: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let root = Rc::new(OwnerRoot::open(&output_root).unwrap());
+    let read = |name: &str| {
+        root.read(
+            name,
+            output["documents"][name]["sha256"].as_str().unwrap(),
+            1_048_576,
+        )
+        .unwrap()
+        .bytes
+    };
+    let admission = TransportAdmission::from_bytes(&read("transport-admission.json")).unwrap();
+    assert_eq!(
+        serde_json::to_value(&admission.operations).unwrap(),
+        serde_json::to_value(contracts()).unwrap()
+    );
+    let roster: Roster = serde_json::from_slice(&read("roster.json")).unwrap();
+    let provider = crate::owner_workflow::FileCredentialProvider::new(
+        root.clone(),
+        crate::owner_workflow::PinnedInput {
+            relative_path: "credential.json".into(),
+            sha256: output["documents"]["credential.json"]["sha256"]
+                .as_str()
+                .unwrap()
+                .into(),
+        },
+        &Clock,
+    );
+    let seen = Rc::new(RefCell::new(vec![]));
+    let recorder = Recorder::new(None, &Clock);
+    let session = NativeSession::open(
+        root,
+        admission,
+        recorder.transport(Synthetic {
+            seen: seen.clone(),
+            rows: 1,
+            details: 0,
+            fail_detail: None,
+            drop_paper_row: false,
+        }),
+        provider,
+        Cancellation::default(),
+        &Clock,
+    )
+    .unwrap();
+    let mut session = recorder.port(session);
+    assert_eq!(
+        capture(&mut session, &roster, &f.options(true, 3), &Clock)[0].status,
+        "refreshed"
+    );
+    assert_eq!(
+        seen.borrow()
+            .iter()
+            .filter(|s| s.as_str() == "/c_login.jsp")
+            .count(),
+        1
+    );
+    // Actual publication failure after two files: cleanup must remove both.
+    let inputs = crate::prepare_owner::Inputs {
+        identity,
+        secret_env: secret,
+        secret_key: "SYNTHETIC_KEY".into(),
+        lock: f.0.join("shared.lock"),
+        students,
+        paper_form: form,
+        allowed_from: "2040-01-01".into(),
+        allowed_through: "2040-01-31".into(),
+        expires_at: "2040-01-31T23:00:00Z".into(),
+        owner_root: f.0.join("rollback"),
+    };
+    assert_eq!(
+        crate::prepare_owner::tests::fail_second_write(&inputs, &Clock)
+            .unwrap_err()
+            .message,
+        "prepare_write_failed"
+    );
+    assert!(!inputs.owner_root.exists());
+}
+#[test]
+fn dropped_paper_row_refuses_student_and_preserves_both_old_partitions() {
+    let f = Fixture::new();
+    let options = f.options(true, 5);
+    {
+        let mut p = session(&f, 1, None, Rc::default());
+        assert_eq!(
+            capture(&mut p, &roster(), &options, &Clock)[0].status,
+            "refreshed"
+        );
+    }
+    let paths = [
+        options.spool.join("registered_book/77001.jsonl"),
+        options.spool.join("section_attempt/77001.jsonl"),
+    ];
+    let old = paths.each_ref().map(|p| fs::read(p).unwrap());
+    let recorder = Recorder::new(None, &Clock);
+    let s = NativeSession::open(
+        f.root(),
+        admission(),
+        recorder.transport(Synthetic {
+            seen: Rc::default(),
+            rows: 1,
+            details: 0,
+            fail_detail: None,
+            drop_paper_row: true,
+        }),
+        || {
+            Ok(Credentials::new(
+                "fictional-user".into(),
+                "fictional-password".into(),
+            ))
+        },
+        Cancellation::default(),
+        &Clock,
+    )
+    .unwrap();
+    let mut port = recorder.port(s);
+    let report = capture(&mut port, &roster(), &options, &Clock);
+    assert_eq!(report[0].status, "capture_paper_row_dropped");
+    assert_eq!(paths.each_ref().map(|p| fs::read(p).unwrap()), old);
+}
+struct Alter<P>(P);
+impl<P: ReadPort> ReadPort for Alter<P> {
+    fn transport_admission(&self) -> &TransportAdmission {
+        self.0.transport_admission()
+    }
+    fn authenticate_for_reads(&mut self) -> Result<()> {
+        self.0.authenticate_for_reads()
+    }
+    fn read(
+        &mut self,
+        scope: &TransportScope,
+        operation: &str,
+        args: &[(String, String)],
+    ) -> Result<Response> {
+        let mut changed = args.to_vec();
+        if let Some((_, value)) = changed.iter_mut().find(|(k, _)| k == "student_name") {
+            value.push(' ');
+        }
+        self.0.read(scope, operation, &changed)
+    }
+}
+#[test]
+fn raw_request_mismatch_refuses_student_and_preserves_old_partitions() {
+    let f = Fixture::new();
+    let mut options = f.options(true, 5);
+    {
+        let mut p = session(&f, 1, None, Rc::default());
+        assert_eq!(
+            capture(&mut p, &roster(), &options, &Clock)[0].status,
+            "refreshed"
+        );
+    }
+    let paths = [
+        options.spool.join("registered_book/77001.jsonl"),
+        options.spool.join("section_attempt/77001.jsonl"),
+    ];
+    let old = paths.each_ref().map(|p| fs::read(p).unwrap());
+    let raw = f.0.join("raw");
+    fs::DirBuilder::new().mode(0o700).create(&raw).unwrap();
+    options.raw_dir = Some(raw.clone());
+    let recorder = Recorder::new(Some(raw.clone()), &Clock);
+    let seen = Rc::new(RefCell::new(vec![]));
+    let s = NativeSession::open(
+        f.root(),
+        admission(),
+        recorder.transport(Synthetic {
+            seen: seen.clone(),
+            rows: 1,
+            details: 0,
+            fail_detail: None,
+            drop_paper_row: false,
+        }),
+        || {
+            Ok(Credentials::new(
+                "fictional-user".into(),
+                "fictional-password".into(),
+            ))
+        },
+        Cancellation::default(),
+        &Clock,
+    )
+    .unwrap();
+    let mut port = recorder.port(Alter(s));
+    let report = capture(&mut port, &roster(), &options, &Clock);
+    assert_eq!(report[0].status, "capture_raw_request_mismatch");
+    assert_eq!(paths.each_ref().map(|p| fs::read(p).unwrap()), old);
+    assert_eq!(fs::read_dir(raw).unwrap().count(), 0);
+    assert_eq!(seen.borrow().len(), 3);
 }
