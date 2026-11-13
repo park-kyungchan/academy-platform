@@ -432,3 +432,64 @@ fn a4_the_lines_the_capture_writes_are_indexed_without_a_failed_source() {
         );
     }
 }
+
+/// Records at the largest size the capture can publish, with multibyte text
+/// (one invented Hangul syllable repeated; 3 UTF-8 bytes per UTF-16 unit): a
+/// book label of 200 units, a title and a hint of 2000 units (200 is the graded
+/// bound; 2000 is the schema's choice for the no-detail path, which the capture
+/// leaves unbounded), a 16-digit key, a date literal of 4095 bytes and 800
+/// ordinals of 16 digits. One such line must not fail the source of the others.
+#[test]
+fn a5_records_at_the_capture_maximum_with_multibyte_text_are_indexed_and_rendered() {
+    let env = Env::new();
+    let student = "9007199254740991";
+    let book_no = "9007199254740990";
+    let label = "가".repeat(200);
+    let title = "나".repeat(2000);
+    let date = "다".repeat(1365);
+    let wrong = vec!["9007199254740991"; 800].join(", ");
+    assert_eq!(label.len(), 600);
+    assert_eq!(title.len(), 6000);
+    let mut b = book(student, book_no, &label, 1, Some(&title), 1000);
+    b["course_key"] = json!("9007199254740991");
+    env.put(
+        "registered_book",
+        student,
+        &[b, book("77001", "812", "Euler sets book", 1, None, 1000)],
+    );
+    let mut s = graded(
+        student,
+        book_no,
+        &label,
+        1,
+        &title,
+        &date,
+        (1, 2),
+        &wrong,
+        1000,
+    );
+    s["source_date_precision"] = json!("unknown");
+    s["key"] = json!(format!("{student}|{book_no}|9007199254740991"));
+    env.put("section_attempt", student, &[s]);
+    let (code, ans) = env.index_code(2000);
+    assert_eq!(code, 0, "{ans}");
+    assert_eq!(
+        appended(source(&ans, "registered_book")),
+        [2, 0, 0, 0],
+        "{ans}"
+    );
+    assert_eq!(
+        appended(source(&ans, "section_attempt")),
+        [1, 0, 0, 0],
+        "{ans}"
+    );
+    let books = env.render(2000, "registered_books", student);
+    assert!(
+        books.contains(&format!("| {book_no} | {label} | {title} |")),
+        "hint and label"
+    );
+    let sections = env.render(2000, "section_results", student);
+    for text in [&label, &title, &date, &wrong] {
+        assert!(sections.contains(text.as_str()));
+    }
+}

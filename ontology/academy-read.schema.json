@@ -39,26 +39,27 @@
         "student_id": {
           "type": "string",
           "required": true,
-          "max_bytes": 256,
+          "max_bytes": 32,
           "from": "/student_id",
           "description": "Student id, digits only; no name is stored."
         },
         "book_no": {
           "type": "string",
           "required": true,
-          "max_bytes": 256,
+          "max_bytes": 32,
           "from": "/book_no"
         },
         "book_label": {
           "type": "string",
           "required": true,
-          "max_bytes": 256,
-          "from": "/book_label"
+          "max_bytes": 600,
+          "from": "/book_label",
+          "description": "At most 200 UTF-16 units in the capture (prestudy MAX_BOOK_LABEL_UNITS), 3 bytes each: 600 bytes."
         },
         "course_key": {
           "type": "string",
           "required": true,
-          "max_bytes": 256,
+          "max_bytes": 32,
           "from": "/course_key"
         },
         "binding_ordinal": {
@@ -69,14 +70,14 @@
         "hint": {
           "type": "string",
           "required": false,
-          "max_bytes": 256,
+          "max_bytes": 6000,
           "from": "/hint",
-          "description": "First index title of the book; absent when the source had none."
+          "description": "First index title of the book; absent when the source had none. The first index title; bounded like source_title (6000 bytes)."
         },
         "student": {
           "type": "string",
           "required": false,
-          "max_bytes": 256,
+          "max_bytes": 32,
           "from": "/student",
           "description": "The student id again, as the capture writes it."
         }
@@ -94,26 +95,26 @@
         "student_id": {
           "type": "string",
           "required": true,
-          "max_bytes": 256,
+          "max_bytes": 32,
           "from": "/student_id"
         },
         "student": {
           "type": "string",
           "required": false,
-          "max_bytes": 256,
+          "max_bytes": 32,
           "from": "/student"
         },
         "book": {
           "type": "string",
           "required": true,
-          "max_bytes": 256,
+          "max_bytes": 64,
           "from": "/book",
           "description": "Key of the registered book."
         },
         "book_no": {
           "type": "string",
           "required": true,
-          "max_bytes": 256,
+          "max_bytes": 32,
           "from": "/book_no"
         },
         "book_number": {
@@ -126,8 +127,9 @@
         "book_book_label": {
           "type": "string",
           "required": true,
-          "max_bytes": 256,
-          "from": "/book_book_label"
+          "max_bytes": 600,
+          "from": "/book_book_label",
+          "description": "As book_label: 600 bytes."
         },
         "index_ordinal": {
           "type": "integer",
@@ -137,19 +139,21 @@
         "source_title": {
           "type": "string",
           "required": true,
-          "max_bytes": 256,
-          "from": "/source_title"
+          "max_bytes": 6000,
+          "from": "/source_title",
+          "description": "The capture bounds a graded or wrong-note title at 200 UTF-16 units (600 bytes) and a paper-search title in no-detail mode not at all; 6000 bytes is 2000 units, the hint title rule of the repository."
         },
         "source_date_literal": {
           "type": "string",
           "required": false,
-          "max_bytes": 256,
-          "from": "/source_date_literal"
+          "max_bytes": 4096,
+          "from": "/source_date_literal",
+          "description": "The capture enforces no bound on the source's apply date; 4096 bytes is chosen well under the engine's 65536-byte observation limit."
         },
         "source_date_precision": {
           "type": "string",
           "required": true,
-          "max_bytes": 256,
+          "max_bytes": 16,
           "from": "/source_date_precision"
         },
         "correct_count": {
@@ -170,8 +174,9 @@
         "wrong_ordinals": {
           "type": "string",
           "required": false,
-          "max_bytes": 256,
-          "from": "/wrong_ordinals"
+          "max_bytes": 16384,
+          "from": "/wrong_ordinals",
+          "description": "Ordinals of at most 16 digits joined by comma and space; the capture bounds the item count only by the response size; 16384 bytes is about 900 ordinals, under the engine's 65536-byte observation limit."
         }
       }
     }
