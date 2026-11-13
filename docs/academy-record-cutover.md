@@ -34,10 +34,12 @@ When an effect target moved, reconciliation leaves that field uncertain with
 `workflow_effect_target_drift`, keeps its fence, and reconciles the other fields.
 
 The engine stores the original execution key, bounded at 8,192 bytes.
-A larger key is refused by `Store::publish` with
-`workflow_execution_key_too_large` before any execution body is written,
-before the ledger records an attempt and before any dispatch. This refusal is
-final and is not retried. The engine holds no student body text, but the execution key carries
+The body bound is checked first by `Store::publish`. A key over 8,192 bytes
+whose serialized body still fits is refused with `workflow_execution_key_too_large`.
+A key so long that its serialized body exceeds 65,536 bytes is refused with
+`workflow_attempt_body_too_large`. Both refusals leave nothing written and no
+attempt open, occur before any dispatch, and are final and not retried.
+The engine holds no student body text, but the execution key carries
 unsalted SHA-256 digests of before and after text. Anyone able to read the
 mode-0600 owner-only store or a backup can recognize short or guessable text
 by comparing its digest.

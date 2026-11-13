@@ -314,3 +314,78 @@ fn outcome_and_reconciliation_body_bounds_preserve_ledger_and_readback() {
         std::panic::resume_unwind(panic);
     }
 }
+
+#[test]
+fn execution_publish_checks_body_bound_before_key_bound() {
+    use edu_academy_core::workflow::{codec, store::Kind};
+    fn files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
+        let mut found = vec![];
+        for entry in std::fs::read_dir(root).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                found.extend(files(&path));
+            } else {
+                found.push(path);
+            }
+        }
+        found.sort();
+        found
+    }
+    let owner = ledger_cases::root("publish-bound-order");
+    let result = std::panic::catch_unwind(|| {
+        let root = owner.join("store");
+        let store = edu_academy_ontology::open_store(&root, &owner, &ledger_cases::Clock).unwrap();
+        let scope = ledger_cases::scope("12");
+        let record = ledger_cases::execution(
+            &store,
+            &scope,
+            "progress",
+            "15".into(),
+            &ledger_cases::target(&scope),
+            "review",
+        );
+        let body_len = |key: &str| {
+            codec::bytes(&obj(&[
+                ("kind", "execution".into()),
+                ("id", key.into()),
+                ("record", record.clone()),
+            ]))
+            .unwrap()
+            .len()
+        };
+        let exact = "x".repeat(8192);
+        assert!(body_len(&exact) <= 65_536);
+        assert!(
+            store
+                .publish(Kind::Execution, &exact, &record, &ledger_cases::Clock)
+                .unwrap()
+                .0
+        );
+        assert_eq!(store.get(Kind::Execution, &exact).unwrap(), record);
+        let lock_key = state::lock_key(&scope).unwrap();
+        let count = store.attempt_count(&lock_key, 10).unwrap();
+        assert_eq!(count, 1);
+        let body_over = "x".repeat(65_537 - body_len(""));
+        assert_eq!(body_len(&body_over), 65_537);
+        assert!(body_over.len() > 8192);
+        let key_over = "x".repeat(8193);
+        assert!(body_len(&key_over) <= 65_536);
+        for (key, code) in [
+            (key_over, "workflow_execution_key_too_large"),
+            (body_over, "workflow_attempt_body_too_large"),
+        ] {
+            let before = files(&root);
+            let fault = store
+                .publish(Kind::Execution, &key, &record, &ledger_cases::Clock)
+                .unwrap_err();
+            assert_eq!(fault.message, code);
+            assert_eq!(files(&root), before, "refusal must create no file");
+            assert_eq!(store.attempt_count(&lock_key, 10).unwrap(), count);
+            assert_eq!(store.get(Kind::Execution, &key).unwrap(), Js::Null);
+        }
+    });
+    std::fs::remove_dir_all(owner).unwrap();
+    if let Err(panic) = result {
+        std::panic::resume_unwind(panic);
+    }
+}
