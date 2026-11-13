@@ -127,6 +127,9 @@ fn parse(bytes: &[u8]) -> Result<(Input, Js)> {
 }
 struct Tracked<'a>(http::NativeTransport, &'a Cell<bool>);
 impl Transport for Tracked<'_> {
+    fn bind_account(&mut self, lease: Rc<edu_academy_sources::owner_root::AccountLease>) {
+        self.0.bind_account(lease);
+    }
     fn dispatch(
         &mut self,
         request: &http::Request,

@@ -60,6 +60,7 @@ impl Fixture {
         ));
         fs::create_dir(&p).unwrap();
         fs::set_permissions(&p, fs::Permissions::from_mode(0o700)).unwrap();
+        configure_account_lock(&p);
         Self(p)
     }
     fn root(&self) -> Rc<OwnerRoot> {
@@ -701,8 +702,28 @@ fn account_excludes_processes_and_releases_on_process_termination() {
         root.account(&key).err().unwrap().message,
         "owner_account_busy"
     );
+    assert_eq!(
+        std::process::Command::new("/usr/bin/flock")
+            .arg("--nonblock")
+            .arg(fixture.0.join("shared.lock"))
+            .arg("true")
+            .status()
+            .unwrap()
+            .code(),
+        Some(1)
+    );
     child.kill().unwrap();
     assert!(!child.wait().unwrap().success());
+    assert_eq!(
+        std::process::Command::new("/usr/bin/flock")
+            .arg("--nonblock")
+            .arg(fixture.0.join("shared.lock"))
+            .arg("true")
+            .status()
+            .unwrap()
+            .code(),
+        Some(0)
+    );
     reader.join().unwrap();
     let recovered = root.account(&key).unwrap();
     assert!(!recovered.reconciliation_required().unwrap());
@@ -1750,4 +1771,19 @@ fn fix3_abnormal_source_effect_and_readback_table_closes_without_later_dispatch(
         failures.is_empty(),
         "abnormal sessions remained open: {failures:?}"
     );
+}
+
+fn configure_account_lock(root: &std::path::Path) {
+    let lock = root.join("shared.lock");
+    std::fs::write(&lock, b"").unwrap();
+    let config = root.join("account-lock.json");
+    std::fs::write(
+        &config,
+        serde_json::to_vec(&serde_json::json!({
+            "schemaVersion":"academy.account-lock/1", "path":lock
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::set_permissions(config, std::os::unix::fs::PermissionsExt::from_mode(0o600)).unwrap();
 }
