@@ -11,7 +11,11 @@ One root is served by one form. The live driver opens the engine form.
 `DraftStore::open_with_core` requires a ledgered core for the same directory,
 compared by device and inode; otherwise it returns `record_store_not_synthetic`.
 A process opens the core with `open_store` first and passes it to
-`DraftStore::open_with_core`. It never holds `DraftStore::open` on a root that
+`DraftStore::open_with_core`, including for a directory that does not yet exist.
+Without an owner marker, this accepts only the private, empty directories
+initialized by the supplied core; unrelated entries or nonempty directories
+are refused. Core identity is checked before writing the owner marker.
+It never holds `DraftStore::open` on a root that
 may later be given to `open_store`: the sibling check happens only at open.
 The synthetic backend stays on the file form. The example
 `fictional_dailyrecord_endpoint` also stays on the file form with invented data.
@@ -19,6 +23,15 @@ The synthetic backend stays on the file form. The example
 Erasure removes the whole store, its bodies and its sibling ledger together,
 and accounts for backups. Deleting one student cannot erase its identifier:
 it remains in observations, the action log, `edits.jsonl` and backups.
+
+For execution, outcome and reconciliation on the engine form, the complete
+serialized body wrapper (kind, id and record) is bounded at 65,536 bytes.
+`Store::publish` refuses a larger wrapper with `workflow_attempt_body_too_large`
+before writing a body or calling the ledger, leaving no new attempt open;
+a wrapper exactly at the bound is accepted and readable.
+
+When an effect target moved, reconciliation leaves that field uncertain with
+`workflow_effect_target_drift`, keeps its fence, and reconciles the other fields.
 
 The engine stores the original execution key, bounded at 8,192 bytes.
 A larger key is refused by `Store::publish` with
