@@ -1947,6 +1947,100 @@ fn preflight_counts_engine_attempts() {
     );
 }
 #[test]
+fn preflight_limit_at_production_bound() {
+    use edu_academy_core::{
+        js::Result,
+        workflow::{
+            Runtime,
+            ledger::{Attempt, AttemptLedger, AttemptTarget},
+            ledger_cases::{Clock, MemoryLedger},
+            state::FieldState,
+        },
+    };
+    use std::sync::Arc;
+
+    // Share the in-memory ledger without exposing the held core's internals.
+    struct SharedLedger(Arc<MemoryLedger>);
+    impl AttemptLedger for SharedLedger {
+        fn begin(
+            &self,
+            key: &str,
+            target: &AttemptTarget,
+            digest: &str,
+            clock: &dyn Runtime,
+        ) -> Result<bool> {
+            self.0.begin(key, target, digest, clock)
+        }
+        fn record_outcome(
+            &self,
+            key: &str,
+            digest: &str,
+            state: FieldState,
+            clock: &dyn Runtime,
+        ) -> Result<bool> {
+            self.0.record_outcome(key, digest, state, clock)
+        }
+        fn record_reconciliation(
+            &self,
+            key: &str,
+            digest: &str,
+            state: FieldState,
+            clock: &dyn Runtime,
+        ) -> Result<bool> {
+            self.0.record_reconciliation(key, digest, state, clock)
+        }
+        fn attempt(&self, key: &str) -> Result<Option<Attempt>> {
+            self.0.attempt(key)
+        }
+        fn attempts(&self, group: &str, limit: usize) -> Result<Vec<Attempt>> {
+            self.0.attempts(group, limit)
+        }
+        fn open_on(&self, target: &AttemptTarget) -> Result<Vec<Attempt>> {
+            self.0.open_on(target)
+        }
+    }
+
+    let t = Scratch::new();
+    t.open();
+    let ledger = Arc::new(MemoryLedger::default());
+    let core =
+        Store::open_with_ledger(&t.root(), &t.0, Box::new(SharedLedger(ledger.clone()))).unwrap();
+    let drafts = DraftStore::open_with_core(&t.root(), owner(), core).unwrap();
+    let account = drafts.lock_account().unwrap();
+    let scope = scope();
+    for count in 1..=4097 {
+        assert!(
+            ledger
+                .begin(
+                    &format!("production-limit-{count}"),
+                    &engine_target(&scope, count),
+                    &sha("absent-body"),
+                    &Clock
+                )
+                .unwrap()
+        );
+        if count < 4095 {
+            continue;
+        }
+        for (selected, admission) in [
+            (0, ExecutionAdmission::ReadOnly),
+            (1, ExecutionAdmission::Save { selected_fields: 1 }),
+        ] {
+            let result = account.preflight_executions(&scope, admission);
+            // File form refuses entry 4097, and selected fields above 4096.
+            if count > 4096 || (selected > 0 && (count == 4096 || count + selected > 4096)) {
+                assert_eq!(
+                    error(result),
+                    "record_execution_limit",
+                    "count={count}, selected={selected}"
+                );
+            } else {
+                assert_eq!(result.unwrap(), count, "count={count}, selected={selected}");
+            }
+        }
+    }
+}
+#[test]
 #[ignore = "manual full bound exceeds two-minute budget; unit control uses TEST_LIMIT=8"]
 fn preflight_limit_on_engine() {
     use edu_academy_core::workflow::ledger_cases::Clock;
@@ -2084,6 +2178,11 @@ fn open_refuses_engine_root() {
     t.open();
     let _core = engine_core(&t);
     refused(DraftStore::open(&t.root(), owner()));
+    refused(DraftStore::open(
+        Path::new(&format!("{}/", t.root().display())),
+        owner(),
+    ));
+    refused(DraftStore::open(&t.root().join("."), owner()));
 }
 
 #[test]

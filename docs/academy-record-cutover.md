@@ -10,6 +10,9 @@ One root is served by one form. The live driver opens the engine form.
 `DraftStore::open` refuses an engine sibling with `record_store_not_synthetic`.
 `DraftStore::open_with_core` requires a ledgered core for the same directory,
 compared by device and inode; otherwise it returns `record_store_not_synthetic`.
+A process opens the core with `open_store` first and passes it to
+`DraftStore::open_with_core`. It never holds `DraftStore::open` on a root that
+may later be given to `open_store`: the sibling check happens only at open.
 The synthetic backend stays on the file form. The example
 `fictional_dailyrecord_endpoint` also stays on the file form with invented data.
 
@@ -18,8 +21,10 @@ and accounts for backups. Deleting one student cannot erase its identifier:
 it remains in observations, the action log, `edits.jsonl` and backups.
 
 The engine stores the original execution key, bounded at 8,192 bytes.
-A larger key is refused before any effect. This refusal is final and is not
-retried. The engine holds no student body text, but the execution key carries
+A larger key is refused before the ledger records an attempt and before any
+dispatch. The execution body written just before the refusal stays in
+`execution/` without an attempt and is never read. This refusal is final and
+is not retried. The engine holds no student body text, but the execution key carries
 unsalted SHA-256 digests of before and after text. Anyone able to read the
 mode-0600 owner-only store or a backup can recognize short or guessable text
 by comparing its digest.
@@ -28,6 +33,9 @@ by comparing its digest.
 schema. Before a second version of `academy` reaches a store with attempts,
 install it on a copy and measure the basis of one `begin_attempt` there.
 That basis must not grow with the number of closed attempts.
+The ledger grows by about 47.6 kB per attempt. Every schema install or backup
+keeps a full copy under `backup/` of the sibling. While an attempt of a field
+is open, a second save of that field is refused with `workflow_attempt_fenced`.
 The store is not registered with an agent tool: the engine has one principal,
 and the schema grants that principal all five actions.
 
