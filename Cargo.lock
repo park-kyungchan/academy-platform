@@ -703,7 +703,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 [[package]]
 name = "ont"
 version = "0.1.0"
-source = "git+https://github.com/park-kyungchan/ontology-platform?rev=2654024edeb4ed32f3b51c1df167eecb19b53c6a#2654024edeb4ed32f3b51c1df167eecb19b53c6a"
+source = "git+https://github.com/park-kyungchan/ontology-platform?rev=ebcb565e55d6376dbdfbb4a3614d2053a7ac5baf#ebcb565e55d6376dbdfbb4a3614d2053a7ac5baf"
 dependencies = [
  "ont-core",
  "ont-store",
@@ -716,7 +716,7 @@ dependencies = [
 [[package]]
 name = "ont-core"
 version = "0.1.0"
-source = "git+https://github.com/park-kyungchan/ontology-platform?rev=2654024edeb4ed32f3b51c1df167eecb19b53c6a#2654024edeb4ed32f3b51c1df167eecb19b53c6a"
+source = "git+https://github.com/park-kyungchan/ontology-platform?rev=ebcb565e55d6376dbdfbb4a3614d2053a7ac5baf#ebcb565e55d6376dbdfbb4a3614d2053a7ac5baf"
 dependencies = [
  "regex-lite",
  "serde",
@@ -728,7 +728,7 @@ dependencies = [
 [[package]]
 name = "ont-store"
 version = "0.1.0"
-source = "git+https://github.com/park-kyungchan/ontology-platform?rev=2654024edeb4ed32f3b51c1df167eecb19b53c6a#2654024edeb4ed32f3b51c1df167eecb19b53c6a"
+source = "git+https://github.com/park-kyungchan/ontology-platform?rev=ebcb565e55d6376dbdfbb4a3614d2053a7ac5baf#ebcb565e55d6376dbdfbb4a3614d2053a7ac5baf"
 dependencies = [
  "ont-core",
  "rusqlite",

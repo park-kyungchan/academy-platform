@@ -9,9 +9,9 @@ license = "UNLICENSED"
 publish = false
 
 [workspace.dependencies]
-ont = { git = "https://github.com/park-kyungchan/ontology-platform", rev = "2654024edeb4ed32f3b51c1df167eecb19b53c6a" }
-ont-core = { git = "https://github.com/park-kyungchan/ontology-platform", rev = "2654024edeb4ed32f3b51c1df167eecb19b53c6a" }
-ont-store = { git = "https://github.com/park-kyungchan/ontology-platform", rev = "2654024edeb4ed32f3b51c1df167eecb19b53c6a" }
+ont = { git = "https://github.com/park-kyungchan/ontology-platform", rev = "ebcb565e55d6376dbdfbb4a3614d2053a7ac5baf" }
+ont-core = { git = "https://github.com/park-kyungchan/ontology-platform", rev = "ebcb565e55d6376dbdfbb4a3614d2053a7ac5baf" }
+ont-store = { git = "https://github.com/park-kyungchan/ontology-platform", rev = "ebcb565e55d6376dbdfbb4a3614d2053a7ac5baf" }
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.150"
 ryu-js = "=1.0.2"
