@@ -1,11 +1,35 @@
-# Education platform
+# Working in education-platform
 
-For Academy classroom practice, use the [Hindsight knowledge entry](docs/academy-practical-entry.md). It locates the adopted current protocol and reminder records without duplicating them. Repository code and code-consumed contracts remain authoritative for implementation; current user instructions and task STATE govern effects.
+Shared rules of this host: `/root/.agents/AGENTS.md`. This page adds only what is particular to this repository. What the repository is: `README.md`. For Academy classroom practice use the [Hindsight knowledge entry](docs/academy-practical-entry.md); it holds locators only.
 
-The maintained implementation is the Rust Cargo workspace. Read README.md and the relevant crate before changing behavior. Use the pinned toolchain and run formatting, Clippy, the binary/example build and synthetic tests described there. Do not restore the retired Bun integration harness, context gates, custom receipts or automated review workflow.
+## What this is and who uses it
 
-On the managed VPS, current task authority is `/home/palantirkc/work/ws-replan/STATE.md`, `/home/palantirkc/work/ws-replan/CURRENT-PLAN.md` and the assigned TASK.md. New task worktrees follow the approved workspace layout. Host paths need not exist in an external clone and are not build dependencies. Current direct user instructions take precedence over historical module guidance.
+Tooling for a teacher's Academy work. The route in use is the installed TypeScript Academy server (source `modules/academy-workbench/tools/academy-mcp`, registered as `academy_operations`). The Rust Cargo workspace is the replacement under construction: its crates are not installed and are not qualified for native activation. Users: the teacher, through the TypeScript server, and every agent that changes this repository.
 
-The Academy Rust replacement is not qualified for native activation. Preserve retained TypeScript/Bun reference source and all files with current Rust, live runtime or host consumers until their specific retirement conditions are satisfied. Do not change the installed Academy bundle or host configuration as a side effect of source maintenance. Historical pins and records describe their original observations, not current acceptance or runtime authority.
+## The check
 
-Preserve private context and original dated student/book/activity identities. Never read or publish credentials, use private student payloads as synthetic fixtures, contact Academy endpoints or infer operational effects from a repository check. Native profiles, sessions, databases, stores and credential consumers retain their owners. DailyRecord work follows [the Academy DailyRecord policy](apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md); drafts, review, save and transmission remain separate.
+`./check` at the root, until it prints `check: ok`; it is the file the CI job `rust` runs. It covers the default members. `./check all` also builds and tests the frozen crate. On the host it takes the build lock and makes its fixture directory by itself (do not wrap it in `flock`; do not point `CHECK_FIXTURE_BASE` under `/tmp` or inside a work tree). Builds go to `target/` in your worktree. Do not push before it passes.
+
+## Contracts you can break
+
+| Contract | Where | Relied on by |
+| --- | --- | --- |
+| Record store, ledger, bounds and refusal codes | `docs/academy-record-cutover.md` | `edu-academy-core` workflow, `edu-academy-teacher` draft store, the live driver |
+| The `academy` schema | `ontology/academy.schema.json`, embedded by `edu-academy-ontology` | Every store file under an owner root |
+| Engine pin (`ont*` `rev` in `Cargo.toml`) | `ontology-platform` | The ledger tests of `edu-academy-ontology` |
+| One-field live driver input and output | `crates/edu-academy-sources/README.md` | Callers of `academy-live-driver` |
+| Crate-owned fixtures and their hashes | `docs/fixture-ownership.md` | Tests of every crate |
+
+A change of one of these says so in the pull request and comes with the test that fails on the old behaviour.
+
+## Frozen
+
+`crates/edu-academy-mcp` (not a default member): parity work stopped; retired at the first cutover. Retained TypeScript/Bun reference source (`modules/`, `apps/`, `migration/`) and every file with a current Rust, live runtime or host consumer stay until their retirement conditions are met. Do not restore the retired Bun integration harness, context gates, custom receipts or automated review workflow. Historical pins and records describe their original observations, not current acceptance.
+
+## Privacy and effects
+
+Preserve private context and original dated student, book and activity identities. Never read or publish credentials, use private student payloads as synthetic fixtures, contact Academy endpoints or infer operational effects from a repository check. Do not change the installed Academy bundle or host configuration as a side effect of source maintenance. Native profiles, sessions, databases, stores and credential consumers keep their owners. DailyRecord work follows [the policy](apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md); drafts, review, save and transmission stay separate.
+
+## Pull request
+
+One pull request per unit of work, able to merge alone; its description is your plan. Never force-push. The required check is `rust`. Review policy: `REVIEW.md`. Current user instructions and the task's `STATE.md` govern effects.
