@@ -516,6 +516,17 @@ impl DraftStore {
         if metadata.uid() != rustix::process::geteuid().as_raw() || metadata.mode() & 0o022 != 0 {
             return Err(refused());
         }
+        if let Some(core) = &core {
+            if !core.ledgered() {
+                return Err(refused());
+            }
+            let core_root = absolute(core.root())?;
+            let a = io(core_root.metadata())?;
+            let b = io(fd.metadata())?;
+            if (a.dev(), a.ino()) != (b.dev(), b.ino()) {
+                return Err(refused());
+            }
+        }
         bootstrap_lock(&fd)?;
         let expected = Marker {
             format: MARKER.into(),
@@ -531,8 +542,22 @@ impl DraftStore {
             }
             None => {
                 for entry in entries(&fd)? {
-                    if name(&syscall(entry)?).is_some() {
-                        return Err(refused());
+                    if let Some(name) = name(&syscall(entry)?) {
+                        if core.is_none()
+                            || !edu_academy_core::workflow::store::Store::DIRECTORIES
+                                .iter()
+                                .any(|d| name == OsStr::new(d))
+                        {
+                            return Err(refused());
+                        }
+                        // A fresh supplied core may have initialized only private,
+                        // empty directories. Never adopt preexisting payloads.
+                        let child = directory(&fd, name, true).map_err(|_| refused())?;
+                        for entry in entries(&child)? {
+                            if self::name(&syscall(entry)?).is_some() {
+                                return Err(refused());
+                            }
+                        }
                     }
                 }
                 io(fd.set_permissions(Permissions::from_mode(0o700)))?;
@@ -560,17 +585,6 @@ impl DraftStore {
         }
         io(fd.sync_all())?;
         io(fd.unlock())?;
-        if let Some(core) = &core {
-            if !core.ledgered() {
-                return Err(refused());
-            }
-            let core_root = absolute(core.root())?;
-            let a = io(core_root.metadata())?;
-            let b = io(fd.metadata())?;
-            if (a.dev(), a.ino()) != (b.dev(), b.ino()) {
-                return Err(refused());
-            }
-        }
         Ok(Self {
             core,
             path: root.into(),

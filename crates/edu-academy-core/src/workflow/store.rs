@@ -116,6 +116,18 @@ pub struct Store {
 }
 impl Store {
     pub const SCOPE: &'static str = "single_host_owner_filesystem";
+    /// Empty directories created when a core store is first opened.
+    pub const DIRECTORIES: &'static [&'static str] = &[
+        "observation",
+        "review",
+        "request",
+        "execution",
+        "outcome",
+        "reconciliation",
+        "ledger",
+        "audit",
+        "locks",
+    ];
     pub fn open(root: &Path, owner_root: &Path) -> Result<Self> {
         normal_under(root, owner_root)?;
         // A normal last component under the owner root always has a ledger sibling.
@@ -147,18 +159,8 @@ impl Store {
                 _ => {}
             }
         }
-        for k in [
-            "",
-            "observation",
-            "review",
-            "request",
-            "execution",
-            "outcome",
-            "reconciliation",
-            "ledger",
-            "audit",
-            "locks",
-        ] {
+        mkdir(root)?;
+        for k in Self::DIRECTORIES {
             mkdir(&root.join(k))?;
         }
         Ok(Self {

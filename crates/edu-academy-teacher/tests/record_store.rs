@@ -2191,3 +2191,60 @@ fn store_and_draft_store_are_send_sync() {
     assert_send_sync::<Store>();
     assert_send_sync::<DraftStore>();
 }
+
+#[test]
+fn fresh_engine_first_bootstrap_roundtrips_draft_and_execution() {
+    use edu_academy_core::workflow::{
+        ledger_cases::{Clock, execution, target},
+        store::Kind,
+    };
+    let t = Scratch::new();
+    assert!(!t.root().exists());
+    let core = engine_core(&t);
+    let drafts = DraftStore::open_with_core(&t.root(), owner(), core).unwrap();
+    let account = drafts.lock_account().unwrap();
+    let draft = account
+        .create_draft(&scope(), draft_seed(), DRAFT_NOW, 10000)
+        .unwrap();
+    assert_eq!(
+        account.load_draft(&draft.identity, None).unwrap().unwrap(),
+        draft
+    );
+    let core = engine_core(&t);
+    let record = execution(
+        &core,
+        &scope(),
+        "progress",
+        "record".into(),
+        &target(&scope()),
+        "review",
+    );
+    assert!(
+        core.publish(Kind::Execution, "fresh-attempt", &record, &Clock)
+            .unwrap()
+            .0
+    );
+    assert_eq!(core.get(Kind::Execution, "fresh-attempt").unwrap(), record);
+}
+
+#[test]
+fn unmarked_engine_bootstrap_refuses_foreign_entries_and_core_without_adoption() {
+    for entry in ["foreign", "review/payload", "record-drafts"] {
+        let t = Scratch::new();
+        let core = engine_core(&t);
+        put(&t.root().join(entry), b"unrelated");
+        refused(DraftStore::open_with_core(&t.root(), owner(), core));
+        assert!(!t.root().join(MARKER).exists());
+    }
+    let t = Scratch::new();
+    let other = Scratch::new();
+    let _core = engine_core(&t);
+    refused(DraftStore::open_with_core(
+        &t.root(),
+        owner(),
+        engine_core(&other),
+    ));
+    assert!(!t.root().join(MARKER).exists());
+    assert!(!t.root().join("record-drafts").exists());
+    refused(DraftStore::open(&t.root(), owner()));
+}
