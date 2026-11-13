@@ -465,6 +465,10 @@ impl<'a, T: Transport> NativeSession<'a, T> {
         }
         Ok(())
     }
+    /// Explicit read-session authentication, allowing source-only observers to arm afterwards.
+    pub fn authenticate_for_reads(&mut self) -> Result<()> {
+        self.authenticate()
+    }
     fn authenticate(&mut self) -> Result<()> {
         self.cancellation.check()?;
         self.check_credential_lifetime()?;

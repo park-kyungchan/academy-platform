@@ -35,7 +35,14 @@ fn invalid() -> Error {
 }
 fn run() -> Result<serde_json::Value> {
     let mut args = std::env::args().skip(1);
-    if args.next().as_deref() != Some("textbook") {
+    let mode = args.next();
+    if mode.as_deref() == Some("prepare-owner") {
+        return edu_academy_sources::prepare_owner::prepare(
+            &edu_academy_sources::prepare_owner::parse_args(args)?,
+            &Clock,
+        );
+    }
+    if mode.as_deref() != Some("textbook") {
         return Err(invalid());
     }
     let mut values = HashMap::new();
@@ -143,7 +150,14 @@ fn main() {
                     .is_some_and(|a| a.iter().any(|s| s["status"] != "refreshed"));
             (output, if failed { 2 } else { 0 })
         }
-        Err(_) => (serde_json::json!({"status":"capture_launch_refused"}), 2),
+        Err(error) => {
+            let code = if error.message.starts_with("prepare_") {
+                error.message.as_str()
+            } else {
+                "capture_launch_refused"
+            };
+            (serde_json::json!({"status":code}), 2)
+        }
     };
     if writeln!(std::io::stdout(), "{output}").is_err() {
         std::process::exit(2);
