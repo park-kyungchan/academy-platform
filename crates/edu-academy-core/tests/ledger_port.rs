@@ -985,3 +985,27 @@ fn open_with_ledger_refuses_file_attempts() {
     );
     fs::remove_dir_all(owner).unwrap();
 }
+
+#[test]
+fn file_store_refuses_engine_bodies() {
+    let owner = root("engine-body-without-sibling");
+    let store_root = owner.join("store");
+    fs::create_dir_all(store_root.join("execution")).unwrap();
+    fs::write(
+        store_root
+            .join("execution")
+            .join(format!("{}.{}.json", "a".repeat(64), "B".repeat(64))),
+        "invented",
+    )
+    .unwrap();
+    assert!(!owner.join("store.ledger").exists());
+    assert_eq!(
+        Store::open(&store_root, &owner).err().unwrap().message,
+        "workflow_ledger_legacy_root"
+    );
+    assert!(
+        !store_root.join("ledger").exists(),
+        "refuse before initialization"
+    );
+    fs::remove_dir_all(owner).unwrap();
+}

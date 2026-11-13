@@ -631,6 +631,22 @@ fn adapter_answer_mapping_and_closed_attempts() {
         "workflow_ledger_unavailable"
     );
     assert!(ledger.begin("A", &t, &hash("execution"), &Clock).unwrap());
+    for key in ["missing", "A"] {
+        assert_eq!(
+            ledger
+                .record_outcome(key, &hash("unsupported"), F::DispatchUnknown, &Clock)
+                .unwrap_err()
+                .message,
+            "workflow_ledger_unavailable"
+        );
+        assert_eq!(
+            ledger
+                .record_reconciliation(key, &hash("unsupported"), F::DispatchUnknown, &Clock)
+                .unwrap_err()
+                .message,
+            "workflow_ledger_unavailable"
+        );
+    }
     assert!(
         !ledger.begin("A", &t, &hash("execution"), &Clock).unwrap(),
         "already_applied must be false"
@@ -918,6 +934,10 @@ fn unqualified_and_refused_reads_are_errors() {
         "workflow_ledger_unavailable"
     );
     let missing = edu_academy_ontology::EngineLedger::new(s.root.join("missing.sqlite"), &Clock);
+    assert_eq!(
+        missing.attempt("key").unwrap_err().message,
+        "workflow_ledger_unavailable"
+    );
     assert_eq!(
         missing.attempts("S1", 10).unwrap_err().message,
         "workflow_ledger_unavailable"
@@ -1258,4 +1278,101 @@ fn closed_attempt_answers_false() {
         "workflow_ledger_unavailable"
     );
     assert!(ledger.attempt("open").unwrap().unwrap().outcome.is_none());
+}
+
+#[test]
+fn sibling_is_one_for_every_spelling() {
+    use edu_academy_core::workflow::{
+        ledger_cases::{execution, scope, target as body_target},
+        store::{Kind, Store as CoreStore, ledger_sibling},
+    };
+    for first in 0..3 {
+        let s = Scene::new();
+        let root = s.root.join("store");
+        let spellings = [root.clone(), root.join(""), root.join(".")];
+        let expected = s.root.join("store.ledger");
+        let initial = edu_academy_ontology::open_store(&spellings[first], &s.root, &Clock).unwrap();
+        assert!(expected.join("academy.sqlite").exists());
+        assert!(!root.join(".ledger").exists());
+        assert!(!root.join("..ledger").exists());
+        for spelling in &spellings {
+            assert_eq!(
+                CoreStore::open(spelling, &s.root).err().unwrap().message,
+                "workflow_ledger_legacy_root",
+                "the sibling guard must refuse even before any body exists"
+            );
+        }
+        let scope = scope("12");
+        let e = execution(
+            &initial,
+            &scope,
+            "progress",
+            "record".into(),
+            &body_target(&scope),
+            "review",
+        );
+        assert!(
+            initial
+                .publish(Kind::Execution, "first", &e, &Clock)
+                .unwrap()
+                .0
+        );
+        for spelling in &spellings {
+            assert_eq!(ledger_sibling(spelling), Some(expected.clone()));
+            assert_eq!(
+                CoreStore::open(spelling, &s.root).err().unwrap().message,
+                "workflow_ledger_legacy_root"
+            );
+            let reopened = edu_academy_ontology::open_store(spelling, &s.root, &Clock).unwrap();
+            assert!(
+                !reopened
+                    .publish(Kind::Execution, "first", &e, &Clock)
+                    .unwrap()
+                    .0
+            );
+            assert_eq!(
+                reopened
+                    .publish(Kind::Execution, "second", &e, &Clock)
+                    .unwrap_err()
+                    .message,
+                "workflow_attempt_fenced"
+            );
+        }
+    }
+    assert!(edu_academy_core::workflow::store::ledger_sibling(std::path::Path::new("/")).is_none());
+    assert!(edu_academy_core::workflow::store::ledger_sibling(std::path::Path::new(".")).is_none());
+    assert!(
+        edu_academy_core::workflow::store::ledger_sibling(std::path::Path::new("/a/..")).is_none()
+    );
+}
+
+#[test]
+fn begin_again_with_another_target_is_false() {
+    let s = Scene::new();
+    let ledger = adapter(&s);
+    let original = target("S1");
+    let digest = hash("execution");
+    assert!(ledger.begin("applied", &original, &digest, &Clock).unwrap());
+    assert_eq!(
+        ledger
+            .begin("refused", &original, &digest, &Clock)
+            .unwrap_err()
+            .message,
+        "workflow_attempt_fenced"
+    );
+    let mut another = original.clone();
+    another.record_key = "R2".into();
+    another.occurrence[3] = "C2".into();
+    assert!(
+        ledger.begin("refused", &another, &digest, &Clock).unwrap(),
+        "a refused action must not consume its request id"
+    );
+    assert!(
+        !ledger.begin("applied", &another, &digest, &Clock).unwrap(),
+        "an existing key answers false before checking its changed target"
+    );
+    assert_eq!(
+        ledger.attempt("applied").unwrap().unwrap().execution,
+        digest
+    );
 }

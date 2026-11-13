@@ -379,3 +379,48 @@ fn no_text_in_store() {
         }
     }
 }
+
+#[test]
+fn engine_store_appears_complete_under_concurrent_open() {
+    use std::sync::{Arc, Barrier};
+    let owner = ledger_cases::root("concurrent-engine-initializer");
+    let root = owner.join("store");
+    let barrier = Arc::new(Barrier::new(6));
+    let workers = (0..6)
+        .map(|_| {
+            let (owner, root, barrier) = (owner.clone(), root.clone(), barrier.clone());
+            std::thread::spawn(move || {
+                barrier.wait();
+                open_store(&root, &owner, &Clock)
+                    .map(|s| s.ledgered())
+                    .unwrap()
+            })
+        })
+        .collect::<Vec<_>>();
+    for worker in workers {
+        assert!(worker.join().unwrap());
+    }
+    let sibling = owner.join("store.ledger");
+    let finals = fs::read_dir(&sibling)
+        .unwrap()
+        .filter(|e| e.as_ref().unwrap().file_name() == "academy.sqlite")
+        .count();
+    assert_eq!(finals, 1);
+    let mut engine =
+        ont_store::Store::open_schema_existing_writable(&sibling.join("academy.sqlite")).unwrap();
+    assert!(engine.schema_pins().unwrap().contains_key("academy"));
+    drop(engine);
+    // An empty final file planted externally remains invalid; initialization never produces one.
+    let empty = owner.join("empty.ledger");
+    fs::create_dir(&empty).unwrap();
+    fs::write(empty.join("academy.sqlite"), []).unwrap();
+    assert_eq!(
+        open_store(&owner.join("empty"), &owner, &Clock)
+            .err()
+            .unwrap()
+            .message,
+        "workflow_ledger_unavailable"
+    );
+    assert_eq!(fs::metadata(empty.join("academy.sqlite")).unwrap().len(), 0);
+    fs::remove_dir_all(owner).unwrap();
+}

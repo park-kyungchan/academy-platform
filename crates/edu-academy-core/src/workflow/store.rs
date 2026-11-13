@@ -56,6 +56,33 @@ pub fn sync_dir(path: &Path) -> Result<()> {
         .and_then(|f| f.sync_all())
         .map_err(io_fault)
 }
+/// Name the engine sibling independently of separators and `.` components.
+pub fn ledger_sibling(root: &Path) -> Option<PathBuf> {
+    let root = root.components().collect::<PathBuf>();
+    let mut name = root.file_name()?.to_os_string();
+    name.push(".ledger");
+    Some(root.with_file_name(name))
+}
+fn has_engine_execution(root: &Path) -> Result<bool> {
+    let mut entries = match fs::read_dir(root.join("execution")) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(io_fault(e)),
+    };
+    let Some(entry) = entries.next().transpose().map_err(io_fault)? else {
+        return Ok(false);
+    };
+    let name = entry.file_name();
+    let Some(stem) = name.to_str().and_then(|n| n.strip_suffix(".json")) else {
+        return Ok(false);
+    };
+    let Some((key, digest)) = stem.split_once('.') else {
+        return Ok(false);
+    };
+    Ok([key, digest]
+        .iter()
+        .all(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())))
+}
 pub struct Store {
     root: PathBuf,
     attempts: Option<Box<dyn AttemptLedger>>,
@@ -63,9 +90,7 @@ pub struct Store {
 impl Store {
     pub const SCOPE: &'static str = "single_host_owner_filesystem";
     pub fn open(root: &Path, owner_root: &Path) -> Result<Self> {
-        let mut ledger_root = root.as_os_str().to_os_string();
-        ledger_root.push(".ledger");
-        if Path::new(&ledger_root).exists() {
+        if ledger_sibling(root).is_some_and(|path| path.exists()) || has_engine_execution(root)? {
             return Err(Fault::error("workflow_ledger_legacy_root"));
         }
         Self::initialize(root, owner_root)

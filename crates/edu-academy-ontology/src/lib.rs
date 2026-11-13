@@ -5,7 +5,7 @@ use edu_academy_core::{
         Runtime,
         ledger::{Attempt, AttemptLedger, AttemptTarget},
         state::FieldState,
-        store::Store,
+        store::{Store, ledger_sibling},
     },
 };
 use ont::{
@@ -85,6 +85,11 @@ fn mutation_answer(result: std::result::Result<Answer, Failure>, kind: Mutation)
             Some("already_applied") => Ok(false),
             _ => Err(unavailable()),
         },
+        Err(Failure::Refused(r))
+            if matches!(kind, Mutation::Begin) && r.code == "request_id_reused" =>
+        {
+            Ok(false)
+        }
         Err(Failure::Refused(r)) if r.code == "submission_criteria" => {
             let failed = r
                 .extra
@@ -373,9 +378,10 @@ fn decode_attempt(object: &Value) -> Result<Attempt> {
 }
 /// Open the private engine ledger beside the body root, upgrading it before reads.
 pub fn open_store(root: &Path, owner_root: &Path, runtime: &dyn Runtime) -> Result<Store> {
-    let mut sibling = root.as_os_str().to_os_string();
-    sibling.push(".ledger");
-    let sibling = PathBuf::from(sibling);
+    let sibling =
+        ledger_sibling(root).ok_or_else(|| Fault::error("workflow_ledger_root_required"))?;
+    let root = root.components().collect::<PathBuf>();
+    let root = root.as_path();
     if root == owner_root
         || !root.is_absolute()
         || !owner_root.is_absolute()
@@ -414,18 +420,9 @@ pub fn open_store(root: &Path, owner_root: &Path, runtime: &dyn Runtime) -> Resu
         .create(&sibling)
         .map_err(|_| unavailable())?;
     let path = sibling.join("academy.sqlite");
-    let mut engine = if path.exists() {
-        ont_store::Store::open_schema_existing_writable(&path)
-    } else {
-        OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&path)
-            .map_err(|_| unavailable())?;
-        ont_store::Store::open_schema(&path)
-    }
-    .map_err(|e| engine_failure(Failure::Refused(ont::Refusal::new(e.code))))?;
+    initialize_engine(&path, runtime, || Ok(()))?;
+    let mut engine = ont_store::Store::open_schema_existing_writable(&path)
+        .map_err(|e| engine_failure(Failure::Refused(ont::Refusal::new(e.code))))?;
     let pins = engine.schema_pins().map_err(|_| unavailable())?;
     if pins
         .get("academy")
@@ -443,6 +440,53 @@ pub fn open_store(root: &Path, owner_root: &Path, runtime: &dyn Runtime) -> Resu
     }
     drop(engine);
     Store::open_with_ledger(root, owner_root, Box::new(EngineLedger::new(path, runtime)))
+}
+// The callback lets unit controls stop or interleave exactly before publication.
+fn initialize_engine(
+    path: &Path,
+    runtime: &dyn Runtime,
+    before_publish: impl FnOnce() -> Result<()>,
+) -> Result<()> {
+    if path.exists() {
+        return Ok(());
+    }
+    let sibling = path.parent().ok_or_else(unavailable)?;
+    let suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| unavailable())?
+        .as_nanos();
+    let temp = sibling.join(format!(
+        ".academy.sqlite.new-{}-{suffix}",
+        std::process::id()
+    ));
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&temp)
+        .map_err(|_| unavailable())?;
+    // A killed initializer's temporary file is never read and is left in place.
+    let mut engine = ont_store::Store::open_schema(&temp)
+        .map_err(|e| engine_failure(Failure::Refused(ont::Refusal::new(e.code))))?;
+    engine
+        .install_schema(
+            SCHEMA.as_bytes(),
+            ont_store::schema_mode::InstallArgs {
+                installed_at: runtime.epoch_ms() / 1000,
+                ..Default::default()
+            },
+        )
+        .map_err(|e| engine_failure(Failure::Refused(ont::Refusal::new(e.code))))?;
+    drop(engine);
+    file.sync_all().map_err(|_| unavailable())?;
+    before_publish()?;
+    match fs::hard_link(&temp, path) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(_) => return Err(unavailable()),
+    }
+    fs::remove_file(temp).map_err(|_| unavailable())?;
+    edu_academy_core::workflow::store::sync_dir(sibling)
 }
 fn has_entries(path: &Path) -> Result<bool> {
     match fs::read_dir(path) {
@@ -496,5 +540,95 @@ fn optional_digest(fields: &Value, name: &str) -> Result<Option<String>> {
         Ok(None)
     } else {
         digest(fields, name).map(Some)
+    }
+}
+
+#[cfg(test)]
+mod constructor_controls {
+    use super::*;
+    use edu_academy_core::workflow::ledger_cases::{Clock, root};
+
+    #[test]
+    fn engine_store_appears_complete() {
+        let owner = root("interrupted-engine-initializer");
+        let sibling = owner.join("store.ledger");
+        fs::create_dir(&sibling).unwrap();
+        let path = sibling.join("academy.sqlite");
+        assert!(
+            initialize_engine(&path, &Clock, || {
+                assert!(
+                    !path.exists(),
+                    "the final name must not appear before publication"
+                );
+                Err(Fault::error("invented_interruption"))
+            })
+            .is_err()
+        );
+        assert!(!path.exists());
+        let leftovers = fs::read_dir(&sibling)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .collect::<Vec<_>>();
+        assert_eq!(leftovers.len(), 1);
+        assert!(
+            leftovers[0]
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .starts_with(".academy.sqlite.new-")
+        );
+        open_store(&owner.join("store"), &owner, &Clock).unwrap();
+        assert!(
+            leftovers[0].exists(),
+            "interrupted temporaries are left untouched"
+        );
+        let mut engine = ont_store::Store::open_schema_existing_writable(&path).unwrap();
+        assert_eq!(
+            engine.schema_pins().unwrap()["academy"].sha256,
+            hash(SCHEMA)
+        );
+        drop(engine);
+        fs::remove_dir_all(owner).unwrap();
+    }
+
+    #[test]
+    fn publication_keeps_winning_attempt() {
+        let owner = root("engine-publication-winner");
+        let sibling = owner.join("store.ledger");
+        fs::create_dir(&sibling).unwrap();
+        let path = sibling.join("academy.sqlite");
+        initialize_engine(&path, &Clock, || {
+            open_store(&owner.join("store"), &owner, &Clock)?;
+            let ledger = EngineLedger::new(path.clone(), &Clock);
+            let target = AttemptTarget {
+                group: "S1".into(),
+                source_namespace: "invented".into(),
+                teacher_id: "11".into(),
+                scope_student_id: "S1".into(),
+                request_lesson_date: "2040-01-04".into(),
+                field: "homework".into(),
+                record_key: "R1".into(),
+                request_ref: "request".into(),
+                occurrence: [
+                    "invented".into(),
+                    "S1".into(),
+                    "2040-01-03".into(),
+                    "C1".into(),
+                ],
+            };
+            assert!(ledger.begin("winner", &target, &hash("execution"), &Clock)?);
+            Ok(())
+        })
+        .unwrap();
+        open_store(&owner.join("store"), &owner, &Clock).unwrap();
+        assert!(
+            EngineLedger::new(path, &Clock)
+                .attempt("winner")
+                .unwrap()
+                .is_some(),
+            "a later publisher must preserve the store and its winning attempt"
+        );
+        fs::remove_dir_all(owner).unwrap();
     }
 }
