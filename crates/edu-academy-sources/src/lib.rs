@@ -1,6 +1,7 @@
 //! Education sources with explicit native owner inputs and bounded transport.
 //! Construction grants no runtime activation or business/source-write authority.
 #![forbid(unsafe_code)]
+pub mod capture;
 pub mod data;
 pub mod dom;
 pub mod evidence;
