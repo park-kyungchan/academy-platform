@@ -21,9 +21,20 @@ pub struct Attempt {
     pub outcome: Option<String>,
     pub reconciliation: Option<String>,
 }
-/// Each mutation atomically records its digest and state. `true` means newly
-/// recorded; duplicate keys/records return `false`. Only open attempts change.
-/// Begin fences the same group and field by record key OR occurrence.
+/// `begin` returns `Ok(false)` for an existing key before checking the fence.
+/// Its existence check, fence check and insertion are one atomic step across processes.
+/// The fence and `open_on` match the same group and field and either the same
+/// record key or all four occurrence values.
+/// `request_ref`, the scope members and `request_lesson_date` are stored but never matched.
+/// Each mutation stores exactly the supplied digest and state and computes neither.
+/// `record_outcome` receives `ReconciliationRequired` (keeps the attempt open)
+/// or `SettledPersisted` (closes it).
+/// `record_reconciliation` receives one of the three `Reconciled*` states,
+/// requires an outcome and closes the attempt.
+/// A mutation of a closed attempt returns `Ok(false)`.
+/// A mutation of an unknown key returns `Err(workflow_ledger_unavailable)`.
+/// `attempts(group, limit)` returns every attempt of that group when there are
+/// at most `limit`, otherwise any `limit` attempts, in no promised order.
 pub trait AttemptLedger {
     fn begin(
         &self,

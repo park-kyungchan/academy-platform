@@ -35,6 +35,7 @@ fn ledger_cases_on_memory() {
 struct Probe {
     ledger: Rc<MemoryLedger>,
     override_state: bool,
+    named_digest: Option<String>,
     fail_after_begin: Cell<bool>,
     require_body: Option<PathBuf>,
     attempt_reads: Rc<Cell<usize>>,
@@ -90,6 +91,15 @@ impl AttemptLedger for Probe {
     }
     fn attempt(&self, key: &str) -> Result<Option<Attempt>> {
         self.attempt_reads.set(self.attempt_reads.get() + 1);
+        if let Some(digest) = &self.named_digest {
+            return Ok(Some(Attempt {
+                key: key.into(),
+                state: FieldState::DispatchUnknown,
+                execution: digest.clone(),
+                outcome: None,
+                reconciliation: None,
+            }));
+        }
         Ok(self.ledger.attempt(key)?.map(|mut a| {
             if self.override_state {
                 a.state = FieldState::ReconciledConflict;
@@ -241,7 +251,23 @@ fn body(store: &Store) -> PathBuf {
 }
 #[test]
 fn body_file_checked() {
-    for damage in ["mode", "link", "large", "bytes", "symlink", "missing"] {
+    let status = fs::read_to_string("/proc/self/status").unwrap();
+    let uid: u32 = status
+        .lines()
+        .find(|s| s.starts_with("Uid:"))
+        .unwrap()
+        .split_whitespace()
+        .nth(2)
+        .unwrap()
+        .parse()
+        .unwrap();
+    for damage in [
+        "mode", "link", "large", "bytes", "symlink", "missing", "owner",
+    ] {
+        if damage == "owner" && uid != 0 {
+            eprintln!("owner case skipped: not root");
+            continue;
+        }
         let root = root(damage);
         let store = memory(&root.join("store"), &root).unwrap();
         let scope = scope("12");
@@ -275,6 +301,10 @@ fn body_file_checked() {
                 symlink(retained, &path).unwrap();
             }
             "missing" => fs::remove_file(&path).unwrap(),
+            "owner" => {
+                std::os::unix::fs::chown(&path, Some(4242), None).unwrap();
+                eprintln!("owner case executed: effective uid {uid}, body owner 4242");
+            }
             _ => unreachable!(),
         }
         assert_eq!(
@@ -285,6 +315,77 @@ fn body_file_checked() {
         drop(store);
         fs::remove_dir_all(root).unwrap();
     }
+    for (label, kind, id) in [("kind", "outcome", "key"), ("id", "execution", "another")] {
+        let root = root(label);
+        let bytes = codec::bytes(&obj(&[
+            ("kind", kind.into()),
+            ("id", id.into()),
+            ("record", obj(&[("marker", "invented body".into())])),
+        ]))
+        .unwrap();
+        let digest = sha(std::str::from_utf8(&bytes).unwrap());
+        let store = Store::open_with_ledger(
+            &root.join("store"),
+            &root,
+            Box::new(Probe {
+                named_digest: Some(digest.clone()),
+                ..Probe::default()
+            }),
+        )
+        .unwrap();
+        let path = store.root().join("execution").join(format!(
+            "{}.{}.json",
+            sha("execution\nkey"),
+            digest
+        ));
+        fs::write(&path, bytes).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        assert_eq!(
+            store.get(Kind::Execution, "key").unwrap_err().message,
+            "workflow_attempt_body_unavailable",
+            "body wrapper check: {label}"
+        );
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
+    }
+}
+#[test]
+fn body_survives_a_second_link() {
+    let root = root("publish-link");
+    let store = memory(&root.join("store"), &root).unwrap();
+    let scope = scope("12");
+    let e = execution(
+        &store,
+        &scope,
+        "progress",
+        "15".into(),
+        &target(&scope),
+        "review",
+    );
+    let bytes = codec::bytes(&obj(&[
+        ("kind", "execution".into()),
+        ("id", "key".into()),
+        ("record", e.clone()),
+    ]))
+    .unwrap();
+    let digest = sha(std::str::from_utf8(&bytes).unwrap());
+    let retained = root.join("retained");
+    fs::write(&retained, bytes).unwrap();
+    fs::set_permissions(&retained, fs::Permissions::from_mode(0o600)).unwrap();
+    let final_path =
+        store
+            .root()
+            .join("execution")
+            .join(format!("{}.{}.json", sha("execution\nkey"), digest));
+    fs::hard_link(&retained, &final_path).unwrap();
+    assert!(store.publish(Kind::Execution, "key", &e, &Clock).unwrap().0);
+    assert_eq!(
+        store.get(Kind::Execution, "key").unwrap(),
+        e,
+        "rename must replace the multiply linked body"
+    );
+    drop(store);
+    fs::remove_dir_all(root).unwrap();
 }
 #[test]
 fn body_only_through_digest() {
@@ -474,6 +575,29 @@ fn target_validation_and_ledger_contract() {
             .reconciliation
             .is_none()
     );
+    ledger
+        .record_outcome(
+            "key",
+            "outcome-digest",
+            FieldState::SettledPersisted,
+            &Clock,
+        )
+        .unwrap();
+    assert!(
+        !ledger
+            .record_reconciliation(
+                "key",
+                "reconciliation-digest",
+                FieldState::ReconciledConflict,
+                &Clock
+            )
+            .unwrap(),
+        "reconciliation on an outcome-closed attempt must return false"
+    );
+    let closed = ledger.attempt("key").unwrap().unwrap();
+    assert_eq!(closed.state, FieldState::SettledPersisted);
+    assert_eq!(closed.outcome.as_deref(), Some("outcome-digest"));
+    assert!(closed.reconciliation.is_none());
     assert!(ledger.attempts(&t.group, 0).unwrap().is_empty());
     drop(store);
     fs::remove_dir_all(root).unwrap();

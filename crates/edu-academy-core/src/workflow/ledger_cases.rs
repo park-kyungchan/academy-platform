@@ -337,6 +337,59 @@ pub fn run(factory: &dyn Fn(&Path, &Path) -> Result<Store>) {
         pending.iter().map(|e| e.key.as_str()).collect::<Vec<_>>(),
         ["\u{10000}"]
     );
+    // Each closing reconciliation must preserve its exact state in both APIs.
+    store
+        .publish(Kind::Outcome, "\u{10000}", &outcome(true), &Clock)
+        .unwrap();
+    for (key, value, expected) in [
+        ("rec-after", "- Sent", FieldState::ReconciledPersisted),
+        ("rec-before", "- Before", FieldState::ReconciledNotPersisted),
+        ("rec-other", "- Other", FieldState::ReconciledConflict),
+    ] {
+        assert!(publish_execution(&store, key, &r).unwrap().0);
+        store
+            .publish(Kind::Outcome, key, &outcome(false), &Clock)
+            .unwrap();
+        let first = reconciliation(value.into());
+        assert!(
+            store
+                .publish(Kind::Reconciliation, key, &first, &Clock)
+                .unwrap()
+                .0
+        );
+        assert_eq!(
+            state::field_state(&store, key).unwrap(),
+            expected,
+            "closing reconciliation field_state: {key}"
+        );
+        assert_eq!(
+            state::student_executions(&store, &scope)
+                .unwrap()
+                .iter()
+                .find(|e| e.key == key)
+                .unwrap()
+                .state,
+            expected,
+            "closing reconciliation student_executions: {key}"
+        );
+        assert_eq!(
+            store
+                .publish(
+                    Kind::Reconciliation,
+                    key,
+                    &reconciliation("- Replacement".into()),
+                    &Clock
+                )
+                .unwrap(),
+            (false, first),
+            "closed reconciliation keeps first record: {key}"
+        );
+        assert_eq!(
+            state::field_state(&store, key).unwrap(),
+            expected,
+            "closed reconciliation keeps state: {key}"
+        );
+    }
     drop(store);
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -373,6 +426,29 @@ pub fn run_ledgered(factory: &dyn Fn(&Path, &Path) -> Result<Store>) {
             "workflow_attempt_fenced"
         );
     }
+    for (record, occurrence) in [("15", &different), ("other-record", &target)] {
+        assert_eq!(
+            state::unresolved_on_field(&store, &scope, "progress", record, occurrence)
+                .unwrap()
+                .iter()
+                .map(|e| e.key.as_str())
+                .collect::<Vec<_>>(),
+            ["first"],
+            "open_on matches record key OR occurrence: {record}"
+        );
+    }
+    assert!(
+        state::unresolved_on_field(&store, &scope, "homework", "15", &target)
+            .unwrap()
+            .is_empty(),
+        "open_on excludes another field"
+    );
+    assert!(
+        state::unresolved_on_field(&store, &self::scope("99"), "progress", "15", &target)
+            .unwrap()
+            .is_empty(),
+        "open_on excludes another student"
+    );
     let other_field = execution(
         &store,
         &scope,

@@ -112,6 +112,8 @@ impl Store {
             attempts: None,
         })
     }
+    /// The review named by an execution must be published before the execution.
+    /// The service route guarantees this order; importers must also preserve it.
     pub fn open_with_ledger(
         root: &Path,
         owner_root: &Path,
@@ -279,7 +281,7 @@ impl Store {
             };
             let bytes = codec::bytes(&v)?;
             let digest = format!("{:x}", Sha256::digest(&bytes));
-            publish(&self.body_path(kind, id, &digest), &bytes, clock)?;
+            publish_body(&self.body_path(kind, id, &digest), &bytes, clock)?;
             match kind {
                 Kind::Execution => ledger.begin(
                     id,
@@ -431,6 +433,26 @@ pub fn names(dir: &Path) -> Result<Vec<PathBuf>> {
     }
     v.sort();
     Ok(v)
+}
+/// Content-addressed body: write, file sync, rename, directory sync.
+/// Replacing the same digest name replaces equal bytes with a single-link file.
+fn publish_body(target: &Path, bytes: &[u8], clock: &dyn Runtime) -> Result<()> {
+    let dir = target
+        .parent()
+        .ok_or_else(|| Fault::error("workflow_store_path_invalid"))?;
+    let temp = dir.join(".tmp-".to_owned() + &clock.uuid()?);
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&temp)
+        .map_err(io_fault)?;
+    file.write_all(bytes)
+        .and_then(|()| file.sync_all())
+        .map_err(io_fault)?;
+    drop(file);
+    fs::rename(&temp, target).map_err(io_fault)?;
+    sync_dir(dir)
 }
 /// Temp0600 -> write -> fsync -> hard link -> unlink -> directory fsync.
 fn publish(target: &Path, bytes: &[u8], clock: &dyn Runtime) -> Result<bool> {
