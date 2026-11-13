@@ -772,13 +772,12 @@ pub(crate) fn review_read(
     let learning = !policy.learning_pins().absent();
     let mut events = vec![];
     let mut global = global_blockers(&input, &source, now_epoch)?;
-    let memo_blocker = crate::decision::memo_answer_blocker(
-        &context,
-        proposals
-            .array()
-            .iter()
-            .find(|p| p.get("field").is("lessonMemo")),
-    );
+    let memo_blocker = proposals
+        .array()
+        .iter()
+        .all(|p| !p.get("field").is("lessonMemo"))
+        .then(|| crate::decision::memo_answer_blocker(&context, None))
+        .flatten();
     global.extend(memo_blocker.clone());
     let fresh = held && global.is_empty();
     if fresh {

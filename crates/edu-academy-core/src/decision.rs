@@ -398,7 +398,11 @@ pub(crate) fn memo_answer_blocker(c: &Js, proposal: Option<&Js>) -> Option<Js> {
     match proposal {
         None if clear => Some("memo_clear_proposal_required".into()),
         Some(p) if p.get("field").is("lessonMemo") => {
-            if p.get("decision").get("kind").is("clear") && !clear {
+            if clear && c.get("memoAnswer").get("requestRef") != c.get("currentRequestRef") {
+                Some("memo_clear_answer_current_request_required".into())
+            } else if p.get("decision").get("kind").is("clear")
+                && c.get("memoAnswer").get("kind").is("content")
+            {
                 Some("memo_clear_answer_required".into())
             } else if clear && !p.get("decision").get("kind").is("clear") {
                 Some("memo_clear_answer_requires_clear_decision".into())
@@ -986,13 +990,12 @@ fn review_core(
         handle
     };
     let held = !handle.absent();
-    let memo_blocker = memo_answer_blocker(
-        &context,
-        proposals
-            .array()
-            .iter()
-            .find(|p| p.get("field").is("lessonMemo")),
-    );
+    let memo_blocker = proposals
+        .array()
+        .iter()
+        .all(|p| !p.get("field").is("lessonMemo"))
+        .then(|| memo_answer_blocker(&context, None))
+        .flatten();
     let mut global = if held {
         vec![]
     } else {
