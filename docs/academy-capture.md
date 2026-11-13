@@ -14,6 +14,11 @@ Paper-form JSON is the independent owner-published academy.paper-search-form/1
 pin: action, method and fields (name/tag/type/value/checked/options).
 The env-style input selects exactly one KEY=value line. One matching outer quote
 pair is removed; no shell expansion occurs; missing/duplicate/empty keys refuse.
+The secret file is not shell input: `#` after an unquoted value stays in the
+value, backslashes are not unescaped, outer whitespace (including a trailing CR)
+is trimmed before removing one matching outer quote pair, a quote-prefixed value
+without the same final quote is refused, and any CR remaining inside the value
+is refused.
 Inputs are bounded regular single-link files owned by the caller, at absolute
 explicit paths; symlink leaves refuse. No input payload is echoed on failure.
 Expiry must be future RFC3339 and at most UTC midnight after allowedThrough.
@@ -30,6 +35,8 @@ The command writes four 0600 files inside a new 0700 root with trusted ancestors
 Files use exclusive no-follow publication and typed readback. Any failure removes
 only the newly created files/root; an existing root is retained without changes.
 Output contains paths, file hashes/byte counts, student/operation counts and expiry.
+After a kill between writes, or when only final stdout fails, the owner root
+remains; the Lead removes it before a new run.
 
 First capture (one book; explicitly authorized by the Lead):
 ```sh
@@ -57,3 +64,20 @@ bytes are excluded. No raw directory/body is created without this flag.
 Run only one capture writer per raw directory. Keep malformed bodies for repair.
 The real structural form pin is NOT supplied by repository fixtures; see the
 owner unit's report for the retained TypeScript source and confirmation boundary.
+
+Propose a candidate form pin from an explicitly saved UTF-8 page, offline:
+```sh
+academy-capture propose-paper-form --body "$SAVED_BODY" --out "$NEW_CANDIDATE"
+```
+This command opens no credential, account lock or owner root and makes no request.
+It uses the crate DOM to pin action (null means the attribute is absent), method,
+and every named input/select (10 required names, at most 64 unique names).
+Tag/type, college value, checkbox values/states, select values and all option
+values/labels are pinned; other field values are null. The same parser and
+verifier must accept the candidate against that page before a new 0600 file is
+created exclusively; existing output is never overwritten. A page with a
+missing/extra control or a difference in any pinned property is refused before
+search. Additional pinned fields are verified but never sent by search.
+Stdout/stderr expose only fixed codes, counts and booleans; candidate content
+stays in the explicit output file. Proposal is not publication: the owner decides
+whether to publish the candidate as the independent comparison pin.

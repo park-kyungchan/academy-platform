@@ -216,7 +216,8 @@ impl MetadataPolicy {
     }
 }
 /// Owner-published structural form pin, independent from source JavaScript.
-/// The source response may only be compared to this pin, never create it.
+/// The offline command proposes a candidate from a saved response; publishing
+/// that candidate as the comparison pin is the owner's decision.
 /// R12 supplies the real owner pin; tests supply invented form/filter options.
 pub struct PaperFormPin {
     value: Js,
@@ -227,27 +228,29 @@ impl PaperFormPin {
         require(
             v.get("schemaVersion").is("academy.paper-search-form/1")
                 && v.get("method").is("post")
-                && v.get("action").string(),
+                && (v.get("action").string() || v.get("action") == &Js::Null),
             "contract_drift",
         )?;
-        let action = string(v.get("action"));
-        let url = url::Url::parse(http::ORIGIN)
-            .expect("origin")
-            .join(&action)
-            .map_err(|_| Error::refusal("contract_drift"))?;
-        require(
-            url.origin().ascii_serialization() == http::ORIGIN
-                && url.path() == PAPER_PATH
-                && url.username().is_empty()
-                && url.password().is_none()
-                && url.fragment().is_none()
-                && url.query_pairs().collect::<Vec<_>>()
-                    == vec![
-                        ("p_process".into(), "UserBySearchTestResult".into()),
-                        ("ass_no".into(), "1001".into()),
-                    ],
-            "contract_drift",
-        )?;
+        if v.get("action") != &Js::Null {
+            let action = string(v.get("action"));
+            let url = url::Url::parse(http::ORIGIN)
+                .expect("origin")
+                .join(&action)
+                .map_err(|_| Error::refusal("contract_drift"))?;
+            require(
+                url.origin().ascii_serialization() == http::ORIGIN
+                    && url.path() == PAPER_PATH
+                    && url.username().is_empty()
+                    && url.password().is_none()
+                    && url.fragment().is_none()
+                    && url.query_pairs().collect::<Vec<_>>()
+                        == vec![
+                            ("p_process".into(), "UserBySearchTestResult".into()),
+                            ("ass_no".into(), "1001".into()),
+                        ],
+                "contract_drift",
+            )?;
+        }
         let fields = v.get("fields");
         let expected = [
             "clg_no",
@@ -262,7 +265,7 @@ impl PaperFormPin {
             "sort_date2",
         ];
         require(
-            array(fields) && fields.array().len() == expected.len(),
+            array(fields) && (expected.len()..=64).contains(&fields.array().len()),
             "contract_drift",
         )?;
         let mut names = HashSet::new();
@@ -273,7 +276,7 @@ impl PaperFormPin {
             )?;
             let n = string(field.get("name"));
             require(
-                expected.contains(&n.as_str())
+                field.get("name").string()
                     && names.insert(n)
                     && ["input", "select"].iter().any(|t| field.get("tag").is(t))
                     && (field.get("type") == &Js::Null || field.get("type").string())
@@ -319,9 +322,14 @@ impl PaperFormPin {
                 "contract_drift",
             )?;
         }
+        require(
+            expected.iter().all(|n| names.contains(*n)),
+            "contract_drift",
+        )?;
         Ok(Self { value: v.clone() })
     }
-    pub(crate) fn verify(&self, d: &Document) -> Result<()> {
+    /// Compare every pinned structural property before dispatching a search.
+    pub fn verify(&self, d: &Document) -> Result<()> {
         let forms = d.select("form[name=search]");
         require(forms.len() == 1, "contract_drift")?;
         let form = forms[0];
@@ -331,11 +339,13 @@ impl PaperFormPin {
             "contract_drift",
         )?;
         require(
-            form.value().attr("action") == Some(&string(self.value.get("action")))
-                && form
-                    .value()
-                    .attr("method")
-                    .is_some_and(|m| m.eq_ignore_ascii_case("post")),
+            match form.value().attr("action") {
+                Some(action) => self.value.get("action").is(action),
+                None => self.value.get("action") == &Js::Null,
+            } && form
+                .value()
+                .attr("method")
+                .is_some_and(|m| m.eq_ignore_ascii_case("post")),
             "contract_drift",
         )?;
         let fields = dom::select(form, "[name]");

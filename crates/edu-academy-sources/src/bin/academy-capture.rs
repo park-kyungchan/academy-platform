@@ -36,6 +36,9 @@ fn invalid() -> Error {
 fn run() -> Result<serde_json::Value> {
     let mut args = std::env::args().skip(1);
     let mode = args.next();
+    if mode.as_deref() == Some("propose-paper-form") {
+        return edu_academy_sources::propose_paper_form::run(args);
+    }
     if mode.as_deref() == Some("prepare-owner") {
         return edu_academy_sources::prepare_owner::prepare(
             &edu_academy_sources::prepare_owner::parse_args(args)?,
@@ -151,11 +154,12 @@ fn main() {
             (output, if failed { 2 } else { 0 })
         }
         Err(error) => {
-            let code = if error.message.starts_with("prepare_") {
-                error.message.as_str()
-            } else {
-                "capture_launch_refused"
-            };
+            let code =
+                if error.message.starts_with("prepare_") || error.message.starts_with("propose_") {
+                    error.message.as_str()
+                } else {
+                    "capture_launch_refused"
+                };
             (serde_json::json!({"status":code}), 2)
         }
     };
