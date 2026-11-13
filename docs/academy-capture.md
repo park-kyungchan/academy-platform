@@ -112,8 +112,14 @@ After a capture the spool is indexed with `ont index` into a store of its own;
 `ont render` then answers, for one student id, the views `registered_books` and
 `section_results` (each row with the time the source was read, `$observed_at`).
 `observed_at` is not a stored property, so an unchanged record captured again
-appends nothing and only moves that time; a record without a required member fails
-its source and leaves the earlier rows. Rows turn stale 36 hours after the last
-index run. The engine has no override of the glob root: a test rewrites the root
+appends nothing and only moves that time. Only a member the row key needs fails
+a source: a `registered_book` line without `student_id` or `book_no` fails its
+source (`key_unresolved`, nothing of that run is appended, earlier rows stay); a
+`section_attempt` line without `key` fails the same way, and a line missing any
+other member indexes and renders `(missing)` in that cell. An ungraded section has no counts,
+no wrong list and may have no date literal, and renders `(missing)` there. The
+record's `score` is not mapped (the engine has no type for a fractional JSON
+number) and `section_results` has no score column. Rows turn stale 36 hours after
+the last index run. The engine has no override of the glob root: a test rewrites the root
 string in the schema text before installing it into a temporary store. The schema
 carries no student name; a student is identified by id only.
