@@ -292,6 +292,7 @@ name = "edu-academy-sources"
 version = "0.0.0"
 dependencies = [
  "edu-academy-core",
+ "edu-academy-ontology",
  "html5ever",
  "regex",
  "rustix",
@@ -315,6 +316,7 @@ version = "0.0.0"
 dependencies = [
  "chrono",
  "edu-academy-core",
+ "edu-academy-ontology",
  "edu-academy-sources",
  "regex",
  "rustix",

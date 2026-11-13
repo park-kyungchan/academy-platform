@@ -1,0 +1,47 @@
+# Academy record store cutover
+
+The body and draft directory is `<root>`, and attempts live in
+`<root>.ledger/academy.sqlite`. Both directories stay under the owner root.
+Directories have mode 0700 and the store file has mode 0600.
+
+One root is served by one form. The live driver opens the engine form.
+`open_store` refuses file-form attempts with `workflow_ledger_legacy_root`.
+`Store::open` refuses an engine sibling or engine bodies with that same code.
+`DraftStore::open` refuses an engine sibling with `record_store_not_synthetic`.
+`DraftStore::open_with_core` requires a ledgered core for the same directory,
+compared by device and inode; otherwise it returns `record_store_not_synthetic`.
+The synthetic backend stays on the file form. The example
+`fictional_dailyrecord_endpoint` also stays on the file form with invented data.
+
+Erasure removes the whole store, its bodies and its sibling ledger together,
+and accounts for backups. Deleting one student cannot erase its identifier:
+it remains in observations, the action log, `edits.jsonl` and backups.
+
+The engine stores the original execution key, bounded at 8,192 bytes.
+A larger key is refused before any effect. This refusal is final and is not
+retried. The engine holds no student body text, but the execution key carries
+unsalted SHA-256 digests of before and after text. Anyone able to read the
+mode-0600 owner-only store or a backup can recognize short or guessable text
+by comparing its digest.
+
+`open_store` installs the embedded schema when it differs from the installed
+schema. Before a second version of `academy` reaches a store with attempts,
+install it on a copy and measure the basis of one `begin_attempt` there.
+That basis must not grow with the number of closed attempts.
+The store is not registered with an agent tool: the engine has one principal,
+and the schema grants that principal all five actions.
+
+A process opens its store once at startup and keeps that `Store` for its lifetime.
+The first open creates and initializes the engine. A killed first open may leave
+`.academy.sqlite.new-*` in the sibling directory. Never open these files:
+a name can be a second hard link of the live store. Cleanup may only unlink
+that name, and backups skip it.
+
+Never move, copy or delete `<root>.ledger` apart from `<root>`. Deleting the
+sibling makes `open_store` start an empty ledger over the existing bodies:
+every attempt is forgotten. Pass roots without `..`; both forms refuse it.
+
+Until the engine revision with item G3 is pinned, one `begin` costs about
+0.2 to 0.33 ms per closed attempt (measured: 597 ms at 2,700 attempts).
+The first production save waits for that pin.
+Before a production store exists, rollback consists of reverting packet LC.

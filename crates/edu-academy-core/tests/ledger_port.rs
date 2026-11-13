@@ -1033,6 +1033,13 @@ fn file_store_refuses_parent_components() {
                 Store::open(path, &owner).err().unwrap().message,
                 "dailyrecord_workflow_store_owner_root_required"
             );
+            assert_eq!(
+                Store::open_with_ledger(path, &owner, Box::<MemoryLedger>::default())
+                    .err()
+                    .expect("ledger constructor must refuse parent components")
+                    .message,
+                "dailyrecord_workflow_store_owner_root_required"
+            );
             assert_eq!(owner.join("x").exists(), present);
             assert_eq!(owner.join("a/y").exists(), present);
         }
@@ -1057,6 +1064,54 @@ fn file_store_skips_dot_entries_for_engine_bodies() {
     assert_eq!(
         Store::open(&store_root, &owner).err().unwrap().message,
         "workflow_ledger_legacy_root"
+    );
+    fs::remove_dir_all(owner).unwrap();
+}
+
+#[test]
+fn attempt_count_matches_attempts() {
+    let owner = root("attempt-count");
+    let ledger = MemoryLedger::default();
+    let record_scope = scope("12");
+    let probe_store = memory(&owner.join("probe"), &owner).unwrap();
+    let record = execution(
+        &probe_store,
+        &record_scope,
+        "progress",
+        "r".into(),
+        &target(&record_scope),
+        "r",
+    );
+    let mut t = probe_store.attempt_target(&record).unwrap();
+    let group = t.group.clone();
+    for i in 0..3 {
+        t.record_key = format!("record-{i}");
+        t.occurrence[3] = format!("course-{i}");
+        ledger
+            .begin(&format!("key-{i}"), &t, &sha("body"), &Clock)
+            .unwrap();
+    }
+    ledger
+        .record_outcome(
+            "key-0",
+            &sha("outcome"),
+            FieldState::SettledPersisted,
+            &Clock,
+        )
+        .unwrap();
+    t.group = "other".into();
+    ledger.begin("other-key", &t, &sha("body"), &Clock).unwrap();
+    let expected = ledger.attempts(&group, 10).unwrap().len();
+    let store = Store::open_with_ledger(&owner.join("count"), &owner, Box::new(ledger)).unwrap();
+    fs::remove_dir_all(store.root().join("execution")).unwrap();
+    assert_eq!(store.attempt_count(&group, 10).unwrap(), expected);
+    assert_eq!(store.attempt_count(&group, 2).unwrap(), 2);
+    assert_eq!(store.attempt_count(&group, 0).unwrap(), 0);
+    assert_eq!(store.attempt_count("absent", 10).unwrap(), 0);
+    let file = Store::open(&owner.join("file"), &owner).unwrap();
+    assert_eq!(
+        file.attempt_count(&group, 10).unwrap_err().message,
+        "workflow_ledger_unavailable"
     );
     fs::remove_dir_all(owner).unwrap();
 }

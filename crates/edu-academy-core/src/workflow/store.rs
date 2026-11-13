@@ -187,6 +187,14 @@ impl Store {
     pub fn ledgered(&self) -> bool {
         self.attempts.is_some()
     }
+    /// Count bounded attempt metadata without reading any record body.
+    pub fn attempt_count(&self, group: &str, limit: usize) -> Result<usize> {
+        self.attempts
+            .as_deref()
+            .ok_or_else(|| Fault::error("workflow_ledger_unavailable"))?
+            .attempts(group, limit)
+            .map(|attempts| attempts.len())
+    }
     pub(crate) fn attempt_ledger(&self) -> Option<&dyn AttemptLedger> {
         self.attempts.as_deref()
     }

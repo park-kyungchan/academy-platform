@@ -143,7 +143,7 @@ fn run(
     evidence: &mut Js,
 ) -> Result<Js> {
     let root = Rc::new(OwnerRoot::open(&input.owner_root).map_err(fault)?);
-    *store = Some(driver::store(&input.owner_root, &input.store)?);
+    *store = Some(driver::store(&input.owner_root, &input.store, &Clock)?);
     let read = |pin: &Pin| {
         root.read(&pin.relative_path, &pin.sha256, 256 * 1024)
             .map_err(fault)
