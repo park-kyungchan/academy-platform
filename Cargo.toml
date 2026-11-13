@@ -1,5 +1,7 @@
 [workspace]
 members = ["crates/edu-academy-core", "crates/edu-academy-sources", "crates/edu-academy-mcp", "crates/edu-academy-teacher", "crates/edu-academy-ontology"]
+# `edu-academy-mcp` is frozen (parity work stopped; retired at the first cutover): `./check` skips it, `./check all` covers it.
+default-members = ["crates/edu-academy-core", "crates/edu-academy-sources", "crates/edu-academy-teacher", "crates/edu-academy-ontology"]
 resolver = "3"
 
 [workspace.package]
