@@ -159,3 +159,158 @@ fn oversized_execution_publish_creates_no_body() {
     drop(store);
     std::fs::remove_dir_all(owner).unwrap();
 }
+
+#[test]
+fn oversized_body_publish_leaves_no_file_or_attempt() {
+    use edu_academy_core::workflow::{codec, store::Kind};
+    fn files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
+        let mut paths = vec![];
+        for entry in std::fs::read_dir(root).unwrap() {
+            let path = entry.unwrap().path();
+            paths.push(path.clone());
+            if path.is_dir() {
+                paths.extend(files(&path));
+            }
+        }
+        paths.sort();
+        paths
+    }
+    let owner = ledger_cases::root("body-bound");
+    let result = std::panic::catch_unwind(|| {
+        let root = owner.join("store");
+        let store = edu_academy_ontology::open_store(&root, &owner, &ledger_cases::Clock).unwrap();
+        let scope = ledger_cases::scope("12");
+        let mut record = ledger_cases::execution(
+            &store,
+            &scope,
+            "progress",
+            "15".into(),
+            &ledger_cases::target(&scope),
+            "review",
+        );
+        record.set("padding", "".into());
+        let wrapper = |record: &Js| {
+            obj(&[
+                ("kind", "execution".into()),
+                ("id", "body-bound".into()),
+                ("record", record.clone()),
+            ])
+        };
+        let base = codec::bytes(&wrapper(&record)).unwrap().len();
+        record.set("padding", "x".repeat(65_537 - base).into());
+        assert_eq!(codec::bytes(&wrapper(&record)).unwrap().len(), 65_537);
+        let before = files(&root);
+        let published = store.publish(Kind::Execution, "body-bound", &record, &ledger_cases::Clock);
+        let after = files(&root);
+        let count = store
+            .attempt_count(&state::lock_key(&scope).unwrap(), 10)
+            .unwrap();
+        let read = store.get(Kind::Execution, "body-bound");
+        assert_eq!(
+            (after, count),
+            (before, 0),
+            "oversized body must leave no file or open attempt; publish={published:?}, get={read:?}"
+        );
+        assert_eq!(
+            published.unwrap_err().message,
+            "workflow_attempt_body_too_large"
+        );
+        assert_eq!(read.unwrap(), Js::Null);
+        record.set("padding", "x".repeat(65_536 - base).into());
+        assert_eq!(codec::bytes(&wrapper(&record)).unwrap().len(), 65_536);
+        assert!(
+            store
+                .publish(Kind::Execution, "body-bound", &record, &ledger_cases::Clock)
+                .unwrap()
+                .0
+        );
+        assert_eq!(store.get(Kind::Execution, "body-bound").unwrap(), record);
+    });
+    std::fs::remove_dir_all(owner).unwrap();
+    if let Err(panic) = result {
+        std::panic::resume_unwind(panic);
+    }
+}
+
+#[test]
+fn outcome_and_reconciliation_body_bounds_preserve_ledger_and_readback() {
+    use edu_academy_core::workflow::{codec, store::Kind};
+    let owner = ledger_cases::root("settlement-body-bound");
+    let result = std::panic::catch_unwind(|| {
+        let root = owner.join("store");
+        let store = edu_academy_ontology::open_store(&root, &owner, &ledger_cases::Clock).unwrap();
+        let scope = ledger_cases::scope("12");
+        let execution = ledger_cases::execution(
+            &store,
+            &scope,
+            "progress",
+            "15".into(),
+            &ledger_cases::target(&scope),
+            "review",
+        );
+        store
+            .publish(Kind::Execution, "key", &execution, &ledger_cases::Clock)
+            .unwrap();
+        let ledger = edu_academy_ontology::EngineLedger::new(
+            owner.join("store.ledger/academy.sqlite"),
+            &ledger_cases::Clock,
+        );
+        for (kind, mut record) in [
+            (Kind::Outcome, ledger_cases::outcome(false)),
+            (
+                Kind::Reconciliation,
+                ledger_cases::reconciliation("- Before".into()),
+            ),
+        ] {
+            record.set("padding", "".into());
+            let wrapper = |record: &Js| {
+                obj(&[
+                    ("kind", kind.name().into()),
+                    ("id", "key".into()),
+                    ("record", record.clone()),
+                ])
+            };
+            let base = codec::bytes(&wrapper(&record)).unwrap().len();
+            record.set("padding", "x".repeat(65_537 - base).into());
+            let before = ledger.attempt("key").unwrap().unwrap();
+            let err = store
+                .publish(kind, "key", &record, &ledger_cases::Clock)
+                .unwrap_err();
+            assert_eq!(err.message, "workflow_attempt_body_too_large");
+            assert!(
+                std::fs::read_dir(root.join(kind.name()))
+                    .unwrap()
+                    .next()
+                    .is_none()
+            );
+            let after = ledger.attempt("key").unwrap().unwrap();
+            assert_eq!(
+                (
+                    after.execution,
+                    after.outcome,
+                    after.reconciliation,
+                    after.state
+                ),
+                (
+                    before.execution,
+                    before.outcome,
+                    before.reconciliation,
+                    before.state
+                )
+            );
+            record.set("padding", "x".repeat(65_536 - base).into());
+            assert_eq!(codec::bytes(&wrapper(&record)).unwrap().len(), 65_536);
+            assert!(
+                store
+                    .publish(kind, "key", &record, &ledger_cases::Clock)
+                    .unwrap()
+                    .0
+            );
+            assert_eq!(store.get(kind, "key").unwrap(), record);
+        }
+    });
+    std::fs::remove_dir_all(owner).unwrap();
+    if let Err(panic) = result {
+        std::panic::resume_unwind(panic);
+    }
+}

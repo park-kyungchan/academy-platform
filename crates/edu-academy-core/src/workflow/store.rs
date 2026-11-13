@@ -12,6 +12,8 @@ use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
+const MAX_ATTEMPT_BODY_BYTES: usize = 65_536;
+
 #[derive(Clone, Copy, Debug)]
 pub enum Kind {
     Observation,
@@ -254,15 +256,16 @@ impl Store {
             || meta.uid() != uid
             || meta.mode() & 0o7777 != 0o600
             || meta.nlink() != 1
-            || meta.len() > 65_536
+            || meta.len() > MAX_ATTEMPT_BODY_BYTES as u64
         {
             return Err(fail());
         }
         let mut bytes = vec![];
-        file.take(65_537)
+        file.take((MAX_ATTEMPT_BODY_BYTES + 1) as u64)
             .read_to_end(&mut bytes)
             .map_err(|_| fail())?;
-        if bytes.len() > 65_536 || format!("{:x}", Sha256::digest(&bytes)) != digest {
+        if bytes.len() > MAX_ATTEMPT_BODY_BYTES || format!("{:x}", Sha256::digest(&bytes)) != digest
+        {
             return Err(fail());
         }
         let wrapper = codec::parse(&bytes).map_err(|_| fail())?;
@@ -317,6 +320,10 @@ impl Store {
         ]);
         let created = if let Some(ledger) = self.attempts.as_deref().filter(|_| attempt_kind(kind))
         {
+            let bytes = codec::bytes(&v)?;
+            if bytes.len() > MAX_ATTEMPT_BODY_BYTES {
+                return Err(Fault::error("workflow_attempt_body_too_large"));
+            }
             let target = if matches!(kind, Kind::Execution) {
                 if ledger
                     .execution_key_limit()
@@ -354,7 +361,6 @@ impl Store {
                 }
                 _ => FieldState::DispatchUnknown,
             };
-            let bytes = codec::bytes(&v)?;
             let digest = format!("{:x}", Sha256::digest(&bytes));
             publish_body(&self.body_path(kind, id, &digest), &bytes, clock)?;
             match kind {
