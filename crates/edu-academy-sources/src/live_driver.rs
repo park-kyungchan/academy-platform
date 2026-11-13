@@ -40,7 +40,11 @@ pub fn supported(input: &Js) -> Result<()> {
     }
     Ok(())
 }
-pub fn store(root: &std::path::Path, directory: &std::path::Path) -> Result<Store> {
+pub fn store(
+    root: &std::path::Path,
+    directory: &std::path::Path,
+    runtime: &dyn edu_academy_core::workflow::Runtime,
+) -> Result<Store> {
     use std::os::unix::fs::PermissionsExt;
     if directory.ancestors().any(|p| p.join(".git").exists()) {
         return Err(Fault::error("store_inside_git_refused"));
@@ -75,7 +79,7 @@ pub fn store(root: &std::path::Path, directory: &std::path::Path) -> Result<Stor
             }
         }
     }
-    Store::open(directory, root)
+    edu_academy_ontology::open_store(directory, root, runtime)
 }
 fn hash(v: &Js) -> Js {
     sha(&String::from_utf16_lossy(v.units())).into()

@@ -1000,12 +1000,12 @@ impl Service<'_> {
         let _guard = self
             .store
             .lock(&lock_key(scope)?, LockOptions::default(), &|| false)?;
-        let fields = || -> Result<Js> {
+        let fields = |drifted: &[String]| -> Result<Js> {
             Ok(Js::Arr(
                 student_executions(self.store, scope)?
                     .iter()
                     .map(|e| {
-                        let value = obj(&[
+                        let mut value = obj(&[
                             ("field", e.record.get("field").clone()),
                             (
                                 "lessonDate",
@@ -1014,6 +1014,10 @@ impl Service<'_> {
                             ("requestRef", e.record.get("requestRef").clone()),
                             ("executionState", e.state.name().into()),
                         ]);
+                        if drifted.contains(&e.key) {
+                            value.set("status", "uncertain".into());
+                            value.set("reasonCode", "workflow_effect_target_drift".into());
+                        }
                         with_completion_facts(self.store, &e.key, value)
                     })
                     .collect::<Result<Vec<_>>>()?,
@@ -1025,6 +1029,7 @@ impl Service<'_> {
             .collect::<Vec<_>>();
         let mut reads: Vec<(String, Js)> = vec![];
         let mut uncertain = false;
+        let mut drifted = vec![];
         let mut before_window = false;
         let mut due_keys = vec![];
         for e in pending {
@@ -1106,7 +1111,19 @@ impl Service<'_> {
             if binding.get("effectTarget") != r.get("effectTarget")
                 || binding.get("effectRecordKey") != r.get("effectRecordKey")
             {
-                return Err(Fault::error("workflow_effect_target_drift"));
+                uncertain = true;
+                drifted.push(e.key.clone());
+                self.store.append_audit(
+                    &req_key,
+                    &obj(&[
+                        ("event", "reconcile_effect_target_drift".into()),
+                        ("field", r.get("field").clone()),
+                        ("by", by.clone()),
+                        ("reasonCode", "workflow_effect_target_drift".into()),
+                    ]),
+                    self.runtime,
+                )?;
+                continue;
             }
             let current = observed.get("fields").get(&field);
             if !current.get("state").is("known") {
@@ -1137,7 +1154,7 @@ impl Service<'_> {
                 self.runtime,
             )?;
         }
-        let after = fields()?;
+        let after = fields(&drifted)?;
         let remaining = student_executions(self.store, scope)?;
         let open = remaining.iter().any(|e| e.state.needs_reconciliation());
         let due_open = remaining

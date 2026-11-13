@@ -902,3 +902,126 @@ fn mixed_due_closed_with_future_is_pending() {
 fn mixed_only_future_is_pending_without_reads() {
     mixed_window_case("future_only");
 }
+
+#[test]
+fn moved_target_does_not_block_other_pending_fields_in_either_key_order() {
+    use edu_academy_core::workflow::ledger_cases;
+    use state::FieldState;
+    let mut failures = vec![];
+    for ledgered in [false, true] {
+        let mut previous = None;
+        for moved_first in [true, false] {
+            let mut c = Case::new("persisted", "lost", None);
+            let root = c.root.join("pending");
+            let store = if ledgered {
+                Store::open_with_ledger(
+                    &root,
+                    &c.root,
+                    Box::new(ledger_cases::MemoryLedger::default()),
+                )
+            } else {
+                Store::open(&root, &c.root)
+            }
+            .unwrap();
+            let scope = c.input.get("context").get("scope").clone();
+            let target = c.source.0.borrow().get("target").clone();
+            let moved_key = if moved_first { "a-moved" } else { "z-moved" };
+            for (key, field) in [
+                (moved_key, "progress"),
+                ("b-homework", "homework"),
+                ("c-memo", "lessonMemo"),
+            ] {
+                let mut execution =
+                    ledger_cases::execution(&store, &scope, field, "15".into(), &target, field);
+                execution.set("effectTarget", "target".into());
+                store
+                    .add_ledger(&state::lock_key(&scope).unwrap(), key, &c.clock)
+                    .unwrap();
+                store
+                    .publish(Kind::Execution, key, &execution, &c.clock)
+                    .unwrap();
+                store
+                    .publish(Kind::Outcome, key, &ledger_cases::outcome(false), &c.clock)
+                    .unwrap();
+            }
+            c.at("2040-01-04T12:10:00.000Z");
+            {
+                let mut observation = c.source.0.borrow_mut();
+                observation.set("observedAt", c.clock.now().into());
+                let mut fields = observation.get("fields").clone();
+                let mut moved = fields.get("progress").clone();
+                moved.set("effectTarget", "moved-target".into());
+                fields.set("progress", moved);
+                let mut homework = fields.get("homework").clone();
+                homework.set("value", "- Sent".into());
+                fields.set("homework", homework);
+                observation.set("fields", fields);
+            }
+            let reads_before = c.source.1.get();
+            let result = service::Service {
+                store: &store,
+                source: &mut c.source,
+                backend: &mut c.backend,
+                policy: &Policy,
+                runtime: &c.clock,
+            }
+            .reconcile(&obj(&[("context", c.input.get("context").clone())]));
+            let result = match result {
+                Ok(result) => result,
+                Err(error) => {
+                    failures.push(format!(
+                        "ledgered={ledgered} moved_first={moved_first}: {}",
+                        error.message
+                    ));
+                    drop(store);
+                    std::fs::remove_dir_all(c.root).unwrap();
+                    continue;
+                }
+            };
+            assert!(result.get("status").is("held"));
+            assert!(
+                result
+                    .get("reasonCode")
+                    .is("qualified_proof_or_target_repair_required")
+            );
+            let mut outcomes = result.get("fields").array().to_vec();
+            outcomes.sort_by_key(|f| f.get("field").code_units());
+            for (field, expected) in [
+                ("progress", FieldState::ReconciliationRequired),
+                ("homework", FieldState::ReconciledPersisted),
+                ("lessonMemo", FieldState::ReconciledNotPersisted),
+            ] {
+                let row = outcomes.iter().find(|f| f.get("field").is(field)).unwrap();
+                assert!(row.get("executionState").is(expected.name()), "{row:?}");
+            }
+            let moved = outcomes
+                .iter()
+                .find(|f| f.get("field").is("progress"))
+                .unwrap();
+            assert!(moved.get("status").is("uncertain"));
+            assert!(moved.get("reasonCode").is("workflow_effect_target_drift"));
+            assert!(store.get(Kind::Reconciliation, moved_key).unwrap().absent());
+            assert_eq!(
+                state::unresolved_on_field(&store, &scope, "progress", "15", &target)
+                    .unwrap()
+                    .len(),
+                1
+            );
+            for key in ["b-homework", "c-memo"] {
+                assert!(!store.get(Kind::Reconciliation, key).unwrap().absent());
+            }
+            assert_eq!(c.backend.calls, 0, "reconciliation must not dispatch");
+            assert_eq!(c.source.1.get() - reads_before, 3, "three due reads");
+            if let Some(previous) = previous {
+                assert_eq!(
+                    outcomes, previous,
+                    "per-field results must not depend on key order"
+                );
+            }
+            previous = Some(outcomes);
+            drop(store);
+            std::fs::remove_dir_all(c.root).unwrap();
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

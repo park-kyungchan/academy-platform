@@ -15,5 +15,8 @@ serde_json.workspace = true
 regex.workspace = true
 rustix.workspace = true
 
+[dev-dependencies]
+edu-academy-ontology = { path = "../edu-academy-ontology" }
+
 [lints]
 workspace = true

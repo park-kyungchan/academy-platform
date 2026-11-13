@@ -1819,3 +1819,59 @@ fn status_wait_requires_held_and_ignores_raw_failed_count() {
         }
     }
 }
+
+#[test]
+fn store_opens_engine_ledger() {
+    use std::os::unix::fs::PermissionsExt;
+    let owner =
+        PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap()).join("lc-engine-driver");
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .create(&owner)
+        .unwrap();
+    std::fs::set_permissions(&owner, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let root = owner.join("store");
+    let store = live_driver::store(&owner, &root, &Clock).unwrap();
+    assert!(store.ledgered());
+    let sibling = edu_academy_core::workflow::store::ledger_sibling(&root).unwrap();
+    for dir in [&root, &sibling] {
+        assert_eq!(
+            std::fs::metadata(dir).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+    }
+    assert_eq!(
+        std::fs::metadata(sibling.join("academy.sqlite"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
+    std::fs::remove_dir_all(owner).unwrap();
+}
+#[test]
+fn store_refuses_file_form_directory() {
+    use std::os::unix::fs::PermissionsExt;
+    let owner =
+        PathBuf::from(std::env::var("S11_INTAKE_TEST_ROOT").unwrap()).join("lc-file-driver");
+    std::fs::create_dir_all(&owner).unwrap();
+    std::fs::set_permissions(&owner, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let root = owner.join("store");
+    let file = Store::open(&root, &owner).unwrap();
+    file.add_ledger("invented-group", "invented-key", &Clock)
+        .unwrap();
+    assert_eq!(
+        live_driver::store(&owner, &root, &Clock)
+            .err()
+            .unwrap()
+            .message,
+        "workflow_ledger_legacy_root"
+    );
+    assert!(
+        !edu_academy_core::workflow::store::ledger_sibling(&root)
+            .unwrap()
+            .exists()
+    );
+    std::fs::remove_dir_all(owner).unwrap();
+}

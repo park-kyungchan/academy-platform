@@ -1843,3 +1843,408 @@ fn usage_breadth_under_child_descriptor_limit() {
     assert_eq!(a.retained_generations().unwrap(), 0);
     assert!(a.usage(10000).unwrap().entries >= MAX_RETAINED_GENERATIONS);
 }
+
+// Engine controls use invented identities and never open an operational store.
+fn engine_core(t: &Scratch) -> Store {
+    edu_academy_ontology::open_store(
+        &t.root(),
+        &t.0,
+        &edu_academy_core::workflow::ledger_cases::Clock,
+    )
+    .unwrap()
+}
+fn engine_ledger(t: &Scratch) -> edu_academy_ontology::EngineLedger {
+    edu_academy_ontology::EngineLedger::new(
+        edu_academy_core::workflow::store::ledger_sibling(&t.root())
+            .unwrap()
+            .join("academy.sqlite"),
+        &edu_academy_core::workflow::ledger_cases::Clock,
+    )
+}
+fn engine_target(scope: &Js, index: usize) -> edu_academy_core::workflow::ledger::AttemptTarget {
+    edu_academy_core::workflow::ledger::AttemptTarget {
+        group: state::lock_key(scope).unwrap(),
+        source_namespace: "synthetic-record".into(),
+        teacher_id: "synthetic-account".into(),
+        scope_student_id: String::from_utf16(scope.get("studentId").units()).unwrap(),
+        request_lesson_date: "2026-11-11".into(),
+        field: "progress".into(),
+        record_key: format!("record-{index}"),
+        request_ref: "invented-request".into(),
+        occurrence: [
+            "synthetic-record".into(),
+            "1001".into(),
+            "2026-11-11".into(),
+            format!("course-{index}"),
+        ],
+    }
+}
+#[test]
+fn preflight_counts_engine_attempts() {
+    use edu_academy_core::workflow::{ledger_cases::Clock, state::FieldState};
+    let t = Scratch::new();
+    t.open();
+    let core = engine_core(&t);
+    let ledger = engine_ledger(&t);
+    let s = DraftStore::open_with_core(&t.root(), owner(), core).unwrap();
+    let a = s.lock_account().unwrap();
+    let scope = scope();
+    assert_eq!(
+        a.preflight_executions(&scope, ExecutionAdmission::ReadOnly)
+            .unwrap(),
+        0
+    );
+    for i in 0..3 {
+        assert!(
+            ledger
+                .begin(
+                    &format!("attempt-{i}"),
+                    &engine_target(&scope, i),
+                    &sha("missing-body"),
+                    &Clock
+                )
+                .unwrap()
+        );
+    }
+    assert_eq!(
+        a.preflight_executions(&scope, ExecutionAdmission::ReadOnly)
+            .unwrap(),
+        3
+    );
+    assert!(
+        ledger
+            .record_outcome(
+                "attempt-0",
+                &sha("outcome"),
+                FieldState::SettledPersisted,
+                &Clock
+            )
+            .unwrap()
+    );
+    let other = edu_academy_core::workflow::merge(
+        scope.clone(),
+        &edu_academy_core::js::obj(&[("studentId", "1003".into())]),
+    );
+    ledger
+        .begin("other", &engine_target(&other, 10), &sha("missing"), &Clock)
+        .unwrap();
+    // No execution body was published: counting must read metadata only.
+    assert_eq!(fs::read_dir(t.root().join("execution")).unwrap().count(), 0);
+    assert_eq!(
+        a.preflight_executions(&scope, ExecutionAdmission::ReadOnly)
+            .unwrap(),
+        3
+    );
+    assert_eq!(
+        a.preflight_executions(&other, ExecutionAdmission::ReadOnly)
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        a.preflight_executions(&scope, ExecutionAdmission::Save { selected_fields: 1 })
+            .unwrap(),
+        3
+    );
+}
+#[test]
+fn preflight_limit_at_production_bound() {
+    use edu_academy_core::{
+        js::Result,
+        workflow::{
+            Runtime,
+            ledger::{Attempt, AttemptLedger, AttemptTarget},
+            ledger_cases::{Clock, MemoryLedger},
+            state::FieldState,
+        },
+    };
+    use std::sync::Arc;
+
+    // Share the in-memory ledger without exposing the held core's internals.
+    struct SharedLedger(Arc<MemoryLedger>);
+    impl AttemptLedger for SharedLedger {
+        fn begin(
+            &self,
+            key: &str,
+            target: &AttemptTarget,
+            digest: &str,
+            clock: &dyn Runtime,
+        ) -> Result<bool> {
+            self.0.begin(key, target, digest, clock)
+        }
+        fn record_outcome(
+            &self,
+            key: &str,
+            digest: &str,
+            state: FieldState,
+            clock: &dyn Runtime,
+        ) -> Result<bool> {
+            self.0.record_outcome(key, digest, state, clock)
+        }
+        fn record_reconciliation(
+            &self,
+            key: &str,
+            digest: &str,
+            state: FieldState,
+            clock: &dyn Runtime,
+        ) -> Result<bool> {
+            self.0.record_reconciliation(key, digest, state, clock)
+        }
+        fn attempt(&self, key: &str) -> Result<Option<Attempt>> {
+            self.0.attempt(key)
+        }
+        fn attempts(&self, group: &str, limit: usize) -> Result<Vec<Attempt>> {
+            self.0.attempts(group, limit)
+        }
+        fn open_on(&self, target: &AttemptTarget) -> Result<Vec<Attempt>> {
+            self.0.open_on(target)
+        }
+    }
+
+    let t = Scratch::new();
+    t.open();
+    let ledger = Arc::new(MemoryLedger::default());
+    let core =
+        Store::open_with_ledger(&t.root(), &t.0, Box::new(SharedLedger(ledger.clone()))).unwrap();
+    let drafts = DraftStore::open_with_core(&t.root(), owner(), core).unwrap();
+    let account = drafts.lock_account().unwrap();
+    let scope = scope();
+    for count in 1..=4097 {
+        assert!(
+            ledger
+                .begin(
+                    &format!("production-limit-{count}"),
+                    &engine_target(&scope, count),
+                    &sha("absent-body"),
+                    &Clock
+                )
+                .unwrap()
+        );
+        if count < 4095 {
+            continue;
+        }
+        for (selected, admission) in [
+            (0, ExecutionAdmission::ReadOnly),
+            (1, ExecutionAdmission::Save { selected_fields: 1 }),
+        ] {
+            let result = account.preflight_executions(&scope, admission);
+            // File form refuses entry 4097, and selected fields above 4096.
+            if count > 4096 || (selected > 0 && (count == 4096 || count + selected > 4096)) {
+                assert_eq!(
+                    error(result),
+                    "record_execution_limit",
+                    "count={count}, selected={selected}"
+                );
+            } else {
+                assert_eq!(result.unwrap(), count, "count={count}, selected={selected}");
+            }
+        }
+    }
+}
+#[test]
+#[ignore = "manual full bound exceeds two-minute budget; unit control uses TEST_LIMIT=8"]
+fn preflight_limit_on_engine() {
+    use edu_academy_core::workflow::ledger_cases::Clock;
+    let started = Instant::now();
+    let t = Scratch::new();
+    t.open();
+    let core = engine_core(&t);
+    let ledger = engine_ledger(&t);
+    let s = DraftStore::open_with_core(&t.root(), owner(), core).unwrap();
+    let a = s.lock_account().unwrap();
+    for i in 0..=MAX_EXECUTION_RECORDS {
+        ledger
+            .begin(
+                &format!("limit-{i}"),
+                &engine_target(&scope(), i),
+                &sha("missing"),
+                &Clock,
+            )
+            .unwrap();
+        assert!(
+            started.elapsed() < Duration::from_secs(120),
+            "engine_limit_budget: inserted {} attempts in {:?}",
+            i + 1,
+            started.elapsed()
+        );
+        if i + 1 == MAX_EXECUTION_RECORDS - 1 {
+            assert_eq!(
+                a.preflight_executions(&scope(), ExecutionAdmission::Save { selected_fields: 1 })
+                    .unwrap(),
+                MAX_EXECUTION_RECORDS - 1
+            );
+            assert_eq!(
+                error(a.preflight_executions(
+                    &scope(),
+                    ExecutionAdmission::Save { selected_fields: 2 }
+                )),
+                "record_execution_limit"
+            );
+        }
+        if i + 1 == MAX_EXECUTION_RECORDS {
+            assert_eq!(
+                error(a.preflight_executions(
+                    &scope(),
+                    ExecutionAdmission::Save { selected_fields: 1 }
+                )),
+                "record_execution_limit"
+            );
+            assert_eq!(
+                a.preflight_executions(&scope(), ExecutionAdmission::ReadOnly)
+                    .unwrap(),
+                MAX_EXECUTION_RECORDS
+            );
+        }
+    }
+    assert_eq!(
+        error(a.preflight_executions(&scope(), ExecutionAdmission::ReadOnly)),
+        "record_execution_limit"
+    );
+    println!("engine_limit_elapsed={:?}", started.elapsed());
+}
+#[test]
+fn cleanup_uses_held_core() {
+    use edu_academy_core::{
+        js::obj,
+        workflow::{
+            ledger_cases::{Clock, execution, target},
+            store::Kind,
+        },
+    };
+    use edu_academy_teacher::record_data::DraftState;
+    let t = Scratch::new();
+    t.open();
+    let core = engine_core(&t);
+    let mut draft = stored_draft();
+    draft.state = DraftState::Expired;
+    draft.closed_at = Some(draft.last_used.clone());
+    let path = put_draft(&t, &draft);
+    let other = put_draft(&t, &retained_draft("1001", 1, false));
+    let mut record = execution(
+        &core,
+        &scope(),
+        "progress",
+        "record".into(),
+        &target(&scope()),
+        "review",
+    );
+    record = edu_academy_core::workflow::merge(
+        record,
+        &obj(&[(
+            "requestRef",
+            draft
+                .pending_attempt
+                .as_ref()
+                .unwrap()
+                .request_ref
+                .clone()
+                .into(),
+        )]),
+    );
+    core.publish(Kind::Execution, "cleanup-attempt", &record, &Clock)
+        .unwrap();
+    let s = DraftStore::open_with_core(&t.root(), owner(), core).unwrap();
+    assert_eq!(
+        Store::open(&t.root(), &t.0).err().unwrap().message,
+        "workflow_ledger_legacy_root"
+    );
+    let a = s.lock_account().unwrap();
+    let clean = a
+        .cleanup_drafts(&scope(), "2026-11-20T18:10:00+09:00")
+        .unwrap();
+    assert_eq!((clean.removed, clean.protected), (1, 1));
+    assert!(path.exists());
+    assert!(!other.exists());
+}
+#[test]
+fn open_with_core_requires_same_root() {
+    let t = Scratch::new();
+    t.open();
+    let other = Scratch::new();
+    other.open();
+    refused(DraftStore::open_with_core(
+        &t.root(),
+        owner(),
+        engine_core(&other),
+    ));
+    let file = Store::open(&t.root(), &t.0).unwrap();
+    refused(DraftStore::open_with_core(&t.root(), owner(), file));
+    // Different spellings of the same directory are accepted by identity.
+    let core = engine_core(&t);
+    DraftStore::open_with_core(&t.root().join("."), owner(), core).unwrap();
+}
+#[test]
+fn open_refuses_engine_root() {
+    let t = Scratch::new();
+    t.open();
+    let _core = engine_core(&t);
+    refused(DraftStore::open(&t.root(), owner()));
+    refused(DraftStore::open(
+        Path::new(&format!("{}/", t.root().display())),
+        owner(),
+    ));
+    refused(DraftStore::open(&t.root().join("."), owner()));
+}
+
+#[test]
+fn store_and_draft_store_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<Store>();
+    assert_send_sync::<DraftStore>();
+}
+
+#[test]
+fn fresh_engine_first_bootstrap_roundtrips_draft_and_execution() {
+    use edu_academy_core::workflow::{
+        ledger_cases::{Clock, execution, target},
+        store::Kind,
+    };
+    let t = Scratch::new();
+    assert!(!t.root().exists());
+    let core = engine_core(&t);
+    let drafts = DraftStore::open_with_core(&t.root(), owner(), core).unwrap();
+    let account = drafts.lock_account().unwrap();
+    let draft = account
+        .create_draft(&scope(), draft_seed(), DRAFT_NOW, 10000)
+        .unwrap();
+    assert_eq!(
+        account.load_draft(&draft.identity, None).unwrap().unwrap(),
+        draft
+    );
+    let core = engine_core(&t);
+    let record = execution(
+        &core,
+        &scope(),
+        "progress",
+        "record".into(),
+        &target(&scope()),
+        "review",
+    );
+    assert!(
+        core.publish(Kind::Execution, "fresh-attempt", &record, &Clock)
+            .unwrap()
+            .0
+    );
+    assert_eq!(core.get(Kind::Execution, "fresh-attempt").unwrap(), record);
+}
+
+#[test]
+fn unmarked_engine_bootstrap_refuses_foreign_entries_and_core_without_adoption() {
+    for entry in ["foreign", "review/payload", "record-drafts"] {
+        let t = Scratch::new();
+        let core = engine_core(&t);
+        put(&t.root().join(entry), b"unrelated");
+        refused(DraftStore::open_with_core(&t.root(), owner(), core));
+        assert!(!t.root().join(MARKER).exists());
+    }
+    let t = Scratch::new();
+    let other = Scratch::new();
+    let _core = engine_core(&t);
+    refused(DraftStore::open_with_core(
+        &t.root(),
+        owner(),
+        engine_core(&other),
+    ));
+    assert!(!t.root().join(MARKER).exists());
+    assert!(!t.root().join("record-drafts").exists());
+    refused(DraftStore::open(&t.root(), owner()));
+}

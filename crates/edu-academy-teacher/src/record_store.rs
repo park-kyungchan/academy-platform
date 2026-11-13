@@ -121,6 +121,19 @@ fn capacity() -> Fault {
 fn corrupt() -> Fault {
     Fault::error("record_store_corrupt")
 }
+// An explicit bound permits the two-minute fallback test without changing policy.
+fn engine_attempt_count(
+    core: &edu_academy_core::workflow::store::Store,
+    group: &str,
+    selected: usize,
+    limit: usize,
+) -> Result<usize> {
+    let count = core.attempt_count(group, limit + 1)?;
+    if count > limit || (selected > 0 && (count == limit || count + selected > limit)) {
+        return Err(execution_limit());
+    }
+    Ok(count)
+}
 fn execution_limit() -> Fault {
     Fault::error("record_execution_limit")
 }
@@ -446,6 +459,7 @@ struct Marker {
     owner: OwnerScope,
 }
 pub struct DraftStore {
+    core: Option<edu_academy_core::workflow::store::Store>,
     path: PathBuf,
     root: File,
     owner: OwnerScope,
@@ -465,6 +479,26 @@ pub struct RootUsage {
 }
 impl DraftStore {
     pub fn open(root: &Path, owner: OwnerScope) -> Result<Self> {
+        Self::initialize(root, owner, None)
+    }
+    /// Hold the engine-backed core store serving this same directory.
+    pub fn open_with_core(
+        root: &Path,
+        owner: OwnerScope,
+        core: edu_academy_core::workflow::store::Store,
+    ) -> Result<Self> {
+        Self::initialize(root, owner, Some(core))
+    }
+    fn initialize(
+        root: &Path,
+        owner: OwnerScope,
+        core: Option<edu_academy_core::workflow::store::Store>,
+    ) -> Result<Self> {
+        let sibling =
+            edu_academy_core::workflow::store::ledger_sibling(root).ok_or_else(refused)?;
+        if core.is_none() && sibling.exists() {
+            return Err(refused());
+        }
         if owner.owner.is_empty() || owner.account.is_empty() {
             return Err(refused());
         }
@@ -482,6 +516,17 @@ impl DraftStore {
         if metadata.uid() != rustix::process::geteuid().as_raw() || metadata.mode() & 0o022 != 0 {
             return Err(refused());
         }
+        if let Some(core) = &core {
+            if !core.ledgered() {
+                return Err(refused());
+            }
+            let core_root = absolute(core.root())?;
+            let a = io(core_root.metadata())?;
+            let b = io(fd.metadata())?;
+            if (a.dev(), a.ino()) != (b.dev(), b.ino()) {
+                return Err(refused());
+            }
+        }
         bootstrap_lock(&fd)?;
         let expected = Marker {
             format: MARKER.into(),
@@ -497,8 +542,22 @@ impl DraftStore {
             }
             None => {
                 for entry in entries(&fd)? {
-                    if name(&syscall(entry)?).is_some() {
-                        return Err(refused());
+                    if let Some(name) = name(&syscall(entry)?) {
+                        if core.is_none()
+                            || !edu_academy_core::workflow::store::Store::DIRECTORIES
+                                .iter()
+                                .any(|d| name == OsStr::new(d))
+                        {
+                            return Err(refused());
+                        }
+                        // A fresh supplied core may have initialized only private,
+                        // empty directories. Never adopt preexisting payloads.
+                        let child = directory(&fd, name, true).map_err(|_| refused())?;
+                        for entry in entries(&child)? {
+                            if self::name(&syscall(entry)?).is_some() {
+                                return Err(refused());
+                            }
+                        }
                     }
                 }
                 io(fd.set_permissions(Permissions::from_mode(0o700)))?;
@@ -527,6 +586,7 @@ impl DraftStore {
         io(fd.sync_all())?;
         io(fd.unlock())?;
         Ok(Self {
+            core,
             path: root.into(),
             root: fd,
             owner,
@@ -954,9 +1014,18 @@ impl AccountGuard<'_> {
         let at = timestamp(now)?;
         let student = String::from_utf16(scope.get("studentId").units()).map_err(|_| corrupt())?;
         let drafts = self.lookup_drafts(&student)?;
-        let core =
-            edu_academy_core::workflow::store::Store::open(self.store.root(), self.store.root())?;
-        let unresolved = state::student_executions(&core, scope)?;
+        let file_core;
+        let core = match self.store.core.as_ref() {
+            Some(core) => core,
+            None => {
+                file_core = edu_academy_core::workflow::store::Store::open(
+                    self.store.root(),
+                    self.store.root(),
+                )?;
+                &file_core
+            }
+        };
+        let unresolved = state::student_executions(core, scope)?;
         let refs: BTreeSet<_> = unresolved
             .iter()
             .filter(|e| e.state.needs_reconciliation())
@@ -1071,7 +1140,7 @@ impl AccountGuard<'_> {
         }
         Ok(usage)
     }
-    /// Read-only preflight of the files core student_executions will consume.
+    /// Read-only preflight of core attempt metadata or file-form records.
     /// Supply the server-resolved core scope; owner association is the caller's job.
     /// Keep this guard through core entry; Save reserves the entire field batch.
     /// This neither grants approval nor writes a second counter or ledger.
@@ -1092,6 +1161,9 @@ impl AccountGuard<'_> {
             _ => return Err(Fault::error("record_execution_fields_invalid")),
         };
         let group = state::lock_key(scope)?;
+        if let Some(core) = &self.store.core {
+            return engine_attempt_count(core, &group, selected, MAX_EXECUTION_RECORDS);
+        }
         let ledger = directory(&self.store.root, OsStr::new("ledger"), true)?;
         let group_dir = match rfs::openat(
             &ledger,
@@ -1323,5 +1395,112 @@ mod tests {
             std::fs::remove_file(path).unwrap();
         }
         std::fs::remove_dir(path).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod engine_limit_tests {
+    use super::*;
+    use edu_academy_core::workflow::{ledger::AttemptTarget, ledger_cases::Clock};
+    use edu_academy_ontology::{EngineLedger, open_store};
+    use std::{fs, os::unix::fs::DirBuilderExt};
+
+    #[test]
+    fn preflight_limit_on_engine_at_test_bound() {
+        const TEST_LIMIT: usize = 8;
+        let started = Instant::now();
+        let owner_root = PathBuf::from(std::env::var("S10_TEST_ROOT").unwrap())
+            .join(format!("lc-engine-limit-unit-{}", std::process::id()));
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&owner_root)
+            .unwrap();
+        let root = owner_root.join("store");
+        let owner = OwnerScope {
+            owner: "invented-owner".into(),
+            account: "invented-account".into(),
+        };
+        DraftStore::open(&root, owner.clone()).unwrap();
+        let core = open_store(&root, &owner_root, &Clock).unwrap();
+        let ledger = EngineLedger::new(
+            edu_academy_core::workflow::store::ledger_sibling(&root)
+                .unwrap()
+                .join("academy.sqlite"),
+            &Clock,
+        );
+        let drafts = DraftStore::open_with_core(&root, owner, core).unwrap();
+        let account = drafts.lock_account().unwrap();
+        let scope = edu_academy_core::workflow::ledger_cases::scope("12");
+        let group = state::lock_key(&scope).unwrap();
+        let core = drafts.core.as_ref().unwrap();
+        for count in 1..=TEST_LIMIT + 1 {
+            let target = AttemptTarget {
+                group: group.clone(),
+                source_namespace: "invented".into(),
+                teacher_id: "11".into(),
+                scope_student_id: "12".into(),
+                request_lesson_date: "2040-01-04".into(),
+                field: "progress".into(),
+                record_key: format!("record-{count}"),
+                request_ref: "invented-request".into(),
+                occurrence: [
+                    "invented".into(),
+                    "12".into(),
+                    "2040-01-04".into(),
+                    format!("course-{count}"),
+                ],
+            };
+            ledger
+                .begin(
+                    &format!("key-{count}"),
+                    &target,
+                    &sha("absent-body"),
+                    &Clock,
+                )
+                .unwrap();
+            if count == TEST_LIMIT - 1 {
+                assert_eq!(
+                    engine_attempt_count(core, &group, 1, TEST_LIMIT).unwrap(),
+                    count
+                );
+                assert_eq!(
+                    engine_attempt_count(core, &group, 2, TEST_LIMIT)
+                        .unwrap_err()
+                        .message,
+                    "record_execution_limit"
+                );
+            } else if count == TEST_LIMIT {
+                assert_eq!(
+                    engine_attempt_count(core, &group, 1, TEST_LIMIT)
+                        .unwrap_err()
+                        .message,
+                    "record_execution_limit"
+                );
+                assert_eq!(
+                    engine_attempt_count(core, &group, 0, TEST_LIMIT).unwrap(),
+                    count
+                );
+            } else if count > TEST_LIMIT {
+                assert_eq!(
+                    engine_attempt_count(core, &group, 0, TEST_LIMIT)
+                        .unwrap_err()
+                        .message,
+                    "record_execution_limit"
+                );
+            }
+        }
+        assert_eq!(
+            account
+                .preflight_executions(&scope, ExecutionAdmission::ReadOnly)
+                .unwrap(),
+            TEST_LIMIT + 1
+        );
+        println!(
+            "engine_limit_test_bound={TEST_LIMIT} elapsed={:?}",
+            started.elapsed()
+        );
+        drop(account);
+        drop(drafts);
+        fs::remove_dir_all(owner_root).unwrap();
     }
 }
