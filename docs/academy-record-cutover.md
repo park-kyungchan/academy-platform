@@ -69,3 +69,12 @@ Until the engine revision with item G3 is pinned, one `begin` costs about
 The full-bound control `preflight_limit_on_engine` is run once after the engine revision with G3 is pinned.
 The first production save waits for that pin.
 Before a production store exists, rollback consists of reverting packet LC.
+
+`academy-live-driver` has a read-only mode `get`: it takes no `store` and opens
+no ledger. In one login under the account lease it resolves one student (the
+launch-admitted `scope.studentId`, or `studentName` through the name search to
+exactly one student the launch admission lists), reads the daily record of the
+lesson date and the previous record, and writes their values to the file `out`
+(absolute, must not exist, in a 0700 directory of the caller; written to a
+temporary name and renamed, mode 0600). Stdout holds codes, counts, the file's
+sha256 and byte count only. A failed or partial read writes no file.
