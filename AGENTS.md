@@ -17,6 +17,7 @@ Tooling for a teacher's Academy work. The route in use is the installed TypeScri
 | Record store, ledger, bounds and refusal codes | `docs/academy-record-cutover.md` | `edu-academy-core` workflow, `edu-academy-teacher` draft store, the live driver |
 | The `academy` schema | `ontology/academy.schema.json`, embedded by `edu-academy-ontology` | Every store file under an owner root |
 | Engine pin (`ont*` `rev` in `Cargo.toml`) | `ontology-platform` | The ledger tests of `edu-academy-ontology` |
+| Account lock: every Rust path that authenticates to the LMS holds the shared account lock | `docs/academy-account-lock.md` | The installed TypeScript server and the lesson sessions |
 | One-field live driver input and output | `crates/edu-academy-sources/README.md` | Callers of `academy-live-driver` |
 | Crate-owned fixtures and their hashes | `docs/fixture-ownership.md` | Tests of every crate |
 
