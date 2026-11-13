@@ -102,28 +102,45 @@ fn index_only_is_available_and_physical_fence_ignores_request_and_date() {
         state::field_state(&s, "index-only").unwrap(),
         FieldState::Available
     );
+    let mut target = scope.clone();
+    target.set("courseId", "invented-course".into());
     let r = obj(&[
         ("scope", scope.clone()),
         ("field", "progress".into()),
         ("effectRecordKey", "physical".into()),
+        ("effectTarget", "synthetic-target".into()),
+        ("reviewDigest", "physical-review".into()),
     ]);
+    s.publish(
+        Kind::Review,
+        "physical-review",
+        &obj(&[(
+            "patch",
+            Js::Arr(vec![obj(&[
+                ("field", "progress".into()),
+                ("target", target.clone()),
+            ])]),
+        )]),
+        &Clock,
+    )
+    .unwrap();
     s.publish(Kind::Execution, "index-only", &r, &Clock)
         .unwrap();
     let mut other = scope.clone();
     other.set("lessonDate", "2040-01-05".into());
     assert_eq!(
-        state::unresolved_on_field(&s, &other, "progress", "physical")
+        state::unresolved_on_field(&s, &other, "progress", "physical", &other)
             .unwrap()
             .len(),
         1
     );
     assert!(
-        state::unresolved_on_field(&s, &other, "homework", "physical")
+        state::unresolved_on_field(&s, &other, "homework", "physical", &other)
             .unwrap()
             .is_empty()
     );
     assert!(
-        state::unresolved_on_field(&s, &other, "progress", "other")
+        state::unresolved_on_field(&s, &other, "progress", "other", &other)
             .unwrap()
             .is_empty()
     );
@@ -136,7 +153,7 @@ fn index_only_is_available_and_physical_fence_ignores_request_and_date() {
     .unwrap();
     assert_eq!(
         state::field_state(&s, "index-only").unwrap(),
-        FieldState::SettledPersisted
+        FieldState::ReconciliationRequired
     );
     s.publish(
         Kind::Reconciliation,
@@ -147,7 +164,7 @@ fn index_only_is_available_and_physical_fence_ignores_request_and_date() {
     .unwrap();
     assert_eq!(
         state::field_state(&s, "index-only").unwrap(),
-        FieldState::ReconciledConflict
+        FieldState::ReconciliationRequired
     );
 }
 #[test]
@@ -212,9 +229,13 @@ fn old_json_preserves_utf16_key_order_duplicate_keys_and_numeric_values() {
 }
 
 #[test]
-fn unicode_ledger_keys_match_actual_typescript_encoding_and_file_hashes() {
+fn new_target_keys_preserve_exact_unicode_identity() {
     let cases = codec::parse(include_bytes!("fixtures/workflow-unicode-keys.json")).unwrap();
+    let bound = codec::parse(include_bytes!("fixtures/workflow-target-keys-v2.json")).unwrap();
     for (index, case) in cases.array().iter().enumerate() {
+        let expected = &bound.array()[index];
+        let legacy = codec::parse(case.get("executionKey").code_units().as_bytes()).unwrap();
+        assert!(legacy.get("effectTarget").absent());
         let p = root(&format!("unicode-key-{index}"));
         let s = Store::open(&p.join("store"), &p).unwrap();
         let scope = case.get("scope");
@@ -225,17 +246,36 @@ fn unicode_ledger_keys_match_actual_typescript_encoding_and_file_hashes() {
             case.get("effectRecordKey").clone(),
             case.get("before"),
             case.get("after"),
+            &"synthetic-target".into(),
         )
         .unwrap();
-        assert!(case.get("executionKey").is(&key));
+        assert!(expected.get("executionKey").is(&key));
+        assert_ne!(case.get("executionKey"), expected.get("executionKey"));
         assert!(
             case.get("requestKey")
                 .is(&state::request_key(scope, case.get("requestRef").clone()).unwrap())
         );
+        let mut target = scope.clone();
+        target.set("courseId", "invented-course".into());
         let record = obj(&[
             ("field", "progress".into()),
+            ("effectTarget", expected.get("effectTarget").clone()),
             ("effectRecordKey", case.get("effectRecordKey").clone()),
+            ("reviewDigest", "unicode-review".into()),
         ]);
+        s.publish(
+            Kind::Review,
+            "unicode-review",
+            &obj(&[(
+                "patch",
+                Js::Arr(vec![obj(&[
+                    ("field", "progress".into()),
+                    ("target", target.clone()),
+                ])]),
+            )]),
+            &Clock,
+        )
+        .unwrap();
         s.add_ledger(&state::lock_key(scope).unwrap(), &key, &Clock)
             .unwrap();
         s.publish(Kind::Execution, &key, &record, &Clock).unwrap();
@@ -249,7 +289,7 @@ fn unicode_ledger_keys_match_actual_typescript_encoding_and_file_hashes() {
                 .join("execution")
                 .join(format!(
                     "{}.json",
-                    String::from_utf16(case.get("executionFileHash").units()).unwrap()
+                    String::from_utf16(expected.get("executionFileHash").units()).unwrap()
                 ))
                 .exists()
         );
@@ -258,7 +298,8 @@ fn unicode_ledger_keys_match_actual_typescript_encoding_and_file_hashes() {
                 &reopened,
                 scope,
                 "progress",
-                case.get("effectRecordKey").clone()
+                case.get("effectRecordKey").clone(),
+                scope,
             )
             .unwrap()
             .len(),
@@ -315,6 +356,7 @@ fn legacy_lossy_settled_key_cannot_be_replayed_as_a_new_exact_key() {
         "physical",
         &before,
         &after,
+        &"synthetic-target".into(),
     )
     .unwrap();
     let exact = state::execution_key(
@@ -324,6 +366,7 @@ fn legacy_lossy_settled_key_cannot_be_replayed_as_a_new_exact_key() {
         "physical",
         &before,
         &after,
+        &"synthetic-target".into(),
     )
     .unwrap();
     assert_ne!(legacy, exact);
@@ -332,6 +375,7 @@ fn legacy_lossy_settled_key_cannot_be_replayed_as_a_new_exact_key() {
         ("scope", scope.clone()),
         ("field", "progress".into()),
         ("effectRecordKey", "physical".into()),
+        ("effectTarget", "synthetic-target".into()),
         ("beforeSha256", sha("before").into()),
         ("afterSha256", sha("after").into()),
     ]);
@@ -352,6 +396,7 @@ fn legacy_lossy_settled_key_cannot_be_replayed_as_a_new_exact_key() {
     let reviewed = obj(&[
         ("field", "progress".into()),
         ("effectRecordKey", "physical".into()),
+        ("effectTarget", "synthetic-target".into()),
         ("before", before.clone()),
         ("after", after.clone()),
     ]);
@@ -375,6 +420,7 @@ fn legacy_lossy_settled_key_cannot_be_replayed_as_a_new_exact_key() {
         ),
         ("field", "progress".into()),
         ("effectRecordKey", "physical".into()),
+        ("effectTarget", "synthetic-target".into()),
         ("before", before),
         ("after", after),
     ]);
@@ -405,4 +451,137 @@ fn large_korean_json_parses_with_a_linear_utf8_scan() {
         elapsed < Duration::from_millis(500),
         "UTF-8 rescanning: {elapsed:?}"
     );
+}
+
+#[test]
+fn legacy_settlement_labels_remain_held_after_reopen() {
+    for label in ["persisted", "noop", "not_persisted", "unresolved"] {
+        for basis in [
+            "readback_new_value",
+            "readback_after_returned_transport",
+            "user_instruction",
+        ] {
+            let p = root("legacy-settlement");
+            let store = Store::open(&p.join("store"), &p).unwrap();
+            let execution = obj(&[("field", "progress".into())]);
+            let outcome = obj(&[("status", label.into())]);
+            let reconciliation = obj(&[
+                ("classification", "not_persisted".into()),
+                ("basis", basis.into()),
+            ]);
+            for (kind, value) in [
+                (Kind::Execution, &execution),
+                (Kind::Outcome, &outcome),
+                (Kind::Reconciliation, &reconciliation),
+            ] {
+                store.publish(kind, "old-attempt", value, &Clock).unwrap();
+            }
+            drop(store);
+            let reopened = Store::open(&p.join("store"), &p).unwrap();
+            assert!(
+                state::field_state(&reopened, "old-attempt")
+                    .unwrap()
+                    .needs_reconciliation()
+            );
+            assert_eq!(reopened.get(Kind::Outcome, "old-attempt").unwrap(), outcome);
+            assert_eq!(
+                reopened.get(Kind::Reconciliation, "old-attempt").unwrap(),
+                reconciliation
+            );
+        }
+    }
+}
+
+#[test]
+fn execution_without_review_metadata_refuses_even_a_different_record_key() {
+    let p = root("missing-review-metadata");
+    let store = Store::open(&p.join("store"), &p).unwrap();
+    let scope = obj(&[
+        ("sourceNamespace", "invented".into()),
+        ("teacherId", "teacher".into()),
+        ("studentId", "student".into()),
+    ]);
+    store
+        .add_ledger(&state::lock_key(&scope).unwrap(), "unbound-review", &Clock)
+        .unwrap();
+    store
+        .publish(
+            Kind::Execution,
+            "unbound-review",
+            &obj(&[
+                ("field", "progress".into()),
+                ("effectRecordKey", "first".into()),
+            ]),
+            &Clock,
+        )
+        .unwrap();
+    let reopened = Store::open(&p.join("store"), &p).unwrap();
+    for key in ["first", "second"] {
+        assert_eq!(
+            state::unresolved_on_field(&reopened, &scope, "progress", key, &scope)
+                .err()
+                .unwrap()
+                .message,
+            "workflow_execution_review_target_unavailable"
+        );
+    }
+    assert_eq!(
+        state::student_executions(&reopened, &scope).unwrap().len(),
+        1
+    );
+}
+
+#[test]
+fn incomplete_stored_occurrence_target_refuses_physical_match() {
+    for missing in ["sourceNamespace", "studentId", "lessonDate", "courseId"] {
+        let p = root("incomplete-occurrence");
+        let store = Store::open(&p.join("store"), &p).unwrap();
+        let scope = obj(&[
+            ("sourceNamespace", "invented".into()),
+            ("teacherId", "teacher".into()),
+            ("studentId", "student".into()),
+            ("lessonDate", "2040-01-04".into()),
+        ]);
+        let mut target = scope.clone();
+        target.set("courseId", "invented-course".into());
+        let candidate = target.clone();
+        target.set(missing, Js::Undefined);
+        store
+            .publish(
+                Kind::Review,
+                "incomplete-review",
+                &obj(&[(
+                    "patch",
+                    Js::Arr(vec![obj(&[
+                        ("field", "progress".into()),
+                        ("target", target),
+                    ])]),
+                )]),
+                &Clock,
+            )
+            .unwrap();
+        store
+            .add_ledger(&state::lock_key(&scope).unwrap(), "attempt", &Clock)
+            .unwrap();
+        store
+            .publish(
+                Kind::Execution,
+                "attempt",
+                &obj(&[
+                    ("field", "progress".into()),
+                    ("effectRecordKey", "physical".into()),
+                    ("reviewDigest", "incomplete-review".into()),
+                ]),
+                &Clock,
+            )
+            .unwrap();
+        let reopened = Store::open(&p.join("store"), &p).unwrap();
+        assert_eq!(
+            state::unresolved_on_field(&reopened, &scope, "progress", "physical", &candidate)
+                .err()
+                .unwrap()
+                .message,
+            "workflow_execution_review_target_unavailable"
+        );
+    }
 }

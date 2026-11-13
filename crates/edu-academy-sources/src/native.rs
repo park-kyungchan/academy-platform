@@ -261,6 +261,22 @@ impl<P: SourcePort> Backend<P> {
                 },
             );
         }
+        for field in FIELDS {
+            let target = observation_target(if field == "previousHomeworkAssessment" {
+                prior
+            } else {
+                row
+            });
+            let mut value = projected.get(field).clone();
+            value.set(
+                "effectTarget",
+                edu_academy_core::workflow::canonical(&target)
+                    .map_err(error_from_fault)?
+                    .into(),
+            );
+            value.set("effectRecordKey", target.get("recordId").clone());
+            projected.set(field, value);
+        }
         let observation = obj(&[
             ("scope", scope.clone()),
             ("target", observation_target(row)),

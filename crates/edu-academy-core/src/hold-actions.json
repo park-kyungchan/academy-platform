@@ -50,7 +50,7 @@
     "guidance": "Rewrite the parent-facing field text and review again."
   },
   {
-    "pattern": "^(existing_value_requires_explicit_replace|explicit_clear_decision_required|clear_requires_empty_value|no_addition_preserves_existing_memo|today_memo_interview_required|field_not_selected|current_request_ref_required)$",
+    "pattern": "^(existing_value_requires_explicit_replace|explicit_clear_decision_required|clear_requires_empty_value|no_addition_preserves_existing_memo|today_memo_interview_required|field_not_selected|current_request_ref_required|memo_clear_answer_required|memo_clear_answer_requires_clear_decision|memo_clear_answer_current_request_required|memo_clear_proposal_required)$",
     "action": "explicit_teacher_decision",
     "guidance": "Obtain the explicit teacher decision for this exact field and request."
   }

@@ -1,5 +1,55 @@
 //! Additional workflow schemas. Existing accepted sub-schemas remain their owner.
 use crate::js::{Fault, Js, Result, obj, test, text, trim};
+pub const MAX_EFFECT_TARGET_UNITS: usize = 4096;
+pub(crate) fn effect_target(v: &Js) -> Result<()> {
+    if v.absent() {
+        return Err(Fault::error("workflow_effect_target_required"));
+    }
+    if !v.string() || v.units().is_empty() || v.units().len() > MAX_EFFECT_TARGET_UNITS {
+        return Err(Fault::error("workflow_effect_target_invalid"));
+    }
+    Ok(())
+}
+pub(crate) fn effect_binding(v: &Js) -> Result<()> {
+    effect_target(v.get("effectTarget"))?;
+    if !v.get("effectRecordKey").string() || v.get("effectRecordKey").units().is_empty() {
+        return Err(Fault::error("workflow_effect_target_required"));
+    }
+    crate::schema::validate("dailyRecordIdSchema", v.get("effectRecordKey"))?;
+    Ok(())
+}
+pub const MAX_COMPLETION_FACTS_BYTES: usize = 8192;
+pub(crate) fn completion_facts(value: &Js) -> Result<()> {
+    let invalid = || Fault::error("workflow_completion_facts_invalid");
+    if !matches!(value, Js::Obj(_) | Js::Null) {
+        return Err(invalid());
+    }
+    let bytes = super::codec::bytes(value).map_err(|_| invalid())?;
+    if bytes.len() > MAX_COMPLETION_FACTS_BYTES {
+        return Err(Fault::error("workflow_completion_facts_too_large"));
+    }
+    let decoded = super::codec::parse(&bytes).map_err(|_| invalid())?;
+    let mut pairs = vec![(value, &decoded)];
+    while let Some((a, b)) = pairs.pop() {
+        match (a, b) {
+            (Js::Null, Js::Null) => {}
+            (Js::Bool(a), Js::Bool(b)) if a == b => {}
+            (Js::Str(a), Js::Str(b)) if a == b => {}
+            (Js::Num(a), Js::Num(b)) if a.to_bits() == b.to_bits() => {}
+            (Js::Arr(a), Js::Arr(b)) if a.len() == b.len() => pairs.extend(a.iter().zip(b)),
+            (Js::Obj(a), Js::Obj(b)) if a.len() == b.len() => {
+                for ((ka, a), (kb, b)) in a.iter().zip(b) {
+                    if ka != kb {
+                        return Err(invalid());
+                    }
+                    pairs.push((a, b));
+                }
+            }
+            _ => return Err(invalid()),
+        }
+    }
+    Ok(())
+}
 fn reject() -> Fault {
     Fault::error("workflow_input_rejected")
 }

@@ -86,6 +86,14 @@ fn target() -> Js {
 }
 fn action() -> Js {
     obj(&[
+        (
+            "effectTarget",
+            edu_academy_core::workflow::canonical(
+                &edu_academy_sources::native::observation_target(&target()),
+            )
+            .unwrap()
+            .into(),
+        ),
         ("attemptId", "fictional-attempt".into()),
         ("target", target()),
         ("field", "progress".into()),
@@ -1399,4 +1407,92 @@ fn owner_algorithm_cache_precedes_managed_recorded_subject_and_configured_studen
         size.get("message")
             .is("Too big: expected array to have <=200 items")
     );
+}
+
+struct DriftPort {
+    state: Js,
+    applied: usize,
+}
+fn drift_port() -> DriftPort {
+    DriftPort {
+        applied: 0,
+        state: obj(&[
+            ("target", target()),
+            ("fields", obj(&[("progress", "Before".into())])),
+            ("wireDigest", WIRE.into()),
+            ("previousRecordKey", "12".into()),
+            ("previousDate", "2040-01-02".into()),
+            (
+                "effectTargets",
+                obj(&[("progress", "different-course/membership".into())]),
+            ),
+        ]),
+    }
+}
+impl WritePort for DriftPort {
+    fn authenticate(&mut self) -> CoreResult<()> {
+        Ok(())
+    }
+    fn discover_groups(&mut self, _: &Js) -> CoreResult<Js> {
+        Ok(obj(&[(
+            "groups",
+            Js::Arr(vec![obj(&[("groupId", "3".into())])]),
+        )]))
+    }
+    fn execute(&mut self, _: &Js) -> CoreResult<Js> {
+        Ok(obj(&[("dayRecords", Js::Arr(vec![target()]))]))
+    }
+    fn journal_state(&mut self, _: &Js) -> CoreResult<Js> {
+        Ok(self.state.clone())
+    }
+    fn apply(&mut self, _: &Js, _: &mut dyn Approval) -> CoreResult<Js> {
+        self.applied += 1;
+        Err(Fault::error("unexpected_physical_apply"))
+    }
+}
+impl edu_academy_core::workflow::http::HttpPort for DriftPort {
+    fn read(&mut self, _: &Js) -> CoreResult<Js> {
+        Ok(self.state.clone())
+    }
+    fn write(&mut self, _: &Js) -> CoreResult<Js> {
+        self.applied += 1;
+        Err(Fault::error("unexpected_http_write"))
+    }
+}
+#[test]
+fn native_backend_refuses_physical_effect_target_drift() {
+    use edu_academy_core::workflow::service::Backend as _;
+    let mut port = drift_port();
+    let mut approval = NoApproval { calls: 0 };
+    let mut backend = NativeBackend::new(&mut port, admission(), owner_config(), vec![], &Clock);
+    let a = action();
+    let patch = obj(&[
+        ("field", "progress".into()),
+        ("before", "Before".into()),
+        ("value", "After".into()),
+        ("wireDigest", WIRE.into()),
+        ("effectRecordKey", "13".into()),
+        ("effectTarget", a.get("effectTarget").clone()),
+    ]);
+    let error = backend
+        .save(
+            &scope("77001", "2040-01-04"),
+            &Js::Arr(vec![patch]),
+            &mut approval,
+            &Js::Null,
+        )
+        .unwrap_err();
+    assert_eq!(error.message, "workflow_effect_target_drift");
+    assert_eq!(port.applied, 0);
+    assert_eq!(approval.calls, 0);
+}
+#[test]
+fn http_port_refuses_physical_effect_target_drift() {
+    let mut port = drift_port();
+    let mut approval = NoApproval { calls: 0 };
+    let error =
+        edu_academy_core::workflow::http::apply(&action(), &mut port, &mut approval).unwrap_err();
+    assert_eq!(error.message, "workflow_effect_target_drift");
+    assert_eq!(port.applied, 0);
+    assert_eq!(approval.calls, 0);
 }

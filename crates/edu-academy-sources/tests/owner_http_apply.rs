@@ -37,7 +37,17 @@ fn initial_fields() -> Js {
     ])
 }
 fn action(field: &str, after: &str) -> Js {
+    let mut physical = target();
+    if field == "previousHomeworkAssessment" {
+        physical.set("recordKey", "12".into());
+        physical.set("date", "2040-01-02".into());
+    }
+    let effect_target = edu_academy_core::workflow::canonical(
+        &edu_academy_sources::native::observation_target(&physical),
+    )
+    .unwrap();
     obj(&[
+        ("effectTarget", effect_target.into()),
         ("attemptId", "fictional-port-1".into()),
         ("target", target()),
         ("field", field.into()),

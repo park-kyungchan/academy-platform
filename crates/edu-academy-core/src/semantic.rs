@@ -199,7 +199,7 @@ fn context(c: &Js) -> bool {
     let m = c.get("memoAnswer");
     match m.get("kind").code_units().as_str() {
         "not_supplied" => keys(m, &["kind"], &[]),
-        "no_addition" => keys(m, &["kind", "requestRef"], &[]) && id(m.get("requestRef")),
+        "no_addition" | "clear" => keys(m, &["kind", "requestRef"], &[]) && id(m.get("requestRef")),
         "content" => {
             keys(m, &["kind", "requestRef", "text"], &[])
                 && id(m.get("requestRef"))

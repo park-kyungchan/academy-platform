@@ -59,6 +59,9 @@ impl Backend for NativeBackend<'_> {
         approval: &mut dyn Approval,
         subject: &Js,
     ) -> Result<Js> {
+        for patch in patches.array() {
+            super::schema::effect_binding(patch)?;
+        }
         let student = self
             .admission
             .get("students")
@@ -165,38 +168,39 @@ impl Backend for NativeBackend<'_> {
                     .collect(),
             ));
         }
+        if patches.array().iter().any(|p| {
+            state.get("effectTargets").get(&p.get("field").code_units()) != p.get("effectTarget")
+        }) {
+            return Err(Fault::error("workflow_effect_target_drift"));
+        }
         let mut fields = vec![];
         for (i, p) in patches.array().iter().enumerate() {
             let action = obj(&[
                 ("attemptId", self.runtime.uuid()?.into()),
                 ("target", target.clone()),
                 ("field", p.get("field").clone()),
-                (
-                    "effectRecordKey",
-                    if p.get("field").is("previousHomeworkAssessment") {
-                        state.get("previousRecordKey").clone()
-                    } else {
-                        row.get("recordKey").clone()
-                    },
-                ),
+                ("effectRecordKey", p.get("effectRecordKey").clone()),
+                ("effectTarget", p.get("effectTarget").clone()),
                 ("before", p.get("before").clone()),
                 ("after", p.get("value").clone()),
                 ("wireDigest", state.get("wireDigest").clone()),
             ]);
             let result = self.port.apply(&action, approval);
-            let (status, dispatched, transport) = match result {
+            let (status, dispatched, transport, receipt) = match result {
                 Ok(r) => (
                     r.get("status").clone(),
                     !r.get("transport").is("not_invoked"),
                     r.get("transport").clone(),
+                    r.get("receipt").clone(),
                 ),
-                Err(_) => ("unresolved".into(), true, "uncertain".into()),
+                Err(_) => ("unresolved".into(), true, "uncertain".into(), Js::Null),
             };
             fields.push(obj(&[
                 ("field", p.get("field").clone()),
                 ("status", status.clone()),
                 ("dispatched", dispatched.into()),
                 ("transport", transport),
+                ("receipt", receipt),
             ]));
             if !status.is("persisted") && !status.is("noop") {
                 for p in patches.array().iter().skip(i + 1) {

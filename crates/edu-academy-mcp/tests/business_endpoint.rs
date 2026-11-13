@@ -374,12 +374,14 @@ impl service::Source for FictionalSource {
 /// Fictional uncertainty only: invokes the real request approval/fence and then
 /// throws. Never returns a fabricated persisted/HTTP success.
 struct UncertainBackend {
+    facts: Option<Js>,
     calls: Rc<Cell<usize>>,
     drift: Option<PathBuf>,
 }
 impl UncertainBackend {
     fn new() -> Self {
         Self {
+            facts: None,
             calls: Rc::new(Cell::new(0)),
             drift: None,
         }
@@ -409,6 +411,7 @@ impl service::Backend for UncertainBackend {
                 ]),
             ),
             ("field", p.get("field").clone()),
+            ("effectTarget", p.get("effectTarget").clone()),
             ("effectRecordKey", "current-record".into()),
             ("before", p.get("before").clone()),
             ("after", p.get("value").clone()),
@@ -416,6 +419,15 @@ impl service::Backend for UncertainBackend {
         assert!(approval.consume(&action)?.get("status").is("verified"));
         if let Some(path) = &self.drift {
             fs::write(path, b"fictional drift after durable fence").unwrap();
+        }
+        if let Some(facts) = &self.facts {
+            return Ok(Js::Arr(vec![obj(&[
+                ("field", p.get("field").clone()),
+                ("status", "unresolved".into()),
+                ("transport", "returned".into()),
+                ("dispatched", true.into()),
+                ("completionFacts", facts.clone()),
+            ])]));
         }
         Err(Fault::error("fictional_business_uncertain"))
     }
@@ -546,7 +558,7 @@ fn observation() -> Js {
     let mut previous = target.clone();
     previous.set("recordId", "previous-record".into());
     previous.set("lessonDate", "2040-01-03".into());
-    let fields = obj(&[
+    let mut fields = obj(&[
         ("progress", known("- Existing progress")),
         ("homework", known("- Existing homework")),
         ("lessonMemo", known("- Existing memo")),
@@ -554,6 +566,29 @@ fn observation() -> Js {
         ("dailyTestAssessment", known("0")),
         ("previousHomeworkAssessment", known("0")),
     ]);
+    for field in review::FIELDS {
+        let previous_field = field == "previousHomeworkAssessment";
+        let mut value = fields.get(field).clone();
+        value.set(
+            "effectTarget",
+            if previous_field {
+                "synthetic-previous-target"
+            } else {
+                "synthetic-target"
+            }
+            .into(),
+        );
+        value.set(
+            "effectRecordKey",
+            if previous_field {
+                previous.get("recordId")
+            } else {
+                target.get("recordId")
+            }
+            .clone(),
+        );
+        fields.set(field, value);
+    }
     obj(&[
         ("scope", scope),
         ("target", target),
@@ -826,11 +861,7 @@ fn seven_wire_routes_persist_exact_review_and_reconcile_unknown_dispatch_after_r
         "academy_dailyrecord_save",
         save_input(&handle, &review_digest),
     ));
-    assert!(
-        replay
-            .get("reasonCode")
-            .is("uncertain_dispatch_reconcile_required")
-    );
+    assert!(replay.get("reasonCode").is("save_confirmation_pending"));
     assert_eq!(writes.get(), 1);
     let unresolved = data(&invoke(
         &mut session,
@@ -838,19 +869,17 @@ fn seven_wire_routes_persist_exact_review_and_reconcile_unknown_dispatch_after_r
         "academy_dailyrecord_reconcile",
         obj(&[("context", context())]),
     ));
-    assert!(
-        unresolved
-            .get("reasonCode")
-            .is("uncertain_dispatch_not_landed_user_resolution_required")
-    );
+    assert!(unresolved.get("reasonCode").is("save_confirmation_pending"));
     drop(driver);
-    // A new Store and RpcSession read the same journal and can settle by an
-    // authoritative fictional readback, never by replaying a save.
+    // R30: a new Store and RpcSession retain the fence even after equality;
+    // readback cannot establish final completion of the lost answer.
     let reopened = scene.store();
     let mut session = scene.session("dailyrecord");
     let mut observed = value.borrow().clone();
     let mut fields = observed.get("fields").clone();
-    fields.set("progress", known("- Updated progress"));
+    let mut progress = fields.get("progress").clone();
+    progress.set("value", "- Updated progress".into());
+    fields.set("progress", progress);
     observed.set("fields", fields);
     *value.borrow_mut() = observed;
     let mut driver = DailyRecord::from_borrowed_service(
@@ -869,16 +898,15 @@ fn seven_wire_routes_persist_exact_review_and_reconcile_unknown_dispatch_after_r
         "academy_dailyrecord_reconcile",
         obj(&[("context", context())]),
     ));
-    assert!(settled.get("status").is("settled"));
+    assert!(settled.get("status").is("held"));
     let executions = state::student_executions(&reopened, context().get("scope")).unwrap();
     assert_eq!(executions.len(), 1);
-    assert_eq!(executions[0].state, state::FieldState::ReconciledPersisted);
+    assert!(executions[0].state.needs_reconciliation());
     assert!(
         reopened
             .get(Kind::Reconciliation, &executions[0].key)
             .unwrap()
-            .get("basis")
-            .is("readback_new_value")
+            .absent()
     );
     assert_eq!(writes.get(), 1);
     assert_eq!(credentials.get(), 1);
@@ -899,7 +927,7 @@ fn seven_wire_routes_persist_exact_review_and_reconcile_unknown_dispatch_after_r
             .iter()
             .filter(|e| e.get("event").is("reconciled"))
             .count(),
-        1
+        0
     );
 }
 
@@ -1508,11 +1536,7 @@ fn graph_drift_after_save_preserves_unknown_effect_fence_and_reentry_status_with
         "academy_dailyrecord_save",
         save_input(&handle, &digest),
     ));
-    assert!(
-        replay
-            .get("reasonCode")
-            .is("uncertain_dispatch_reconcile_required")
-    );
+    assert!(replay.get("reasonCode").is("save_confirmation_pending"));
     assert_eq!(writes.get(), 1);
 }
 
@@ -1742,4 +1766,49 @@ fn actual_resolver_zero_multikey_malformed_and_utf16_validation_do_not_guess_or_
     assert!(next.get("studentKey").is("77001"));
     assert_eq!(credentials.get(), 1);
     assert_eq!(http.borrow().len(), 7);
+}
+
+#[test]
+fn wire_returns_opaque_completion_facts_without_qualification() {
+    let scene = Scene::new("facts", &routing_admission(), "dailyrecord");
+    let clock = Clock(Cell::new(0));
+    let store = scene.store();
+    let (owner, _, _) = owner(&clock, vec![], false);
+    let mut source = FictionalSource::new();
+    let mut backend = UncertainBackend::new();
+    let facts = js(json!({"claim":"unqualified", "target":"invented-target", "extra":[null,3]}));
+    backend.facts = Some(facts.clone());
+    let mut session = scene.session("dailyrecord");
+    let mut driver = DailyRecord::from_borrowed_service(
+        Service {
+            store: &store,
+            source: &mut source,
+            policy: &Policy,
+            backend: &mut backend,
+            runtime: &clock,
+        },
+        &owner,
+    );
+    let (handle, digest) = prepare(&mut session, &mut driver);
+    let saved = data(&invoke(
+        &mut session,
+        &mut driver,
+        "academy_dailyrecord_save",
+        save_input(&handle, &digest),
+    ));
+    assert!(saved.get("status").is("held"));
+    assert_eq!(
+        saved.get("fields").array()[0].get("completionFacts"),
+        &facts
+    );
+    let status = data(&invoke(
+        &mut session,
+        &mut driver,
+        "academy_dailyrecord_execution_status",
+        obj(&[("scope", context().get("scope").clone())]),
+    ));
+    assert_eq!(
+        status.get("fields").array()[0].get("executions").array()[0].get("completionFacts"),
+        &facts
+    );
 }

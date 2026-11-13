@@ -227,9 +227,9 @@ impl http::HttpPort for Native {
     fn read(&mut self, v: &Js) -> Result<Js> {
         self.link.borrow_mut().call("http_read", v.clone())
     }
-    fn write(&mut self, v: &Js) -> Result<()> {
+    fn write(&mut self, v: &Js) -> Result<Js> {
         self.link.borrow_mut().call("http_write", v.clone())?;
-        Ok(())
+        Ok(Js::Null)
     }
 }
 struct ObservedApproval<'a> {

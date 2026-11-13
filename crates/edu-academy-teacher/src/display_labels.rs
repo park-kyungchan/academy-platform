@@ -734,6 +734,7 @@ pub const UNSUPPORTED_STAGE: &str = "미확인(지원하지 않는 단계)";
 pub const UNKNOWN_SOURCE: &str = "미확인 원천";
 pub fn lesson_stage_name(code: &str) -> &'static str {
     match code {
+        "" => "",
         "solving" => SOLVING,
         "grading" => GRADING,
         "correction" => CORRECTION,
@@ -748,3 +749,76 @@ pub const UNIT_DAILY_HEADER_UNREAD: &str = "미확인(일일시험 제목을 읽
 pub const UNIT_DAILY_PARTIAL_UNREAD: &str = "미확인(일일시험의 일부 관측 페이지를 읽지 못함)";
 pub const UNIT_SCORE_UNKNOWN: &str = "미확인(원천 점수 없음)";
 pub const UNIT_PAPER_SCOPE_UNKNOWN: &str = "미확인(시험지 검색의 관측 범위 미확인)";
+
+pub const RECORD_TITLE: &str = "수업일지";
+pub const RECORD_PREVIEW: &str = "미리보기";
+pub const RECORD_HEADER: &str = "항목 | 읽은 값 | 기록할 값 | 처리";
+pub const RECORD_READBACK_HEADER: &str = "항목 | 보낸 값 | 다시 읽은 값 | 확인 결과";
+pub const RECORD_SOURCE_UNKNOWN: &str = "미확인(원천 값 미확인)";
+pub const RECORD_CONFLICT: &str = "저장 값 충돌";
+pub const RECORD_TARGET_DATE: &str = "대상 수업일";
+pub const RECORD_PREVIOUS_DATE: &str = "이전 저장 요청일";
+pub const RECORD_PREVIOUS_HOMEWORK_TARGET: &str = "이전 숙제 평가 대상";
+pub fn record_answer_label(field: crate::record_data::AnswerField) -> &'static str {
+    use crate::record_data::AnswerField::*;
+    match field {
+        Student => "학생",
+        Date => "날짜",
+        Progress => "진도",
+        Homework => "숙제",
+        Memo => "메모",
+        Attendance => "출석",
+        DailyTest => "일일시험 평가",
+        PrevHomework => "이전 숙제 평가",
+        Replace => "교체",
+        Restart => "새로 시작",
+        TeacherWords => "교사 입력",
+    }
+}
+pub fn record_field_label(field: crate::record_data::RecordField) -> &'static str {
+    use crate::record_data::{AnswerField as A, RecordField::*};
+    record_answer_label(match field {
+        Progress => A::Progress,
+        Homework => A::Homework,
+        LessonMemo => A::Memo,
+        Attendance => A::Attendance,
+        DailyTestAssessment => A::DailyTest,
+        PreviousHomeworkAssessment => A::PrevHomework,
+    })
+}
+pub fn record_disposition(value: crate::record_data::FieldDisposition) -> &'static str {
+    use crate::record_data::FieldDisposition::*;
+    match value {
+        ConfirmedExisting => "기존 유지",
+        ProposalConfirmed => "교사 입력 확인",
+        NoAddition => "추가하지 않음",
+        Deferred => "보류",
+        Unresolved => "미확인(입력 필요)",
+    }
+}
+pub fn record_value(
+    field: crate::record_data::RecordField,
+    value: &crate::record_data::RecordValue,
+) -> String {
+    use crate::record_data::{RecordField::*, RecordValue};
+    let RecordValue::Known(raw) = value else {
+        return RECORD_SOURCE_UNKNOWN.into();
+    };
+    let label = match field {
+        Attendance => crate::labels::attendance_label(raw),
+        DailyTestAssessment | PreviousHomeworkAssessment => {
+            let field = if field == DailyTestAssessment {
+                "daily_test"
+            } else {
+                "prev_homework"
+            };
+            // Lookup only: no invented label for an unrecognized raw code.
+            crate::labels::ASSESSMENT_LABELS
+                .iter()
+                .find(|entry| entry.field == field && entry.wire_code.to_string() == *raw)
+                .map(|entry| entry.label)
+        }
+        _ => None,
+    };
+    label.unwrap_or(raw).into()
+}

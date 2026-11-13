@@ -243,7 +243,14 @@ fn normalize_observation(v: &Js) -> Js {
                     text(f),
                     ordered(
                         v.get("fields").get(f),
-                        &["state", "value", "evidenceRefs", "reasonCode"],
+                        &[
+                            "state",
+                            "value",
+                            "evidenceRefs",
+                            "reasonCode",
+                            "effectTarget",
+                            "effectRecordKey",
+                        ],
                     ),
                 )
             })
@@ -464,6 +471,7 @@ pub(super) fn proposal_blockers(p: &Js, c: &Js) -> Vec<Js> {
     if field == "lessonMemo" && c.get("memoAnswer").get("kind").is("not_supplied") {
         b.push("today_memo_interview_required".into());
     }
+    b.extend(crate::decision::memo_answer_blocker(c, Some(p)));
     b
 }
 fn hold_actions(scope: &Js, field: &Js, b: &[Js], entries: &Js) -> Js {
@@ -764,6 +772,13 @@ pub(crate) fn review_read(
     let learning = !policy.learning_pins().absent();
     let mut events = vec![];
     let mut global = global_blockers(&input, &source, now_epoch)?;
+    let memo_blocker = proposals
+        .array()
+        .iter()
+        .all(|p| !p.get("field").is("lessonMemo"))
+        .then(|| crate::decision::memo_answer_blocker(&context, None))
+        .flatten();
+    global.extend(memo_blocker.clone());
     let fresh = held && global.is_empty();
     if fresh {
         events.push(obj(&[
@@ -798,9 +813,19 @@ pub(crate) fn review_read(
                                             ordered(
                                                 o.get("fields").get(f),
                                                 if o.get("fields").get(f).get("state").is("known") {
-                                                    &["state", "value"]
+                                                    &[
+                                                        "state",
+                                                        "value",
+                                                        "effectTarget",
+                                                        "effectRecordKey",
+                                                    ]
                                                 } else {
-                                                    &["state", "reasonCode"]
+                                                    &[
+                                                        "state",
+                                                        "reasonCode",
+                                                        "effectTarget",
+                                                        "effectRecordKey",
+                                                    ]
                                                 },
                                             ),
                                         )
@@ -1019,11 +1044,20 @@ pub(crate) fn review_read(
             ),
         ]));
     }
+    // Optional metadata is copied only when supplied; legacy pure-review bytes stay exact.
+    for row in &mut rows {
+        let field = row.get("field").code_units();
+        for key in ["effectTarget", "effectRecordKey"] {
+            if source.get("fields").get(&field).has(key) {
+                row.set(key, source.get("fields").get(&field).get(key).clone());
+            }
+        }
+    }
     let patch = Js::Arr(
         rows.iter()
             .filter(|r| r.get("disposition").is("proposed"))
             .map(|r| {
-                obj(&[
+                let mut patch = obj(&[
                     ("field", r.get("field").clone()),
                     ("target", r.get("target").clone()),
                     (
@@ -1037,7 +1071,13 @@ pub(crate) fn review_read(
                     ("after", r.get("after").clone()),
                     ("factRefs", r.get("factRefs").clone()),
                     ("learningEntries", r.get("learningEntries").clone()),
-                ])
+                ]);
+                for key in ["effectTarget", "effectRecordKey"] {
+                    if r.has(key) {
+                        patch.set(key, r.get(key).clone());
+                    }
+                }
+                patch
             })
             .collect(),
     );
@@ -1047,7 +1087,10 @@ pub(crate) fn review_read(
             ("reasonCode", "today_student_specific_memo_required".into()),
         ])]
     } else {
-        vec![]
+        memo_blocker
+            .into_iter()
+            .map(|code| obj(&[("field", "lessonMemo".into()), ("reasonCode", code)]))
+            .collect()
     };
     let input_digest = digest(
         &obj(&[

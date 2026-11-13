@@ -1473,8 +1473,29 @@ impl<T: Transport> Client<T> {
         let mut fields = row.get("fields").clone();
         fields.set("dailyTestAssessment", assessment("h_daily_test")?);
         fields.set("previousHomeworkAssessment", assessment("h_homework_rate")?);
+        let mut previous = target.clone();
+        previous.set("recordKey", previous_key.clone());
+        previous.set("date", values[1].into());
+        let effect_targets = obj(&edu_academy_core::workflow::review::FIELDS
+            .map(|field| {
+                let physical = if field == "previousHomeworkAssessment" {
+                    &previous
+                } else {
+                    target
+                };
+                let full = crate::native::observation_target(physical);
+                Ok((
+                    field,
+                    edu_academy_core::workflow::canonical(&full)
+                        .map_err(journal_core_error)?
+                        .into(),
+                ))
+            })
+            .into_iter()
+            .collect::<Result<Vec<_>>>()?);
         Ok(obj(&[
             ("target", target.clone()),
+            ("effectTargets", effect_targets),
             ("fields", fields),
             ("previousRecordKey", previous_key),
             ("previousDate", values[1].into()),
@@ -1504,7 +1525,7 @@ impl<T: Transport> edu_academy_core::workflow::http::HttpPort for JournalHttpPor
                 fault
             })
     }
-    fn write(&mut self, action: &Js) -> edu_academy_core::js::Result<()> {
+    fn write(&mut self, action: &Js) -> edu_academy_core::js::Result<Js> {
         let (method, path, selector, parameter) = match action.get("field").code_units().as_str() {
             "progress" => ("GET", MAIN, "udtPrg", "prg_txt"),
             "homework" => ("GET", MAIN, "udtHw", "hw_txt"),
@@ -1556,7 +1577,12 @@ impl<T: Transport> edu_academy_core::workflow::http::HttpPort for JournalHttpPor
         };
         self.client
             .request(method, path, query, body, false, None)
-            .map(|_| ())
+            .map(|r| {
+                obj(&[
+                    ("httpStatus", Js::Num(f64::from(r.status))),
+                    ("bodySha256", hash(&r.bytes).into()),
+                ])
+            })
             .map_err(|error| edu_academy_core::js::Fault::error(error.message))
     }
 }
@@ -1635,7 +1661,7 @@ mod owner_http_write_tests {
             ),
         ])
     }
-    fn write(client: &mut Client<Fictional>, action: &Js) -> edu_academy_core::js::Result<()> {
+    fn write(client: &mut Client<Fictional>, action: &Js) -> edu_academy_core::js::Result<Js> {
         // Intentionally tests ONLY the private wire seam, never a qualified apply.
         JournalHttpPort {
             client,
@@ -1696,7 +1722,13 @@ mod owner_http_write_tests {
             ),
         ] {
             let mut c = client();
-            write(&mut c, &action(field, after)).unwrap();
+            let receipt = write(&mut c, &action(field, after)).unwrap();
+            assert_eq!(receipt.get("httpStatus"), &Js::Num(200.0));
+            assert!(
+                receipt
+                    .get("bodySha256")
+                    .is(&hash(b"response body is not persistence evidence"))
+            );
             assert_eq!(c.transport.requests.len(), 1);
             let r = &c.transport.requests[0];
             assert_eq!(r.method, method);
@@ -3226,10 +3258,38 @@ mod review_fixes_fictional_journal {
                 let mut fields = row.get("fields").clone();
                 fields.set("dailyTestAssessment", "0".into());
                 fields.set("previousHomeworkAssessment", "3".into());
+                let effect_targets =
+                    obj(&edu_academy_core::workflow::review::FIELDS.map(|field| {
+                        let previous = field == "previousHomeworkAssessment";
+                        let full = obj(&[
+                            ("sourceNamespace", "academy.lms.dayrecord".into()),
+                            ("teacherId", "99001".into()),
+                            ("studentId", "77001".into()),
+                            ("courseId", "5".into()),
+                            ("membershipId", "8".into()),
+                            ("recordId", if previous { "12" } else { "13" }.into()),
+                            (
+                                "lessonDate",
+                                if !previous {
+                                    "2040-01-04"
+                                } else if variant == "success" {
+                                    "2040-01-02"
+                                } else {
+                                    "2040-00-00"
+                                }
+                                .into(),
+                            ),
+                        ]);
+                        (
+                            field,
+                            edu_academy_core::workflow::canonical(&full).unwrap().into(),
+                        )
+                    }));
                 assert_eq!(
                     result,
                     obj(&[
                         ("target", target.clone()),
+                        ("effectTargets", effect_targets),
                         ("fields", fields),
                         ("previousRecordKey", "12".into()),
                         (

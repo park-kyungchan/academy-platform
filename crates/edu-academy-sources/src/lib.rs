@@ -7,6 +7,7 @@ pub mod evidence;
 pub mod history;
 pub mod http;
 pub(crate) mod js_text;
+pub mod live_driver;
 pub mod native;
 pub mod owner_admission;
 pub mod owner_root;

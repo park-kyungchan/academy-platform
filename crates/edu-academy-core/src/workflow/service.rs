@@ -13,6 +13,10 @@ use crate::js::{Fault, Js, Result, obj, sha};
 pub trait Source {
     fn read(&mut self, scope: &Js, request: &Js, subject: &Js) -> Result<Js>;
 }
+/// Each result may carry completionFacts (an object or null). These are the
+/// backend's claims, bound to nothing by core. A consumer must compare the fact's
+/// target with the Execution's effectTarget before using it as proof, and must
+/// independently qualify completion, no-partial and no-late semantics.
 pub trait Backend {
     fn configured(&self) -> bool;
     fn save(
@@ -30,6 +34,35 @@ pub struct Service<'a> {
     pub backend: &'a mut dyn Backend,
     pub runtime: &'a dyn Runtime,
 }
+fn with_completion_facts(store: &Store, key: &str, mut value: Js) -> Result<Js> {
+    let outcome = store.get(Kind::Outcome, key)?;
+    if outcome.has("completionFacts") {
+        value.set("completionFacts", outcome.get("completionFacts").clone());
+    }
+    if field_state(store, key)?.needs_reconciliation() {
+        manual_reconciliation(&mut value);
+        if let Some(at) = settlement_at(&store.get(Kind::Execution, key)?, &outcome) {
+            value.set("earliestSettleAtEpochMs", Js::Num(at as f64));
+        }
+    }
+    Ok(value)
+}
+fn confirmation_pending(mut value: Js) -> Js {
+    if let Some(at) = value
+        .get("fields")
+        .array()
+        .iter()
+        .filter_map(|f| match f.get("earliestSettleAtEpochMs") {
+            Js::Num(n) => Some(*n),
+            _ => None,
+        })
+        .min_by(f64::total_cmp)
+    {
+        value.set("reasonCode", "save_confirmation_pending".into());
+        value.set("earliestSettleAtEpochMs", Js::Num(at));
+    }
+    value
+}
 pub fn base(context: &Js) -> Js {
     let w = crate::templates::from_json(
         serde_json::from_str(include_str!("../workflow-context.json")).expect("source constant"),
@@ -44,6 +77,12 @@ pub fn base(context: &Js) -> Js {
     ])
 }
 pub fn qualified_observation(value: &Js, scope: &Js) -> Result<Js> {
+    for field in review::FIELDS {
+        let binding = value.get("fields").get(field);
+        if binding.has("effectTarget") {
+            super::schema::effect_binding(binding)?;
+        }
+    }
     let observation = crate::schema::validate("dailyRecordObservationSchema", value)?;
     let t = observation.get("target");
     let p = observation.get("previousTarget");
@@ -169,6 +208,19 @@ impl Service<'_> {
         } else {
             Js::Null
         };
+        if !persist && !fresh.get("observation").absent() {
+            for field in c.get("selectedFields").array() {
+                let name = field.code_units();
+                let before = held.get("observation").get("fields").get(&name);
+                let after = fresh.get("observation").get("fields").get(&name);
+                if before.has("effectTarget")
+                    && (before.get("effectTarget") != after.get("effectTarget")
+                        || before.get("effectRecordKey") != after.get("effectRecordKey"))
+                {
+                    return Err(Fault::error("workflow_effect_target_drift"));
+                }
+            }
+        }
         let mut result = review::review_read(
             &input,
             held.get("observation"),
@@ -177,6 +229,9 @@ impl Service<'_> {
             self.runtime,
         )?;
         if persist && result.get("status").is("prepared") {
+            for patch in result.get("patch").array() {
+                super::schema::effect_binding(patch)?;
+            }
             let fallback = super::observe_attribution(self.runtime, input.get("actor"));
             let attribution = if input.get("attribution").absent() {
                 &fallback
@@ -192,14 +247,17 @@ impl Service<'_> {
                     .map(|p| {
                         obj(&[
                             ("field", p.get("field").clone()),
+                            ("target", p.get("target").clone()),
                             ("before", p.get("before").clone()),
                             ("after", p.get("after").clone()),
-                            ("effectRecordKey", p.get("target").get("recordId").clone()),
+                            ("effectRecordKey", p.get("effectRecordKey").clone()),
+                            ("effectTarget", p.get("effectTarget").clone()),
                         ])
                     })
                     .collect(),
             );
             let record = obj(&[
+                ("effectBindingVersion", Js::Num(2.0)),
                 ("reviewDigest", result.get("reviewDigest").clone()),
                 ("status", "prepared".into()),
                 ("scope", scope.clone()),
@@ -362,6 +420,18 @@ impl Service<'_> {
         if prior.absent() {
             return hold("prior_review_record_required", obj(&[]));
         }
+        if prior.get("effectBindingVersion") != &Js::Num(2.0)
+            || prior
+                .get("patch")
+                .array()
+                .iter()
+                .any(|p| p.get("effectTarget").absent())
+        {
+            return Err(Fault::error("workflow_legacy_review_unbound"));
+        }
+        for patch in prior.get("patch").array() {
+            super::schema::effect_binding(patch)?;
+        }
         let digest = sha(&canonical(&obj(&[
             ("context", c.clone()),
             ("proposals", input.get("proposals").clone()),
@@ -392,28 +462,49 @@ impl Service<'_> {
         let pkey = |p: &Js| checked_execution_key(self.store, request, s, p);
         let mut unresolved = vec![];
         for p in prior.get("patch").array() {
-            let count = unresolved_on_field(
+            if student_executions(self.store, s)?.iter().any(|e| {
+                e.record.get("field") == p.get("field")
+                    && e.state.needs_reconciliation()
+                    && e.record.get("effectTarget").absent()
+            }) {
+                return Err(Fault::error("workflow_legacy_execution_unbound"));
+            }
+            let pending = unresolved_on_field(
                 self.store,
                 s,
                 &p.get("field").code_units(),
                 p.get("effectRecordKey").clone(),
-            )?
-            .len();
+                p.get("target"),
+            )?;
+            if pending
+                .iter()
+                .any(|e| e.record.get("effectTarget") != p.get("effectTarget"))
+            {
+                return Err(Fault::error("workflow_effect_target_drift"));
+            }
+            let count = pending.len();
             if count > 0 {
-                unresolved.push(obj(&[
+                let mut field = obj(&[
                     ("field", p.get("field").clone()),
                     ("unresolvedExecutions", count.into()),
-                ]));
+                ]);
+                manual_reconciliation(&mut field);
+                // A repeated save must still return the original opaque facts;
+                // holding an attempt does not discard its durable evidence.
+                if let [execution] = pending.as_slice() {
+                    field = with_completion_facts(self.store, &execution.key, field)?;
+                }
+                unresolved.push(field);
             }
         }
         if !unresolved.is_empty() {
-            return hold(
+            return Ok(confirmation_pending(hold(
                 "uncertain_dispatch_reconcile_required",
                 obj(&[("fields", Js::Arr(unresolved))]),
-            );
+            )?));
         }
         let report = |p: &Js, extra: Js| -> Result<Js> {
-            Ok(merge(
+            let mut value = merge(
                 obj(&[
                     ("field", p.get("field").clone()),
                     (
@@ -422,7 +513,11 @@ impl Service<'_> {
                     ),
                 ]),
                 &extra,
-            ))
+            );
+            if field_state(self.store, &pkey(p)?)?.needs_reconciliation() {
+                value.set("status", "unresolved".into());
+            }
+            with_completion_facts(self.store, &pkey(p)?, value)
         };
         let states = prior
             .get("patch")
@@ -430,9 +525,16 @@ impl Service<'_> {
             .iter()
             .map(|p| field_state(self.store, &pkey(p)?))
             .collect::<Result<Vec<_>>>()?;
-        if states.iter().any(|s| s.consumed_without_effect()) {
+        if states
+            .iter()
+            .any(|s| s.needs_reconciliation() || s.consumed_without_effect())
+        {
             return hold(
-                "transition_already_attempted_new_request_required",
+                if states.iter().any(|s| s.needs_reconciliation()) {
+                    "uncertain_dispatch_reconcile_required"
+                } else {
+                    "transition_already_attempted_new_request_required"
+                },
                 obj(&[(
                     "fields",
                     Js::Arr(
@@ -554,6 +656,8 @@ impl Service<'_> {
                         ("value", p.get("after").clone()),
                         ("before", p.get("before").clone()),
                         ("wireDigest", fresh.get("wireDigest").clone()),
+                        ("effectTarget", p.get("effectTarget").clone()),
+                        ("effectRecordKey", p.get("effectRecordKey").clone()),
                     ])
                 })
                 .collect(),
@@ -606,6 +710,14 @@ impl Service<'_> {
                         &obj(&[
                             ("recordedBy", by.clone()),
                             ("recordedAt", self.runtime.now().into()),
+                            ("settlementRule", SETTLEMENT_RULE.into()),
+                            (
+                                "actionDigest",
+                                self.store
+                                    .get(Kind::Execution, &k)?
+                                    .get("actionDigest")
+                                    .clone(),
+                            ),
                         ]),
                     ),
                     self.runtime,
@@ -670,39 +782,74 @@ impl Service<'_> {
             }
         };
         let recorded = |r: &Js| {
-            if r.get("status").is("not_persisted") && !r.get("transport").is("returned") {
-                "unresolved".into()
-            } else {
+            if returned_receipt(r) && r.get("status").is("persisted") {
                 r.get("status").clone()
+            } else {
+                Js::from("unresolved")
             }
         };
-        for r in results.array() {
+        // Validate the whole batch before publishing any Outcome. An invalid
+        // member keeps every fence unresolved; valid siblings retain their facts.
+        let checks = results
+            .array()
+            .iter()
+            .map(|r| {
+                if r.has("completionFacts") {
+                    super::schema::completion_facts(r.get("completionFacts"))
+                } else {
+                    Ok(())
+                }
+            })
+            .collect::<Vec<_>>();
+        let failure = checks.iter().find_map(|r| r.as_ref().err()).cloned();
+        for (r, check) in results.array().iter().zip(&checks) {
             if let Some(p) = prior
                 .get("patch")
                 .array()
                 .iter()
                 .find(|p| p.get("field") == r.get("field"))
             {
-                outcome(
-                    p,
-                    obj(&[
-                        ("status", recorded(r)),
-                        ("readbackStatus", r.get("status").clone()),
-                        ("dispatched", r.get("dispatched").clone()),
-                        ("transport", nullable(r.get("transport"))),
-                    ]),
-                )?;
+                let mut record = obj(&[
+                    (
+                        "status",
+                        if failure.is_some() {
+                            "unresolved".into()
+                        } else {
+                            recorded(r)
+                        },
+                    ),
+                    (
+                        "readbackStatus",
+                        if failure.is_some() {
+                            "unresolved".into()
+                        } else {
+                            r.get("status").clone()
+                        },
+                    ),
+                    ("receipt", nullable(r.get("receipt"))),
+                    ("dispatched", r.get("dispatched").clone()),
+                    ("transport", nullable(r.get("transport"))),
+                ]);
+                if check.is_ok() && r.has("completionFacts") {
+                    record.set("completionFacts", r.get("completionFacts").clone());
+                }
+                outcome(p, record)?;
             }
+        }
+        if let Some(error) = failure {
+            return Err(error);
         }
         let writes = results
             .array()
             .iter()
             .filter(|r| r.get("dispatched").truthy())
             .count();
-        let settled = results
-            .array()
-            .iter()
-            .all(|r| r.get("status").is("persisted") || r.get("status").is("noop"));
+        let settled = !prior.get("patch").array().is_empty()
+            && prior.get("patch").array().iter().all(|p| {
+                pkey(p)
+                    .and_then(|k| field_state(self.store, &k))
+                    .is_ok_and(|state| state.settled_effect())
+            });
         let reason = if settled {
             Js::Null
         } else if results.array().iter().any(|r| {
@@ -760,9 +907,20 @@ impl Service<'_> {
                     .array()
                     .iter()
                     .find(|p| p.get("field") == r.get("field"));
-                Ok(obj(&[
+                let value = obj(&[
                     ("field", r.get("field").clone()),
-                    ("status", recorded(r)),
+                    (
+                        "status",
+                        if let Some(p) = p {
+                            if field_state(self.store, &pkey(p)?)?.needs_reconciliation() {
+                                "unresolved".into()
+                            } else {
+                                recorded(r)
+                            }
+                        } else {
+                            recorded(r)
+                        },
+                    ),
                     ("dispatched", r.get("dispatched").clone()),
                     ("transport", nullable(r.get("transport"))),
                     (
@@ -774,10 +932,15 @@ impl Service<'_> {
                         }
                         .into(),
                     ),
-                ]))
+                ]);
+                if let Some(p) = p {
+                    with_completion_facts(self.store, &pkey(p)?, value)
+                } else {
+                    Ok(value)
+                }
             })
             .collect::<Result<Vec<_>>>()?;
-        Ok(merge(
+        let mut result = merge(
             b,
             &obj(&[
                 ("status", if settled { "saved" } else { "held" }.into()),
@@ -786,7 +949,21 @@ impl Service<'_> {
                 ("execution", "owner_request_bound".into()),
                 ("fields", Js::Arr(fields)),
             ]),
-        ))
+        );
+        if result.get("fields").array().is_empty()
+            || result
+                .get("fields")
+                .array()
+                .iter()
+                .any(|r| r.get("status").is("unresolved"))
+        {
+            manual_reconciliation(&mut result);
+        }
+        Ok(if settled {
+            result
+        } else {
+            confirmation_pending(result)
+        })
     }
     pub fn reconcile(&mut self, input: &Js) -> Result<Js> {
         let input = super::schema::validate("dailyRecordReconcileSchema", input)?;
@@ -820,21 +997,6 @@ impl Service<'_> {
                 ]),
             ));
         }
-        let resolved_by = if resolution.absent() {
-            Js::Null
-        } else {
-            obj(&[
-                ("requestRef", resolution.get("requestRef").clone()),
-                ("instruction", resolution.get("instruction").clone()),
-                (
-                    "instructionSha256",
-                    sha(&String::from_utf16_lossy(
-                        resolution.get("instruction").get("text").units(),
-                    ))
-                    .into(),
-                ),
-            ])
-        };
         let _guard = self
             .store
             .lock(&lock_key(scope)?, LockOptions::default(), &|| false)?;
@@ -843,7 +1005,7 @@ impl Service<'_> {
                 student_executions(self.store, scope)?
                     .iter()
                     .map(|e| {
-                        obj(&[
+                        let value = obj(&[
                             ("field", e.record.get("field").clone()),
                             (
                                 "lessonDate",
@@ -851,9 +1013,10 @@ impl Service<'_> {
                             ),
                             ("requestRef", e.record.get("requestRef").clone()),
                             ("executionState", e.state.name().into()),
-                        ])
+                        ]);
+                        with_completion_facts(self.store, &e.key, value)
                     })
-                    .collect(),
+                    .collect::<Result<Vec<_>>>()?,
             ))
         };
         let pending = student_executions(self.store, scope)?
@@ -861,11 +1024,48 @@ impl Service<'_> {
             .filter(|e| e.state.needs_reconciliation())
             .collect::<Vec<_>>();
         let mut reads: Vec<(String, Js)> = vec![];
-        let mut not_observed = false;
         let mut uncertain = false;
+        let mut before_window = false;
+        let mut due_keys = vec![];
         for e in pending {
             let r = &e.record;
-            let scope_key = crate::js::stringify(r.get("scope"))?;
+            if r.get("effectTarget").absent() {
+                return Err(Fault::error("workflow_legacy_execution_unbound"));
+            }
+            let read_at = self.runtime.now();
+            let mut outcome = self.store.get(Kind::Outcome, &e.key)?;
+            if r.get("settlementRule").is(SETTLEMENT_RULE) && outcome.absent() {
+                outcome = obj(&[
+                    ("status", "unresolved".into()),
+                    ("settlementRule", SETTLEMENT_RULE.into()),
+                    ("actionDigest", r.get("actionDigest").clone()),
+                    ("recordedAt", read_at.clone().into()),
+                ]);
+                self.store
+                    .publish(Kind::Outcome, &e.key, &outcome, self.runtime)?;
+            }
+            let due = settlement_at(r, &outcome);
+            if r.get("settlementRule").is(SETTLEMENT_RULE) && due.is_none() {
+                uncertain = true;
+                continue;
+            }
+            if let Some(due) = due {
+                let now = crate::instant::epoch_ms(
+                    &read_at.clone().into(),
+                    crate::instant::Grammar::DailyRecord,
+                )
+                .ok_or_else(|| Fault::error("workflow_clock_invalid"))?;
+                if now < due {
+                    before_window = true;
+                    continue;
+                }
+            }
+            due_keys.push(e.key.clone());
+            let scope_key = if due.is_some() {
+                e.key.clone()
+            } else {
+                crate::js::stringify(r.get("scope"))?
+            };
             if !reads.iter().any(|(k, _)| k == &scope_key) {
                 let review = self
                     .store
@@ -902,124 +1102,61 @@ impl Service<'_> {
             let observed =
                 super::schema::validate("dailyRecordObservationSchema", read.get("observation"))?;
             let field = r.get("field").code_units();
-            let target = if field == "previousHomeworkAssessment" {
-                observed.get("previousTarget")
-            } else {
-                observed.get("target")
-            };
-            if r.get("effectRecordKey") != target.get("recordId") {
-                not_observed = true;
-                self.store.append_audit(
-                    &req_key,
-                    &obj(&[
-                        ("event", "reconcile_effect_record_not_observed".into()),
-                        ("field", r.get("field").clone()),
-                        ("by", by.clone()),
-                    ]),
-                    self.runtime,
-                )?;
-                continue;
+            let binding = observed.get("fields").get(&field);
+            if binding.get("effectTarget") != r.get("effectTarget")
+                || binding.get("effectRecordKey") != r.get("effectRecordKey")
+            {
+                return Err(Fault::error("workflow_effect_target_drift"));
             }
             let current = observed.get("fields").get(&field);
             if !current.get("state").is("known") {
                 continue;
             }
-            let value = sha(&String::from_utf16_lossy(current.get("value").units()));
-            let classification = if r.get("afterSha256").is(&value) {
-                "persisted"
-            } else if r.get("beforeSha256").is(&value) {
-                "not_persisted"
-            } else {
-                "conflict"
-            };
-            let returned = self
-                .store
-                .get(Kind::Outcome, &e.key)?
-                .get("transport")
-                .is("returned");
-            let resolves = !resolved_by.absent()
-                && same(r.get("scope"), scope)?
-                && input
-                    .get("resolution")
-                    .get("executions")
-                    .array()
-                    .iter()
-                    .any(|x| {
-                        x.get("requestRef") == r.get("requestRef")
-                            && x.get("field") == r.get("field")
-                    });
-            if classification != "persisted" && !returned && !resolves {
-                uncertain = true;
+            if due.is_some() {
+                self.store.publish(
+                    Kind::Reconciliation,
+                    &e.key,
+                    &obj(&[
+                        ("settlementRule", SETTLEMENT_RULE.into()),
+                        ("actionDigest", r.get("actionDigest").clone()),
+                        ("readAt", read_at.into()),
+                        ("current", current.get("value").clone()),
+                    ]),
+                    self.runtime,
+                )?;
                 continue;
             }
-            let basis = if classification == "persisted" {
-                "readback_new_value"
-            } else if returned {
-                "readback_after_returned_transport"
-            } else {
-                "user_instruction"
-            };
-            self.store.publish(
-                Kind::Reconciliation,
-                &e.key,
-                &obj(&[
-                    ("classification", classification.into()),
-                    ("basis", basis.into()),
-                    (
-                        "resolvedBy",
-                        if basis == "user_instruction" {
-                            resolved_by.clone()
-                        } else {
-                            Js::Null
-                        },
-                    ),
-                    ("sourceRevision", observed.get("sourceRevision").clone()),
-                    ("observedAt", observed.get("observedAt").clone()),
-                    ("by", by.clone()),
-                    ("reconciledAt", self.runtime.now().into()),
-                ]),
-                self.runtime,
-            )?;
+            uncertain = true;
             self.store.append_audit(
                 &req_key,
                 &obj(&[
-                    ("event", "reconciled".into()),
+                    ("event", "reconcile_unqualified_evidence".into()),
                     ("field", r.get("field").clone()),
-                    ("classification", classification.into()),
-                    ("basis", basis.into()),
-                    (
-                        "instructionSha256",
-                        if basis == "user_instruction" {
-                            resolved_by.get("instructionSha256").clone()
-                        } else {
-                            Js::Null
-                        },
-                    ),
                     ("by", by.clone()),
                 ]),
                 self.runtime,
             )?;
         }
         let after = fields()?;
-        let open = student_executions(self.store, scope)?
+        let remaining = student_executions(self.store, scope)?;
+        let open = remaining.iter().any(|e| e.state.needs_reconciliation());
+        let due_open = remaining
             .iter()
-            .any(|e| e.state.needs_reconciliation());
+            .any(|e| e.state.needs_reconciliation() && due_keys.contains(&e.key));
         let unavailable = reads.iter().any(|(_, r)| !r.get("status").is("observed"));
         let reason = if !open {
             Js::Null
         } else {
             if unavailable {
                 "readback_unavailable_reconcile_later"
-            } else if not_observed {
-                "affected_record_not_observed_manual_reconcile_required"
             } else if uncertain {
-                "uncertain_dispatch_not_landed_user_resolution_required"
+                "qualified_proof_or_target_repair_required"
             } else {
                 "readback_field_unknown_reconcile_later"
             }
             .into()
         };
-        Ok(merge(
+        let result = merge(
             b,
             &obj(&[
                 ("status", if open { "held" } else { "settled" }.into()),
@@ -1027,8 +1164,23 @@ impl Service<'_> {
                 ("by", by),
                 ("fields", after),
             ]),
-        ))
+        );
+        Ok(if before_window && !due_open {
+            confirmation_pending(result)
+        } else {
+            result
+        })
     }
+}
+// ask_person retains the fence; the answer must supply qualified proof or
+// repair the target, not merely assert that the save failed.
+fn manual_reconciliation(value: &mut Js) {
+    value.set("reconciliation", "manual_reconciliation".into());
+    value.set("nextStep", "ask_person".into());
+    value.set(
+        "question",
+        "Can you provide qualified proof for this exact attempt or repair its target identity? The field remains held.".into(),
+    );
 }
 pub fn status(store: &Store, input: &Js) -> Result<Js> {
     let input = super::schema::validate("dailyRecordExecutionStatusSchema", input)?;
@@ -1056,7 +1208,7 @@ pub fn status(store: &Store, input: &Js) -> Result<Js> {
             .filter(|e| e.record.get("field").is(field))
             .map(|e| {
                 let r = &e.record;
-                obj(&[
+                let value = obj(&[
                     ("requestRef", r.get("requestRef").clone()),
                     ("effectRecordKey", r.get("effectRecordKey").clone()),
                     ("beforeSha256", r.get("beforeSha256").clone()),
@@ -1064,9 +1216,10 @@ pub fn status(store: &Store, input: &Js) -> Result<Js> {
                     ("executionState", e.state.name().into()),
                     ("by", attribution_summary(r.get("attribution"))),
                     ("recordedAt", r.get("recordedAt").clone()),
-                ])
+                ]);
+                with_completion_facts(store, &e.key, value)
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>>>()?;
         if !values.is_empty() {
             fields.push(obj(&[
                 ("field", field.into()),
