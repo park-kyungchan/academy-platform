@@ -144,3 +144,30 @@ Replay: `replay --family dailytest --raw-dir ... --students ... --identity ... -
 --max-requests N` answers the same reads from the raw directory (no `--paper-form`, no
 `--no-detail`); a missing answer ends the student `replay_body_missing` with the operation id.
 A raw directory may hold the answers of both families for a student.
+
+From the spool to a read store: `ontology/academy-read.schema.json` (domain
+`academy_read`, `edu_academy_ontology::ACADEMY_READ_SCHEMA`) declares one `records`
+source per partition directory under the spool root `/var/lib/academy-read/spool`.
+After a capture the spool is indexed with `ont index` into a store of its own;
+`ont render` then answers, for one student id, the views `registered_books` and
+`section_results` (each row with the time the source was read, `$observed_at`).
+`observed_at` is not a stored property, so an unchanged record captured again
+appends nothing and only moves that time. Only a member the row key needs fails
+a source: a `registered_book` line without `student_id` or `book_no` fails its
+source (`key_unresolved`, nothing of that run is appended, earlier rows stay); a
+`section_attempt` line without `key` fails the same way. A line missing any
+other member indexes with the source `ok`: its cell renders `(missing)`, except
+`student_id` on a `section_attempt` line, which both views filter on, so that
+row appears in neither view and nothing marks it (the capture always writes
+`student_id`). An ungraded section has no counts, no wrong list and may have no
+date literal, and renders `(missing)` there. The record's `score` is not mapped
+(the engine has no type for a fractional JSON number) and `section_results` has no
+score column. Rows turn stale 36 hours after the last index run, not after the
+capture's age: the `Observed at` column shows the capture's time and is never
+marked stale, so lesson preparation reads that date. Each type is ONE source for
+every student, so one record the schema refuses (a value over its `max_bytes`, a
+changed field with an earlier `observed_at` than the stored one, an unreadable
+line) fails that type's whole run for all students; on a first run the view then
+shows a header with no rows. The engine has no override of the glob root: a test rewrites the root
+string in the schema text before installing it into a temporary store. The schema
+carries no student name; a student is identified by id only.

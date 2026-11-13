@@ -27,6 +27,14 @@ const MAX_EXECUTION_KEY_BYTES: usize = 8192;
 
 pub const SCHEMA: &str = include_str!("../../../ontology/academy.schema.json");
 
+/// The schema `academy_read`: the captured textbook records (`registered_book`
+/// and `section_attempt`) as a read-only store with two views. Its spool root
+/// is `ACADEMY_READ_SPOOL_ROOT`.
+pub const ACADEMY_READ_SCHEMA: &str = include_str!("../../../ontology/academy-read.schema.json");
+
+/// The spool root that `ACADEMY_READ_SCHEMA` names in its source globs.
+pub const ACADEMY_READ_SPOOL_ROOT: &str = "/var/lib/academy-read/spool";
+
 /// Engine authority for attempt identity, state, digests and fencing.
 #[derive(Clone)]
 pub struct EngineLedger {
