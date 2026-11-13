@@ -104,3 +104,43 @@ row, identity, scope and form-pin checks remain in force.
 Failed student reports carry cause: up to four safe fixed refusal codes from
 inner to outer. Success has no cause. Neither cause nor missing-operation output
 contains private values, labels, keys or paths.
+
+## DailyTest history (family `dailytest`)
+
+`prepare-owner` lists the family's operation only when asked: `--families textbook,dailytest`
+(comma list of `textbook` and `dailytest`, no repeat; default `textbook`). The document written
+for `textbook` alone is byte-identical to the one written before the family existed; `dailytest`
+adds the one read `metadata.daily`. A list that names an unknown or repeated family refuses with
+`prepare_input_invalid` before any file exists.
+
+```sh
+academy-capture dailytest --owner-root "$OWNER_ROOT" --admission transport-admission.json --admission-sha256 "$ADM_SHA" --credential credential.json --credential-sha256 "$CRED_SHA" --roster "$OWNER_ROOT/roster.json" --spool "$SPOOL" --date 2026-11-13 --max-requests 8 --raw-dir "$RAW_DIR"
+```
+The mode takes the arguments of `textbook` except `--no-detail`. It has no form pin: the
+roster's `paper_form` is read and ignored. One login, sequential requests, `--max-requests` per
+student, the admission checked before any request, a partition replaced only after the whole
+read of that student parsed back, the recorder writing each answer before any parser: all by the
+same code as `textbook` (`capture::run_students`). Per student: one request for the selector
+`1` (its page lists the periods and is also the period `1` page), then one request per other
+offered selector among 11 to 16: at most 7. Enabled options outside {1, 11 to 16} are not read;
+a page without the selector `1` among its options, with no single `select[name=sort_date]`, or
+with a form-owned or duplicated option refuses (`daily_history_selector_drift`, `contract_drift`).
+Rows come from the one whole-page `testResultList: JSON.parse('...')` expression (TypeScript
+`inspectAssessmentSearchMetadata`); other script, regular-expression or template literals and
+token counts never decide. A page the parser refuses keeps its saved answer for `replay`.
+
+Publishes `<spool>/paper_attempt/<student_id>.jsonl`, keys sorted: `type`, `key`, `observed_at`,
+`student_id`, `student`, `attempt_key`, `paper_key`, `period` (the selector literal),
+`period_ordinal` (position among the enabled options, from 1), `row_ordinal` (position among the
+student's rows of that page, from 1), `source_row_id` (string or null), `source_score` (the
+number printed as the JavaScript engine prints it, as a string, or null). `key` is
+`<student_id>|<attempt_key>`; an attempt key that occurs more than once in one read (another
+period or another paper) is `<student_id>|<attempt_key>|<paper_key>|<period>` on every
+occurrence. No name, paper body or question text. The report line of a student adds
+`paper_attempts`; its `registered_books` and `section_attempts` are 0. Headers (title,
+category, question count) are not read: they need the six owner pins of the paper route.
+
+Replay: `replay --family dailytest --raw-dir ... --students ... --identity ... --spool ...
+--max-requests N` answers the same reads from the raw directory (no `--paper-form`, no
+`--no-detail`); a missing answer ends the student `replay_body_missing` with the operation id.
+A raw directory may hold the answers of both families for a student.

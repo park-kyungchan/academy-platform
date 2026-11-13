@@ -43,18 +43,17 @@ fn run() -> Result<serde_json::Value> {
         return edu_academy_sources::propose_paper_form::run(args);
     }
     if mode.as_deref() == Some("prepare-owner") {
-        return edu_academy_sources::prepare_owner::prepare(
-            &edu_academy_sources::prepare_owner::parse_args(args)?,
-            &Clock,
-        );
+        let (inputs, families) = edu_academy_sources::prepare_owner::parse_args_families(args)?;
+        return edu_academy_sources::prepare_owner::prepare_families(&inputs, &families, &Clock);
     }
-    if mode.as_deref() != Some("textbook") {
+    let daily = mode.as_deref() == Some("dailytest");
+    if mode.as_deref() != Some("textbook") && !daily {
         return Err(invalid());
     }
     let mut values = HashMap::new();
     let mut no_detail = false;
     while let Some(arg) = args.next() {
-        if arg == "--no-detail" {
+        if arg == "--no-detail" && !daily {
             if no_detail {
                 return Err(invalid());
             }
@@ -104,6 +103,9 @@ fn run() -> Result<serde_json::Value> {
         return Err(invalid());
     }
     let roster: Roster = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
+    if daily && !roster.paper_form.is_object() && !roster.paper_form.is_null() {
+        return Err(invalid());
+    }
     let options = Options {
         date: get("--date")?,
         spool: get("--spool")?.into(),
@@ -111,7 +113,12 @@ fn run() -> Result<serde_json::Value> {
         max_requests: get("--max-requests")?.parse().map_err(|_| invalid())?,
         no_detail,
     };
-    if let Err(error) = capture::preflight(&admission, &roster, &options) {
+    let refused = if daily {
+        edu_academy_sources::dailytest::preflight(&admission, &roster.students, &options)
+    } else {
+        capture::preflight(&admission, &roster, &options)
+    };
+    if let Err(error) = refused {
         return Ok(
             serde_json::json!({"status":"capture_admission_refused","students":roster.students.iter().enumerate().map(|(i,_)|serde_json::json!({"roster_ordinal":i+1,"status":"capture_admission_refused","cause":capture::causes(&capture::context(error.clone(), "capture_admission_refused")),"requests":0})).collect::<Vec<_>>()}),
         );
@@ -144,7 +151,12 @@ fn run() -> Result<serde_json::Value> {
     )
     .map_err(|e| capture::context(e, "capture_owner_refused"))?;
     let mut session = recorder.port(session);
-    Ok(serde_json::json!({"students":capture::capture(&mut session,&roster,&options,&Clock)}))
+    let students = if daily {
+        capture::capture_dailytest(&mut session, &roster.students, &options, &Clock)
+    } else {
+        capture::capture(&mut session, &roster, &options, &Clock)
+    };
+    Ok(serde_json::json!({ "students": students }))
 }
 fn main() {
     let result = run();

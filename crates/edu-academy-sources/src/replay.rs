@@ -138,6 +138,7 @@ pub fn run(args: impl Iterator<Item = String>, runtime: &dyn Runtime) -> Result<
             "--spool",
             "--max-requests",
             "--date",
+            "--family",
         ]
         .contains(&k.as_str())
             || values
@@ -153,6 +154,16 @@ pub fn run(args: impl Iterator<Item = String>, runtime: &dyn Runtime) -> Result<
             .cloned()
             .ok_or_else(|| fail("replay_input_invalid"))
     };
+    let family = match values.get("--family").map(String::as_str) {
+        None | Some("textbook") => capture::Family::Textbook,
+        Some("dailytest") => capture::Family::DailyTest,
+        Some(_) => return Err(fail("replay_input_invalid")),
+    };
+    let daily = family == capture::Family::DailyTest;
+    // The family `dailytest` has no form pin, no detail and no paper search.
+    if daily && (no_detail || values.contains_key("--paper-form")) {
+        return Err(fail("replay_input_invalid"));
+    }
     let identity: Identity = serde_json::from_slice(&read(
         Path::new(&get("--identity")?),
         1_048_576,
@@ -168,12 +179,16 @@ pub fn run(args: impl Iterator<Item = String>, runtime: &dyn Runtime) -> Result<
         "replay_input_invalid",
     )?)
     .map_err(|_| fail("replay_input_invalid"))?;
-    let paper_form: Value = serde_json::from_slice(&read(
-        Path::new(&get("--paper-form")?),
-        1_048_576,
-        "replay_input_invalid",
-    )?)
-    .map_err(|_| fail("replay_input_invalid"))?;
+    let paper_form: Value = if daily {
+        Value::Null
+    } else {
+        serde_json::from_slice(&read(
+            Path::new(&get("--paper-form")?),
+            1_048_576,
+            "replay_input_invalid",
+        )?)
+        .map_err(|_| fail("replay_input_invalid"))?
+    };
     let options = Options {
         date: values
             .get("--date")
@@ -195,15 +210,23 @@ pub fn run(args: impl Iterator<Item = String>, runtime: &dyn Runtime) -> Result<
         allowed_from: options.date.clone(),
         allowed_through: options.date.clone(),
         student_ids: students.iter().map(|s| s.student_id.clone()).collect(),
-        source_namespaces: vec![COURSE_NS.into(), METADATA_NS.into()],
-        operations: capture::contracts(),
+        source_namespaces: if daily {
+            vec![METADATA_NS.into()]
+        } else {
+            vec![COURSE_NS.into(), METADATA_NS.into()]
+        },
+        operations: capture::contracts_for(&[family]),
     };
     let roster = Roster {
         students,
         paper_form,
     };
-    capture::preflight(&admission, &roster, &options)
-        .map_err(|e| capture::context(e, "replay_input_invalid"))?;
+    if daily {
+        crate::dailytest::preflight(&admission, &roster.students, &options)
+    } else {
+        capture::preflight(&admission, &roster, &options)
+    }
+    .map_err(|e| capture::context(e, "replay_input_invalid"))?;
     let raw_root = fs::canonicalize(get("--raw-dir")?).map_err(|_| fail("replay_index_refused"))?;
     let spool_parent = options
         .spool
@@ -228,9 +251,13 @@ pub fn run(args: impl Iterator<Item = String>, runtime: &dyn Runtime) -> Result<
             let entry: Entry =
                 serde_json::from_str(line).map_err(|_| fail("replay_index_refused"))?;
             if entry.sequence != (n + 1) as u64
-                || !capture::contracts()
-                    .iter()
-                    .any(|op| op.id == entry.operation)
+                // One raw directory holds every family a run read for the student.
+                || !capture::contracts_for(&[
+                    capture::Family::Textbook,
+                    capture::Family::DailyTest,
+                ])
+                .iter()
+                .any(|op| op.id == entry.operation)
                 || !(100..=599).contains(&entry.http_status)
             {
                 return Err(fail("replay_index_refused"));
@@ -259,7 +286,12 @@ pub fn run(args: impl Iterator<Item = String>, runtime: &dyn Runtime) -> Result<
             }],
             paper_form: roster.paper_form.clone(),
         };
-        let mut r = capture::capture_with(&mut port, &single, &options, runtime).remove(0);
+        let mut r = if daily {
+            capture::capture_dailytest_with(&mut port, &single.students, &options, runtime)
+        } else {
+            capture::capture_with(&mut port, &single, &options, runtime)
+        }
+        .remove(0);
         r.roster_ordinal = i + 1;
         r.requests = port.answered;
         r.operation = port.missing;

@@ -2,6 +2,7 @@
 //! Construction grants no runtime activation or business/source-write authority.
 #![forbid(unsafe_code)]
 pub mod capture;
+pub mod dailytest;
 pub mod data;
 pub mod dom;
 pub mod evidence;

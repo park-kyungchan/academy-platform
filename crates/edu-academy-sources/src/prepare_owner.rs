@@ -36,7 +36,18 @@ pub struct Inputs {
 fn refused(code: &str) -> Error {
     Error::refusal(code)
 }
+/// The mode `textbook` arguments: the family list is not accepted here.
 pub fn parse_args(args: impl Iterator<Item = String>) -> Result<Inputs> {
+    match parse_args_families(args)? {
+        (inputs, families) if families == [capture::Family::Textbook] => Ok(inputs),
+        _ => Err(refused("prepare_input_invalid")),
+    }
+}
+/// Families whose operations the admission lists; the default `[Textbook]` writes
+/// the document of the mode `textbook` byte for byte.
+pub fn parse_args_families(
+    args: impl Iterator<Item = String>,
+) -> Result<(Inputs, Vec<capture::Family>)> {
     let mut args = args;
     let mut values = HashMap::new();
     while let Some(key) = args.next() {
@@ -51,6 +62,7 @@ pub fn parse_args(args: impl Iterator<Item = String>) -> Result<Inputs> {
             "--allowed-through",
             "--expires-at",
             "--owner-root",
+            "--families",
         ]
         .contains(&key.as_str())
             || values
@@ -64,23 +76,41 @@ pub fn parse_args(args: impl Iterator<Item = String>) -> Result<Inputs> {
             return Err(refused("prepare_input_invalid"));
         }
     }
+    let families = match values.remove("--families") {
+        None => vec![capture::Family::Textbook],
+        Some(list) => {
+            let mut families = vec![];
+            for name in list.split(',') {
+                let family =
+                    capture::Family::parse(name).ok_or_else(|| refused("prepare_input_invalid"))?;
+                if families.contains(&family) {
+                    return Err(refused("prepare_input_invalid"));
+                }
+                families.push(family);
+            }
+            families
+        }
+    };
     let mut get = |key: &str| {
         values
             .remove(key)
             .ok_or_else(|| refused("prepare_input_invalid"))
     };
-    Ok(Inputs {
-        identity: get("--identity")?.into(),
-        secret_env: get("--secret-env")?.into(),
-        secret_key: get("--secret-key")?,
-        lock: get("--lock")?.into(),
-        students: get("--students")?.into(),
-        paper_form: get("--paper-form")?.into(),
-        allowed_from: get("--allowed-from")?,
-        allowed_through: get("--allowed-through")?,
-        expires_at: get("--expires-at")?,
-        owner_root: get("--owner-root")?.into(),
-    })
+    Ok((
+        Inputs {
+            identity: get("--identity")?.into(),
+            secret_env: get("--secret-env")?.into(),
+            secret_key: get("--secret-key")?,
+            lock: get("--lock")?.into(),
+            students: get("--students")?.into(),
+            paper_form: get("--paper-form")?.into(),
+            allowed_from: get("--allowed-from")?,
+            allowed_through: get("--allowed-through")?,
+            expires_at: get("--expires-at")?,
+            owner_root: get("--owner-root")?.into(),
+        },
+        families,
+    ))
 }
 fn read(path: &Path, limit: u64) -> Result<Vec<u8>> {
     if !path.is_absolute() {
@@ -187,10 +217,18 @@ fn exclusive(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     file.sync_all()
 }
 pub fn prepare(input: &Inputs, runtime: &dyn Runtime) -> Result<Value> {
-    prepare_with(input, runtime, exclusive)
+    prepare_families(input, &[capture::Family::Textbook], runtime)
+}
+pub fn prepare_families(
+    input: &Inputs,
+    families: &[capture::Family],
+    runtime: &dyn Runtime,
+) -> Result<Value> {
+    prepare_with(input, families, runtime, exclusive)
 }
 fn prepare_with(
     input: &Inputs,
+    families: &[capture::Family],
     runtime: &dyn Runtime,
     write: fn(&Path, &[u8]) -> std::io::Result<()>,
 ) -> Result<Value> {
@@ -242,7 +280,7 @@ fn prepare_with(
             crate::student_course::COURSE_NS.into(),
             crate::student_course::METADATA_NS.into(),
         ],
-        operations: capture::contracts(),
+        operations: capture::contracts_for(families),
     };
     let roster = Roster {
         students,
@@ -255,8 +293,14 @@ fn prepare_with(
         spool: input.owner_root.join("spool"),
         raw_dir: None,
     };
-    capture::preflight(&admission, &roster, &options)
-        .map_err(|_| refused("prepare_scope_refused"))?;
+    if families.contains(&capture::Family::Textbook) {
+        capture::preflight(&admission, &roster, &options)
+            .map_err(|_| refused("prepare_scope_refused"))?;
+    }
+    if families.contains(&capture::Family::DailyTest) {
+        crate::dailytest::preflight(&admission, &roster.students, &options)
+            .map_err(|_| refused("prepare_scope_refused"))?;
+    }
     let student_count = roster.students.len();
     let docs = [
         (
@@ -337,6 +381,6 @@ pub(crate) mod tests {
     // boundary too; fail after the second exclusive write, not before publication.
     pub(crate) fn fail_second_write(input: &Inputs, runtime: &dyn Runtime) -> Result<Value> {
         WRITES.store(0, Ordering::Relaxed);
-        prepare_with(input, runtime, broken)
+        prepare_with(input, &[capture::Family::Textbook], runtime, broken)
     }
 }
