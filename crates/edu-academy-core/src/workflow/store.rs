@@ -318,6 +318,12 @@ impl Store {
         let created = if let Some(ledger) = self.attempts.as_deref().filter(|_| attempt_kind(kind))
         {
             let target = if matches!(kind, Kind::Execution) {
+                if ledger
+                    .execution_key_limit()
+                    .is_some_and(|limit| id.len() > limit)
+                {
+                    return Err(Fault::error("workflow_execution_key_too_large"));
+                }
                 Some(self.attempt_target(record)?)
             } else {
                 None

@@ -21,10 +21,10 @@ and accounts for backups. Deleting one student cannot erase its identifier:
 it remains in observations, the action log, `edits.jsonl` and backups.
 
 The engine stores the original execution key, bounded at 8,192 bytes.
-A larger key is refused before the ledger records an attempt and before any
-dispatch. The execution body written just before the refusal stays in
-`execution/` without an attempt and is never read. This refusal is final and
-is not retried. The engine holds no student body text, but the execution key carries
+A larger key is refused by `Store::publish` with
+`workflow_execution_key_too_large` before any execution body is written,
+before the ledger records an attempt and before any dispatch. This refusal is
+final and is not retried. The engine holds no student body text, but the execution key carries
 unsalted SHA-256 digests of before and after text. Anyone able to read the
 mode-0600 owner-only store or a backup can recognize short or guessable text
 by comparing its digest.

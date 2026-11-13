@@ -37,6 +37,12 @@ pub struct Attempt {
 /// at most `limit`, otherwise any `limit` attempts, in no promised order.
 /// The ledger is shared between threads and processes, so every implementor is `Send + Sync`.
 pub trait AttemptLedger: Send + Sync {
+    /// Maximum UTF-8 bytes accepted by `begin`, or no byte limit.
+    /// Store checks this pure policy before publishing an execution body.
+    fn execution_key_limit(&self) -> Option<usize> {
+        None
+    }
+
     fn begin(
         &self,
         key: &str,

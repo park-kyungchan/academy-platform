@@ -108,3 +108,54 @@ fn qualified_large_key_is_refused_without_creating_a_store() {
     assert_eq!(ledger.attempt(&exact).unwrap().unwrap().key, exact);
     std::fs::remove_dir_all(owner).unwrap();
 }
+
+#[test]
+fn oversized_execution_publish_creates_no_body() {
+    use edu_academy_core::workflow::store::Kind;
+    fn files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
+        let mut found = vec![];
+        for entry in std::fs::read_dir(root).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                found.extend(files(&path));
+            } else {
+                found.push(path);
+            }
+        }
+        found.sort();
+        found
+    }
+    let owner = ledger_cases::root("publish-key-bound");
+    let root = owner.join("store");
+    let store = edu_academy_ontology::open_store(&root, &owner, &ledger_cases::Clock).unwrap();
+    let scope = ledger_cases::scope("12");
+    let record = ledger_cases::execution(
+        &store,
+        &scope,
+        "progress",
+        "15".into(),
+        &ledger_cases::target(&scope),
+        "review",
+    );
+    let before = files(&root);
+    let fault = store
+        .publish(
+            Kind::Execution,
+            &"x".repeat(8193),
+            &record,
+            &ledger_cases::Clock,
+        )
+        .unwrap_err();
+    let after = files(&root);
+    assert_eq!(after, before, "refused publication must create no file");
+    assert_eq!(fault.message, "workflow_execution_key_too_large");
+    assert_eq!(
+        store
+            .attempt_count(&state::lock_key(&scope).unwrap(), 10)
+            .unwrap(),
+        0
+    );
+    assert!(files(&root.join("execution")).is_empty());
+    drop(store);
+    std::fs::remove_dir_all(owner).unwrap();
+}

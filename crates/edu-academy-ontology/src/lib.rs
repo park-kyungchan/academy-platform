@@ -23,6 +23,8 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
+const MAX_EXECUTION_KEY_BYTES: usize = 8192;
+
 pub const SCHEMA: &str = include_str!("../../../ontology/academy.schema.json");
 
 /// Engine authority for attempt identity, state, digests and fencing.
@@ -164,7 +166,7 @@ impl EngineLedger {
         digest: &str,
         clock: &dyn Runtime,
     ) -> Result<bool> {
-        if key.len() > 8192 {
+        if key.len() > MAX_EXECUTION_KEY_BYTES {
             return Err(Fault::from_parts(
                 "Error",
                 "workflow_ledger_unavailable",
@@ -287,6 +289,10 @@ impl EngineLedger {
     }
 }
 impl AttemptLedger for EngineLedger {
+    fn execution_key_limit(&self) -> Option<usize> {
+        Some(MAX_EXECUTION_KEY_BYTES)
+    }
+
     fn begin(
         &self,
         key: &str,
