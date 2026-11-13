@@ -466,6 +466,8 @@ fn initialize_engine(
         .open(&temp)
         .map_err(|_| unavailable())?;
     // A killed initializer's temporary file is never read and is left in place.
+    // A kill between link and removal leaves a second hard link of the live store;
+    // nothing opens that name, and cleanup may only unlink it.
     let mut engine = ont_store::Store::open_schema(&temp)
         .map_err(|e| engine_failure(Failure::Refused(ont::Refusal::new(e.code))))?;
     engine
@@ -479,6 +481,7 @@ fn initialize_engine(
         .map_err(|e| engine_failure(Failure::Refused(ont::Refusal::new(e.code))))?;
     drop(engine);
     file.sync_all().map_err(|_| unavailable())?;
+    drop(file);
     before_publish()?;
     match fs::hard_link(&temp, path) {
         Ok(()) => {}

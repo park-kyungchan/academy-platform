@@ -1376,3 +1376,17 @@ fn begin_again_with_another_target_is_false() {
         digest
     );
 }
+
+#[test]
+fn open_store_refuses_parent_components() {
+    let s = Scene::new();
+    assert_eq!(
+        edu_academy_ontology::open_store(&s.root.join("x/../store"), &s.root, &Clock)
+            .err()
+            .unwrap()
+            .message,
+        "workflow_ledger_root_required"
+    );
+    assert!(!s.root.join("x").exists());
+    assert!(!s.root.join("store").exists());
+}

@@ -64,12 +64,21 @@ pub fn ledger_sibling(root: &Path) -> Option<PathBuf> {
     Some(root.with_file_name(name))
 }
 fn has_engine_execution(root: &Path) -> Result<bool> {
-    let mut entries = match fs::read_dir(root.join("execution")) {
+    let entries = match fs::read_dir(root.join("execution")) {
         Ok(entries) => entries,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
         Err(e) => return Err(io_fault(e)),
     };
-    let Some(entry) = entries.next().transpose().map_err(io_fault)? else {
+    let mut first = None;
+    for entry in entries {
+        let entry = entry.map_err(io_fault)?;
+        if entry.file_name().as_encoded_bytes().starts_with(b".") {
+            continue;
+        }
+        first = Some(entry);
+        break;
+    }
+    let Some(entry) = first else {
         return Ok(false);
     };
     let name = entry.file_name();
@@ -83,6 +92,22 @@ fn has_engine_execution(root: &Path) -> Result<bool> {
         .iter()
         .all(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())))
 }
+fn normal_under(root: &Path, owner_root: &Path) -> Result<()> {
+    if !root.is_absolute()
+        || !owner_root.is_absolute()
+        || !root.starts_with(owner_root)
+        || !root
+            .strip_prefix(owner_root)
+            .map_err(|_| Fault::error("dailyrecord_workflow_store_owner_root_required"))?
+            .components()
+            .all(|part| matches!(part, std::path::Component::Normal(_)))
+    {
+        return Err(Fault::error(
+            "dailyrecord_workflow_store_owner_root_required",
+        ));
+    }
+    Ok(())
+}
 pub struct Store {
     root: PathBuf,
     attempts: Option<Box<dyn AttemptLedger>>,
@@ -90,17 +115,16 @@ pub struct Store {
 impl Store {
     pub const SCOPE: &'static str = "single_host_owner_filesystem";
     pub fn open(root: &Path, owner_root: &Path) -> Result<Self> {
+        normal_under(root, owner_root)?;
+        // A normal last component under the owner root always has a ledger sibling.
         if ledger_sibling(root).is_some_and(|path| path.exists()) || has_engine_execution(root)? {
             return Err(Fault::error("workflow_ledger_legacy_root"));
         }
         Self::initialize(root, owner_root)
     }
     fn initialize(root: &Path, owner_root: &Path) -> Result<Self> {
-        if !root.is_absolute()
-            || !owner_root.is_absolute()
-            || !root.starts_with(owner_root)
-            || fs::canonicalize(owner_root).map_err(io_fault)? != owner_root
-        {
+        normal_under(root, owner_root)?;
+        if fs::canonicalize(owner_root).map_err(io_fault)? != owner_root {
             return Err(Fault::error(
                 "dailyrecord_workflow_store_owner_root_required",
             ));
@@ -111,11 +135,6 @@ impl Store {
             .map_err(|_| Fault::error("dailyrecord_workflow_store_owner_root_required"))?
             .components()
         {
-            if !matches!(part, std::path::Component::Normal(_)) {
-                return Err(Fault::error(
-                    "dailyrecord_workflow_store_owner_root_required",
-                ));
-            }
             p.push(part);
             match fs::symlink_metadata(&p) {
                 Ok(m) if m.file_type().is_symlink() => {

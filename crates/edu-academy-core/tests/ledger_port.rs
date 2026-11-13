@@ -1009,3 +1009,54 @@ fn file_store_refuses_engine_bodies() {
     );
     fs::remove_dir_all(owner).unwrap();
 }
+
+#[test]
+fn file_store_refuses_parent_components() {
+    let owner = root("parent-components");
+    for name in ["store", "a"] {
+        fs::create_dir(owner.join(name)).unwrap();
+        fs::create_dir(owner.join(format!("{name}.ledger"))).unwrap();
+    }
+    symlink(owner.join("store"), owner.join("link")).unwrap();
+    let paths = [
+        owner.join("x/../store"),
+        owner.join("a/y/.."),
+        owner.join("x/../link"),
+    ];
+    for present in [false, true] {
+        if present {
+            fs::create_dir(owner.join("x")).unwrap();
+            fs::create_dir(owner.join("a/y")).unwrap();
+        }
+        for path in &paths {
+            assert_eq!(
+                Store::open(path, &owner).err().unwrap().message,
+                "dailyrecord_workflow_store_owner_root_required"
+            );
+            assert_eq!(owner.join("x").exists(), present);
+            assert_eq!(owner.join("a/y").exists(), present);
+        }
+    }
+    fs::remove_dir_all(owner).unwrap();
+}
+
+#[test]
+fn file_store_skips_dot_entries_for_engine_bodies() {
+    let owner = root("engine-body-with-dot-entry");
+    let store_root = owner.join("store");
+    let execution = store_root.join("execution");
+    fs::create_dir_all(&execution).unwrap();
+    fs::write(execution.join(".tmp-invented"), "invented").unwrap();
+    assert!(Store::open(&store_root, &owner).is_ok());
+    fs::write(
+        execution.join(format!("{}.{}.json", "a".repeat(64), "B".repeat(64))),
+        "invented",
+    )
+    .unwrap();
+    assert!(!owner.join("store.ledger").exists());
+    assert_eq!(
+        Store::open(&store_root, &owner).err().unwrap().message,
+        "workflow_ledger_legacy_root"
+    );
+    fs::remove_dir_all(owner).unwrap();
+}
