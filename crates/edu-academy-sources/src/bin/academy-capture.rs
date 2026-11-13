@@ -36,6 +36,9 @@ fn invalid() -> Error {
 fn run() -> Result<serde_json::Value> {
     let mut args = std::env::args().skip(1);
     let mode = args.next();
+    if mode.as_deref() == Some("replay") {
+        return edu_academy_sources::replay::run(args, &Clock);
+    }
     if mode.as_deref() == Some("propose-paper-form") {
         return edu_academy_sources::propose_paper_form::run(args);
     }
@@ -108,9 +111,9 @@ fn run() -> Result<serde_json::Value> {
         max_requests: get("--max-requests")?.parse().map_err(|_| invalid())?,
         no_detail,
     };
-    if capture::preflight(&admission, &roster, &options).is_err() {
+    if let Err(error) = capture::preflight(&admission, &roster, &options) {
         return Ok(
-            serde_json::json!({"status":"capture_admission_refused","students":roster.students.iter().enumerate().map(|(i,_)|serde_json::json!({"roster_ordinal":i+1,"status":"capture_admission_refused","requests":0})).collect::<Vec<_>>()}),
+            serde_json::json!({"status":"capture_admission_refused","students":roster.students.iter().enumerate().map(|(i,_)|serde_json::json!({"roster_ordinal":i+1,"status":"capture_admission_refused","cause":capture::causes(&capture::context(error.clone(), "capture_admission_refused")),"requests":0})).collect::<Vec<_>>()}),
         );
     }
     let provider = FileCredentialProvider::new(
@@ -139,7 +142,7 @@ fn run() -> Result<serde_json::Value> {
         cancellation,
         &Clock,
     )
-    .map_err(|_| Error::refusal("capture_owner_refused"))?;
+    .map_err(|e| capture::context(e, "capture_owner_refused"))?;
     let mut session = recorder.port(session);
     Ok(serde_json::json!({"students":capture::capture(&mut session,&roster,&options,&Clock)}))
 }
@@ -154,13 +157,18 @@ fn main() {
             (output, if failed { 2 } else { 0 })
         }
         Err(error) => {
-            let code =
-                if error.message.starts_with("prepare_") || error.message.starts_with("propose_") {
-                    error.message.as_str()
-                } else {
-                    "capture_launch_refused"
-                };
-            (serde_json::json!({"status":code}), 2)
+            let code = if error.message.starts_with("prepare_")
+                || error.message.starts_with("propose_")
+                || error.message.starts_with("replay_")
+            {
+                error.message.as_str()
+            } else {
+                "capture_launch_refused"
+            };
+            (
+                serde_json::json!({"status":code,"cause":capture::causes(&error)}),
+                2,
+            )
         }
     };
     if writeln!(std::io::stdout(), "{output}").is_err() {

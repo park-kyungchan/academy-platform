@@ -1237,6 +1237,10 @@ pub fn metadata_rows(html: &str, student: &Student) -> Result<Vec<Js>> {
     }
     require(lists.len() == 1, "result_list_missing_or_ambiguous")?;
     let list = &lists[0];
+    project_metadata_rows(list, student)
+}
+
+fn project_metadata_rows(list: &Js, student: &Student) -> Result<Vec<Js>> {
     require(
         array(list) && list.array().len() <= 2000,
         "student_search_list_rejected",
@@ -1328,4 +1332,82 @@ pub fn metadata_rows(html: &str, student: &Student) -> Result<Vec<Js>> {
         ]));
     }
     Ok(rows)
+}
+
+/// Mirrors assessmentReadProtocol.ts inspectAssessmentSearchMetadata: only the
+/// matched literal participates in the JSON budget; surrounding scripts are inert.
+pub(crate) fn metadata_rows_by_expression(html: &str, student: &Student) -> Result<Vec<Js>> {
+    key(&student.student_key.as_str().into())?;
+    name(&student.student_name.as_str().into())?;
+    require(
+        html.encode_utf16().count() <= 2_000_000 && !crate::http::name_search::password_input(html),
+        "assessment_search_source_rejected",
+    )?;
+    let literal = crate::http::name_search::result_literal(html)?;
+    let decoded = crate::http::name_search::decode_single_quoted(literal)?;
+    // The budget inspects ASCII JSON structure; lone UTF-16 surrogates remain
+    // preserved by parse_decoded rather than repaired through UTF-8 conversion.
+    metadata_json_budget(&String::from_utf16_lossy(&decoded))?;
+    let list = crate::http::name_search::parse_decoded(&decoded)
+        .map_err(|_| Error::refusal("student_search_list_rejected"))?;
+    project_metadata_rows(&list, student)
+}
+
+#[cfg(test)]
+mod expression_parity_tests {
+    use super::*;
+    #[test]
+    fn search_expression_ignores_unrelated_scripts_and_bounds_only_the_literal() {
+        // TypeScript: assessmentReadProtocol.ts inspectAssessmentSearchMetadata,
+        // using the same expression/decoder as parseAssessmentSearch.
+        let student = Student {
+            student_key: "77001".into(),
+            student_name: "Invented Learner".into(),
+        };
+        let raw = r#"[{"priNo":77001,"userName":"Invented Learner","pNo":81001,"testingNo":82001,"testingName":"Fictional section 01"}]"#;
+        let literal = format!("testResultList: JSON.parse('{raw}')");
+        let noise = format!(
+            "<script>{} const rx=/a+/g; const t=`template ${{1/2}}`; const quotient=4/2;</script>",
+            "a;".repeat(10_000)
+        );
+        let expected = metadata_rows_by_expression(&literal, &student).unwrap();
+        assert_eq!(expected.len(), 1);
+        assert_eq!(
+            metadata_rows_by_expression(&format!("{noise}<script>{literal}</script>"), &student)
+                .unwrap(),
+            expected
+        );
+        for html in [noise.clone(), format!("{literal}{noise}{literal}")] {
+            assert_eq!(
+                metadata_rows_by_expression(&html, &student)
+                    .unwrap_err()
+                    .message,
+                "result_list_missing_or_ambiguous"
+            );
+        }
+        let nested = format!(
+            "{}0{}",
+            "[".repeat(METADATA_MAX_DEPTH + 1),
+            "]".repeat(METADATA_MAX_DEPTH + 1)
+        );
+        assert_eq!(
+            metadata_rows_by_expression(
+                &format!("testResultList:JSON.parse('{nested}')"),
+                &student
+            )
+            .unwrap_err()
+            .message,
+            "metadata_parser_resource_limit"
+        );
+        let too_many = format!("[{}0]", "0,".repeat(METADATA_MAX_JSON_VALUES + 1));
+        assert_eq!(
+            metadata_rows_by_expression(
+                &format!("testResultList:JSON.parse('{too_many}')"),
+                &student
+            )
+            .unwrap_err()
+            .message,
+            "metadata_parser_resource_limit"
+        );
+    }
 }

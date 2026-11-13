@@ -23,7 +23,7 @@ use crate::{
     owner_admission::TransportScope,
     prestudy::{literal_key, literal_name},
     student_course::{ReadPort, Student, check_contract, field},
-    student_metadata::{PaperFormPin, metadata_rows},
+    student_metadata::{PaperFormPin, metadata_rows_by_expression},
     textbook::{FetchPolicy, TextbookResponse},
 };
 use std::{
@@ -1493,6 +1493,7 @@ pub struct TextbookIndexSource<P: TextbookSectionPort> {
     principal_label: String,
     requests: usize,
     dropped_paper_rows: usize,
+    paper_failure: Option<Error>,
 }
 impl<P: TextbookSectionPort> TextbookIndexSource<P> {
     pub fn new(port: P, principal_label: impl Into<String>) -> Self {
@@ -1501,7 +1502,11 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
             principal_label: principal_label.into(),
             requests: 0,
             dropped_paper_rows: 0,
+            paper_failure: None,
         }
+    }
+    pub fn paper_failure(&self) -> Option<&Error> {
+        self.paper_failure.as_ref()
     }
     pub fn dropped_paper_rows(&self) -> usize {
         self.dropped_paper_rows
@@ -1551,6 +1556,7 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
         keyed_text(response)
     }
     fn paper_rows(&mut self, student: &TextbookStudent) -> Result<Vec<PaperSearchRow>> {
+        self.paper_failure = None;
         let response = self
             .port
             .paper_search(student, MAX_UNIT_BODY_BYTES, SECTION_FETCH)?;
@@ -1559,7 +1565,7 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
             return refuse("textbook_section_policy_rejected");
         }
         let html = paper_text(response)?;
-        let rows = metadata_rows(
+        let rows = metadata_rows_by_expression(
             &html,
             &Student {
                 student_key: student.student_key.clone(),
@@ -1586,7 +1592,10 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
     fn paper_search(&mut self, student: &TextbookStudent) -> PaperObservation {
         match self.paper_rows(student) {
             Ok(rows) => PaperObservation::Observed(rows),
-            Err(_) => PaperObservation::Unavailable,
+            Err(e) => {
+                self.paper_failure = Some(e);
+                PaperObservation::Unavailable
+            }
         }
     }
 
@@ -1647,7 +1656,10 @@ impl<P: TextbookSectionPort> TextbookIndexSource<P> {
                         },
                     )
                 }
-                Err(_) => (plain_rows(&wrong), PaperSearchStatus::Unavailable),
+                Err(e) => {
+                    self.paper_failure = Some(e);
+                    (plain_rows(&wrong), PaperSearchStatus::Unavailable)
+                }
             },
         };
         let index_basis = if matches!(paper_search, PaperSearchStatus::Observed { .. }) {

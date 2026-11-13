@@ -1,6 +1,6 @@
 //! Bounded native HTTP and recorded compatibility. No default runtime activation.
 #[path = "name_search.rs"]
-mod name_search;
+pub(crate) mod name_search;
 
 use crate::{
     data::*,
