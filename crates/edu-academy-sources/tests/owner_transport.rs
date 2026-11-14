@@ -686,7 +686,9 @@ fn account_excludes_processes_and_releases_on_process_termination() {
     let (tx, rx) = std::sync::mpsc::channel();
     let reader = thread::spawn(move || {
         for line in BufReader::new(output).lines() {
-            if line.unwrap() == "E07_LOCKED" {
+            // With one test thread (one CPU, or a CPU quota below two) the harness prints
+            // `test account_child ... ` before the child's own line, on the same line.
+            if line.unwrap().ends_with("E07_LOCKED") {
                 tx.send(()).unwrap();
                 break;
             }
