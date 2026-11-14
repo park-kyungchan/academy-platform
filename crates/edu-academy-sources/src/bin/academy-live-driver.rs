@@ -75,8 +75,8 @@ impl Pin {
 struct Input {
     mode: String,
     scope: serde_json::Value,
-    request_ref: String,
-    field: String,
+    request_ref: Option<String>,
+    field: Option<String>,
     value: Option<String>,
     approval: Option<String>,
     reconcile: Option<bool>,
@@ -84,7 +84,9 @@ struct Input {
     admission: Pin,
     credential: Pin,
     launch_admission: Pin,
-    store: PathBuf,
+    store: Option<PathBuf>,
+    student_name: Option<String>,
+    out: Option<PathBuf>,
 }
 fn invalid() -> Fault {
     Fault::error("invalid_input")
@@ -104,10 +106,15 @@ fn parse(bytes: &[u8]) -> Result<(Input, Js)> {
             && s.bytes()
                 .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
     };
+    if input.mode == "get" {
+        return parse_get(input, value, hash);
+    }
     if !["plan", "save", "status"].contains(&input.mode.as_str())
+        || input.student_name.is_some()
+        || input.out.is_some()
         || !input.owner_root.is_absolute()
-        || !input.store.is_absolute()
-        || input.field.is_empty()
+        || !input.store.as_ref().is_some_and(|s| s.is_absolute())
+        || input.field.as_deref().is_none_or(str::is_empty)
         || (input.mode != "status" && input.value.is_none())
         || (input.mode == "save" && !input.approval.as_deref().is_some_and(hash))
         || [&input.admission, &input.credential, &input.launch_admission]
@@ -118,14 +125,54 @@ fn parse(bytes: &[u8]) -> Result<(Input, Js)> {
     }
     edu_academy_core::schema::validate("dailyRecordScopeSchema", &j(input.scope.clone()))
         .map_err(|_| invalid())?;
-    edu_academy_core::schema::validate("dailyRecordIdSchema", &input.request_ref.as_str().into())
-        .map_err(|_| invalid())?;
+    edu_academy_core::schema::validate(
+        "dailyRecordIdSchema",
+        &input.request_ref.as_deref().ok_or_else(invalid)?.into(),
+    )
+    .map_err(|_| invalid())?;
     // Read by serde even when the mode does not use these optional keys.
     let _ = input.reconcile;
     driver::supported(&value)?;
     Ok((input, value))
 }
-struct Tracked<'a>(http::NativeTransport, &'a Cell<bool>);
+/// `get`: the keys of the mode are exactly these; no write-side key is accepted.
+fn parse_get(input: Input, value: Js, hash: impl Fn(&str) -> bool) -> Result<(Input, Js)> {
+    let scope = value.get("scope");
+    let by_name = input.student_name.is_some();
+    let name_ok = input
+        .student_name
+        .as_deref()
+        .is_none_or(|n| !n.trim().is_empty() && n.encode_utf16().count() <= 200);
+    if [
+        "field",
+        "value",
+        "approval",
+        "store",
+        "requestRef",
+        "reconcile",
+    ]
+    .iter()
+    .any(|key| value.has(key))
+        || !name_ok
+        || by_name == scope.has("studentId")
+        || !input.owner_root.is_absolute()
+        || !input.out.as_ref().is_some_and(|p| p.is_absolute())
+        || [&input.admission, &input.credential, &input.launch_admission]
+            .iter()
+            .any(|p| p.relative_path.is_empty() || !hash(&p.sha256))
+    {
+        return Err(invalid());
+    }
+    // A named student has no id in the scope yet: validate it with a stand-in id.
+    let mut checked = scope.clone();
+    if by_name {
+        checked.set("studentId", "1".into());
+    }
+    edu_academy_core::schema::validate("dailyRecordScopeSchema", &checked)
+        .map_err(|_| invalid())?;
+    Ok((input, value))
+}
+struct Tracked<'a>(http::NativeTransport, &'a Cell<bool>, &'a Cell<u32>);
 impl Transport for Tracked<'_> {
     fn bind_account(&mut self, lease: Rc<edu_academy_sources::owner_root::AccountLease>) {
         self.0.bind_account(lease);
@@ -135,6 +182,7 @@ impl Transport for Tracked<'_> {
         request: &http::Request,
     ) -> edu_academy_sources::data::Result<http::Response> {
         self.1.set(true);
+        self.2.set(self.2.get() + 1);
         self.0.dispatch(request)
     }
 }
@@ -145,8 +193,15 @@ fn run(
     called: &Cell<bool>,
     evidence: &mut Js,
 ) -> Result<Js> {
+    if input.mode == "get" {
+        return run_get(input, value, called);
+    }
     let root = Rc::new(OwnerRoot::open(&input.owner_root).map_err(fault)?);
-    *store = Some(driver::store(&input.owner_root, &input.store, &Clock)?);
+    *store = Some(driver::store(
+        &input.owner_root,
+        input.store.as_ref().ok_or_else(invalid)?,
+        &Clock,
+    )?);
     let read = |pin: &Pin| {
         root.read(&pin.relative_path, &pin.sha256, 256 * 1024)
             .map_err(fault)
@@ -182,6 +237,7 @@ fn run(
     let transport = Tracked(
         http::NativeTransport::new(LIMITS, http::Cancellation::default()).map_err(fault)?,
         called,
+        &Cell::new(0),
     );
     let owner =
         Owner::leased(root, principal, transport, launch, None, provider, &Clock).map_err(fault)?;
@@ -214,6 +270,60 @@ fn run(
             );
         }
     }
+    Ok(output)
+}
+/// Read-only mode: same owner root, pins, admission checks, lease and one login as
+/// `plan`, but no store, no writer and no service. Every refusal that needs no
+/// request is decided before the credential is read.
+fn run_get(input: &Input, value: &Js, called: &Cell<bool>) -> Result<Js> {
+    let out = input.out.as_ref().ok_or_else(invalid)?;
+    let root = Rc::new(OwnerRoot::open(&input.owner_root).map_err(fault)?);
+    let read = |pin: &Pin| {
+        root.read(&pin.relative_path, &pin.sha256, 256 * 1024)
+            .map_err(fault)
+    };
+    let admission =
+        TransportAdmission::from_bytes(&read(&input.admission)?.bytes).map_err(fault)?;
+    let launch = read(&input.launch_admission)?
+        .json()
+        .map_err(|_| Fault::error("launch_admission_refused"))?;
+    let name: Option<Js> = input.student_name.as_deref().map(Js::from);
+    let mut scope = value.get("scope").clone();
+    if let Some(name) = &name {
+        scope.set("studentId", driver::launch_student_of_name(&launch, name)?);
+    }
+    validate_launch(&launch, &admission, &scope)?;
+    if !scope.get("sourceNamespace").is("academy.lms.dayrecord") {
+        return Err(Fault::error("native_transport_scope_refused"));
+    }
+    admission
+        .authorize(&TransportScope {
+            owner_id: admission.owner_id.clone(),
+            source_namespace: "academy.lms.dayrecord".into(),
+            teacher_id: scope.get("teacherId").code_units(),
+            student_id: scope.get("studentId").code_units(),
+            date: scope.get("lessonDate").code_units(),
+        })
+        .map_err(fault)?;
+    driver::check_out(out)?;
+    let principal = obj(&[
+        ("teacherLabel", admission.teacher_label.as_str().into()),
+        ("teacherKey", admission.teacher_id.as_str().into()),
+        ("collegeKey", admission.college_id.as_str().into()),
+    ]);
+    let provider = FileCredentialProvider::new(root.clone(), input.credential.owned(), &Clock);
+    let requests = Cell::new(0);
+    let transport = Tracked(
+        http::NativeTransport::new(LIMITS, http::Cancellation::default()).map_err(fault)?,
+        called,
+        &requests,
+    );
+    let owner =
+        Owner::leased(root, principal, transport, launch, None, provider, &Clock).map_err(fault)?;
+    let mut source = owner.source();
+    let document = driver::get_record(&mut source, &scope, name.as_ref())?;
+    let mut output = driver::write_record_file(&document, out)?;
+    output.set("requests", Js::Num(f64::from(requests.get())));
     Ok(output)
 }
 fn validate_launch(launch: &Js, admission: &TransportAdmission, scope: &Js) -> Result<()> {
