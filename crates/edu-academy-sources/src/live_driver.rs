@@ -466,3 +466,241 @@ impl edu_academy_core::workflow::native::SourcePort for EvidencePort<'_> {
         Ok(result)
     }
 }
+
+// ---- mode `get`: read one lesson record and write its values to a private file ----
+
+/// What `get` needs from the owner: a name search and one record read. Reads only.
+pub trait RecordSource {
+    /// Pairs `{studentKey, studentName}` of the exact name search.
+    fn search_name(&mut self, name: &Js) -> Result<Js>;
+    fn read_record(&mut self, scope: &Js) -> Result<crate::owner_workflow::RecordRead>;
+}
+impl<T: crate::http::Transport, C: crate::owner_workflow::CredentialProvider> RecordSource
+    for crate::owner_workflow::SourceView<'_, T, C>
+{
+    fn search_name(&mut self, name: &Js) -> Result<Js> {
+        self.search_students_by_name(name, None, None)
+            .map_err(crate::native::StageError::into_fault)
+    }
+    fn read_record(&mut self, scope: &Js) -> Result<crate::owner_workflow::RecordRead> {
+        crate::owner_workflow::SourceView::read_record(self, scope)
+            .map_err(crate::native::StageError::into_fault)
+    }
+}
+
+/// The launch student a name stands for, decided from the launch admission alone,
+/// before any request. None or several launch students of that name is a refusal.
+pub fn launch_student_of_name(launch: &Js, name: &Js) -> Result<Js> {
+    let mut found = launch
+        .get("students")
+        .array()
+        .iter()
+        .filter(|s| s.get("displayName") == name)
+        .map(|s| s.get("studentId").clone());
+    match (found.next(), found.next()) {
+        (Some(id), None) => Ok(id),
+        (None, _) => Err(Fault::error("student_name_not_admitted")),
+        _ => Err(Fault::error("student_name_ambiguous")),
+    }
+}
+
+/// Checks of `out` that need no request: absolute, absent, in a directory of mode
+/// 0700 owned by the caller. Returns the directory.
+pub fn check_out(out: &std::path::Path) -> Result<std::path::PathBuf> {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    let parent = out.parent().filter(|p| !p.as_os_str().is_empty());
+    let (Some(parent), Some(_)) = (parent, out.file_name()) else {
+        return Err(Fault::error("invalid_input"));
+    };
+    if !out.is_absolute()
+        || out
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
+    {
+        return Err(Fault::error("invalid_input"));
+    }
+    if std::fs::symlink_metadata(out).is_ok() {
+        return Err(Fault::error("get_out_exists"));
+    }
+    let metadata =
+        std::fs::symlink_metadata(parent).map_err(|_| Fault::error("get_out_directory_refused"))?;
+    if !metadata.is_dir()
+        || metadata.permissions().mode() & 0o777 != 0o700
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+    {
+        return Err(Fault::error("get_out_directory_refused"));
+    }
+    Ok(parent.to_path_buf())
+}
+
+/// Writes `bytes` to a temporary name beside `out` (mode 0600, never overwriting)
+/// and renames it. Returns sha256 and byte count. Nothing is left on failure.
+pub fn write_private(out: &std::path::Path, bytes: &[u8]) -> Result<(String, usize)> {
+    use std::{io::Write, os::unix::fs::OpenOptionsExt};
+    let directory = check_out(out)?;
+    let temporary = directory.join(format!(
+        ".get-{}.tmp",
+        std::fs::read_to_string("/proc/sys/kernel/random/uuid")
+            .map_err(|_| Fault::error("occurrence_entropy_unavailable"))?
+            .trim()
+    ));
+    let written = (|| -> std::io::Result<()> {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&temporary)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        drop(file);
+        if std::fs::symlink_metadata(out).is_ok() {
+            return Err(std::io::Error::other("exists"));
+        }
+        std::fs::rename(&temporary, out)
+    })();
+    if written.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+        return Err(Fault::error("get_out_write_failed"));
+    }
+    Ok((sha(&String::from_utf8_lossy(bytes)), bytes.len()))
+}
+
+fn projected(field: &Js) -> Js {
+    if field.get("state").is("known") {
+        obj(&[
+            ("state", "known".into()),
+            ("value", field.get("value").clone()),
+        ])
+    } else {
+        obj(&[
+            ("state", "unknown".into()),
+            ("reasonCode", field.get("reasonCode").clone()),
+        ])
+    }
+}
+/// Same typing as the source layer: a string value is known, anything else unknown.
+fn typed(value: &Js) -> Js {
+    if value.string() {
+        obj(&[("state", "known".into()), ("value", value.clone())])
+    } else {
+        obj(&[
+            ("state", "unknown".into()),
+            ("reasonCode", "native_field_not_observed".into()),
+        ])
+    }
+}
+/// The file's document. The current record's six fields are the projection of the
+/// observation the workflow modes use. The previous record's four row fields come
+/// from its own row; its two assessments are not read by the source layer.
+/// `transmissionState` and `toneSamples` are the observation's, unchanged.
+pub fn record_document(read: &crate::owner_workflow::RecordRead) -> Result<Js> {
+    let observation = &read.observation;
+    let current_fields = observation.get("fields");
+    let previous_fields = read.previous.get("fields");
+    let mut record = obj(&[]);
+    let mut previous = obj(&[]);
+    for field in crate::native::FIELDS {
+        record.set(field, projected(current_fields.get(field)));
+        previous.set(
+            field,
+            if matches!(field, "dailyTestAssessment" | "previousHomeworkAssessment") {
+                typed(&Js::Null)
+            } else {
+                typed(previous_fields.get(field))
+            },
+        );
+    }
+    let target = observation.get("target");
+    let before = observation.get("previousTarget");
+    Ok(obj(&[
+        ("schemaVersion", "academy.dailyrecord-get/1".into()),
+        ("studentId", target.get("studentId").clone()),
+        ("lessonDate", target.get("lessonDate").clone()),
+        ("observed_at", observation.get("observedAt").clone()),
+        // Both exactly as the source layer carries them in the observation.
+        (
+            "transmissionState",
+            observation.get("transmissionState").clone(),
+        ),
+        ("toneSamples", observation.get("toneSamples").clone()),
+        (
+            "record",
+            obj(&[
+                ("identity", target.clone()),
+                ("date", target.get("lessonDate").clone()),
+                ("fields", record),
+            ]),
+        ),
+        (
+            "previous",
+            obj(&[
+                ("identity", before.clone()),
+                ("date", before.get("lessonDate").clone()),
+                ("fields", previous),
+            ]),
+        ),
+    ]))
+}
+
+/// Reads one lesson record from an already opened owner session and returns its
+/// value (the document of `record_document`). Reads only; nothing is written and no
+/// session is opened or closed here, so a long-lived process calls this once per
+/// read over one session. `scope` carries the id the launch admission lists; `name`
+/// is given when the student was named and must then resolve to exactly that id: the
+/// day is read only after that.
+pub fn get_record(source: &mut dyn RecordSource, scope: &Js, name: Option<&Js>) -> Result<Js> {
+    if let Some(name) = name {
+        let pairs = source.search_name(name)?;
+        let mut keys: Vec<&Js> = vec![];
+        for pair in pairs.array() {
+            if !keys.contains(&pair.get("studentKey")) {
+                keys.push(pair.get("studentKey"));
+            }
+        }
+        match keys.as_slice() {
+            [] => return Err(Fault::error("student_name_not_found")),
+            [key] if *key == scope.get("studentId") => {}
+            [_] => return Err(Fault::error("student_name_not_admitted")),
+            _ => return Err(Fault::error("student_name_ambiguous")),
+        }
+    }
+    record_document(&source.read_record(scope)?)
+}
+
+/// Writes a record value as the private file `out` and returns codes, counts and the
+/// file's hash only. Called only with a value that was read completely.
+pub fn write_record_file(document: &Js, out: &std::path::Path) -> Result<Js> {
+    let mut bytes = canonical(document)?.into_bytes();
+    bytes.push(b'\n');
+    let counts = |fields: &Js| {
+        let known = crate::native::FIELDS
+            .iter()
+            .filter(|f| fields.get(f).get("state").is("known"))
+            .count();
+        (known, crate::native::FIELDS.len() - known)
+    };
+    let (known, unknown) = counts(document.get("record").get("fields"));
+    let (previous_known, previous_unknown) = counts(document.get("previous").get("fields"));
+    let (digest, size) = write_private(out, &bytes)?;
+    Ok(obj(&[
+        ("status", "read".into()),
+        ("mode", "get".into()),
+        ("recordFieldsKnown", Js::Num(known as f64)),
+        ("recordFieldsUnknown", Js::Num(unknown as f64)),
+        ("previousFieldsKnown", Js::Num(previous_known as f64)),
+        ("previousFieldsUnknown", Js::Num(previous_unknown as f64)),
+        ("fileSha256", digest.into()),
+        ("fileBytes", Js::Num(size as f64)),
+    ]))
+}
+
+/// `get_record` then `write_record_file`: nothing is written unless the whole read
+/// succeeded.
+pub fn get(
+    source: &mut dyn RecordSource,
+    scope: &Js,
+    name: Option<&Js>,
+    out: &std::path::Path,
+) -> Result<Js> {
+    write_record_file(&get_record(source, scope, name)?, out)
+}

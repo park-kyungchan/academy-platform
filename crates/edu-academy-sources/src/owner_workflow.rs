@@ -77,7 +77,103 @@ impl<T: Transport, C: CredentialProvider> native::SourcePort for OwnerClient<'_,
         Some(self.client.search_students_by_name(input))
     }
 }
-type State<'a, T, C> = native::Backend<OwnerClient<'a, T, C>>;
+/// Keeps the answers of the source calls of one armed read, so a caller that needs
+/// more than the projected observation (the previous record's rows) can take them.
+/// Every call is forwarded unchanged; an unarmed wrapper only forwards.
+pub struct Recording<P> {
+    pub inner: P,
+    armed: bool,
+    log: Vec<(&'static str, Js)>,
+}
+impl<P> Recording<P> {
+    pub fn new(inner: P) -> Self {
+        Self {
+            inner,
+            armed: false,
+            log: vec![],
+        }
+    }
+    fn note(&mut self, operation: &'static str, result: &Result<Js>) {
+        if self.armed
+            && let Ok(value) = result
+        {
+            self.log.push((operation, value.clone()));
+        }
+    }
+}
+impl<P: native::SourcePort> native::SourcePort for Recording<P> {
+    fn authenticate(&mut self) -> Result<Js> {
+        self.inner.authenticate()
+    }
+    fn discover(&mut self, input: &Js) -> Result<Js> {
+        let result = self.inner.discover(input);
+        self.note("discover", &result);
+        result
+    }
+    fn execute(&mut self, input: &Js) -> Result<Js> {
+        let result = self.inner.execute(input);
+        self.note("execute", &result);
+        result
+    }
+    fn journal_state(&mut self, target: &Js) -> Result<Js> {
+        let result = self.inner.journal_state(target);
+        self.note("journalState", &result);
+        result
+    }
+    fn has_name_search(&self) -> bool {
+        self.inner.has_name_search()
+    }
+    fn search_students_by_name(&mut self, input: &Js) -> Option<Result<Js>> {
+        self.inner.search_students_by_name(input)
+    }
+}
+/// One read of a lesson record: the projected observation plus the raw rows it was
+/// made from. `previous` is the previous record's row; `state` the journal state.
+pub struct RecordRead {
+    pub observation: Js,
+    pub current: Js,
+    pub previous: Js,
+    pub state: Js,
+}
+/// The same `read_owner` that the workflow modes use, with its source answers kept.
+/// It reads only: it needs neither a writer nor a store.
+pub fn read_record<P: native::SourcePort>(
+    backend: &mut native::Backend<Recording<P>>,
+    scope: &Js,
+    now_ms: u64,
+    now: &str,
+    uuid: &str,
+) -> native::StageResult<RecordRead> {
+    backend.port.armed = true;
+    backend.port.log.clear();
+    let result = backend.read_owner(scope, None, None, now_ms, now, uuid);
+    backend.port.armed = false;
+    let log = std::mem::take(&mut backend.port.log);
+    let observed = result?;
+    let rows = |value: &Js| {
+        let rows = value.get("dayRecords").array();
+        (rows.len() == 1).then(|| rows[0].clone())
+    };
+    match log.as_slice() {
+        [
+            ("discover", _),
+            ("execute", current),
+            ("journalState", state),
+            ("execute", previous),
+        ] => match (rows(current), rows(previous)) {
+            (Some(current), Some(previous)) => Ok(RecordRead {
+                observation: observed.get("observation").clone(),
+                current,
+                previous,
+                state: state.clone(),
+            }),
+            _ => Err(Error::error("record_read_trace_unexpected").into()),
+        },
+        _ => Err(Error::error("record_read_trace_unexpected").into()),
+    }
+}
+
+type State<'a, T, C> = native::Backend<Recording<OwnerClient<'a, T, C>>>;
 type Shared<'a, T, C> = Rc<RefCell<State<'a, T, C>>>;
 
 pub struct Owner<'a, T: Transport, C: CredentialProvider> {
@@ -109,11 +205,11 @@ impl<'a, T: Transport, C: CredentialProvider> Owner<'a, T, C> {
         runtime: &'a dyn Runtime,
     ) -> Result<Self> {
         let state = native::Backend::with_owner(
-            OwnerClient {
+            Recording::new(OwnerClient {
                 client,
                 credential,
                 runtime,
-            },
+            }),
             admission,
             owner,
             managed_names,
@@ -198,14 +294,30 @@ impl<T: Transport, C: CredentialProvider> SourceView<'_, T, C> {
             .state
             .try_borrow_mut()
             .map_err(|e| native::StageError::Source(Error::error(e.to_string())))?;
-        let now_ms = state.port.runtime.epoch_ms();
+        let now_ms = state.port.inner.runtime.epoch_ms();
         state.search_students_by_name(exact_name, request_ref, lesson_date, now_ms)
     }
+}
+impl<T: Transport, C: CredentialProvider> SourceView<'_, T, C> {
+    /// Read one record and the raw rows behind it (see `read_record`).
+    pub fn read_record(&mut self, scope: &Js) -> native::StageResult<RecordRead> {
+        let mut state = self
+            .state
+            .try_borrow_mut()
+            .map_err(|e| native::StageError::Source(Error::error(e.to_string())))?;
+        let runtime = state.port.inner.runtime;
+        let now = runtime.now();
+        let uuid = runtime.uuid().map_err(fault_to_stage)?;
+        read_record(&mut state, scope, runtime.epoch_ms(), &now, &uuid)
+    }
+}
+fn fault_to_stage(fault: edu_academy_core::js::Fault) -> native::StageError {
+    native::StageError::Source(error_from_fault(fault))
 }
 impl<T: Transport, C: CredentialProvider> Source for SourceView<'_, T, C> {
     fn read(&mut self, scope: &Js, request: &Js, subject: &Js) -> CoreResult<Js> {
         let mut state = borrow(&self.state)?;
-        let runtime = state.port.runtime;
+        let runtime = state.port.inner.runtime;
         let now = runtime.now();
         let uuid = runtime.uuid()?;
         state
@@ -253,9 +365,10 @@ impl<T: Transport, C: CredentialProvider> WritePort for WriteView<'_, T, C> {
         state
             .ensure_authenticated()
             .map_err(native::StageError::into_fault)?;
-        let now = state.port.runtime.now();
+        let now = state.port.inner.runtime.now();
         state
             .port
+            .inner
             .client
             .apply_journal_action(action, approval, &now)
             .map_err(fault_from_error)
