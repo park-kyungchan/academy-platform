@@ -36,6 +36,39 @@ pub fn contracts() -> Vec<OperationContract> {
         .filter(|op| OPERATIONS.contains(&op.id.as_str()))
         .collect()
 }
+/// A family the admission can name. The default admission is `Textbook` alone.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Family {
+    Textbook,
+    DailyTest,
+}
+impl Family {
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "textbook" => Some(Self::Textbook),
+            "dailytest" => Some(Self::DailyTest),
+            _ => None,
+        }
+    }
+    fn operations(self) -> &'static [&'static str] {
+        match self {
+            Self::Textbook => OPERATIONS,
+            Self::DailyTest => crate::dailytest::OPERATIONS,
+        }
+    }
+}
+/// Contracts of the named families in the order of `read_contracts()`;
+/// `[Textbook]` equals `contracts()` byte for byte.
+pub fn contracts_for(families: &[Family]) -> Vec<OperationContract> {
+    read_contracts()
+        .into_iter()
+        .filter(|op| {
+            families
+                .iter()
+                .any(|f| f.operations().contains(&op.id.as_str()))
+        })
+        .collect()
+}
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Student {
@@ -67,6 +100,9 @@ pub struct StudentReport {
     pub requests: usize,
     pub registered_books: usize,
     pub section_attempts: usize,
+    /// Only the mode `dailytest` fills it; the records of `textbook` carry no such member.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub paper_attempts: Option<usize>,
 }
 fn fail(code: &str) -> Error {
     Error::refusal(code)
@@ -105,7 +141,7 @@ pub fn context(error: Error, code: &str) -> Error {
     );
     outer
 }
-fn scope(a: &TransportAdmission, s: &Student, date: &str, ns: &str) -> TransportScope {
+pub(crate) fn scope(a: &TransportAdmission, s: &Student, date: &str, ns: &str) -> TransportScope {
     TransportScope {
         owner_id: a.owner_id.clone(),
         teacher_id: a.teacher_id.clone(),
@@ -142,7 +178,7 @@ pub fn preflight(a: &TransportAdmission, roster: &Roster, options: &Options) -> 
     }
     Ok(())
 }
-struct Bounded<'a, P> {
+pub(crate) struct Bounded<'a, P> {
     port: &'a mut P,
     max: usize,
     count: Rc<Cell<usize>>,
@@ -190,25 +226,43 @@ pub fn capture<P: ReadPort>(
     runtime: &dyn Runtime,
 ) -> Vec<StudentReport> {
     if port.recorder.dir != options.raw_dir {
-        return admission_reports(roster);
+        return admission_reports(roster.students.len());
     }
     capture_with(port, roster, options, runtime)
 }
-fn admission_reports(roster: &Roster) -> Vec<StudentReport> {
-    roster
-        .students
-        .iter()
-        .enumerate()
-        .map(|(i, _)| StudentReport {
+/// The mode `dailytest`: the same guard, loop and publisher, one family.
+pub fn capture_dailytest<P: ReadPort>(
+    port: &mut RecordingPort<'_, P>,
+    students: &[Student],
+    options: &Options,
+    runtime: &dyn Runtime,
+) -> Vec<StudentReport> {
+    if port.recorder.dir != options.raw_dir {
+        return admission_reports(students.len());
+    }
+    capture_dailytest_with(port, students, options, runtime)
+}
+fn admission_reports(count: usize) -> Vec<StudentReport> {
+    refused_reports(count, vec!["capture_admission_refused".into()])
+}
+fn refused_reports(count: usize, cause: Vec<String>) -> Vec<StudentReport> {
+    (0..count)
+        .map(|i| StudentReport {
             roster_ordinal: i + 1,
             status: "capture_admission_refused".into(),
-            cause: vec!["capture_admission_refused".into()],
+            cause: cause.clone(),
             operation: None,
             requests: 0,
             registered_books: 0,
             section_attempts: 0,
+            paper_attempts: None,
         })
         .collect()
+}
+/// What one student's read yields; the family decides which partitions exist.
+pub(crate) enum Records {
+    Textbook(Vec<Value>, Vec<Value>),
+    PaperAttempts(Vec<Value>),
 }
 pub(crate) fn capture_with<P: ReadPort>(
     port: &mut P,
@@ -217,23 +271,43 @@ pub(crate) fn capture_with<P: ReadPort>(
     runtime: &dyn Runtime,
 ) -> Vec<StudentReport> {
     if let Err(error) = preflight(port.transport_admission(), roster, options) {
-        return roster
-            .students
-            .iter()
-            .enumerate()
-            .map(|(i, _)| StudentReport {
-                roster_ordinal: i + 1,
-                status: "capture_admission_refused".into(),
-                cause: causes(&context(error.clone(), "capture_admission_refused")),
-                operation: None,
-                requests: 0,
-                registered_books: 0,
-                section_attempts: 0,
-            })
-            .collect();
+        return refused_reports(
+            roster.students.len(),
+            causes(&context(error, "capture_admission_refused")),
+        );
     }
-    roster
-        .students
+    run_students(port, &roster.students, options, &|bounded, student| {
+        let (books, sections) =
+            read_student(bounded, student, &roster.paper_form, options, runtime)?;
+        Ok(Records::Textbook(books, sections))
+    })
+}
+pub(crate) fn capture_dailytest_with<P: ReadPort>(
+    port: &mut P,
+    students: &[Student],
+    options: &Options,
+    runtime: &dyn Runtime,
+) -> Vec<StudentReport> {
+    if let Err(error) = crate::dailytest::preflight(port.transport_admission(), students, options) {
+        return refused_reports(
+            students.len(),
+            causes(&context(error, "capture_admission_refused")),
+        );
+    }
+    run_students(port, students, options, &|bounded, student| {
+        crate::dailytest::read_student(bounded, student, options, runtime)
+            .map(Records::PaperAttempts)
+    })
+}
+/// One login, sequential students, `--max-requests` per student, a partition
+/// replaced only after the whole read of that student succeeded: shared by every family.
+fn run_students<P: ReadPort>(
+    port: &mut P,
+    students: &[Student],
+    options: &Options,
+    read: &dyn Fn(Bounded<'_, P>, &Student) -> Result<Records>,
+) -> Vec<StudentReport> {
+    students
         .iter()
         .enumerate()
         .map(|(i, student)| {
@@ -245,7 +319,7 @@ pub(crate) fn capture_with<P: ReadPort>(
                 count: count.clone(),
                 failure: failure.clone(),
             };
-            let result = read_student(bounded, student, &roster.paper_form, options, runtime);
+            let result = read(bounded, student);
             let result = match failure.borrow().clone() {
                 Some(mut error) => {
                     if let Err(read_error) = &result {
@@ -260,14 +334,21 @@ pub(crate) fn capture_with<P: ReadPort>(
                 }
                 None => result,
             };
-            let result = result.and_then(|(books, sections)| {
-                publish(&options.spool, &student.student_id, &books, &sections)
-                    .map_err(|_| fail("capture_publish_failed"))?;
-                Ok((books.len(), sections.len()))
+            let result = result.and_then(|records| match records {
+                Records::Textbook(books, sections) => {
+                    publish(&options.spool, &student.student_id, &books, &sections)
+                        .map_err(|_| fail("capture_publish_failed"))?;
+                    Ok((books.len(), sections.len(), None))
+                }
+                Records::PaperAttempts(rows) => {
+                    publish_one(&options.spool, "paper_attempt", &student.student_id, &rows)
+                        .map_err(|_| fail("capture_publish_failed"))?;
+                    Ok((0, 0, Some(rows.len())))
+                }
             });
-            let (status, cause, books, sections) = match result {
-                Ok((b, s)) => ("refreshed".into(), vec![], b, s),
-                Err(e) => (e.message.clone(), causes(&e), 0, 0),
+            let (status, cause, books, sections, attempts) = match result {
+                Ok((b, s, a)) => ("refreshed".into(), vec![], b, s, a),
+                Err(e) => (e.message.clone(), causes(&e), 0, 0, None),
             };
             StudentReport {
                 roster_ordinal: i + 1,
@@ -277,6 +358,7 @@ pub(crate) fn capture_with<P: ReadPort>(
                 requests: count.get(),
                 registered_books: books,
                 section_attempts: sections,
+                paper_attempts: attempts,
             }
         })
         .collect()
@@ -461,6 +543,18 @@ fn publish(
     Ok(())
 }
 
+/// One partition `<spool>/<family>/<student>.jsonl`, staged and parsed back before the rename.
+pub(crate) fn publish_one(
+    spool: &Path,
+    family: &str,
+    student: &str,
+    records: &[Value],
+) -> std::io::Result<()> {
+    private_dir(spool)?;
+    let staged = stage(&spool.join(family), student, records)?;
+    fs::rename(&staged.temporary, &staged.destination)
+}
+
 /// The observer is armed with one exact admitted source request. Login exchanges
 /// cannot match it, and are never saved. Recording happens beneath Client parsing.
 #[derive(Clone)]
@@ -568,7 +662,7 @@ impl<P: ReadPort> ReadPort for RecordingPort<'_, P> {
 }
 
 /// Existing private-root checks reject symlinks, writable ancestors and foreign owners.
-fn validate_raw_root(dir: &Path) -> Result<()> {
+pub(crate) fn validate_raw_root(dir: &Path) -> Result<()> {
     crate::owner_root::OwnerRoot::open(dir).map_err(|e| context(e, "capture_raw_root_refused"))?;
     if dir
         .ancestors()
