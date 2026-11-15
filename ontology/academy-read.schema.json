@@ -206,7 +206,7 @@
       }
     },
     "lesson_record": {
-      "description": "One row of the LMS day-record page: one course membership of one student on one lesson date, as the capture read it. The key does not hold the record key, which is a small number that names a record only together with the membership key; the row exists before any field of it is saved.",
+      "description": "One row of the LMS day-record page: one course membership of one student on one lesson date, as the capture read it. The key does not hold the record key: it is a small number that names a record only together with the membership key, and a line may be without one.",
       "owner": {
         "source": "lesson_record"
       },

@@ -185,8 +185,9 @@ One line is one JSON object with its members sorted and no space, as the other f
 page of all groups, which is one course membership of one student on one lesson date. Key:
 `student_id`, `membership_key` and `lesson_date`. The page of all groups does not show
 a row's group, so a line holds none. The record key is not part of the key: it is a
-small number that names a record only together with the membership key, and a row exists
-before any field of it is saved. Every member is on every line except `record_key` and
+small number that names a record only together with the membership key, and a line may be
+without one (whether the LMS shows a row before the row has a record key is not known, and
+the key does not depend on it). Every member is on every line except `record_key` and
 `previous_record_key`; a text the page shows empty is `""`. The numbers (`observed_at`,
 `row_ordinal`, `cut_fields`, the counts of `lesson_day`) are JSON numbers and every other
 member is a string. The engine fails the whole source on a line without one of the three key
