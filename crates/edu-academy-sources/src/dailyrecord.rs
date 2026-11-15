@@ -286,10 +286,10 @@ fn parse_page(
                     .copied()
             })
             .ok_or_else(|| fail("capture_day_structure_invalid"))?;
-        // No `openHomeWorkRate` handler and no rate control: a first lesson, whose previous cells are empty.
+        // No `openHomeWorkRate` handler and no rate control anywhere in the row: a first lesson, whose previous cells are empty.
         let rate = "input[type=hidden][name=h_homework_rate]";
         let handler = binding.has("previous_record_key");
-        let first = !handler && dom::select(cells[5], rate).is_empty();
+        let first = !handler && dom::select(row, rate).is_empty();
         let assessment = if first {
             String::new()
         } else {

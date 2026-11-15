@@ -1042,6 +1042,11 @@ fn l2_a_half_previous_row_refuses() {
         texts[held] = "02/27";
         pages.push(three_rows(|row| without_previous_lesson(row, texts)));
     }
+    // no handler, the control in another cell than its usual one, the four previous cells empty
+    pages.push(three_rows(|row| {
+        let row = first_lesson(row);
+        swap(&row, "<td></td>", &format!("<td>{RATE_CONTROL}</td>"))
+    }));
     for html in pages {
         let f = Fixture::new();
         let o = f.options();
