@@ -27,9 +27,10 @@ const MAX_EXECUTION_KEY_BYTES: usize = 8192;
 
 pub const SCHEMA: &str = include_str!("../../../ontology/academy.schema.json");
 
-/// The schema `academy_read`: the captured textbook records (`registered_book`
-/// and `section_attempt`) as a read-only store with two views. Its spool root
-/// is `ACADEMY_READ_SPOOL_ROOT`.
+/// The schema `academy_read`: the captured records as a read-only store with
+/// its views: the textbook records (`registered_book`, `section_attempt`) and
+/// the lesson record (`lesson_record`, `lesson_day`). Its spool root is
+/// `ACADEMY_READ_SPOOL_ROOT`.
 pub const ACADEMY_READ_SCHEMA: &str = include_str!("../../../ontology/academy-read.schema.json");
 
 /// The spool root that `ACADEMY_READ_SCHEMA` names in its source globs.
