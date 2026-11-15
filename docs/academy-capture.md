@@ -175,7 +175,7 @@ textbook types carry no student name: a student is identified by id only.
 ## The lesson record's lines (contract of the family `dailyrecord`)
 
 No program writes these lines yet. The read schema (version 2) declares the two types and
-their views, and `crates/edu-academy-ontology/tests/academy_read.rs` (`b1` to `b10`) runs the
+their views, and `crates/edu-academy-ontology/tests/academy_read.rs` (`b1` to `b11`) runs the
 contract on invented lines; the capture family that writes them comes with its own tests and
 pins the two lines of `b7`.
 
@@ -224,11 +224,17 @@ Members: `type`, `observed_at`, `source_namespace`, `lesson_date`, `row_count`
 neither a line nor a row was never captured. Rows without a line, or rows with a later
 `observed_at` than their date's line, are a capture that stopped between the two files
 (rule 6): the rows are the page's rows, and the counts are missing or those of the capture
-before.
+before. In the store a third state exists: an index run whose `lesson_record` source failed
+while `lesson_day` was indexed (the run's answer names the failed source and its exit code
+is 2) leaves a coverage NEWER than its rows until a run indexes both. A capture that finds
+a date unchanged still moves `Observed at` of its rows and of its line to the time of that
+capture, so the coverage tells how old a date's rows are (`b11`).
 
 Both directories exist, mode 0700, before an index run under version 2: a source whose
 directory is missing fails with `glob_root_missing`, the run ends `source_failed` with exit
-code 2, and the other sources are still indexed. The writer makes them.
+code 2, and the other sources are still indexed. The writer makes them. The engine does
+not check a directory's mode: 0700 is the writer's duty, because the files hold students'
+records.
 
 Rules a writer of these two files keeps. The engine fails the WHOLE source, for every date,
 on one refused line, and it retracts every row of a file that is gone, so each rule is
@@ -247,7 +253,9 @@ checked before a file is replaced:
    every member but `row_ordinal` is equal, and a refusal of the date when they differ.
    `student_id` and `membership_key` are 1 to 32 ASCII digits each, so the key's separator
    `|` is never inside a part; a row whose id or membership is anything else refuses the
-   date.
+   date. The writer writes an id as the page holds it: `007` and `7` are two keys. The
+   pattern of `lesson_date` checks the shape only (`2040-13-45` is indexed), so the writer
+   writes only a date that exists.
 4. Every string member has the bound of the table, in bytes, and the writer measures a
    string in the form the line holds it: the quote mark, the backslash and the control
    characters escaped, every other character as UTF-8. The engine checks the unescaped
@@ -280,10 +288,22 @@ the name its row showed and a view takes no name with Korean letters as an argum
 `daily_record` (one date and one student id): every member of that student's rows.
 `record_history` (one student id and a date `since`): the rows from that date on, the
 newest date first and the page's order inside a date, at most 24. `day_coverage` (one date):
-its `lesson_day`. A date is given with its dashes; any other spelling answers with no row.
-A view that reaches its bound says so in its last row (`(+N more; limit L)`). Measured
-with 300-byte texts: `daily_record` of one row 2.2 kB, `daily_records` of 20 rows 2.2 kB,
-`record_history` of 24 rows 22 kB; a row with all seven texts at their bound is 43 kB.
+its `lesson_day`.
+
+Arguments of a view. The engine does not type an argument: a caller spells a date as
+`YYYY-MM-DD` with its zeros. The three views of one date compare for equality, so another
+spelling answers with no row, which reads like a date that was never captured. `since` is
+compared with `lesson_date` as TEXT: `2040-6-1` or `20400102` is neither refused nor
+marked and leaves out rows of later dates, and `2040` answers every row of that year on. A
+program that takes a date from a person checks it before it asks the engine. A view asked
+without one of its arguments is refused (`invalid_argument`).
+
+Bounds and sizes (`b11`). A view that reaches its bound says so in its last row
+(`(+N more; limit L)`). A date with more than 200 stored rows shows 200; a row the table
+does not show is still read by its student id through `daily_record`. With seven texts of
+300 bytes on every row, `daily_record` of one row is 2.8 kB, `daily_records` of 20 rows
+2.0 kB and `record_history` of 24 rows 24 kB; one row with its seven texts at their bound
+is 43 kB.
 A table is for reading: a line break in a text renders as a space, and a text equal to one
 of the engine's marks (`(missing)`, a trailing ` (stale)`) cannot be told from the mark.
 The exact bytes of a member are read with the engine's `get` or `search`.

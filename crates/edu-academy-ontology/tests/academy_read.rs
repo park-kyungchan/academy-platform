@@ -1152,6 +1152,224 @@ fn b10_a_month_file_that_is_emptied_or_gone_retracts_and_the_history_shows_its_b
     assert_eq!(count, 6);
 }
 
+/// What a reader of the views has to know: the sentences of the document's
+/// "Views" paragraph that no other test holds. `since` of `record_history`
+/// is compared with `lesson_date` as TEXT, so only a zero-padded `YYYY-MM-DD`
+/// means a date and another spelling answers other rows without a mark. A
+/// date's table shows 200 rows and says so at 201. A `lesson_record` source
+/// that fails while `lesson_day` is indexed leaves, in the store, a coverage
+/// newer than its rows. The sizes the document names are upper bounds here.
+/// A capture that changes nothing still renews the time the views show.
+#[test]
+fn b11_since_is_text_a_date_of_201_rows_says_so_and_the_sizes_the_document_names() {
+    let env = Env::new();
+    for date in ["2040-01-02", "2040-06-15", "2041-02-01"] {
+        env.put(
+            "lesson_record",
+            &date[..7],
+            &[lesson("77003", "Bo Invented", "50003", date, 0, 1000)],
+        );
+    }
+    env.index(2000);
+    let history = |since: &str| {
+        env.table(
+            2000,
+            "record_history",
+            json!({"student_id":"77003","since":since}),
+        )
+        .0
+    };
+    assert_eq!(
+        history("2040-06-15"),
+        2,
+        "a row of the date itself is shown"
+    );
+    assert_eq!(history("2041-02-02"), 0);
+    // Not a padded date: no refusal and no mark, and the rows are other rows.
+    assert_eq!(history("2040-6-1"), 1, "the row of 2040-06-15 is not shown");
+    assert_eq!(history("20400102"), 1);
+    assert_eq!(history("2040"), 3);
+    // The views of one date compare for equality: another spelling is no row.
+    let (rows, _) = env.table(2000, "daily_records", json!({"lesson_date":"2040-6-15"}));
+    assert_eq!(rows, 0);
+    // The patterns check a shape: a date that does not exist is indexed, and
+    // an id is the text the page held (`007` is not `7`).
+    env.put(
+        "lesson_record",
+        "2040-13",
+        &[
+            lesson("007", "Bo Invented", "50003", "2040-13-45", 0, 1000),
+            lesson("7", "Bo Invented", "50003", "2040-13-45", 1, 1000),
+        ],
+    );
+    // The engine does not check a directory's mode (0700 is the writer's duty).
+    fs::set_permissions(
+        env.root.join("spool/lesson_record"),
+        std::os::unix::fs::PermissionsExt::from_mode(0o755),
+    )
+    .unwrap();
+    env.index(2050);
+    let (rows, _) = env.table(2050, "daily_records", json!({"lesson_date":"2040-13-45"}));
+    assert_eq!(rows, 2);
+    let req = json!({"op":"render","view":"record_history","args":{"student_id":"77003"}});
+    let (code, ans) = env.run_with(2000, &["render"], req.to_string().as_bytes());
+    assert_eq!(code, 2, "{ans}");
+    assert_eq!(ans["status"], "refused", "{ans}");
+    assert_eq!(ans["code"], "invalid_argument", "{ans}");
+
+    // 200 rows of one date are the whole table; at 201 the last row says so,
+    // and the row the table does not show is still read by its id.
+    let day = "2040-03-04";
+    let many: Vec<Value> = (0..201u64)
+        .map(|i| {
+            lesson(
+                &(80_001 + i).to_string(),
+                "Bo Invented",
+                &(60_001 + i).to_string(),
+                day,
+                i,
+                1000,
+            )
+        })
+        .collect();
+    env.put("lesson_record", "2040-03", &many[..200]);
+    env.index(2100);
+    let (count, table) = env.table(2100, "daily_records", json!({"lesson_date":day}));
+    assert_eq!(count, 200);
+    assert!(!table.contains("more; limit"), "{table}");
+    env.put("lesson_record", "2040-03", &many);
+    env.index(2200);
+    let (count, table) = env.table(2200, "daily_records", json!({"lesson_date":day}));
+    assert_eq!(count, 200);
+    assert!(table.contains("| (+1 more; limit 200) |"), "{table}");
+    let (count, _) = env.table(
+        2200,
+        "daily_record",
+        json!({"lesson_date":day,"student_id":"80201"}),
+    );
+    assert_eq!(count, 1);
+
+    // The sizes of the document: seven texts of 300 bytes on every row.
+    let full = |student: &str, date: &str, ordinal: u64, bytes: usize| {
+        let mut line = lesson(student, "Bo Invented", "50004", date, ordinal, 1000);
+        for text in LESSON_TEXTS {
+            line[text] = json!("x".repeat(bytes));
+        }
+        line
+    };
+    let month: Vec<Value> = (1..=24)
+        .map(|d| full("77004", &format!("2040-09-{d:02}"), 0, 300))
+        .collect();
+    env.put("lesson_record", "2040-09", &month);
+    let class: Vec<Value> = (0..20u64)
+        .map(|i| full(&(81_001 + i).to_string(), "2040-10-01", i, 300))
+        .collect();
+    env.put("lesson_record", "2040-10", &class);
+    env.put(
+        "lesson_record",
+        "2040-11",
+        &[full("77005", "2040-11-02", 0, 6000)],
+    );
+    env.index(2300);
+    let (_, one) = env.table(
+        2300,
+        "daily_record",
+        json!({"lesson_date":"2040-09-01","student_id":"77004"}),
+    );
+    let (_, date) = env.table(2300, "daily_records", json!({"lesson_date":"2040-10-01"}));
+    let (rows, past) = env.table(
+        2300,
+        "record_history",
+        json!({"student_id":"77004","since":"2040-09-01"}),
+    );
+    let (_, bound) = env.table(
+        2300,
+        "daily_record",
+        json!({"lesson_date":"2040-11-02","student_id":"77005"}),
+    );
+    assert!(one.len() < 3_000, "one row in full: {}", one.len());
+    assert!(date.len() < 2_500, "20 rows of a date: {}", date.len());
+    assert_eq!(rows, 24);
+    assert!(past.len() < 25_000, "24 rows of a history: {}", past.len());
+    assert!(
+        bound.len() < 44_000,
+        "one row at its bound: {}",
+        bound.len()
+    );
+    // A capture that finds a date unchanged still moves `Observed at` of its
+    // rows and of its line to the time of that capture.
+    let again = Env::new();
+    lesson_fill(&again);
+    again.index(2000);
+    let later: Vec<Value> = lesson_lines()
+        .into_iter()
+        .map(|line| with(line, json!({"observed_at":1500})))
+        .collect();
+    again.put("lesson_record", "2031-03", &later);
+    again.put(
+        "lesson_day",
+        "2031",
+        &[
+            lesson_day("2031-03-03", 2, 1500),
+            lesson_day("2031-03-05", 1, 1500),
+        ],
+    );
+    let ans = again.index(2100);
+    assert_eq!(source(&ans, "lesson_record")["renewed"], 3, "{ans}");
+    assert_eq!(source(&ans, "lesson_day")["renewed"], 2, "{ans}");
+    let (_, coverage) = again.table(2100, "day_coverage", json!({"lesson_date":"2031-03-03"}));
+    assert!(
+        coverage.contains("| 2031-03-03 | 2 | 2 | 0 | 0 | 1970-01-01T00:25:00Z |"),
+        "{coverage}"
+    );
+    let (_, rows) = again.table(2100, "daily_records", json!({"lesson_date":"2031-03-03"}));
+    assert_eq!(
+        rows.matches("| 1970-01-01T00:25:00Z |").count(),
+        2,
+        "{rows}"
+    );
+
+    // In the STORE a coverage can be newer than its rows: the rows' source
+    // failed (here by rule 2) in a run that indexed the coverage.
+    let other = Env::new();
+    lesson_fill(&other);
+    other.index(2000);
+    let [first, unsaved, second] = lesson_lines();
+    other.put(
+        "lesson_record",
+        "2031-03",
+        &[
+            with(first, json!({"observed_at":900,"progress":"changed"})),
+            unsaved,
+            second,
+        ],
+    );
+    other.put(
+        "lesson_day",
+        "2031",
+        &[
+            lesson_day("2031-03-03", 5, 2050),
+            lesson_day("2031-03-05", 1, 1000),
+        ],
+    );
+    let (code, ans) = other.index_code(2100);
+    assert_eq!(code, 2, "{ans}");
+    let failed = source(&ans, "lesson_record");
+    assert_eq!(failed["status"], "source_failed", "{ans}");
+    assert!(
+        failed["cause"]
+            .as_str()
+            .unwrap()
+            .starts_with("record_older_than_head@"),
+        "{ans}"
+    );
+    assert_eq!(source(&ans, "lesson_day")["appended"]["update"], 1, "{ans}");
+    let (_, coverage) = other.table(2100, "day_coverage", json!({"lesson_date":"2031-03-03"}));
+    assert!(coverage.contains("| 2031-03-03 | 5 | 5 |"), "{coverage}");
+    let (rows, _) = other.table(2100, "daily_records", json!({"lesson_date":"2031-03-03"}));
+    assert_eq!(rows, 2);
+}
+
 /// The two lines of the contract, byte for byte as the capture family
 /// `dailyrecord` writes them (members sorted, no space). The capture's own test
 /// pins the same two lines from an invented page, as `a4` shows for the
