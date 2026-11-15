@@ -1270,6 +1270,7 @@ fn b11_since_is_text_a_date_of_201_rows_says_so_and_the_sizes_the_document_names
         "2040-11",
         &[full("77005", "2040-11-02", 0, 6000)],
     );
+    env.put("lesson_day", "2040", &[lesson_day("2040-09-10", 1, 1000)]);
     env.index(2300);
     let (_, one) = env.table(
         2300,
@@ -1296,6 +1297,33 @@ fn b11_since_is_text_a_date_of_201_rows_says_so_and_the_sizes_the_document_names
         "one row at its bound: {}",
         bound.len()
     );
+
+    // The three views of one date compare for EQUALITY: the start of a stored
+    // date (2040-09-10 to 2040-09-19 are stored) answers no row.
+    for (view, args) in [
+        ("daily_records", json!({"lesson_date":"2040-09-1"})),
+        (
+            "daily_record",
+            json!({"lesson_date":"2040-09-1","student_id":"77004"}),
+        ),
+        ("day_coverage", json!({"lesson_date":"2040-09-1"})),
+    ] {
+        assert_eq!(env.table(2300, view, args).0, 0, "{view}");
+    }
+    let (rows, _) = env.table(2300, "day_coverage", json!({"lesson_date":"2040-09-10"}));
+    assert_eq!(rows, 1);
+    // Every view asked without one of its arguments is refused.
+    for (view, args) in [
+        ("daily_records", json!({})),
+        ("daily_record", json!({"lesson_date":"2040-09-10"})),
+        ("day_coverage", json!({})),
+    ] {
+        let req = json!({"op":"render","view":view,"args":args});
+        let (code, ans) = env.run_with(2300, &["render"], req.to_string().as_bytes());
+        assert_eq!(code, 2, "{view}: {ans}");
+        assert_eq!(ans["code"], "invalid_argument", "{view}: {ans}");
+    }
+
     // A capture that finds a date unchanged still moves `Observed at` of its
     // rows and of its line to the time of that capture.
     let again = Env::new();

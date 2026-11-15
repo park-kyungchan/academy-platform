@@ -297,7 +297,7 @@ spelling answers with no row, which reads like a date that was never captured. `
 compared with `lesson_date` as TEXT: `2040-6-1` or `20400102` is neither refused nor
 marked and leaves out rows of later dates, and `2040` answers every row of that year on. A
 program that takes a date from a person checks it before it asks the engine. A view asked
-without one of its arguments is refused (`invalid_argument`).
+without one of its arguments is refused (`invalid_argument`). Each sentence: `b11`.
 
 Bounds and sizes (`b11`). A view that reaches its bound says so in its last row
 (`(+N more; limit L)`). A date with more than 200 stored rows shows 200; a row the table

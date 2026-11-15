@@ -11,6 +11,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  checks: read
 concurrency:
   group: ${{ github.event_name == 'pull_request' && format('rust-pr-{0}', github.ref) || format('rust-push-{0}', github.sha) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -36,9 +37,25 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_ACTION: ${{ github.event.action }}
+          REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           run_rust=true
+          # A pull request that is marked ready AGAIN on a head this job already passed (a draft
+          # and ready toggle asks the automatic reviewer for a pushed head) does not build a
+          # second time: the earlier run on the same head commit is the evidence. This rests on
+          # the ruleset's rule that a branch is up to date before it merges: the tree the earlier
+          # run tested is then the head's tree. A reading that fails counts as no earlier run.
+          if [[ "${EVENT_ACTION:-}" == ready_for_review && "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            passed="$(gh api "repos/$REPOSITORY/commits/$HEAD_SHA/check-runs?check_name=rust&status=completed&per_page=100" --jq '[.check_runs[] | select(.conclusion == "success" and .app.slug == "github-actions" and .head_sha == env.HEAD_SHA)] | length' 2>/dev/null || echo 0)"
+            if [[ "$passed" =~ ^[1-9][0-9]*$ ]]; then
+              echo "this head passed the job before ($passed run): not built again"
+              echo "run_rust=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
           if [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
             if git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- . ':!docs/**' ':!README.md'; then
               run_rust=false
