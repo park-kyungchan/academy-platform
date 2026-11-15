@@ -286,8 +286,24 @@ fn parse_page(
                     .copied()
             })
             .ok_or_else(|| fail("capture_day_structure_invalid"))?;
-        let mut r = json!({"type":"lesson_record","observed_at":observed,"source_namespace":DAY_NS,"lesson_date":date,"row_ordinal":ordinal,"student_id":string(binding.get("stu_pri_no")),"student_name":dom::content(name).trim(),"membership_key":string(binding.get("cm_seq")),"course_id":string(binding.get("course_seq")),"course_label":dom::content(cells[1]).trim(),"attendance":string(fields.get("attendance")),"attendance_label":dom::content(selected).trim(),"progress":string(fields.get("progress")),"homework":string(fields.get("homework")),"lesson_memo":string(fields.get("lessonMemo")),"student_memo":string(fields.get("persistentMemo")),"previous_lesson_date_literal":dom::content(cells[3]).trim(),"previous_progress":dom::value(one(cells[4],"textarea[readonly]")?),"previous_homework":dom::value(one(cells[5],"textarea[readonly]")?),"previous_lesson_memo":dom::value(one(cells[6],"textarea[readonly]")?),"daily_test_assessment":dom::value(one(cells[9],"input[type=hidden][name=h_daily_test]")?),"previous_homework_assessment":dom::value(one(cells[5],"input[type=hidden][name=h_homework_rate]")?),"cut_fields":0});
+        // No `openHomeWorkRate` handler and no rate control anywhere in the row: a first lesson, whose previous cells are empty.
+        let rate = "input[type=hidden][name=h_homework_rate]";
+        let handler = binding.has("previous_record_key");
+        let first = !handler && dom::select(row, rate).is_empty();
+        let assessment = if first {
+            String::new()
+        } else {
+            dom::value(one(cells[5], rate)?)
+        };
+        let mut r = json!({"type":"lesson_record","observed_at":observed,"source_namespace":DAY_NS,"lesson_date":date,"row_ordinal":ordinal,"student_id":string(binding.get("stu_pri_no")),"student_name":dom::content(name).trim(),"membership_key":string(binding.get("cm_seq")),"course_id":string(binding.get("course_seq")),"course_label":dom::content(cells[1]).trim(),"attendance":string(fields.get("attendance")),"attendance_label":dom::content(selected).trim(),"progress":string(fields.get("progress")),"homework":string(fields.get("homework")),"lesson_memo":string(fields.get("lessonMemo")),"student_memo":string(fields.get("persistentMemo")),"previous_lesson_date_literal":dom::content(cells[3]).trim(),"previous_progress":dom::value(one(cells[4],"textarea[readonly]")?),"previous_homework":dom::value(one(cells[5],"textarea[readonly]")?),"previous_lesson_memo":dom::value(one(cells[6],"textarea[readonly]")?),"daily_test_assessment":dom::value(one(cells[9],"input[type=hidden][name=h_daily_test]")?),"previous_homework_assessment":assessment,"cut_fields":0});
+        let previous_text = [
+            "previous_lesson_date_literal",
+            "previous_progress",
+            "previous_homework",
+            "previous_lesson_memo",
+        ];
         if selected_value != r["attendance"]
+            || (!handler && (!first || previous_text.iter().any(|k| r[k] != "")))
             || [
                 "progress",
                 "homework",

@@ -206,6 +206,10 @@ when its page or date scope refuses. Complete empty pages publish zero coverage.
 The parser verifies the date, teacher, all-groups selection, closing document, table
 columns and contiguous zero-based handler ordinals. It reads previous texts from
 readonly textareas and the previous key from `openHomeWorkRate`, never a second request.
+A row with neither an `openHomeWorkRate` handler nor an `h_homework_rate` control, whose previous date
+cell and three previous texts are empty, is a student's first lesson: it is stored with those four
+and `previous_homework_assessment` as empty strings and without `previous_record_key`. A row with only
+one of the two, or with neither and a previous text, refuses its date with `capture_day_structure_invalid`.
 
 Offline replay: `academy-capture replay --family dailyrecord --raw-dir "$RAW_DIR"
 --students "$STUDENTS" --identity "$IDENTITY" --spool "$NEW_SPOOL" --dates 2031-03-03,2031-03-05`.

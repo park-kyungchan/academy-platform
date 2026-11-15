@@ -315,6 +315,7 @@ struct Port {
     logins: usize,
     authenticated: bool,
     bad: Option<usize>,
+    page: Option<String>,
 }
 impl ReadPort for Port {
     fn transport_admission(&self) -> &TransportAdmission {
@@ -339,7 +340,10 @@ impl ReadPort for Port {
         let html = if self.bad == Some(self.reads) {
             "broken".into()
         } else {
-            HTML.replace("2031-03-03", &s.date)
+            self.page
+                .as_deref()
+                .unwrap_or(HTML)
+                .replace("2031-03-03", &s.date)
         };
         Ok(crate::http::Response {
             status: 200,
@@ -357,6 +361,7 @@ fn port() -> Port {
         logins: 0,
         authenticated: false,
         bad: None,
+        page: None,
     }
 }
 #[test]
@@ -900,4 +905,176 @@ fn unreadable_coverage_keeps_both_prior_files_and_other_year_is_untouched() {
             .file_type()
             .is_symlink()
     );
+}
+fn swap(html: &str, from: &str, to: &str) -> String {
+    assert!(html.contains(from), "invented row lacks {from}");
+    html.replacen(from, to, 1)
+}
+/// The fixture's row as row `n` of a page: its own ordinal, membership and record keys.
+fn numbered_row(n: usize) -> String {
+    row_html()
+        .replace("(0,", &format!("({n},"))
+        .replace("txt0", &format!("txt{n}"))
+        .replace("attn0", &format!("attn{n}"))
+        .replace("_0\"", &format!("_{n}\""))
+        .replace("50001", &format!("5000{}", n + 1))
+        .replace("'41'", &format!("'4{}'", n + 1))
+        .replace("'40'", &format!("'3{}'", n + 1))
+}
+const RATE_HANDLER: &str =
+    "<img id=\"imgHomeworkRate_1\" onclick=\"openHomeWorkRate('32','50002',3)\">";
+const RATE_CONTROL: &str =
+    "<input type=\"hidden\" id=\"h_homework_rate_1\" name=\"h_homework_rate\" value=\"3\">";
+/// The middle row (number 1) of a three-row page, as the test changes it.
+fn three_rows(middle: impl Fn(String) -> String) -> String {
+    let rows = [numbered_row(0), middle(numbered_row(1)), numbered_row(2)].concat();
+    HTML.replace(&row_html(), &rows)
+}
+/// Row 1 with the control and the handler of the previous homework removed and the four previous
+/// cells set to `[date, progress, homework, memo]`.
+fn without_previous_lesson(row: String, texts: [&str; 4]) -> String {
+    let [date, progress, homework, memo] = texts;
+    let row = swap(
+        &row,
+        "<textarea readonly></textarea>",
+        &format!("<textarea readonly>{memo}</textarea>"),
+    );
+    let row = swap(&row, "<td>02/28</td>", &format!("<td>{date}</td>"));
+    let row = swap(&row, "Unit 2", progress);
+    let row = swap(&row, "p.30-33", homework);
+    swap(&swap(&row, RATE_CONTROL, ""), RATE_HANDLER, "")
+}
+fn first_lesson(row: String) -> String {
+    without_previous_lesson(row, ["", "", "", ""])
+}
+#[test]
+fn l2_a_row_without_a_previous_lesson_is_stored() {
+    let f = Fixture::new();
+    let mut o = f.options();
+    let html = three_rows(first_lesson);
+    let mut p = port();
+    p.page = Some(html.clone());
+    o.max_requests = 1;
+    let reports = run(&mut p, &students(), &o, &Clock);
+    assert_eq!(reports[0].status, "published");
+    assert_eq!(reports[0].code, None);
+    assert_eq!((reports[0].rows, reports[0].stored), (3, 3));
+    let records = page(&html).records;
+    assert_eq!(records.len(), 3);
+    let spooled = fs::read_to_string(o.spool.join("lesson_record/2031-03.jsonl")).unwrap();
+    let lines: Vec<_> = spooled.lines().collect();
+    assert_eq!(lines.len(), 3);
+    for (line, record) in lines.iter().zip(&records) {
+        assert_eq!(*line, record.to_string());
+    }
+    // The rows around the middle one are read as before.
+    for (n, ordinal) in [(0, 0), (2, 2)] {
+        let line = lines[ordinal];
+        assert_eq!(
+            line,
+            LESSON_RECORD_LINE
+                .replace("\"row_ordinal\":0", &format!("\"row_ordinal\":{ordinal}"))
+                .replace(
+                    "\"membership_key\":\"50001\"",
+                    &format!("\"membership_key\":\"5000{}\"", n + 1)
+                )
+                .replace(
+                    "\"record_key\":\"41\"",
+                    &format!("\"record_key\":\"4{}\"", n + 1)
+                )
+                .replace(
+                    "\"previous_record_key\":\"40\"",
+                    &format!("\"previous_record_key\":\"3{}\"", n + 1)
+                )
+        );
+    }
+    let middle: Value = serde_json::from_str(lines[1]).unwrap();
+    for key in [
+        "previous_lesson_date_literal",
+        "previous_progress",
+        "previous_homework",
+        "previous_lesson_memo",
+        "previous_homework_assessment",
+    ] {
+        assert_eq!(middle[key], "", "{key}");
+    }
+    assert!(middle.get("previous_record_key").is_none());
+    assert_eq!(middle["record_key"], "42");
+    assert_eq!(middle["row_ordinal"], 1);
+    assert_eq!(middle["progress"], "Unit 3 to p.40");
+    let day: Value = serde_json::from_str(
+        fs::read_to_string(o.spool.join("lesson_day/2031.jsonl"))
+            .unwrap()
+            .trim(),
+    )
+    .unwrap();
+    assert_eq!(
+        (day["row_count"].clone(), day["stored_count"].clone()),
+        (json!(3), json!(3))
+    );
+}
+fn spool_files(dir: &Path) -> std::collections::BTreeMap<PathBuf, Vec<u8>> {
+    let mut files = std::collections::BTreeMap::new();
+    let mut pending = vec![dir.to_path_buf()];
+    while let Some(d) = pending.pop() {
+        for entry in fs::read_dir(&d).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                pending.push(path);
+            } else {
+                files.insert(path.clone(), fs::read(&path).unwrap());
+            }
+        }
+    }
+    files
+}
+#[test]
+fn l2_a_half_previous_row_refuses() {
+    let mut pages = vec![
+        // the handler without the control
+        three_rows(|row| swap(&row, RATE_CONTROL, "")),
+        // the control without the handler
+        three_rows(|row| swap(&row, RATE_HANDLER, "")),
+    ];
+    // neither, while one of the four previous cells holds text
+    for held in 0..4 {
+        let mut texts = [""; 4];
+        texts[held] = "02/27";
+        pages.push(three_rows(|row| without_previous_lesson(row, texts)));
+    }
+    // no handler, the control in another cell than its usual one, the four previous cells empty
+    pages.push(three_rows(|row| {
+        let row = first_lesson(row);
+        swap(&row, "<td></td>", &format!("<td>{RATE_CONTROL}</td>"))
+    }));
+    for html in pages {
+        let f = Fixture::new();
+        let o = f.options();
+        // A published date of the same day must stay as it is.
+        let mut good = port();
+        good.page = Some(three_rows(|row| row));
+        assert_eq!(
+            run(&mut good, &students(), &o, &Clock)[0].status,
+            "published"
+        );
+        let before = spool_files(&o.spool);
+        assert!(!before.is_empty());
+        assert_eq!(
+            parse_page(&html, "2031-03-03", "99001", &students(), 1)
+                .err()
+                .unwrap()
+                .message,
+            "capture_day_structure_invalid"
+        );
+        let mut p = port();
+        p.page = Some(html);
+        let reports = run(&mut p, &students(), &o, &Clock);
+        assert_eq!(reports[0].status, "refused");
+        assert_eq!(
+            reports[0].code.as_deref(),
+            Some("capture_day_structure_invalid")
+        );
+        assert_eq!((reports[0].rows, reports[0].stored), (0, 0));
+        assert_eq!(spool_files(&o.spool), before);
+    }
 }
