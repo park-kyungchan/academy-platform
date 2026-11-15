@@ -61,3 +61,10 @@ The spool's `.lesson-record.lock` protects only local partition replacement and
 never substitutes for the account lease. An invented in-memory transport test in
 `dailyrecord_tests.rs` verifies one login for three dates, shared-lock exclusion
 until session drop, and source-only raw recording.
+
+`edu lesson` opens the same NativeSession only for a run that captures, and holds its lease
+for every date of that run. It is the one Rust owner that retries: when `NativeSession::open`
+ends with `owner_account_busy` it opens again every 250 ms until the configured
+`lockWaitSeconds` have passed, sending no request meanwhile, then ends with that code. Each
+attempt takes the locks in the order above; nothing is held between attempts. Line 1 and the
+run log name the seconds it waited.
