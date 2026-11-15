@@ -115,6 +115,22 @@ impl Env {
             result["markdown"].as_str().unwrap().to_string(),
         )
     }
+    /// A view asked with an argument its property's value constraints refuse:
+    /// exit code 2 and the four members that name the argument and the property.
+    fn refused(&self, now: u64, view: &str, args: Value, argument: &str, property: &str) {
+        let req = json!({"op":"render","view":view,"args":args});
+        let (code, ans) = self.run_with(now, &["render"], req.to_string().as_bytes());
+        assert_eq!(code, 2, "{view} {args}: {ans}");
+        assert_eq!(ans["status"], "refused", "{view} {args}: {ans}");
+        assert_eq!(ans["code"], "invalid_argument", "{view} {args}: {ans}");
+        assert_eq!(
+            ans["field"],
+            format!("/args/{argument}"),
+            "{view} {args}: {ans}"
+        );
+        assert_eq!(ans["argument"], argument, "{view} {args}: {ans}");
+        assert_eq!(ans["property"], property, "{view} {args}: {ans}");
+    }
 }
 impl Drop for Env {
     fn drop(&mut self) {
@@ -689,10 +705,19 @@ fn b2_a_date_never_captured_differs_from_a_captured_date_without_rows() {
     );
     let (rows, _) = env.table(2000, "day_coverage", json!({"lesson_date":"2031-03-06"}));
     assert_eq!(rows, 0);
-    // A date written without its dashes names no object: the views answer
-    // with no row, and only a line with such a date fails its source (b5).
-    let (rows, _) = env.table(2000, "day_coverage", json!({"lesson_date":"20310303"}));
-    assert_eq!(rows, 0);
+    // A date written without its dashes breaks the pattern of `iso_date`: the
+    // view refuses it, which is not the answer of a date never captured, and
+    // a line with such a date fails its source (b5).
+    for (view, args) in [
+        ("daily_records", json!({"lesson_date":"20310303"})),
+        ("day_coverage", json!({"lesson_date":"20310303"})),
+        (
+            "daily_record",
+            json!({"lesson_date":"20310303","student_id":"2031"}),
+        ),
+    ] {
+        env.refused(2000, view, args, "lesson_date", "lesson_date");
+    }
 }
 
 #[test]
@@ -1185,13 +1210,61 @@ fn b11_since_is_text_a_date_of_201_rows_says_so_and_the_sizes_the_document_names
         "a row of the date itself is shown"
     );
     assert_eq!(history("2041-02-02"), 0);
-    // Not a padded date: no refusal and no mark, and the rows are other rows.
-    assert_eq!(history("2040-6-1"), 1, "the row of 2040-06-15 is not shown");
-    assert_eq!(history("20400102"), 1);
-    assert_eq!(history("2040"), 3);
-    // The views of one date compare for equality: another spelling is no row.
-    let (rows, _) = env.table(2000, "daily_records", json!({"lesson_date":"2040-6-15"}));
-    assert_eq!(rows, 0);
+    // Among well-formed dates `since` is still compared as text: a date that
+    // does not exist meets the pattern, is answered and sorts after 2040-12.
+    assert_eq!(history("2040-13-45"), 1, "only 2041-02-01 sorts after it");
+    // Not a padded date: the engine refuses it, with the argument and the
+    // compared property named, and answers no row.
+    for since in ["2040-6-1", "20400102", "2040"] {
+        env.refused(
+            2000,
+            "record_history",
+            json!({"student_id":"77003","since":since}),
+            "since",
+            "lesson_date",
+        );
+    }
+    // Another spelling of a date is refused by every view that takes one.
+    for (view, args) in [
+        ("daily_records", json!({"lesson_date":"2040-6-15"})),
+        ("day_coverage", json!({"lesson_date":"2040-6-15"})),
+        (
+            "daily_record",
+            json!({"lesson_date":"2040-6-15","student_id":"77003"}),
+        ),
+    ] {
+        env.refused(2000, view, args, "lesson_date", "lesson_date");
+    }
+    // The pattern checks a shape and not a calendar: a date that does not
+    // exist meets it and is answered (see the rows of `2040-13-45` below).
+    // An id that breaks `key_digits` or `max_bytes` is refused as well.
+    let thirty_three_digits = "7".repeat(33);
+    let thirty_three_bytes = "a".repeat(33);
+    for student in ["7a", thirty_three_digits.as_str()] {
+        env.refused(
+            2000,
+            "daily_record",
+            json!({"lesson_date":"2040-06-15","student_id":student}),
+            "student_id",
+            "student_id",
+        );
+        env.refused(
+            2000,
+            "record_history",
+            json!({"student_id":student,"since":"2040-06-15"}),
+            "student_id",
+            "student_id",
+        );
+    }
+    for view in ["registered_books", "section_results"] {
+        env.refused(
+            2000,
+            view,
+            json!({"student_id":thirty_three_bytes}),
+            "student_id",
+            "student_id",
+        );
+    }
     // The patterns check a shape: a date that does not exist is indexed, and
     // an id is the text the page held (`007` is not `7`).
     env.put(
@@ -1298,8 +1371,8 @@ fn b11_since_is_text_a_date_of_201_rows_says_so_and_the_sizes_the_document_names
         bound.len()
     );
 
-    // The three views of one date compare for EQUALITY: the start of a stored
-    // date (2040-09-10 to 2040-09-19 are stored) answers no row.
+    // The start of a stored date (2040-09-10 to 2040-09-19 are stored) is not
+    // a date: every view of one date refuses it and answers no row.
     for (view, args) in [
         ("daily_records", json!({"lesson_date":"2040-09-1"})),
         (
@@ -1308,7 +1381,7 @@ fn b11_since_is_text_a_date_of_201_rows_says_so_and_the_sizes_the_document_names
         ),
         ("day_coverage", json!({"lesson_date":"2040-09-1"})),
     ] {
-        assert_eq!(env.table(2300, view, args).0, 0, "{view}");
+        env.refused(2300, view, args, "lesson_date", "lesson_date");
     }
     let (rows, _) = env.table(2300, "day_coverage", json!({"lesson_date":"2040-09-10"}));
     assert_eq!(rows, 1);
