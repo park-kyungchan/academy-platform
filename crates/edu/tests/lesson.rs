@@ -328,6 +328,7 @@ fn table_rows(run: &Run, prefix: &str) -> usize {
 
 #[test]
 fn a3_day_twice_then_record_by_a_korean_name_then_history() {
+    // Checks specs/edu/lesson.md#R1, specs/edu/lesson.md#R4, specs/edu/lesson.md#R5, specs/edu/lesson.md#R6, specs/edu/lesson.md#R17, specs/edu/lesson.md#R24, specs/edu/lesson.md#R25, specs/edu/lesson.md#R26, specs/edu/lesson.md#R27, specs/edu/lesson.md#R30, specs/edu/lesson.md#R31, specs/edu/lesson.md#R36, specs/edu/lesson.md#R37, specs/edu/lesson.md#R38, specs/edu/lesson.md#R42.
     let env = Env::new();
     let date = day(-3);
     let first = env.edu(&["day", &date]);
@@ -400,6 +401,7 @@ fn a3_day_twice_then_record_by_a_korean_name_then_history() {
 
 #[test]
 fn i0_a_malformed_or_future_date_is_refused_before_any_request_or_engine_call() {
+    // Checks specs/edu/lesson.md#R2, specs/edu/lesson.md#R8, specs/edu/lesson.md#R9, specs/edu/lesson.md#R11, specs/edu/lesson.md#R21.
     // The store holds another schema: an engine call would end with its code instead.
     let env = Env::with(
         30,
@@ -443,6 +445,7 @@ fn i0_a_malformed_or_future_date_is_refused_before_any_request_or_engine_call() 
 
 #[test]
 fn i2_refresh_of_three_dates_logs_in_once_with_one_request_per_date() {
+    // Checks specs/edu/lesson.md#R1, specs/edu/lesson.md#R4, specs/edu/lesson.md#R17, specs/edu/lesson.md#R24, specs/edu/lesson.md#R26, specs/edu/lesson.md#R27, specs/edu/lesson.md#R32, specs/edu/lesson.md#R37, specs/edu/lesson.md#R43.
     let env = Env::new();
     let dates = [day(-5), day(-4), day(-3)];
     let run = env.edu(&["refresh", &dates[0], &dates[1], &dates[2]]);
@@ -501,6 +504,7 @@ fn i2_refresh_of_three_dates_logs_in_once_with_one_request_per_date() {
 
 #[test]
 fn i3_refusals_carry_no_cookie_password_name_or_text() {
+    // Checks specs/edu/lesson.md#R2, specs/edu/lesson.md#R4, specs/edu/lesson.md#R5, specs/edu/lesson.md#R7, specs/edu/lesson.md#R12, specs/edu/lesson.md#R13, specs/edu/lesson.md#R17, specs/edu/lesson.md#R28, specs/edu/lesson.md#R31, specs/edu/lesson.md#R39.
     let env = Env::new();
     let date = day(-2);
     // A page of another date: the family refuses it, the run prints its code only.
@@ -562,6 +566,7 @@ fn i3_refusals_carry_no_cookie_password_name_or_text() {
 
 #[test]
 fn a_name_on_two_students_is_refused_with_their_count_and_exact_prints_members() {
+    // Checks specs/edu/lesson.md#R40, specs/edu/lesson.md#R41.
     let env = Env::new();
     let date = day(-1);
     *env.lms.edit.borrow_mut() = Some(("Invented Newcomer".into(), "김한별".into()));
@@ -587,6 +592,7 @@ fn a_name_on_two_students_is_refused_with_their_count_and_exact_prints_members()
 
 #[test]
 fn a_caller_that_is_not_root_is_refused_by_the_engine_rule() {
+    // Checks specs/edu/lesson.md#R17, specs/edu/lesson.md#R19.
     let env = Env::new();
     // A read of the secret file would end with `native_owner_credential_refused`.
     fs::remove_file(env.root.join("secret.env")).unwrap();
@@ -617,6 +623,7 @@ fn a_caller_that_is_not_root_is_refused_by_the_engine_rule() {
 
 #[test]
 fn i5_a_store_with_another_schema_is_refused_before_any_request() {
+    // Checks specs/edu/lesson.md#R21.
     let env = Env::with(
         30,
         &ACADEMY_READ_SCHEMA.replacen("\"description\": \"", "\"description\": \"Changed. ", 1),
@@ -634,6 +641,7 @@ fn i5_a_store_with_another_schema_is_refused_before_any_request() {
 
 #[test]
 fn a_busy_account_lock_is_retried_for_the_configured_seconds() {
+    // Checks specs/edu/lesson.md#R17, specs/edu/lesson.md#R29, specs/edu/lesson.md#R30.
     let env = Env::with(1, ACADEMY_READ_SCHEMA);
     let lock = fs::File::open(env.root.join("shared.lock")).unwrap();
     rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockExclusive).unwrap();
@@ -668,6 +676,7 @@ fn a_busy_account_lock_is_retried_for_the_configured_seconds() {
 
 #[test]
 fn the_configuration_file_is_private_and_exact_and_a_failed_index_shows_no_table() {
+    // Checks specs/edu/lesson.md#R2, specs/edu/lesson.md#R3, specs/edu/lesson.md#R15, specs/edu/lesson.md#R16, specs/edu/lesson.md#R23.
     let env = Env::new();
     let config = env.root.join("lesson.json");
     fs::set_permissions(&config, fs::Permissions::from_mode(0o620)).unwrap();
@@ -718,6 +727,7 @@ fn the_configuration_file_is_private_and_exact_and_a_failed_index_shows_no_table
 
 #[test]
 fn seoul_dates_follow_the_calendar() {
+    // Checks specs/edu/lesson.md#R10.
     // 2024-02-28T15:00:00Z is 2024-02-29 00:00 in Seoul.
     assert_eq!(edu::seoul_date(1_709_132_400_000, 0), "2024-02-29");
     assert_eq!(edu::seoul_date(1_709_132_399_999, 0), "2024-02-28");
