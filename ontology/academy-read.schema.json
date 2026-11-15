@@ -249,12 +249,6 @@
           "from": "/row_ordinal",
           "description": "The row's place on the page of all groups, from 0; for ordering only."
         },
-        "group_id": {
-          "type": "string",
-          "required": true,
-          "max_bytes": 32,
-          "from": "/group_id"
-        },
         "course_id": {
           "type": "string",
           "required": true,
@@ -397,11 +391,6 @@
           },
           "required": true,
           "from": "/lesson_date"
-        },
-        "group_count": {
-          "type": "integer",
-          "required": true,
-          "from": "/group_count"
         },
         "row_count": {
           "type": "integer",
@@ -637,10 +626,6 @@
           "property": "course_label"
         },
         {
-          "header": "Group",
-          "property": "group_id"
-        },
-        {
           "header": "Course id",
           "property": "course_id"
         },
@@ -818,10 +803,6 @@
         {
           "header": "Lesson date",
           "property": "lesson_date"
-        },
-        {
-          "header": "Groups",
-          "property": "group_count"
         },
         {
           "header": "Rows",

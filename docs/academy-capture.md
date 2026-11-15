@@ -183,7 +183,8 @@ One line is one JSON object with its members sorted and no space, as the other f
 
 `<spool>/lesson_record/<yyyy-mm>.jsonl`, type `lesson_record`: one row of the LMS day-record
 page of all groups, which is one course membership of one student on one lesson date. Key:
-`student_id`, `membership_key` and `lesson_date`. The record key is not part of it: it is a
+`student_id`, `membership_key` and `lesson_date`. The page of all groups does not show
+a row's group, so a line holds none. The record key is not part of the key: it is a
 small number that names a record only together with the membership key, and a row exists
 before any field of it is saved. Every member is on every line except `record_key` and
 `previous_record_key`; a text the page shows empty is `""`. The numbers (`observed_at`,
@@ -202,7 +203,7 @@ leaves one out.
 | `lesson_date` | `YYYY-MM-DD` | |
 | `row_ordinal` | The row's place on the page, from 0 | |
 | `membership_key` | The row's course membership | 1 to 32 digits |
-| `group_id`, `course_id` | The row's other keys, as text | 32 |
+| `course_id` | The row's course key, as text | 32 |
 | `course_label` | The course's name as the row showed it | 200 |
 | `record_key` | The row's record key; left out while the LMS shows none | 32 |
 | `attendance`, `attendance_label` | The selected option's value and its text | 16, 64 |
@@ -216,7 +217,7 @@ leaves one out.
 | `cut_fields` | How many of the row's members were cut (rule 4) | |
 
 `<spool>/lesson_day/<yyyy>.jsonl`, type `lesson_day`: one captured date. Key: `lesson_date`.
-Members: `type`, `observed_at`, `source_namespace`, `lesson_date`, `group_count`, `row_count`
+Members: `type`, `observed_at`, `source_namespace`, `lesson_date`, `row_count`
 (rows the page held), `stored_count` (rows written as `lesson_record`),
 `outside_roster_count` (rows of students the roster does not hold: counted, not stored),
 `cut_fields`. A line that counts no row is a captured date that held none. A date with
@@ -256,7 +257,7 @@ checked before a file is replaced:
      (`attendance_label`, `previous_lesson_date_literal`): a longer value is cut at a
      character boundary so that it ends with ` [cut: <n> bytes in the LMS]` (`n`: the bytes
      of the value as the page gave it) and fits its bound, and is counted in `cut_fields`.
-   - The keys and the codes (`student_id`, `membership_key`, `group_id`, `course_id`,
+   - The keys and the codes (`student_id`, `membership_key`, `course_id`,
      `record_key`, `previous_record_key`, `attendance`, `daily_test_assessment`,
      `previous_homework_assessment`) are never cut: a value over its bound refuses the date.
    With every string at its bound a line has about 43,300 bytes (`b8`).

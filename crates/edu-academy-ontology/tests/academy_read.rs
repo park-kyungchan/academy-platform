@@ -525,7 +525,7 @@ fn lesson(student: &str, name: &str, membership: &str, date: &str, ordinal: u64,
     json!({
         "type":"lesson_record","observed_at":t,"source_namespace":"academy.lms.dayrecord",
         "student_id":student,"student_name":name,"lesson_date":date,"row_ordinal":ordinal,
-        "group_id":"3","course_id":"3","course_label":"Algebra A","membership_key":membership,
+        "course_id":"3","course_label":"Algebra A","membership_key":membership,
         "attendance":"Y","attendance_label":"Present",
         "progress":"","homework":"","lesson_memo":"","daily_test_assessment":"0",
         "student_memo":"","previous_lesson_date_literal":"","previous_progress":"",
@@ -542,7 +542,7 @@ fn with(mut line: Value, members: Value) -> Value {
 fn lesson_day(date: &str, rows: u64, t: u64) -> Value {
     json!({
         "type":"lesson_day","observed_at":t,"source_namespace":"academy.lms.dayrecord",
-        "lesson_date":date,"group_count":1,"row_count":rows,"stored_count":rows,
+        "lesson_date":date,"row_count":rows,"stored_count":rows,
         "outside_roster_count":0,"cut_fields":0
     })
 }
@@ -618,7 +618,7 @@ fn b1_the_four_views_of_the_lesson_record() {
     );
     assert_eq!(rows, 1);
     assert!(
-        one.contains("| 77002 | 가나다 | Algebra A | 3 | 3 | 50002 | (missing) | Y | Present |  |  |  | 0 |  | (missing) |  |  |  |  |  | 0 | 1970-01-01T00:16:40Z |"),
+        one.contains("| 77002 | 가나다 | Algebra A | 3 | 50002 | (missing) | Y | Present |  |  |  | 0 |  | (missing) |  |  |  |  |  | 0 | 1970-01-01T00:16:40Z |"),
         "{one}"
     );
     let (_, full) = env.table(
@@ -627,7 +627,7 @@ fn b1_the_four_views_of_the_lesson_record() {
         json!({"lesson_date":"2031-03-03","student_id":"77001"}),
     );
     assert!(
-        full.contains("| 77001 | Ada Invented | Algebra A | 3 | 3 | 50001 | 41 | Y | Present | Unit 3 to p.40 | p.41-44 | line one line two \\| pipe | 2 | Invented memo | 40 | 02/28 | Unit 2 | p.30-33 |  | 3 | 0 | 1970-01-01T00:16:40Z |"),
+        full.contains("| 77001 | Ada Invented | Algebra A | 3 | 50001 | 41 | Y | Present | Unit 3 to p.40 | p.41-44 | line one line two \\| pipe | 2 | Invented memo | 40 | 02/28 | Unit 2 | p.30-33 |  | 3 | 0 | 1970-01-01T00:16:40Z |"),
         "{full}"
     );
     // One student's records from a date on, the newest date first.
@@ -684,7 +684,7 @@ fn b2_a_date_never_captured_differs_from_a_captured_date_without_rows() {
     let (rows, held_none) = env.table(2000, "day_coverage", json!({"lesson_date":"2031-03-04"}));
     assert_eq!(rows, 1);
     assert!(
-        held_none.contains("| 2031-03-04 | 1 | 0 | 0 | 0 | 0 | 1970-01-01T00:16:40Z |"),
+        held_none.contains("| 2031-03-04 | 0 | 0 | 0 | 0 | 1970-01-01T00:16:40Z |"),
         "{held_none}"
     );
     let (rows, _) = env.table(2000, "day_coverage", json!({"lesson_date":"2031-03-06"}));
@@ -746,7 +746,7 @@ fn b4_two_memberships_on_one_date_are_two_objects_and_a_repeated_key_fails_the_s
     let [first, unsaved, second] = lesson_lines();
     let other_course = with(
         lesson("77001", "Ada Invented", "50009", "2031-03-03", 2, 1000),
-        json!({"group_id":"5","course_id":"5","course_label":"Geometry B","record_key":"41"}),
+        json!({"course_id":"5","course_label":"Geometry B","record_key":"41"}),
     );
     env.put(
         "lesson_record",
@@ -762,8 +762,8 @@ fn b4_two_memberships_on_one_date_are_two_objects_and_a_repeated_key_fails_the_s
     );
     assert_eq!(rows, 2);
     assert!(
-        both.contains("| Algebra A | 3 | 3 | 50001 | 41 |")
-            && both.contains("| Geometry B | 5 | 5 | 50009 | 41 |"),
+        both.contains("| Algebra A | 3 | 50001 | 41 |")
+            && both.contains("| Geometry B | 5 | 50009 | 41 |"),
         "{both}"
     );
     let before = env.table(2000, "daily_records", json!({"lesson_date":"2031-03-03"}));
@@ -924,14 +924,13 @@ fn lesson_failure(env: &Env, now: u64) -> String {
 fn b8_every_bound_of_a_line_and_the_serialized_form_a_writer_measures() {
     let env = Env::new();
     let [first, unsaved, second] = lesson_lines();
-    let bounds: [(&str, usize); 13] = [
+    let bounds: [(&str, usize); 12] = [
         ("student_name", 200),
         ("course_label", 200),
         ("attendance_label", 64),
         ("previous_lesson_date_literal", 64),
         ("student_id", 32),
         ("membership_key", 32),
-        ("group_id", 32),
         ("course_id", 32),
         ("record_key", 32),
         ("previous_record_key", 32),
@@ -1157,8 +1156,8 @@ fn b10_a_month_file_that_is_emptied_or_gone_retracts_and_the_history_shows_its_b
 /// `dailyrecord` writes them (members sorted, no space). The capture's own test
 /// pins the same two lines from an invented page, as `a4` shows for the
 /// textbook lines.
-const LESSON_RECORD_LINE: &str = "{\"attendance\":\"Y\",\"attendance_label\":\"Present\",\"course_id\":\"3\",\"course_label\":\"Algebra A\",\"cut_fields\":0,\"daily_test_assessment\":\"2\",\"group_id\":\"3\",\"homework\":\"p.41-44\",\"lesson_date\":\"2031-03-03\",\"lesson_memo\":\"line one\\nline two | pipe\",\"membership_key\":\"50001\",\"observed_at\":1,\"previous_homework\":\"p.30-33\",\"previous_homework_assessment\":\"3\",\"previous_lesson_date_literal\":\"02/28\",\"previous_lesson_memo\":\"\",\"previous_progress\":\"Unit 2\",\"previous_record_key\":\"40\",\"progress\":\"Unit 3 to p.40\",\"record_key\":\"41\",\"row_ordinal\":0,\"source_namespace\":\"academy.lms.dayrecord\",\"student_id\":\"77001\",\"student_memo\":\"Invented memo\",\"student_name\":\"Ada Invented\",\"type\":\"lesson_record\"}";
-const LESSON_DAY_LINE: &str = "{\"cut_fields\":0,\"group_count\":1,\"lesson_date\":\"2031-03-03\",\"observed_at\":1,\"outside_roster_count\":0,\"row_count\":1,\"source_namespace\":\"academy.lms.dayrecord\",\"stored_count\":1,\"type\":\"lesson_day\"}";
+const LESSON_RECORD_LINE: &str = "{\"attendance\":\"Y\",\"attendance_label\":\"Present\",\"course_id\":\"3\",\"course_label\":\"Algebra A\",\"cut_fields\":0,\"daily_test_assessment\":\"2\",\"homework\":\"p.41-44\",\"lesson_date\":\"2031-03-03\",\"lesson_memo\":\"line one\\nline two | pipe\",\"membership_key\":\"50001\",\"observed_at\":1,\"previous_homework\":\"p.30-33\",\"previous_homework_assessment\":\"3\",\"previous_lesson_date_literal\":\"02/28\",\"previous_lesson_memo\":\"\",\"previous_progress\":\"Unit 2\",\"previous_record_key\":\"40\",\"progress\":\"Unit 3 to p.40\",\"record_key\":\"41\",\"row_ordinal\":0,\"source_namespace\":\"academy.lms.dayrecord\",\"student_id\":\"77001\",\"student_memo\":\"Invented memo\",\"student_name\":\"Ada Invented\",\"type\":\"lesson_record\"}";
+const LESSON_DAY_LINE: &str = "{\"cut_fields\":0,\"lesson_date\":\"2031-03-03\",\"observed_at\":1,\"outside_roster_count\":0,\"row_count\":1,\"source_namespace\":\"academy.lms.dayrecord\",\"stored_count\":1,\"type\":\"lesson_day\"}";
 
 #[test]
 fn b7_the_contract_lines_are_indexed_and_no_cell_is_missing() {
