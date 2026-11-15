@@ -39,15 +39,17 @@ pub(crate) fn refuse(code: &str) -> Refusal {
         count: None,
     }
 }
+/// A word that can be printed as a code: 1 to 64 of `a-z`, `0-9` and `_`.
+pub(crate) fn fixed(code: &str) -> bool {
+    (1..=64).contains(&code.len())
+        && code
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+}
 impl From<Error> for Refusal {
     /// The sources crate builds errors from fixed codes; anything else is not printed.
     fn from(error: Error) -> Self {
-        let safe = (1..=64).contains(&error.message.len())
-            && error
-                .message
-                .bytes()
-                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
-        refuse(if safe {
+        refuse(if fixed(&error.message) {
             &error.message
         } else {
             "lesson_capture_failed"
@@ -225,11 +227,14 @@ fn verb_name(args: &[String]) -> &str {
         .unwrap_or("unknown")
 }
 
-/// Run `edu` in process. `connect` makes the transport of one attempt to open the LMS
-/// session; it is called only when a date is captured.
+/// Run `edu` in process. `ids` are the caller's real and effective user ids, passed to
+/// every engine call (the engine answers only 0 and 0; the binary passes its own).
+/// `connect` makes the transport of one attempt to open the LMS session; it is called
+/// only when a date is captured.
 pub fn run<T: Transport>(
     args: &[String],
     clock: &dyn Runtime,
+    ids: (u32, u32),
     connect: &mut dyn FnMut(&Cancellation) -> Result<T>,
 ) -> Outcome {
     let now_ms = clock.epoch_ms();
@@ -239,7 +244,7 @@ pub fn run<T: Transport>(
     let mut activity = Activity::default();
     let result = match (&verb, &config) {
         (Err(refusal), _) | (Ok(_), Err(refusal)) => Err(refusal.clone()),
-        (Ok(verb), Ok(config)) => execute(verb, config, clock, connect, &mut activity),
+        (Ok(verb), Ok(config)) => execute(verb, config, clock, ids, connect, &mut activity),
     };
     let status = match &result {
         Ok(_) => "ok".to_string(),
@@ -286,10 +291,11 @@ fn execute<T: Transport>(
     verb: &Verb,
     config: &Config,
     clock: &dyn Runtime,
+    ids: (u32, u32),
     connect: &mut dyn FnMut(&Cancellation) -> Result<T>,
     activity: &mut Activity,
 ) -> Answer<String> {
-    let store = engine::Store::new(config, clock);
+    let store = engine::Store::new(config, clock, ids);
     store.check_schema()?;
     lms::prepare_spool(config)?;
     store.index()?;

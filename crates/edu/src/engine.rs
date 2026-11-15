@@ -10,6 +10,7 @@ pub(crate) struct Store<'a> {
     path: String,
     expected: String,
     clock: &'a dyn Runtime,
+    ids: (u32, u32),
 }
 pub(crate) struct Coverage {
     pub observed_at: u64,
@@ -53,13 +54,14 @@ pub(crate) fn members(object: &Value) -> Map<String, Value> {
 impl<'a> Store<'a> {
     /// The digest compared is the embedded read schema's, with its spool root
     /// replaced by the configured spool (the text the owner installs for that spool).
-    pub fn new(config: &Config, clock: &'a dyn Runtime) -> Self {
+    pub fn new(config: &Config, clock: &'a dyn Runtime, ids: (u32, u32)) -> Self {
         let schema = ACADEMY_READ_SCHEMA
             .replace(ACADEMY_READ_SPOOL_ROOT, &config.spool.display().to_string());
         Self {
             path: config.store.display().to_string(),
             expected: format!("{:x}", Sha256::digest(schema.as_bytes())),
             clock,
+            ids,
         }
     }
     /// The engine's time is the clock's at each call: a capture moves it forward.
@@ -74,27 +76,30 @@ impl<'a> Store<'a> {
             self.now().to_string(),
         ];
         all.extend(args.iter().map(|a| a.to_string()));
-        let out = ont::run(
-            &all,
-            stdin.to_string().as_bytes(),
-            rustix::process::getuid().as_raw(),
-            rustix::process::geteuid().as_raw(),
-        );
+        let out = ont::run(&all, stdin.to_string().as_bytes(), self.ids.0, self.ids.1);
         let answer = serde_json::from_str(out.stdout.trim()).map_err(|_| unavailable())?;
         Ok((out.code, answer))
     }
-    /// The installed `academy_read` schema is the one this crate embeds.
+    /// The installed `academy_read` schema is the one this crate embeds. A `describe`
+    /// the engine refused (for one, a caller that is not 0 and 0: `principal_not_trusted`)
+    /// ends with the engine's own code; only an answered one is compared.
     pub fn check_schema(&self) -> Answer<()> {
         if !std::fs::symlink_metadata(&self.path).is_ok_and(|m| m.is_file()) {
             return Err(unavailable());
         }
         let (code, answer) = self.call(&["describe"], &json!({}))?;
+        if code != 0 || answer["status"] != "ok" {
+            return Err(match answer["code"].as_str() {
+                Some(code) if crate::fixed(code) => refuse(code),
+                _ => unavailable(),
+            });
+        }
         let installed = answer["result"]["domains"]
             .as_array()
             .into_iter()
             .flatten()
             .find(|d| d["domain"] == "academy_read");
-        if code != 0 || installed.is_none_or(|d| d["sha256"] != self.expected.as_str()) {
+        if installed.is_none_or(|d| d["sha256"] != self.expected.as_str()) {
             return Err(refuse("lesson_schema_mismatch"));
         }
         Ok(())
