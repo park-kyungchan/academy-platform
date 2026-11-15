@@ -38,6 +38,6 @@ On Nov2, agent-platform moved and all 14 selected operations/top-level-worktrees
 
 Use native Git move/repair and explicit consumer readback for future relocation. Reconcile dirty/unpushed refs and owners; preserve originals. Never copy .git directories, reset another owner's branch, mass-replace archived documents or add an unowned compatibility link.
 
-Rust `ap` render/install/doctor and `ap pane` are implemented in agent-platform; `/usr/local/bin/ap` is installed. Source checks and content diagnosis do not establish fresh-session native loading, runtime activation or business acceptance. Native settings and services retain task-specific authority.
+Rust `ap` is implemented in agent-platform and installed at `/usr/local/bin/ap`; `ap --help` lists its verbs. Source checks do not establish fresh-session native loading, runtime activation or business acceptance. Native settings and services retain task-specific authority.
 
 This work/ws-layout-standard directory currently holds ordinary work records, not a Git worktree. The Nov4 versioned source for LAYOUT.md and PATH-MAP.tsv is education-platform `docs/workspace-layout/`; the published work-record copies remain the shared entry paths.
