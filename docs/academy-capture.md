@@ -336,13 +336,18 @@ the name its row showed and a view takes no name with Korean letters as an argum
 newest date first and the page's order inside a date, at most 24. `day_coverage` (one date):
 its `lesson_day`.
 
-Arguments of a view. The engine does not type an argument: a caller spells a date as
-`YYYY-MM-DD` with its zeros. The three views of one date compare for equality, so another
-spelling answers with no row, which reads like a date that was never captured. `since` is
-compared with `lesson_date` as TEXT: `2040-6-1` or `20400102` is neither refused nor
-marked and leaves out rows of later dates, and `2040` answers every row of that year on. A
-program that takes a date from a person checks it before it asks the engine. A view asked
-without one of its arguments is refused (`invalid_argument`). Each sentence: `b11`.
+Arguments of a view. The engine refuses an argument that breaks the value constraints of
+the property it is compared with: a date that is not `YYYY-MM-DD` with its zeros (`2040-6-1`,
+`20400102`, `2040`) for `lesson_date` or `since` (`b2`, `b11`), and a student id that is longer than
+32 bytes (every view that takes one) or holds a letter (`daily_record` and `record_history`,
+whose `student_id` is digits only by the schema's `key_digits`) (`b11`). The answer is exit code 2 with `status` `refused`,
+`code` `invalid_argument`, and the members `field` (`/args/<name>`), `argument` (its name) and
+`property` (the property it is compared with; for `since` it is `lesson_date`) (`b2`, `b11`).
+So a date spelled without its zeros no longer reads as a date that was never captured, and
+`since` no longer leaves out rows without a mark. The pattern checks a shape and not a
+calendar: `2040-13-45` meets it and is answered (`b11`). Among well-formed dates `since` is
+still compared with `lesson_date` as TEXT (`b11`). A view asked without one of its arguments
+is refused (`invalid_argument`) as well (`b11`).
 
 Bounds and sizes (`b11`). A view that reaches its bound says so in its last row
 (`(+N more; limit L)`). A date with more than 200 stored rows shows 200; a row the table
