@@ -43,6 +43,13 @@ fn run() -> Result<serde_json::Value> {
         return edu_academy_sources::propose_paper_form::run(args);
     }
     if mode.as_deref() == Some("prepare-owner") {
+        let mut args = args.peekable();
+        if args.next_if(|a| a == "--standing").is_some() {
+            let (inputs, families) = edu_academy_sources::prepare_owner::parse_standing_args(args)?;
+            return edu_academy_sources::prepare_owner::prepare_standing(
+                &inputs, &families, &Clock,
+            );
+        }
         let (inputs, families) = edu_academy_sources::prepare_owner::parse_args_families(args)?;
         return edu_academy_sources::prepare_owner::prepare_families(&inputs, &families, &Clock);
     }

@@ -4,7 +4,7 @@ use crate::{
     data::{Error, Result, hash},
     owner_admission::TransportAdmission,
     owner_root::OwnerRoot,
-    owner_workflow::{CredentialProvider, FileCredentialProvider, PinnedInput},
+    owner_workflow::{CredentialProvider, Credentials, FileCredentialProvider, PinnedInput},
 };
 use edu_academy_core::{
     instant::{self, Grammar},
@@ -112,6 +112,24 @@ pub fn parse_args_families(
         families,
     ))
 }
+/// The standing form: the arguments without the credential document's three
+/// (`--secret-env`, `--secret-key`, `--expires-at`); `--paper-form` may be absent. The
+/// returned `Inputs` holds those three, and an absent form, empty: `prepare_standing`
+/// reads none of them.
+pub fn parse_standing_args(
+    args: impl Iterator<Item = String>,
+) -> Result<(Inputs, Vec<capture::Family>)> {
+    let args: Vec<String> = args.collect();
+    let keys = || args.iter().step_by(2).map(String::as_str);
+    if keys().any(|k| ["--secret-env", "--secret-key", "--expires-at"].contains(&k)) {
+        return Err(refused("prepare_input_invalid"));
+    }
+    let mut filler = vec!["--secret-env", "", "--secret-key", "", "--expires-at", ""];
+    if !keys().any(|k| k == "--paper-form") {
+        filler.extend(["--paper-form", ""]);
+    }
+    parse_args_families(args.into_iter().chain(filler.into_iter().map(String::from)))
+}
 fn read(path: &Path, limit: u64) -> Result<Vec<u8>> {
     if !path.is_absolute() {
         return Err(refused("prepare_input_refused"));
@@ -190,6 +208,28 @@ fn secret(bytes: &[u8], key: &str) -> Result<String> {
     }
     found.ok_or_else(|| refused("prepare_secret_refused"))
 }
+/// The second implementor of the credential port: at each call it reads the owner's
+/// secret file and the identity's user name with the checks of `read` and `secret`.
+/// It holds paths only; no credential document is read or written.
+pub struct SecretFileCredentials {
+    pub identity: PathBuf,
+    pub secret_file: PathBuf,
+    pub secret_key: String,
+}
+impl CredentialProvider for SecretFileCredentials {
+    fn credential(&mut self) -> Result<Credentials> {
+        (|| {
+            let identity: Identity = serde_json::from_slice(&read(&self.identity, 65536)?)
+                .map_err(|_| refused("prepare_identity_refused"))?;
+            if identity.source_username.is_empty() || identity.source_username.len() > 1024 {
+                return Err(refused("prepare_identity_refused"));
+            }
+            let password = secret(&read(&self.secret_file, 65536)?, &self.secret_key)?;
+            Ok(Credentials::new(identity.source_username, password))
+        })()
+        .map_err(|_| Error::error("native_owner_credential_refused"))
+    }
+}
 struct Rollback {
     root: PathBuf,
     files: Vec<PathBuf>,
@@ -224,10 +264,20 @@ pub fn prepare_families(
     families: &[capture::Family],
     runtime: &dyn Runtime,
 ) -> Result<Value> {
-    prepare_with(input, families, runtime, exclusive)
+    prepare_with(input, false, families, runtime, exclusive)
+}
+/// A standing owner root: the account lock, the admission and the roster, and no
+/// credential document (the lesson command reads the secret file at login time).
+pub fn prepare_standing(
+    input: &Inputs,
+    families: &[capture::Family],
+    runtime: &dyn Runtime,
+) -> Result<Value> {
+    prepare_with(input, true, families, runtime, exclusive)
 }
 fn prepare_with(
     input: &Inputs,
+    standing: bool,
     families: &[capture::Family],
     runtime: &dyn Runtime,
     write: fn(&Path, &[u8]) -> std::io::Result<()>,
@@ -245,10 +295,16 @@ fn prepare_with(
     {
         return Err(refused("prepare_root_refused"));
     }
-    let expires = instant(&input.expires_at)?;
+    let expires = if standing {
+        0
+    } else {
+        instant(&input.expires_at)?
+    };
     let from = instant(&format!("{}T00:00:00Z", input.allowed_from))?;
     let through = instant(&format!("{}T00:00:00Z", input.allowed_through))?;
-    if from > through || expires <= runtime.epoch_ms() || expires > through + 86_400_000 {
+    if from > through
+        || !standing && (expires <= runtime.epoch_ms() || expires > through + 86_400_000)
+    {
         return Err(refused("prepare_time_refused"));
     }
     if !input.lock.is_absolute()
@@ -262,11 +318,19 @@ fn prepare_with(
     if identity.source_username.is_empty() || identity.source_username.len() > 1024 {
         return Err(refused("prepare_identity_refused"));
     }
-    let password = secret(&read(&input.secret_env, 65536)?, &input.secret_key)?;
+    let password = if standing {
+        None
+    } else {
+        Some(secret(&read(&input.secret_env, 65536)?, &input.secret_key)?)
+    };
     let students: Vec<Student> = serde_json::from_slice(&read(&input.students, 1_048_576)?)
         .map_err(|_| refused("prepare_students_refused"))?;
-    let paper_form: Value = serde_json::from_slice(&read(&input.paper_form, 262144)?)
-        .map_err(|_| refused("prepare_form_refused"))?;
+    let paper_form: Value = if standing && input.paper_form.as_os_str().is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&read(&input.paper_form, 262144)?)
+            .map_err(|_| refused("prepare_form_refused"))?
+    };
     let admission = TransportAdmission {
         schema_version: "academy.transport-admission/1".into(),
         owner_id: "academy-capture".into(),
@@ -322,22 +386,22 @@ fn prepare_with(
     }
     let student_count = roster.students.len();
     let docs = [
-        (
+        Some((
             "account-lock.json",
             json!({"schemaVersion":"academy.account-lock/1","path":input.lock}),
-        ),
-        (
+        )),
+        password.map(|password| (
             "credential.json",
             json!({"schemaVersion":"academy.owner-credential/1","username":identity.source_username,"password":password,"expiresAtMs":expires}),
-        ),
-        (
+        )),
+        Some((
             "transport-admission.json",
             serde_json::to_value(&admission).map_err(|_| refused("prepare_encode_failed"))?,
-        ),
-        (
+        )),
+        Some((
             "roster.json",
             serde_json::to_value(&roster).map_err(|_| refused("prepare_encode_failed"))?,
-        ),
+        )),
     ];
     fs::DirBuilder::new()
         .mode(0o700)
@@ -353,7 +417,7 @@ fn prepare_with(
     let root =
         Rc::new(OwnerRoot::open(&input.owner_root).map_err(|_| refused("prepare_root_refused"))?);
     let mut pins = serde_json::Map::new();
-    for (name, doc) in docs {
+    for (name, doc) in docs.into_iter().flatten() {
         let bytes = serde_json::to_vec(&doc).map_err(|_| refused("prepare_encode_failed"))?;
         let path = input.owner_root.join(name);
         // Register before writing so partial writes are removed on every failure.
@@ -365,6 +429,12 @@ fn prepare_with(
         pins.insert(
             name.into(),
             json!({"path":path,"relativePath":name,"sha256":digest,"bytes":bytes.len()}),
+        );
+    }
+    if standing {
+        rollback.armed = false;
+        return Ok(
+            json!({"prepared":true,"standing":true,"ownerRoot":input.owner_root,"documents":pins,"studentCount":student_count,"operationCount":admission.operations.len()}),
         );
     }
     let credential_pin = PinnedInput {
@@ -400,6 +470,6 @@ pub(crate) mod tests {
     // boundary too; fail after the second exclusive write, not before publication.
     pub(crate) fn fail_second_write(input: &Inputs, runtime: &dyn Runtime) -> Result<Value> {
         WRITES.store(0, Ordering::Relaxed);
-        prepare_with(input, &[capture::Family::Textbook], runtime, broken)
+        prepare_with(input, false, &[capture::Family::Textbook], runtime, broken)
     }
 }
