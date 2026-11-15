@@ -19,7 +19,7 @@ case "$mode" in
 esac
 [ "$#" -le 1 ] || { echo "usage: ./check [all]" >&2; exit 2; }
 
-lock=${HOST_CARGO_LOCK:-/home/palantirkc/work/ws-replan/wt/.host-cargo.lock}
+lock=${HOST_CARGO_LOCK:-/var/lib/agent-platform/build.lock}
 if [ "${CI:-}" != true ] && [ -z "${CHECK_LOCKED:-}" ] && [ -e "$lock" ]; then
   free=$(df -BM --output=avail . | tail -n 1 | tr -dc 0-9)
   if [ "$free" -lt 10240 ]; then
