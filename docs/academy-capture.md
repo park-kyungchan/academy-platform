@@ -394,7 +394,13 @@ Order of a run: the configuration; the installed `academy_read` schema's digest 
 `lesson_record` and `lesson_day` (`lesson_index_failed` when a source failed, with no table). `day`
 and `record` capture their date only when the store holds no `lesson_day` of it or with `--refresh`,
 then index again; `history` never contacts the LMS. The engine runs in process (`ont::run`) with
-the clock's time at each call. It never installs a schema.
+the clock's time at each call and the process's real and effective user ids. It never installs
+a schema. The engine answers only a caller whose two ids are 0: any other caller ends with the
+engine's code `principal_not_trusted` at that first `describe`, before the owner root or the
+secret file is read and before any request. `lesson_schema_mismatch` means that `describe`
+answered and its `academy_read` digest is absent or differs; a refused or failed `describe` is
+reported by the engine's own code, else `lesson_store_unavailable`. The library entry
+`edu::run` takes the two ids as it takes the clock and the transport; the tests pass 0 and 0.
 
 A capture reads the standing owner root's admission and roster by their digests, runs the
 family's `preflight` and `run` over one `NativeSession` (one login for all dates, one request per

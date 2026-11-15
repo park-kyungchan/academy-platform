@@ -235,7 +235,11 @@ impl Env {
             lms: Lms::default(),
         }
     }
+    /// The engine answers the ids 0 and 0 only; the other engine tests pass them too.
     fn edu(&self, args: &[&str]) -> Run {
+        self.edu_as((0, 0), args)
+    }
+    fn edu_as(&self, ids: (u32, u32), args: &[&str]) -> Run {
         self.lms.seen.borrow_mut().clear();
         let mut all = vec![
             "--config".to_string(),
@@ -243,11 +247,8 @@ impl Env {
             "lesson".into(),
         ];
         all.extend(args.iter().map(|s| s.to_string()));
-        self.raw(&all)
-    }
-    fn raw(&self, all: &[String]) -> Run {
         let lms = self.lms.clone();
-        let out = edu::run(all, &Clock, &mut |_: &http::Cancellation| {
+        let out = edu::run(&all, &Clock, ids, &mut |_: &http::Cancellation| {
             lms.connects.set(lms.connects.get() + 1);
             Ok(Wire {
                 lms: lms.clone(),
@@ -582,6 +583,36 @@ fn a_name_on_two_students_is_refused_with_their_count_and_exact_prints_members()
     let row: Value = serde_json::from_str(&first.rest[0]).unwrap();
     assert!(row.get("previous_record_key").is_none());
     assert_eq!(row["previous_homework_assessment"], "");
+}
+
+#[test]
+fn a_caller_that_is_not_root_is_refused_by_the_engine_rule() {
+    let env = Env::new();
+    // A read of the secret file would end with `native_owner_credential_refused`.
+    fs::remove_file(env.root.join("secret.env")).unwrap();
+    for ids in [(65534, 65534), (0, 65534), (65534, 0)] {
+        for args in [
+            vec!["day", "2026-01-02", "--refresh"],
+            vec!["history", "77001"],
+        ] {
+            let run = env.edu_as(ids, &args);
+            assert_eq!(
+                run.line,
+                json!({"status":"principal_not_trusted"}),
+                "{ids:?} {args:?}"
+            );
+        }
+    }
+    assert_eq!(env.lms.connects.get(), 0);
+    assert!(env.lms.seen.borrow().is_empty());
+    assert!(!env.root.join("secret.env").exists());
+    // Before the engine: nothing of the spool was made.
+    assert!(!env.root.join("spool").exists());
+    assert!(
+        env.log()
+            .iter()
+            .all(|l| l["status"] == "principal_not_trusted" && l["requests"] == 0)
+    );
 }
 
 #[test]

@@ -24,7 +24,11 @@ fn main() {
         .skip(1)
         .map(|a| a.into_string().unwrap_or_default())
         .collect();
-    let out = edu::run(&args, &Clock, &mut |cancellation: &Cancellation| {
+    let ids = (
+        rustix::process::getuid().as_raw(),
+        rustix::process::geteuid().as_raw(),
+    );
+    let out = edu::run(&args, &Clock, ids, &mut |cancellation: &Cancellation| {
         NativeTransport::new(
             TransportLimits {
                 request_bytes: http::MAX_REQUEST_BYTES,
