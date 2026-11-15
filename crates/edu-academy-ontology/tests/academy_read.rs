@@ -1407,6 +1407,13 @@ const LESSON_DAY_LINE: &str = "{\"cut_fields\":0,\"lesson_date\":\"2031-03-03\",
 
 #[test]
 fn b7_the_contract_lines_are_indexed_and_no_cell_is_missing() {
+    let capture_tests = include_str!("../../edu-academy-sources/src/dailyrecord_tests.rs");
+    for line in [LESSON_RECORD_LINE, LESSON_DAY_LINE] {
+        assert!(
+            capture_tests.contains(&line.replace('\\', "\\\\").replace('"', "\\\"")),
+            "capture test must pin the contract line"
+        );
+    }
     let env = Env::new();
     fs::write(
         env.partition("lesson_record", "2031-03"),

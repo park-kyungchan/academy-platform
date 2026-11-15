@@ -53,3 +53,15 @@ Do not redirect original comparators to candidate outputs or edit frozen pins.
 
 Current verification is the pinned Cargo workflow in the root README. Fixture
 ownership does not qualify native activation, live Academy effects or full parity.
+
+## Invented day-record capture page
+
+`crates/edu-academy-sources/tests/fixtures/dailyrecord/day.html` is authored from
+scratch. All identities, dates and record contents are invented; its one row uses
+the invented values of the read-schema contract tests. Its control layout follows
+the supplied structural description: two header rows without `thead`, nested
+homework/report cells, readonly previous texts, and hidden assessments in their
+respective columns. Inert handler declarations use the crate's existing signatures.
+`dailyrecord_tests.rs` derives adversarial pages by changing only these invented
+bytes, and constructs disposable owner documents, raw indexes and spool files.
+No private page, credential, student record or endpoint supplies fixture values.

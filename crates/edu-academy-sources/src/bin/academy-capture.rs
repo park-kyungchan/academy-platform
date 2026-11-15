@@ -47,20 +47,21 @@ fn run() -> Result<serde_json::Value> {
         return edu_academy_sources::prepare_owner::prepare_families(&inputs, &families, &Clock);
     }
     let daily = mode.as_deref() == Some("dailytest");
-    if mode.as_deref() != Some("textbook") && !daily {
+    let record = mode.as_deref() == Some("dailyrecord");
+    if mode.as_deref() != Some("textbook") && !daily && !record {
         return Err(invalid());
     }
     let mut values = HashMap::new();
     let mut no_detail = false;
     while let Some(arg) = args.next() {
-        if arg == "--no-detail" && !daily {
+        if arg == "--no-detail" && !daily && !record {
             if no_detail {
                 return Err(invalid());
             }
             no_detail = true;
             continue;
         }
-        if ![
+        let known = [
             "--raw-dir",
             "--owner-root",
             "--admission",
@@ -73,12 +74,17 @@ fn run() -> Result<serde_json::Value> {
             "--max-requests",
         ]
         .contains(&arg.as_str())
+            || record && ["--dates", "--roster-sha256"].contains(&arg.as_str());
+        if !known
             || values
                 .insert(arg, args.next().ok_or_else(invalid)?)
                 .is_some()
         {
             return Err(invalid());
         }
+    }
+    if record {
+        return launch_dailyrecord(&values);
     }
     let get = |k: &str| values.get(k).cloned().ok_or_else(invalid);
     let root = Rc::new(OwnerRoot::open(&PathBuf::from(get("--owner-root")?))?);
@@ -158,11 +164,97 @@ fn run() -> Result<serde_json::Value> {
     };
     Ok(serde_json::json!({ "students": students }))
 }
+fn launch_dailyrecord(values: &HashMap<String, String>) -> Result<serde_json::Value> {
+    use edu_academy_sources::dailyrecord;
+    if values.contains_key("--date") {
+        return Err(invalid());
+    }
+    let get = |k: &str| values.get(k).cloned().ok_or_else(invalid);
+    let dates = dailyrecord::dates(&get("--dates")?)?;
+    let options = dailyrecord::Options {
+        max_requests: values
+            .get("--max-requests")
+            .map(|s| s.parse())
+            .transpose()
+            .map_err(|_| invalid())?
+            .unwrap_or(dates.len()),
+        dates,
+        spool: get("--spool")?.into(),
+        raw_dir: values.get("--raw-dir").map(PathBuf::from),
+    };
+    let result = (|| {
+        dailyrecord::initialize(&options)?;
+        let root_path = PathBuf::from(get("--owner-root")?);
+        let root = Rc::new(OwnerRoot::open(&root_path)?);
+        let admission = root.read(
+            &get("--admission")?,
+            &get("--admission-sha256")?,
+            256 * 1024,
+        )?;
+        let admission = TransportAdmission::from_bytes(&admission.bytes)?;
+        let roster_path = PathBuf::from(get("--roster")?);
+        let relative = if roster_path.is_absolute() {
+            roster_path
+                .strip_prefix(&root_path)
+                .map_err(|_| invalid())?
+        } else {
+            &roster_path
+        };
+        let roster = root.read(
+            relative.to_str().ok_or_else(invalid)?,
+            &get("--roster-sha256")?,
+            1_048_576,
+        )?;
+        let roster: Roster = serde_json::from_slice(&roster.bytes).map_err(|_| invalid())?;
+        if let Err(error) = dailyrecord::preflight(&admission, &roster.students, &options) {
+            return Ok(
+                serde_json::json!({"dates":dailyrecord::refused(&options.dates,&error.message)}),
+            );
+        }
+        let provider = FileCredentialProvider::new(
+            root.clone(),
+            PinnedInput {
+                relative_path: get("--credential")?,
+                sha256: get("--credential-sha256")?,
+            },
+            &Clock,
+        );
+        let cancellation = http::Cancellation::default();
+        let transport = http::NativeTransport::new(
+            http::TransportLimits {
+                request_bytes: http::MAX_REQUEST_BYTES,
+                response_bytes: 6_000_001,
+                timeout: std::time::Duration::from_secs(20),
+            },
+            cancellation.clone(),
+        )?;
+        let recorder = capture::Recorder::new(options.raw_dir.clone(), &Clock);
+        let session = NativeSession::open(
+            root,
+            admission,
+            recorder.transport(transport),
+            provider,
+            cancellation,
+            &Clock,
+        )
+        .map_err(|e| capture::context(e, "capture_owner_refused"))?;
+        let mut session = recorder.port(session);
+        Ok(
+            serde_json::json!({"dates":dailyrecord::run(&mut session,&roster.students,&options,&Clock)}),
+        )
+    })();
+    result.or_else(|error: Error| {
+        Ok(serde_json::json!({"dates":dailyrecord::refused(&options.dates,&error.message)}))
+    })
+}
 fn main() {
     let result = run();
     let (output, exit) = match result {
         Ok(output) => {
-            let failed = output["status"] == "capture_admission_refused"
+            let failed = output["dates"]
+                .as_array()
+                .is_some_and(|a| a.iter().any(|d| d["status"] != "published"))
+                || output["status"] == "capture_admission_refused"
                 || output["students"]
                     .as_array()
                     .is_some_and(|a| a.iter().any(|s| s["status"] != "refreshed"));

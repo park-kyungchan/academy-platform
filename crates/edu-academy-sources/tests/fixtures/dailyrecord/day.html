@@ -1,0 +1,28 @@
+<!doctype html><html><head><title>Invented day</title></head><body>
+<form method="post"><input type="hidden" name="std_ymd" value="20310303"><input name="std_date" value="2031-03-03"><input name="teacher_pri_no" value="99001">
+<select name="grp_seq"><option value="0">All invented groups</option><option value="3">Invented group</option></select>
+<table class="table_title"><tr><th rowspan="2">이름</th><th rowspan="2">과정</th><th rowspan="2">지속사항</th><th colspan="4">지난진도</th><th colspan="6">일괄 발송금일진도</th></tr>
+<tr><th>지난수업일</th><th>진도</th><th>숙제</th><th>메모</th><th></th><th>금일출석</th><th>일일테스트</th><th>진도</th><th>숙제</th><th>메모</th></tr>
+<tr><td><span onclick="onOpenDaysMain('77001')">Ada Invented</span></td><td>Algebra A</td>
+<td><textarea id="stu_memo_txt0" name="stu_memo_txt0" onfocusin="onFiStuMemo(0)" onfocusout="onFoStuMemo(0,'77001','3')">Invented memo</textarea></td>
+<td>02/28</td><td><textarea readonly>Unit 2</textarea></td>
+<td><table><tr><td><img id="imgHomeworkRate_0" onclick="openHomeWorkRate('40','50001',3)"><input type="hidden" id="h_homework_rate_0" name="h_homework_rate" value="3"></td><td><textarea readonly>p.30-33</textarea></td></tr></table></td>
+<td><textarea readonly></textarea></td>
+<td><table><tr><td><input type="checkbox" id="check_daily_report_0" name="check_daily_report" value="88001"></td><td><div><img onclick="onDailyReport('88001','77001','41','50001')"><img onclick="onOneAlimtalk('88001')"></div><div><img id="report_url_0" onclick="copyDailyReportUrl('Invented','inert')"></div></td></tr></table></td>
+<td><select id="attn0" name="attn0" onchange="onAttn(0,'3','77001','41','50001')"><option value="">Choose</option><option value="Y" selected>Present</option><option value="N">Absent</option></select></td>
+<td><img id="imgDailyTest_0" onclick="setDailyTest('41','50001',2)"><input type="hidden" name="h_daily_test" id="h_daily_test_0" value="2"></td>
+<td><textarea id="prg_txt0" onfocusin="onFiPrg(0)" onfocusout="onFoPrg(0,'3','77001','41','50001')">Unit 3 to p.40</textarea></td>
+<td><textarea id="hw_txt0" onfocusin="onFiHw(0)" onfocusout="onFoHw(0,'3','77001','41','50001')">p.41-44</textarea></td>
+<td><textarea id="memo_txt0" onfocusin="onFiMm(0)" onfocusout="onFoMm(0,'3','77001','41','50001')">line one
+line two | pipe</textarea></td></tr></table></form>
+<script>
+function onAttn(i,course_seq,stu_pri_no,record_seq,cm_seq){}
+function onFoPrg(i,course_seq,stu_pri_no,record_seq,cm_seq){}
+function onFoHw(i,course_seq,stu_pri_no,record_seq,cm_seq){}
+function onFoMm(i,course_seq,stu_pri_no,record_seq,cm_seq){}
+function onFoStuMemo(i,stu_pri_no,course_seq){}
+function onOpenDaysMain(student_pri_no){}
+function onDailyReport(report_seq,stu_pri_no,record_seq,cm_seq){}
+function setDailyTest(record_seq,cm_seq,count){}
+function openHomeWorkRate(record_seq,cm_seq,count){}
+</script></body></html>

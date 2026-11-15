@@ -208,6 +208,10 @@ pub(crate) fn screen(reason: &str) -> Js {
 /// Injected READ only. NativeSession retains E07 authentication, expiry, lease,
 /// cancellation and abnormal-response invalidation. No raw Transport is accepted by the facade.
 pub trait ReadPort {
+    /// A saved answer's original read second; live reads use the caller's clock.
+    fn observed_at(&self) -> Option<u64> {
+        None
+    }
     fn authenticate_for_reads(&mut self) -> Result<()> {
         Ok(())
     }
