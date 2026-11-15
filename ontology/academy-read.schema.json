@@ -1,13 +1,22 @@
 {
   "format": "ontology-schema/v1",
   "domain": "academy_read",
-  "version": 1,
+  "version": 2,
   "namespace": {
     "instance": "academy://read",
     "account": "teacher"
   },
   "scope_keys": [],
-  "value_types": {},
+  "value_types": {
+    "iso_date": {
+      "base": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "key_digits": {
+      "base": "string",
+      "pattern": "^[0-9]{1,32}$"
+    }
+  },
   "sources": {
     "registered_book": {
       "kind": "records",
@@ -20,6 +29,22 @@
     "section_attempt": {
       "kind": "records",
       "glob": "/var/lib/academy-read/spool/section_attempt/*.jsonl",
+      "time_member": "observed_at",
+      "type_member": "type",
+      "complete_listing": true,
+      "fresh_for_s": 129600
+    },
+    "lesson_record": {
+      "kind": "records",
+      "glob": "/var/lib/academy-read/spool/lesson_record/*.jsonl",
+      "time_member": "observed_at",
+      "type_member": "type",
+      "complete_listing": true,
+      "fresh_for_s": 129600
+    },
+    "lesson_day": {
+      "kind": "records",
+      "glob": "/var/lib/academy-read/spool/lesson_day/*.jsonl",
       "time_member": "observed_at",
       "type_member": "type",
       "complete_listing": true,
@@ -179,6 +204,218 @@
           "description": "Ordinals of at most 16 digits joined by comma and space; the capture bounds the item count only by the response size; 16384 bytes is about 900 ordinals, under the engine's 65536-byte observation limit."
         }
       }
+    },
+    "lesson_record": {
+      "description": "One row of the LMS day-record page: one course membership of one student on one lesson date, as the capture read it. The key does not hold the record key: it is a small number that names a record only together with the membership key, and a line may be without one.",
+      "owner": {
+        "source": "lesson_record"
+      },
+      "primary_key": {
+        "template": "{student_id}|{membership_key}|{lesson_date}"
+      },
+      "properties": {
+        "source_namespace": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 64,
+          "from": "/source_namespace",
+          "description": "Spelled as save_attempt.source_namespace of the ledger schema; for a day record the ledger's constant."
+        },
+        "student_id": {
+          "type": {
+            "value_type": "key_digits"
+          },
+          "required": true,
+          "from": "/student_id",
+          "description": "The student's id: 1 to 32 digits, so that the key's separator cannot be inside it."
+        },
+        "student_name": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 200,
+          "from": "/student_name",
+          "description": "The name the row showed."
+        },
+        "lesson_date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "from": "/lesson_date"
+        },
+        "row_ordinal": {
+          "type": "integer",
+          "required": true,
+          "from": "/row_ordinal",
+          "description": "The row's place on the page of all groups, from 0; for ordering only."
+        },
+        "course_id": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 32,
+          "from": "/course_id",
+          "description": "Spelled as save_attempt.course_id."
+        },
+        "course_label": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 200,
+          "from": "/course_label",
+          "description": "The course's name as the row showed it."
+        },
+        "membership_key": {
+          "type": {
+            "value_type": "key_digits"
+          },
+          "required": true,
+          "from": "/membership_key",
+          "description": "The course membership's key: 1 to 32 digits, so that the key's separator cannot be inside it."
+        },
+        "record_key": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 32,
+          "from": "/record_key",
+          "description": "Spelled as save_attempt.record_key. Absent while the LMS shows none for the row."
+        },
+        "attendance": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 16,
+          "from": "/attendance",
+          "description": "The value of the selected option, as the save side spells it."
+        },
+        "attendance_label": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 64,
+          "from": "/attendance_label",
+          "description": "The text of the selected option, as the page showed it."
+        },
+        "progress": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 6000,
+          "from": "/progress"
+        },
+        "homework": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 6000,
+          "from": "/homework"
+        },
+        "lesson_memo": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 6000,
+          "from": "/lesson_memo"
+        },
+        "daily_test_assessment": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 16,
+          "from": "/daily_test_assessment"
+        },
+        "student_memo": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 6000,
+          "from": "/student_memo",
+          "description": "The memo the LMS keeps per student and course, not per record; shown on every row of that membership."
+        },
+        "previous_record_key": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 32,
+          "from": "/previous_record_key",
+          "description": "Record key of the previous lesson of the same membership."
+        },
+        "previous_lesson_date_literal": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 64,
+          "from": "/previous_lesson_date_literal",
+          "description": "The previous lesson's date as the row showed it; empty when the row showed no previous lesson, as the four members after it."
+        },
+        "previous_progress": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 6000,
+          "from": "/previous_progress"
+        },
+        "previous_homework": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 6000,
+          "from": "/previous_homework"
+        },
+        "previous_lesson_memo": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 6000,
+          "from": "/previous_lesson_memo"
+        },
+        "previous_homework_assessment": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 16,
+          "from": "/previous_homework_assessment",
+          "description": "Assesses the homework of the record previous_record_key; the LMS shows and saves it on the next lesson's row. Its only home in the store is this object."
+        },
+        "cut_fields": {
+          "type": "integer",
+          "required": true,
+          "from": "/cut_fields",
+          "description": "How many texts of this row were longer than their bound and are stored cut, ending with the marker ' [cut: <n> bytes in the LMS]'."
+        }
+      }
+    },
+    "lesson_day": {
+      "description": "One capture of one lesson date: what the day-record page of all groups held. A date with no object was never captured; a date whose object counts no row was captured and held none.",
+      "owner": {
+        "source": "lesson_day"
+      },
+      "primary_key": {
+        "template": "{lesson_date}"
+      },
+      "properties": {
+        "source_namespace": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 64,
+          "from": "/source_namespace"
+        },
+        "lesson_date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "from": "/lesson_date"
+        },
+        "row_count": {
+          "type": "integer",
+          "required": true,
+          "from": "/row_count",
+          "description": "Rows the page held."
+        },
+        "stored_count": {
+          "type": "integer",
+          "required": true,
+          "from": "/stored_count",
+          "description": "Rows stored as lesson_record."
+        },
+        "outside_roster_count": {
+          "type": "integer",
+          "required": true,
+          "from": "/outside_roster_count",
+          "description": "Rows of students the roster does not name: counted, not stored."
+        },
+        "cut_fields": {
+          "type": "integer",
+          "required": true,
+          "from": "/cut_fields"
+        }
+      }
     }
   },
   "views": {
@@ -287,6 +524,308 @@
           "property": "$observed_at"
         }
       ]
+    },
+    "daily_records": {
+      "object_type": "lesson_record",
+      "args": [
+        "lesson_date"
+      ],
+      "filter": {
+        "eq": [
+          "lesson_date",
+          "$lesson_date"
+        ]
+      },
+      "order": [
+        {
+          "property": "row_ordinal",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200,
+      "columns": [
+        {
+          "header": "Student id",
+          "property": "student_id"
+        },
+        {
+          "header": "Student",
+          "property": "student_name"
+        },
+        {
+          "header": "Course",
+          "property": "course_label"
+        },
+        {
+          "header": "Membership",
+          "property": "membership_key"
+        },
+        {
+          "header": "Attendance",
+          "property": "attendance_label"
+        },
+        {
+          "header": "Daily test",
+          "property": "daily_test_assessment"
+        },
+        {
+          "header": "Previous homework rate",
+          "property": "previous_homework_assessment"
+        },
+        {
+          "header": "Previous date",
+          "property": "previous_lesson_date_literal"
+        },
+        {
+          "header": "Observed at",
+          "property": "$observed_at"
+        }
+      ],
+      "description": "The rows of one lesson date in the page's order, without their texts: who is on the date, with the id a reader passes to `daily_record`."
+    },
+    "daily_record": {
+      "object_type": "lesson_record",
+      "args": [
+        "lesson_date",
+        "student_id"
+      ],
+      "filter": {
+        "all": [
+          {
+            "eq": [
+              "lesson_date",
+              "$lesson_date"
+            ]
+          },
+          {
+            "eq": [
+              "student_id",
+              "$student_id"
+            ]
+          }
+        ]
+      },
+      "order": [
+        {
+          "property": "row_ordinal",
+          "direction": "asc"
+        }
+      ],
+      "limit": 20,
+      "columns": [
+        {
+          "header": "Student id",
+          "property": "student_id"
+        },
+        {
+          "header": "Student",
+          "property": "student_name"
+        },
+        {
+          "header": "Course",
+          "property": "course_label"
+        },
+        {
+          "header": "Course id",
+          "property": "course_id"
+        },
+        {
+          "header": "Membership",
+          "property": "membership_key"
+        },
+        {
+          "header": "Record key",
+          "property": "record_key"
+        },
+        {
+          "header": "Attendance value",
+          "property": "attendance"
+        },
+        {
+          "header": "Attendance",
+          "property": "attendance_label"
+        },
+        {
+          "header": "Progress",
+          "property": "progress"
+        },
+        {
+          "header": "Homework",
+          "property": "homework"
+        },
+        {
+          "header": "Lesson memo",
+          "property": "lesson_memo"
+        },
+        {
+          "header": "Daily test",
+          "property": "daily_test_assessment"
+        },
+        {
+          "header": "Student memo",
+          "property": "student_memo"
+        },
+        {
+          "header": "Previous record key",
+          "property": "previous_record_key"
+        },
+        {
+          "header": "Previous date",
+          "property": "previous_lesson_date_literal"
+        },
+        {
+          "header": "Previous progress",
+          "property": "previous_progress"
+        },
+        {
+          "header": "Previous homework",
+          "property": "previous_homework"
+        },
+        {
+          "header": "Previous lesson memo",
+          "property": "previous_lesson_memo"
+        },
+        {
+          "header": "Previous homework rate",
+          "property": "previous_homework_assessment"
+        },
+        {
+          "header": "Cut fields",
+          "property": "cut_fields"
+        },
+        {
+          "header": "Observed at",
+          "property": "$observed_at"
+        }
+      ],
+      "description": "Every member of one student's rows on one lesson date; a student in two courses has two rows."
+    },
+    "record_history": {
+      "object_type": "lesson_record",
+      "args": [
+        "student_id",
+        "since"
+      ],
+      "filter": {
+        "all": [
+          {
+            "eq": [
+              "student_id",
+              "$student_id"
+            ]
+          },
+          {
+            "ge": [
+              "lesson_date",
+              "$since"
+            ]
+          }
+        ]
+      },
+      "order": [
+        {
+          "property": "lesson_date",
+          "direction": "desc"
+        },
+        {
+          "property": "row_ordinal",
+          "direction": "asc"
+        }
+      ],
+      "limit": 24,
+      "columns": [
+        {
+          "header": "Lesson date",
+          "property": "lesson_date"
+        },
+        {
+          "header": "Course",
+          "property": "course_label"
+        },
+        {
+          "header": "Membership",
+          "property": "membership_key"
+        },
+        {
+          "header": "Record key",
+          "property": "record_key"
+        },
+        {
+          "header": "Attendance",
+          "property": "attendance_label"
+        },
+        {
+          "header": "Progress",
+          "property": "progress"
+        },
+        {
+          "header": "Homework",
+          "property": "homework"
+        },
+        {
+          "header": "Lesson memo",
+          "property": "lesson_memo"
+        },
+        {
+          "header": "Daily test",
+          "property": "daily_test_assessment"
+        },
+        {
+          "header": "Previous homework rate",
+          "property": "previous_homework_assessment"
+        },
+        {
+          "header": "Observed at",
+          "property": "$observed_at"
+        }
+      ],
+      "description": "One student's rows from the date `since` on, the newest date first, at most 24."
+    },
+    "day_coverage": {
+      "object_type": "lesson_day",
+      "args": [
+        "lesson_date"
+      ],
+      "filter": {
+        "eq": [
+          "lesson_date",
+          "$lesson_date"
+        ]
+      },
+      "order": [
+        {
+          "property": "lesson_date",
+          "direction": "asc"
+        }
+      ],
+      "limit": 1,
+      "columns": [
+        {
+          "header": "Lesson date",
+          "property": "lesson_date"
+        },
+        {
+          "header": "Rows",
+          "property": "row_count"
+        },
+        {
+          "header": "Stored",
+          "property": "stored_count"
+        },
+        {
+          "header": "Outside roster",
+          "property": "outside_roster_count"
+        },
+        {
+          "header": "Cut fields",
+          "property": "cut_fields"
+        },
+        {
+          "header": "Observed at",
+          "property": "$observed_at"
+        }
+      ],
+      "description": "The coverage line of one captured date."
     }
   },
   "link_types": {},
@@ -297,6 +836,8 @@
       "principal": "agent",
       "scope": {},
       "read": [
+        "lesson_day",
+        "lesson_record",
         "registered_book",
         "section_attempt"
       ],
