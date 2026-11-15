@@ -108,7 +108,7 @@ contains private values, labels, keys or paths.
 ## DailyTest history (family `dailytest`)
 
 `prepare-owner` lists the family's operation only when asked: `--families textbook,dailytest`
-(comma list of `textbook` and `dailytest`, no repeat; default `textbook`). The document written
+(comma list of `textbook`, `dailytest` and `dailyrecord`, no repeat; default `textbook`). The document written
 for `textbook` alone is byte-identical to the one written before the family existed; `dailytest`
 adds the one read `metadata.daily`. A list that names an unknown or repeated family refuses with
 `prepare_input_invalid` before any file exists.
@@ -174,10 +174,51 @@ textbook types carry no student name: a student is identified by id only.
 
 ## The lesson record's lines (contract of the family `dailyrecord`)
 
-No program writes these lines yet. The read schema (version 2) declares the two types and
-their views, and `crates/edu-academy-ontology/tests/academy_read.rs` (`b1` to `b11`) runs the
-contract on invented lines; the capture family that writes them comes with its own tests and
-pins the two lines of `b7`.
+`academy-capture dailyrecord` writes these lines. The read schema (version 2) declares
+their two types and four views; the capture tests build the two lines pinned by `b7`
+from an invented page.
+
+Prepare with `--families dailyrecord` (or include it in the comma list). Preparation
+adds `academy.lms.dayrecord` to the admission namespaces and the exact read operation
+`student.day.groups`; it keeps the same four private documents and roster. The roster
+limits storage, not the page read. Its `paper_form` is ignored by this family.
+
+```sh
+academy-capture dailyrecord --owner-root "$OWNER_ROOT" --admission transport-admission.json --admission-sha256 "$ADM_SHA" --credential credential.json --credential-sha256 "$CRED_SHA" --roster roster.json --roster-sha256 "$ROSTER_SHA" --spool "$SPOOL" --dates 2031-03-03,2031-03-05 --raw-dir "$RAW_DIR"
+```
+
+`--dates` is a comma list of 1 to 31 distinct real, zero-padded dates. Document
+hashes and date syntax are checked before login. The roster path is relative to the
+owner root, or an absolute path within it. One NativeSession holds the existing
+account lease for the run. Each date makes one `student.day.groups` request with
+`std_ymd` and no group parameter, scoped to the roster's first student and that date.
+Both admission authorization and exact operation-contract checks precede every
+request. `--max-requests` is a run-wide budget, defaulting to the number of dates.
+The existing optional raw recorder stores each answer, including malformed pages,
+under that first student's raw partition before parsing.
+
+Stdout is one JSON object with `dates`: each entry has `date`, `status` (`published`,
+`refused`, `not_run`), `code` (null unless refused), `rows`, `stored`, `outside_roster`,
+`cut_fields` and `rows_before`. A refused date stops the run with exit code 2;
+earlier dates stay published. No names, record texts or credential values are reported.
+Both private type directories are created before reading the first date, including
+when its page or date scope refuses. Complete empty pages publish zero coverage.
+The parser verifies the date, teacher, all-groups selection, closing document, table
+columns and contiguous zero-based handler ordinals. It reads previous texts from
+readonly textareas and the previous key from `openHomeWorkRate`, never a second request.
+
+Offline replay: `academy-capture replay --family dailyrecord --raw-dir "$RAW_DIR"
+--students "$STUDENTS" --identity "$IDENTITY" --spool "$NEW_SPOOL" --dates 2031-03-03,2031-03-05`.
+It needs neither a paper form nor `--no-detail`, uses the first roster student's raw
+partition, verifies each matched body's size and digest, and preserves its recorded
+read second. The parser and date publisher are the same as capture's.
+
+The publisher holds `<spool>/.lesson-record.lock` from reading existing partitions
+through both renames. It validates old types, keys and observation times; stages and
+reads back both candidates; checks the four source capacities for each type; and
+renames rows before coverage. Existing lines of other dates retain their bytes.
+An I/O failure between renames can leave older coverage, as rule 6 describes.
+There is no multi-file transaction or automatic retention policy.
 
 One line is one JSON object with its members sorted and no space, as the other families write.
 

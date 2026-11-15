@@ -53,3 +53,11 @@ Synthetic checks are in `crates/edu-academy-sources/tests/account_lock.rs` and
 reverse exclusion, drop/process-death release, unchanged shared inode/size/mtime,
 and missing/nonregular/unconfigured refusals. All files are disposable fixtures;
 no production lock or LMS endpoint is used.
+
+The capture family `dailyrecord` uses the same NativeSession and Recorder as the
+textbook and DailyTest families. Its single lease covers every date's sequential
+read and publication; no per-date session or separate account lock is opened.
+The spool's `.lesson-record.lock` protects only local partition replacement and
+never substitutes for the account lease. An invented in-memory transport test in
+`dailyrecord_tests.rs` verifies one login for three dates, shared-lock exclusion
+until session drop, and source-only raw recording.

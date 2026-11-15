@@ -45,6 +45,8 @@ struct Parameters {
 }
 #[derive(Deserialize)]
 struct Entry {
+    #[serde(default)]
+    observed_at: Option<u64>,
     sequence: u64,
     operation: String,
     parameters: Parameters,
@@ -69,8 +71,12 @@ struct ReplayPort<'a> {
     client: http::Client<Saved>,
     answered: usize,
     missing: Option<String>,
+    observed_at: Option<u64>,
 }
 impl ReadPort for ReplayPort<'_> {
+    fn observed_at(&self) -> Option<u64> {
+        self.observed_at
+    }
     fn transport_admission(&self) -> &TransportAdmission {
         self.admission
     }
@@ -99,6 +105,7 @@ impl ReadPort for ReplayPort<'_> {
         if bytes.len() != entry.byte_count || hash(&bytes) != entry.sha256 {
             return Err(fail("replay_body_digest_mismatch"));
         }
+        self.observed_at = entry.observed_at;
         self.client.transport.response = Some(Response {
             status: entry.http_status,
             headers: vec![],
@@ -139,6 +146,7 @@ pub fn run(args: impl Iterator<Item = String>, runtime: &dyn Runtime) -> Result<
             "--max-requests",
             "--date",
             "--family",
+            "--dates",
         ]
         .contains(&k.as_str())
             || values
@@ -157,8 +165,12 @@ pub fn run(args: impl Iterator<Item = String>, runtime: &dyn Runtime) -> Result<
     let family = match values.get("--family").map(String::as_str) {
         None | Some("textbook") => capture::Family::Textbook,
         Some("dailytest") => capture::Family::DailyTest,
+        Some("dailyrecord") => return run_dailyrecord(&values, no_detail, runtime),
         Some(_) => return Err(fail("replay_input_invalid")),
     };
+    if values.contains_key("--dates") {
+        return Err(fail("replay_input_invalid"));
+    }
     let daily = family == capture::Family::DailyTest;
     // The family `dailytest` has no form pin, no detail and no paper search.
     if daily && (no_detail || values.contains_key("--paper-form")) {
@@ -255,6 +267,7 @@ pub fn run(args: impl Iterator<Item = String>, runtime: &dyn Runtime) -> Result<
                 || !capture::contracts_for(&[
                     capture::Family::Textbook,
                     capture::Family::DailyTest,
+                    capture::Family::DailyRecord,
                 ])
                 .iter()
                 .any(|op| op.id == entry.operation)
@@ -278,6 +291,7 @@ pub fn run(args: impl Iterator<Item = String>, runtime: &dyn Runtime) -> Result<
             client,
             answered: 0,
             missing: None,
+            observed_at: None,
         };
         let single = Roster {
             students: vec![Student {
@@ -298,4 +312,109 @@ pub fn run(args: impl Iterator<Item = String>, runtime: &dyn Runtime) -> Result<
         reports.push(r);
     }
     Ok(json!({"students":reports}))
+}
+
+fn run_dailyrecord(
+    values: &HashMap<String, String>,
+    no_detail: bool,
+    runtime: &dyn Runtime,
+) -> Result<Value> {
+    use crate::{dailyrecord, student_course::DAY_NS};
+    if no_detail || values.contains_key("--paper-form") || values.contains_key("--date") {
+        return Err(fail("replay_input_invalid"));
+    }
+    let get = |k: &str| {
+        values
+            .get(k)
+            .cloned()
+            .ok_or_else(|| fail("replay_input_invalid"))
+    };
+    let dates = dailyrecord::dates(&get("--dates")?)?;
+    let options = dailyrecord::Options {
+        max_requests: values
+            .get("--max-requests")
+            .map(|s| s.parse())
+            .transpose()
+            .map_err(|_| fail("replay_input_invalid"))?
+            .unwrap_or(dates.len()),
+        dates,
+        spool: get("--spool")?.into(),
+        raw_dir: None,
+    };
+    let identity: Identity = serde_json::from_slice(&read(
+        Path::new(&get("--identity")?),
+        1_048_576,
+        "replay_input_invalid",
+    )?)
+    .map_err(|_| fail("replay_input_invalid"))?;
+    let students: Vec<Student> = serde_json::from_slice(&read(
+        Path::new(&get("--students")?),
+        1_048_576,
+        "replay_input_invalid",
+    )?)
+    .map_err(|_| fail("replay_input_invalid"))?;
+    let admission = TransportAdmission {
+        schema_version: "academy.transport-admission/1".into(),
+        owner_id: "offline-replay".into(),
+        teacher_id: identity.teacher_source_key.clone(),
+        teacher_label: identity.teacher_label.clone(),
+        college_id: identity.college_source_key.clone(),
+        allowed_from: options.dates.iter().min().expect("dates").clone(),
+        allowed_through: options.dates.iter().max().expect("dates").clone(),
+        student_ids: students.iter().map(|s| s.student_id.clone()).collect(),
+        source_namespaces: vec![DAY_NS.into()],
+        operations: capture::contracts_for(&[capture::Family::DailyRecord]),
+    };
+    dailyrecord::preflight(&admission, &students, &options)?;
+    let raw_root = fs::canonicalize(get("--raw-dir")?).map_err(|_| fail("replay_index_refused"))?;
+    let parent = options
+        .spool
+        .parent()
+        .and_then(|p| fs::canonicalize(p).ok())
+        .ok_or_else(|| fail("replay_spool_refused"))?;
+    if parent.starts_with(&raw_root) {
+        return Err(fail("replay_spool_refused"));
+    }
+    let dir = raw_root.join(&students[0].student_id);
+    let bytes = read(&dir.join("index.jsonl"), 16_777_216, "replay_index_refused")?;
+    let text = std::str::from_utf8(&bytes).map_err(|_| fail("replay_index_refused"))?;
+    let mut entries = vec![];
+    for (n, line) in text.lines().enumerate() {
+        let entry: Entry = serde_json::from_str(line).map_err(|_| fail("replay_index_refused"))?;
+        if entry.sequence != (n + 1) as u64
+            || !(100..=599).contains(&entry.http_status)
+            || !capture::contracts_for(&[
+                capture::Family::Textbook,
+                capture::Family::DailyTest,
+                capture::Family::DailyRecord,
+            ])
+            .iter()
+            .any(|op| op.id == entry.operation)
+            || (entry.operation == dailyrecord::OPERATION && entry.observed_at.is_none())
+        {
+            return Err(fail("replay_index_refused"));
+        }
+        entries.push(entry);
+    }
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&options.spool)
+        .map_err(|_| fail("replay_spool_refused"))?;
+    let principal = obj(&[
+        ("teacherKey", identity.teacher_source_key.as_str().into()),
+        ("teacherLabel", identity.teacher_label.as_str().into()),
+        ("collegeKey", identity.college_source_key.as_str().into()),
+    ]);
+    let mut client = http::Client::new(principal, Saved { response: None })?;
+    client.authenticated = true;
+    let mut port = ReplayPort {
+        admission: &admission,
+        entries,
+        dir,
+        client,
+        answered: 0,
+        missing: None,
+        observed_at: None,
+    };
+    Ok(json!({"dates":dailyrecord::run(&mut port,&students,&options,runtime)}))
 }

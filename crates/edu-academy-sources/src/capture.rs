@@ -41,12 +41,14 @@ pub fn contracts() -> Vec<OperationContract> {
 pub enum Family {
     Textbook,
     DailyTest,
+    DailyRecord,
 }
 impl Family {
     pub fn parse(name: &str) -> Option<Self> {
         match name {
             "textbook" => Some(Self::Textbook),
             "dailytest" => Some(Self::DailyTest),
+            "dailyrecord" => Some(Self::DailyRecord),
             _ => None,
         }
     }
@@ -54,6 +56,7 @@ impl Family {
         match self {
             Self::Textbook => OPERATIONS,
             Self::DailyTest => crate::dailytest::OPERATIONS,
+            Self::DailyRecord => &[crate::dailyrecord::OPERATION],
         }
     }
 }
@@ -471,7 +474,7 @@ fn read_student<P: ReadPort>(
     }
     Ok((books, sections))
 }
-fn private_dir(path: &Path) -> std::io::Result<()> {
+pub(crate) fn private_dir(path: &Path) -> std::io::Result<()> {
     if !path.exists() {
         if let Some(parent) = path.parent()
             && !parent.exists()
@@ -562,6 +565,7 @@ pub struct Recorder<'a> {
     dir: Option<PathBuf>,
     pending: Rc<RefCell<Option<Pending>>>,
     mismatch: Rc<Cell<bool>>,
+    observed_at: Rc<Cell<Option<u64>>>,
     runtime: &'a dyn Runtime,
 }
 struct Pending {
@@ -583,6 +587,7 @@ impl<'a> Recorder<'a> {
             dir,
             pending: Rc::default(),
             mismatch: Rc::new(Cell::new(false)),
+            observed_at: Rc::new(Cell::new(None)),
             runtime,
         }
     }
@@ -615,6 +620,11 @@ impl<T: crate::http::Transport> crate::http::Transport for RecordingTransport<'_
             return Err(fail("capture_raw_request_mismatch"));
         }
         let response = self.inner.dispatch(request)?;
+        if pending.is_some() {
+            self.recorder
+                .observed_at
+                .set(Some(self.recorder.runtime.epoch_ms() / 1000));
+        }
         if let Some(dir) = &self.recorder.dir
             && let Some(p) = pending.as_ref()
         {
@@ -624,7 +634,7 @@ impl<T: crate::http::Transport> crate::http::Transport for RecordingTransport<'_
                 &p.operation,
                 request,
                 &response,
-                self.recorder.runtime,
+                self.recorder.observed_at.get().expect("source read second"),
             )
             .map_err(|_| fail("capture_raw_failed"))?;
         }
@@ -632,6 +642,9 @@ impl<T: crate::http::Transport> crate::http::Transport for RecordingTransport<'_
     }
 }
 impl<P: ReadPort> ReadPort for RecordingPort<'_, P> {
+    fn observed_at(&self) -> Option<u64> {
+        self.recorder.observed_at.get()
+    }
     fn transport_admission(&self) -> &TransportAdmission {
         self.inner.transport_admission()
     }
@@ -641,6 +654,7 @@ impl<P: ReadPort> ReadPort for RecordingPort<'_, P> {
         operation: &str,
         arguments: &[(String, String)],
     ) -> Result<crate::http::Response> {
+        self.recorder.observed_at.set(None);
         let request = self
             .inner
             .transport_admission()
@@ -678,7 +692,7 @@ fn save_raw(
     operation: &str,
     request: &crate::http::Request,
     response: &crate::http::Response,
-    runtime: &dyn Runtime,
+    observed_at: u64,
 ) -> std::io::Result<()> {
     validate_raw_root(dir).map_err(|_| std::io::Error::other("raw_root_refused"))?;
     let partition = dir.join(student_id);
@@ -733,7 +747,7 @@ fn save_raw(
     body.write_all(&response.bytes)?;
     body.sync_all()?;
     fs::rename(&staged.temporary, &staged.destination)?;
-    let entry = json!({"sequence":sequence,"operation":operation,"parameters":{"query":request.query,"body":request.body},"http_status":response.status,"byte_count":response.bytes.len(),"sha256":crate::data::hash(&response.bytes),"observed_at":runtime.epoch_ms()/1000});
+    let entry = json!({"sequence":sequence,"operation":operation,"parameters":{"query":request.query,"body":request.body},"http_status":response.status,"byte_count":response.bytes.len(),"sha256":crate::data::hash(&response.bytes),"observed_at":observed_at});
     serde_json::to_writer(&mut index, &entry)?;
     index.write_all(b"\n")?;
     index.sync_all()?;

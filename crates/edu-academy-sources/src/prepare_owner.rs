@@ -282,6 +282,12 @@ fn prepare_with(
         ],
         operations: capture::contracts_for(families),
     };
+    let mut admission = admission;
+    if families.contains(&capture::Family::DailyRecord) {
+        admission
+            .source_namespaces
+            .push(crate::student_course::DAY_NS.into());
+    }
     let roster = Roster {
         students,
         paper_form,
@@ -300,6 +306,19 @@ fn prepare_with(
     if families.contains(&capture::Family::DailyTest) {
         crate::dailytest::preflight(&admission, &roster.students, &options)
             .map_err(|_| refused("prepare_scope_refused"))?;
+    }
+    if families.contains(&capture::Family::DailyRecord) {
+        crate::dailyrecord::preflight(
+            &admission,
+            &roster.students,
+            &crate::dailyrecord::Options {
+                dates: vec![input.allowed_from.clone()],
+                max_requests: 1,
+                spool: options.spool.clone(),
+                raw_dir: None,
+            },
+        )
+        .map_err(|_| refused("prepare_scope_refused"))?;
     }
     let student_count = roster.students.len();
     let docs = [

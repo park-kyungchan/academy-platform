@@ -1990,8 +1990,21 @@ pub(crate) fn validate_headers(row: scraper::ElementRef<'_>) -> Result<()> {
     }
     Ok(())
 }
+pub(crate) fn capture_headers(table: scraper::ElementRef<'_>) -> Result<()> {
+    table_headers(table, true)
+}
 fn validate_table_headers(table: scraper::ElementRef<'_>) -> Result<()> {
-    let headers = dom::select(table, "thead > tr");
+    table_headers(table, false)
+}
+fn table_headers(table: scraper::ElementRef<'_>, capture: bool) -> Result<()> {
+    let headers = if capture {
+        dom::select(table, "tr")
+            .into_iter()
+            .filter(|r| dom::closest(*r, "table").is_some_and(|t| t.id() == table.id()))
+            .collect()
+    } else {
+        dom::select(table, "thead > tr")
+    };
     let expected = [
         vec![
             ("이름", 1, 2),
@@ -2026,17 +2039,21 @@ fn validate_table_headers(table: scraper::ElementRef<'_>) -> Result<()> {
             return Err(err("day_record_column_contract_rejected"));
         }
         for (c, (label, colspan, rowspan)) in cells.iter().zip(&expected[i]) {
-            if dom::content(*c)
+            let text = dom::content(*c)
                 .split_whitespace()
                 .collect::<Vec<_>>()
-                .join(" ")
-                != *label
-                || c.value()
-                    .attr("colspan")
-                    .unwrap_or("1")
-                    .parse::<u32>()
-                    .unwrap_or(1)
-                    != *colspan
+                .join(" ");
+            if (if capture {
+                text.replace(' ', "") != label.replace(' ', "")
+            } else {
+                text != *label
+            }) || c
+                .value()
+                .attr("colspan")
+                .unwrap_or("1")
+                .parse::<u32>()
+                .unwrap_or(1)
+                != *colspan
                 || c.value()
                     .attr("rowspan")
                     .unwrap_or("1")
@@ -2079,6 +2096,12 @@ fn signatures() -> Vec<(&'static str, Vec<&'static str>)> {
     ]
 }
 pub(crate) fn bind_row(doc: &Document, row: scraper::ElementRef<'_>) -> Result<(Js, Js)> {
+    bind_row_mode(doc, row, false)
+}
+pub(crate) fn bind_capture_row(doc: &Document, row: scraper::ElementRef<'_>) -> Result<(Js, Js)> {
+    bind_row_mode(doc, row, true)
+}
+fn bind_row_mode(doc: &Document, row: scraper::ElementRef<'_>, capture: bool) -> Result<(Js, Js)> {
     let cells = row
         .children()
         .filter_map(scraper::ElementRef::wrap)
@@ -2114,7 +2137,12 @@ pub(crate) fn bind_row(doc: &Document, row: scraper::ElementRef<'_>) -> Result<(
         r"^\s*(?:javascript:[ \t]*|return[ \t]+)?([A-Za-z_$][\w$]*)\s*\(([\s\S]*)\)\s*;?\s*$",
     )
     .unwrap();
-    let lit_re = regex::Regex::new(r##"^\s*(?:([0-9]+)|'([0-9]+)'|"([0-9]+)")\s*$"##).unwrap();
+    let lit_re = regex::Regex::new(if capture {
+        r##"^\s*(?:([0-9]+)|'([0-9]*)'|"([0-9]*)")\s*$"##
+    } else {
+        r##"^\s*(?:([0-9]+)|'([0-9]+)'|"([0-9]+)")\s*$"##
+    })
+    .unwrap();
     let mut calls = HashMap::<String, Js>::new();
     let mut fields = obj(&[]);
     for e in dom::select(row, "[onchange],[onfocusout],[onclick]") {
@@ -2138,7 +2166,7 @@ pub(crate) fn bind_row(doc: &Document, row: scraper::ElementRef<'_>) -> Result<(
                 .iter()
                 .position(|cell| cell.id() == e.id() || e.ancestors().any(|a| a.id() == cell.id()))
                 .ok_or_else(|| err("requested_row_binding_unresolved"))?;
-            if !columns[column].contains(&handler) {
+            if columns.get(column).is_none_or(|c| !c.contains(&handler)) {
                 return Err(err("requested_row_binding_unresolved"));
             }
             let expected_event = if handler == "onAttn" {
@@ -2176,7 +2204,8 @@ pub(crate) fn bind_row(doc: &Document, row: scraper::ElementRef<'_>) -> Result<(
                     .unwrap()
                     .as_str();
                 if value.len() > 128
-                    || literal.get(1).is_some()
+                    || !capture
+                        && literal.get(1).is_some()
                         && (value.len() > 16
                             || (value.len() > 1 && value.starts_with('0'))
                             || (value.len() == 16 && value > "9007199254740991"))
@@ -2212,7 +2241,7 @@ pub(crate) fn bind_row(doc: &Document, row: scraper::ElementRef<'_>) -> Result<(
         for key in ["i", "course_seq", "stu_pri_no", "record_seq", "cm_seq"] {
             let s = string(b.get(key));
             if b.get(key) != canonical.get(key)
-                || (key != "i" && !s.bytes().any(|c| matches!(c, b'1'..=b'9')))
+                || (!capture && key != "i" && !s.bytes().any(|c| matches!(c, b'1'..=b'9')))
             {
                 return Err(err("requested_row_binding_unresolved"));
             }
@@ -2247,14 +2276,22 @@ pub(crate) fn bind_row(doc: &Document, row: scraper::ElementRef<'_>) -> Result<(
             return Err(err("requested_row_binding_unresolved"));
         }
     }
-    if let Some(p) = calls.get("openHomeWorkRate")
+    if !capture
+        && let Some(p) = calls.get("openHomeWorkRate")
         && ["record_seq", "cm_seq"]
             .iter()
             .any(|k| !string(p.get(k)).bytes().any(|c| matches!(c, b'1'..=b'9')))
     {
         return Err(err("requested_row_binding_unresolved"));
     }
-    Ok((fields, canonical.clone()))
+    let mut binding = canonical.clone();
+    if capture && let Some(previous) = calls.get("openHomeWorkRate") {
+        if previous.get("cm_seq") != canonical.get("cm_seq") {
+            return Err(err("requested_row_binding_unresolved"));
+        }
+        binding.set("previous_record_key", previous.get("record_seq").clone());
+    }
+    Ok((fields, binding))
 }
 // XML 1.0 names and attribute grammar, checked before record extraction.
 // Attribute values are quoted; `>` inside a quoted value is ordinary data.

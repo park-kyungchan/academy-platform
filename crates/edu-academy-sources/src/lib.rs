@@ -27,3 +27,5 @@ pub mod textbook;
 pub mod textbook_index;
 
 pub mod replay;
+
+pub mod dailyrecord;
