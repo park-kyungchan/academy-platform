@@ -175,7 +175,7 @@ textbook types carry no student name: a student is identified by id only.
 ## The lesson record's lines (contract of the family `dailyrecord`)
 
 No program writes these lines yet. The read schema (version 2) declares the two types and
-their views, and `crates/edu-academy-ontology/tests/academy_read.rs` (`b1` to `b7`) runs the
+their views, and `crates/edu-academy-ontology/tests/academy_read.rs` (`b1` to `b10`) runs the
 contract on invented lines; the capture family that writes them comes with its own tests and
 pins the two lines of `b7`.
 
@@ -186,57 +186,103 @@ page of all groups, which is one course membership of one student on one lesson 
 `student_id`, `membership_key` and `lesson_date`. The record key is not part of it: it is a
 small number that names a record only together with the membership key, and a row exists
 before any field of it is saved. Every member is on every line except `record_key` and
-`previous_record_key`; a text the page shows empty is `""` (a member left out renders
-`(missing)`, it does not fail the source).
+`previous_record_key`; a text the page shows empty is `""`. The numbers (`observed_at`,
+`row_ordinal`, `cut_fields`, the counts of `lesson_day`) are JSON numbers and every other
+member is a string. The engine fails the whole source on a line without one of the three key
+members (`key_unresolved`) and on a member of the wrong JSON type (`wrong_value_type`). It
+accepts a line without another member and renders that cell `(missing)`: a writer never
+leaves one out.
 
-| Member | Value |
-| --- | --- |
-| `type`, `observed_at` | `lesson_record`; the time the page was read, in seconds |
-| `source_namespace` | `academy.lms.dayrecord`, as the ledger's `save_attempt` spells it |
-| `student_id`, `student_name` | The student's id and the name the row showed |
-| `lesson_date` | `YYYY-MM-DD` |
-| `row_ordinal` | The row's place on the page, from 0 |
-| `group_id`, `course_id`, `membership_key` | The row's keys, as text |
-| `course_label` | The course's name as the row showed it |
-| `record_key` | The row's record key; left out while the LMS shows none |
-| `attendance`, `attendance_label` | The selected option's value and its text |
-| `progress`, `homework`, `lesson_memo` | The row's three texts |
-| `daily_test_assessment` | The value of the row's hidden control |
-| `student_memo` | The memo the LMS keeps per student and course, shown on the row |
-| `previous_record_key` | Record key of the previous lesson of the membership; left out when the row shows none |
-| `previous_lesson_date_literal`, `previous_progress`, `previous_homework`, `previous_lesson_memo` | The previous lesson as the row showed it; `""` when it showed none |
-| `previous_homework_assessment` | The value of the row's hidden control: it assesses the homework of the record `previous_record_key`, and this line is its only home in the store |
-| `cut_fields` | How many of the row's texts were cut |
+| Member | Value | Bound |
+| --- | --- | --- |
+| `type`, `observed_at` | `lesson_record`; the time the page was read, in seconds | |
+| `source_namespace` | `academy.lms.dayrecord`, as the ledger's `save_attempt` spells it | 64 |
+| `student_id` | The student's id | 1 to 32 digits |
+| `student_name` | The name the row showed | 200 |
+| `lesson_date` | `YYYY-MM-DD` | |
+| `row_ordinal` | The row's place on the page, from 0 | |
+| `membership_key` | The row's course membership | 1 to 32 digits |
+| `group_id`, `course_id` | The row's other keys, as text | 32 |
+| `course_label` | The course's name as the row showed it | 200 |
+| `record_key` | The row's record key; left out while the LMS shows none | 32 |
+| `attendance`, `attendance_label` | The selected option's value and its text | 16, 64 |
+| `progress`, `homework`, `lesson_memo` | The row's three texts | 6000 each |
+| `daily_test_assessment` | The value of the row's hidden control | 16 |
+| `student_memo` | The memo the LMS keeps per student and course, shown on the row | 6000 |
+| `previous_record_key` | Record key of the previous lesson of the membership; left out when the row shows none | 32 |
+| `previous_lesson_date_literal` | The previous lesson's date as the row showed it; `""` when it showed none | 64 |
+| `previous_progress`, `previous_homework`, `previous_lesson_memo` | The previous lesson's texts as the row showed them | 6000 each |
+| `previous_homework_assessment` | The value of the row's hidden control: it assesses the homework of the record `previous_record_key`, and this line is its only home in the store | 16 |
+| `cut_fields` | How many of the row's members were cut (rule 4) | |
 
 `<spool>/lesson_day/<yyyy>.jsonl`, type `lesson_day`: one captured date. Key: `lesson_date`.
 Members: `type`, `observed_at`, `source_namespace`, `lesson_date`, `group_count`, `row_count`
 (rows the page held), `stored_count` (rows written as `lesson_record`),
-`outside_roster_count` (rows of students the roster does not name: counted, not stored),
-`cut_fields`. A date without such a line was never captured; a line that counts no row is a
-captured date that held none.
+`outside_roster_count` (rows of students the roster does not hold: counted, not stored),
+`cut_fields`. A line that counts no row is a captured date that held none. A date with
+neither a line nor a row was never captured. Rows without a line, or rows with a later
+`observed_at` than their date's line, are a capture that stopped between the two files
+(rule 6): the rows are the page's rows, and the counts are missing or those of the capture
+before.
+
+Both directories exist, mode 0700, before an index run under version 2: a source whose
+directory is missing fails with `glob_root_missing`, the run ends `source_failed` with exit
+code 2, and the other sources are still indexed. The writer makes them.
 
 Rules a writer of these two files keeps. The engine fails the WHOLE source, for every date,
-on one refused line, so each rule is checked before a file is replaced:
+on one refused line, and it retracts every row of a file that is gone, so each rule is
+checked before a file is replaced:
 
 1. A file is replaced by rename, and the read of the old file, the build of the new one and
    the rename happen under one lock of the spool. A capture of a date replaces that date's
-   lines and keeps every other line of the file byte for byte.
+   lines and keeps every other line of the file byte for byte. A file is never removed and
+   never left empty while it held a line of another date: the engine retracts the rows of
+   an emptied or absent file with status `ok`. A file holds lines of its own type only
+   (`record_type_mismatch`).
 2. No line replaces a line of the same key with a smaller `observed_at`
-   (`record_older_than_head`).
+   (`record_older_than_head`), and no line carries a time later than the clock
+   (`record_time_in_future`).
 3. No key is on two lines (`duplicate_key`). Two rows of one key on a page are one line when
    every member but `row_ordinal` is equal, and a refusal of the date when they differ.
-4. A text is at most 6000 bytes: a longer one is cut at a character boundary so that it
-   ends with ` [cut: <n> bytes in the LMS]` and still fits, and is counted in `cut_fields`.
-   A line is under 65,536 bytes.
+   `student_id` and `membership_key` are 1 to 32 ASCII digits each, so the key's separator
+   `|` is never inside a part; a row whose id or membership is anything else refuses the
+   date.
+4. Every string member has the bound of the table, in bytes, and the writer measures a
+   string in the form the line holds it: the quote mark, the backslash and the control
+   characters escaped, every other character as UTF-8. The engine checks the unescaped
+   value against the same number, and a line and the observation the engine makes of it
+   against 65,536 bytes, so 6000 quote marks pass the first check and fail the second.
+   - The seven texts, the two names (`student_name`, `course_label`) and the two labels
+     (`attendance_label`, `previous_lesson_date_literal`): a longer value is cut at a
+     character boundary so that it ends with ` [cut: <n> bytes in the LMS]` (`n`: the bytes
+     of the value as the page gave it) and fits its bound, and is counted in `cut_fields`.
+   - The keys and the codes (`student_id`, `membership_key`, `group_id`, `course_id`,
+     `record_key`, `previous_record_key`, `attendance`, `daily_test_assessment`,
+     `previous_homework_assessment`) are never cut: a value over its bound refuses the date.
+   With every string at its bound a line has about 43,300 bytes (`b8`).
 5. An unreadable old file, a page that is not the asked date's page, or a page that is cut
    leaves both files as they were and ends with a refusal code. A page that is the asked
    date's page with fewer rows than before, or with none, is published as it is.
 6. The `lesson_day` file is replaced after the `lesson_record` file, so a run that dies
    between the two leaves a coverage that is older than the rows, never newer.
+7. The engine reads, in one run of one source, at most 200 files, 50,000 lines and 64 MiB of
+   text, and no file over 16 MiB (`too_many_files`, `too_many_records`,
+   `source_text_too_large`, `file_too_large`). Before the rename the writer counts the
+   type's files as they will stand: over 190 files, 45,000 lines, 48 MiB in all or 12 MiB
+   in the file it replaces, it refuses the date. What leaves the spool then is the owner's
+   decision: a month that leaves is retracted in the store, where its history stays.
 
-Views: `daily_records` (one date: every stored row in the page's order, with the course's
-name and the previous lesson's progress and homework), `daily_record` (one date and one student id: every
-member), `record_history` (one student id: the twelve newest rows, the newest date first) and `day_coverage` (one
-date: its `lesson_day`). A date is given with its dashes; any other spelling answers with no
-row. `lesson_record` carries the name its row showed, so the table of a date is where a
-reader takes a student's id from.
+Views. `daily_records` (one date): the rows in the page's order WITHOUT their texts (id,
+name, course, membership, attendance, daily test, the previous homework's rate and date),
+at most 200; it is where a reader takes a student's id from, because `lesson_record` carries
+the name its row showed and a view takes no name with Korean letters as an argument.
+`daily_record` (one date and one student id): every member of that student's rows.
+`record_history` (one student id and a date `since`): the rows from that date on, the
+newest date first and the page's order inside a date, at most 24. `day_coverage` (one date):
+its `lesson_day`. A date is given with its dashes; any other spelling answers with no row.
+A view that reaches its bound says so in its last row (`(+N more; limit L)`). Measured
+with 300-byte texts: `daily_record` of one row 2.2 kB, `daily_records` of 20 rows 2.2 kB,
+`record_history` of 24 rows 22 kB; a row with all seven texts at their bound is 43 kB.
+A table is for reading: a line break in a text renders as a space, and a text equal to one
+of the engine's marks (`(missing)`, a trailing ` (stale)`) cannot be told from the mark.
+The exact bytes of a member are read with the engine's `get` or `search`.

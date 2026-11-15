@@ -582,10 +582,11 @@ fn lesson_fill(env: &Env) {
         ],
     );
 }
-const DAY_HEAD: &str = "| Student id | Student | Course | Attendance | Progress | Homework | Lesson memo | Daily test | Previous homework rate | Previous date | Previous progress | Previous homework | Observed at |";
-const DAY_ADA: &str = "| 77001 | Ada Invented | Algebra A | Present | Unit 3 to p.40 | p.41-44 | line one line two \\| pipe | 2 | 3 | 02/28 | Unit 2 | p.30-33 | 1970-01-01T00:16:40Z |";
+const DAY_HEAD: &str = "| Student id | Student | Course | Membership | Attendance | Daily test | Previous homework rate | Previous date | Observed at |";
+const DAY_ADA: &str =
+    "| 77001 | Ada Invented | Algebra A | 50001 | Present | 2 | 3 | 02/28 | 1970-01-01T00:16:40Z |";
 const DAY_UNSAVED: &str =
-    "| 77002 | 가나다 | Algebra A | Present |  |  |  | 0 |  |  |  |  | 1970-01-01T00:16:40Z |";
+    "| 77002 | 가나다 | Algebra A | 50002 | Present | 0 |  |  | 1970-01-01T00:16:40Z |";
 
 #[test]
 fn b1_the_four_views_of_the_lesson_record() {
@@ -598,13 +599,13 @@ fn b1_the_four_views_of_the_lesson_record() {
         "{ans}"
     );
     assert_eq!(appended(source(&ans, "lesson_day")), [2, 0, 0, 0], "{ans}");
-    // One date: one row per membership in the page's order, with the previous
-    // lesson's progress and homework; a row with nothing saved has empty cells.
+    // One date: one row per membership in the page's order, without the texts;
+    // a row with nothing saved has empty cells.
     let (rows, day) = env.table(2000, "daily_records", json!({"lesson_date":"2031-03-03"}));
     assert_eq!(
         day,
         format!(
-            "<!-- ont:render daily_records lesson_date=2031-03-03 schema=academy_read@2 -->\n{DAY_HEAD}\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n{DAY_ADA}\n{DAY_UNSAVED}\n<!-- /ont:render -->"
+            "<!-- ont:render daily_records lesson_date=2031-03-03 schema=academy_read@2 -->\n{DAY_HEAD}\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n{DAY_ADA}\n{DAY_UNSAVED}\n<!-- /ont:render -->"
         )
     );
     assert_eq!(rows, 2);
@@ -629,9 +630,20 @@ fn b1_the_four_views_of_the_lesson_record() {
         full.contains("| 77001 | Ada Invented | Algebra A | 3 | 3 | 50001 | 41 | Y | Present | Unit 3 to p.40 | p.41-44 | line one line two \\| pipe | 2 | Invented memo | 40 | 02/28 | Unit 2 | p.30-33 |  | 3 | 0 | 1970-01-01T00:16:40Z |"),
         "{full}"
     );
-    // One student's records, the newest date first.
-    let (rows, history) = env.table(2000, "record_history", json!({"student_id":"77001"}));
+    // One student's records from a date on, the newest date first.
+    let (rows, history) = env.table(
+        2000,
+        "record_history",
+        json!({"student_id":"77001","since":"2031-03-01"}),
+    );
     assert_eq!(rows, 2);
+    let (rows, newest) = env.table(
+        2000,
+        "record_history",
+        json!({"student_id":"77001","since":"2031-03-04"}),
+    );
+    assert_eq!(rows, 1);
+    assert!(newest.contains("| 2031-03-05 |") && !newest.contains("| 2031-03-03 |"));
     assert!(
         history.contains("| 2031-03-05 | Algebra A | 50001 | 42 | Present |  |  |  | 0 | 2 | 1970-01-01T00:16:40Z |\n| 2031-03-03 | Algebra A | 50001 | 41 | Present | Unit 3 to p.40 | p.41-44 | line one line two \\| pipe | 2 | 3 | 1970-01-01T00:16:40Z |"),
         "{history}"
@@ -713,11 +725,15 @@ fn b3_a_recapture_retracts_the_row_the_page_no_longer_holds_and_keeps_other_date
     let (rows, day) = env.table(2100, "daily_records", json!({"lesson_date":"2031-03-03"}));
     assert_eq!(rows, 1);
     assert!(
-        day.contains("| 77001 | Ada Invented | Algebra A | Late |"),
+        day.contains("| 77001 | Ada Invented | Algebra A | 50001 | Late |"),
         "{day}"
     );
     assert!(day.contains("| 1970-01-01T00:25:00Z |"), "{day}");
-    let (rows, _) = env.table(2100, "record_history", json!({"student_id":"77002"}));
+    let (rows, _) = env.table(
+        2100,
+        "record_history",
+        json!({"student_id":"77002","since":"2031-01-01"}),
+    );
     assert_eq!(rows, 0);
     let (rows, later) = env.table(2100, "daily_records", json!({"lesson_date":"2031-03-05"}));
     assert_eq!(rows, 1);
@@ -878,6 +894,265 @@ fn b6_seven_texts_at_their_bound_are_indexed_and_one_byte_more_fails_the_source(
     }
 }
 
+const LESSON_TEXTS: [&str; 7] = [
+    "progress",
+    "homework",
+    "lesson_memo",
+    "student_memo",
+    "previous_progress",
+    "previous_homework",
+    "previous_lesson_memo",
+];
+/// The cause of the source `lesson_record` in an index run that must fail
+/// and append nothing.
+fn lesson_failure(env: &Env, now: u64) -> String {
+    let (code, ans) = env.index_code(now);
+    let failed = source(&ans, "lesson_record");
+    assert_ne!(code, 0, "{ans}");
+    assert_eq!(failed["status"], "source_failed", "{ans}");
+    assert_eq!(appended(failed), [0, 0, 0, 0], "{ans}");
+    failed["cause"].as_str().unwrap().to_string()
+}
+
+/// Rule 4 of the contract. Every string member is bounded, and a writer
+/// measures a string in the form the line holds it (quote mark, backslash and
+/// control characters escaped). A line whose strings all stand at their bounds
+/// is indexed; one byte more in a bounded member fails the whole source; and
+/// a text that keeps its 6000 bytes only before the escaping makes a line, or
+/// an observation, that the engine refuses whatever `max_bytes` says.
+#[test]
+fn b8_every_bound_of_a_line_and_the_serialized_form_a_writer_measures() {
+    let env = Env::new();
+    let [first, unsaved, second] = lesson_lines();
+    let bounds: [(&str, usize); 13] = [
+        ("student_name", 200),
+        ("course_label", 200),
+        ("attendance_label", 64),
+        ("previous_lesson_date_literal", 64),
+        ("student_id", 32),
+        ("membership_key", 32),
+        ("group_id", 32),
+        ("course_id", 32),
+        ("record_key", 32),
+        ("previous_record_key", 32),
+        ("attendance", 16),
+        ("daily_test_assessment", 16),
+        ("previous_homework_assessment", 16),
+    ];
+    // Every string member at its bound; the texts are quote marks, of which
+    // 3000 are 6000 bytes in the line.
+    let mut full = second.clone();
+    for name in LESSON_TEXTS {
+        full[name] = json!("\"".repeat(3000));
+    }
+    for (name, bytes) in bounds {
+        full[name] = json!("7".repeat(bytes));
+    }
+    let bytes = full.to_string().len();
+    assert!((43_000..44_000).contains(&bytes), "{bytes}");
+    env.put(
+        "lesson_record",
+        "2031-03",
+        &[first.clone(), unsaved.clone(), full],
+    );
+    let ans = env.index(2000);
+    assert_eq!(
+        appended(source(&ans, "lesson_record")),
+        [3, 0, 0, 0],
+        "{ans}"
+    );
+    // One byte more in a member that is no text fails every date.
+    for (name, bytes) in bounds {
+        let over = with(
+            second.clone(),
+            json!({"observed_at":1100, name: "7".repeat(bytes + 1)}),
+        );
+        env.put(
+            "lesson_record",
+            "2031-03",
+            &[first.clone(), unsaved.clone(), over],
+        );
+        assert_eq!(
+            lesson_failure(&env, 2100),
+            format!("schema_violation:value_constraint_violation@/fields/{name}")
+        );
+    }
+    // 6000 quote marks pass `max_bytes` and are 12000 bytes in the line.
+    let mut escaped = with(second.clone(), json!({"observed_at":1100}));
+    for name in LESSON_TEXTS {
+        escaped[name] = json!("\"".repeat(6000));
+    }
+    assert!(escaped.to_string().len() > 65_536);
+    env.put(
+        "lesson_record",
+        "2031-03",
+        &[first.clone(), unsaved.clone(), escaped],
+    );
+    assert!(lesson_failure(&env, 2100).starts_with("record_line_too_long@"));
+    // 4600 line breaks in each text: the line is under 65,536 bytes and the
+    // observation the engine makes of it is not.
+    let mut breaks = with(second, json!({"observed_at":1100}));
+    for name in LESSON_TEXTS {
+        breaks[name] = json!("\n".repeat(4600));
+    }
+    assert!(breaks.to_string().len() < 65_536);
+    env.put("lesson_record", "2031-03", &[first, unsaved, breaks]);
+    assert!(lesson_failure(&env, 2100).starts_with("observation_too_large@"));
+}
+
+/// The key and the types of the members. A line without one of the three key
+/// members, with a key part that is empty, holds the separator, holds a
+/// letter or is longer than 32 digits, or with a number written as a string,
+/// fails the whole source. A line without another member is indexed and
+/// renders `(missing)`, which a writer never produces.
+#[test]
+fn b9_a_malformed_key_or_type_fails_the_source_and_a_left_out_member_renders_missing() {
+    let env = Env::new();
+    lesson_fill(&env);
+    env.index(2000);
+    let [first, unsaved, second] = lesson_lines();
+    let later = with(second, json!({"observed_at":1100}));
+    let put = |line: Value| {
+        env.put(
+            "lesson_record",
+            "2031-03",
+            &[first.clone(), unsaved.clone(), line],
+        );
+    };
+    for member in ["student_id", "membership_key", "lesson_date"] {
+        let mut line = later.clone();
+        line.as_object_mut().unwrap().remove(member);
+        put(line);
+        assert!(
+            lesson_failure(&env, 2100).starts_with("key_unresolved@"),
+            "{member}"
+        );
+    }
+    for (member, value) in [
+        ("student_id", String::new()),
+        ("student_id", "1|2".to_string()),
+        ("student_id", "7".repeat(33)),
+        ("membership_key", "2|3".to_string()),
+        ("membership_key", "5000a".to_string()),
+    ] {
+        put(with(later.clone(), json!({ member: value.clone() })));
+        assert_eq!(
+            lesson_failure(&env, 2100),
+            format!("schema_violation:value_constraint_violation@/fields/{member}"),
+            "{value}"
+        );
+    }
+    put(with(later.clone(), json!({"row_ordinal":"0"})));
+    assert_eq!(
+        lesson_failure(&env, 2100),
+        "schema_violation:wrong_value_type@/fields/row_ordinal"
+    );
+    let mut partial = later;
+    partial.as_object_mut().unwrap().remove("progress");
+    put(partial);
+    env.index(2100);
+    let (rows, one) = env.table(
+        2100,
+        "daily_record",
+        json!({"lesson_date":"2031-03-05","student_id":"77001"}),
+    );
+    assert_eq!(rows, 1);
+    assert_eq!(one.matches("(missing)").count(), 1, "{one}");
+}
+
+/// The files and the history's bound. A month file that is emptied or gone
+/// retracts its rows with status `ok`, so a writer never removes one. A time
+/// later than the index run and a line of the other type fail the source.
+/// The history shows that it reached its bound, and inside a date it keeps
+/// the page's order, not the order of the membership keys as text.
+#[test]
+fn b10_a_month_file_that_is_emptied_or_gone_retracts_and_the_history_shows_its_bound() {
+    let env = Env::new();
+    lesson_fill(&env);
+    env.index(2000);
+    env.put("lesson_record", "2031-03", &[]);
+    let ans = env.index(2100);
+    assert_eq!(
+        appended(source(&ans, "lesson_record")),
+        [0, 0, 0, 3],
+        "{ans}"
+    );
+    let (rows, _) = env.table(2100, "daily_records", json!({"lesson_date":"2031-03-03"}));
+    assert_eq!(rows, 0);
+    let back: Vec<Value> = lesson_lines()
+        .into_iter()
+        .map(|line| with(line, json!({"observed_at":2150})))
+        .collect();
+    env.put("lesson_record", "2031-03", &back);
+    let ans = env.index(2200);
+    assert_eq!(
+        appended(source(&ans, "lesson_record")),
+        [3, 0, 0, 0],
+        "{ans}"
+    );
+    fs::remove_file(env.partition("lesson_record", "2031-03")).unwrap();
+    let ans = env.index(2300);
+    assert_eq!(
+        appended(source(&ans, "lesson_record")),
+        [0, 0, 0, 3],
+        "{ans}"
+    );
+    let [first, _, _] = lesson_lines();
+    env.put(
+        "lesson_record",
+        "2031-03",
+        &[with(first.clone(), json!({"observed_at":9000}))],
+    );
+    assert!(lesson_failure(&env, 2400).starts_with("record_time_in_future@"));
+    env.put(
+        "lesson_record",
+        "2031-03",
+        &[
+            with(first, json!({"observed_at":2350})),
+            lesson_day("2031-03-03", 1, 2350),
+        ],
+    );
+    assert!(lesson_failure(&env, 2400).starts_with("record_type_mismatch@"));
+    fs::remove_file(env.partition("lesson_record", "2031-03")).unwrap();
+    // 24 dates of one membership and, on the newest, a second membership whose
+    // key sorts last as text and stands first on the page: 25 rows.
+    let mut rows: Vec<Value> = (1..=24)
+        .map(|day| {
+            lesson(
+                "77003",
+                "Bo Invented",
+                "50003",
+                &format!("2031-05-{day:02}"),
+                1,
+                2350,
+            )
+        })
+        .collect();
+    rows.push(lesson("77003", "Bo Invented", "9", "2031-05-24", 0, 2350));
+    env.put("lesson_record", "2031-05", &rows);
+    env.index(2400);
+    let (count, history) = env.table(
+        2400,
+        "record_history",
+        json!({"student_id":"77003","since":"2031-01-01"}),
+    );
+    assert_eq!(count, 24);
+    assert!(history.contains("| (+1 more; limit 24) |"), "{history}");
+    assert!(
+        history.contains("| 2031-05-02 |") && !history.contains("| 2031-05-01 |"),
+        "{history}"
+    );
+    let page_first = history.find("| 2031-05-24 | Algebra A | 9 |").unwrap();
+    let page_second = history.find("| 2031-05-24 | Algebra A | 50003 |").unwrap();
+    assert!(page_first < page_second, "{history}");
+    let (count, _) = env.table(
+        2400,
+        "record_history",
+        json!({"student_id":"77003","since":"2031-05-20"}),
+    );
+    assert_eq!(count, 6);
+}
+
 /// The two lines of the contract, byte for byte as the capture family
 /// `dailyrecord` writes them (members sorted, no space). The capture's own test
 /// pins the same two lines from an invented page, as `a4` shows for the
@@ -907,7 +1182,10 @@ fn b7_the_contract_lines_are_indexed_and_no_cell_is_missing() {
             "daily_record",
             json!({"lesson_date":"2031-03-03","student_id":"77001"}),
         ),
-        ("record_history", json!({"student_id":"77001"})),
+        (
+            "record_history",
+            json!({"student_id":"77001","since":"2031-03-01"}),
+        ),
         ("day_coverage", json!({"lesson_date":"2031-03-03"})),
     ] {
         let (rows, md) = env.table(2, view, args);
@@ -929,4 +1207,14 @@ fn b7_the_contract_lines_are_indexed_and_no_cell_is_missing() {
         "{stale}"
     );
     assert!(stale.contains("| 1970-01-01T00:00:01Z |"), "{stale}");
+    // One index run that finds the line unchanged clears the mark, and the
+    // time of the capture stays.
+    env.index(2 + 129_600 + 2);
+    let (_, fresh) = env.table(
+        2 + 129_600 + 3,
+        "day_coverage",
+        json!({"lesson_date":"2031-03-03"}),
+    );
+    assert!(!fresh.contains("(stale)"), "{fresh}");
+    assert!(fresh.contains("| 1970-01-01T00:00:01Z |"), "{fresh}");
 }
