@@ -334,8 +334,9 @@ its `lesson_day`.
 
 Arguments of a view. The engine refuses an argument that breaks the value constraints of
 the property it is compared with: a date that is not `YYYY-MM-DD` with its zeros (`2040-6-1`,
-`20400102`, `2040`) for `lesson_date` or `since` (`b2`, `b11`), and a student id that holds a
-letter or is longer than 32 bytes (`b11`). The answer is exit code 2 with `status` `refused`,
+`20400102`, `2040`) for `lesson_date` or `since` (`b2`, `b11`), and a student id that is longer than
+32 bytes (every view that takes one) or holds a letter (`daily_record` and `record_history`,
+whose `student_id` is digits only by the schema's `key_digits`) (`b11`). The answer is exit code 2 with `status` `refused`,
 `code` `invalid_argument`, and the members `field` (`/args/<name>`), `argument` (its name) and
 `property` (the property it is compared with; for `since` it is `lesson_date`) (`b2`, `b11`).
 So a date spelled without its zeros no longer reads as a date that was never captured, and
