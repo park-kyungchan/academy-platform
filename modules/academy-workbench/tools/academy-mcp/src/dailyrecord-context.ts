@@ -8,21 +8,27 @@ export const dailyRecordFieldSchema=z.enum(dailyRecordFields);
 export const dailyRecordIdSchema=text.max(256);
 export const dailyRecordDateSchema=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value=>{const d=new Date(value+'T00:00:00Z');return Number.isFinite(d.valueOf())&&d.toISOString().slice(0,10)===value;},'real_calendar_date_required');
 export const dailyRecordScopeSchema=z.object({sourceNamespace:dailyRecordIdSchema,teacherId:dailyRecordIdSchema,studentId:dailyRecordIdSchema,lessonDate:dailyRecordDateSchema}).strict();
+export const ASSESSMENT_CODE_TABLES={
+  attendance:['Y','N','L',' ',''] as const,
+  dailyTestAssessment:['-1','0','1','2','3','4','5','6','7','8','9','10'] as const,
+  previousHomeworkAssessment:['-1','0','1','2','3','4','5'] as const,
+} as const;
+
 export const dailyRecordFactSchema=z.object({ref:dailyRecordIdSchema,field:dailyRecordFieldSchema,text,origin:z.enum(['user_supplied','cism_section']).default('user_supplied'),
   explicitValue:z.string().max(8192).optional(),
-  requiredFragments:z.array(text).max(32),
+  requiredFragments:z.array(text).max(32).default([]),
   // Semantic count/rendering mismatches are field-local review holds, not MCP validation exceptions.
-  questionCounts:z.array(z.object({count:z.number().int().nonnegative().max(100000),rendering:text.max(256)}).strict()).max(32).describe('Cardinal question counts only, e.g. {count:8,rendering:"8문항"}. Type ordinals such as 유형 10 belong in requiredFragments, not questionCounts.'),
+  questionCounts:z.array(z.object({count:z.number().int().nonnegative().max(100000),rendering:text.max(256)}).strict()).max(32).default([]).describe('Cardinal question counts only, e.g. {count:8,rendering:"8문항"}. Type ordinals such as 유형 10 belong in requiredFragments, not questionCounts.'),
   deadlines:z.array(z.object({date:dailyRecordDateSchema,rendering:text.max(256)}).strict().refine(v=>{
     const [year,month,day]=v.date.split('-').map(Number);
     return [...v.rendering.matchAll(/(?:(\d{4})[-./](\d{1,2})[-./](\d{1,2})|(\d{1,2})\s*월\s*(\d{1,2})\s*일)/g)]
       .every(m=>m[1]?Number(m[1])===year&&Number(m[2])===month&&Number(m[3])===day:Number(m[4])===month&&Number(m[5])===day);
-  },'deadline_rendering_must_preserve_date')).max(16),
-  stageClaims:z.array(z.object({activity:text.max(256),stage:z.enum(['solving','grading','correction','teacher_review','assigned_homework']),status:z.enum(['in_progress','complete','unconfirmed','assigned']),rendering:text.max(256)}).strict()).max(32),
+  },'deadline_rendering_must_preserve_date')).max(16).default([]),
+  stageClaims:z.array(z.object({activity:text.max(256),stage:z.enum(['solving','grading','correction','teacher_review','assigned_homework']),status:z.enum(['in_progress','complete','unconfirmed','assigned']),rendering:text.max(256)}).strict()).max(32).default([]),
 }).strict().superRefine((value,context)=>{
   if(value.explicitValue===undefined)return;
-  const allowed=value.field==='attendance'?['Y','N','L',' ','']:value.field==='dailyTestAssessment'?['-1','0','1','2','3','4','5','6','7','8','9','10']:value.field==='previousHomeworkAssessment'?['-1','0','1','2','3','4','5']:null;
-  if(allowed&&!allowed.includes(value.explicitValue))context.addIssue({code:'custom',message:'explicit_source_option_required'});
+  const allowed=value.field==='attendance'?ASSESSMENT_CODE_TABLES.attendance:value.field==='dailyTestAssessment'?ASSESSMENT_CODE_TABLES.dailyTestAssessment:value.field==='previousHomeworkAssessment'?ASSESSMENT_CODE_TABLES.previousHomeworkAssessment:null;
+  if(allowed&&!(allowed as readonly string[]).includes(value.explicitValue))context.addIssue({code:'custom',message:'explicit_source_option_required'});
 });
 export const dailyRecordContextSchema=z.object({schemaVersion:z.literal('academy.dailyrecord-user-context/1'),purpose:text,
   currentRequestRef:dailyRecordIdSchema,scope:dailyRecordScopeSchema,

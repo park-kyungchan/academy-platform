@@ -190,3 +190,36 @@ test('a dated source proof is request/date bound and expires before a dynamic st
   await expect(backend.readDailyRecord({...scope,studentId:'77002'},'dated-proof')).rejects.toThrow('native_dailyrecord_scope_refused');
  }finally{Date.now=realNow;}
 });
+
+test('multi-title textbook section read isolates per-title failures and returns partial status',async()=>{
+ const f=fixture();
+ const execCalls:string[][]=[];
+ const backend=new NativeDailyRecordBackend({
+  ...f.port,
+  readTextbookBindings:async()=>[multiBindings[0]!],
+  execute:(async(req:any)=>{
+   execCalls.push([...req.sourceTitles]);
+   if(req.sourceTitles.length>1)throw Error('textbook_section_result_unqualified');
+   if(req.sourceTitles[0]==='Bad Title')throw Error('textbook_section_not_in_either_observed_source');
+   return {
+    family:'textbook',status:'observed',observedAt:'2040-01-12T10:00:00+09:00',coverage:'exact',
+    records:[{
+     sourceTitle:req.sourceTitles[0],studentKey:'77001',studentName:'Invented Student',courseKey:'5',bookNo:'7',
+     score:100,items:[{originalOrdinal:'1',lectureKey:'101',outerLectureKey:'101',scoring:'O'}],
+     sourceDate:{literal:'2040-01-12',precision:'day',meaning:'source_apply_date_not_exact_grade_time'},
+    }],
+   };
+  }) as any,
+ },admission,()=>({username:'fictional',password:'fictional'}),range,new Set(['Invented Student']));
+ const service=new DailyRecordService(backend);
+ const partial=await service.textbookSectionsByName({displayName:'Invented Student',purpose:'check',currentRequestRef:'req-1',sourceTitles:['Good Title','Bad Title']});
+ expect(partial).toMatchObject({
+  status:'partial',
+  records:[{sourceTitle:'Good Title',score:100}],
+  failedTitles:[{sourceTitle:'Bad Title',reasonCode:'textbook_section_not_in_either_observed_source'}],
+ });
+ expect(execCalls).toEqual([['Good Title','Bad Title'],['Good Title'],['Bad Title']]);
+ // Single-title failure remains strict
+ const single=await service.textbookSectionsByName({displayName:'Invented Student',purpose:'check',currentRequestRef:'req-1',sourceTitles:['Bad Title']});
+ expect(single).toMatchObject({status:'not_observed_in_either_source'});
+});

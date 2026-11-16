@@ -5,6 +5,7 @@ const label=z.string().regex(/^[1-9][0-9]{0,15}$/).refine(v=>BigInt(v)<=BigInt(N
 export const itemAnswerLookupSchema=z.object({
   labels:z.array(label).min(1).max(32).refine(v=>new Set(v).size===v.length,'unique_item_labels_required'),
   purpose:z.string().trim().min(1).max(256),currentRequestRef:z.string().trim().min(1).max(256),
+  view:z.enum(['full','compact']).optional(),
 }).strict();
 export type ItemAnswerLookup=z.infer<typeof itemAnswerLookupSchema>;
 
@@ -32,7 +33,7 @@ export function decodeItemAnswerLiteral(answerLiteral:string):{answerPrefixCandi
   return {answerPrefixCandidate:code,answerPayloadCandidate:text};
 }
 
-export function projectItemAnswerRead(raw:unknown,labels:string[]){
+export function projectItemAnswerRead(raw:unknown,labels:string[],view:'full'|'compact'='full'){
   const value=z.object({family:z.literal('item_answer'),status:z.enum(['observed','partial','blocked']),
     requestedAnswerLabels:z.array(label),pendingAnswerLabels:z.array(label),
     answerBlockedReason:z.string().regex(/^[a-z_]{1,100}$/).nullable(),
@@ -47,7 +48,12 @@ export function projectItemAnswerRead(raw:unknown,labels:string[]){
     ||(value.status==='blocked'&&(value.itemAnswers.length!==0||value.answerBlockedReason===null)))throw Error('item_answer_source_scope_conflict');
   if(Buffer.byteLength(JSON.stringify(value.itemAnswers),'utf8')>480*1024)throw Error('item_answer_result_too_large');
   const failure=value.answerBlockedReason===null?null:publicReadFailure(Error(value.answerBlockedReason),'item_answer_source_unqualified_no_automatic_retry');
-  return {status:value.status,answers:value.itemAnswers.map(row=>({...row,...decodeItemAnswerLiteral(row.answerLiteral)})),pendingLabels:value.pendingAnswerLabels,reasonCode:failure?.code??null,...(failure?{failure}:{}),
+  const answers=value.itemAnswers.map(row=>{
+    const decoded={...row,...decodeItemAnswerLiteral(row.answerLiteral)};
+    if(view==='compact'){const {answerLiteral:_omitted,...rest}=decoded;return rest;}
+    return decoded;
+  });
+  return {status:value.status,answers,pendingLabels:value.pendingAnswerLabels,reasonCode:failure?.code??null,...(failure?{failure}:{}),
     unitMapping:'source_unit_and_pattern_names_only_not_section_or_paper_membership',
     observedAt:value.observedAt,coverage:value.coverage,academyWrites:0,parentSends:0,nativePrintInvoked:false,automaticRetryAllowed:false};
 }

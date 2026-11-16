@@ -8,6 +8,7 @@ export const dailyRecordGetSchema=z.object({
   purpose:dailyRecordIdSchema.describe('The current user request or its purpose. Reading does not authorize authoring or saving.'),
   currentRequestRef:dailyRecordIdSchema.describe('Reference to this current user request; not an approval or credential.'),
   lessonDate:z.union([z.literal('today'),dailyRecordDateSchema]).default('today').describe('Omit for today in Asia/Seoul. An explicit date must fall inside the owner-admitted range.'),
+  view:z.enum(['full','compact']).optional(),
 }).strict();
 
 // Trusted launch/backend configuration only. This is deliberately not part of tool input.
@@ -45,6 +46,7 @@ const intakeReadSchema=z.object({
     ]),
   })).length(6),
   interviews:z.array(z.object({field:z.enum(dailyRecordFields),reasonCode:dailyRecordIdSchema})),
+  assessmentCodeTables:z.record(z.string(),z.array(z.string())).optional(),
   observationHandle:dailyRecordIdSchema.nullable().optional(),observationPersistence:z.enum(['owner_durable','process_local']).optional(),
 }).refine(v=>new Set(v.fields.map(f=>f.field)).size===dailyRecordFields.length,'unique_intake_fields_required');
 
@@ -83,10 +85,11 @@ export async function readDailyRecordByName(value:unknown,port:DailyRecordReadRo
     return {...base,status:'observed' as const,sourceAvailability:'observed' as const,scope:context.scope,
       route:['academy_student_resolve','academy_dailyrecord_intake'],fields:intake.fields,source:intake.source,
       preparation:{status:intake.status,interviews:intake.interviews,requiredOnlyForAuthoring:true},
+      ...(intake.assessmentCodeTables?{assessmentCodeTables:intake.assessmentCodeTables}:{}),
       transmissionState:intake.source.transmissionState,
       // An owner-durable handle lets any later process review and save this exact
       // scope and request; a process-local handle would not outlive this call.
-      authoringHandle:intake.observationPersistence==='owner_durable'&&intake.observationHandle
-        ?{observationHandle:intake.observationHandle,persistence:'owner_durable' as const,boundTo:{scope:context.scope,currentRequestRef:context.currentRequestRef}}:null};
+      ...(input.view==='compact'?{}:{authoringHandle:intake.observationPersistence==='owner_durable'&&intake.observationHandle
+        ?{observationHandle:intake.observationHandle,persistence:'owner_durable' as const,boundTo:{scope:context.scope,currentRequestRef:context.currentRequestRef}}:null})};
   }catch(error){return heldException('dailyrecord_source_unqualified_no_automatic_retry',error);}
 }

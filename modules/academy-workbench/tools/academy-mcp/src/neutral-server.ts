@@ -111,6 +111,48 @@ async function activeRelease(){
 class CompositeSourceUnavailable extends Error {
  constructor(readonly source:'metadata'|'paper',readonly sourceRequests:number|null,readonly failure:{category:ReadFailureCategory;code:string;evidenceLocator:string;automaticRetryAllowed:false}){super(failure.code);}
 }
+type SanitizedInputIssue={kind:string;path:(string|number)[];missingKey?:string;expectedType?:string};
+class ToolInputInvalidError extends Error {
+ constructor(readonly issues:SanitizedInputIssue[]){super('tool_input_invalid');}
+}
+function collectSchemaKeys(schema:unknown):Set<string>{
+ const keys=new Set<string>();
+ const visit=(node:unknown)=>{
+  if(!node||typeof node!=='object')return;
+  if(Array.isArray(node)){for(const item of node)visit(item);return;}
+  for(const [k,v] of Object.entries(node)){
+   if(k==='properties'&&v&&typeof v==='object'){for(const prop of Object.keys(v))keys.add(prop);}
+   visit(v);
+  }
+ };
+ visit(schema);
+ return keys;
+}
+function sanitizeAjvInputIssues(schema:unknown,errorMessage:string|undefined):SanitizedInputIssue[]{
+ if(!errorMessage)return [{kind:'schema_validation_failed',path:[]}];
+ const keys=collectSchemaKeys(schema);
+ const clauses=errorMessage.split(/,\s+(?=data(?:\/|\s))/).slice(0,16);
+ return clauses.map(clause=>{
+  const m=/^data((?:\/[^/\s]+)*)\s+(.+)$/.exec(clause.trim());
+  const rawPath=m?.[1]?m[1].slice(1).split('/'):[];
+  const path=rawPath.slice(0,12).map(seg=>{
+   if(/^\d+$/.test(seg)){const n=Number(seg);return n>=0&&n<=100000?n:'unknown_key';}
+   return keys.has(seg)?seg:'unknown_key';
+  });
+  const msg=m?.[2]??clause;
+  const req=/^must have required property '([^']+)'$/.exec(msg);
+  if(req)return {kind:'required_property',path,...(keys.has(req[1]!)?{missingKey:req[1]!}:{})};
+  if(msg.startsWith('must NOT have additional properties'))return {kind:'additional_properties',path};
+  const typ=/^must be (string|number|integer|boolean|object|array|null)$/.exec(msg);
+  if(typ)return {kind:'invalid_type',path,expectedType:typ[1]!};
+  if(msg.startsWith('must match pattern'))return {kind:'invalid_pattern',path};
+  if(msg.startsWith('must NOT have fewer than'))return {kind:'too_small',path};
+  if(msg.startsWith('must NOT have more than'))return {kind:'too_big',path};
+  if(/^must be (?:>=|<=|>|<)/.test(msg))return {kind:'out_of_range',path};
+  if(msg.startsWith('must be equal to'))return {kind:'invalid_value',path};
+  return {kind:'schema_validation_failed',path};
+ });
+}
 
 const handles=new Map<string,{original:string;intake:any;scope:DailyRecordScope;request:string;at:number;releaseIdentity:string}>();
 const signature=(x:any)=>JSON.stringify({fields:x.fields?.map((f:any)=>({field:f.field,before:f.before?.state==='known'?{state:'known',value:f.before.value}:{state:'unknown',reasonCode:f.before?.reasonCode},target:f.target})),revision:x.source?.sourceRevision,wire:x.source?.wireDigest});
@@ -134,7 +176,8 @@ async function call(req:any){
   }
   const registered=active.registry.find((r:any)=>r.tool.name===req.name);if(!registered)throw Error('unknown_tool');
   phase='input_validation';
-  if(!inputValidator.getValidator(registered.tool.inputSchema)(args).valid)throw Error('tool_input_invalid');
+  const validation=inputValidator.getValidator(registered.tool.inputSchema)(args);
+  if(!validation.valid)throw new ToolInputInvalidError(sanitizeAjvInputIssues(registered.tool.inputSchema,validation.errorMessage));
   phase='routing';
   const entry=selectPaperRoute('paperScopes' in active?active.paperScopes:undefined,active.registry,registered,args);
   endpoint=entry.endpoint;upstreamName=entry.upstreamName;phase='upstream';
@@ -251,7 +294,7 @@ async function call(req:any){
    try{writeFileSync(log+'/'+occurrence+'-failure.json',JSON.stringify({occurrence,phase,endpoint,upstreamName,elapsedMs:Date.now()-startedAt,upstreamOccurrence:error instanceof UpstreamToolFailure?error.upstreamOccurrence:null,code,failure,observedAt:new Date().toISOString(),tool:receiptTool,automaticRetryAllowed:false,...effect,parentSends:0})+'\n',{mode:0o600,flag:'wx'});}
    catch{throw Object.assign(Error('receipt_write_unavailable_reconcile'),{data:{occurrence,automaticRetryAllowed:false,...(saveIssued?{effectStatus:'unknown'}:{})}});}
   }
-  const data={status:'blocked',code,failure,occurrence,phase,endpoint,upstreamName,elapsedMs:Date.now()-startedAt,...(error instanceof UpstreamToolFailure?{upstreamOccurrence:error.upstreamOccurrence}:{}),...(error instanceof CompositeSourceUnavailable?{failedSource:error.source,reasonCode:error.failure.code,sourceRequests:error.sourceRequests}:{}),...(error instanceof EndpointInventoryMismatch?{inventory:{endpoint:error.endpoint,missingTools:error.missingTools}}:{}),...(error instanceof PaperScopeUnresolvedError?{paperScope:error.diagnostic,interviewRequired:true,interviewReason:'paper_scope_admission_missing'}:{}),automaticRetryAllowed:false,...effect,parentSends:0};
+  const data={status:'blocked',code,failure,occurrence,phase,endpoint,upstreamName,elapsedMs:Date.now()-startedAt,...(error instanceof ToolInputInvalidError?{issues:error.issues}:{}),...(error instanceof UpstreamToolFailure?{upstreamOccurrence:error.upstreamOccurrence}:{}),...(error instanceof CompositeSourceUnavailable?{failedSource:error.source,reasonCode:error.failure.code,sourceRequests:error.sourceRequests}:{}),...(error instanceof EndpointInventoryMismatch?{inventory:{endpoint:error.endpoint,missingTools:error.missingTools}}:{}),...(error instanceof PaperScopeUnresolvedError?{paperScope:error.diagnostic,interviewRequired:true,interviewReason:'paper_scope_admission_missing'}:{}),automaticRetryAllowed:false,...effect,parentSends:0};
   return {isError:true,content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
  }
 }

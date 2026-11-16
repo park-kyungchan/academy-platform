@@ -5,14 +5,14 @@ import {dirname,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {z} from 'zod';
 import {readPinnedLocalBytes} from './item-label-store.ts';
-import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type PrestudyReportGet,type PrestudyReportObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation,type TextbookSectionResultsByNameObservation,type ItemSectionTrace,type ItemSectionTraceObservation} from './dailyrecord.ts';
+import {dailyRecordObservationSchema,studentMetadataBatchSchema,TEXTBOOK_SECTION_NOT_IN_EITHER,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type PrestudyReportGet,type PrestudyReportObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation,type TextbookSectionResultsByNameObservation,type ItemSectionTrace,type ItemSectionTraceObservation} from './dailyrecord.ts';
 import {createDailyRecordSaveAdmission,liveSaveRequestEvidence,type DailyRecordSaveAdmission,type DailyRecordSaveApproval} from './dailyrecord-save-admission.ts';
 import type {DailyRecordActionApproval} from './dailyrecord-workflow.ts';
 import type {DailyRecordField} from './dailyrecord-context.ts';
 import type {DailyRecordScope} from './dailyrecord-context.ts';
 import {ownerAdmissionSchema,isDateAdmitted,type OwnerAdmission} from './owner-admission.ts';
 import {metadataAdmissionSchema,metadataDateAdmitted,type MetadataAdmission} from './metadata-admission.ts';
-import {AcademyReadFailure} from './read-failure.ts';
+import {AcademyReadFailure,readFailureResult} from './read-failure.ts';
 import {StudentNameNotAdmitted} from './student-resolver.ts';
 import type {TextbookCatalogObservation,TextbookPdfObservation,TextbookSchoolLevel} from '../../../../../apps/academy/dc-gang-a/src/lms/textbookCatalogRead';
 import {isTextbookBookLabel} from '../../../../../apps/academy/dc-gang-a/src/lms/prestudyRead';
@@ -186,22 +186,65 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     const student=this.admission.students.find(s=>s.displayName===input.displayName);
     if(!student||!this.managedNames.has(input.displayName))throw Error('textbook_student_not_admitted');
     await this.#authenticate();
-    const raw=await this.client.execute({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
-      studentName:student.displayName,courseKey:input.courseKey,bookNo:input.bookNo,sourceTitles:[...input.sourceTitles],gradeViewAdmission:true}) as unknown as {
-        family:string;status:string;records:{sourceTitle:string;studentKey:string;studentName:string;courseKey:string;bookNo:string;
-          score:number;items:{originalOrdinal:string;lectureKey?:string|number|null;outerLectureKey?:string|number|null;scoring:string}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
-    if(raw.family!=='textbook'||raw.status!=='observed'||!Array.isArray(raw.records)||raw.records.length!==input.sourceTitles.length)
-      throw Error('textbook_section_result_unqualified');
-    const records=raw.records.map(r=>{
+    type RawExecResult={family:string;status:string;records:{sourceTitle:string;studentKey:string;studentName:string;courseKey:string;bookNo:string;
+      score:number;items:{originalOrdinal:string;lectureKey?:string|number|null;outerLectureKey?:string|number|null;scoring:string}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
+    const parseRecord=(r:RawExecResult['records'][number],allowedTitles:readonly string[])=>{
       if(r.studentKey!==student.studentId||r.studentName!==student.displayName||r.courseKey!==input.courseKey||r.bookNo!==input.bookNo
-        ||!input.sourceTitles.includes(r.sourceTitle)||typeof r.score!=='number'||!Array.isArray(r.items)
+        ||!allowedTitles.includes(r.sourceTitle)||typeof r.score!=='number'||!Array.isArray(r.items)
         ||r.items.some(i=>i.scoring!=='O'&&i.scoring!=='X'))throw Error('textbook_section_result_unqualified');
       const items=r.items.map(i=>({ordinal:String(i.originalOrdinal),lectureKey:i.lectureKey==null?null:String(i.lectureKey),outerLectureKey:i.outerLectureKey==null?null:String(i.outerLectureKey),scoring:i.scoring as 'O'|'X'}));
       return {sourceTitle:r.sourceTitle,score:r.score,correctCount:items.filter(i=>i.scoring==='O').length,itemCount:items.length,items,
         sourceDate:{literal:r.sourceDate?.literal??null,precision:String(r.sourceDate?.precision??'unknown'),meaning:String(r.sourceDate?.meaning??'source_apply_date_not_exact_grade_time')}};
-    });
+    };
+    const execTitles=async(titles:readonly string[])=>this.client.execute({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
+      studentName:student.displayName,courseKey:input.courseKey,bookNo:input.bookNo,sourceTitles:[...titles],gradeViewAdmission:true}) as unknown as RawExecResult;
+    const byTitle=new Map<string,ReturnType<typeof parseRecord>>();
+    let observedAt=new Date().toISOString();
+    if(input.sourceTitles.length===1){
+      const raw=await execTitles(input.sourceTitles);
+      if(raw.family!=='textbook'||raw.status!=='observed'||!Array.isArray(raw.records)||raw.records.length!==1)
+        throw Error('textbook_section_result_unqualified');
+      return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:input.courseKey,bookNo:input.bookNo,
+        records:[parseRecord(raw.records[0]!,input.sourceTitles)],observedAt:raw.observedAt,coverage:'exact_selected_existing_records_not_whole_book'};
+    }
+    try{
+      const raw=await execTitles(input.sourceTitles);
+      if(raw.family==='textbook'&&raw.status==='observed'&&Array.isArray(raw.records)){
+        observedAt=raw.observedAt??observedAt;
+        for(const r of raw.records){const parsed=parseRecord(r,input.sourceTitles);byTitle.set(parsed.sourceTitle,parsed);}
+        if(byTitle.size===input.sourceTitles.length){
+          const records=input.sourceTitles.map(t=>byTitle.get(t)!);
+          return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:input.courseKey,bookNo:input.bookNo,
+            records,observedAt,coverage:'exact_selected_existing_records_not_whole_book'};
+        }
+      }
+    }catch{
+      // Isolate per-title below without retrying any single failing title.
+    }
+    const failedTitles:{sourceTitle:string;reasonCode:string}[]=[];
+    for(const title of input.sourceTitles){
+      if(byTitle.has(title))continue;
+      try{
+        const raw=await execTitles([title]);
+        if(raw.family!=='textbook'||raw.status!=='observed'||!Array.isArray(raw.records)||raw.records.length!==1)
+          throw Error('textbook_section_result_unqualified');
+        observedAt=raw.observedAt??observedAt;
+        byTitle.set(title,parseRecord(raw.records[0]!,[title]));
+      }catch(err){
+        failedTitles.push({sourceTitle:title,reasonCode:readFailureResult(err,'textbook_section_unqualified_no_automatic_retry').reasonCode});
+      }
+    }
+    const records=input.sourceTitles.filter(t=>byTitle.has(t)).map(t=>byTitle.get(t)!);
+    if(records.length===0){
+      if(failedTitles.every(f=>f.reasonCode===TEXTBOOK_SECTION_NOT_IN_EITHER))throw Error(TEXTBOOK_SECTION_NOT_IN_EITHER);
+      throw Error(failedTitles[0]?.reasonCode??'textbook_section_result_unqualified');
+    }
+    if(failedTitles.length===0){
+      return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:input.courseKey,bookNo:input.bookNo,
+        records,observedAt,coverage:'exact_selected_existing_records_not_whole_book'};
+    }
     return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:input.courseKey,bookNo:input.bookNo,
-      records,observedAt:raw.observedAt,coverage:'exact_selected_existing_records_not_whole_book'};
+      records,failedTitles,observedAt,coverage:'partial_selected_existing_records_not_whole_book'};
   }
   /** Prestudy video read for one admitted student. Source waiting/completed
    * list membership and summary AI literals are projected without video
