@@ -207,16 +207,6 @@ test('intake and get expose assessmentCodeTables and compact view omits authorin
   expect((compactSec as any).records[0].score).toBe(100);
 });
 
-test('learning_render_mismatch row includes expectedActivityFormat hint',async()=>{
-  const strictPolicy={...learningPolicy,review:()=>['learning_render_mismatch']};
-  const service=new DailyRecordService(backend(),safeguard,()=>clock,strictPolicy),c=context();
-  const intake=await service.intake({context:c});
-  const rev=await service.review({context:c,observationHandle:intake.observationHandle,proposals:[proposal('progress','- 지정 문제 12문항 풀이 진행.')]});
-  expect(rev.status).toBe('held');
-  expect(rev.rows[0].blockers).toContain('learning_render_mismatch');
-  expect((rev.rows[0] as any).expectedActivityFormat).toBe('suffix_only_without_unit_title');
-});
-
 test('a save whose text differs from the reviewed text only in line endings is held with sanitized mismatchPaths',async()=>{
   const dir=await mkdtemp(resolve(tmpdir(),'synthetic-workflow-norm-'));
   try{
@@ -263,17 +253,19 @@ test('a save whose text differs from the reviewed text only in line endings is h
   }finally{await rm(dir,{recursive:true,force:true});}
 });
 
-// Digests the base server (b7462e6) computed for these exact inputs, with this
-// fixture. A review recorded by that server must still be saved after an upgrade.
+// inputDigest and userContextDigest: what the base server (b7462e6) computed for
+// these exact inputs, with this fixture; a review recorded by that server must
+// still be saved after an upgrade. bodyDigest: re-pinned when the review body
+// lost its learning-policy pins and learning answer members (TASK-GATES-2).
 const baseReviewVectors=[
   {name:'fact text with CRLF',fact:'첫째 줄\r\n지정 문제 12문항 풀이 진행.',value:'- 지정 문제 12문항 풀이 진행 (보충).',
-    inputDigest:'84f3ff10c0711adb934b410e4587b8dded485d829b3268db164a81e247e14186',userContextDigest:'95ddaebd39f58221cf0e5bfeccdd9db8571edfa901b995562310ea422308faff',bodyDigest:'fc9fd68dd04025fbdf056317247bbde591eb72a4f4d1dace15391dfda69b8e0f'},
+    inputDigest:'84f3ff10c0711adb934b410e4587b8dded485d829b3268db164a81e247e14186',userContextDigest:'95ddaebd39f58221cf0e5bfeccdd9db8571edfa901b995562310ea422308faff',bodyDigest:'416c6466de77ee59f9e4733e2afc479340883f7d7f152219389fef181d3fcf16'},
   {name:'fact text with a literal backslash-n',fact:'첫째 줄\\n지정 문제 12문항 풀이 진행.',value:'- 지정 문제 12문항 풀이 진행 (보충).',
-    inputDigest:'d3c2a37dc923be9d84704619debb1ce78490170d046c71ba6441e798df279f0c',userContextDigest:'1daa4e2b61c56e2a9460a4be5a5c68b6d692b0f51b4727f1e6fa4bfe2e0bba9a',bodyDigest:'dbcb2ea0771d2bfd82af3bab0d0c00eb5e94759e01f366f35ea3bd8dea723c6c'},
+    inputDigest:'d3c2a37dc923be9d84704619debb1ce78490170d046c71ba6441e798df279f0c',userContextDigest:'1daa4e2b61c56e2a9460a4be5a5c68b6d692b0f51b4727f1e6fa4bfe2e0bba9a',bodyDigest:'644551b181d0e1b7f73202813ceb19c8f3cd9433afe775aec01faa36e6e759cf'},
   {name:'proposal value with a literal backslash-n',fact:'지정 문제 12문항 풀이 진행.',value:'- 지정 문제 12문항 풀이 진행\\n(보충).',
-    inputDigest:'833b834f2ed08c7152e308eeb9990871259b9174ee4460f738155c68a94e9738',userContextDigest:'cd8677dcb0b9e4331f2064a7610be190b8eb91efa355c55461a71c139735346b',bodyDigest:'d5cbf767ff8b41b56f9dc064fdc71b49aa1699ac3a2cb34db05ef9610c37bbe9'},
+    inputDigest:'833b834f2ed08c7152e308eeb9990871259b9174ee4460f738155c68a94e9738',userContextDigest:'cd8677dcb0b9e4331f2064a7610be190b8eb91efa355c55461a71c139735346b',bodyDigest:'6ad8e926e0ad41634bad35aa1cb17ea08b5061b1ff04d9d7173b675d1cfc3eb8'},
 ];
-const reviewBodyKeys=['observationHandle','inputDigest','scope','requestRef','userContextDigest','parentSafeguard','cismSource','learningPolicy','sourceRevision','wireDigest','transmissionState','rows','patch'];
+const reviewBodyKeys=['observationHandle','inputDigest','scope','requestRef','userContextDigest','parentSafeguard','cismSource','sourceRevision','wireDigest','transmissionState','rows','patch'];
 for(const vector of baseReviewVectors)test(`a review recorded by the base server is saved after the upgrade: ${vector.name}`,async()=>{
   const dir=await mkdtemp(resolve(tmpdir(),'synthetic-workflow-upgrade-'));
   try{

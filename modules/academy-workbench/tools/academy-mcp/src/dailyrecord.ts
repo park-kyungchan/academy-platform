@@ -24,6 +24,7 @@ export const dailyRecordObservationSchema=z.object({scope:dailyRecordScopeSchema
   transmissionState:z.enum(['not_sent','already_sent','unknown']),
 }).strict();
 export type DailyRecordObservation=z.infer<typeof dailyRecordObservationSchema>;
+/** Retired members: accepted when present, never read. */
 const learningEntrySchema=z.object({bookRef:dailyRecordIdSchema,unitRef:dailyRecordIdSchema,scope:z.enum(['unit','sections']),sectionRefs:z.array(dailyRecordIdSchema).max(64),activity:z.string().min(1).max(400),deadline:dailyRecordDateSchema.nullable()}).strict();
 const proposalSchema=z.object({field:dailyRecordFieldSchema,value:z.string().max(8192),factRefs:z.array(dailyRecordIdSchema).min(1).max(32),
   decision:z.object({kind:z.enum(['set','replace','clear']),requestRef:dailyRecordIdSchema}).strict(),learningEntries:z.array(learningEntrySchema).max(64).optional(),
@@ -190,8 +191,6 @@ export interface DailyRecordWriteBackend {
 }
 /** Inject the canonical Education safeguard, together with its verified policy/source identity. */
 export interface DailyRecordParentSafeguard {readonly policySha256:string;readonly safeguardSourceSha256:string;readonly sourceRef:string;check(text:string):boolean;checkLines(text:string):boolean}
-/** Trusted owner-side adapter; no catalog/bridge or verification flags come from tool input. */
-export interface DailyRecordLearningPolicy {readonly bundleSha256:string;readonly configSha256:string;readonly catalogSha256:string;scopeQualified?(scope:Readonly<DailyRecordScope>):boolean;review(scope:Readonly<DailyRecordScope>,value:string,entries:unknown):string[];suggest?(scope:Readonly<DailyRecordScope>,value:string,entries:unknown):string|null}
 const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const fieldValues=(observation:DailyRecordObservation)=>Object.fromEntries(dailyRecordFields.map(field=>{const value=observation.fields[field];return [field,value.state==='known'?{state:value.state,value:value.value}:{state:value.state,reasonCode:value.reasonCode}];}));
@@ -225,6 +224,31 @@ function qualifiedObservation(value:unknown,scope:DailyRecordScope){
   for(const sample of observation.toneSamples){if(sample.target.sourceNamespace!==t.sourceNamespace||sample.target.teacherId!==t.teacherId||sample.target.studentId!==t.studentId||sample.target.lessonDate>=t.lessonDate)throw Error('tone_sample_scope_conflict');}
   return freezeLabelData(observation);
 }
+const deadlinePattern=/(?:(\d{4})[-./](\d{1,2})[-./](\d{1,2})|(\d{1,2})\s*월\s*(\d{1,2})\s*일)/g;
+type Deadline={year:number|null;month:number;day:number};
+const deadlinesIn=(text:string):Deadline[]=>[...text.matchAll(deadlinePattern)].map(m=>m[1]?{year:Number(m[1]),month:Number(m[2]),day:Number(m[3])}:{year:null,month:Number(m[4]),day:Number(m[5])});
+/** Every deadline the text states must be supported by the field's facts. A
+ * month-day fact supports itself and the full date of the lesson year, or of
+ * the next year when its month is earlier than the lesson month. A full-date
+ * fact supports itself and its month-day form. */
+function deadlineSupported(value:string,facts:DailyRecordContext['facts'],lessonDate:string){
+  const full=new Set<string>(),monthDay=new Set<string>(),monthDayOfFull=new Set<string>();
+  const add=(d:Deadline,boundToFullDate=false)=>{
+    const md=d.month+'-'+d.day;
+    if(d.year!==null){full.add(d.year+'-'+md);monthDayOfFull.add(md);}
+    else (boundToFullDate?monthDayOfFull:monthDay).add(md);
+  };
+  for(const f of facts){
+    for(const d of deadlinesIn(f.text))add(d);
+    for(const d of f.deadlines){add({year:Number(d.date.slice(0,4)),month:Number(d.date.slice(5,7)),day:Number(d.date.slice(8,10))});for(const r of deadlinesIn(d.rendering))add(r,true);}
+  }
+  const lessonYear=Number(lessonDate.slice(0,4)),lessonMonth=Number(lessonDate.slice(5,7));
+  return deadlinesIn(value).every(d=>{
+    const md=d.month+'-'+d.day;
+    if(d.year===null)return monthDay.has(md)||monthDayOfFull.has(md);
+    return full.has(d.year+'-'+md)||(monthDay.has(md)&&(d.year===lessonYear||(d.year===lessonYear+1&&d.month<lessonMonth)));
+  });
+}
 function proposalBlockers(p:Proposal,context:DailyRecordContext){
   const blockers:string[]=[];
   if(!context.selectedFields.includes(p.field))blockers.push('field_not_selected');
@@ -247,50 +271,43 @@ function proposalBlockers(p:Proposal,context:DailyRecordContext){
 /** Field-local next steps for held rows. Guidance names who can resolve a
  * hold; it never supplies a mapping, option or teacher decision. */
 const holdActionTable:[RegExp,string,string][]=[
-  [/_ask_teacher$|^interview_required$/,'teacher_interview','Ask the teacher for the exact edition/unit/section binding of this activity and record the answer as a scoped correction for this student, edition and activity only.'],
   [/^count_rendering_must_preserve_count$/,'correct_fact','questionCounts accepts cardinal question counts such as 8문항. Put ordinal scope such as 유형 10 in requiredFragments; preserve the teacher fact and review again.'],
-  [/^learning_entries_required$/,'supply_learning_entries','Supply learningEntries binding book, unit and sections through the owner catalog.'],
-  [/^learning_(mapping_unqualified|evidence_required|book_invalid|unit_invalid|section_invalid|edition_invalid|grade_invalid|entry_invalid)$|^duplicate_learning_/,'owner_catalog_binding','The owner catalog has no qualified binding for this entry; record a teacher-confirmed binding in the private owner catalog. Never invent a mapping.'],
-  [/^learning_render_mismatch$/,'teacher_review_rendering','Text differs from the canonical grouped rendering; the teacher reviews any format example for meaning before resubmitting.'],
-  [/^teacher_reported_/,'supply_or_correct_fact','Bind each teacher-reported line to its exact user-supplied fact and preserve any selected existing text.'],
-  [/^canonical_(learning_policy|parent_safeguard)_not_connected$|^learning_(catalog|contract)_invalid$/,'owner_configuration','The runtime owner must connect the pinned policy; a caller cannot resolve this.'],
+  [/^canonical_parent_safeguard_not_connected$/,'owner_configuration','The runtime owner must connect the pinned policy; a caller cannot resolve this.'],
   [/^(supplied_fact_fragment_missing|unsupported_question_count|unsupported_deadline|unsupported_completion_claim|unsupported_stage_completion_claim|stage_completion_mismatch|field_fact_reference_required|explicit_user_source_option_fact_required|conflicting_explicit_user_source_options|duplicate_fact_ref)$/,'supply_or_correct_fact','The text asserts something the supplied teacher facts do not support; obtain that teacher fact or remove the claim.'],
   [/^(source_before_or_contract_drift|stale_source|qualified_before_source_unavailable|unknown_before|qualified_current_record_required|independent_previous_record_required|exact_fresh_cism_observation_handle_required|cism_fact_not_bound_to_exact_observed_section)$/,'fresh_intake','Run a fresh intake and review; the source changed or is not qualified.'],
   [/^(parent_hyphen_lines_required|parent_internal_language_excluded|invalid_explicit_field_value)$/,'rewrite_text','Rewrite the parent-facing field text and review again.'],
   [/^(existing_value_requires_explicit_replace|explicit_clear_decision_required|clear_requires_empty_value|no_addition_preserves_existing_memo|today_memo_interview_required|field_not_selected|current_request_ref_required)$/,'explicit_teacher_decision','Obtain the explicit teacher decision for this exact field and request.'],
 ];
-function holdActions(scope:DailyRecordScope,field:DailyRecordField,blockers:readonly string[],learningEntries:unknown){
+function holdActions(field:DailyRecordField,blockers:readonly string[]){
   return blockers.map(code=>{
     const match=holdActionTable.find(([pattern])=>pattern.test(code.split(':')[0]!));
-    const action=match?.[1]??'resolve_blocker';
-    return {field,code,action,guidance:match?.[2]??null,
-      correctionScope:action==='teacher_interview'||action==='owner_catalog_binding'?{scope,field,learningEntries:learningEntries??null,appliesTo:'this_student_edition_unit_activity_only' as const}:null};
+    return {field,code,action:match?.[1]??'resolve_blocker',guidance:match?.[2]??null};
   });
 }
-type ReviewPolicyPins={learningPolicy:{bundleSha256:string;configSha256:string;catalogSha256:string}|null;parentSafeguard:{policySha256:string;safeguardSourceSha256:string}|null};
+type ReviewPolicyPins={parentSafeguard:{policySha256:string;safeguardSourceSha256:string}|null};
 type ReviewedPatch={field:DailyRecordField;target:z.infer<typeof currentTargetSchema>|null;before:string|null;after:string};
 type StoredReview={reviewDigest:string;status:string;scope:DailyRecordScope;requestRef:string;observationHandle:string|null;
   patch:{field:DailyRecordField;before:string;after:string;effectRecordKey:string}[];reviewPolicy:ReviewPolicyPins;reviewedBy:DailyRecordAttribution;reviewedAt:string;
   /** Digest of the exact context and proposals this review judged; a save must submit the same. */
   inputDigest:string;inputLength?:number};
 
-/** How long an unchanged readback must wait before it may prove an uncertain dispatch did not land. */
+/** A fresh source read must be at most 5 minutes old; a held observation handle is usable for 60 minutes. */
+const FRESH_READ_MS=5*60_000,HELD_OBSERVATION_MS=60*60_000;
 
 export class DailyRecordService {
   readonly #handles=new Map<string,{observation:DailyRecordObservation;scope:DailyRecordScope;requestRef:string;subject?:{displayName:string}}>();
   readonly #cismHandles=new Map<string,CismObservation>();
   #tail:Promise<unknown>=Promise.resolve();
-  constructor(readonly backend:DailyRecordReadBackend|null=null,readonly parentSafeguard:DailyRecordParentSafeguard|null=null,readonly now:()=>number=Date.now,readonly learningPolicy:DailyRecordLearningPolicy|null=null,readonly writeBackend:DailyRecordWriteBackend|null=null,
+  /** The fourth parameter is a retired learning-policy slot: kept so positional callers keep working, never read. */
+  constructor(readonly backend:DailyRecordReadBackend|null=null,readonly parentSafeguard:DailyRecordParentSafeguard|null=null,readonly now:()=>number=Date.now,_retiredLearningPolicy:unknown=null,readonly writeBackend:DailyRecordWriteBackend|null=null,
     /** Owner-durable workflow; when present it replaces process-local handles and the launch-pinned save path. */
     readonly workflow:DailyRecordWorkflow|null=null){
-    if(learningPolicy)for(const pin of [learningPolicy.bundleSha256,learningPolicy.configSha256,learningPolicy.catalogSha256])hash.parse(pin);
     if(parentSafeguard){hash.parse(parentSafeguard.policySha256);hash.parse(parentSafeguard.safeguardSourceSha256);dailyRecordIdSchema.parse(parentSafeguard.sourceRef);}
   }
   #base(context:DailyRecordContext){return {workflowContext:dailyRecordWorkflowContext,userContext:context,academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true};}
-  #age(observedAt:string){const age=this.now()-Date.parse(observedAt);return age<0||age>300000;}
+  #age(observedAt:string,limit=FRESH_READ_MS){const age=this.now()-Date.parse(observedAt);return age<0||age>limit;}
   #policyPins():ReviewPolicyPins{
-    return {learningPolicy:this.learningPolicy?{bundleSha256:this.learningPolicy.bundleSha256,configSha256:this.learningPolicy.configSha256,catalogSha256:this.learningPolicy.catalogSha256}:null,
-      parentSafeguard:this.parentSafeguard?{policySha256:this.parentSafeguard.policySha256,safeguardSourceSha256:this.parentSafeguard.safeguardSourceSha256}:null};
+    return {parentSafeguard:this.parentSafeguard?{policySha256:this.parentSafeguard.policySha256,safeguardSourceSha256:this.parentSafeguard.safeguardSourceSha256}:null};
   }
   /** Bridge-observed attribution when present, otherwise what this upstream process can observe itself. */
   #attribution(input:{actor?:unknown;attribution?:DailyRecordAttribution}):DailyRecordAttribution{
@@ -590,7 +607,7 @@ export class DailyRecordService {
     for(const fact of context.facts.filter(f=>f.origin==='cism_section')){
       if(!cism||!same(cism.scope,context.scope)||this.#age(cism.observedAt)||!cism.evidenceRefs.includes(fact.ref)||fact.text!==cism.text)global.push('cism_fact_not_bound_to_exact_observed_section');
     }
-    if(held&&this.#age(held.observation.observedAt))global.push('stale_source');
+    if(held&&this.#age(held.observation.observedAt,HELD_OBSERVATION_MS))global.push('stale_source');
     // Fresh authoritative before-state; this pure review neither consumes approval nor writes.
     const read=!held||global.length?null:await this.#read(context.scope,context.currentRequestRef,held.subject);
     if(read?.status==='unavailable')global.push(read.reasonCode);
@@ -601,11 +618,10 @@ export class DailyRecordService {
     const rows=input.proposals.map(p=>{
       const before=held?.observation.fields[p.field]??{state:'unknown' as const,reasonCode:'qualified_before_source_unavailable'},target=p.field==='previousHomeworkAssessment'?held?.observation.previousTarget??null:held?.observation.target??null;
       const blockers=[...global,...proposalBlockers(p,context)];
-      let learningSuggestedRendering:string|null=null;
       if(before.state!=='known')blockers.push('unknown_before');
       if(!target)blockers.push(p.field==='previousHomeworkAssessment'?'independent_previous_record_required':'qualified_current_record_required');
       const changed=before.state!=='known'||before.value!==p.value;
-      if(changed&&before.state==='known'&&before.value!==''&&!unknownAssessment(p.field,before.value)&&p.decision.kind==='set')blockers.push('existing_value_requires_explicit_replace');
+      if(changed&&before.state==='known'&&before.value.trim()!==''&&!unknownAssessment(p.field,before.value)&&p.decision.kind==='set')blockers.push('existing_value_requires_explicit_replace');
       const facts=context.facts.filter(f=>f.field===p.field),constraints=facts.flatMap(f=>[...f.requiredFragments,...f.questionCounts.map(c=>c.rendering),...f.deadlines.map(d=>d.rendering),...f.stageClaims.map(s=>s.rendering)]);
       if(facts.some(f=>f.questionCounts.some(c=>!new RegExp('(?<!\\d)'+c.count+'\\s*문항(?!\\d)').test(c.rendering))))blockers.push('count_rendering_must_preserve_count');
       const missingFragments=constraints.filter(fragment=>!p.value.includes(fragment));
@@ -615,9 +631,7 @@ export class DailyRecordService {
         const counts=(text:string)=>[...text.matchAll(/(?<!\d)(\d{1,6})\s*문항/g)].map(m=>Number(m[1]));
         const supportedCounts=new Set([...counts(factText),...facts.flatMap(f=>f.questionCounts.filter(c=>new RegExp('(?<!\\d)'+c.count+'\\s*문항(?!\\d)').test(c.rendering)).map(c=>c.count))]);
         if(counts(p.value).some(count=>!supportedCounts.has(count)))blockers.push('unsupported_question_count');
-        const deadlines=(text:string)=>[...text.matchAll(/(?:(\d{4})[-./](\d{1,2})[-./](\d{1,2})|(\d{1,2})\s*월\s*(\d{1,2})\s*일)/g)].map(m=>m[1]?`${m[1]}-${Number(m[2])}-${Number(m[3])}`:`${Number(m[4])}-${Number(m[5])}`);
-        const supportedDeadlines=new Set([...deadlines(factText),...facts.flatMap(f=>f.deadlines.flatMap(d=>[`${d.date.slice(0,4)}-${Number(d.date.slice(5,7))}-${Number(d.date.slice(8,10))}`,`${Number(d.date.slice(5,7))}-${Number(d.date.slice(8,10))}`,...deadlines(d.rendering)]))]);
-        if(deadlines(p.value).some(date=>!supportedDeadlines.has(date)))blockers.push('unsupported_deadline');
+        if(!deadlineSupported(p.value,facts,context.scope.lessonDate))blockers.push('unsupported_deadline');
         if(/완료/.test(p.value)&&!facts.some(f=>/완료/.test(f.text)||f.stageClaims.some(s=>s.status==='complete')))blockers.push('unsupported_completion_claim');
         const completionPatterns={solving:/(?:문제\s*)?풀이\s*(?:까지\s*)?완료/,grading:/채점(?:·검사)?\s*(?:까지\s*)?완료/,
           correction:/(?:오답\s*(?:수정|정리|처리)|재풀이)\s*(?:까지\s*)?완료/,
@@ -630,44 +644,23 @@ export class DailyRecordService {
       }
       if(changed&&p.value!==''&&['progress','homework','lessonMemo'].includes(p.field)){
         if(this.parentSafeguard&&!this.parentSafeguard.checkLines(p.value))blockers.push('parent_hyphen_lines_required');
-        if(['progress','homework'].includes(p.field)){
-          if(!this.learningPolicy)blockers.push('canonical_learning_policy_not_connected');
-          else {
-            const teacher=p.teacherReported;
-            if(teacher){
-              if(!this.learningPolicy.scopeQualified?.(context.scope))blockers.push('student_namespace_bridge_unverified_ask_teacher');
-              if(p.field!=='progress')blockers.push('teacher_reported_progress_only');
-              const prefix=teacher.preserveBefore&&before.state==='known'?before.value:'';
-              if(teacher.preserveBefore&&(before.state!=='known'||!before.value))blockers.push('teacher_reported_before_required');
-              if(teacher.lines.some(line=>!line.text.startsWith('- ')||line.text.includes('\n')||!p.factRefs.includes(line.factRef)||!facts.some(f=>f.ref===line.factRef&&f.origin==='user_supplied'&&f.text.includes(line.text.slice(2)))))blockers.push('teacher_reported_exact_fact_required');
-              if([prefix,teacher.mappedText,...teacher.lines.map(line=>line.text)].filter(Boolean).join('\n')!==p.value)blockers.push('teacher_reported_render_mismatch');
-              if(!teacher.mappedText&&p.learningEntries?.length)blockers.push('teacher_reported_mapping_mismatch');
-            }
-            const learningBlockers=teacher&&!teacher.mappedText?[]:this.learningPolicy.review(context.scope,teacher?teacher.mappedText:p.value,p.learningEntries);
-            blockers.push(...learningBlockers);
-            if(held&&!global.length&&learningBlockers.includes('learning_render_mismatch'))
-              learningSuggestedRendering=this.learningPolicy.suggest?.(context.scope,p.value,p.learningEntries)??null;
-          }
-        }
         if(!this.parentSafeguard)blockers.push('canonical_parent_safeguard_not_connected');
         else if(this.parentSafeguard.check(p.value))blockers.push('parent_internal_language_excluded');
       }
       const unique=[...new Set(blockers)];
-      return {field:p.field,target,before,after:p.value,factRefs:p.factRefs,learningEntries:p.learningEntries??null,learningSuggestedRendering,
-        learningSuggestionMeaning:learningSuggestedRendering===null?null:'format_example_only_teacher_must_review_meaning',
-        ...(unique.includes('learning_render_mismatch')?{expectedActivityFormat:'suffix_only_without_unit_title' as const}:{}),
+      return {field:p.field,target,before,after:p.value,factRefs:p.factRefs,
         disposition:unique.length?'blocked':changed?'proposed':'noop',blockers:unique,missingFactFragments:missingFragments,
-        holdActions:holdActions(context.scope,p.field,unique,p.learningEntries),
+        holdActions:holdActions(p.field,unique),
         semanticFactReview:'teacher_review_required_not_proven_by_fragment_checks'};
     });
     const interviews=context.memoAnswer.kind==='not_supplied'?[{field:'lessonMemo',reasonCode:'today_student_specific_memo_required'}]:[];
-    const patch=rows.filter(r=>r.disposition==='proposed').map(r=>({field:r.field,target:r.target,before:r.before.state==='known'?r.before.value:null,after:r.after,factRefs:r.factRefs,learningEntries:r.learningEntries}));
+    const patch=rows.filter(r=>r.disposition==='proposed').map(r=>({field:r.field,target:r.target,before:r.before.state==='known'?r.before.value:null,after:r.after,factRefs:r.factRefs}));
     const parentSafeguard=this.parentSafeguard?{sourceRef:this.parentSafeguard.sourceRef,policySha256:this.parentSafeguard.policySha256,safeguardSourceSha256:this.parentSafeguard.safeguardSourceSha256}:null;
     const cismSource=cism?{observationHandle:input.cismObservationHandle,scope:cism.scope,selection:cism.selection,observedAt:cism.observedAt,sourceRevision:cism.sourceRevision,evidenceRefs:cism.evidenceRefs}:null;
     // The exact submitted input is part of the digest, so distinct reviewed inputs never share one immutable review record.
     const inputJson=canonicalJson({context,proposals:input.proposals,cismObservationHandle:input.cismObservationHandle??null});
     const inputDigest=textDigest(inputJson);
-    const body={observationHandle:input.observationHandle??null,inputDigest,scope:context.scope,requestRef:context.currentRequestRef,userContextDigest:digest(context),parentSafeguard,cismSource,learningPolicy:this.learningPolicy?{bundleSha256:this.learningPolicy.bundleSha256,configSha256:this.learningPolicy.configSha256,catalogSha256:this.learningPolicy.catalogSha256}:null,
+    const body={observationHandle:input.observationHandle??null,inputDigest,scope:context.scope,requestRef:context.currentRequestRef,userContextDigest:digest(context),parentSafeguard,cismSource,
       sourceRevision:held?.observation.sourceRevision??null,wireDigest:held?.observation.wireDigest??null,transmissionState:read?.status==='observed'?read.observation.transmissionState:held?.observation.transmissionState??'unknown',rows,patch};
     const status=rows.some(r=>r.blockers.length)||interviews.length?'held' as const:'prepared' as const,reviewDigest=digest(body);
     let reviewRecord:{persisted:boolean;reviewedBy:ReturnType<typeof attributionSummary>}|null=null;

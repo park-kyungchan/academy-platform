@@ -2,7 +2,7 @@ import {installToolAudit} from './tool-audit.ts';
 import {registerCismWeeklyTools} from './cism-weekly-tools.ts';
 import {runtimeIdentityConfiguration,registerRuntimeIdentity} from './runtime-identity.ts';
 import {installStdioDiagnostics,createAcademyStdioTransport} from './stdio-diagnostics.ts';
-import {dailyRecordLearningConfiguration} from './dailyrecord-learning.ts';
+import {withoutRetiredLearningArguments} from './dailyrecord-learning.ts';
 import {McpServer} from '@modelcontextprotocol/server';
 import {DailyRecordService} from './dailyrecord.ts';
 import {registerTextbookSourceTools} from './textbook-source-tools.ts';
@@ -13,7 +13,7 @@ import {createDailyRecordWorkflow,dailyRecordWorkflowConfiguration} from './dail
 
 const runtimeIdentity=await runtimeIdentityConfiguration(process.argv.slice(2));
 const textbookReader=await textbookPdfReaderConfiguration(runtimeIdentity.remainingArgs);
-const learning=await dailyRecordLearningConfiguration(textbookReader.remainingArgs);
+const learning=withoutRetiredLearningArguments(textbookReader.remainingArgs);
 const config=await dailyRecordToolConfiguration(learning.remainingArgs);
 // Native launches always run the owner workflow with its store inside the owner
 // home, wherever the flags appear. The store is created only after the native
@@ -28,7 +28,7 @@ installToolAudit(server,{endpoint:'dailyrecord',...(nativeLaunch?{root:nativeOwn
 registerRuntimeIdentity(server,runtimeIdentity.identity);
 registerCismWeeklyTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'cism-weekly');
 registerTextbookSourceTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'textbook-samples',textbookReader.reader);
-registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,config.parentSafeguard,Date.now,learning.learningPolicy,native?.backend??null,workflow));
+registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,config.parentSafeguard,Date.now,null,native?.backend??null,workflow));
 if(native)process.once('exit',native.close);
 installStdioDiagnostics(server.server);
 await server.connect(createAcademyStdioTransport());
