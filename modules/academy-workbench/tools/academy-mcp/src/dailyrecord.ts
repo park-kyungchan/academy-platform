@@ -259,22 +259,30 @@ function proposalBlockers(p:Proposal,context:DailyRecordContext){
   if(!validValue(p.field,p.value))blockers.push('invalid_explicit_field_value');
   if(p.factRefs.some(ref=>!context.facts.some(f=>f.ref===ref&&f.field===p.field)))blockers.push('field_fact_reference_required');
   if(new Set(p.factRefs).size!==p.factRefs.length)blockers.push('duplicate_fact_ref');
+  blockers.push(...codeFactBlockers(p,context));
   if(p.decision.kind==='clear'&&p.value!=='')blockers.push('clear_requires_empty_value');
   if(p.value===''&&p.decision.kind!=='clear'&&['progress','homework','lessonMemo'].includes(p.field))blockers.push('explicit_clear_decision_required');
   if(p.field==='lessonMemo'&&context.memoAnswer.kind==='no_addition')blockers.push('no_addition_preserves_existing_memo');
   if(p.field==='lessonMemo'&&context.memoAnswer.kind==='not_supplied')blockers.push('today_memo_interview_required');
   return blockers;
 }
+const codeFields:readonly DailyRecordField[]=['attendance','dailyTestAssessment','previousHomeworkAssessment'];
+/** A code value the teacher's own facts contradict holds the row (TASK-FLEX-1R):
+ * user-supplied facts of the field that give different explicit values, or one
+ * whose explicit value differs from the proposed value. */
+function codeFactBlockers(p:Proposal,context:DailyRecordContext){
+  if(!codeFields.includes(p.field))return [];
+  const values=new Set(context.facts.filter(f=>f.field===p.field&&f.origin==='user_supplied'&&f.explicitValue!==undefined).map(f=>f.explicitValue));
+  return [...(values.size>1?['conflicting_explicit_user_source_options']:[]),...([...values].some(v=>v!==p.value)?['explicit_user_source_option_contradicts_value']:[])];
+}
 /** Checks of the text against the field's supplied facts. They are warnings,
- * never blockers, and run only when the field has facts to compare with. */
+ * never blockers. A code value no referenced fact gives is a warning even
+ * without facts; the other checks run only when the field has facts. */
 function factCheckCodes(p:Proposal,context:DailyRecordContext){
   const facts=context.facts.filter(f=>f.field===p.field),codes:string[]=[];
+  if(codeFields.includes(p.field)&&!facts.some(f=>p.factRefs.includes(f.ref)&&f.origin==='user_supplied'&&f.explicitValue===p.value))
+    codes.push('explicit_user_source_option_fact_required');
   if(!facts.length)return {codes,missingFragments:[] as string[]};
-  if(['attendance','dailyTestAssessment','previousHomeworkAssessment'].includes(p.field)){
-    const explicit=facts.filter(f=>p.factRefs.includes(f.ref)&&f.origin==='user_supplied'&&f.explicitValue!==undefined);
-    if(!explicit.some(f=>f.explicitValue===p.value))codes.push('explicit_user_source_option_fact_required');
-    if(new Set(explicit.map(f=>f.explicitValue)).size>1)codes.push('conflicting_explicit_user_source_options');
-  }
   const constraints=facts.flatMap(f=>[...f.requiredFragments,...f.questionCounts.map(c=>c.rendering),...f.deadlines.map(d=>d.rendering),...f.stageClaims.map(s=>s.rendering)]);
   if(facts.some(f=>f.questionCounts.some(c=>!new RegExp('(?<!\\d)'+c.count+'\\s*문항(?!\\d)').test(c.rendering))))codes.push('count_rendering_must_preserve_count');
   const missingFragments=constraints.filter(fragment=>!p.value.includes(fragment));
@@ -303,6 +311,7 @@ function factCheckCodes(p:Proposal,context:DailyRecordContext){
 const holdActionTable:[RegExp,string,string][]=[
   [/^canonical_parent_safeguard_not_connected$/,'owner_configuration','The runtime owner must connect the pinned policy; a caller cannot resolve this.'],
   [/^(field_fact_reference_required|duplicate_fact_ref)$/,'supply_or_correct_fact','A factRef names no supplied fact of this field, or names one twice; correct factRefs or omit them.'],
+  [/^(explicit_user_source_option_contradicts_value|conflicting_explicit_user_source_options)$/,'supply_or_correct_fact','The teacher\'s supplied facts give another code value for this field, or different ones; confirm the value with the teacher and correct the fact or the proposal.'],
   [/^(source_before_or_contract_drift|stale_source|qualified_before_source_unavailable|unknown_before|qualified_current_record_required|independent_previous_record_required|exact_fresh_cism_observation_handle_required|cism_fact_not_bound_to_exact_observed_section)$/,'fresh_intake','Run a fresh intake and review; the source changed or is not qualified.'],
   [/^(parent_hyphen_lines_required|parent_internal_language_excluded|invalid_explicit_field_value)$/,'rewrite_text','Rewrite the parent-facing field text and review again.'],
   [/^(explicit_clear_decision_required|clear_requires_empty_value|no_addition_preserves_existing_memo|today_memo_interview_required|field_not_selected|current_request_ref_required)$/,'explicit_teacher_decision','Obtain the explicit teacher decision for this exact field and request.'],

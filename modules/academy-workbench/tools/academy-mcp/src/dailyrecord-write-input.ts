@@ -41,7 +41,7 @@ export function resolveProposal<P extends FlexibleProposal>(p:P,context:DailyRec
     decision:{kind,requestRef:p.decision?.requestRef??context.currentRequestRef}};
 }
 
-/** Fact checks report, never block: the teacher's words at save are the authority for the text. */
+/** Fact checks report, never block: the teacher's words at save are the authority for the text. A supplied fact that contradicts a code value blocks instead (dailyrecord.ts codeFactBlockers). */
 export const FACT_WARNING_TEXT:Record<string,string>={
   supplied_fact_fragment_missing:'A required fragment of the supplied facts is not in the text.',
   unsupported_question_count:'A question count in the text is not in the supplied facts.',
@@ -51,7 +51,6 @@ export const FACT_WARNING_TEXT:Record<string,string>={
   unsupported_stage_completion_claim:'The text says a stage is complete that no supplied fact confirms.',
   stage_completion_mismatch:'A supplied fact says this stage is not complete.',
   explicit_user_source_option_fact_required:'No supplied fact gives this code value.',
-  conflicting_explicit_user_source_options:'The supplied facts give different code values for this field.',
 };
 export const factWarnings=(codes:readonly string[])=>[...new Set(codes)].map(code=>({code,text:FACT_WARNING_TEXT[code.split(':')[0]!]??code}));
 

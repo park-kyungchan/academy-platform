@@ -34,8 +34,12 @@ it still covers only the pages read, not the roster.
 `status: observed` and `sourceAvailability: observed` mean the read succeeded.
 `preparation.interviews` records questions needed only if the user later asks
 to author/review. No memo answer, attendance, assessment, fact or completion
-is invented. Existing `academy_dailyrecord_intake` and review schemas retain
-their complete current-context requirements and explicit source-option rules.
+is invented. `academy_dailyrecord_intake` needs only `context.scope`, and
+`academy_dailyrecord_review` only the observation handle and the proposals;
+the other context members take the defaults of the minimal write
+([dailyrecord-workflow.md](dailyrecord-workflow.md#minimal-write-task-flex-1-2026-11-17)).
+A code value that a supplied fact contradicts still holds the review row; a
+code value that no fact gives is a warning.
 
 `academy_query` and `academy_source_status` concern preserved snapshots.
 Their local retrieval time and historical access report neither refresh
