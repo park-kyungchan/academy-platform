@@ -199,10 +199,11 @@ test('a student outside the launch list saves by the intake-recorded name, and o
 test('held rows carry field-local actions without a correction scope or a mapping',async()=>{
   const service=new DailyRecordService(backend(),safeguard,()=>clock);
   const c=context(),intake=await service.intake({context:c});
-  const review:any=await service.review({context:c,observationHandle:intake.observationHandle!,proposals:[proposal('progress','지정 문제 13문항 풀이 진행.')]});
+  // A fact check is a warning (TASK-FLEX-1); the parent safeguard is a kept blocker.
+  const review:any=await service.review({context:c,observationHandle:intake.observationHandle!,proposals:[proposal('progress','교사 최종 완료판정. 지정 문제 12문항 풀이 진행.')]});
   expect(review.status).toBe('held');
   expect(review.rows[0].holdActions).toEqual([
-    {field:'progress',code:'unsupported_question_count',action:'supply_or_correct_fact',guidance:expect.stringContaining('teacher facts')}]);
+    {field:'progress',code:'parent_internal_language_excluded',action:'rewrite_text',guidance:expect.stringContaining('Rewrite')}]);
   expect(review.patch).toEqual([]);
 });
 
