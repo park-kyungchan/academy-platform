@@ -9,15 +9,13 @@ import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecord
 import {createDailyRecordSaveAdmission,liveSaveRequestEvidence,type DailyRecordSaveAdmission,type DailyRecordSaveApproval} from './dailyrecord-save-admission.ts';
 import type {DailyRecordActionApproval} from './dailyrecord-workflow.ts';
 import type {DailyRecordField} from './dailyrecord-context.ts';
-import type {DailyRecordScope} from './dailyrecord-context.ts';
-import {ownerAdmissionSchema,isDateAdmitted,type OwnerAdmission} from './owner-admission.ts';
-import {metadataAdmissionSchema,metadataDateAdmitted,type MetadataAdmission} from './metadata-admission.ts';
+import {dailyRecordDateSchema,type DailyRecordScope} from './dailyrecord-context.ts';
 import {AcademyReadFailure} from './read-failure.ts';
-import {StudentNameNotAdmitted} from './student-resolver.ts';
+import {resolveStudentByName} from './student-resolver.ts';
 import type {TextbookCatalogObservation,TextbookPdfObservation,TextbookSchoolLevel} from '../../../../../apps/academy/dc-gang-a/src/lms/textbookCatalogRead';
 import {isTextbookBookLabel} from '../../../../../apps/academy/dc-gang-a/src/lms/prestudyRead';
 import {itemAnswerLookupSchema} from './item-answer-lookup.ts';
-import type {DailyRecordReadAdmission} from './dailyrecord-read.ts';
+import type {DailyRecordTeacherScope} from './dailyrecord-read.ts';
 
 const home='/opt/data/profiles/dc-gang-a-dev';
 /** Owner-private artifacts root; owner workflow stores and admissions must live here. */
@@ -25,7 +23,9 @@ export const nativeOwnerArtifactsRoot=home+'/artifacts/';
 const key=z.string().regex(/^[1-9][0-9]{0,15}$/),hash=z.string().regex(/^[a-f0-9]{64}$/);
 export const nativeDailyRecordConfigSchema=z.object({schemaVersion:z.literal('academy.native-dailyrecord-read/1'),
   sourceBundlePath:z.string().startsWith('/'),sourceBundleSha256:hash,
-  date:z.iso.date(),students:z.array(z.object({studentId:key,displayName:z.string().min(1).max(200)}).strict()).min(1).max(8),
+  // `date` and `students` of earlier launches are accepted. The date gates nothing; a
+  // listed student is only a known name/key pair, and every other student is found by name.
+  date:z.iso.date().optional(),students:z.array(z.object({studentId:key,displayName:z.string().min(1).max(200)}).strict()).max(8).default([]),
 }).strict().superRefine((v,c)=>{
   if(new Set(v.students.map(s=>s.studentId)).size!==v.students.length||new Set(v.students.map(s=>s.displayName)).size!==v.students.length)
     c.addIssue({code:'custom',message:'unique_admitted_students_required'});
@@ -63,7 +63,7 @@ interface SourcePort {
   readTextbookBindings?(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[]>;
   inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];indexBasis?:string;coverage?:string}>;
 }
-type Admission={teacherId:string;teacherLabel:string;date:string;students:{studentId:string;displayName:string}[];sourceBundleSha256:string};
+type Admission={teacherId:string;teacherLabel:string;date?:string;students:{studentId:string;displayName:string}[];sourceBundleSha256:string};
 const fields=['progress','homework','lessonMemo','attendance','dailyTestAssessment','previousHomeworkAssessment'] as const;
 const targetOf=(row:Target):Target=>Object.fromEntries(['studentName','date','groupId','teacherKey','studentKey','courseKey','recordKey','membershipKey'].map(k=>[k,row[k as keyof Target]])) as Target;
 const observationTarget=(t:Target):DailyRecordObservation['target']=>({sourceNamespace:'academy.lms.dayrecord',teacherId:t.teacherKey,studentId:t.studentKey,lessonDate:t.date,courseId:t.courseKey,membershipId:t.membershipKey,recordId:t.recordKey});
@@ -148,14 +148,21 @@ function projectStudentMetadata(query:StudentMetadataBatch['queries'][number],va
 export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRecordWriteBackend {
   #ready:Promise<unknown>|undefined;
   #sourceResolved=new Map<string,{studentId:string;displayName:string;lessonDate?:string;at:number}>();
-  constructor(readonly client:SourcePort,readonly admission:Admission,readonly credential:()=>{username:string;password:string},readonly ownerAdmission:OwnerAdmission|null=null,
-    readonly managedNames:ReadonlySet<string>=new Set(admission.students.map(s=>s.displayName)),readonly metadataAdmission:MetadataAdmission|null=null,
-    readonly saveApproval:DailyRecordSaveApproval|null=null){
-    if(metadataAdmission){this.metadataAdmission=metadataAdmissionSchema.parse(metadataAdmission);if(metadataAdmission.teacherId!==admission.teacherId)throw Error('native_metadata_scope_refused');}
-    if(ownerAdmission){
-      ownerAdmissionSchema.parse(ownerAdmission);
-      if(ownerAdmission.teacherId!==admission.teacherId||!isDateAdmitted(admission.date,ownerAdmission))throw Error('native_dailyrecord_owner_admission_mismatch');
-    }
+  /** The fourth to sixth arguments held the owner admission, the student-name list and the
+   * metadata admission of earlier launches. They are accepted and gate nothing: the LMS
+   * itself limits every read to the configured teacher's students. */
+  constructor(readonly client:SourcePort,readonly admission:Admission,readonly credential:()=>{username:string;password:string},
+    _legacyOwnerAdmission:unknown=null,_legacyStudentNames:unknown=null,_legacyMetadataAdmission:unknown=null,
+    readonly saveApproval:DailyRecordSaveApproval|null=null){}
+  /** The student of a name-keyed read: the launch's own pair for that name, else the one
+   * exact match of the source's name search, under the exact-name rules of the resolver. */
+  async #studentByName(displayName:string):Promise<{studentId:string;displayName:string}>{
+    const listed=this.admission.students.find(s=>s.displayName===displayName);
+    if(listed)return listed;
+    const rows=await this.#wireSearch(displayName);
+    const result=await resolveStudentByName(displayName,{searchByName:async()=>rows});
+    if(result.status!=='resolved')throw Error(result.reasonCode);
+    return {studentId:result.studentKey,displayName:result.displayName};
   }
   async readCismReport(date:string):Promise<CismReport>{
     if(!this.client.readCismReport)throw Error('cism_source_port_unavailable');await this.#authenticate();
@@ -183,11 +190,12 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     return this.client.readTextbookPdf({teacherLabel:this.admission.teacherLabel,schoolLevel,documentRef});
   }
   /** Exact textbook section grading through the owner client's textbook
-   * family. Only configured admission students; titles are the source's
-   * own names and every returned record is re-bound to the request. */
+   * family. Titles are the source's own names and every returned record is
+   * re-bound to the request. */
   async readTextbookSections(input:Readonly<TextbookSectionResults>):Promise<TextbookSectionObservation>{
-    const student=this.admission.students.find(s=>s.displayName===input.displayName);
-    if(!student||!this.managedNames.has(input.displayName))throw Error('textbook_student_not_admitted');
+    return this.#textbookSections(await this.#studentByName(input.displayName),input);
+  }
+  async #textbookSections(student:{studentId:string;displayName:string},input:Readonly<TextbookSectionResults>):Promise<TextbookSectionObservation>{
     await this.#authenticate();
     const raw=await this.client.execute({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
       studentName:student.displayName,courseKey:input.courseKey,bookNo:input.bookNo,sourceTitles:[...input.sourceTitles],gradeViewAdmission:true}) as unknown as {
@@ -206,13 +214,12 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:input.courseKey,bookNo:input.bookNo,
       records,observedAt:raw.observedAt,coverage:'exact_selected_existing_records_not_whole_book'};
   }
-  /** Prestudy video read for one admitted student. Source waiting/completed
+  /** Prestudy video read for one student. Source waiting/completed
    * list membership and summary AI literals are projected without video
    * URLs, and teacher judgment is always reported separately as null. */
   async readPrestudyByName(input:Readonly<PrestudyGet>):Promise<PrestudyObservation>{
-    const student=this.admission.students.find(s=>s.displayName===input.displayName);
-    if(!student||!this.managedNames.has(input.displayName))throw Error('prestudy_student_not_admitted');
     if(!this.client.readPrestudy)throw Error('prestudy_source_port_unavailable');
+    const student=await this.#studentByName(input.displayName);
     await this.#authenticate();
     const raw=await this.client.readPrestudy({teacherLabel:this.admission.teacherLabel,studentName:student.displayName});
     const row=z.object({unitLabel:z.string().max(2000),dateLiteral:z.string().max(200),statusLiteral:z.string().max(2000),prestudyKey:key});
@@ -223,13 +230,12 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     return {student:{studentId:student.studentId,displayName:student.displayName},waiting,completed,summary,
       teacherJudgment:null,observedAt:raw.observedAt,coverage:raw.coverage};
   }
-  /** AI prestudy report for one exact record of an admitted student. The
+  /** AI prestudy report for one exact record of one student. The
    * client binds the detail record to the student key before following
    * its analysis key. Report text stays in this return value only. */
   async readPrestudyReportByName(input:Readonly<PrestudyReportGet>):Promise<PrestudyReportObservation>{
-    const student=this.admission.students.find(s=>s.displayName===input.displayName);
-    if(!student||!this.managedNames.has(input.displayName))throw Error('prestudy_student_not_admitted');
     if(!this.client.readPrestudyReport)throw Error('prestudy_report_source_port_unavailable');
+    const student=await this.#studentByName(input.displayName);
     await this.#authenticate();
     const raw=await this.client.readPrestudyReport({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId,prestudyKey:input.prestudyKey});
     if(raw.prestudyKey!==input.prestudyKey)throw Error('prestudy_report_result_unqualified');
@@ -262,9 +268,8 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
    * bookLabel the candidate labels are returned for caller selection; with
    * no titles the observed title index is returned for caller selection. */
   async readTextbookSectionsByName(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionResultsByNameObservation>{
-    const student=this.admission.students.find(s=>s.displayName===input.displayName);
-    if(!student||!this.managedNames.has(input.displayName))throw Error('textbook_student_not_admitted');
     if(!this.client.readTextbookBindings)throw Error('textbook_binding_source_port_unavailable');
+    const student=await this.#studentByName(input.displayName);
     await this.#authenticate();
     const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
     this.#assertTextbookBindings(bindings,student.studentId);
@@ -294,7 +299,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     const binding=selected[0]!;
     if(binding.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
     if(input.sourceTitles){
-      return this.readTextbookSections({displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,
+      return this.#textbookSections(student,{displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,
         courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:[...input.sourceTitles]});
     }
     if(!this.client.inspectTextbookIndex)throw Error('textbook_index_source_port_unavailable');
@@ -319,9 +324,8 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
    * hints): one call never scans every book. A scan cap above 64 titles fails
    * instead of a partial guess. Generated clinic membership is never asserted. */
   async readItemSectionTrace(input:Readonly<ItemSectionTrace>):Promise<ItemSectionTraceObservation>{
-    const student=this.admission.students.find(s=>s.displayName===input.displayName);
-    if(!student||!this.managedNames.has(input.displayName))throw Error('textbook_student_not_admitted');
     if(!this.client.readTextbookBindings||!this.client.inspectTextbookIndex)throw Error('textbook_binding_source_port_unavailable');
+    const student=await this.#studentByName(input.displayName);
     await this.#authenticate();
     const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
     this.#assertTextbookBindings(bindings,student.studentId);
@@ -392,13 +396,12 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
   async saveDailyRecord(scope:Readonly<DailyRecordScope>,patches:readonly {field:DailyRecordField;value:string;before:string;wireDigest:string}[],requestApproval?:DailyRecordActionApproval,subject?:{displayName:string}){
     const approval=requestApproval??this.saveApproval;
     if(!approval||typeof this.client.applyJournalAction!=='function')throw Error('dailyrecord_save_backend_not_configured');
-    // A source-verified owner scope may save a student outside the launch list by the
-    // name recorded at intake; the row identity check below still binds name to key.
-    const sourceVerified=this.ownerAdmission?.schemaVersion==='academy.owner-admission/2'&&this.ownerAdmission.studentScope==='source_verified';
+    // A student outside the launch list is saved by the name recorded at intake;
+    // the row identity check below still binds name to key.
     const student=this.admission.students.find(s=>s.studentId===scope.studentId)
-      ??(sourceVerified&&requestApproval&&subject&&this.managedNames.has(subject.displayName)?{studentId:scope.studentId,displayName:subject.displayName}:undefined);
+      ??(requestApproval&&subject?{studentId:scope.studentId,displayName:subject.displayName}:undefined);
     if(scope.sourceNamespace!=='academy.lms.dayrecord'||scope.teacherId!==this.admission.teacherId
-      ||!(this.ownerAdmission?isDateAdmitted(scope.lessonDate,this.ownerAdmission):scope.lessonDate===this.admission.date)||!student)throw Error('native_dailyrecord_scope_refused');
+      ||!dailyRecordDateSchema.safeParse(scope.lessonDate).success||!student)throw Error('native_dailyrecord_scope_refused');
     await this.#authenticate();
     const selector=await this.client.discoverDayRecordGroups({teacherLabel:this.admission.teacherLabel,date:scope.lessonDate});
     const result=await this.client.execute({family:'day_record',teacherLabel:this.admission.teacherLabel,date:scope.lessonDate,
@@ -438,12 +441,9 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     }
     return fields;
   }
-  readRoutingAdmission():DailyRecordReadAdmission{
-    // Discovery reflects only this exact owner launch. It does not widen its date or student scope.
-    return {sourceNamespace:'academy.lms.dayrecord' as const,teacherId:this.admission.teacherId,
-      allowedFrom:this.ownerAdmission ? this.ownerAdmission.allowedFrom : this.admission.date,
-      allowedThrough:this.ownerAdmission ? this.ownerAdmission.allowedThrough : this.admission.date,
-      ...(this.ownerAdmission?.schemaVersion==='academy.owner-admission/2'?{studentScope:this.ownerAdmission.studentScope??'configured'}:{})};
+  /** The configured teacher that every DailyRecord row must carry. */
+  teacherScope():DailyRecordTeacherScope{
+    return {sourceNamespace:'academy.lms.dayrecord',teacherId:this.admission.teacherId};
   }
   #authenticate(){
     // One retained promise for every read family, including synchronous credential/auth failures.
@@ -457,29 +457,17 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
   }
   async readStudentMetadata(value:Readonly<StudentMetadataBatch>):Promise<StudentMetadataObservation>{
     const input=studentMetadataBatchSchema.parse(value),scope=input.scope;
-    const student=this.admission.students.find(s=>s.studentId===scope.studentId);
-    if(scope.teacherId!==this.admission.teacherId||!student)throw Error('native_metadata_scope_refused');
-    if(this.metadataAdmission)this.#authorizeMetadata(input);
-    else if(scope.lessonDate!==this.admission.date)throw Error('native_metadata_scope_refused');
+    if(scope.teacherId!==this.admission.teacherId)throw Error('native_metadata_scope_refused');
+    // A key's name: the launch's pair, else this request's earlier source resolve.
+    const resolved=this.#sourceResolved.get(input.currentRequestRef);
+    const student=this.admission.students.find(s=>s.studentId===scope.studentId)
+      ??(resolved&&resolved.studentId===scope.studentId&&Date.now()-resolved.at>=0&&Date.now()-resolved.at<=300000?{studentId:resolved.studentId,displayName:resolved.displayName}:undefined);
+    if(!student)throw Error('native_student_name_unresolved');
     return this.#readMetadata(input,student);
   }
-  #authorizeMetadata(input:StudentMetadataBatch){
-    const policy=this.metadataAdmission;
-    // History always qualifies selector 1 before its requested periods; printed
-    // lookup may fall back to that same DT selector. Admit every possible read.
-    const selectors=(q:StudentMetadataBatch['queries'][number])=>q.kind==='daily_history'?['1',...q.periods]:q.kind==='student_papers'?[]:['1'];
-    if(!policy||input.scope.teacherId!==policy.teacherId||!metadataDateAdmitted(input.scope.lessonDate,policy)
-      ||input.queries.some(q=>!policy.operations.includes(q.kind)||('period' in q&&(!metadataDateAdmitted(q.period.from,policy)||!metadataDateAdmitted(q.period.through,policy)))
-        ||selectors(q).some(selector=>!policy.relativeSelectors.includes(selector as MetadataAdmission['relativeSelectors'][number]))))
-      throw Error('metadata_namespace_not_admitted');
-  }
   async readStudentMetadataByName(value:Readonly<StudentMetadataGet>):Promise<StudentMetadataObservation>{
-    const input=studentMetadataGetSchema.parse(value),policy=this.metadataAdmission;
-    // Namespace authorization precedes authentication and the dated identity read.
-    const provisional={...input,scope:{sourceNamespace:'academy.lms.metadata' as const,teacherId:this.admission.teacherId,studentId:'1',lessonDate:input.lessonDate}};
-    this.#authorizeMetadata(provisional);
+    const input=studentMetadataGetSchema.parse(value);
     const configured=this.admission.students.find(s=>s.displayName===input.displayName);
-    if(!this.managedNames.has(input.displayName)||(!configured&&policy!.studentScope!=='source_verified'))throw Error('metadata_namespace_not_admitted');
     this.#requireMetadataMethods(input.queries);
     await this.#authenticate();
     const selector=await this.client.discoverDayRecordGroups({teacherLabel:this.admission.teacherLabel,date:input.lessonDate});
@@ -490,7 +478,8 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     const row=found.dayRecords[0]!,student={studentId:key.parse(row.studentKey),displayName:input.displayName};
     if(configured&&configured.studentId!==student.studentId)throw Error('native_dated_name_scope_conflict');
     // No caller proof or cross-process cache. This student is local to this batch.
-    return this.#readMetadata({purpose:input.purpose,currentRequestRef:input.currentRequestRef,scope:{...provisional.scope,studentId:student.studentId},queries:input.queries},student);
+    return this.#readMetadata({purpose:input.purpose,currentRequestRef:input.currentRequestRef,
+      scope:{sourceNamespace:'academy.lms.metadata',teacherId:this.admission.teacherId,studentId:student.studentId,lessonDate:input.lessonDate},queries:input.queries},student);
   }
   #requireMetadataMethods(queries:StudentMetadataBatch['queries']){
     const methods={student_papers:'searchStudentPaperMetadata',daily_metadata:'searchDailyTestMetadata',daily_inventory:'inspectDailyTestInventory',daily_history:'readDailyTestHistory',printed_paper_metadata:'lookupPrintedPaperMetadata'} as const;
@@ -518,16 +507,13 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
   /** Name-only search feeding the service-layer resolver. Returns projected
    * `{studentKey, studentName}` pairs; exact-name rules (zero/multi/mismatch
    * unavailable, never a guess, no sequential probing) run in the service.
-   * Live wire first via the owner bundle port when present (name-only input,
-   * no key upfront); otherwise the owner-issued admission table in this
-   * process. No network and no secret use on the admission path; the later
-   * intake still verifies key+name against the live wire. */
+   * With a lesson date, the dated DailyRecord rows of the configured teacher;
+   * otherwise the owner client's name search (name-only input, no key upfront).
+   * The later intake still verifies key+name against the live wire. */
   async searchStudentsByName(exactName: string,requestRef?:string,lessonDate?:string): Promise<unknown>{
     if(requestRef)this.#sourceResolved.delete(requestRef);
-    if(this.ownerAdmission?.schemaVersion==='academy.owner-admission/2'&&this.ownerAdmission.studentScope==='source_verified'
-      &&!this.managedNames.has(exactName))throw new StudentNameNotAdmitted();
-    if(lessonDate && this.ownerAdmission?.schemaVersion==='academy.owner-admission/2'&&this.ownerAdmission.studentScope==='source_verified'){
-      if(!isDateAdmitted(lessonDate,this.ownerAdmission))throw Error('native_dailyrecord_scope_refused');
+    if(lessonDate){
+      if(!dailyRecordDateSchema.safeParse(lessonDate).success)throw Error('native_dailyrecord_scope_refused');
       await this.#authenticate();
       const selector=await this.client.discoverDayRecordGroups({teacherLabel:this.admission.teacherLabel,date:lessonDate});
       const found=await this.client.execute({family:'day_record',teacherLabel:this.admission.teacherLabel,date:lessonDate,
@@ -537,29 +523,26 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
         throw Error('native_dated_name_scope_conflict');
       return this.#rememberResolved(found.dayRecords.map(row=>({studentKey:row.studentKey,studentName:row.studentName})),exactName,requestRef,lessonDate);
     }
-    if(typeof this.client.searchStudentsByName==='function'){
-      // Name lookup uses the same owner session as subsequent source reads.
-      // Retain an authentication failure rather than replaying a login.
-      await this.#authenticate();
-      const raw=await this.client.searchStudentsByName({teacherLabel:this.admission.teacherLabel,studentName:exactName});
-      if(!Array.isArray(raw))throw Error('native_name_search_unqualified_no_automatic_retry');
-      const pairs=raw.map((row)=>{
-        if(typeof row!=='object'||row===null)throw Error('native_name_search_unqualified_no_automatic_retry');
-        const pair=row as Record<string,unknown>;
-        return {studentKey:pair.studentKey,studentName:pair.studentName,...(pair.fixedSourceFilter!==undefined?{fixedSourceFilter:pair.fixedSourceFilter}:{})};
-      });
-      return this.#rememberResolved(pairs,exactName,requestRef);
-    }
-    const admitted = this.admission.students.filter((s)=>s.displayName===exactName)
-      .map((s)=>({studentKey:s.studentId,studentName:s.displayName}));
-    if(!admitted.length)throw new StudentNameNotAdmitted();
-    return admitted;
+    return this.#rememberResolved(await this.#wireSearch(exactName),exactName,requestRef);
+  }
+  /** The owner client's name-only search, projected to pairs. */
+  async #wireSearch(exactName:string):Promise<unknown[]>{
+    if(typeof this.client.searchStudentsByName!=='function')throw Error('student_resolve_backend_not_configured');
+    // Name lookup uses the same owner session as subsequent source reads.
+    // Retain an authentication failure rather than replaying a login.
+    await this.#authenticate();
+    const raw=await this.client.searchStudentsByName({teacherLabel:this.admission.teacherLabel,studentName:exactName});
+    if(!Array.isArray(raw))throw Error('native_name_search_unqualified_no_automatic_retry');
+    return raw.map((row)=>{
+      if(typeof row!=='object'||row===null)throw Error('native_name_search_unqualified_no_automatic_retry');
+      const pair=row as Record<string,unknown>;
+      return {studentKey:pair.studentKey,studentName:pair.studentName,...(pair.fixedSourceFilter!==undefined?{fixedSourceFilter:pair.fixedSourceFilter}:{})};
+    });
   }
   #rememberResolved(raw:unknown,exactName:string,requestRef?:string,lessonDate?:string){
     const pairs=nameSearchPairs.parse(raw);
     const unique=new Map(pairs.filter(row=>row.studentName===exactName).map(row=>[row.studentKey,row]));
-    if(this.ownerAdmission?.schemaVersion==='academy.owner-admission/2' && this.ownerAdmission.studentScope==='source_verified'
-      && requestRef && pairs.every(row=>row.studentName===exactName) && unique.size===1){
+    if(requestRef && pairs.every(row=>row.studentName===exactName) && unique.size===1){
       const row=[...unique.values()][0]!;
       this.#sourceResolved.set(requestRef,{studentId:row.studentKey,displayName:row.studentName,lessonDate,at:Date.now()});
       if(this.#sourceResolved.size>32)this.#sourceResolved.delete(this.#sourceResolved.keys().next().value!);
@@ -568,15 +551,13 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
   }
   async readDailyRecord(scope:Readonly<DailyRecordScope>,requestRef?:string,subject?:{displayName:string}){
     const resolved=requestRef?this.#sourceResolved.get(requestRef):undefined;
-    const sourceStudent=this.ownerAdmission?.schemaVersion==='academy.owner-admission/2' && this.ownerAdmission.studentScope==='source_verified'
-      && resolved && resolved.studentId===scope.studentId && (!resolved.lessonDate||resolved.lessonDate===scope.lessonDate) && Date.now()-resolved.at>=0 && Date.now()-resolved.at<=300000 ? resolved : undefined;
-    // A later process re-selects a source-verified student by the name recorded at
+    const sourceStudent=resolved && resolved.studentId===scope.studentId && (!resolved.lessonDate||resolved.lessonDate===scope.lessonDate) && Date.now()-resolved.at>=0 && Date.now()-resolved.at<=300000 ? resolved : undefined;
+    // A later process re-selects a source-resolved student by the name recorded at
     // intake; the row identity check below still binds that name to the exact key.
-    const recordedSubject=this.ownerAdmission?.schemaVersion==='academy.owner-admission/2'&&this.ownerAdmission.studentScope==='source_verified'&&subject&&this.managedNames.has(subject.displayName)
-      ?{studentId:scope.studentId,displayName:subject.displayName}:undefined;
+    const recordedSubject=subject?{studentId:scope.studentId,displayName:subject.displayName}:undefined;
     const student=this.admission.students.find(s=>s.studentId===scope.studentId)??sourceStudent??recordedSubject;
     if(scope.sourceNamespace!=='academy.lms.dayrecord'||scope.teacherId!==this.admission.teacherId
-      ||!(this.ownerAdmission?isDateAdmitted(scope.lessonDate,this.ownerAdmission):scope.lessonDate===this.admission.date)||!student)throw Error('native_dailyrecord_scope_refused');
+      ||!dailyRecordDateSchema.safeParse(scope.lessonDate).success||!student)throw Error('native_dailyrecord_scope_refused');
     // Keep a failed authentication promise: subsequent calls must not retry login.
     await this.#authenticate();
     const selector=await this.client.discoverDayRecordGroups({teacherLabel:this.admission.teacherLabel,date:scope.lessonDate});
@@ -625,7 +606,7 @@ export function durableSaveConsumeOnce(storeDir:string){
     return true;
   };
 }
-export async function nativeDailyRecordConfiguration(args:readonly string[],ownerAdmission:OwnerAdmission|null=null,metadataAdmission:MetadataAdmission|null=null,saveAdmission:DailyRecordSaveAdmission|null=null,saveStoreDir:string|null=null,saveRequestPath:string|null=null){
+export async function nativeDailyRecordConfiguration(args:readonly string[],saveAdmission:DailyRecordSaveAdmission|null=null,saveStoreDir:string|null=null,saveRequestPath:string|null=null){
   if(!args.length)return null;
   if(args.length!==3||args[0]!=='--dailyrecord-native')throw Error('dailyrecord_native_arguments_invalid');
   if(process.getuid?.()!==10000||process.env.HERMES_HOME!==home)throw Error('native_dailyrecord_owner_required');
@@ -634,8 +615,8 @@ export async function nativeDailyRecordConfiguration(args:readonly string[],owne
     ||stat.uid!==10000||(stat.mode&0o077)!==0||!stat.isFile()||stat.isSymbolicLink())throw Error('native_dailyrecord_private_config_required');
   const pinned=await readPinnedLocalBytes(configPath,hash.parse(args[2]));
   const config=nativeDailyRecordConfigSchema.parse(JSON.parse(pinned.bytes.toString('utf8')));
+  // Teacher, college and login of the owner file. No student list in it gates a read.
   const owner=JSON.parse(readFileSync(home+'/academy/owner.json','utf8'));
-  if(config.students.some(s=>!owner.expectedStudentNames.includes(s.displayName)))throw Error('native_dailyrecord_managed_student_required');
   const bundle=await readPinnedLocalBytes(config.sourceBundlePath,config.sourceBundleSha256);
   const jsdom='/opt/data/workspace/dc-gang-a/node_modules/jsdom/lib/api.js';
   const dependency=JSON.parse(readFileSync(resolve(jsdom,'../../package.json'),'utf8'));
@@ -659,6 +640,6 @@ export async function nativeDailyRecordConfiguration(args:readonly string[],owne
     });
   }
   const backend=new NativeDailyRecordBackend(client,{teacherId:owner.teacherSourceKey,teacherLabel:owner.teacherLabel,
-    date:config.date,students:config.students,sourceBundleSha256:config.sourceBundleSha256},()=>({username:owner.sourceUsername,password}),ownerAdmission,new Set(owner.expectedStudentNames),metadataAdmission,saveApproval);
+    date:config.date,students:config.students,sourceBundleSha256:config.sourceBundleSha256},()=>({username:owner.sourceUsername,password}),null,null,null,saveApproval);
   return {backend,close:()=>client.close()};
 }

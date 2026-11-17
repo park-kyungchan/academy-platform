@@ -6,16 +6,16 @@ Omit `lessonDate` for today in `Asia/Seoul`, or use an explicit real ISO date.
 The caller cannot supply a native student key, teacher, namespace, admission,
 facts, memo answer, proposed values or approval flag to this tool.
 
-The route checks the owner's admitted date range, resolves the exact name with
-`academy_student_resolve`, and passes its returned key to
-`academy_dailyrecord_intake`. Zero/ambiguous names, unavailable source,
-unqualified or stale output, scope drift and dates outside admission stop
-without automatic retry. Native current/prior record identity checks remain
+The route resolves the exact name with `academy_student_resolve` on the lesson
+date, and passes its returned key and the backend's configured teacher to
+`academy_dailyrecord_intake`. No date window and no student list gates the
+route; the LMS limits every read to the configured teacher's students, and every
+row must carry that teacher's key. Zero/ambiguous names, unavailable source,
+unqualified or stale output and scope drift stop without automatic retry. Native current/prior record identity checks remain
 in the existing intake/backend. The source fields and transmission state
 remain observations. This lookup returns no review handle or patch.
 
-With the explicit `source_verified` owner policy, the composed route passes
-the lesson date to the resolver. The owner client discovers the source's dated
+The composed route passes the lesson date to the resolver. The owner client discovers the source's dated
 groups and projects the exact principal-qualified DailyRecord occurrence into
 a name/key pair. A missing or ambiguous dated row stays unavailable; it does
 not fall back to a recent test page or prove student absence. The later intake
@@ -66,27 +66,23 @@ example, not an automatic rewrite or evidence of semantic equivalence: the
 teacher must check that it preserves the intended facts before a new review.
 Unknown book or section bindings remain blockers and do not produce a guess.
 
-## Owner admission
+## Owner admission (retired)
 
-The native entrypoints accept a launch-only flag:
-
-```sh
---dailyrecord-admission /ABSOLUTE/OWNER/admission.json REVIEWED_SHA256
-```
-
-The admission is descriptor-read with an exact pin, validated against
-`ownerAdmissionSchema`, and bound to the native teacher and configured date.
-Without it, the original exact single-date launch scope is retained. A range
-changes neither the admitted student set nor any write/send authority.
-`owner-admission-through-20261027.json` preserves the original October26
-record and records the user's explicit read-only extension through October27.
+The date windows, student lists and metadata operation lists of 2026-10-28 are
+removed (TASK-GATES-1, 2026-11-17). An installed launch may still pass
+`--dailyrecord-admission <path> <sha256>` and `--metadata-admission <path>
+<sha256>`, and a release may still pin an admission in `routing.json`; they are
+accepted and gate nothing. The native config's `students` are known name/key
+pairs only: every other student is found by name through the source. The
+`owner-admission-*.json` files in this directory are historical records.
 
 ## Neutral installation
 
 `src/neutral-server.ts` is the maintained source for
 `/root/.local/share/academy-mcp/server.ts` and its Bun bundle `server.mjs`.
-`routing.json` selects only an admission path and its SHA256. The neutral
-bridge resolves and intakes inside one upstream process/account-lock batch.
+`routing.json` may carry an admission path and its SHA256 of an earlier release;
+the bridge does not read it. The neutral bridge resolves and intakes inside one
+upstream process/account-lock batch.
 `endpoints.json` retains its original native getter, image, lock and artifact
 pins; no credential value is included in registration or source.
 
@@ -117,22 +113,18 @@ the work record cites session/receipt metadata without student originals.
 
 ## Versioned read releases
 
-An owner-issued `academy.owner-admission/2` record may explicitly use `null`
-for either date bound. `studentScope` defaults to configured students; the
-explicit `source_verified` option additionally permits an exact unique live
-name/key match for the same request, with a five-minute in-process binding.
-The DailyRecord row and previous occurrence still require exact principal,
-student, course and membership qualification. This does not widen the
-separate metadata namespace or authorize saves or sends.
+A student found by an exact unique live name/key match is bound to the same
+request for five minutes in the process. The DailyRecord row and previous
+occurrence still require exact principal, student, course and membership
+qualification. Saves still need their per-request approval and readback.
 
 An upgraded bridge optionally recognizes an owner-controlled `release.json`
 under its existing install directory. The pointer references immutable,
 SHA-256-pinned `routing`, `endpoints`, and `registry` files and is replaced
-atomically only after those files and the routing-selected owner admission are
-ready. It is read for every request, so already-running upgraded bridge clients
-can converge on the new release without being restarted. The bridge compares
-the selected admission digest with the spawned DailyRecord backend before any
-source lookup. Invalid or mismatched releases, and removal of an adopted
+atomically only after those files are ready. It is read for every request, so already-running upgraded bridge clients
+can converge on the new release without being restarted. No per-call admission
+handshake runs; `academy_runtime_read_admission` is retired, and a registry or
+surface of an earlier release that names it drops it. Invalid releases, and removal of an adopted
 pointer, fail closed. Existing pre-upgrade bridge processes cannot acquire this
 behavior without a separately authorized upgrade. The release schema is
 `academy.mcp-release/1`; see `src/runtime-release.ts` and synthetic release
@@ -164,7 +156,7 @@ changes what a call accepts.
   value that is not a string or is longer fails the release with
   `release_surface_unqualified`. The bridge answers `initialize` with the
   `instructions` of the release it loads at start, with `{{admittedDates}}`
-  filled as in `tools/list`; the text stays fixed for the life of the process,
+  rendered as in `tools/list`; the text stays fixed for the life of the process,
   so a pointer change under a running bridge does not change it. Without the
   member (or without a surface), `initialize` is unchanged
   (`tests/golden/surface-absent-initialize.json`). The surface hash in
@@ -179,9 +171,8 @@ changes what a call accepts.
   pin fail as a registry pin does.
 - `tools/list` returns the surface's tools in its order and no other. The
   description is shown verbatim: no routing context, scope sentence or date
-  hint is added. The only substitution is `{{admittedDates}}`, which becomes
-  `<allowedFrom> through <allowedThrough>` of the read admission (`unbounded`
-  for a missing bound). `inputSchema` and `title` are the surface's when given;
+  hint is added. The only substitution is `{{admittedDates}}` of an earlier
+  surface, which renders as `any date`: no date window gates a read. `inputSchema` and `title` are the surface's when given;
   otherwise, and for `annotations` and `outputSchema`, the registry tool's.
 - `tools/call` refuses a name that the surface does not list with
   `unknown_tool` before any endpoint starts. A listed name is validated against

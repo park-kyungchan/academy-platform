@@ -42,7 +42,8 @@ test('native backend scans every binding, matches lecture and outer keys, and ke
   expect(result).toMatchObject({kind:'traced',unmatchedLabels:['8201'],sectionsScanned:2,sectionsFailed:0});
   expect((result as any).items[0]).toMatchObject({label:'8101',matches:[{sourceTitle:'[필수예제] Unit A - Invented Student',ordinal:'2',matchedBy:'lectureKey'}]});
   expect((result as any).items[2]).toMatchObject({label:'8301',matches:[{matchedBy:'outerLectureKey'}]});
-  await expect(backend.readItemSectionTrace!({...request,displayName:'Foreign Student'})).rejects.toThrow('textbook_student_not_admitted');
+  // No list: another name is looked up in the source. This fixture has no search port.
+  await expect(backend.readItemSectionTrace!({...request,displayName:'Foreign Student'})).rejects.toThrow('student_resolve_backend_not_configured');
 });
 test('native trace stops at the first source failure and reports its cause instead of unmatched labels',async()=>{
  const admission={teacherId:'99001',teacherLabel:'Invented Teacher',date:'2040-01-04',students:[{studentId:'77001',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};

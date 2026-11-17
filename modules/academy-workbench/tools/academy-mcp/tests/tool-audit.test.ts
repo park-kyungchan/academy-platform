@@ -15,7 +15,7 @@ test('safe failure causes preserve HTTP stage without arbitrary upstream values'
 test('all finite name resolver reasons survive the audit projection',()=>{
  for(const [code,category] of [
   ['student_name_invalid','input_validation'],['student_resolve_backend_not_configured','endpoint_absence'],
-  ['student_name_not_admitted','policy_denial'],['student_name_scope_conflict','contract_drift'],
+  ['student_name_scope_conflict','contract_drift'],
   ['student_name_not_found','partial_coverage'],['student_name_ambiguous','identity_ambiguity'],
   ['student_resolve_search_unqualified_no_automatic_retry','upstream_unavailable'],
   ['student_resolve_unqualified_no_automatic_retry','upstream_unavailable'],

@@ -6,7 +6,6 @@ import {createHash} from 'node:crypto';
 import {DailyRecordService} from '../src/dailyrecord.ts';
 import {DailyRecordWorkflowStore,dailyRecordWorkflowConfiguration} from '../src/dailyrecord-workflow.ts';
 import {NativeDailyRecordBackend} from '../src/native-dailyrecord-backend.ts';
-import {ownerAdmissionSchema} from '../src/owner-admission.ts';
 import type {DailyRecordField} from '../src/dailyrecord-context.ts';
 import {backend,clock,context,proposal,safeguard} from './dailyrecord-fixture.ts';
 import {initialFields,nativeScope,proposals,userRequest,workflowContext,workflowService} from './dailyrecord-workflow-fixture.ts';
@@ -177,10 +176,9 @@ test('transport uncertainty is resolved by the owner readback, never by a retry'
   }finally{f.cleanup();}
 },20000);
 
-test('a source-verified student outside the launch list saves by the intake-recorded name, and only with a matching row',async()=>{
+test('a student outside the launch list saves by the intake-recorded name, and only with a matching row',async()=>{
   const scope={sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',studentId:'77002',lessonDate:'2040-01-04'};
   const admission={teacherId:'99001',teacherLabel:'Invented Teacher',date:'2040-01-04',students:[{studentId:'77001',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};
-  const owner=ownerAdmissionSchema.parse({schemaVersion:'academy.owner-admission/2' as const,decider:'user' as const,decidedAt:'2040-01-04',sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',allowedFrom:null,allowedThrough:null,failClosedDefault:'2026-10-23',studentScope:'source_verified' as const});
   const target={studentName:'Second Student',date:'2040-01-04',groupId:'3',teacherKey:'99001',studentKey:'77002',courseKey:'5',recordKey:'23',membershipKey:'9'};
   let writes=0;
   const port={authenticate:async()=>{},discoverDayRecordGroups:async()=>({groups:[{groupId:'3'}]}),
@@ -189,17 +187,12 @@ test('a source-verified student outside the launch list saves by the intake-reco
     applyJournalAction:async()=>{writes++;return {status:'persisted' as const,transport:'returned' as const};},close:()=>{}};
   const approval={consumeApproval:async()=>({status:'verified' as const,actionDigest:'c'.repeat(64)})};
   const patch=[{field:'progress' as const,value:'- 새 문안',before:'Current',wireDigest:'a'.repeat(64)}];
-  const managed=new Set(['Invented Student','Second Student','Third Student']);
-  const verified=new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}),owner,managed);
-  const unmanaged=new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}),owner);
-  await expect(unmanaged.saveDailyRecord(scope,patch,approval,{displayName:'Second Student'})).rejects.toThrow('native_dailyrecord_scope_refused');
-  await expect(verified.saveDailyRecord(scope,patch,approval)).rejects.toThrow('native_dailyrecord_scope_refused');
-  expect(await verified.saveDailyRecord(scope,patch,approval,{displayName:'Second Student'})).toEqual([{field:'progress',status:'persisted',dispatched:true,transport:'returned'}]);
-  // An unmanaged name is refused; a managed name without the exact source row is unverified.
-  await expect(verified.saveDailyRecord(scope,patch,approval,{displayName:'Another Name'})).rejects.toThrow('native_dailyrecord_scope_refused');
-  await expect(verified.saveDailyRecord(scope,patch,approval,{displayName:'Third Student'})).rejects.toThrow('native_dailyrecord_occurrence_unverified');
-  const configuredOnly=new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}),ownerAdmissionSchema.parse({...owner,studentScope:'configured'}),managed);
-  await expect(configuredOnly.saveDailyRecord(scope,patch,approval,{displayName:'Second Student'})).rejects.toThrow('native_dailyrecord_scope_refused');
+  const backend=new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}));
+  // Without a recorded name the key alone cannot select a row.
+  await expect(backend.saveDailyRecord(scope,patch,approval)).rejects.toThrow('native_dailyrecord_scope_refused');
+  expect(await backend.saveDailyRecord(scope,patch,approval,{displayName:'Second Student'})).toEqual([{field:'progress',status:'persisted',dispatched:true,transport:'returned'}]);
+  // A name without the exact source row is unverified; no list decides it.
+  await expect(backend.saveDailyRecord(scope,patch,approval,{displayName:'Third Student'})).rejects.toThrow('native_dailyrecord_occurrence_unverified');
   expect(writes).toBe(1);
 });
 
@@ -319,15 +312,13 @@ test('an empty reviewed patch still fails closed when the source drifted before 
   }finally{f.cleanup();}
 },20000);
 
-test('a managed source-verified student outside the launch list is resolved, reviewed and then saved by a fresh process',async()=>{
+test('a student outside the launch list is resolved, reviewed and then saved by a fresh process',async()=>{
   const {createDailyRecordWorkflow}=await import('../src/dailyrecord-workflow.ts');
   const {learningPolicy}=await import('./dailyrecord-fixture.ts');
   const base=mkdtempSync(resolve(tmpdir(),'dailyrecord-outside-list-'));
   try{
     const scope={sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',studentId:'77002',lessonDate:'2040-01-04'};
     const admission={teacherId:'99001',teacherLabel:'Invented Teacher',date:'2040-01-04',students:[{studentId:'77001',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};
-    const owner=ownerAdmissionSchema.parse({schemaVersion:'academy.owner-admission/2',decider:'user',decidedAt:'2040-01-04',sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',
-      allowedFrom:null,allowedThrough:null,failClosedDefault:'2026-10-23',studentScope:'source_verified'});
     const target={studentName:'Second Student',date:'2040-01-04',groupId:'3',teacherKey:'99001',studentKey:'77002',courseKey:'5',recordKey:'23',membershipKey:'9'};
     const prior={...target,date:'2040-01-02',recordKey:'22'};
     const state={progress:'- 기존 진도 문안',homework:'',lessonMemo:'',attendance:'Y',dailyTestAssessment:'0',previousHomeworkAssessment:'3'};
@@ -337,8 +328,8 @@ test('a managed source-verified student outside the launch list is resolved, rev
       applyJournalAction:async(action:any,approval:any)=>{
         if((await approval.consumeApproval(action)).status!=='verified')throw Error('journal_http_approval_rejected');
         (state as Record<string,string>)[action.field]=action.after;return {status:'persisted' as const,transport:'returned' as const};},close:()=>{}});
-    const managed=new Set(['Invented Student','Second Student']),store=resolve(base,'store');
-    const service=()=>{const backend=new NativeDailyRecordBackend(port() as never,admission,()=>({username:'fictional',password:'fictional'}),owner,managed);
+    const store=resolve(base,'store');
+    const service=()=>{const backend=new NativeDailyRecordBackend(port() as never,admission,()=>({username:'fictional',password:'fictional'}));
       return new DailyRecordService(backend,safeguard,Date.now,learningPolicy,backend,createDailyRecordWorkflow({storeDir:store}));};
     const c={...workflowContext({progress:'- 지정 문제 풀이 진행.'}),scope};
     // The composed name route returns an owner-durable authoring handle that a fresh process can review and save.

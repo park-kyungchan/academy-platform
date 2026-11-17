@@ -63,10 +63,10 @@ async function loadFailure(base:string){
  throw Error('expected_release_load_failure');
 }
 
-test('initialize carries the surface instructions with {{admittedDates}} filled in, fixed for the life of the process',async()=>{
+test('initialize carries the surface instructions with {{admittedDates}} rendered as any date, fixed for the life of the process',async()=>{
  const f=await fixtureBase();
  const text='Call academy_student_resolve first. Dates: {{admittedDates}}; again {{admittedDates}}. 저장은 요청이 있을 때만.';
- const filled='Call academy_student_resolve first. Dates: 2040-01-15 through 2040-01-17; again 2040-01-15 through 2040-01-17. 저장은 요청이 있을 때만.';
+ const filled='Call academy_student_resolve first. Dates: any date; again any date. 저장은 요청이 있을 때만.';
  await f.publish({surface:await f.pin('surface.json',surfaceDoc({instructions:text}))});
  const bridge=rawBridge(f.env);
  try{

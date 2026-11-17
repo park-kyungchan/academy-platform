@@ -14,8 +14,7 @@ const base=dirname(events);
 const injectSave=existsSync(resolve(base,'inject-save-receipt-failure'));
 const injectUncertainSave=existsSync(resolve(base,'inject-uncertain-save'));
 const service=new DailyRecordService({
-  readRoutingAdmission:()=>({sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',allowedFrom:'2040-01-15',allowedThrough:process.argv[3]??'2040-01-17',
-    ...(process.argv[4]?{studentScope:process.argv[4] as 'configured'|'source_verified'}:{})}),
+  teacherScope:()=>({sourceNamespace:'academy.lms.dayrecord',teacherId:'99001'}),
   readItemAnswers:async labels=>{appendFileSync(events,'answer\n');return {family:'item_answer',status:'observed',
     requestedAnswerLabels:[...labels],pendingAnswerLabels:[],answerBlockedReason:null,
     itemAnswers:labels.map(lectureKey=>({identity:{sourceNamespace:'academy_item',lectureKey,outerLectureKey:'100',sourceId:lectureKey},

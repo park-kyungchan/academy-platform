@@ -175,7 +175,7 @@ test('intake and get expose assessmentCodeTables and compact view omits authorin
   const numObs={...obs,scope:numScope,target:{...obs.target,sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',studentId:'77001'},previousTarget:obs.previousTarget?{...obs.previousTarget,sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',studentId:'77001'}:null,toneSamples:obs.toneSamples.map(s=>({...s,target:{...s.target,sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',studentId:'77001'}}))};
   const b={
     ...backend(()=>numObs),
-    readRoutingAdmission:()=>({sourceNamespace:'academy.lms.dayrecord' as const,teacherId:'99001',allowedFrom:'2040-01-01',allowedThrough:'2040-01-31'}),
+    teacherScope:()=>({sourceNamespace:'academy.lms.dayrecord' as const,teacherId:'99001'}),
     searchStudentsByName:async(name:string)=>[{studentKey:'77001',studentName:name}],
     readItemAnswers:async(labels:readonly string[])=>({
       family:'item_answer',status:'observed',requestedAnswerLabels:labels,pendingAnswerLabels:[],answerBlockedReason:null,

@@ -21,7 +21,7 @@ const config=await dailyRecordToolConfiguration(learning.remainingArgs);
 const nativeLaunch=config.remainingArgs.includes('--dailyrecord-native');
 const ownerRoot=nativeLaunch?{requiredRoot:nativeOwnerArtifactsRoot,nativeDefaultStore:nativeOwnerArtifactsRoot+'dailyrecord-workflow'}:{};
 const workflowArgs=dailyRecordWorkflowConfiguration(config.remainingArgs,ownerRoot);
-const native=await nativeDailyRecordConfiguration(workflowArgs.remainingArgs,config.ownerAdmission,config.metadataAdmission,config.saveAdmission,config.saveStoreDir,config.saveRequestPath);
+const native=await nativeDailyRecordConfiguration(workflowArgs.remainingArgs,config.saveAdmission,config.saveStoreDir,config.saveRequestPath);
 const workflow=workflowArgs.storeDir?createDailyRecordWorkflow({storeDir:workflowArgs.storeDir,...(nativeLaunch?{requiredRoot:nativeOwnerArtifactsRoot}:{})}):null;
 const server=new McpServer({name:'academy-dailyrecord-review',version:'0.1.0'});
 installToolAudit(server,{endpoint:'dailyrecord',...(nativeLaunch?{root:nativeOwnerArtifactsRoot+'mcp-tool-audit'}:{})});

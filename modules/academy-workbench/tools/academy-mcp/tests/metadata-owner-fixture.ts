@@ -22,7 +22,7 @@ const port={authenticate:async()=>{event('auth');if(variant==='expired')throw Er
  inspectDailyTestInventory:async()=>{event('metadata');if(variant==='drift')throw Error('script_digest_drift');if(variant==='truncated')throw new SyntaxError('PRIVATE_RESPONSE_CANARY');return metadata();},
 };
 const launch={teacherId:'99001',teacherLabel:'Fictional Teacher',date:'2026-10-28',students:[{studentId:'77001',displayName:'Fictional One'}],sourceBundleSha256:'b'.repeat(64)};
-const backend=new NativeDailyRecordBackend(port,launch,()=>({username:'fictional',password:'fictional'}),config.ownerAdmission,new Set(['Fictional One','Fictional Two']),config.metadataAdmission);
+const backend=new NativeDailyRecordBackend(port,launch,()=>({username:'fictional',password:'fictional'}),null,null,null);
 const server=new McpServer({name:'fictional-owner-packaged',version:'1.0.0'});
 registerRuntimeIdentity(server,identity.identity);registerDailyRecordTools(server,new DailyRecordService(backend));installStdioDiagnostics(server.server);
 await server.connect(createAcademyStdioTransport());

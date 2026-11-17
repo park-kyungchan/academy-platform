@@ -195,7 +195,8 @@ test('neutral discovery retains available read tools and suppresses duplicate na
   await withNeutralClient(async({client})=>{
     const names=(await client.listTools()).tools.map(t=>t.name);
     for(const name of ['academy_item_label_scope','academy_find_item_labels','academy_review_type_questions','academy_cism_section',
-      'academy_item_answer_lookup','academy_runtime_read_admission','academy_dailyrecord_get'])expect(names.filter(v=>v===name)).toHaveLength(1);
+      'academy_item_answer_lookup','academy_dailyrecord_get'])expect(names.filter(v=>v===name)).toHaveLength(1);
+    expect(names).not.toContain('academy_runtime_read_admission');
     const result=await client.callTool({name:'academy_item_label_scope',arguments:{}});
     expect(result.structuredContent).toMatchObject({status:'unavailable'});
   },true);
@@ -236,19 +237,19 @@ test('an existing session atomically switches pinned release generations and nev
       await rename(next,resolve(base,'release.json'));
     };
     const request={displayName:'Invented Student',purpose:'Synthetic read',currentRequestRef:'synthetic-release',lessonDate:'2040-01-16'};
+    // The admission pinned in each generation is accepted and gates nothing: a date
+    // outside its window and a bridge/upstream difference both read.
     await publish('v1','2040-01-15');
-    const denied=await client.callTool({name:'academy_dailyrecord_get',arguments:request});
-    expect(denied.structuredContent).toMatchObject({status:'unavailable',reasonCode:'lesson_date_out_of_admitted_scope'});
-    expect(await readFile(events,'utf8')).not.toContain('resolve');
+    const outside=await client.callTool({name:'academy_dailyrecord_get',arguments:request});
+    expect(outside.structuredContent).toMatchObject({status:'observed',sourceAvailability:'observed'});
     await publish('v2','2040-01-17');
     const observed=await client.callTool({name:'academy_dailyrecord_get',arguments:request});
     expect(observed.structuredContent).toMatchObject({status:'observed',sourceAvailability:'observed'});
     await publish('v3','2040-01-17','2040-01-15');
     const before=await readFile(events,'utf8');
-    const mismatch=await client.callTool({name:'academy_dailyrecord_get',arguments:request});
-    expect(mismatch.isError).toBe(true);
-    expect(JSON.parse((mismatch.content as any)[0].text).code).toBe('release_upstream_admission_mismatch');
-    expect((await readFile(events,'utf8')).slice(before.length)).toBe('start\n');
+    const differing=await client.callTool({name:'academy_dailyrecord_get',arguments:request});
+    expect(differing.structuredContent).toMatchObject({status:'observed'});
+    expect((await readFile(events,'utf8')).slice(before.length)).toBe('start\nresolve\nintake\n');
     await publish('bad-digest','2040-01-17','2040-01-17',true);
     const badDigest=await client.callTool({name:'academy_dailyrecord_get',arguments:request});
     expect(badDigest.isError).toBe(true);
@@ -256,9 +257,7 @@ test('an existing session atomically switches pinned release generations and nev
     await publish('v4','2040-01-17');
     expect((await client.callTool({name:'academy_dailyrecord_get',arguments:request})).structuredContent).toMatchObject({status:'observed'});
     await publish('v5','2040-01-17','2040-01-17',false,'source_verified','configured');
-    const scopeMismatch=await client.callTool({name:'academy_dailyrecord_get',arguments:request});
-    expect(scopeMismatch.isError).toBe(true);
-    expect(JSON.parse((scopeMismatch.content as any)[0].text).code).toBe('release_upstream_admission_mismatch');
+    expect((await client.callTool({name:'academy_dailyrecord_get',arguments:request})).structuredContent).toMatchObject({status:'observed'});
     const entries=JSON.parse(await readFile(resolve(base,'registry.json'),'utf8'));
     const duplicate=await pinned('registry-duplicate.json',[...entries,entries[0]]);
     await publish('duplicate','2040-01-17','2040-01-17',false,undefined,undefined,duplicate);
