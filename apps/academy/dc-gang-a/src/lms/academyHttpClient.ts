@@ -29,6 +29,9 @@ export const ACADEMY_ORIGIN='https://dc.gang-a.kr' as const;
 export interface AcademyPrincipal {teacherLabel:string;teacherKey:string;collegeKey:string}
 export interface AcademyCredential {username:string;password:string}
 export type SourceTransport=(url:string,init:RequestInit)=>Promise<Response>;
+/** The DT/ZT result search's month selectors after the default `sort_date` '1', in their listed order. */
+export const DAILY_TEST_HISTORY_SELECTORS=['11','12','13','14','15','16'] as const;
+export type DailyTestHistorySelector=typeof DAILY_TEST_HISTORY_SELECTORS[number];
 /** Failure metadata deliberately excludes URL parameters, bodies, headers and session values. */
 export class AcademyHttpFailure extends Error {
   constructor(readonly httpStatus:number,readonly sourceOperation:string){super('source_http_failed');this.name='AcademyHttpFailure';}
@@ -649,18 +652,34 @@ export class AcademyHttpClient {
       coverage:'observed_source_pages_not_complete_history' as const,searchedSources,matchedSourceFamily,generatedMembership:'unqualified' as const,
       academyWrites:0 as const,parentSends:0 as const};
   }
-  /** Project only exact-name identities from the read-qualified DT/ZT page. */
+  /** Project only exact-name identities from the read-qualified DT/ZT pages.
+   * The `sort_date` '1' page first, unchanged; on a miss, each history
+   * selector that page offers, in listed order, one request each, stopping at
+   * the first page that holds the exact name. A pair found after '1' names its
+   * page in `fixedSourceFilter`. An empty result covers only the pages read. */
   async searchStudentsByName(input:{teacherLabel:string;studentName:string}){
     assertExactKeys(input,['teacherLabel','studentName']);readLiteralName(input.studentName);
     if(input.teacherLabel!==this.#principal.teacherLabel)throw Error('daily_search_principal_conflict');
     if(!this.#authenticated)throw Error('authentication_required');
+    const first=await this.#studentNameSearchPage(input.studentName,'1');
+    const found=inspectStudentNameSearch(first,input.studentName);
+    if(found.length)return found;
+    const offered=sourceDomParser.parseFromString(first,'text/html').querySelectorAll<HTMLSelectElement>('select[name=sort_date]');
+    if(offered.length!==1||DAILY_TEST_HISTORY_SELECTORS.some(selector=>![...offered[0]!.options].some(option=>option.value===selector)))throw Error('daily_history_selector_drift');
+    for(const selector of DAILY_TEST_HISTORY_SELECTORS){
+      const pairs=inspectStudentNameSearch(await this.#studentNameSearchPage(input.studentName,selector),input.studentName);
+      if(pairs.length)return pairs.map(pair=>({...pair,fixedSourceFilter:{sort_date:selector}}));
+    }
+    return [];
+  }
+  async #studentNameSearchPage(studentName:string,sortDate:'1'|DailyTestHistorySelector){
     const response=await this.#request('/servlet/controller.dailyzerotest.DailyZeroTestServlet?reqCmd=DtResultSearch',{
       method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},
-      body:new URLSearchParams({sort_date:'1',stu_name:input.studentName}).toString(),
+      body:new URLSearchParams({sort_date:sortDate,stu_name:studentName}).toString(),
     });
     const html=await response.text();if(html.length>2000000)throw Error('daily_search_response_rejected');
     if(/webUserPass|세션이 만료/.test(html)||/<input\b[^>]*\btype\s*=\s*["']password["']/i.test(html)){this.close();throw Error('authentication_required');}
-    return inspectStudentNameSearch(html,input.studentName);
+    return html;
   }
   /** Reuse the same fixed, read-qualified DT/ZT search used by exact score reads. */
   async searchDailyTestMetadata(input:{teacherLabel:string;studentName:string;studentKey:string}){
@@ -683,7 +702,7 @@ export class AcademyHttpClient {
   /** Explicit observed month selectors, not guessed calendar arithmetic or an automatic retry. */
   async readDailyTestHistory(input:{teacherLabel:string;studentName:string;studentKey:string;periods:string[]}){
     assertExactKeys(input,['teacherLabel','studentName','studentKey','periods']);
-    if(!Array.isArray(input.periods)||input.periods.length<1||input.periods.length>6||new Set(input.periods).size!==input.periods.length||input.periods.some(p=>!['11','12','13','14','15','16'].includes(p)))throw Error('daily_history_period_rejected');
+    if(!Array.isArray(input.periods)||input.periods.length<1||input.periods.length>6||new Set(input.periods).size!==input.periods.length||input.periods.some(p=>!(DAILY_TEST_HISTORY_SELECTORS as readonly string[]).includes(p)))throw Error('daily_history_period_rejected');
     const {periods,...target}=input;
     const current=await this.inspectDailyTestInventory(target);
     const selectors=current.filterContracts.controls.filter(c=>c.name==='sort_date');
