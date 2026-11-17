@@ -24,7 +24,7 @@ Stop as soon as the request is answered.
    - the student may have uploaded homework or a pre-study video since the last read;
    - the local files disagree with each other, or the teacher corrected them;
    - the teacher asks for a fresh check.
-3. **Live reads, one call at a time.** Never call two `academy_operations` tools in parallel: they share one LMS account. Run lesson reads from one session at a time. Per scheduled student, start with at most one `academy_dailyrecord_get` and one `academy_prestudy_get`, then read only the gaps.
+3. **Live reads, one call at a time.** Never call two `academy_operations` tools in parallel: they share one LMS account. Run lesson reads from one session at a time. Read the LMS only through these tools: no browser, direct HTTP or other client. Per scheduled student, start with at most one `academy_dailyrecord_get` and one `academy_prestudy_get`, then read only the gaps.
 
 | Step of the day | Tool that answers it |
 | --- | --- |
