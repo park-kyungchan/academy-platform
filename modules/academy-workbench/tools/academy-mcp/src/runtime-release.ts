@@ -20,10 +20,11 @@ const routingSchema=z.object({admissionPath:z.string().refine(isAbsolute),admiss
 const registrySchema=z.array(z.object({endpoint:z.string().regex(/^[a-z][a-z0-9_]{0,63}$/),
   upstreamName:z.string().regex(/^[a-z][a-z0-9_]{0,127}$/),
   tool:z.object({name:z.string().regex(/^[a-z][a-z0-9_]{0,127}$/)}).passthrough()}).strict()).max(256);
-/** academy.mcp-surface/1: what tools/list shows. Validation of calls stays with the registry. */
+/** academy.mcp-surface/1: what tools/list shows and the server's instructions. Validation of calls stays with the registry. */
 const surfaceSchema=z.object({schemaVersion:z.literal('academy.mcp-surface/1'),tools:z.array(z.object({
   name:z.string(),description:z.string(),title:z.string().optional(),
-  inputSchema:z.record(z.string(),z.unknown()).refine(schema=>schema.type==='object').optional()}).strict()).max(257)}).strict();
+  inputSchema:z.record(z.string(),z.unknown()).refine(schema=>schema.type==='object').optional()}).strict()).max(257),
+  instructions:z.string().refine(text=>Buffer.byteLength(text,'utf8')<=16384).optional()}).strict();
 export type ToolSurface=z.infer<typeof surfaceSchema>['tools'];
 
 /** Read the owner-controlled pointer as one bounded regular file. A release is
@@ -59,7 +60,8 @@ export async function loadRuntimeRelease(base:string){
   const registry=registrySchema.parse(rawRegistry);
   if(!endpoints||typeof endpoints!=='object'||Array.isArray(endpoints)||new Set(registry.map(r=>r.tool.name)).size!==registry.length
     ||registry.some(r=>!Object.hasOwn(endpoints,r.endpoint)))throw Error('release_payload_unqualified');
-  const surface=surfaceBytes===undefined?undefined:parseSurface(surfaceBytes,registry.map(r=>r.tool.name));
+  const parsedSurface=surfaceBytes===undefined?undefined:parseSurface(surfaceBytes,registry.map(r=>r.tool.name));
+  const surface=parsedSurface?.tools,instructions=parsedSurface?.instructions;
   const endpointIdentities:Record<string,Awaited<ReturnType<typeof verifyEndpointManifest>>['summary']>={};
   if(release.schemaVersion==='academy.mcp-release/2'){
     const accountLocks=new Set<string>();
@@ -83,7 +85,7 @@ export async function loadRuntimeRelease(base:string){
   }
   const after=await readPointer(base);
   if(after===null||createHash('sha256').update(pointer).digest('hex')!==createHash('sha256').update(after).digest('hex'))throw Error('release_pointer_changed');
-  return {generation:release.generation,admission,endpoints,registry,endpointIdentities,paperScopes:routing.paperScopes,surface,
+  return {generation:release.generation,admission,endpoints,registry,endpointIdentities,paperScopes:routing.paperScopes,surface,instructions,
     identity:{schemaVersion:release.schemaVersion,generation:release.generation,
       pointerSha256:createHash('sha256').update(pointer).digest('hex'),routingSha256:release.routing.sha256,
       endpointsSha256:release.endpoints.sha256,registrySha256:release.registry.sha256,surfaceSha256:release.surface?.sha256??null,admissionSha256:routing.admissionSha256,
@@ -93,10 +95,11 @@ export async function loadRuntimeRelease(base:string){
 }
 
 /** Names are unique and each is a registry tool or the bridge's own identity tool. */
-function parseSurface(bytes:Buffer,registryNames:readonly string[]):ToolSurface{
+function parseSurface(bytes:Buffer,registryNames:readonly string[]):{tools:ToolSurface;instructions:string|undefined}{
   const known=new Set([...registryNames,'academy_runtime_identity']);
-  let tools:ToolSurface;
-  try{tools=surfaceSchema.parse(JSON.parse(bytes.toString('utf8'))).tools;}catch{throw Error('release_surface_unqualified');}
+  let surface:z.infer<typeof surfaceSchema>;
+  try{surface=surfaceSchema.parse(JSON.parse(bytes.toString('utf8')));}catch{throw Error('release_surface_unqualified');}
+  const {tools}=surface;
   if(new Set(tools.map(t=>t.name)).size!==tools.length||tools.some(t=>!known.has(t.name)))throw Error('release_surface_unqualified');
-  return tools;
+  return {tools,instructions:surface.instructions};
 }
