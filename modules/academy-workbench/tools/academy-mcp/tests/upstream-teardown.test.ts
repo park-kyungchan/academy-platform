@@ -48,3 +48,38 @@ test('check 5: after a call whose endpoint hangs past the bound, a lookup in the
     await rm(base,{recursive:true,force:true});
   }
 },150000);
+
+test('a bridge ended by SIGTERM during a hanging call ends that call\'s endpoint group too',async()=>{
+  const base=await mkdtemp(resolve(tmpdir(),'academy-teardown-synthetic-'));
+  const entry=resolve(import.meta.dir,'../src/neutral-server.ts'),deny=resolve(import.meta.dir,'network-deny.ts'),events=resolve(base,'events.txt');
+  const admission={schemaVersion:'academy.owner-admission/1',decider:'user',decidedAt:'2040-01-16',sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',
+    allowedFrom:'2040-01-15',allowedThrough:'2040-01-17',failClosedDefault:'2026-10-23'};
+  const bytes=JSON.stringify(admission),admissionPath=resolve(base,'admission.json');
+  const env={PATH:process.env.PATH??'/usr/bin:/bin',ACADEMY_MCP_INSTALL_DIR:base};
+  let client:Client|undefined,transport:StdioClientTransport|undefined;
+  try{
+    await writeFile(admissionPath,bytes);
+    await writeFile(resolve(base,'routing.json'),JSON.stringify({admissionPath,admissionSha256:createHash('sha256').update(bytes).digest('hex')}));
+    await writeFile(resolve(base,'endpoints.json'),JSON.stringify({dailyrecord:{command:'flock',
+      args:['--wait','5',resolve(base,'account.lock'),process.execPath,'--preload',deny,resolve(import.meta.dir,'hanging-upstream-fixture.ts'),events]}}));
+    const discovery=Bun.spawn([process.execPath,'--preload',deny,entry,'--discover'],{env,stdout:'pipe',stderr:'pipe'});
+    expect(await discovery.exited).toBe(0);
+    client=new Client({name:'fictional-teardown-client',version:'1.0.0'});
+    transport=new StdioClientTransport({command:process.execPath,args:['--preload',deny,entry],env,stderr:'pipe'});
+    await client.connect(transport);
+    const pending=client.callTool({name:'academy_item_section_trace',arguments:{label:'8101'}},{timeout:120000}).catch(error=>error);
+    const until=Date.now()+10000;
+    while(!(await readFile(events,'utf8')).includes('trace-started')&&Date.now()<until)await Bun.sleep(50);
+    const [, hanging]=await startedPids(events);
+    expect(alive(hanging!)).toBe(true);
+    process.kill(transport.pid!,'SIGTERM');
+    expect(await pending).toBeInstanceOf(Error);
+    const gone=Date.now()+5000;
+    while(alive(hanging!)&&Date.now()<gone)await Bun.sleep(50);
+    expect(alive(hanging!)).toBe(false);
+  }finally{
+    await client?.close().catch(()=>{});await transport?.close().catch(()=>{});
+    for(const pid of await startedPids(events).catch(()=>[]))try{process.kill(pid,'SIGKILL');}catch{}
+    await rm(base,{recursive:true,force:true});
+  }
+},60000);

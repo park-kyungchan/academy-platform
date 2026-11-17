@@ -25,9 +25,13 @@ async function groupGone(pgid:number,ms:number){
   while(groupAlive(pgid)){if(Date.now()>=until)return false;await delay(20);}
   return true;
 }
-// Groups of calls in flight; a bridge that exits ends them as well.
+// Groups of calls in flight. A bridge that exits, or is signalled, ends them
+// as well: in their own groups, they no longer receive a signal sent to the
+// bridge's group. The signal is then raised again with its default action.
 const liveGroups=new Set<number>();
-process.once('exit',()=>{for(const pgid of liveGroups)signalGroup(pgid,'SIGKILL');});
+const endLiveGroups=()=>{for(const pgid of liveGroups)signalGroup(pgid,'SIGKILL');};
+process.once('exit',endLiveGroups);
+for(const signal of ['SIGINT','SIGTERM','SIGHUP'] as const)process.once(signal,()=>{endLiveGroups();process.kill(process.pid,signal);});
 
 export class ProcessGroupStdioTransport implements Transport {
   onclose?:()=>void;
