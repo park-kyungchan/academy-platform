@@ -75,5 +75,6 @@ test('native backend binds textbook execute output to the admitted student and r
   const backend=new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}));
   const result=await backend.readTextbookSections(request);
   expect(result.records).toHaveLength(2);expect(result.records[0]).toMatchObject({correctCount:1,itemCount:2,items:[{ordinal:'1',lectureKey:'8101'},{ordinal:'2',lectureKey:null,outerLectureKey:'9102'}]});
-  await expect(backend.readTextbookSections({...request,displayName:'Foreign Student'})).rejects.toThrow('textbook_student_not_admitted');
+  // No list: another name is looked up in the source. This fixture has no search port.
+  await expect(backend.readTextbookSections({...request,displayName:'Foreign Student'})).rejects.toThrow('student_resolve_backend_not_configured');
 });

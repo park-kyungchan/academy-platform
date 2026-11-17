@@ -5,7 +5,6 @@ import {isAbsolute,join} from 'node:path';
 import {z} from 'zod';
 import {readPinnedLocalBytes} from './item-label-store.ts';
 import {artifactPinSchema,verifyEndpointManifest,verifyEndpointLauncher} from './runtime-identity.ts';
-import {ownerAdmissionSchema} from './owner-admission.ts';
 import {ReleaseBaseUnqualified} from './read-failure.ts';
 import {paperScopesSchema} from './paper-scope-routing.ts';
 
@@ -16,7 +15,8 @@ const releaseSchema=z.discriminatedUnion('schemaVersion',[
   z.object({schemaVersion:z.literal('academy.mcp-release/2'),...commonRelease,bridge:artifactPinSchema,
     endpointIdentities:z.record(z.string().regex(/^[a-z][a-z0-9_]{0,63}$/),artifactPinSchema)}).strict(),
 ]);
-const routingSchema=z.object({admissionPath:z.string().refine(isAbsolute),admissionSha256:z.string().regex(/^[a-f0-9]{64}$/),paperScopes:paperScopesSchema.optional()}).strict();
+// The admission pin of an earlier release is accepted when present and gates nothing.
+const routingSchema=z.object({admissionPath:z.string().refine(isAbsolute).optional(),admissionSha256:z.string().regex(/^[a-f0-9]{64}$/).optional(),paperScopes:paperScopesSchema.optional()}).strict();
 const registrySchema=z.array(z.object({endpoint:z.string().regex(/^[a-z][a-z0-9_]{0,63}$/),
   upstreamName:z.string().regex(/^[a-z][a-z0-9_]{0,127}$/),
   tool:z.object({name:z.string().regex(/^[a-z][a-z0-9_]{0,127}$/)}).passthrough()}).strict()).max(256);
@@ -26,6 +26,12 @@ const surfaceSchema=z.object({schemaVersion:z.literal('academy.mcp-surface/1'),t
   inputSchema:z.record(z.string(),z.unknown()).refine(schema=>schema.type==='object').optional()}).strict()).max(257),
   instructions:z.string().refine(text=>Buffer.byteLength(text,'utf8')<=16384).optional()}).strict();
 export type ToolSurface=z.infer<typeof surfaceSchema>['tools'];
+/** Tools that no endpoint serves any more. An earlier registry or surface may still
+ * name them; they are dropped so that nothing lists, calls or expects them. */
+const retiredTools=new Set(['academy_runtime_read_admission']);
+export function withoutRetiredTools<T extends {upstreamName?:string;tool?:{name:string};name?:string}>(entries:readonly T[]):T[]{
+  return entries.filter(entry=>!retiredTools.has(entry.upstreamName??'')&&!retiredTools.has(entry.tool?.name??entry.name??''));
+}
 
 /** Read the owner-controlled pointer as one bounded regular file. A release is
  * activated by atomically replacing this pointer after all pinned files exist. */
@@ -56,12 +62,12 @@ export async function loadRuntimeRelease(base:string){
   const [rawRouting,endpoints,rawRegistry,surfaceBytes]=await Promise.all([read(release.routing),read(release.endpoints),read(release.registry),
     release.surface?readPinnedLocalBytes(release.surface.path,release.surface.sha256).then(r=>r.bytes):undefined]);
   const routing=routingSchema.parse(rawRouting);
-  const admission=ownerAdmissionSchema.parse(JSON.parse((await readPinnedLocalBytes(routing.admissionPath,routing.admissionSha256)).bytes.toString('utf8')));
-  const registry=registrySchema.parse(rawRegistry);
-  if(!endpoints||typeof endpoints!=='object'||Array.isArray(endpoints)||new Set(registry.map(r=>r.tool.name)).size!==registry.length
-    ||registry.some(r=>!Object.hasOwn(endpoints,r.endpoint)))throw Error('release_payload_unqualified');
-  const parsedSurface=surfaceBytes===undefined?undefined:parseSurface(surfaceBytes,registry.map(r=>r.tool.name));
-  const surface=parsedSurface?.tools,instructions=parsedSurface?.instructions;
+  const parsedRegistry=registrySchema.parse(rawRegistry);
+  if(!endpoints||typeof endpoints!=='object'||Array.isArray(endpoints)||new Set(parsedRegistry.map(r=>r.tool.name)).size!==parsedRegistry.length
+    ||parsedRegistry.some(r=>!Object.hasOwn(endpoints,r.endpoint)))throw Error('release_payload_unqualified');
+  const parsedSurface=surfaceBytes===undefined?undefined:parseSurface(surfaceBytes,parsedRegistry.map(r=>r.tool.name));
+  const registry=withoutRetiredTools(parsedRegistry);
+  const surface=parsedSurface&&withoutRetiredTools(parsedSurface.tools),instructions=parsedSurface?.instructions;
   const endpointIdentities:Record<string,Awaited<ReturnType<typeof verifyEndpointManifest>>['summary']>={};
   if(release.schemaVersion==='academy.mcp-release/2'){
     const accountLocks=new Set<string>();
@@ -85,10 +91,10 @@ export async function loadRuntimeRelease(base:string){
   }
   const after=await readPointer(base);
   if(after===null||createHash('sha256').update(pointer).digest('hex')!==createHash('sha256').update(after).digest('hex'))throw Error('release_pointer_changed');
-  return {generation:release.generation,admission,endpoints,registry,endpointIdentities,paperScopes:routing.paperScopes,surface,instructions,
+  return {generation:release.generation,endpoints,registry,endpointIdentities,paperScopes:routing.paperScopes,surface,instructions,
     identity:{schemaVersion:release.schemaVersion,generation:release.generation,
       pointerSha256:createHash('sha256').update(pointer).digest('hex'),routingSha256:release.routing.sha256,
-      endpointsSha256:release.endpoints.sha256,registrySha256:release.registry.sha256,surfaceSha256:release.surface?.sha256??null,admissionSha256:routing.admissionSha256,
+      endpointsSha256:release.endpoints.sha256,registrySha256:release.registry.sha256,surfaceSha256:release.surface?.sha256??null,admissionSha256:routing.admissionSha256??null,
       bridgeSha256:release.schemaVersion==='academy.mcp-release/2'?release.bridge.sha256:null,
       graphQualification:release.schemaVersion==='academy.mcp-release/2'?'artifact_pinned':'legacy_graph_incomplete',
       endpointIdentities:Object.values(endpointIdentities)}};

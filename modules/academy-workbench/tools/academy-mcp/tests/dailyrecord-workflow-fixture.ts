@@ -3,7 +3,6 @@ import {existsSync,readFileSync,renameSync,writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {applyJournalHttpAction} from '../../../../../apps/academy/dc-gang-a/src/lms/lessonJournalHttp.ts';
 import {NativeDailyRecordBackend} from '../src/native-dailyrecord-backend.ts';
-import {ownerAdmissionSchema} from '../src/owner-admission.ts';
 import {DailyRecordService} from '../src/dailyrecord.ts';
 import {createDailyRecordWorkflow,type DailyRecordWorkflow} from '../src/dailyrecord-workflow.ts';
 import type {DailyRecordContext,DailyRecordField} from '../src/dailyrecord-context.ts';
@@ -15,9 +14,6 @@ const admission={teacherId:'99001',teacherLabel:'Invented Teacher',date:'2040-01
 const target={studentName:'Invented Student',date:'2040-01-04',groupId:'3',teacherKey:'99001',studentKey:'77001',courseKey:'5',recordKey:'13',membershipKey:'8'};
 const prior={...target,date:'2040-01-02',recordKey:'12'};
 const wireDigest='a'.repeat(64);
-// Matches the deployed owner admission shape: open dates and source-verified student scope.
-const ownerAdmission=ownerAdmissionSchema.parse({schemaVersion:'academy.owner-admission/2' as const,decider:'user' as const,decidedAt:'2040-01-04',sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',
-  allowedFrom:null,allowedThrough:null,failClosedDefault:'2026-10-23',studentScope:'source_verified' as const});
 export const initialFields={progress:'- 기존 진도 문안',homework:'- 기존 숙제 문안',lessonMemo:'기존 안내',attendance:'Y',dailyTestAssessment:'0',previousHomeworkAssessment:'3'};
 
 export function workflowContext(fields:Partial<Record<DailyRecordField,string>>,requestRef='synthetic-request-1'):DailyRecordContext{
@@ -82,7 +78,7 @@ export class FileSource {
 }
 export function nativeWorkflowService(base:string,workflow:DailyRecordWorkflow|null,onWrite?:()=>void,now:()=>number=Date.now){
   const source=new FileSource(base,onWrite);
-  const backend=new NativeDailyRecordBackend(source.port() as never,admission,()=>({username:'fictional',password:'fictional'}),ownerAdmission);
+  const backend=new NativeDailyRecordBackend(source.port() as never,admission,()=>({username:'fictional',password:'fictional'}));
   return {source,workflow,service:new DailyRecordService(backend,safeguard,now,learningPolicy,backend,workflow)};
 }
 export function workflowService(base:string,input:{storeDir:string},now:()=>number=Date.now){

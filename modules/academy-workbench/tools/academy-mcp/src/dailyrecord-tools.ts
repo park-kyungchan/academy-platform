@@ -6,9 +6,6 @@ import {dailyRecordSaveAdmissionSchema,type DailyRecordSaveAdmission} from './da
 import {studentResolveInputSchema} from './student-resolver.ts';
 import {readPinnedLocalBytes} from './item-label-store.ts';
 import {dailyRecordGetSchema,dailyRecordGetDescription} from './dailyrecord-read.ts';
-import {metadataAdmissionSchema,type MetadataAdmission} from './metadata-admission.ts';
-import {ownerAdmissionSchema,type OwnerAdmission} from './owner-admission.ts';
-import {createHash} from 'node:crypto';
 import {z} from 'zod';
 import {itemAnswerLookupSchema} from './item-answer-lookup.ts';
 
@@ -16,14 +13,6 @@ export function registerDailyRecordTools(server:McpServer,service=new DailyRecor
   const annotations={...readOnlyAnnotations,openWorldHint:service.backend!==null,idempotentHint:service.backend===null};
   const result=(value:unknown)=>{const structuredContent=JSON.parse(JSON.stringify(value)) as Record<string,unknown>;
     return {content:[{type:'text' as const,text:JSON.stringify(structuredContent)}],structuredContent};};
-  server.registerTool('academy_runtime_read_admission',{
-    title:'Compare the owner read admission without exposing its contents',
-    description:academyRoutingDescription('academy_runtime_read_admission','Return a digest of the configured DailyRecord read admission for bridge consistency checks. No source request or credentials.'),
-    inputSchema:z.object({}).strict(),annotations:readOnlyAnnotations,
-  },async()=>{
-    const admission=service.backend?.readRoutingAdmission?.()??null;
-    return result({status:admission?'configured':'unavailable',admissionSha256:admission?createHash('sha256').update(JSON.stringify(admission)).digest('hex'):null});
-  });
   server.registerTool('academy_item_answer_lookup',{
     title:'Read official answer literals by exact item labels',
     description:academyRoutingDescription('academy_item_answer_lookup','Read source-provided official answer literals for the exact requested numeric item labels. Each answer may include delimiter-based answerPrefixCandidate and answerPayloadCandidate; their rendering meaning is not qualified. Escape pipes when presenting answerLiteral in a Markdown table. Each row also carries sourceUnitName and sourcePatternName from the same source item row: reverse-mapping candidates toward a textbook subunit, not a section title (for example a required-examples or type-drill section) or paper membership, so confirm the exact section by interview or a section title index before mapping. This does not read a student response or establish a printed paper version, and literal rendering may be unqualified or refer to an external solution. Bounded to 32 labels. No grading, saving, printing, sending or automatic retry.'),
@@ -35,17 +24,17 @@ export function registerDailyRecordTools(server:McpServer,service=new DailyRecor
   },async input=>result(await service.get(input)));
   server.registerTool('academy_student_metadata_get',{
     title:'Read metadata by exact dated identity under its own owner policy',
-    description:academyRoutingDescription('academy_student_metadata_get','Resolve the exact owner-managed student on the requested lesson date, authorize academy.lms.metadata independently, then read explicit queries in one backend lifetime. Requires a separate owner-issued metadata admission; DailyRecord identity is not permission. Existing page and stage limitations remain. No writes, printing, grading, generation, sending or automatic retry.'),
+    description:academyRoutingDescription('academy_student_metadata_get','Resolve the exact student on the requested lesson date from the DailyRecord rows of the configured teacher, then read explicit queries in one backend lifetime. Existing page and stage limitations remain. No writes, printing, grading, generation, sending or automatic retry.'),
     inputSchema:studentMetadataGetSchema,annotations,
   },async input=>result(await service.metadataByName(input)));
   server.registerTool('academy_student_metadata',{
     title:'Read a bounded selected-student metadata batch',
-    description:academyRoutingDescription('academy_student_metadata','Exact source namespace academy.lms.metadata, admitted teacher/student/date and explicit queries required. Student names and teacher labels come only from the owner admission. Uses the same client/authentication lifecycle and serialized failure fence as DailyRecord reads. Paper queries require an explicit period; DT relative selectors have no inferred calendar bounds. Exports only owner-matched metadata rows, known period/selectors, observedAt and coverage/unknowns, including history; never page functions, forms, controls, navigation, script sources or TR cells. No content/definition reads, paging traversal, DailyRecord fields, writes, printing, sending or automatic retry. Older-paper positive wire qualification remains unavailable without the exact approved source function bytes.'),
+    description:academyRoutingDescription('academy_student_metadata','Exact source namespace academy.lms.metadata, the configured teacher, a student key resolved by name for this request (academy_student_resolve) and explicit queries required. Teacher labels come only from the owner launch. Uses the same client/authentication lifecycle and serialized failure fence as DailyRecord reads. Paper queries require an explicit period; DT relative selectors have no inferred calendar bounds. Exports only owner-matched metadata rows, known period/selectors, observedAt and coverage/unknowns, including history; never page functions, forms, controls, navigation, script sources or TR cells. No content/definition reads, paging traversal, DailyRecord fields, writes, printing, sending or automatic retry. Older-paper positive wire qualification remains unavailable without the exact approved source function bytes.'),
     inputSchema:studentMetadataBatchSchema,annotations,
   },async input=>result(await service.metadata(input)));
   server.registerTool('academy_student_resolve',{
     title:'Resolve one exact student display name to its native student key',
-    description:academyRoutingDescription('academy_student_resolve','Resolve an exact display name to its native key for live tools. For a DailyRecord lookup prefer academy_dailyrecord_get, which resolves and runs intake using owner-supplied scope. When supported by owner policy, lessonDate selects the exact qualified DailyRecord occurrence rather than a recent-test page. Zero rows or multi-key collisions stop with a named blocker and never prove the student is absent. Missing configured admission is reported separately. Uses the same native read lifecycle. No writes, guessing or automatic retry.'),
+    description:academyRoutingDescription('academy_student_resolve','Resolve an exact display name to its native key for live tools. For a DailyRecord lookup prefer academy_dailyrecord_get, which resolves and runs intake using owner-supplied scope. lessonDate selects the exact qualified DailyRecord occurrence rather than a recent-test page. Zero rows or multi-key collisions stop with a named blocker and never prove the student is absent. Uses the same native read lifecycle. No writes, guessing or automatic retry.'),
     inputSchema:studentResolveInputSchema,annotations,
   },async input=>result(await service.resolveStudent(input)));
   server.registerTool('academy_dailyrecord_intake',{
@@ -60,17 +49,17 @@ export function registerDailyRecordTools(server:McpServer,service=new DailyRecor
   },async input=>result(await service.review(input)));
   server.registerTool('academy_textbook_section_results',{
     title:'Read exact textbook section grading by source titles',
-    description:academyRoutingDescription('academy_textbook_section_results','Read exact existing textbook section grading for one admitted student, course and book by the source titles (for example a unit required-examples or type-drill title). Returns each title score with per-item O/X outcomes, item lectureKey/outerLectureKey when the source carries them, and correct/item counts. Titles must be the source exact titles; missing or ambiguous titles stop without guessing. Section attempts are resolved from the wrong-answer-note index merged with the exact student paper-search page (all attempts, including all-correct sections the wrong-note index omits), joined only by this book title template; paper-search coverage is one observed page, not complete history. A title absent from both observed sources returns not_observed_in_either_source, which is not proof of no record. This establishes observed section attempt scores only, not clinic solving, teacher acceptance, printing or whole-book completion. No writes, grading actions, printing, sending or automatic retry.'),
+    description:academyRoutingDescription('academy_textbook_section_results','Read exact existing textbook section grading for one student, course and book by the source titles (for example a unit required-examples or type-drill title). Returns each title score with per-item O/X outcomes, item lectureKey/outerLectureKey when the source carries them, and correct/item counts. Titles must be the source exact titles; missing or ambiguous titles stop without guessing. Section attempts are resolved from the wrong-answer-note index merged with the exact student paper-search page (all attempts, including all-correct sections the wrong-note index omits), joined only by this book title template; paper-search coverage is one observed page, not complete history. A title absent from both observed sources returns not_observed_in_either_source, which is not proof of no record. This establishes observed section attempt scores only, not clinic solving, teacher acceptance, printing or whole-book completion. No writes, grading actions, printing, sending or automatic retry.'),
     inputSchema:textbookSectionResultsSchema,annotations,
   },async input=>result(await service.textbookSections(input)));
   server.registerTool('academy_prestudy_get',{
     title:'Read prestudy video upload and review lists by student name',
-    description:academyRoutingDescription('academy_prestudy_get','Read live prestudy video state for one exact admitted student name: waiting (uploaded, awaiting teacher review) rows, completed rows and one observed summary page with AI score/star literals. Upload, list membership, AI score and teacher review are distinct; teacherJudgment is always null here and video URLs are never returned. Missing rows do not prove nonperformance. No writes, printing, sending or automatic retry.'),
+    description:academyRoutingDescription('academy_prestudy_get','Read live prestudy video state for one exact student name: waiting (uploaded, awaiting teacher review) rows, completed rows and one observed summary page with AI score/star literals. Upload, list membership, AI score and teacher review are distinct; teacherJudgment is always null here and video URLs are never returned. Missing rows do not prove nonperformance. No writes, printing, sending or automatic retry.'),
     inputSchema:prestudyGetSchema,annotations,
   },async input=>result(await service.prestudyGet(input)));
   server.registerTool('academy_prestudy_report_get',{
     title:'Read the AI prestudy report for one exact uploaded-video record',
-    description:academyRoutingDescription('academy_prestudy_report_get','Read server-rendered AI report sections for one exact admitted student and prestudyKey returned by academy_prestudy_get. The source detail must match both student and record key before its analysis key is followed; sourceRecord includes original unit/date literals or null when absent. Optional sectionTitles selects exact titles in source order; view lists available, returned and missing titles. Missing requested titles return partial, ambiguous selected titles fail closed. Complete requested view is distinct from complete source report; neither proves video/concept coverage. Optional maxOutputBytes bounds successful UTF-8 JSON payload bytes, excluding the MCP envelope (default full 512 KiB, selected 32 KiB); oversized results fail without clipping. Consume structuredContent or text once, not both. Report text is teacher-only student content, never stored in memory, parent text or artifacts. No transcript is exposed or derived; AI scores are not teacher judgment and unlabeled score arrays must not be assigned by position. A report not ready stops as unavailable. No writes, generation, printing, sending or automatic retry.'),
+    description:academyRoutingDescription('academy_prestudy_report_get','Read server-rendered AI report sections for one exact student and prestudyKey returned by academy_prestudy_get. The source detail must match both student and record key before its analysis key is followed; sourceRecord includes original unit/date literals or null when absent. Optional sectionTitles selects exact titles in source order; view lists available, returned and missing titles. Missing requested titles return partial, ambiguous selected titles fail closed. Complete requested view is distinct from complete source report; neither proves video/concept coverage. Optional maxOutputBytes bounds successful UTF-8 JSON payload bytes, excluding the MCP envelope (default full 512 KiB, selected 32 KiB); oversized results fail without clipping. Consume structuredContent or text once, not both. Report text is teacher-only student content, never stored in memory, parent text or artifacts. No transcript is exposed or derived; AI scores are not teacher judgment and unlabeled score arrays must not be assigned by position. A report not ready stops as unavailable. No writes, generation, printing, sending or automatic retry.'),
     inputSchema:prestudyReportGetSchema,annotations,
   },async input=>result(await service.prestudyReportGet(input)));
   server.registerTool('academy_item_section_trace',{
@@ -80,12 +69,12 @@ export function registerDailyRecordTools(server:McpServer,service=new DailyRecor
   },async input=>result(await service.itemSectionTrace(input)));
   server.registerTool('academy_textbook_section_results_get',{
     title:'Read textbook section grading by student name',
-    description:academyRoutingDescription('academy_textbook_section_results_get','Read textbook section answer input and grading for one exact admitted student name. The owner backend discovers the registered course/book bindings from the live progress page; caller-supplied native keys are not accepted. Two-step book selection: a first call without bookLabel may return interview_required with book candidates when several books are registered; call again with an exact bookLabel from those returned candidates (never an invented label). With exact sourceTitles returns score and per-item O/X per title; without titles returns the observed source-title index for explicit selection. The index basis is the wrong-answer-note index merged with one observed student paper-search page for the exact student, so all-correct sections are listed too; paper-search coverage is one page under the source form period, not complete history, and indexBasis/coverage state the basis. A title absent from both observed sources returns not_observed_in_either_source, never a no-record claim. Missing or ambiguous bindings/titles stop without guessing. This establishes observed answer input and grading only, not clinic solving, teacher acceptance, printing or whole-book completion. No writes, grading actions, printing, sending or automatic retry.'),
+    description:academyRoutingDescription('academy_textbook_section_results_get','Read textbook section answer input and grading for one exact student name. The owner backend discovers the registered course/book bindings from the live progress page; caller-supplied native keys are not accepted. Two-step book selection: a first call without bookLabel may return interview_required with book candidates when several books are registered; call again with an exact bookLabel from those returned candidates (never an invented label). With exact sourceTitles returns score and per-item O/X per title; without titles returns the observed source-title index for explicit selection. The index basis is the wrong-answer-note index merged with one observed student paper-search page for the exact student, so all-correct sections are listed too; paper-search coverage is one page under the source form period, not complete history, and indexBasis/coverage state the basis. A title absent from both observed sources returns not_observed_in_either_source, never a no-record claim. Missing or ambiguous bindings/titles stop without guessing. This establishes observed answer input and grading only, not clinic solving, teacher acceptance, printing or whole-book completion. No writes, grading actions, printing, sending or automatic retry.'),
     inputSchema:textbookSectionResultsGetSchema,annotations,
   },async input=>result(await service.textbookSectionsByName(input)));
   server.registerTool('academy_clinic_paper_status_get',{
     title:'Read clinic-eligible original sections by student name',
-    description:academyRoutingDescription('academy_clinic_paper_status_get','Read the wrong-answer/similar clinic bundle for one exact admitted student name: registered book discovery (two-step exact bookLabel selection like the textbook section read), then either the observed section title index or, with exact sourceTitles, each original section attempt with its wrong items. Wrong items mark clinic eligibility only. Clinic papers have no server score-input support: clinic solving and scoring are teacher-judged only, generatedMembership stays unqualified, and printed/handedOut/solved/scored/teacherReviewed are returned as explicit teacher-judgment slots. This does not prove clinic generation, printing, hand-out, solving, grading or teacher review, and original section O/X is not clinic evidence. Missing titles return not_observed_in_either_source, not proof of no record. No writes, generation, printing, sending or automatic retry.'),
+    description:academyRoutingDescription('academy_clinic_paper_status_get','Read the wrong-answer/similar clinic bundle for one exact student name: registered book discovery (two-step exact bookLabel selection like the textbook section read), then either the observed section title index or, with exact sourceTitles, each original section attempt with its wrong items. Wrong items mark clinic eligibility only. Clinic papers have no server score-input support: clinic solving and scoring are teacher-judged only, generatedMembership stays unqualified, and printed/handedOut/solved/scored/teacherReviewed are returned as explicit teacher-judgment slots. This does not prove clinic generation, printing, hand-out, solving, grading or teacher review, and original section O/X is not clinic evidence. Missing titles return not_observed_in_either_source, not proof of no record. No writes, generation, printing, sending or automatic retry.'),
     inputSchema:clinicPaperStatusGetSchema,annotations,
   },async input=>result(await service.clinicPaperStatus(input)));
   server.registerTool('academy_dailyrecord_save',{
@@ -111,8 +100,8 @@ export function registerDailyRecordTools(server:McpServer,service=new DailyRecor
 }
 
 /** Launch-time owner-selected definition bytes; never accept policy paths or code in a tool call. */
-export async function dailyRecordToolConfiguration(args:readonly string[]):Promise<{remainingArgs:string[];parentSafeguard:DailyRecordParentSafeguard|null;ownerAdmission:OwnerAdmission|null;metadataAdmission:MetadataAdmission|null;saveAdmission:DailyRecordSaveAdmission|null;saveStoreDir:string|null;saveRequestPath:string|null}>{
-  const remainingArgs:string[]=[];let parentSafeguard:DailyRecordParentSafeguard|null=null,ownerAdmission:OwnerAdmission|null=null,metadataAdmission:MetadataAdmission|null=null,saveAdmission:DailyRecordSaveAdmission|null=null,saveStoreDir:string|null=null,saveRequestPath:string|null=null;
+export async function dailyRecordToolConfiguration(args:readonly string[]):Promise<{remainingArgs:string[];parentSafeguard:DailyRecordParentSafeguard|null;saveAdmission:DailyRecordSaveAdmission|null;saveStoreDir:string|null;saveRequestPath:string|null}>{
+  const remainingArgs:string[]=[];let parentSafeguard:DailyRecordParentSafeguard|null=null,saveAdmission:DailyRecordSaveAdmission|null=null,saveStoreDir:string|null=null,saveRequestPath:string|null=null;
   for(let i=0;i<args.length;i++){
     if(args[i]==='--dailyrecord-save-request'){
       if(saveRequestPath||i+1>=args.length||!args[i+1]!.startsWith('/'))throw Error('dailyrecord_save_request_arguments_invalid');
@@ -127,15 +116,11 @@ export async function dailyRecordToolConfiguration(args:readonly string[]):Promi
       const pinned=await readPinnedLocalBytes(args[i+1],args[i+2]);
       saveAdmission=dailyRecordSaveAdmissionSchema.parse(JSON.parse(pinned.bytes.toString('utf8')));i+=2;continue;
     }
-    if(args[i]==='--metadata-admission'){
-      if(metadataAdmission||i+2>=args.length)throw Error('metadata_admission_arguments_invalid');
-      const pinned=await readPinnedLocalBytes(args[i+1],args[i+2]);
-      metadataAdmission=metadataAdmissionSchema.parse(JSON.parse(pinned.bytes.toString('utf8')));i+=2;continue;
-    }
-    if(args[i]==='--dailyrecord-admission'){
-      if(ownerAdmission||i+2>=args.length)throw Error('dailyrecord_admission_arguments_invalid');
-      const pinned=await readPinnedLocalBytes(args[i+1],args[i+2]);
-      ownerAdmission=ownerAdmissionSchema.parse(JSON.parse(pinned.bytes.toString('utf8')));i+=2;continue;
+    // An installed launch may still pass its old read admissions (path and sha256).
+    // They are accepted and gate nothing.
+    if(args[i]==='--metadata-admission'||args[i]==='--dailyrecord-admission'){
+      if(i+2>=args.length)throw Error(args[i]==='--metadata-admission'?'metadata_admission_arguments_invalid':'dailyrecord_admission_arguments_invalid');
+      i+=2;continue;
     }
     if(args[i]!=='--dailyrecord-policy'){remainingArgs.push(args[i]);continue;}
     if(parentSafeguard||i+4>=args.length)throw Error('dailyrecord_policy_arguments_invalid');
@@ -151,5 +136,5 @@ export async function dailyRecordToolConfiguration(args:readonly string[]):Promi
     parentSafeguard={policySha256,safeguardSourceSha256,sourceRef:'Education:DailyRecord:parentInternalLanguage',check:text=>regex.test(text),checkLines:text=>lines.test(text)};
     i+=4;
   }
-  return {remainingArgs,parentSafeguard,ownerAdmission,metadataAdmission,saveAdmission,saveStoreDir,saveRequestPath};
+  return {remainingArgs,parentSafeguard,saveAdmission,saveStoreDir,saveRequestPath};
 }

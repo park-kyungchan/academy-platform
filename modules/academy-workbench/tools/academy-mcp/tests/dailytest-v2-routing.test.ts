@@ -35,7 +35,8 @@ test('V2 composite routes after student resolution to either pinned paper admiss
   endpoints.paper2={command:process.execPath,args:['--no-env-file',path,'--runtime-identity',manifests.paper2.path,manifests.paper2.sha256,...denyArgs]};
   endpointPin=await f.pin('endpoints-denied.json',endpoints);
   await publish([{endpoint:'paper1',studentIds:['77001']},{endpoint:'paper2',studentIds:['77002']}]);
-  const blocked=await call();expect(blocked.isError).toBe(true);expect(blocked.structuredContent).toMatchObject({status:'blocked',code:'read_scope_not_admitted',failedSource:'paper',sourceRequests:0});expect(JSON.stringify(blocked)).not.toContain('PRIVATE_CANARY');
+  const blocked=await call();expect(blocked.isError).toBe(true);// The bridge maps no paper scope code of its own any more: a paper refusal is a failed paper read.
+  expect(blocked.structuredContent).toMatchObject({status:'blocked',code:'source_headers_read_failed',failedSource:'paper',sourceRequests:0});expect(JSON.stringify(blocked)).not.toContain('PRIVATE_CANARY');
   for(const [mode,code,sourceRequests] of [['latched','source_failure_latched_no_retry',null],['private','source_headers_read_failed',2]] as const){
    const args=['paper2',paperEvents,mode];manifests.paper2=await f.pin(`manifest-paper2-${mode}.json`,{schemaVersion:'academy.endpoint-identity/1',endpoint:'paper2',semanticContractVersion:'fictional-paper/1',launchArgumentsSha256:hash(JSON.stringify(args)),artifacts:[{...artifact,role:'entry'}]});
    endpoints.paper2={command:process.execPath,args:['--no-env-file',path,'--runtime-identity',manifests.paper2.path,manifests.paper2.sha256,...args]};endpointPin=await f.pin(`endpoints-${mode}.json`,endpoints);
@@ -50,7 +51,7 @@ test('V2 composite routes after student resolution to either pinned paper admiss
   await publish([{endpoint:'paper1',studentIds:['77002']},{endpoint:'paper2',studentIds:['77002']}]);
   expect((await call()).isError).toBe(true);
   expect((await readFile(paperEvents,'utf8')).trim().split('\n')).toEqual(['paper1','paper2','paper2','paper2','paper2','paper2']);
-  // Exercise the actual DailyRecordService response, not a hand-written stub.
+  // Exercise the actual DailyRecordService response, not a hand-written stub, under an old narrower metadata admission argument.
   const metadataPolicy=JSON.parse(await readFile(f.ownerArgs[4]!,'utf8'));metadataPolicy.operations=['daily_inventory'];
   const deniedMetadata=await f.pin('metadata-denied.json',metadataPolicy),ownerArgs=[...f.ownerArgs];ownerArgs[4]=deniedMetadata.path;ownerArgs[5]=deniedMetadata.sha256;
   const ownerManifest=JSON.parse(await readFile(f.manifest.path,'utf8'));ownerManifest.launchArgumentsSha256=hash(JSON.stringify(ownerArgs));
@@ -61,9 +62,10 @@ test('V2 composite routes after student resolution to either pinned paper admiss
   const metadataRouting=await f.pin('metadata-denied-routing.json',{...originalRouting,paperScopes:[{endpoint:'paper1',studentIds:['77002']},{endpoint:'paper2',studentIds:['77001']}]});
   const metadataRelease=await f.pin('metadata-denied-release.json',{...f.release,generation:'metadata-denied',routing:metadataRouting,endpoints:endpointPin,registry:registryPin,endpointIdentities:{dailyrecord:deniedOwner,...manifests}});await rename(metadataRelease.path,resolve(f.base,'release.json'));
   const before=await readFile(f.events,'utf8');const metadataDenied=await call();
-  expect(metadataDenied.isError).toBe(true);expect(metadataDenied.structuredContent).toMatchObject({status:'blocked',code:'metadata_namespace_not_admitted',reasonCode:'metadata_namespace_not_admitted',failedSource:'metadata',sourceRequests:null,failure:{category:'policy_denial'}});
-  const after=await readFile(f.events,'utf8');expect(after.slice(before.length)).not.toContain('"op":"auth"');
-  expect((await readFile(paperEvents,'utf8')).trim().split('\n')).toEqual(['paper1','paper2','paper2','paper2','paper2','paper2']);
+  // An old, narrower metadata admission argument is accepted and gates nothing: the composite reads.
+  expect(metadataDenied.isError).toBeFalsy();expect(metadataDenied.structuredContent).toMatchObject({status:'observed',scope:{sourceNamespace:'academy.lms.metadata',studentId:'77002'}});
+  expect((await readFile(f.events,'utf8')).slice(before.length)).toContain('"op":"start"');
+  expect((await readFile(paperEvents,'utf8')).trim().split('\n')).toEqual(['paper1','paper2','paper2','paper2','paper2','paper2','paper1']);
 
  }finally{await f.client.close();await f.transport.close();}
 },60000);

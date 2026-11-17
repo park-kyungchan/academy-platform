@@ -102,7 +102,7 @@ test('surface tools/list: surface names in order, verbatim descriptions, placeho
   await f.publish({surface});
   const tools=(await client.listTools()).tools;
   expect(tools.map(t=>t.name)).toEqual(['fictional_unrouted_tool','academy_student_resolve','academy_runtime_identity','class2_academy_paper_headers']);
-  expect(tools[0]).toEqual({name:'fictional_unrouted_tool',description:'Unrouted first. Dates 2040-01-15 through 2040-01-17; again 2040-01-15 through 2040-01-17.',
+  expect(tools[0]).toEqual({name:'fictional_unrouted_tool',description:'Unrouted first. Dates any date; again any date.',
    inputSchema:{type:'object'},annotations:{destructiveHint:false}});
   expect(tools[1]).toEqual({name:'academy_student_resolve',title:'Surface resolve title',description:'Resolve one exact student name.',inputSchema:narrowed,
    outputSchema:{type:'object',properties:{status:{type:'string'}}},annotations:{readOnlyHint:true,openWorldHint:true}});
@@ -112,11 +112,11 @@ test('surface tools/list: surface names in order, verbatim descriptions, placeho
   const identity=await client.callTool({name:'academy_runtime_identity',arguments:{}});
   expect(identity.structuredContent).toMatchObject({surfaceSha256:surface.sha256});
  }finally{await close();await rm(f.base,{recursive:true,force:true});}
- // A missing admission end reads `unbounded`, as the current hint does.
+ // No admission window gates a read: the placeholder renders `any date` for every pinned admission.
  const open=await fixtureBase({allowedThrough:null});
  await open.publish({surface:await open.pin('surface.json',surfaceDoc([{name:'fictional_unrouted_tool',description:'Dates {{admittedDates}}.'}]))});
  const second=await connect(open.env);
- try{expect((await second.client.listTools()).tools.map(t=>t.description)).toEqual(['Dates 2040-01-15 through unbounded.']);}
+ try{expect((await second.client.listTools()).tools.map(t=>t.description)).toEqual(['Dates any date.']);}
  finally{await second.close();await rm(open.base,{recursive:true,force:true});}
 },30000);
 

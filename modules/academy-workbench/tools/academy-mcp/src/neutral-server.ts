@@ -6,7 +6,7 @@ import {installStdioDiagnostics,createAcademyStdioTransport} from './stdio-diagn
 import {publicReadFailure,publicFailureFromData,type ReadFailureCategory} from './read-failure.ts';
 import {academyRoutingDescription} from './routing-context.ts';
 // Source-owned version of the installed neutral bridge. Failures close per
-// request; pinned launch admission supplies DailyRecord routing scope.
+// request. The endpoints own the teacher boundary; no date or student list gates a call.
 import {Server} from '@modelcontextprotocol/server';
 import {Client} from '@modelcontextprotocol/client';
 import {ProcessGroupStdioTransport} from './upstream-process.ts';
@@ -14,12 +14,10 @@ import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {randomUUID,createHash} from 'node:crypto';
 import {z} from 'zod';
 import {dailyRecordGetSchema,dailyRecordGetDescription,readDailyRecordByName} from './dailyrecord-read.ts';
-import {ownerAdmissionSchema} from './owner-admission.ts';
-import {readPinnedLocalBytes} from './item-label-store.ts';
 import {readOnlyAnnotations} from './contracts.ts';
 import {dailyRecordScopeSchema,type DailyRecordScope} from './dailyrecord-context.ts';
 import {dailyTestHeaderRouteSchema,dailyTestHeaderRouteDescription,readDailyTestHeaders} from './dailytest-header-route.ts';
-import {loadRuntimeRelease,type ToolSurface} from './runtime-release.ts';
+import {loadRuntimeRelease,withoutRetiredTools,type ToolSurface} from './runtime-release.ts';
 import {PaperScopeUnresolvedError,selectPaperRoute} from './paper-scope-routing.ts';
 import {observeAttribution} from './dailyrecord-workflow.ts';
 import {dailyRecordWorkflowToolSchemas} from './dailyrecord.ts';
@@ -38,19 +36,12 @@ function withAttribution(name:string,args:Record<string,unknown>):Record<string,
 const bridgeTicketPrefix='muse-academy-observation:';
 const loadedBridgeSha256=createHash('sha256').update(readFileSync(process.argv[1]!)).digest('hex');
 const base=process.env.ACADEMY_MCP_INSTALL_DIR??'/root/.local/share/academy-mcp';
-// Launch-owned pinned scope only; no caller may provide or widen admission.
 const initialRelease=await loadRuntimeRelease(base).catch(async error=>{
  const failure=publicReadFailure(error,'release_discovery_unavailable');
  const reason='reason' in failure?` reason=${failure.reason}`:'';
  await new Promise<void>(resolve=>process.stderr.write(`${failure.code}${reason}\n`,()=>resolve()));
  process.exit(1);
 });
-const routing=initialRelease?null:JSON.parse(readFileSync(base+'/routing.json','utf8'));
-const admissionBytes=routing?await readPinnedLocalBytes(routing.admissionPath,routing.admissionSha256):null;
-const ownerAdmission=initialRelease?.admission??ownerAdmissionSchema.parse(JSON.parse(admissionBytes!.bytes.toString('utf8')));
-const readAdmission={sourceNamespace:ownerAdmission.sourceNamespace,teacherId:ownerAdmission.teacherId,
- allowedFrom:ownerAdmission.allowedFrom,allowedThrough:ownerAdmission.allowedThrough,
- ...(ownerAdmission.schemaVersion==='academy.owner-admission/2'?{studentScope:ownerAdmission.studentScope??'configured'}:{})};
 const endpoints=initialRelease?.endpoints??JSON.parse(readFileSync(base+'/endpoints.json','utf8'));
 const log=base+'/receipts';mkdirSync(log,{recursive:true,mode:0o700});
 let tail:Promise<any>=Promise.resolve();
@@ -79,8 +70,7 @@ if(process.argv.includes('--discover')){
    // The neutral route composes both reads in one upstream lifetime/account lock.
    if(tool.name==='academy_dailyrecord_get'||tool.name==='academy_endpoint_identity'||tool.name==='academy_runtime_identity')continue;
    if(endpoint==='saved'&&/^academy_(dailyrecord_|cism_|item_answer_lookup|runtime_read_admission|student_metadata|student_resolve|endpoint_identity|runtime_identity)/.test(tool.name))continue;
-   const scopeHint=endpoint==='dailyrecord'?` DailyRecord owner-admitted dates: ${readAdmission.allowedFrom??'unbounded'} through ${readAdmission.allowedThrough??'unbounded'}.`:'';
-   registry.push({endpoint,upstreamName:tool.name,tool:{...tool,name:endpoint==='paper2'?'class2_'+tool.name:tool.name,description:tool.description+' '+(endpoint==='saved'?'Preserved evidence only; coverage/freshness is explicit.':['academy_dailyrecord_save','academy_cism_weekly_save'].includes(tool.name)?'One serialized native write batch; releases the account lock after completion. Requires a prior recorded review and the verbatim user instruction; the bridge records the observed caller attribution for audit. No printing, sending, automatic retry or credentials in arguments.':'One serialized native read batch; releases the account lock after completion. No saving, printing, sending, automatic retry or credentials in arguments.'+scopeHint)}});
+   registry.push({endpoint,upstreamName:tool.name,tool:{...tool,name:endpoint==='paper2'?'class2_'+tool.name:tool.name,description:tool.description+' '+(endpoint==='saved'?'Preserved evidence only; coverage/freshness is explicit.':['academy_dailyrecord_save','academy_cism_weekly_save'].includes(tool.name)?'One serialized native write batch; releases the account lock after completion. Requires a prior recorded review and the verbatim user instruction; the bridge records the observed caller attribution for audit. No printing, sending, automatic retry or credentials in arguments.':'One serialized native read batch; releases the account lock after completion. No saving, printing, sending, automatic retry or credentials in arguments.')}});
   }
  }
  registry.push({endpoint:'dailyrecord',upstreamName:'academy_dailyrecord_get',tool:{name:'academy_dailyrecord_get',
@@ -106,16 +96,14 @@ if(process.argv.includes('--discover')){
  console.log(JSON.stringify({endpoints:Object.keys(endpoints),tools:registry.map(r=>r.tool.name)}));
  process.exit(0);
 }
-const registry=initialRelease?.registry??JSON.parse(readFileSync(base+'/registry.json','utf8'));
+const registry=initialRelease?.registry??withoutRetiredTools<any>(JSON.parse(readFileSync(base+'/registry.json','utf8')));
 let sawRelease=initialRelease!==null;
 async function activeRelease(){
  const release=await loadRuntimeRelease(base);
- if(!release){if(sawRelease)throw Error('release_pointer_missing');return {registry,endpoints,readAdmission,generation:null,identity:{graphQualification:'legacy_graph_incomplete',surfaceSha256:null},endpointIdentities:{} as Record<string,unknown>,surface:undefined as ToolSurface|undefined};}
+ if(!release){if(sawRelease)throw Error('release_pointer_missing');return {registry,endpoints,generation:null,identity:{graphQualification:'legacy_graph_incomplete',surfaceSha256:null},endpointIdentities:{} as Record<string,unknown>,surface:undefined as ToolSurface|undefined};}
  sawRelease=true;
  if(release.identity.bridgeSha256!==null&&release.identity.bridgeSha256!==loadedBridgeSha256)throw Error('release_bridge_identity_mismatch');
- return {registry:release.registry,endpoints:release.endpoints,paperScopes:release.paperScopes,readAdmission:{sourceNamespace:release.admission.sourceNamespace,
-  teacherId:release.admission.teacherId,allowedFrom:release.admission.allowedFrom,allowedThrough:release.admission.allowedThrough,
-  ...(release.admission.schemaVersion==='academy.owner-admission/2'?{studentScope:release.admission.studentScope??'configured'}:{})},generation:release.generation,identity:release.identity,endpointIdentities:release.endpointIdentities,surface:release.surface};
+ return {registry:release.registry,endpoints:release.endpoints,paperScopes:release.paperScopes,generation:release.generation,identity:release.identity,endpointIdentities:release.endpointIdentities,surface:release.surface};
 }
 class CompositeSourceUnavailable extends Error {
  constructor(readonly source:'metadata'|'paper',readonly sourceRequests:number|null,readonly failure:{category:ReadFailureCategory;code:string;evidenceLocator:string;automaticRetryAllowed:false}){super(failure.code);}
@@ -205,11 +193,6 @@ async function call(req:any){
     const expectedIdentity=active.endpointIdentities[target.endpoint];
     if(expectedIdentity){const handshake=await client.callTool({name:'academy_endpoint_identity',arguments:{}});
      if(handshake.isError||JSON.stringify(handshake.structuredContent)!==JSON.stringify(expectedIdentity))throw Error('release_endpoint_identity_mismatch');}
-    if(active.generation!==null&&target.endpoint==='dailyrecord'){
-     const handshake=await client.callTool({name:'academy_runtime_read_admission',arguments:{}});
-     const summary=handshake.structuredContent as Record<string,unknown>|undefined;
-     if(handshake.isError||summary?.status!=='configured'||summary.admissionSha256!==sha(active.readAdmission))throw Error('release_upstream_admission_mismatch');
-    }
     const response=await client.callTool({name:target.upstreamName,arguments:input as Record<string,unknown>});
     const data=response.structuredContent as Record<string,unknown>|undefined;
     if((source==='paper'&&data?.status==='blocked')||(source==='metadata'&&data?.status==='unavailable')){
@@ -218,7 +201,6 @@ async function call(req:any){
      const count=data.sourceRequests??effects?.sourceRequests??metrics?.sourceRequests;
      const reason=source==='paper'?data.code:data.reasonCode;
      const failure=source==='paper'?
-      reason==='read_scope_not_admitted'?{category:'policy_denial' as const,code:reason,evidenceLocator:'academy-mcp:upstream-read-admission',automaticRetryAllowed:false as const}:
       reason==='source_failure_latched_no_retry'?{category:'upstream_unavailable' as const,code:reason,evidenceLocator:'academy-mcp:paper-source-latch',automaticRetryAllowed:false as const}:
       {category:'upstream_unavailable' as const,code:'source_headers_read_failed',evidenceLocator:'academy-mcp:paper-source-read',automaticRetryAllowed:false as const}:
       publicReadFailure(Error(typeof reason==='string'?reason:''),'student_metadata_unqualified_no_automatic_retry');
@@ -240,12 +222,6 @@ async function call(req:any){
     const handshake=await client.callTool({name:'academy_endpoint_identity',arguments:{}});
     if(handshake.isError||JSON.stringify(handshake.structuredContent)!==JSON.stringify(expectedIdentity))throw Error('release_endpoint_identity_mismatch');
    }
-   if(active.generation!==null && entry.endpoint==='dailyrecord'){
-    const handshake=await client.callTool({name:'academy_runtime_read_admission',arguments:{}});
-    const summary=handshake.structuredContent as Record<string,unknown>|undefined;
-    if(handshake.isError||summary?.status!=='configured'||summary.admissionSha256!==sha(active.readAdmission))
-     throw Error('release_upstream_admission_mismatch');
-   }
    if(entry.upstreamName==='academy_dailyrecord_get'){
     const invoke=async(name:string,input:unknown)=>{
      const response=await client.callTool({name,arguments:withAttribution(name,input as Record<string,unknown>)});
@@ -258,7 +234,7 @@ async function call(req:any){
      return {...data,...(data.status==='unavailable'&&!data.failure&&nativeAudit?.failure?{failure:publicFailureFromData(nativeAudit.failure)}:{}),
       ...(safeOccurrence?{upstreamOccurrence:safeOccurrence}:{})};
     };
-    const data=await readDailyRecordByName(args,{resolveStudent:input=>invoke('academy_student_resolve',input),intake:input=>invoke('academy_dailyrecord_intake',input)},active.readAdmission);
+    const data=await readDailyRecordByName(args,{resolveStudent:input=>invoke('academy_student_resolve',input),intake:input=>invoke('academy_dailyrecord_intake',input)});
     return {content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
    }
    if(entry.upstreamName==='academy_dailyrecord_save'||entry.upstreamName==='academy_dailyrecord_review'){
@@ -313,26 +289,24 @@ async function call(req:any){
   return {isError:true,content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
  }
 }
-// The surface's instructions of the release loaded at start, fixed for the life of the process;
-// {{admittedDates}} is filled as in tools/list. Without them, initialize is unchanged.
-const admittedDates=`${readAdmission.allowedFrom??'unbounded'} through ${readAdmission.allowedThrough??'unbounded'}`;
-const instructions=initialRelease?.instructions?.replaceAll('{{admittedDates}}',admittedDates);
+// The surface's instructions of the release loaded at start, fixed for the life of the process.
+// No date window gates a read: the placeholder {{admittedDates}} of an older surface renders as `any date`.
+const anyDate='any date';
+const instructions=initialRelease?.instructions?.replaceAll('{{admittedDates}}',anyDate);
 const server=new Server({name:'muse-academy-runtime',version:'1.0.0'},{capabilities:{tools:{}},...(instructions!==undefined?{instructions}:{})});
 server.setRequestHandler('tools/list',async()=>{
  try{
  const active=await activeRelease();
- const hint=`DailyRecord owner-admitted dates: ${active.readAdmission.allowedFrom??'unbounded'} through ${active.readAdmission.allowedThrough??'unbounded'}.`;
  const identityTool={name:'academy_runtime_identity',description:academyRoutingDescription('academy_runtime_identity','Inspect the active release graph and loaded bridge digest. Legacy graphs are explicitly incomplete. No source reads or namespace authorization.'),inputSchema:z.toJSONSchema(z.object({}).strict()),annotations:readOnlyAnnotations};
  if(active.surface){
-  // The surface's text is shown verbatim; only {{admittedDates}} is filled from the read admission.
-  const dates=`${active.readAdmission.allowedFrom??'unbounded'} through ${active.readAdmission.allowedThrough??'unbounded'}`;
+  // The surface's text is shown verbatim; only {{admittedDates}} renders as `any date`.
   return {tools:active.surface.map(shown=>{
    const tool=shown.name==='academy_runtime_identity'?identityTool:active.registry.find((r:any)=>r.tool.name===shown.name)!.tool;
-   return {...tool,...(shown.title!==undefined?{title:shown.title}:{}),description:shown.description.replaceAll('{{admittedDates}}',dates),
+   return {...tool,...(shown.title!==undefined?{title:shown.title}:{}),description:shown.description.replaceAll('{{admittedDates}}',anyDate),
     inputSchema:shown.inputSchema??tool.inputSchema};
   })};
  }
- return {tools:[identityTool,...active.registry.map((r:any)=>({...r.tool,description:academyRoutingDescription(r.tool.name,r.endpoint==='dailyrecord'?r.tool.description?.replace(/DailyRecord owner-admitted dates: [^.]+\./,hint)??'':r.tool.description??'',r.endpoint)}))]};
+ return {tools:[identityTool,...active.registry.map((r:any)=>({...r.tool,description:academyRoutingDescription(r.tool.name,r.endpoint==='dailyrecord'?r.tool.description?.replace(/ ?DailyRecord owner-admitted dates: [^.]+\./,'')??'':r.tool.description??'',r.endpoint)}))]};
  }catch(error){
   const failure=publicReadFailure(error,'release_discovery_unavailable');
   const result=Error(failure.code);

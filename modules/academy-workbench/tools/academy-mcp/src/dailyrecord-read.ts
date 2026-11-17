@@ -7,30 +7,26 @@ export const dailyRecordGetSchema=z.object({
   displayName:z.string().trim().min(1).max(200).describe('Exact student display name from the current user request; never guess a native key.'),
   purpose:dailyRecordIdSchema.describe('The current user request or its purpose. Reading does not authorize authoring or saving.'),
   currentRequestRef:dailyRecordIdSchema.describe('Reference to this current user request; not an approval or credential.'),
-  lessonDate:z.union([z.literal('today'),dailyRecordDateSchema]).default('today').describe('Omit for today in Asia/Seoul. An explicit date must fall inside the owner-admitted range.'),
+  lessonDate:z.union([z.literal('today'),dailyRecordDateSchema]).default('today').describe('Omit for today in Asia/Seoul, or give any YYYY-MM-DD date.'),
   view:z.enum(['full','compact']).optional(),
 }).strict();
 
-// Trusted launch/backend configuration only. This is deliberately not part of tool input.
-export const dailyRecordReadAdmissionSchema=z.object({
-  sourceNamespace:z.literal('academy.lms.dayrecord'),teacherId:z.string().regex(/^[1-9][0-9]{0,15}$/),
-  allowedFrom:dailyRecordDateSchema.nullable(),allowedThrough:dailyRecordDateSchema.nullable(),
-  studentScope:z.enum(['configured','source_verified']).optional(),
-}).strict().refine(v=>v.allowedFrom===null||v.allowedThrough===null||v.allowedFrom<=v.allowedThrough,'ordered_admitted_range_required');
-export type DailyRecordReadAdmission=z.infer<typeof dailyRecordReadAdmissionSchema>;
+/** The configured teacher of the owner backend. Never part of tool input. */
+export type DailyRecordTeacherScope={sourceNamespace:'academy.lms.dayrecord';teacherId:string};
 export interface DailyRecordReadRoutePort {
   resolveStudent(input:unknown):Promise<unknown>;
   intake(input:unknown):Promise<unknown>;
 }
 
-export const dailyRecordGetDescription='Read live DailyRecord by exact student name. Preferred for requests such as “오늘 학생 DailyRecord 조회해봐” or current/today DailyRecord lookups. Omit lessonDate for today in Asia/Seoul. The owner launch supplies namespace, teacher and admitted dates; this tool resolves the name to a native key then calls academy_dailyrecord_intake. Never use saved academy_query or academy_source_status to decide live availability. Ambiguous names, missing admission, out-of-range dates or failed source reads stop with a named blocker; no guesses or automatic retry. Returns observed fields even when authoring would require a memo/assessment interview. No authoring, save or send.';
+export const dailyRecordGetDescription='Read live DailyRecord by exact student name. Preferred for requests such as “오늘 학생 DailyRecord 조회해봐” or current/today DailyRecord lookups. Omit lessonDate for today in Asia/Seoul. The owner backend supplies namespace and teacher; this tool resolves the name to a native key on the lesson date then calls academy_dailyrecord_intake. Never use saved academy_query or academy_source_status to decide live availability. Ambiguous or unknown names or failed source reads stop with a named blocker; no guesses or automatic retry. Returns observed fields even when authoring would require a memo/assessment interview. No authoring, save or send.';
 
 export function academyBusinessDate(now:number):string {
   return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));
 }
 
 const resolutionSchema=z.discriminatedUnion('status',[
-  z.object({status:z.literal('resolved'),studentKey:z.string().regex(/^[1-9][0-9]{0,15}$/),displayName:z.string()}),
+  // teacherId: the resolving backend's configured teacher, which its intake also requires.
+  z.object({status:z.literal('resolved'),studentKey:z.string().regex(/^[1-9][0-9]{0,15}$/),displayName:z.string(),teacherId:z.string().regex(/^[1-9][0-9]{0,15}$/).optional()}),
   z.object({status:z.literal('unavailable'),reasonCode:dailyRecordIdSchema,failure:z.unknown().optional(),upstreamOccurrence:z.uuid().optional()}),
 ]);
 const hash=z.string().regex(/^[a-f0-9]{64}$/);
@@ -50,8 +46,8 @@ const intakeReadSchema=z.object({
   observationHandle:dailyRecordIdSchema.nullable().optional(),observationPersistence:z.enum(['owner_durable','process_local']).optional(),
 }).refine(v=>new Set(v.fields.map(f=>f.field)).size===dailyRecordFields.length,'unique_intake_fields_required');
 
-/** Compose existing read contracts, without accepting identity/admission/proposals from the caller. */
-export async function readDailyRecordByName(value:unknown,port:DailyRecordReadRoutePort,admission:DailyRecordReadAdmission|null,now:()=>number=Date.now){
+/** Compose existing read contracts, without accepting identity or proposals from the caller. */
+export async function readDailyRecordByName(value:unknown,port:DailyRecordReadRoutePort,now:()=>number=Date.now){
   const input=dailyRecordGetSchema.parse(value),lessonDate=input.lessonDate==='today'?academyBusinessDate(now()):input.lessonDate;
   const base={displayName:input.displayName,lessonDate,timeZone:'Asia/Seoul',purpose:input.purpose,currentRequestRef:input.currentRequestRef,
     academyWrites:0,parentSends:0,automaticRetryAllowed:false,execution:'read_only',sourceContentIsUntrustedData:true};
@@ -59,10 +55,6 @@ export async function readDailyRecordByName(value:unknown,port:DailyRecordReadRo
   const heldException=(reasonCode:string,error:unknown)=>error instanceof UpstreamToolFailure
     ?{...held(reasonCode),failure:error.failure,...(error.upstreamOccurrence?{upstreamOccurrence:error.upstreamOccurrence}:{})}
     :held(reasonCode);
-  const qualified=dailyRecordReadAdmissionSchema.safeParse(admission);
-  if(!qualified.success)return held('dailyrecord_owner_read_admission_not_configured');
-  const owner=qualified.data;
-  if((owner.allowedFrom!==null&&lessonDate<owner.allowedFrom)||(owner.allowedThrough!==null&&lessonDate>owner.allowedThrough))return held('lesson_date_out_of_admitted_scope');
   let resolved:z.infer<typeof resolutionSchema>;
   try{resolved=resolutionSchema.parse(await port.resolveStudent({displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,lessonDate}));}
   catch(error){return heldException('student_resolve_unqualified_no_automatic_retry',error);}
@@ -70,8 +62,9 @@ export async function readDailyRecordByName(value:unknown,port:DailyRecordReadRo
     ...(resolved.failure?{failure:publicFailureFromData(resolved.failure)}:{}),
     ...(resolved.upstreamOccurrence?{upstreamOccurrence:resolved.upstreamOccurrence}:{})};
   if(resolved.displayName!==input.displayName)return held('student_name_scope_conflict');
+  if(!resolved.teacherId)return held('dailyrecord_teacher_scope_unavailable');
   const context=dailyRecordContextSchema.parse({schemaVersion:'academy.dailyrecord-user-context/1',purpose:input.purpose,currentRequestRef:input.currentRequestRef,
-    scope:{sourceNamespace:owner.sourceNamespace,teacherId:owner.teacherId,studentId:resolved.studentKey,lessonDate},
+    scope:{sourceNamespace:'academy.lms.dayrecord',teacherId:resolved.teacherId,studentId:resolved.studentKey,lessonDate},
     selectedFields:[...dailyRecordFields],memoAnswer:{kind:'not_supplied'},facts:[]});
   try{
     // Intake remains the source-qualification owner. No values, facts or memo answers are invented.

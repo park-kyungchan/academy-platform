@@ -52,16 +52,15 @@ describe('name-only search port (REA contract, synthetic names only)', () => {
       .toMatchObject({status: 'unavailable', reasonCode: 'student_name_scope_conflict'});
   });
 
-  test('without a wire port the owner admission table resolves exact names only', async () => {
+  test('without a wire port no name resolves: no launch table answers in its place', async () => {
     const service = new DailyRecordService(
       new NativeDailyRecordBackend(clientBase, admission, credential), safeguard, () => clock, learningPolicy);
-    expect(await service.resolveStudent(resolveInput('Invented Student')))
-      .toMatchObject({status: 'resolved', studentKey: '77001', academyWrites: 0, parentSends: 0});
-    expect(await service.resolveStudent(resolveInput('Nobody Here')))
-      .toMatchObject({status: 'unavailable', reasonCode: 'student_name_not_admitted'});
+    for (const name of ['Invented Student', 'Nobody Here'])
+      expect(await service.resolveStudent(resolveInput(name)))
+        .toMatchObject({status: 'unavailable', reasonCode: 'student_resolve_backend_not_configured', academyWrites: 0, parentSends: 0});
   });
 
-  test('wire search authenticates once before querying; the admission-only fallback does not authenticate', async () => {
+  test('wire search authenticates once before querying; without a wire port nothing authenticates', async () => {
     const events: string[] = [];
     const port = {...clientBase, authenticate: async () => { events.push('authenticate'); },
       searchStudentsByName: async () => { events.push('search'); return [{studentKey: '77001', studentName: 'Invented Student'}]; }};
@@ -70,7 +69,7 @@ describe('name-only search port (REA contract, synthetic names only)', () => {
     await backend.searchStudentsByName('Invented Student');
     expect(events).toEqual(['authenticate', 'search', 'search']);
     const fallback = new NativeDailyRecordBackend({...clientBase, authenticate: async () => { events.push('unexpected'); }}, admission, credential);
-    await fallback.searchStudentsByName('Invented Student');
+    await expect(fallback.searchStudentsByName('Invented Student')).rejects.toThrow('student_resolve_backend_not_configured');
     expect(events).not.toContain('unexpected');
   });
 

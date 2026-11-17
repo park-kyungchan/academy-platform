@@ -108,11 +108,6 @@
       "exposure": "open"
     },
     {
-      "name": "academy_runtime_read_admission",
-      "class": "read",
-      "exposure": "open"
-    },
-    {
       "name": "academy_source_status",
       "class": "read",
       "exposure": "open"

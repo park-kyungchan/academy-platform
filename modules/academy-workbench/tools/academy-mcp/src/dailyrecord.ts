@@ -4,7 +4,7 @@ import {ASSESSMENT_CODE_TABLES,dailyRecordContextSchema,dailyRecordDateSchema,da
 import {freezeLabelData} from './item-label-context.ts';
 import {itemAnswerLookupSchema,projectItemAnswerRead} from './item-answer-lookup.ts';
 import {resolveStudentByName,studentResolveInputSchema} from './student-resolver.ts';
-import {readDailyRecordByName,type DailyRecordReadAdmission} from './dailyrecord-read.ts';
+import {readDailyRecordByName,type DailyRecordTeacherScope} from './dailyrecord-read.ts';
 import {readFailureResult} from './read-failure.ts';
 import {toolResultBytes} from './tool-result.ts';
 import {canonicalJson} from './dailyrecord-save-admission.ts';
@@ -144,7 +144,7 @@ export type TextbookSectionInterviewObservation={kind:'interview_required';stude
 export type TextbookSectionResultsByNameObservation=TextbookSectionObservation|TextbookSectionIndexObservation|TextbookSectionInterviewObservation;
 /** Implemented by the native/source owner, never by MCP arguments. All methods are read-only. */
 export interface DailyRecordReadBackend {
-  readRoutingAdmission?():DailyRecordReadAdmission;
+  teacherScope?():DailyRecordTeacherScope;
   /** `subject` is the source-verified name recorded at intake, letting a fresh process re-select a student outside the launch list. */
   readDailyRecord(scope:Readonly<DailyRecordScope>,requestRef:string,subject?:{displayName:string}):Promise<ReadResult<DailyRecordObservation>>;
   readStudentMetadataByName?(input:Readonly<StudentMetadataGet>):Promise<StudentMetadataObservation>;
@@ -525,7 +525,7 @@ export class DailyRecordService {
     }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'item_section_trace_unqualified_no_automatic_retry')};}
   }
   async get(value:unknown){
-    return readDailyRecordByName(value,this,this.backend?.readRoutingAdmission?.()??null,this.now);
+    return readDailyRecordByName(value,this,this.now);
   }
   async resolveStudent(value:unknown){
     const input=studentResolveInputSchema.parse(value);
@@ -536,7 +536,9 @@ export class DailyRecordService {
       return await this.#serial(async()=>{
         const result=await resolveStudentByName(input.displayName,{searchByName:name=>this.backend!.searchStudentsByName!(name,input.currentRequestRef,input.lessonDate)});
         if(result.status==='unavailable')return {...base,...result};
-        return freezeLabelData({...base,...result});
+        // The configured teacher binds the resolved key for the intake that follows.
+        const teacher=this.backend!.teacherScope?.();
+        return freezeLabelData({...base,...result,...(teacher?{teacherId:teacher.teacherId}:{})});
       });
     }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'student_resolve_unqualified_no_automatic_retry')};}
   }
