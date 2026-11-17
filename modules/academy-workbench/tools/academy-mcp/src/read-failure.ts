@@ -189,6 +189,7 @@ const catalog={
   release_pointer_missing:['contract_drift','src/neutral-server.ts:activeRelease'],
   release_upstream_admission_mismatch:['contract_drift','src/neutral-server.ts:call'],
   release_payload_unqualified:['contract_drift','src/runtime-release.ts:loadRuntimeRelease'],
+  release_surface_unqualified:['contract_drift','src/runtime-release.ts:parseSurface'],
   release_endpoint_identity_mismatch:['contract_drift','src/runtime-release.ts:verifyEndpointIdentity'],
   release_bridge_identity_mismatch:['contract_drift','src/runtime-release.ts:loadRuntimeRelease'],
   release_artifact_mismatch:['contract_drift','src/runtime-release.ts:verifyReleaseArtifacts'],

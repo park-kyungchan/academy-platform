@@ -10,7 +10,7 @@ import {ReleaseBaseUnqualified} from './read-failure.ts';
 import {paperScopesSchema} from './paper-scope-routing.ts';
 
 const pin=z.object({path:z.string().refine(isAbsolute),sha256:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
-const commonRelease={generation:z.string().regex(/^[a-zA-Z0-9._-]{1,64}$/),routing:pin,endpoints:pin,registry:pin};
+const commonRelease={generation:z.string().regex(/^[a-zA-Z0-9._-]{1,64}$/),routing:pin,endpoints:pin,registry:pin,surface:pin.optional()};
 const releaseSchema=z.discriminatedUnion('schemaVersion',[
   z.object({schemaVersion:z.literal('academy.mcp-release/1'),...commonRelease}).strict(),
   z.object({schemaVersion:z.literal('academy.mcp-release/2'),...commonRelease,bridge:artifactPinSchema,
@@ -20,6 +20,11 @@ const routingSchema=z.object({admissionPath:z.string().refine(isAbsolute),admiss
 const registrySchema=z.array(z.object({endpoint:z.string().regex(/^[a-z][a-z0-9_]{0,63}$/),
   upstreamName:z.string().regex(/^[a-z][a-z0-9_]{0,127}$/),
   tool:z.object({name:z.string().regex(/^[a-z][a-z0-9_]{0,127}$/)}).passthrough()}).strict()).max(256);
+/** academy.mcp-surface/1: what tools/list shows. Validation of calls stays with the registry. */
+const surfaceSchema=z.object({schemaVersion:z.literal('academy.mcp-surface/1'),tools:z.array(z.object({
+  name:z.string(),description:z.string(),title:z.string().optional(),
+  inputSchema:z.record(z.string(),z.unknown()).refine(schema=>schema.type==='object').optional()}).strict()).max(257)}).strict();
+export type ToolSurface=z.infer<typeof surfaceSchema>['tools'];
 
 /** Read the owner-controlled pointer as one bounded regular file. A release is
  * activated by atomically replacing this pointer after all pinned files exist. */
@@ -47,12 +52,14 @@ export async function loadRuntimeRelease(base:string){
   const pointer=await readPointer(base);if(pointer===null)return null;
   const release=releaseSchema.parse(JSON.parse(pointer.toString('utf8')));
   const read=async(ref:z.infer<typeof pin>)=>JSON.parse((await readPinnedLocalBytes(ref.path,ref.sha256)).bytes.toString('utf8'));
-  const [rawRouting,endpoints,rawRegistry]=await Promise.all([read(release.routing),read(release.endpoints),read(release.registry)]);
+  const [rawRouting,endpoints,rawRegistry,surfaceBytes]=await Promise.all([read(release.routing),read(release.endpoints),read(release.registry),
+    release.surface?readPinnedLocalBytes(release.surface.path,release.surface.sha256).then(r=>r.bytes):undefined]);
   const routing=routingSchema.parse(rawRouting);
   const admission=ownerAdmissionSchema.parse(JSON.parse((await readPinnedLocalBytes(routing.admissionPath,routing.admissionSha256)).bytes.toString('utf8')));
   const registry=registrySchema.parse(rawRegistry);
   if(!endpoints||typeof endpoints!=='object'||Array.isArray(endpoints)||new Set(registry.map(r=>r.tool.name)).size!==registry.length
     ||registry.some(r=>!Object.hasOwn(endpoints,r.endpoint)))throw Error('release_payload_unqualified');
+  const surface=surfaceBytes===undefined?undefined:parseSurface(surfaceBytes,registry.map(r=>r.tool.name));
   const endpointIdentities:Record<string,Awaited<ReturnType<typeof verifyEndpointManifest>>['summary']>={};
   if(release.schemaVersion==='academy.mcp-release/2'){
     const accountLocks=new Set<string>();
@@ -76,11 +83,20 @@ export async function loadRuntimeRelease(base:string){
   }
   const after=await readPointer(base);
   if(after===null||createHash('sha256').update(pointer).digest('hex')!==createHash('sha256').update(after).digest('hex'))throw Error('release_pointer_changed');
-  return {generation:release.generation,admission,endpoints,registry,endpointIdentities,paperScopes:routing.paperScopes,
+  return {generation:release.generation,admission,endpoints,registry,endpointIdentities,paperScopes:routing.paperScopes,surface,
     identity:{schemaVersion:release.schemaVersion,generation:release.generation,
       pointerSha256:createHash('sha256').update(pointer).digest('hex'),routingSha256:release.routing.sha256,
-      endpointsSha256:release.endpoints.sha256,registrySha256:release.registry.sha256,admissionSha256:routing.admissionSha256,
+      endpointsSha256:release.endpoints.sha256,registrySha256:release.registry.sha256,surfaceSha256:release.surface?.sha256??null,admissionSha256:routing.admissionSha256,
       bridgeSha256:release.schemaVersion==='academy.mcp-release/2'?release.bridge.sha256:null,
       graphQualification:release.schemaVersion==='academy.mcp-release/2'?'artifact_pinned':'legacy_graph_incomplete',
       endpointIdentities:Object.values(endpointIdentities)}};
+}
+
+/** Names are unique and each is a registry tool or the bridge's own identity tool. */
+function parseSurface(bytes:Buffer,registryNames:readonly string[]):ToolSurface{
+  const known=new Set([...registryNames,'academy_runtime_identity']);
+  let tools:ToolSurface;
+  try{tools=surfaceSchema.parse(JSON.parse(bytes.toString('utf8'))).tools;}catch{throw Error('release_surface_unqualified');}
+  if(new Set(tools.map(t=>t.name)).size!==tools.length||tools.some(t=>!known.has(t.name)))throw Error('release_surface_unqualified');
+  return tools;
 }

@@ -19,7 +19,7 @@ import {readPinnedLocalBytes} from './item-label-store.ts';
 import {readOnlyAnnotations} from './contracts.ts';
 import {dailyRecordScopeSchema,type DailyRecordScope} from './dailyrecord-context.ts';
 import {dailyTestHeaderRouteSchema,dailyTestHeaderRouteDescription,readDailyTestHeaders} from './dailytest-header-route.ts';
-import {loadRuntimeRelease} from './runtime-release.ts';
+import {loadRuntimeRelease,type ToolSurface} from './runtime-release.ts';
 import {PaperScopeUnresolvedError,selectPaperRoute} from './paper-scope-routing.ts';
 import {observeAttribution} from './dailyrecord-workflow.ts';
 import {dailyRecordWorkflowToolSchemas} from './dailyrecord.ts';
@@ -101,12 +101,12 @@ const registry=initialRelease?.registry??JSON.parse(readFileSync(base+'/registry
 let sawRelease=initialRelease!==null;
 async function activeRelease(){
  const release=await loadRuntimeRelease(base);
- if(!release){if(sawRelease)throw Error('release_pointer_missing');return {registry,endpoints,readAdmission,generation:null,identity:{graphQualification:'legacy_graph_incomplete'},endpointIdentities:{} as Record<string,unknown>};}
+ if(!release){if(sawRelease)throw Error('release_pointer_missing');return {registry,endpoints,readAdmission,generation:null,identity:{graphQualification:'legacy_graph_incomplete',surfaceSha256:null},endpointIdentities:{} as Record<string,unknown>,surface:undefined as ToolSurface|undefined};}
  sawRelease=true;
  if(release.identity.bridgeSha256!==null&&release.identity.bridgeSha256!==loadedBridgeSha256)throw Error('release_bridge_identity_mismatch');
  return {registry:release.registry,endpoints:release.endpoints,paperScopes:release.paperScopes,readAdmission:{sourceNamespace:release.admission.sourceNamespace,
   teacherId:release.admission.teacherId,allowedFrom:release.admission.allowedFrom,allowedThrough:release.admission.allowedThrough,
-  ...(release.admission.schemaVersion==='academy.owner-admission/2'?{studentScope:release.admission.studentScope??'configured'}:{})},generation:release.generation,identity:release.identity,endpointIdentities:release.endpointIdentities};
+  ...(release.admission.schemaVersion==='academy.owner-admission/2'?{studentScope:release.admission.studentScope??'configured'}:{})},generation:release.generation,identity:release.identity,endpointIdentities:release.endpointIdentities,surface:release.surface};
 }
 class CompositeSourceUnavailable extends Error {
  constructor(readonly source:'metadata'|'paper',readonly sourceRequests:number|null,readonly failure:{category:ReadFailureCategory;code:string;evidenceLocator:string;automaticRetryAllowed:false}){super(failure.code);}
@@ -131,7 +131,8 @@ function collectSchemaKeys(schema:unknown):Set<string>{
 function sanitizeAjvInputIssues(schema:unknown,errorMessage:string|undefined):SanitizedInputIssue[]{
  if(!errorMessage)return [{kind:'schema_validation_failed',path:[]}];
  const keys=collectSchemaKeys(schema);
- const clauses=errorMessage.split(/,\s+(?=data(?:\/|\s))/).slice(0,16);
+ // At most five issues: enough to correct a call, short enough for a small model.
+ const clauses=errorMessage.split(/,\s+(?=data(?:\/|\s))/).slice(0,5);
  return clauses.map(clause=>{
   const m=/^data((?:\/[^/\s]+)*)\s+(.+)$/.exec(clause.trim());
   const rawPath=m?.[1]?m[1].slice(1).split('/'):[];
@@ -166,8 +167,12 @@ async function call(req:any){
  const dispatch=()=>{if(dispatchIssued)return;writeFileSync(log+'/'+occurrence+'-dispatch.json',JSON.stringify({issuedAt:new Date().toISOString(),tool:receiptTool,argumentsSha256:sha(args),automaticRetryAllowed:false,academyWrites:0,parentSends:0})+'\n',{mode:0o600,flag:'wx'});dispatchIssued=true;};
  try{
   const active=await activeRelease();
-  if(active.registry.some((entry:any)=>entry.tool.name===req.name))receiptTool=req.name;
+  // A pinned surface is the whole callable set: an unlisted name is an unknown tool.
+  const listed=!active.surface||active.surface.some(tool=>tool.name===req.name);
+  if(!listed)receiptTool='unrecognized_tool';
+  else if(active.registry.some((entry:any)=>entry.tool.name===req.name))receiptTool=req.name;
   dispatch();
+  if(!listed)throw Error('unknown_tool');
   if(req.name==='academy_runtime_identity'){
    z.object({}).strict().parse(args);
    const data={...active.identity,processStartedAt,loadedBridgeSha256,qualification:'release_artifacts_only_live_source_and_existing_clients_unverified'};
@@ -176,6 +181,7 @@ async function call(req:any){
   }
   const registered=active.registry.find((r:any)=>r.tool.name===req.name);if(!registered)throw Error('unknown_tool');
   phase='input_validation';
+  // Always the registry's schema: a displayed surface schema never changes what is accepted.
   const validation=inputValidator.getValidator(registered.tool.inputSchema)(args);
   if(!validation.valid)throw new ToolInputInvalidError(sanitizeAjvInputIssues(registered.tool.inputSchema,validation.errorMessage));
   phase='routing';
@@ -304,6 +310,15 @@ server.setRequestHandler('tools/list',async()=>{
  const active=await activeRelease();
  const hint=`DailyRecord owner-admitted dates: ${active.readAdmission.allowedFrom??'unbounded'} through ${active.readAdmission.allowedThrough??'unbounded'}.`;
  const identityTool={name:'academy_runtime_identity',description:academyRoutingDescription('academy_runtime_identity','Inspect the active release graph and loaded bridge digest. Legacy graphs are explicitly incomplete. No source reads or namespace authorization.'),inputSchema:z.toJSONSchema(z.object({}).strict()),annotations:readOnlyAnnotations};
+ if(active.surface){
+  // The surface's text is shown verbatim; only {{admittedDates}} is filled from the read admission.
+  const dates=`${active.readAdmission.allowedFrom??'unbounded'} through ${active.readAdmission.allowedThrough??'unbounded'}`;
+  return {tools:active.surface.map(shown=>{
+   const tool=shown.name==='academy_runtime_identity'?identityTool:active.registry.find((r:any)=>r.tool.name===shown.name)!.tool;
+   return {...tool,...(shown.title!==undefined?{title:shown.title}:{}),description:shown.description.replaceAll('{{admittedDates}}',dates),
+    inputSchema:shown.inputSchema??tool.inputSchema};
+  })};
+ }
  return {tools:[identityTool,...active.registry.map((r:any)=>({...r.tool,description:academyRoutingDescription(r.tool.name,r.endpoint==='dailyrecord'?r.tool.description?.replace(/DailyRecord owner-admitted dates: [^.]+\./,hint)??'':r.tool.description??'',r.endpoint)}))]};
  }catch(error){
   const failure=publicReadFailure(error,'release_discovery_unavailable');
