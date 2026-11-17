@@ -870,7 +870,8 @@ export class AcademyHttpClient {
     const previousHandlers=controls.map(c=>c.handler??'').filter(h=>/^openHomeWorkRate\(/.test(h));
     // A first lesson: the row has neither the previous lesson's homework-rate handler nor its control.
     // There is no previous record to read; one of the two without the other stays refused.
-    if(!previousHandlers.length&&!controls.some(c=>c.name==='h_homework_rate'))
+    // "No handler" uses the row reader's unanchored test, so any row that mentions the handler is not a first lesson.
+    if(!controls.some(c=>/openHomeWorkRate\s*\(/.test(c.handler??''))&&!controls.some(c=>c.name==='h_homework_rate'))
       return {target:{...target},fields:{...fields,dailyTestAssessment:assessment('h_daily_test')},previousRecordKey:null,previousDate:null,wireDigest};
     if(previousHandlers.length!==1)throw Error('journal_previous_tuple_ambiguous');
     const match=/^openHomeWorkRate\(([1-9][0-9]*),([1-9][0-9]*),[0-9]+\)$/.exec(previousHandlers[0]!);

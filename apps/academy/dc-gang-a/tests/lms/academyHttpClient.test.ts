@@ -450,6 +450,11 @@ test('journalState still refuses two previous handlers, or a previous handler or
  }
  const two=await journalFixture(rows[0]!);
  try{await expect(two.client.journalState(journalTarget)).rejects.toThrow('journal_previous_tuple_ambiguous');expect(two.previousRequests).toHaveLength(0);}finally{two.restore();}
+ // A handler in another form the row reader accepts, without the control, is not a first lesson.
+ for(const handler of ['javascript:openHomeWorkRate(12,88001,0)',' openHomeWorkRate(12,88001,0)']){
+  const f=await journalFixture([...earlierLessonControls.filter(c=>c!==previousControl&&c!==previousHandler),{...previousHandler,handler}]);
+  try{await expect(f.client.journalState(journalTarget)).rejects.toThrow('journal_previous_tuple_ambiguous');expect(f.previousRequests).toHaveLength(0);}finally{f.restore();}
+ }
  const controlOnly=await journalFixture(rows[2]!);
  try{await expect(controlOnly.client.journalState(journalTarget)).rejects.toThrow('journal_previous_tuple_ambiguous');expect(controlOnly.previousRequests).toHaveLength(0);}finally{controlOnly.restore();}
 });
