@@ -99,9 +99,10 @@ test('check 3: a whitespace-only current value is empty, so set needs no replace
   expect(blank.status).toBe('prepared');expect(blank.patch).toEqual([expect.objectContaining({field:'attendance',before:' ',after:'Y'})]);
 });
 
-test('check 3: a current value with any other character still needs replace',async()=>{
+test('check 3: a set on a current value with any other character is read as replace (TASK-FLEX-1)',async()=>{
   const filled=await reviewAttendance('N');
-  expect(filled.rows[0].blockers).toContain('existing_value_requires_explicit_replace');expect(filled.patch).toEqual([]);
+  expect(filled.rows[0].blockers).toEqual([]);expect(filled.rows[0].decision.kind).toBe('replace');
+  expect(filled.patch).toEqual([expect.objectContaining({field:'attendance',before:'N',after:'Y'})]);
 });
 
 // The fixture's dates moved to one fictional lesson day; clock is that day's 09:00Z.
@@ -120,7 +121,8 @@ async function reviewDeadline(lessonDate:string,factText:string,value:string){
   const {service,c}=datedFixture(lessonDate);c.facts=[fact('homework',factText)];
   const intake:any=await service.intake({context:c});
   const review:any=await service.review({context:c,observationHandle:intake.observationHandle,proposals:[{field:'homework',value,factRefs:['user-fact:homework'],decision:{kind:'replace',requestRef:c.currentRequestRef}}]});
-  return review.rows[0].blockers as string[];
+  // The deadline check is a warning since TASK-FLEX-1: report blockers and warning codes together.
+  return [...review.rows[0].blockers,...review.rows[0].warnings.map((w:{code:string})=>w.code)] as string[];
 }
 
 test('check 4: a month-day fact deadline supports the full date of the lesson year',async()=>{

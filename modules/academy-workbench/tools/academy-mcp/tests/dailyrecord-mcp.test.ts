@@ -19,7 +19,8 @@ test('existing label MCP discovers context-required DailyRecord tools while pres
     expect(saveRefused.structuredContent).toMatchObject({status:'unavailable',reasonCode:'dailyrecord_save_backend_not_configured',academyWrites:0});
     for(const name of ['academy_dailyrecord_intake','academy_dailyrecord_review','academy_cism_section']){
       const tool=tools.find(t=>t.name===name)!;expect(tool.annotations?.readOnlyHint).toBe(true);expect(tool.annotations?.destructiveHint).toBe(false);
-      expect(tool.inputSchema.required).toContain('context');const refused=await client.callTool({name,arguments:{}});expect(refused.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',academyWrites:0});
+      // The review needs only proposals (and a handle for a patch); intake and CISM still need context (TASK-FLEX-1).
+      expect(tool.inputSchema.required).toContain(name==='academy_dailyrecord_review'?'proposals':'context');const refused=await client.callTool({name,arguments:{}});expect(refused.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',academyWrites:0});
     }
     const intake=await client.callTool({name:'academy_dailyrecord_intake',arguments:{context:context()}});
     expect(intake.isError).not.toBe(true);expect(intake.structuredContent).toMatchObject({status:'held',sourceAvailability:'unavailable',academyWrites:0,parentSends:0,observationHandle:null});
@@ -61,7 +62,7 @@ test('MCP returns an actionable review hold for ordinal questionCounts without a
     const c=context();c.facts[0].questionCounts=[{count:10,rendering:'유형 10'}];
     const reviewed=await client.callTool({name:'academy_dailyrecord_review',arguments:{context:c,proposals:[{field:'progress',value:'- 유형 10까지 풀이 진행.',factRefs:[c.facts[0].ref],decision:{kind:'set',requestRef:c.currentRequestRef}}]}});
     expect(reviewed.isError).not.toBe(true);
-    expect((reviewed.structuredContent as any).rows[0].blockers).toContain('count_rendering_must_preserve_count');
+    expect((reviewed.structuredContent as any).rows[0].warnings.map((w:any)=>w.code)).toContain('count_rendering_must_preserve_count');
     const tools=(await client.listTools()).tools;
     expect(tools.find(t=>t.name==='academy_dailyrecord_save')?.description).toContain('request_instruction_conflict');
     expect(tools.find(t=>t.name==='academy_dailyrecord_review')?.description).toContain('parent_internal_language_excluded');

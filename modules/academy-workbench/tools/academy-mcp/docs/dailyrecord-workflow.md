@@ -21,7 +21,7 @@ MCP input cannot supply a qualified source observation, native principal, creden
 ## Tools and actual behavior
 
 - `academy_dailyrecord_intake`: returns the six intake fields, separate previous-homework target, relevant recent same-student tone samples, existing values to preserve, genuinely missing user information, technical blockers and a backend-issued observation handle when available. A supplied activity narrative does not establish assessment or attendance. A qualified existing assessment/attendance value avoids repeating the interview. Source-unavailable is explicit and never converted to an observed blank or default value.
-- `academy_dailyrecord_review`: can review supplied parent text without source and reports the unavailable before-state, field-local wording/fact blockers and an empty patch. With a backend-issued observation handle it independently rereads the exact current/prior targets and all six before-values; changes to any field or source contract hold the review. Existing nonempty values require an explicit current `replace` decision, rather than an implicit `set`. A `clear` decision must be explicit and empty. Unselected fields are blocked. A review produces a proposed patch and digest only; it does not mutate or consume approval.
+- `academy_dailyrecord_review`: can review supplied parent text without source and reports the unavailable before-state, field-local wording/fact blockers and an empty patch. With a backend-issued observation handle it independently rereads the exact current/prior targets and all six before-values; changes to any field or source contract hold the review. A filled current value takes `replace` whatever kind the caller wrote (TASK-FLEX-1). A `clear` decision must be explicit and empty. Unselected fields are blocked. A review produces a proposed patch and digest only; it does not mutate or consume approval.
 - `academy_cism_section`: uses an injected read-only backend for one exact report, teacher/student, reporting period and `learning_support` section. Default is unavailable. Foreign period/subject/section, stale evidence or unqualified data do not become a parent memo. A CISM fact in review requires the actual backend-issued CISM handle, exact original section text and section evidence reference. The tool does not paraphrase or submit the report.
 
 Today memo questions apply independently of selected write fields. Technical missing-source blockers are separate from questions asking the user for genuinely unknown academic values. Source configuration does not need a user password interview in chat.
@@ -74,7 +74,35 @@ Synthetic passes do not prove real login, CISM parsing, DailyRecord source read/
 
 Changed progress and homework text is checked against the supplied facts only (TASK-GATES-2, 2026-11-17): the parent safeguard (hyphen lines, internal language), supplied fact fragments, question counts, deadlines, completion and stage claims, and the field length. No book catalog, learning reviewer or student list is consulted, so a book, unit or section the teacher confirms can be written for any student. The proposal members `learningEntries` and `teacherReported` are accepted and ignored. Unchanged stored text is preserved, including legacy formatting. Tone selection ignores every sample that does not satisfy the pinned owner's hyphen/LF grammar.
 
-A current value that is empty or only whitespace counts as empty, so decision `set` may fill it; any other current value needs `replace`. A month-day fact deadline (`11월 19일`, `11월19일(목)`) supports `YYYY-MM-DD` of the same month and day in the lesson year, or in the next year when its month is earlier than the lesson month. A full-date fact supports itself and its `M월 D일` form. Any other deadline in the text is `unsupported_deadline`.
+A current value that is empty or only whitespace counts as empty and takes `set`; any other current value takes `replace`, and an explicit `set` on it is read as `replace` (TASK-FLEX-1). A month-day fact deadline (`11월 19일`, `11월19일(목)`) supports `YYYY-MM-DD` of the same month and day in the lesson year, or in the next year when its month is earlier than the lesson month. A full-date fact supports itself and its `M월 D일` form. Any other deadline in the text is the warning `unsupported_deadline`.
+
+## Minimal write (TASK-FLEX-1, 2026-11-17)
+
+The user: remove every unnecessary harness and make it flexible; the low-tier models must write a DailyRecord on their own. A write needs only the observation handle, the new text and the user's words:
+
+```json
+{"observationHandle": "dailyrecord-observation:…", "proposals": [{"field": "progress", "value": "- …"}, {"field": "homework", "value": "- …"}]}
+```
+
+```json
+{"reviewDigest": "<64 hex>", "instruction": "<the user's verbatim words>"}
+```
+
+Defaults, in `src/dailyrecord-write-input.ts`; a member the caller gives keeps its meaning:
+
+| Member | Default |
+| --- | --- |
+| `context.scope`, `context.currentRequestRef` | The handle's scope and bound request ref. Intake needs `context.scope` and makes a new request ref. |
+| `context.schemaVersion`, `context.purpose` | The current version; `"DailyRecord write"` |
+| `context.selectedFields` | The proposals' fields (intake without values: all six) |
+| `context.facts` | None |
+| `context.memoAnswer` | The proposed `lessonMemo` value as `content`; `no_addition` when `lessonMemo` is not proposed; `not_supplied` (an interview) when it is proposed blank |
+| proposal `factRefs` | Every fact of that field |
+| proposal `decision` | `set` when the current value is empty, blank or the unknown assessment `-1`, else `replace`; `clear` only when written; `requestRef` the current request |
+
+The review asks for the memo only when `lessonMemo` is proposed without content. Checks of the text against the supplied facts (fragments, question counts and their renderings, deadlines, completion and stage claims, assessment and attendance code values) are row `warnings` (`{code, text}`), never blockers, and run only for a field that has facts. Kept blockers: unknown or stale before-state, drift, a missing target (including `previousHomeworkAssessment` on a first lesson), the parent safeguard (internal language, hyphen lines), the field length, invalid code values, explicit `factRefs` that name no fact, an explicit `requestRef` or field selection that does not match. Each row reports its resolved `decision`; the decision is bound by `inputDigest`, and rows enter the review digest without `decision` and `warnings`, so a review recorded before this change keeps its digest.
+
+A prepared review records its resolved input (handle, context, proposals) with the owner workflow, or in the process without it. A save that leaves out the context, the handle or the proposals loads them from that record; no record is `prior_review_record_required`. `instruction` (a string or `{text}`) becomes `request` with the current request ref; empty words are `user_instruction_provenance_required`. Everything after that is the save path above: the recorded review, the fresh review and drift check, one write per field, the readback.
 
 The launch arguments `--dailyrecord-learning OWNER_BUNDLE OWNER_SHA256 CONFIG_JSON CONFIG_SHA256` are still accepted so an installed release keeps starting; they read no file and gate nothing. The existing `--dailyrecord-policy` source must expose the canonical `parentDailyRecordLines` literal as well as `parentInternalLanguage`; older sources fail closed. These tools remain nonwriting and never send to parents.
 

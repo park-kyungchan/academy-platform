@@ -40,7 +40,8 @@ test('unknown assessments need explicit field values; activity prose does not es
   const service=new DailyRecordService(backend(()=>o),safeguard,()=>clock,learningPolicy),c=context();c.facts.push(fact('dailyTestAssessment','총 12문항 실시. 정답률 80%.'));
   const result=await service.intake({context:c});expect(result.interviews.map(q=>q.field)).toEqual(['attendance','dailyTestAssessment','previousHomeworkAssessment']);
   c.selectedFields.push('dailyTestAssessment');const unsupported=await service.intake({context:c,suppliedValues:[proposal('dailyTestAssessment','8')]});
-  expect(unsupported.blockers).toContain('dailyTestAssessment:explicit_user_source_option_fact_required');expect(unsupported.interviews.map(q=>q.field)).toContain('dailyTestAssessment');
+  // A supplied code value the facts do not state is a warning (TASK-FLEX-1); the user's words at save are the authority.
+  expect(unsupported.blockers).toEqual([]);expect(unsupported.warnings).toContainEqual(expect.objectContaining({field:'dailyTestAssessment',code:'explicit_user_source_option_fact_required'}));
   c.facts[c.facts.length-1]={...c.facts[c.facts.length-1],explicitValue:'8'};const supplied=await service.intake({context:c,suppliedValues:[proposal('dailyTestAssessment','8')]});
   expect(supplied.interviews.map(q=>q.field)).not.toContain('dailyTestAssessment');
   const guessed=await service.intake({context:c,suppliedValues:[proposal('dailyTestAssessment','80')]});expect(guessed.blockers).toContain('dailyTestAssessment:invalid_explicit_field_value');
@@ -77,7 +78,8 @@ test('foreign current/prior/tone target, invalid date, and unbound previous valu
 test('completed solving/grading cannot justify completed unconfirmed correction',async()=>{
   const {service,c,handle}=await setup();c.facts=[{...fact('progress','풀이·채점 완료. 오답 수정 진행.'),stageClaims:[{activity:'지정 문제',stage:'grading',status:'complete',rendering:'풀이·채점 완료'},{activity:'지정 문제',stage:'correction',status:'unconfirmed',rendering:'오답 수정 진행'}]}];
   const result=await service.review({context:c,observationHandle:handle,proposals:[proposal('progress','풀이·채점 완료. 오답 수정 완료.')]});
-  expect(result.rows[0].blockers).toContain('stage_completion_mismatch:correction');expect(result.rows[0].blockers).toContain('unsupported_stage_completion_claim:correction');expect(result.patch).toEqual([]);
+  const warned=result.rows[0].warnings.map(w=>w.code);
+  expect(warned).toContain('stage_completion_mismatch:correction');expect(warned).toContain('unsupported_stage_completion_claim:correction');expect(result.rows[0].blockers).toEqual([]);
 });
 test('review preserves counts, deadlines, stages and existing edits; canonical blockers are field-local',async()=>{
   const {service,c,handle}=await setup();c.selectedFields=['progress','homework'];
@@ -85,8 +87,9 @@ test('review preserves counts, deadlines, stages and existing edits; canonical b
     {...fact('homework','1월 19일까지 지정 7문항 풀어오기.'),questionCounts:[{count:7,rendering:'7문항'}],deadlines:[{date:'2040-01-19',rendering:'1월 19일'}]}];
   const good=await service.review({context:c,observationHandle:handle,proposals:[proposal('progress','지정 문제 12문항 풀이·채점까지 완료. 오답 수정 진행.'),proposal('homework','1월 19일까지 지정 7문항 풀어오기.')]});expect(good.status).toBe('prepared');expect(good.patch).toHaveLength(2);expect(good.academyWrites).toBe(0);expect(good.parentSends).toBe(0);
   const bad=await service.review({context:c,observationHandle:handle,proposals:[proposal('progress','교사 최종 완료판정. 15문항 오답 수정 완료.'),{...proposal('homework','1월 20일까지 지정 7문항 풀어오기.'),decision:{kind:'set',requestRef:c.currentRequestRef}}]});
-  expect(bad.rows[0].blockers).toContain('parent_internal_language_excluded');expect(bad.rows[0].blockers).toContain('unsupported_question_count');expect(bad.rows[0].blockers).toContain('supplied_fact_fragment_missing');
-  expect(bad.rows[1].blockers).toContain('unsupported_deadline');expect(bad.rows[1].blockers).toContain('existing_value_requires_explicit_replace');expect(bad.patch).toEqual([]);
+  // Fact checks are warnings and an explicit set on a filled field is a replace (TASK-FLEX-1); the parent safeguard still blocks.
+  expect(bad.rows[0].blockers).toContain('parent_internal_language_excluded');expect(bad.rows[0].warnings.map(w=>w.code)).toEqual(expect.arrayContaining(['unsupported_question_count','supplied_fact_fragment_missing']));
+  expect(bad.rows[1].warnings.map(w=>w.code)).toContain('unsupported_deadline');expect(bad.rows[1].blockers).toEqual([]);expect(bad.rows[1].decision.kind).toBe('replace');expect(bad.patch.map(p=>p.field)).toEqual(['homework']);
 });
 test('missing canonical safeguard holds text review and no-op remains nonwriting',async()=>{
   const c=context(),service=new DailyRecordService(backend(),null,()=>clock,learningPolicy),intake=await service.intake({context:c});
@@ -97,7 +100,8 @@ test('pure parent-text review works without source and emits substantive blocker
   const c=context(),service=new DailyRecordService(null,safeguard,()=>clock,learningPolicy);
   const result=await service.review({context:c,proposals:[proposal('progress','교사 최종 완료판정. 19문항 풀이 완료.')]});
   expect(result.observationHandle).toBeNull();expect(result.sourceRevision).toBeNull();expect(result.status).toBe('held');expect(result.patch).toEqual([]);
-  for(const blocker of ['qualified_before_source_unavailable','parent_internal_language_excluded','unsupported_question_count','unsupported_completion_claim'])expect(result.rows[0].blockers).toContain(blocker);
+  for(const blocker of ['qualified_before_source_unavailable','parent_internal_language_excluded'])expect(result.rows[0].blockers).toContain(blocker);
+  for(const warning of ['unsupported_question_count','unsupported_completion_claim'])expect(result.rows[0].warnings.map(w=>w.code)).toContain(warning);
 });
 test('review digest binds full current context, canonical pins and exact CISM source identity',async()=>{
   const {service,c,handle}=await setup(),args={context:c,observationHandle:handle,proposals:[proposal('progress','지정 문제 12문항 풀이 진행.')]};
@@ -151,13 +155,13 @@ test('non-question rendering is a field-local hold and cannot support an invente
   c.facts=[{...fact('progress','유형 10까지 풀이 진행.'),questionCounts:[{count:10,rendering:'유형 10'}]}];
   const intake=await service.intake({context:c});
   const result=await service.review({context:c,observationHandle:intake.observationHandle,proposals:[proposal('progress','유형 10까지 10문항 풀이 진행.')]});
-  expect(result.status).toBe('held');expect(result.patch).toEqual([]);
-  expect(result.rows[0].blockers).toContain('count_rendering_must_preserve_count');
-  expect(result.rows[0].blockers).toContain('unsupported_question_count');
-  expect(result.rows[0].holdActions.some(a=>a.action==='correct_fact')).toBe(true);
+  // Fact checks are warnings (TASK-FLEX-1).
+  expect(result.status).toBe('prepared');expect(result.rows[0].holdActions).toEqual([]);
+  expect(result.rows[0].warnings.map(w=>w.code)).toContain('count_rendering_must_preserve_count');
+  expect(result.rows[0].warnings.map(w=>w.code)).toContain('unsupported_question_count');
   c.facts=[{...fact('progress','유형 10까지 풀이 진행.'),requiredFragments:['유형 10']}];
   const corrected=await service.review({context:c,observationHandle:intake.observationHandle,proposals:[proposal('progress','유형 10까지 풀이 진행.')]});
-  expect(corrected.rows[0].blockers).not.toContain('count_rendering_must_preserve_count');
+  expect(corrected.rows[0].warnings.map(w=>w.code)).not.toContain('count_rendering_must_preserve_count');
 });
 
 test('dailyRecordFactSchema defaults omitted array fields to empty arrays',()=>{
@@ -291,7 +295,8 @@ for(const vector of baseReviewVectors)test(`a review recorded by the base server
     expect(result).toMatchObject({status:'saved',academyWrites:1});
     expect(writes).toBe(1);
     expect({inputDigest:rev.inputDigest,userContextDigest:rev.userContextDigest}).toEqual({inputDigest:vector.inputDigest,userContextDigest:vector.userContextDigest});
-    // Every reviewed fact except the random observation handle digests as at the base.
-    expect(createHash('sha256').update(JSON.stringify(Object.fromEntries(reviewBodyKeys.map(k=>[k,k==='observationHandle'?null:rev[k]])))).digest('hex')).toBe(vector.bodyDigest);
+    // Every reviewed fact except the random observation handle digests as at the base. Row decisions and warnings are reported, not digested.
+    const digestedRows=rev.rows.map(({decision:_decision,warnings:_warnings,...row}:Record<string,unknown>)=>row);
+    expect(createHash('sha256').update(JSON.stringify(Object.fromEntries(reviewBodyKeys.map(k=>[k,k==='observationHandle'?null:k==='rows'?digestedRows:rev[k]])))).digest('hex')).toBe(vector.bodyDigest);
   }finally{await rm(dir,{recursive:true,force:true});}
 });
