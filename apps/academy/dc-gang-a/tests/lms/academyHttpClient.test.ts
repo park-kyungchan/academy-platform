@@ -1,4 +1,4 @@
-import {expect,test} from 'bun:test';
+import {expect,spyOn,test} from 'bun:test';
 
 const principal='<a href="/logout">Invented Teacher- [로그아웃]</a><form name="userForm"><input name="pri_no" value="99001"></form><form name="form1"><input name="g_pri_no" value="99001"><input name="g_clg_no" value="88001"><input name="g_mem_type" value="teacher"></form>';
 const login='<form id="loginForm" name="loginForm" method="post"><input name="p_process"><input name="p_prino"><input name="p_groupno"><input name="userpwd"><input name="userid"><input name="cf_pc"><input name="cf_user"><input name="autoLoginCheck"><input name="autoLoginKey"></form><script>document.loginForm.action = "/servlet/controller.login.LoginServlet"; document.loginForm.p_process.value = "c_login";</script>';
@@ -381,4 +381,89 @@ test('textbook index refuses a foreign subject returned by the scoped wrong-note
  const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},async()=>new Response(++count===1?login:count<=3?principal:count===4?progress:JSON.stringify(notes)));
  await client.authenticate({username:'inventedUser',password:'inventedPassword'});
  await expect(client.inspectTextbookIndex({family:'textbook',teacherLabel:'Invented Teacher',studentKey:'77001',studentName:'Invented Learner',courseKey:'5',bookNo:'6',sourceTitles:['Invented existing section'],gradeViewAdmission:true})).rejects.toThrow('source_subject_conflict');client.close();
+});
+// journalState over a first lesson. The synthetic wire cannot reproduce the private qualified
+// digest, so only assertJournalWireQualified is replaced, for the duration of each test.
+const journalTarget={studentName:'Invented Learner',date:'2099-01-05',groupId:'3',teacherKey:'99001',studentKey:'77001',courseKey:'5',recordKey:'13',membershipKey:'88001'};
+const journalCurrentFields={progress:'Invented progress',homework:'Invented homework',lessonMemo:'Invented memo',attendance:'Y'};
+const firstLessonControls=[
+ {id:'',name:null,type:null,value:null,handler:'onOpenDaysMain(13);'},
+ {id:'',name:'stu_memo_txt0',type:'text',value:'',handler:'onFoStuMemo(13,88001)'},
+ {id:'',name:null,type:'button',value:'',handler:null},{id:'',name:null,type:'button',value:'',handler:null},{id:'',name:null,type:'button',value:'',handler:null},
+ {id:'',name:null,type:null,value:null,handler:'onDailyReport(13,88001,77001,5);'},
+ {id:'',name:'attn0',type:'checkbox',value:'Y',handler:'onAttn(13,88001)'},
+ {id:'',name:null,type:'button',value:'',handler:'setDailyTest(13,88001,0)'},
+ {id:'',name:'h_daily_test',type:'hidden',value:'-1',handler:null},
+ {id:'',name:'prg0',type:'text',value:'Invented progress',handler:'onFoPrg(13,88001)'},
+ {id:'',name:'hw0',type:'text',value:'Invented homework',handler:'onFoHw(13,88001)'},
+ {id:'',name:'mm0',type:'text',value:'Invented memo',handler:'onFoMm(13,88001)'},
+];
+const previousHandler={id:'',name:null,type:'button',value:'',handler:'openHomeWorkRate(12,88001,0)'};
+const previousControl={id:'',name:'h_homework_rate',type:'hidden',value:'3',handler:null};
+const earlierLessonControls=[...firstLessonControls.slice(0,5),previousHandler,previousControl,...firstLessonControls.slice(5)];
+async function journalFixture(controls:typeof firstLessonControls){
+ const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');
+ const journalHttp=await import('../../src/lms/lessonJournalHttp');
+ const labels=journalHttp.JOURNAL_HTTP_SOURCE_CONTRACT.assessmentLabels;
+ const wire={groupId:'3',date:journalTarget.date,sourceHandlersInvoked:false as const,
+  functions:Object.fromEntries([['onAttn','udtAttn'],['onFoPrg','udtPrg'],['onFoHw','udtHw'],['onFoMm','udtMemo'],['setDailyTest','SetDailyTest'],['openHomeWorkRate','SetHomeWorkRate']]
+   .map(([name,selector])=>[name,'function '+name+'(){request("/fixed?reqCmd='+selector+'");}'])),
+  popupEvents:['var g_param = "";\n$("#homework_confirm").click(function(){send("/fixed",g_param);});'],
+  rows:[{studentName:journalTarget.studentName,controls}],
+  assessmentOptions:Object.entries(labels).flatMap(([field,values])=>Object.entries(values).map(([value,label])=>({field,value,label})))};
+ const previousRequests:string[]=[];let count=0;
+ const record=['1','2099-01-02','5','x',journalTarget.studentName,'x','x','x','x','x','12','77001','88001'].join('!');
+ const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},async(url)=>{
+  count++;if(count<=3)return new Response(count===1?login:principal);
+  previousRequests.push(String(url));expect(String(url)).toContain('reqCmd=SelSglRecord');
+  return new Response('<records><record>'+record+'</record></records>');
+ });
+ await client.authenticate({username:'inventedUser',password:'inventedPassword'});
+ client.execute=(async()=>({dayRecords:[{...journalTarget,fields:{...journalCurrentFields}}]})) as never;
+ client.inspectDayRecordWire=(async()=>[wire]) as never;
+ const qualified=spyOn(journalHttp,'assertJournalWireQualified').mockImplementation(()=>{});
+ return {client,previousRequests,wireDigest:journalHttp.journalWireDigest(wire),restore:()=>{qualified.mockRestore();client.close();}};
+}
+test('journalState of a first lesson has no previous record, the same current fields and no previous-record request',async()=>{
+ const first=await journalFixture(firstLessonControls);
+ try{
+  const state=await first.client.journalState(journalTarget);
+  expect(state.previousRecordKey).toBeNull();expect(state.previousDate).toBeNull();
+  expect(Object.hasOwn(state.fields,'previousHomeworkAssessment')).toBe(false);
+  expect(first.previousRequests).toHaveLength(0);
+  const earlier=await journalFixture(earlierLessonControls);
+  try{
+   const {previousHomeworkAssessment:_previous,...current}=(await earlier.client.journalState(journalTarget)).fields;
+   expect(state.fields).toEqual(current);expect(earlier.previousRequests).toHaveLength(1);
+  }finally{earlier.restore();}
+ }finally{first.restore();}
+});
+test('journalState still refuses two previous handlers, or a previous handler or control without the other',async()=>{
+ const rows=[
+  [...earlierLessonControls,{...previousHandler}],
+  earlierLessonControls.filter(c=>c!==previousControl),
+  earlierLessonControls.filter(c=>c!==previousHandler),
+ ];
+ for(const controls of rows){
+  const f=await journalFixture(controls);
+  try{await expect(f.client.journalState(journalTarget)).rejects.toThrow();}finally{f.restore();}
+ }
+ const two=await journalFixture(rows[0]!);
+ try{await expect(two.client.journalState(journalTarget)).rejects.toThrow('journal_previous_tuple_ambiguous');expect(two.previousRequests).toHaveLength(0);}finally{two.restore();}
+ // A handler in another form the row reader accepts, without the control, is not a first lesson.
+ for(const handler of ['javascript:openHomeWorkRate(12,88001,0)',' openHomeWorkRate(12,88001,0)']){
+  const f=await journalFixture([...earlierLessonControls.filter(c=>c!==previousControl&&c!==previousHandler),{...previousHandler,handler}]);
+  try{await expect(f.client.journalState(journalTarget)).rejects.toThrow('journal_previous_tuple_ambiguous');expect(f.previousRequests).toHaveLength(0);}finally{f.restore();}
+ }
+ const controlOnly=await journalFixture(rows[2]!);
+ try{await expect(controlOnly.client.journalState(journalTarget)).rejects.toThrow('journal_previous_tuple_ambiguous');expect(controlOnly.previousRequests).toHaveLength(0);}finally{controlOnly.restore();}
+});
+test('journalState of a lesson with an earlier lesson is unchanged',async()=>{
+ const f=await journalFixture(earlierLessonControls);
+ try{
+  const state=await f.client.journalState(journalTarget);
+  expect(JSON.stringify(state)).toBe(JSON.stringify({target:journalTarget,fields:{...journalCurrentFields,dailyTestAssessment:'-1',previousHomeworkAssessment:'3'},
+   previousRecordKey:'12',previousDate:'2099-01-02',wireDigest:f.wireDigest}));
+  expect(f.previousRequests).toHaveLength(1);
+ }finally{f.restore();}
 });

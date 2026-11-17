@@ -552,9 +552,11 @@ export class DailyRecordService {
       const existing=current.state==='known'&&!unknownAssessment(field,current.value)
         &&(!['attendance','progress','homework'].includes(field)||current.value.trim().length>0);
       const facts=context.facts.some(f=>f.field===field);
+      // A first lesson has no previous record whose homework could be assessed.
+      const noPrevious=field==='previousHomeworkAssessment'&&!!source&&source.previousTarget===null;
       if(field==='lessonMemo'){if(context.memoAnswer.kind==='not_supplied')interviews.push({field,reasonCode:'today_student_specific_memo_required'});}
-      else if(!existing&&!supplied&&(!['progress','homework'].includes(field)||!facts))interviews.push({field,reasonCode:'explicit_value_or_qualified_existing_value_required'});
-      return {field,before:current,selected:context.selectedFields.includes(field),disposition:existing?'preserve_existing':supplied?'explicit_user_value':facts&&['progress','homework'].includes(field)?'user_facts_available':'missing',
+      else if(!noPrevious&&!existing&&!supplied&&(!['progress','homework'].includes(field)||!facts))interviews.push({field,reasonCode:'explicit_value_or_qualified_existing_value_required'});
+      return {field,before:current,selected:context.selectedFields.includes(field),disposition:noPrevious?'no_previous_record':existing?'preserve_existing':supplied?'explicit_user_value':facts&&['progress','homework'].includes(field)?'user_facts_available':'missing',
         target:field==='previousHomeworkAssessment'?source?.previousTarget??null:source?.target??null};
     });
     for(const p of input.suppliedValues)blockers.push(...proposalBlockers(p,context).map(b=>p.field+':'+b));

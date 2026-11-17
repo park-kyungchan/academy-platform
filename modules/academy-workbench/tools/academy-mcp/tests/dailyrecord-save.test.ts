@@ -138,3 +138,38 @@ test('save admission consumes an exact admitted action once and rejects foreign 
   });
   expect((await foreign.consumeApproval(action)).status).toBe('rejected');
 });
+test('first lesson: a batch with the previous homework assessment is refused before any write; current fields save with readback',async()=>{
+  const {NativeDailyRecordBackend}=await import('../src/native-dailyrecord-backend.ts');
+  const nativeScope={sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',studentId:'77001',lessonDate:'2040-01-04'};
+  const nativeAdmission={teacherId:'99001',teacherLabel:'Invented Teacher',date:'2040-01-04',
+    students:[{studentId:'77001',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};
+  const target={studentName:'Invented Student',date:'2040-01-04',groupId:'3',teacherKey:'99001',studentKey:'77001',courseKey:'5',recordKey:'13',membershipKey:'8'};
+  const fields:Record<string,string>={progress:'Current progress',homework:'Current homework',lessonMemo:'Current memo',attendance:'Y',dailyTestAssessment:'0'};
+  const row={...target,fields:{progress:fields.progress!,homework:fields.homework!,lessonMemo:fields.lessonMemo!,attendance:fields.attendance!}};
+  let reads=0,consumes=0;const actions:{field:string;effectRecordKey:string;after:string}[]=[];
+  const journalState=async()=>{reads++;return {target,fields:{...fields},previousRecordKey:null,previousDate:null,wireDigest:'a'.repeat(64)};};
+  const port={authenticate:async()=>{},discoverDayRecordGroups:async()=>({groups:[{groupId:'3'}]}),execute:async()=>({dayRecords:[row]}),journalState,
+    // Owner-client shape: consume the admission, write, then read back.
+    applyJournalAction:async(action:any,admission:any)=>{
+      const before=await journalState();if(before.fields[action.field]!==action.before)throw Error('before_drift');
+      await admission.consumeApproval(action);actions.push({field:action.field,effectRecordKey:action.effectRecordKey,after:action.after});fields[action.field]=action.after;
+      const after=await journalState();return {status:after.fields[action.field]===action.after?'persisted' as const:'conflict' as const,transport:'returned' as const};
+    },close:()=>{}};
+  const approval={consumeApproval:async()=>{consumes++;return {status:'verified' as const,actionDigest:'c'.repeat(64)};}};
+  const backend=new NativeDailyRecordBackend(port as never,nativeAdmission,()=>({username:'fictional',password:'fictional'}),null,new Set(['Invented Student']),null,approval as never);
+  await expect(backend.saveDailyRecord(nativeScope,[
+    {field:'progress',value:'- 새 진도',before:'Current progress',wireDigest:'a'.repeat(64)},
+    {field:'previousHomeworkAssessment',value:'4',before:'',wireDigest:'a'.repeat(64)}])).rejects.toThrow('dailyrecord_previous_record_absent');
+  expect(actions).toEqual([]);expect(consumes).toBe(0);
+  reads=0;
+  const saved=await backend.saveDailyRecord(nativeScope,[
+    {field:'homework',value:'- 새 숙제',before:'Current homework',wireDigest:'a'.repeat(64)},
+    {field:'progress',value:'- 새 진도',before:'Current progress',wireDigest:'a'.repeat(64)}]);
+  expect(saved).toEqual([{field:'homework',status:'persisted',dispatched:true,transport:'returned'},{field:'progress',status:'persisted',dispatched:true,transport:'returned'}]);
+  expect(actions).toEqual([{field:'homework',effectRecordKey:'13',after:'- 새 숙제'},{field:'progress',effectRecordKey:'13',after:'- 새 진도'}]);
+  expect(consumes).toBe(2);expect(reads).toBe(5);
+  // The identity checks stay.
+  port.execute=async()=>({dayRecords:[{...row,studentName:'Other Student'}]});
+  await expect(backend.saveDailyRecord(nativeScope,[{field:'progress',value:'- x',before:'- 새 진도',wireDigest:'a'.repeat(64)}])).rejects.toThrow('native_dailyrecord_identity_conflict');
+  expect(consumes).toBe(2);
+});
