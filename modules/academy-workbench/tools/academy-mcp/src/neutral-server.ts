@@ -304,7 +304,11 @@ async function call(req:any){
   return {isError:true,content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
  }
 }
-const server=new Server({name:'muse-academy-runtime',version:'1.0.0'},{capabilities:{tools:{}}});
+// The surface's instructions of the release loaded at start, fixed for the life of the process;
+// {{admittedDates}} is filled as in tools/list. Without them, initialize is unchanged.
+const admittedDates=`${readAdmission.allowedFrom??'unbounded'} through ${readAdmission.allowedThrough??'unbounded'}`;
+const instructions=initialRelease?.instructions?.replaceAll('{{admittedDates}}',admittedDates);
+const server=new Server({name:'muse-academy-runtime',version:'1.0.0'},{capabilities:{tools:{}},...(instructions!==undefined?{instructions}:{})});
 server.setRequestHandler('tools/list',async()=>{
  try{
  const active=await activeRelease();

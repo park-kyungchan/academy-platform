@@ -4,7 +4,10 @@ Backend operation names, field names and observed values keep their original
 spelling. Stable MCP tool IDs remain compatible. Each registered tool adds bounded
 `Academy routing context` metadata from `src/routing-context.ts`, including Korean
 teacher request phrases, the backend/source identity and the meaning of the result.
-The neutral bridge applies the same mapping to its active discovery catalog.
+The neutral bridge applies the same mapping to its active discovery catalog,
+unless the release pins a surface file: then `tools/list` shows the surface's
+descriptions verbatim, without this context (`dailyrecord-live-routing.md`,
+section "Tool surface file").
 Descriptions guide selection; they do not change admission, authentication or schemas.
 
 For printed TOC, section names and section descriptions, first use the
