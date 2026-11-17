@@ -21,6 +21,16 @@ a name/key pair. A missing or ambiguous dated row stays unavailable; it does
 not fall back to a recent test page or prove student absence. The later intake
 independently verifies the dated current and previous occurrences.
 
+An undated resolve searches the DT/ZT result page `sort_date` `'1'` first,
+with the same request and result as before. When the exact name is not on it,
+the owner client reads the history selectors that `readDailyTestHistory`
+reads (`11` to `16`), in that order, one request each, and stops at the first
+page that holds the name. That result carries `fixedSourceFilter` naming the
+selector; a result without it was found on `'1'`. The `'1'` page must offer
+every history selector, or the search stops with `daily_history_selector_drift`.
+A name on no page is `student_name_not_found` after at most seven requests;
+it still covers only the pages read, not the roster.
+
 `status: observed` and `sourceAvailability: observed` mean the read succeeded.
 `preparation.interviews` records questions needed only if the user later asks
 to author/review. No memo answer, attendance, assessment, fact or completion
@@ -87,6 +97,18 @@ Only new client processes load changed registry/endpoint bytes. Existing
 sessions keep their loaded tools. Review tickets retain their existing
 request/scope/signature/expiry checks; failures never latch later requests.
 Receipts contain tool names, statuses, phase metadata and hashes only.
+
+Each call starts its endpoint in a new process group and ends the group when
+the call ends (`src/upstream-process.ts`). The installed endpoint command is
+`flock --wait 45 <account lock> python3 native-endpoint.py`, which execs
+`setpriv` and Bun; `flock` keeps no handler for SIGTERM and its child holds
+the locked descriptor. The SDK's stdio transport signalled only `flock`, so a
+timed-out call left its Bun endpoint running with the lock, and the next
+call's lock wait expired after 45 s. Now the bridge ends stdin, waits up to
+2 s, then sends SIGTERM and, if needed, SIGKILL to the whole group and waits
+until it is gone. The account lock and the bridge's one-call-at-a-time order
+are unchanged. One upstream tool call is bounded by the SDK's 60 s, or by
+`ACADEMY_MCP_UPSTREAM_TIMEOUT_MS` (1000 to 600000) when the launch sets it.
 
 The fictional neutral SDK test runs with outbound networking denied and
 proves a single upstream lifetime, strict caller schema and content-free
@@ -188,3 +210,10 @@ response, grade, save, print, or send. The existing source endpoint may return
 an external solution reference instead of a literal answer. Production
 exposure requires the owner bundle and neutral registry to be published as a
 consistent verified release; local tests do not prove live availability.
+
+`academy_item_section_trace` without `bookLabel`, for a student bound to more
+than one book, answers `interview_required` with `bindings[].bookLabel` and
+`bookNo` right after the binding read, as
+`academy_textbook_section_results_get` does but without its per-book hints.
+It never scans every book in one call; repeat it with the chosen `bookLabel`.
+With one bound book it proceeds with that book.

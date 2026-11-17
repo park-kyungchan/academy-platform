@@ -9,7 +9,7 @@ import {academyRoutingDescription} from './routing-context.ts';
 // request; pinned launch admission supplies DailyRecord routing scope.
 import {Server} from '@modelcontextprotocol/server';
 import {Client} from '@modelcontextprotocol/client';
-import {StdioClientTransport} from '@modelcontextprotocol/client/stdio';
+import {ProcessGroupStdioTransport} from './upstream-process.ts';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {randomUUID,createHash} from 'node:crypto';
 import {z} from 'zod';
@@ -56,10 +56,19 @@ const log=base+'/receipts';mkdirSync(log,{recursive:true,mode:0o700});
 let tail:Promise<any>=Promise.resolve();
 const inputValidator=new AjvJsonSchemaValidator();
 const sha=(x:any)=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
+// The bound of one upstream tool call: the SDK's default of 60 s unless the
+// launch sets ACADEMY_MCP_UPSTREAM_TIMEOUT_MS (1000 to 600000).
+const upstreamTimeoutMs=(value=>value!==undefined&&/^[1-9][0-9]{3,5}$/.test(value)&&Number(value)<=600000?Number(value):60000)(process.env.ACADEMY_MCP_UPSTREAM_TIMEOUT_MS);
+class BoundedClient extends Client {
+ override callTool(params:Parameters<Client['callTool']>[0],options?:Parameters<Client['callTool']>[1]){return super.callTool(params,{timeout:upstreamTimeoutMs,...options});}
+}
+// Each call starts its endpoint in a new process group and ends the whole
+// group when the call ends, whether it succeeded, failed or timed out
+// (src/upstream-process.ts): nothing the call started outlives it.
 async function upstream<T>(endpoint:string,fn:(client:Client)=>Promise<T>,endpointConfig:any=endpoints,expectedRegistry?:readonly {endpoint:string;upstreamName:string}[]):Promise<T>{
 
- const transport=new StdioClientTransport({...endpointConfig[endpoint],stderr:'pipe'});
- const client=new Client({name:'muse-academy-bounded-adapter',version:'1.0.0'});
+ const transport=new ProcessGroupStdioTransport(endpointConfig[endpoint]);
+ const client=new BoundedClient({name:'muse-academy-bounded-adapter',version:'1.0.0'});
  try{await client.connect(transport);if(expectedRegistry)verifyEndpointInventory(endpoint,expectedRegistry,(await client.listTools()).tools);return await fn(client);}finally{await client.close();await transport.close();}
 }
 if(process.argv.includes('--discover')){

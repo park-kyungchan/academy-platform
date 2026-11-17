@@ -80,7 +80,9 @@ const metadataRows=z.array(metadataRow).max(2000);
 // Name-search result pairs. The wire (DtResultSearch rows) and the owner admission table
 // both project to exactly this shape; every unlisted key is stripped before the
 // exact-name rules run. Extra keys, missing keys and non-string pairs are unqualified.
-const nameSearchPair=z.object({studentKey:key,studentName:z.string().min(1).max(200)}).strict();
+// An undated wire search that found the name after the sort_date '1' page names that page.
+const historySelector=z.object({sort_date:z.enum(['11','12','13','14','15','16'])}).strict();
+const nameSearchPair=z.object({studentKey:key,studentName:z.string().min(1).max(200),fixedSourceFilter:historySelector.optional()}).strict();
 const nameSearchPairs=z.array(nameSearchPair).max(200);
 const metadataPage=z.object({rows:metadataRows,operation:z.enum(['UserBySearchTestResult','DtResultSearch']),page:z.literal(1),
   sourcePeriod:sourcePeriod.nullable(),observedAt:sourceInstant,coverage:z.literal('one_observed_student_search_page_not_complete_history'),
@@ -309,11 +311,12 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
         ?'wrong_answer_note_index_plus_one_observed_student_paper_search_page_for_exact_student_course_book_not_section_grading_not_complete_history'
         :'wrong_answer_note_title_index_only_for_exact_student_course_book_not_section_grading_not_complete_history'};
   }
-  /** Reverse trace: scan the student's registered textbook section indexes and
-   * match item labels to original section items. Bindings are scanned in full
-   * unless an exact bookLabel selects one; a scan cap above 64 titles requires
-   * that selection instead of a partial guess. Generated clinic membership is
-   * never asserted. */
+  /** Reverse trace: scan one registered textbook's section index and match
+   * item labels to original section items. With several bindings and no exact
+   * bookLabel the candidate labels are returned for caller selection before
+   * any per-book read, as the section results read does (without its per-book
+   * hints): one call never scans every book. A scan cap above 64 titles fails
+   * instead of a partial guess. Generated clinic membership is never asserted. */
   async readItemSectionTrace(input:Readonly<ItemSectionTrace>):Promise<ItemSectionTraceObservation>{
     const student=this.admission.students.find(s=>s.displayName===input.displayName);
     if(!student||!this.managedNames.has(input.displayName))throw Error('textbook_student_not_admitted');
@@ -323,6 +326,8 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     this.#assertTextbookBindings(bindings,student.studentId);
     const selected=input.bookLabel?bindings.filter(b=>b.bookLabel===input.bookLabel):bindings;
     if(input.bookLabel&&selected.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
+    if(!input.bookLabel&&selected.length>1)return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
+      bindings:selected.map(b=>({bookLabel:b.bookLabel,bookNo:b.bookNo})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
     const indexes: {binding:(typeof bindings)[number];titles:string[]}[]=[];
     let totalTitles=0;
     for(const binding of selected){
@@ -331,11 +336,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       const titles=z.array(z.object({sourceTitle:z.string().min(1).max(2000)}).passthrough()).max(1000).parse(raw.rows).map(r=>r.sourceTitle);
       indexes.push({binding,titles});totalTitles+=titles.length;
     }
-    if(totalTitles>64){
-      if(selected.length>1&&!input.bookLabel)return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
-        bindings:selected.map(b=>({bookLabel:b.bookLabel,bookNo:b.bookNo})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
-      throw Error('textbook_section_scan_limit');
-    }
+    if(totalTitles>64)throw Error('textbook_section_scan_limit');
     const wanted=new Set(input.labels);
     const matches=new Map<string,ItemSectionTraceObservation extends never?never:any[]>();
     const matchedSections=new Map<string,Set<string>>();
@@ -542,7 +543,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       const pairs=raw.map((row)=>{
         if(typeof row!=='object'||row===null)throw Error('native_name_search_unqualified_no_automatic_retry');
         const pair=row as Record<string,unknown>;
-        return {studentKey:pair.studentKey,studentName:pair.studentName};
+        return {studentKey:pair.studentKey,studentName:pair.studentName,...(pair.fixedSourceFilter!==undefined?{fixedSourceFilter:pair.fixedSourceFilter}:{})};
       });
       return this.#rememberResolved(pairs,exactName,requestRef);
     }
