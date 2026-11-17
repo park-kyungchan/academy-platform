@@ -10,6 +10,7 @@ import {toolResult} from './tool-result.ts';
 import {readOnlyAnnotations} from './contracts.ts';
 import {academyRoutingDescription} from './routing-context.ts';
 import {textbookPageRequest,type TextbookPdfReader} from './textbook-pdf-reader.ts';
+import {registerTextbookTocTool} from './textbook-toc.ts';
 
 export const textbookCatalogInput=z.object({schoolLevel:z.enum(['elementary','middle','high']).default('middle'),documentKind:z.enum(['sample','answer','repair','daily','other','all']).default('all'),query:z.string().trim().min(1).max(200).optional(),offset:z.number().int().min(0).max(1000).default(0),limit:z.number().int().min(1).max(100).default(10)}).strict();
 export const textbookPdfInput=z.object({schoolLevel:z.enum(['elementary','middle','high']).default('middle'),documentRef:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
@@ -82,7 +83,7 @@ export function registerTextbookSourceTools(server:McpServer,backend:TextbookSou
   });
   server.registerTool('academy_textbook_pdf',{
     title:'Download and preserve one observed textbook PDF',
-    description:academyRoutingDescription('academy_textbook_pdf','For the exact schoolLevel/documentRef from academy_textbook_catalog, re-read that catalog, verify its actual storage link and download bounded original PDF bytes without forwarding academy credentials. Supports observed sample and answer/workbook PDFs; document kind is preserved. Returns source URL, labels, SHA256 and owner artifact path; no PDF bytes in model text. Inspect the original to verify TOC/sections. No arbitrary URL/path input or student completion inference.'),
+    description:academyRoutingDescription('academy_textbook_pdf','For the exact schoolLevel/documentRef from academy_textbook_catalog, re-read that catalog, verify its actual storage link and download bounded original PDF bytes without forwarding academy credentials. Supports observed sample and answer/workbook PDFs; document kind is preserved. Returns source URL, labels, SHA256 and owner artifact path; no PDF bytes in model text. For a TOC (units, pages, chapter assessments), use academy_textbook_toc_get first: it needs no download. No arbitrary URL/path input or student completion inference.'),
     inputSchema:textbookPdfInput,annotations:{...readOnlyAnnotations,openWorldHint:true},
   },async input=>{
     if(!backend)return toolResult({status:'unavailable',code:'textbook_source_backend_not_configured',...limits});
@@ -92,9 +93,10 @@ export function registerTextbookSourceTools(server:McpServer,backend:TextbookSou
       return toolResult({status:'observed',sourceMode:'live_source',...metadata,artifact,...limits});
     }catch(error){return failure(error);}
   });
+  registerTextbookTocTool(server);
   server.registerTool('academy_textbook_units_get',{
     title:'Resolve textbook minor-unit names from bounded original PDF text',
-    description:academyRoutingDescription('academy_textbook_units_get','First reuse the exact qualified Hindsight edition/unit source; an unchanged unit-name reprint needs no tool call. On a genuine gap, read selected TOC/unit text from an owner-retained PDF SHA256 without Academy/network calls, or explicitly select catalog_pdf for fresh native acquisition. No arbitrary URL/path, automatic images/OCR, inferred student/physical edition binding or completion. Return observed hierarchy, exact PDF pages/hash and partial/ambiguous coverage; private-use glyphs remain ambiguous. A retained original does not establish current catalog membership. Preserve a qualified mapping once in its authorized Hindsight source, not per student or in a new local mapping DB.'),
+    description:academyRoutingDescription('academy_textbook_units_get','For a TOC, use academy_textbook_toc_get first: it answers units, pages and chapter assessments of every catalog sample book without a download. Only for a book it does not hold, read selected TOC/unit text from an owner-retained PDF SHA256 without Academy/network calls, or explicitly select catalog_pdf for fresh native acquisition. No arbitrary URL/path, automatic images/OCR, inferred student/physical edition binding or completion. Return observed hierarchy, exact PDF pages/hash and partial/ambiguous coverage; private-use glyphs remain ambiguous. A retained original does not establish current catalog membership. Creates no local mapping store.'),
     inputSchema:textbookUnitsInput,annotations:{...readOnlyAnnotations,openWorldHint:true},
   },async input=>{
     if(!reader)return toolResult({status:'unavailable',code:'textbook_pdf_reader_not_configured',...limits});
