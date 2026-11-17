@@ -4,7 +4,7 @@ import {z} from 'zod';
 export const poolQuestionContentInputSchema=z.object({
   hierarchyId:z.string().min(1).max(1024),labelId:z.string().min(1).max(1024),
   lectureKey:z.string().regex(/^[1-9][0-9]{0,8}$/),variant:z.enum(['obj','sbj','des']),
-  purpose:z.literal('teacher_requested_review'),
+  purpose:z.literal('teacher_requested_review').default('teacher_requested_review'),
 }).strict();
 export type PoolImageTransport=(url:string,init:RequestInit)=>Promise<Response>;
 export const maximumPoolImageBytes=8*1024*1024;

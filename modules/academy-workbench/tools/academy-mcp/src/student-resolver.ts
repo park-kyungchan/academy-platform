@@ -1,16 +1,16 @@
 import {readFailureResult} from './read-failure.ts';
 import {z} from 'zod';
-import {dailyRecordDateSchema} from './dailyrecord-context.ts';
+import {academyDateInputSchema} from './read-input.ts';
 
 /** Name → native student-key resolver (G2). Exact display-name match only.
  * Implemented by the native/source owner through the search port; this
  * module owns the matching rules. Read-only, per-request, zero writes. */
 
 export const studentResolveInputSchema = z.object({
-  purpose: z.string().min(1).max(256),
-  currentRequestRef: z.string().min(1).max(256),
+  purpose: z.string().min(1).max(256).optional(),
+  currentRequestRef: z.string().min(1).max(256).optional(),
   displayName: z.string().min(1).max(200),
-  lessonDate: dailyRecordDateSchema.optional(),
+  lessonDate: academyDateInputSchema.optional(),
 }).strict();
 
 export type StudentResolveInput = z.infer<typeof studentResolveInputSchema>;

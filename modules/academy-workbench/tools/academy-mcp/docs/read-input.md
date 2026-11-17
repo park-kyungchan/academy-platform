@@ -1,0 +1,54 @@
+# Read tool input: the words a teacher or a model uses
+
+Source: `src/read-input.ts`. Tests: `tests/read-input-flex.test.ts`.
+
+## Request identity
+
+`purpose` and `currentRequestRef` are optional on every read tool of the module. The DailyRecord write tools keep their `context` unchanged. When a member is left out, the server fills it:
+
+- `purpose`: the tool's name;
+- `currentRequestRef`: `auto-<uuid>`, new for each call.
+
+The answer carries the values used. A supplied value works as before. `academy_review_type_questions` and `academy_pool_question_content` take `purpose` from a fixed list, so the default there is `teacher_requested_review`.
+
+## Dates
+
+The date members (`lessonDate` of `academy_dailyrecord_get`, `academy_student_resolve`, `academy_student_metadata_get` and `academy_dailytest_history_with_headers`; `scope.lessonDate` of `academy_student_metadata`; `period.from` and `period.through` of the metadata queries; `date` of `academy_cism_weekly_get`) accept:
+
+| Form | Example |
+| --- | --- |
+| `YYYY-MM-DD` | `2026-11-16` |
+| today | `today`, `오늘` |
+| yesterday | `yesterday`, `어제` |
+| month and day | `11월 16일`, `11월 19일(목)`, `11/16`, `11-16` |
+
+The server resolves each date in Asia/Seoul before any source read.
+
+- A month and day takes the current year. It takes the previous year when the date would be more than 31 days after today.
+- A weekday after the date is accepted but not checked against the date.
+- The answer states the resolved `YYYY-MM-DD`.
+- Any other text, or a date that does not exist (`11월 31일`), is refused with the one code `date_form_unsupported_use_yyyy_mm_dd_today_yesterday_or_month_day`.
+
+The write tools `academy_cism_weekly_review` and `academy_cism_weekly_save` still take an exact `YYYY-MM-DD`.
+
+## Book names
+
+`bookLabel` of `academy_textbook_section_results_get`, `academy_item_section_trace` and `academy_clinic_paper_status_get` accepts the bound label or a loose name.
+
+1. A binding whose label equals the input byte for byte wins.
+2. Otherwise the server reads these parts from the input and from each bound label:
+   - the grade and term: `5-1`, `초5-1`, `5학년 1학기`, `중1-1`;
+   - the volume: `-2` in `5-1-2`, `2권`;
+   - every other word, for example the brand `가우스`, `다빈치`, `오일러`, `시그마` or `개념연산`.
+
+   The curriculum mark (`22개정`, `2022개정`) is ignored. A binding agrees when it has every part of the input: the same grade and term, the volume, and each word as text in its label.
+3. The result:
+   - exactly one binding agrees: the server uses it. `bookSelection` names it: `{requested, boundLabel, match: "exact" | "loose"}`;
+   - several bindings agree: `interview_required` with those labels, and `bookSelection.match` `several`;
+   - none agrees: `interview_required` with all bound labels, and `bookSelection.match` `none`.
+
+Example with the bound labels `(22개정) 초5-1 가우스 2권 초5-1 발전 2권(2022개정)` and `(22개정) 초5-1 가우스 1권 초5-1 발전 1권(2022개정)`:
+
+- `가우스 5-1-2`, `초5-1 가우스 2권` and `가우스 5학년 1학기 2권` select the first;
+- `가우스 5-1` asks with both;
+- `다빈치 5-1-2` asks with both.

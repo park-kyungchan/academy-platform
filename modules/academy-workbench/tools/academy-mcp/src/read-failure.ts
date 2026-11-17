@@ -52,6 +52,8 @@ const catalog={
   operator_reply_invalid:['upstream_unavailable','src/native-pool-backend.ts:read'],
   source_failure_latched_no_retry:['upstream_unavailable','src/native-pool-backend.ts:read'],
   tool_input_invalid:['input_validation','src/tool-audit.ts:inputIssues'],
+  date_form_unsupported_use_yyyy_mm_dd_today_yesterday_or_month_day:['input_validation','src/read-input.ts:resolveAcademyDate'],
+  ordered_metadata_period_required:['input_validation','src/dailyrecord.ts:resolvedQueries'],
   duplicate_proposal_field:['input_validation','src/tool-audit.ts:inputIssues'],
   exact_backend_observation_handle_required:['input_validation','src/tool-audit.ts:inputIssues'],
   tool_not_registered:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
