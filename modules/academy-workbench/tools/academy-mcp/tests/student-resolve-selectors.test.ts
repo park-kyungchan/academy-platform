@@ -32,17 +32,17 @@ test('check 1: a name absent on 1 resolves on a later selector, named by fixedSo
     const {service,searched}=resolver(selector);
     expect(await service.resolveStudent(request)).toEqual({purpose:request.purpose,currentRequestRef:request.currentRequestRef,displayName:'Invented Student',
       academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only',
-      status:'resolved',studentKey:'9101',fixedSourceFilter:{sort_date:selector}});
+      status:'resolved',studentKey:'9101',fixedSourceFilter:{sort_date:selector},teacherId:'99001'});
     expect(searched).toEqual(selectors.slice(0,position+2));
     expect(searched).toHaveLength(1+position+1);
   }
 });
 
-test('check 2: a name on 1 costs exactly one search request and gives the same result as before',async()=>{
+test('check 2: a name on 1 costs exactly one search request and gives the same result as before, plus the configured teacherId the read route needs',async()=>{
   const {service,searched}=resolver('1');
   expect(await service.resolveStudent(request)).toEqual({purpose:request.purpose,currentRequestRef:request.currentRequestRef,displayName:'Invented Student',
     academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only',
-    status:'resolved',studentKey:'9101'});
+    status:'resolved',studentKey:'9101',teacherId:'99001'});
   expect(searched).toEqual(['1']);
 });
 

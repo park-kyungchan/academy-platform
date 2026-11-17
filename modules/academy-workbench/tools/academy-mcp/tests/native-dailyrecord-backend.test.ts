@@ -235,8 +235,7 @@ test('a first lesson reads as observed without a previous day-record request',as
 });
 test('academy_dailyrecord_get of a first lesson is observed with no blocker and no previous homework interview',async()=>{
  const {port}=firstLessonFixture();
- const open={...range,schemaVersion:'academy.owner-admission/2' as const,allowedFrom:null,allowedThrough:null,studentScope:'source_verified' as const};
- const service=new DailyRecordService(new NativeDailyRecordBackend(port,admission,()=>({username:'fictional',password:'fictional'}),open));
+ const service=new DailyRecordService(new NativeDailyRecordBackend(port,admission,()=>({username:'fictional',password:'fictional'})));
  const result=await service.get({displayName:'Invented Student',lessonDate:scope.lessonDate,purpose:'Synthetic first lesson read',currentRequestRef:'first-lesson-request'}) as any;
  expect(result).toMatchObject({status:'observed',sourceAvailability:'observed'});
  expect(result.reasonCode).toBeUndefined();
@@ -248,7 +247,7 @@ test('academy_dailyrecord_get of a first lesson is observed with no blocker and 
  expect(intake.sourceAvailability).toBe('observed');expect(intake.blockers).toEqual([]);
  expect(intake.interviews.map((i:any)=>i.field)).not.toContain('previousHomeworkAssessment');
  // The other five fields keep the dispositions of a lesson with an earlier lesson.
- const earlierService=new DailyRecordService(new NativeDailyRecordBackend(fixture().port,admission,()=>({username:'fictional',password:'fictional'}),open));
+ const earlierService=new DailyRecordService(new NativeDailyRecordBackend(fixture().port,admission,()=>({username:'fictional',password:'fictional'})));
  const earlier=await earlierService.intake({context:{schemaVersion:'academy.dailyrecord-user-context/1',purpose:'Synthetic earlier lesson intake',currentRequestRef:'earlier-lesson-intake',
   scope,selectedFields:['progress','homework','lessonMemo','attendance','dailyTestAssessment','previousHomeworkAssessment'],memoAnswer:{kind:'not_supplied'},facts:[]}}) as any;
  const others=(r:any)=>r.fields.filter((f:any)=>f.field!=='previousHomeworkAssessment').map((f:any)=>[f.field,f.disposition]);
