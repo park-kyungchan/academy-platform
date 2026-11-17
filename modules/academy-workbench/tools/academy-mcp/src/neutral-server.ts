@@ -17,6 +17,7 @@ import {dailyRecordGetSchema,dailyRecordGetDescription,readDailyRecordByName} fr
 import {readOnlyAnnotations} from './contracts.ts';
 import {dailyRecordScopeSchema,type DailyRecordScope} from './dailyrecord-context.ts';
 import {dailyTestHeaderRouteSchema,dailyTestHeaderRouteDescription,readDailyTestHeaders} from './dailytest-header-route.ts';
+import {resolvedDateOf} from './read-input.ts';
 import {loadRuntimeRelease,withoutRetiredTools,type ToolSurface} from './runtime-release.ts';
 import {PaperScopeUnresolvedError,selectPaperRoute} from './paper-scope-routing.ts';
 import {observeAttribution} from './dailyrecord-workflow.ts';
@@ -285,7 +286,7 @@ async function call(req:any){
    try{writeFileSync(log+'/'+occurrence+'-failure.json',JSON.stringify({occurrence,phase,endpoint,upstreamName,elapsedMs:Date.now()-startedAt,upstreamOccurrence:error instanceof UpstreamToolFailure?error.upstreamOccurrence:null,code,failure,observedAt:new Date().toISOString(),tool:receiptTool,automaticRetryAllowed:false,...effect,parentSends:0})+'\n',{mode:0o600,flag:'wx'});}
    catch{throw Object.assign(Error('receipt_write_unavailable_reconcile'),{data:{occurrence,automaticRetryAllowed:false,...(saveIssued?{effectStatus:'unknown'}:{})}});}
   }
-  const data={status:'blocked',code,failure,occurrence,phase,endpoint,upstreamName,elapsedMs:Date.now()-startedAt,...(error instanceof ToolInputInvalidError?{issues:error.issues}:{}),...(error instanceof UpstreamToolFailure?{upstreamOccurrence:error.upstreamOccurrence}:{}),...(error instanceof CompositeSourceUnavailable?{failedSource:error.source,reasonCode:error.failure.code,sourceRequests:error.sourceRequests}:{}),...(error instanceof EndpointInventoryMismatch?{inventory:{endpoint:error.endpoint,missingTools:error.missingTools}}:{}),...(error instanceof PaperScopeUnresolvedError?{paperScope:error.diagnostic,interviewRequired:true,interviewReason:'paper_scope_admission_missing'}:{}),automaticRetryAllowed:false,...effect,parentSends:0};
+  const data={status:'blocked',code,failure,occurrence,phase,endpoint,upstreamName,elapsedMs:Date.now()-startedAt,...(error instanceof ToolInputInvalidError?{issues:error.issues}:{}),...(error instanceof UpstreamToolFailure?{upstreamOccurrence:error.upstreamOccurrence}:{}),...(error instanceof CompositeSourceUnavailable?{failedSource:error.source,reasonCode:error.failure.code,sourceRequests:error.sourceRequests}:{}),...(error instanceof EndpointInventoryMismatch?{inventory:{endpoint:error.endpoint,missingTools:error.missingTools}}:{}),...(error instanceof PaperScopeUnresolvedError?{paperScope:error.diagnostic,interviewRequired:true,interviewReason:'paper_scope_admission_missing'}:{}),...(resolvedDateOf(error)?{lessonDate:resolvedDateOf(error)}:{}),automaticRetryAllowed:false,...effect,parentSends:0};
   return {isError:true,content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
  }
 }

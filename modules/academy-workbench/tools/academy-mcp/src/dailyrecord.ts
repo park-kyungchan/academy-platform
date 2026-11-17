@@ -353,9 +353,9 @@ export class DailyRecordService {
     const input={...parsed,scope:{...parsed.scope,lessonDate:resolveAcademyDate(parsed.scope.lessonDate,this.now())},queries:resolvedQueries(parsed.queries,this.now())};
     const base={scope:input.scope,purpose:input.purpose,currentRequestRef:input.currentRequestRef,
       academyWrites:0,parentSends:0,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only' as const};
-    // Failure responses retain correlation and effects without duplicating the
-    // caller's scope/purpose in both MCP representations or returning source rows.
-    const failureBase={currentRequestRef:input.currentRequestRef,academyWrites:0,parentSends:0,automaticRetryAllowed:false,execution:'read_only' as const};
+    // Failure responses retain correlation, effects and the resolved lesson date
+    // without duplicating the caller's scope/purpose or returning source rows.
+    const failureBase={currentRequestRef:input.currentRequestRef,lessonDate:input.scope.lessonDate,academyWrites:0,parentSends:0,automaticRetryAllowed:false,execution:'read_only' as const};
     if(!this.backend?.readStudentMetadata)return {...failureBase,status:'unavailable' as const,reasonCode:'student_metadata_backend_not_configured'};
     try{
       // The same queue/latch protects metadata, DailyRecord and CISM reads on this service/client.
