@@ -33,7 +33,7 @@ The rules come from the newest records the teacher accepted, which win over olde
 - **F6. Joiners.** `·` joins the sections, units or levels of one item; `~` marks a range: `필수예제·유형다지기`, `4-1~4-4`, `DailyTest 기본·발전` (not `(기본/발전)`).
 - **F7. Dates in sentences.** `요일(YYYY-MM-DD)`, e.g. `금요일(YYYY-MM-DD)에`; `12월 3일(수)에` is the old form. Clock times stay as written.
 - **F8. Order.** Keep the old order of items in a field. The deadline lines of F4 and F5 are the only reordering.
-- **F9. Length.** At most 400 characters per text field (a 460-character homework was rejected once). If the text needs more, do not save; list the record.
+- **F9. Length.** At most 400 units per text field, where every character above U+007F (every Korean character) counts 2, so about 200 Korean characters; longer text is refused with `invalid_explicit_field_value`. If the text needs more, do not save; list the record.
 
 ## Mapping (M)
 
@@ -59,10 +59,10 @@ The rules come from the newest records the teacher accepted, which win over olde
   - `오답풀이` ← `오답 풀이`
   - Section names keep the book's spelling: `개념정복`, `개념예제`, `기본문제`, `필수예제`, `유형다지기`, `실력쌓기`, `실력다지기`, `실력올리기` are distinct.
 - **M7. DailyTest lines.** `<book>, <code> <title> DailyTest <기본|발전> [score] <status>`, levels joined by `·`: `DailyTest 기본 75점·발전 100점`.
-  - `- [DailyTest] [기본] [가우스 중1-1 1권] 1-2 소인수분해 50점(4문항 중2문항 정답)` → `- 가우스 중1-1-1, 1-2 소인수분해 DailyTest 기본 50점(4문항 중 2문항 정답)`
+  - `- [DailyTest] [기본] [가우스 중1-1 1권] 1-2 소인수분해 75점(4문항 중3문항 정답)` → `- 가우스 중1-1-1, 1-2 소인수분해 DailyTest 기본 75점(4문항 중 3문항 정답)`
   - DailyTest exists for Gauss books only. Add a book to a DailyTest line only when the source names exactly one full Gauss book.
 - **M8. A clinic is a print, not a book.** A clinic line names the books whose units it covers, joined by ` · `: `- 가우스 6-2-1 · 다빈치 6-1-1, 숙제 오답클리닉 완료`. Add no book the source does not name.
 - **M9. Assessments stay distinct.** Never merge or rename the chapter test in the book, the printed chapter test from the LMS (`학원서버 프린트 대단원총괄평가`), `학력인증평가`, `월말평가` and DailyTest.
 - **M10. Units of measure.** `N문항` (never `N문제`), `N문항 중 K문항 정답`, `N점`, `p.N~p.M`, `N회차`, `N번`.
-  - `(1·2회, 8문제 중 7정답)` → `(1·2회, 8문항 중 7문항 정답)`
+  - `(1·2회, 10문제 중 9정답)` → `(1·2회, 10문항 중 9문항 정답)`
 - **M11. Codes.** Keep printed-paper codes (`(#<code>)`), item numbers, item IDs and phone numbers exactly. Remove edition labels.

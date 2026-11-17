@@ -18,11 +18,11 @@ Two kinds of work use the same rules:
 | `progress` (`진도`) | What the student did in this lesson: textbook work, tests, clinics, checks | Author |
 | `homework` (`숙제`) | What is due, deadline line first | Author |
 | `lessonMemo` (`메모`, `코멘트`) | Notices to the parent: plans, schedules, reasons, requests, explanations; `""` for none | Author |
-| `attendance` | `Y` present, `L` late, `N` absent, blank unset | Never changed by the author |
-| `dailyTestAssessment` | `-1` unknown, `0` not given, `1`-`10` = 10-100 points | Never changed by the author |
-| `previousHomeworkAssessment` | The grade of the previous lesson's homework, stored on the previous record: `-1` unknown, `0` no homework, `1` C, `2` B, `3` B+, `4` A, `5` A+ | Never changed by the author |
+| `attendance` | `Y` present, `L` late, `N` absent, blank unset | Only on the teacher's explicit request for this field |
+| `dailyTestAssessment` | `-1` unknown, `0` not given, `1`-`10` = 10-100 points | Only on the teacher's explicit request for this field |
+| `previousHomeworkAssessment` | The grade of the previous lesson's homework, stored on the previous record: `-1` unknown, `0` homework not done (`미숙제`), `1` C, `2` B, `3` B+, `4` A, `5` A+ | Only on the teacher's explicit request for this field |
 
-A save selects only `progress`, `homework` and `lessonMemo`. If a code field looks wrong (for example `-1` for DailyTest on a day without one, which the teacher sets to `0`), list it for the teacher instead of changing it.
+An alignment rewrite selects only `progress`, `homework` and `lessonMemo`. A code field changes only when the teacher explicitly asks to change that field. If a code field looks wrong (for example `-1` for DailyTest on a day without one, which the teacher sets to `0`), list it for the teacher instead of changing it.
 
 ## 2. The writing rules
 
@@ -33,7 +33,7 @@ The full rules, with examples, are in [references/writing-rules.md](references/w
 - **One item per line, with its book.** `- <book>, <unit code> <unit title> <activity> <status>`. A progress line ends with its status or score; a homework line ends with the task; a memo line is a whole sentence ending in `니다.`.
 - **Mapping.** Done in the lesson → `progress`. Assigned for next time → `homework`. Plans, carry-overs, reasons, requests and how-to sentences → `lessonMemo`.
 - **Names.** Canonical book names, vocabulary and units as the reference lists them. Unit codes and titles are kept literally.
-- **Length.** At most 400 characters per text field.
+- **Length.** At most 400 units per text field, where every character above U+007F (every Korean character) counts 2: about 200 Korean characters. Longer text is refused with `invalid_explicit_field_value`.
 
 ## 3. Facts that must not change
 
@@ -57,7 +57,7 @@ If a rule cannot be met without changing a fact, do not save that record: list i
 2. **Draft.** Write the new text of the fields that change, by the rules. Check the facts of section 3 yourself.
 3. **Show the teacher.** Show old and new text per field, and every record you skipped with its reason. Drafting, review, saving and sending to a parent are separate steps.
 4. **Review.** `academy_dailyrecord_review`. Never get past a blocker by changing a fact or by moving text to a field the rules do not allow.
-5. **Save** only when the teacher asks to save in this session: `academy_dailyrecord_save`, one student and date at a time.
+5. **Save** only when the teacher asks to save in this session and no hold in the day's `STATE.md` forbids it: `academy_dailyrecord_save`, one student and date at a time.
 6. **Read back.** `academy_dailyrecord_get` again. Compare each saved field with the reviewed text and the code fields with step 1. Report the result per field.
 
 An uncertain save (connection lost, unknown whether it landed) is never repeated blindly: `academy_dailyrecord_execution_status` and `academy_dailyrecord_reconcile` settle it, and the teacher hears the outcome.

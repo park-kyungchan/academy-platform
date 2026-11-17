@@ -58,7 +58,7 @@ Skip a detailed read of a book or unit that the local files already record as co
 
 ## 5. Effects
 
-Reads are the default. A DailyRecord or CISM save, a print, or a message to a parent happens only when the teacher asks for it in this session and the day's `STATE.md` allows it. After a save, read the record back. After an uncertain write, check the target before any retry.
+Reads are the default. A DailyRecord or CISM save, a print, or a message to a parent happens only when the teacher asks for it in this session and no hold in the day's `STATE.md` forbids it. After a save, read the record back. After an uncertain write, check the target before any retry. Keep credentials, answer-key literals and parent contact details out of every file you write.
 
 ## 6. Report to the teacher
 
