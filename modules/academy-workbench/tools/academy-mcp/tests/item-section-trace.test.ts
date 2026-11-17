@@ -70,7 +70,9 @@ test('section ambiguity uses registered course and book identity even when book 
    execute:async(i:any)=>({family:'textbook',status:'observed',records:[{studentKey:'77001',studentName:'Invented Student',courseKey:i.courseKey,bookNo:i.bookNo,sourceTitle:'Same unit title',score:80,items:[{originalOrdinal:'1',lectureKey:'8101',outerLectureKey:'8101',scoring:'O'}]}]}),close:()=>{}};
   const native=new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}));
   const out=await native.readItemSectionTrace!({...request,labels:['8101']});
-  expect(out).toMatchObject({kind:'traced',ambiguousLabels:multiple?['8101']:[]});
+  // Two registered books without a bookLabel: the caller selects one; a trace never spans books.
+  expect(out).toMatchObject(multiple?{kind:'interview_required',bindings:[{bookLabel:'Same displayed book label',bookNo:'7'},{bookLabel:'Same displayed book label',bookNo:'8'}]}
+   :{kind:'traced',ambiguousLabels:[]});
  }
 });
 
@@ -84,4 +86,24 @@ test('a single book above the scan cap returns an explicit coverage limit withou
   expect(out).not.toHaveProperty('unmatchedLabels');expect(out).not.toHaveProperty('bindings');
  }
  expect(details).toBe(0);
+});
+
+test('check 4: a trace without bookLabel for two bound books asks for the book before any per-book search',async()=>{
+ const admission={teacherId:'99001',teacherLabel:'Invented Teacher',date:'2040-01-04',students:[{studentId:'77001',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};
+ const reads:string[]=[];
+ const port={authenticate:async()=>{},
+  readTextbookBindings:async()=>{reads.push('bindings');return [{courseKey:'5',bookNo:'7',studentKey:'77001',bookLabel:'Invented Book One'},{courseKey:'6',bookNo:'8',studentKey:'77001',bookLabel:'Invented Book Two'}];},
+  inspectTextbookIndex:async()=>{reads.push('index');return {rows:[{sourceTitle:'Fictional Unit'}]};},
+  execute:async()=>{reads.push('section');throw Error('not_called');},close:()=>{}};
+ const native=new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'}));
+ const out=await new DailyRecordService(native).itemSectionTrace(request);
+ expect(out).toMatchObject({status:'interview_required',kind:'interview_required',reason:'multiple_book_bindings_select_one',
+  bindings:[{bookLabel:'Invented Book One',bookNo:'7'},{bookLabel:'Invented Book Two',bookNo:'8'}]});
+ expect(out).not.toHaveProperty('unmatchedLabels');
+ expect(reads).toEqual(['bindings']);
+ // With the book named, the trace proceeds with that one book only.
+ reads.length=0;
+ const named=await native.readItemSectionTrace!({...request,bookLabel:'Invented Book Two'}).catch(error=>error);
+ expect(named).toBeInstanceOf(Error);
+ expect(reads).toEqual(['bindings','index','section']);
 });

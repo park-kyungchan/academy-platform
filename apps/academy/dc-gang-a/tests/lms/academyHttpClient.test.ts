@@ -26,6 +26,43 @@ test('name-only source search authenticates and returns distinct exact identitie
  await expect(client.searchStudentsByName({...input,teacherLabel:'Other Teacher'})).rejects.toThrow('daily_search_principal_conflict');
  expect(calls).toBe(4);client.close();
 });
+// Undated name search: the sort_date '1' page first, then the history selectors in their listed order.
+const historySelectorOptions=['1','11','12','13','14','15','16'];
+const nameSearchPage=(rows:unknown[],options=historySelectorOptions)=>'<form name="frm"><select name="sort_date">'
+ +options.map(value=>'<option value="'+value+'">Invented period '+value+'</option>').join('')
+ +"</select></form><script>const x={testResultList:JSON.parse('"+JSON.stringify(rows)+"')};</script>";
+async function selectorSearchClient(foundOn:string|null,options?:string[]){
+ const {AcademyHttpClient}=await import('../../src/lms/academyHttpClient');let calls=0;const searched:string[]=[];
+ const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},async(url,init)=>{
+  calls++;if(calls<=3)return new Response(calls===1?login:principal);
+  expect(url).toContain('DailyZeroTestServlet?reqCmd=DtResultSearch');
+  const body=Object.fromEntries(new URLSearchParams(init.body as string));
+  expect(Object.keys(body).sort()).toEqual(['sort_date','stu_name']);expect(body.stu_name).toBe('Invented Student');searched.push(body.sort_date!);
+  return new Response(nameSearchPage(body.sort_date===foundOn?[{priNo:9101,userName:'Invented Student'},{priNo:9103,userName:'Other Student'}]:[{priNo:9103,userName:'Other Student'}],options));
+ });
+ await client.authenticate({username:'inventedUser',password:'inventedPassword'});
+ return {client,searched,input:{teacherLabel:'Invented Teacher',studentName:'Invented Student'}};
+}
+test('undated name search reads the history selectors in order after a miss on 1 and names the selector that found the student',async()=>{
+ const {client,searched,input}=await selectorSearchClient('13');
+ expect(await client.searchStudentsByName(input)).toEqual([{studentKey:'9101',studentName:'Invented Student',fixedSourceFilter:{sort_date:'13'}}]);
+ expect(searched).toEqual(['1','11','12','13']);client.close();
+});
+test('undated name search on the 1 page costs one request and keeps its result',async()=>{
+ const {client,searched,input}=await selectorSearchClient('1');
+ expect(await client.searchStudentsByName(input)).toEqual([{studentKey:'9101',studentName:'Invented Student'}]);
+ expect(searched).toEqual(['1']);client.close();
+});
+test('an undated name on no page is an empty result after at most one request per selector',async()=>{
+ const {client,searched,input}=await selectorSearchClient(null);
+ expect(await client.searchStudentsByName(input)).toEqual([]);
+ expect(searched).toEqual(historySelectorOptions);client.close();
+});
+test('undated name search stops before a history selector the 1 page does not offer',async()=>{
+ const {client,searched,input}=await selectorSearchClient('16',historySelectorOptions.slice(0,-1));
+ await expect(client.searchStudentsByName(input)).rejects.toThrow('daily_history_selector_drift');
+ expect(searched).toEqual(['1']);client.close();
+});
 test('name-only source projection holds malformed and ambiguous pages without inferring absence',async()=>{
  const {inspectStudentNameSearch}=await import('../../src/lms/assessmentReadProtocol');
  expect(inspectStudentNameSearch("<script>x={testResultList:JSON.parse('[]')}</script>",'Invented Student')).toEqual([]);
