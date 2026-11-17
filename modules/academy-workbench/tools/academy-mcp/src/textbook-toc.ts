@@ -16,7 +16,7 @@ export const textbookTocInput=z.object({
   book:z.string().trim().min(1).max(200),
   unit:z.string().trim().regex(/^\d{1,2}(?:-\d{1,2})?$/).optional(),
 }).strict();
-export const textbookTocDescription='Units, pages and chapter assessments (대단원 총괄평가) of a catalog textbook, from pinned TOC data kept as text: no LMS request, no network, no PDF download, no image read. Use it first whenever a book\'s units or pages are needed. book: a canonical name (가우스 5-1-2, 가우스 중1-1-2, 가우스 공통수학1 1권), an LMS bound-book label as listed for the student, a name without volume (가우스 5-1 gives every volume) or a sample file name. unit: "6" or "6-5" returns only chapter 6. Answers observed with at most 4 books (toc text, units with code/title/pages, or outline items), or not_found with canonical names to choose from. noTextToc: no TOC text is kept for that book: ask the teacher; do not download the PDF.';
+export const textbookTocDescription='Units, pages and chapter assessments (대단원 총괄평가) of a catalog textbook, from pinned TOC data kept as text: no LMS request, no network, no PDF download, no image read. Use it first whenever a book\'s units or pages are needed. book: a canonical name (가우스 5-1-2, 가우스 중1-1-2, 가우스 공통수학1 1권), an LMS bound-book label as listed for the student, grade and term words (가우스 5학년 1학기 2권, 가우스 중1 1학기), a name without volume (가우스 5-1 gives every volume) or a sample file name. unit: "6" or "6-5" returns only chapter 6. Answers observed with at most 4 books (toc text, units with code/title/pages, or outline items), or not_found with canonical names to choose from. noTextToc: no TOC text is kept for that book: ask the teacher; do not download the PDF.';
 
 const compact=(s:string)=>s.normalize('NFC').replace(/\s+/g,'');
 type Parsed={brand:string;level:string;grade:string;term:string;volume:string|null}|{brand:string;subject:string;volume:string|null};
@@ -31,8 +31,10 @@ const parsed=new Map(records.map(r=>[r,parseBook(r.book)]));
 const seriesWords=(r:TocRecord)=>[parsed.get(r)!.brand,...r.aliases.filter(a=>!/수학|미적분|확률|통계|대수|기하/.test(a))];
 const allSeriesWords=[...new Set(records.flatMap(seriesWords))];
 
+// Natural grade and term names: `5학년 1학기` is `5-1`, `중1 1학기` and `중학교 1학년 1학기` are `중1-1`.
+const gradeTermWords=(q:string)=>q.replace(/(?:(초|중|고)(?:등학교|학교|등)?\s*)?(\d)\s*(?:학년)?\s*(\d)\s*학기/g,'$1$2-$3');
 function match(query:string):{found:TocRecord[];suggestions:string[]}{
-  const q=query.normalize('NFC').replace(/\s+/g,' ').trim(),c=compact(q);
+  const q=gradeTermWords(query.normalize('NFC').replace(/\s+/g,' ').trim()),c=compact(q);
   const exact=records.filter(r=>r.filename===q||r.filename===q+'.pdf'||compact(r.book)===c);
   if(exact.length)return {found:exact,suggestions:[]};
   const named=allSeriesWords.filter(w=>c.includes(compact(w)));

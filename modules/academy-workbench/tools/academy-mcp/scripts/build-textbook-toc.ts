@@ -1,7 +1,7 @@
 /** Builds data/textbook-toc.json (academy.textbook-toc/1) from a text-only extraction of the
  * catalog sample PDFs: one `<filename>.json` per PDF with schoolLevel, filename, sourceSha256,
  * pdfTitle, outline [{page,text}] and tocPages [{pdfPage,text}] (pdftotext -layout of the first
- * pages that matched a TOC word). Deterministic: records sorted by filename, no clock, no host path.
+ * pages; this script decides which of them are TOC pages). Deterministic: records sorted by filename, no clock, no host path.
  * Usage: bun scripts/build-textbook-toc.ts --raw <dir> [--out <file>] */
 import {readdirSync,readFileSync,writeFileSync,renameSync} from 'node:fs';
 import {resolve} from 'node:path';
@@ -43,11 +43,12 @@ function naming(raw:Raw,title:string|null,seriesHasVolumes:Set<string>):{book:st
 }
 
 // A TOC page: the plan table (`쪽수` and `학습 계획`), or, within the first 12 pages, a page of at least
-// three `title  page` lines (dotted leaders allowed) with no exercise wording.
+// three `title  page` lines (dotted leaders allowed) with no exercise wording. A plan grid (`1회차  15`: a count
+// per session, not a page) is never a TOC page.
 const pageLine=/\S(?:\s{2,}|\s*-{3,}\s*)\d{1,3}(?:\s*~\s*\d{1,3})?$/;
-export const tocPage=(page:{pdfPage:number;text:string})=>/쪽수/.test(page.text)&&/학습\s*계획/.test(page.text)
+export const tocPage=(page:{pdfPage:number;text:string})=>!/\d\s*회차/.test(page.text)&&(/쪽수/.test(page.text)&&/학습\s*계획/.test(page.text)
   ||page.pdfPage<=12&&page.text.split('\n').filter(l=>pageLine.test(l.trimEnd())).length>=3
-    &&!/써넣|구하시오|구하여라|고르시오|구하면|①|하시오|하여라|빈칸|\?/.test(page.text);
+    &&!/써넣|구하시오|구하여라|고르시오|구하면|①|하시오|하여라|빈칸|\?/.test(page.text));
 function cleanToc(pages:string[]):string{
   return pages.map(text=>text.split('\n').map(line=>line.replace(/(\s+월\s+일)+\s*$/,'').replace(/\s+$/,'')).join('\n')).join('\n\n')
     .replace(/\n{3,}/g,'\n\n').trim();
@@ -192,7 +193,7 @@ export function buildTextbookToc(rawDir:string):string{
     const pages=raw.tocPages.filter(tocPage).sort((a,b)=>a.pdfPage-b.pdfPage).map(p=>p.text);
     const toc=pages.length?cleanToc(pages):null,outline=toc?[]:outlineUnits(raw);
     return {book,aliases,pdfTitle:raw.outline[0]?.text.trim()??raw.pdfTitle,schoolLevel:raw.schoolLevel,filename:raw.filename,sourceSha256:raw.sourceSha256,
-      noTextToc:!toc&&!outline.length,toc,units:toc?parseUnits(toc):null,outline};
+      noTextToc:!toc,toc,units:toc?parseUnits(toc):null,outline};
   }).sort((a,b)=>a.filename<b.filename?-1:a.filename>b.filename?1:0);
   return JSON.stringify({schemaVersion:'academy.textbook-toc/1',source:'catalog sample PDFs, text layer only (pdftotext -layout, PDF outline); no image read',records},null,1)+'\n';
 }

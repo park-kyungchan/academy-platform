@@ -141,3 +141,79 @@ test('check 5: tools/list of the endpoint and of the bridge includes the tool, a
     }finally{await bridge.close();}
   }finally{await rm(base,{recursive:true,force:true});}
 },60000);
+
+// TASK-TOC-1R. Every book whose PDF prints a TOC among pages 1-16 keeps it as text; a plan grid (`1회차 15`:
+// a count per session, not a page) is not TOC text; natural grade and term names find the book.
+test('repair check 1: books that kept outline items only answer with their TOC text, pages and chapter assessments',async()=>{
+  const {client,close}=await connect([process.execPath,'--preload',deny,endpoint]);
+  try{
+    const one=async(book:string)=>{const answer=await call(client,{book});expect(answer.status).toBe('observed');
+      expect(answer.records).toHaveLength(1);expect(answer.records[0].noTextToc).toBe(false);return answer.records[0];};
+    const algebra=await one('가우스 대수 2권');
+    expect(algebra.toc).toMatch(/5-1 일반각과 호도법\s+8/);
+    expect(algebra.toc).toMatch(/02\. 삼각함수\(대단원 총괄평가\)\s+196/);
+    const second=await one('가우스 2-1');
+    expect(second.toc).toMatch(/6\. 곱셈\s+122/);
+    expect(second.toc).not.toContain('써넣으시오');
+    const sigma=await one('시그마 수학Ⅰ');
+    for(const page of ['66','122','174'])expect(sigma.toc).toMatch(new RegExp('대단원 총괄평가\\s+'+page+'(?:\\s|$)'));
+    expect(sigma.toc).toMatch(/1-1 거듭제곱과 거듭제곱근\s+8/);
+    const euler=await one('오일러 4-2');
+    expect(euler.toc).toMatch(/6\. 다각형\s+122/);
+    expect(euler.toc).not.toContain('회차');
+  }finally{await close();}
+},30000);
+
+test('repair check 2: every record has TOC text, or noTextToc and no TOC text',()=>{
+  const data=JSON.parse(readFileSync(dataPath,'utf8'));
+  for(const record of data.records){
+    expect(typeof record.noTextToc).toBe('boolean');
+    if(record.noTextToc)expect(record.toc).toBeNull();
+    else{expect(typeof record.toc).toBe('string');expect(record.toc.trim().length).toBeGreaterThan(0);}
+  }
+});
+
+test('repair check 3: a plan grid by 회차 is not TOC text, so 다빈치 중3-2 parses into units',()=>{
+  const data=JSON.parse(readFileSync(dataPath,'utf8'));
+  for(const record of data.records)if(record.toc!==null)expect(record.toc).not.toContain('회차');
+  const book=data.records.find((r:any)=>r.book==='다빈치 중3-2');
+  expect(book.units).not.toBeNull();
+  expect(book.units.find((u:any)=>u.code==='5-1')).toMatchObject({chapter:'5',title:'삼각비',pages:'11'});
+  expect(book.units.find((u:any)=>u.code==='7-2')).toMatchObject({chapter:'7',title:'상관관계',pages:'116'});
+  expect(book.units.filter((u:any)=>u.code===null).map((u:any)=>u.pages)).toEqual(['49','99','126']);
+});
+
+test('repair check 4: natural grade and term names find exactly the book',async()=>{
+  const {client,close}=await connect([process.execPath,'--preload',deny,endpoint]);
+  try{
+    const books=async(book:string)=>{const answer=await call(client,{book});expect(answer.status).toBe('observed');return answer.records.map((r:any)=>r.book);};
+    expect(await books('가우스 5학년 1학기 2권')).toEqual(['가우스 5-1-2']);
+    expect(await books('초5-1 가우스 2권')).toEqual(['가우스 5-1-2']);
+    expect(await books('초등 5학년 1학기 가우스 2권')).toEqual(['가우스 5-1-2']);
+    expect(await books('가우스 중1 1학기 2권')).toEqual(['가우스 중1-1-2']);
+    expect(await books('중1-1 가우스 2권')).toEqual(['가우스 중1-1-2']);
+    expect(await books('가우스 중학교 1학년 1학기 2권')).toEqual(['가우스 중1-1-2']);
+    expect(await books('가우스 중1 1학기')).toEqual(['가우스 중1-1-1','가우스 중1-1-2']);
+  }finally{await close();}
+},30000);
+
+test('repair check 5: the build over raw pages 1-16 keeps the TOC page, drops the plan grid and body pages, and repeats its bytes',async()=>{
+  const dir=await mkdtemp(resolve(tmpdir(),'toc-build-1r-'));
+  try{
+    const raw=resolve(import.meta.dir,'textbook-toc-raw-1r'),outs=[resolve(dir,'a.json'),resolve(dir,'b.json')];
+    for(const out of outs){
+      const run=Bun.spawn([process.execPath,script,'--raw',raw,'--out',out],{stdout:'pipe',stderr:'pipe'});
+      expect(await run.exited).toBe(0);
+    }
+    const [a,b]=await Promise.all(outs.map(out=>readFile(out)));
+    expect(a!.equals(b!)).toBe(true);
+    const records=JSON.parse(a!.toString()).records;
+    expect(records.map((r:any)=>r.book)).toEqual(['가우스 2-1','다빈치 중3-2']);
+    expect(records[0]).toMatchObject({noTextToc:false,outline:[]});
+    expect(records[0].toc).toMatch(/^초2 - 1\n/);
+    expect(records[0].toc).not.toContain('써넣으시오');
+    expect(records[1].toc).toMatch(/^중3-2\n/);
+    expect(records[1].toc).not.toContain('회차');
+    expect(records[1].units.map((u:any)=>u.code)).toEqual(['5-1','5-2',null,'6-1','6-2','6-3',null,'7-1','7-2',null]);
+  }finally{await rm(dir,{recursive:true,force:true});}
+},30000);
