@@ -74,3 +74,16 @@ test('assessment literal value-label drift fails the field-specific qualificatio
  const options=Object.entries(m.JOURNAL_HTTP_SOURCE_CONTRACT.assessmentLabels).flatMap(([field,values])=>Object.entries(values).map(([value,label])=>({field,value,label})));
  expect(()=>m.assertJournalAssessmentOptions(options)).not.toThrow();expect(()=>m.assertJournalAssessmentOptions(options.map(o=>o.field==='daily_test_radio'&&o.value==='9'?{...o,label:'Unqualified different score'}:o))).toThrow('journal_assessment_options_drift');
 });
+test('a first-lesson state writes a current field with readback and refuses the previous homework assessment before consumption',async()=>{
+  const {applyJournalHttpAction,journalHttpActionDigest}=await import('../../src/lms/lessonJournalHttp');
+  const {previousHomeworkAssessment:_previous,...fields}=state.fields;
+  const first={target,fields:{...fields},previousRecordKey:null,previousDate:null,wireDigest:state.wireDigest};
+  let reads=0,writes=0,consumes=0;
+  const homework={...action,field:'homework' as const,after:'Invented homework.'};
+  const port={read:async()=>{reads++;return structuredClone(first);},write:async()=>{writes++;first.fields.homework=homework.after;},
+    consumeApproval:async(a:JournalHttpAction)=>{consumes++;return {status:'verified' as const,actionDigest:journalHttpActionDigest(a)};}};
+  const result=await applyJournalHttpAction(homework,port);
+  expect(result.status).toBe('persisted');expect(reads).toBe(2);expect(writes).toBe(1);expect(consumes).toBe(1);
+  await expect(applyJournalHttpAction({...action,field:'previousHomeworkAssessment',effectRecordKey:'12',before:'-1',after:'5'},port)).rejects.toThrow('journal_http_previous_record_absent');
+  expect(writes).toBe(1);expect(consumes).toBe(1);
+});

@@ -40,7 +40,8 @@ interface SourcePort {
   authenticate(credential:{username:string;password:string}):Promise<unknown>;
   discoverDayRecordGroups(input:{teacherLabel:string;date:string}):Promise<{groups:{groupId:string}[]}>;
   execute(input:unknown):Promise<{dayRecords:Row[]}>;
-  journalState(target:Target):Promise<{target:Target;fields:Record<string,string>;previousRecordKey:string;previousDate:string;wireDigest:string}>;
+  /** `previousRecordKey` and `previousDate` are null on a first lesson, whose fields hold no `previousHomeworkAssessment`. */
+  journalState(target:Target):Promise<{target:Target;fields:Record<string,string>;previousRecordKey:string|null;previousDate:string|null;wireDigest:string}>;
   /** Owner client write port (Education AcademyHttpClient.applyJournalAction).
    * Optional: read-only bundles omit it and saves stay fail-closed. */
   applyJournalAction?(action:{attemptId:string;target:Target;field:string;effectRecordKey:string;before:string;after:string;wireDigest:string},
@@ -411,6 +412,8 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       throw Error('native_dailyrecord_identity_conflict');
     const state=await this.client.journalState(targetOf(row));
     if(JSON.stringify(targetOf(state.target))!==JSON.stringify(targetOf(row)))throw Error('native_dailyrecord_state_conflict');
+    // A first lesson has no previous record: a batch that assesses its homework is refused whole.
+    if(state.previousRecordKey===null&&patches.some(p=>p.field==='previousHomeworkAssessment'))throw Error('dailyrecord_previous_record_absent');
     // Bind dispatch to the reviewed before-state: any drift refuses the
     // whole batch before a single write or admission consumption.
     if(patches.some(p=>p.wireDigest!==state.wireDigest||state.fields[p.field]!==p.before))
@@ -419,7 +422,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     for(let i=0;i<patches.length;i++){
       const patch=patches[i]!;
       const action={attemptId:randomUUID(),target:targetOf(row),field:patch.field,
-        effectRecordKey:patch.field==='previousHomeworkAssessment'?state.previousRecordKey:row.recordKey,
+        effectRecordKey:patch.field==='previousHomeworkAssessment'?state.previousRecordKey!:row.recordKey,
         before:patch.before,after:patch.value,wireDigest:state.wireDigest};
       let settled:{status:DailyRecordSaveFieldStatus;dispatched:boolean;transport:'returned'|'uncertain'|'not_invoked'};
       try{
@@ -567,20 +570,27 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       throw Error('native_dailyrecord_identity_conflict');
     const state=await this.client.journalState(targetOf(row));
     if(JSON.stringify(targetOf(state.target))!==JSON.stringify(targetOf(row)))throw Error('native_dailyrecord_state_conflict');
-    const previous=await this.client.execute({...request,date:state.previousDate,groupIds:[row.groupId]});
-    if(previous.dayRecords.length!==1)throw Error('native_dailyrecord_previous_unverified');
-    const prior=previous.dayRecords[0]!;
-    if(prior.studentKey!==row.studentKey||prior.teacherKey!==row.teacherKey||prior.courseKey!==row.courseKey
-      ||prior.membershipKey!==row.membershipKey||prior.recordKey!==state.previousRecordKey||prior.date!==state.previousDate)
+    // A first lesson (no previous record key and date) reads no previous day record.
+    const firstLesson=state.previousRecordKey===null&&state.previousDate===null;
+    if(firstLesson?typeof state.fields.previousHomeworkAssessment==='string':state.previousRecordKey===null||state.previousDate===null)
       throw Error('native_dailyrecord_previous_conflict');
+    let prior:Row|null=null;
+    if(!firstLesson){
+      const previous=await this.client.execute({...request,date:state.previousDate,groupIds:[row.groupId]});
+      if(previous.dayRecords.length!==1)throw Error('native_dailyrecord_previous_unverified');
+      prior=previous.dayRecords[0]!;
+      if(prior.studentKey!==row.studentKey||prior.teacherKey!==row.teacherKey||prior.courseKey!==row.courseKey
+        ||prior.membershipKey!==row.membershipKey||prior.recordKey!==state.previousRecordKey||prior.date!==state.previousDate)
+        throw Error('native_dailyrecord_previous_conflict');
+    }
     const observedAt=new Date().toISOString(),ref='native-dayrecord-read:'+randomUUID();
-    const tone=[prior.fields.progress,prior.fields.homework,prior.fields.lessonMemo].filter(Boolean).join('\n');
-    const observation=dailyRecordObservationSchema.parse({scope,target:observationTarget(row),previousTarget:observationTarget(prior),observedAt,
+    const tone=prior?[prior.fields.progress,prior.fields.homework,prior.fields.lessonMemo].filter(Boolean).join('\n'):'';
+    const observation=dailyRecordObservationSchema.parse({scope,target:observationTarget(row),previousTarget:prior?observationTarget(prior):null,observedAt,
       sourceRevision:createHash('sha256').update(this.admission.sourceBundleSha256+':'+state.wireDigest).digest('hex'),wireDigest:state.wireDigest,
       fields:Object.fromEntries(fields.map(field=>[field,typeof state.fields[field]==='string'
         ?{state:'known',value:state.fields[field],evidenceRefs:[ref+(field==='previousHomeworkAssessment'?':previous':':current')]}
-        :{state:'unknown',reasonCode:'native_field_not_observed'}])),
-      toneSamples:tone?[{target:observationTarget(prior),observedAt,text:tone,evidenceRefs:[ref+':previous']}]:[],transmissionState:'unknown'});
+        :{state:'unknown',reasonCode:field==='previousHomeworkAssessment'&&firstLesson?'first_lesson_no_previous_record':'native_field_not_observed'}])),
+      toneSamples:tone&&prior?[{target:observationTarget(prior),observedAt,text:tone,evidenceRefs:[ref+':previous']}]:[],transmissionState:'unknown'});
     return {status:'observed' as const,observation,subject:{displayName:student.displayName}};
   }
 }

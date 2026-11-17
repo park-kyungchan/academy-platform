@@ -57,6 +57,7 @@ const catalog={
   tool_not_registered:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
   dailyrecord_read_backend_not_configured:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
   dailyrecord_save_backend_not_configured:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  dailyrecord_previous_record_absent:['policy_denial','src/native-dailyrecord-backend.ts:saveDailyRecord'],
   textbook_catalog_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
   textbook_pdf_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
   prestudy_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],

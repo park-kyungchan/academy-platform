@@ -216,3 +216,41 @@ test('multi-title textbook read keeps the source order of records',async()=>{
  expect(result.records.map((r:any)=>r.sourceTitle)).toEqual(['B','A']);
  expect(calls).toEqual([['A','B']]);
 });
+// A first lesson: the day row has no previous-lesson homework handler or control,
+// so the client state carries no previous record and no previous homework assessment.
+function firstLessonFixture(){
+ const f=fixture(),days:string[]=[];
+ const port={...f.port,execute:async(input:any)=>{days.push(input.date);return {dayRecords:input.date===target.date?[row]:[prior]};},
+  journalState:async()=>({target,fields:{...row.fields,dailyTestAssessment:'0'},previousRecordKey:null,previousDate:null,wireDigest:'a'.repeat(64)})};
+ return {days,port};
+}
+test('a first lesson reads as observed without a previous day-record request',async()=>{
+ const {days,port}=firstLessonFixture();
+ const result=await new NativeDailyRecordBackend(port,admission,()=>({username:'fictional',password:'fictional'})).readDailyRecord(scope);
+ expect(result.status).toBe('observed');expect(days).toEqual([scope.lessonDate]);
+ expect(result.observation.fields.previousHomeworkAssessment).toEqual({state:'unknown',reasonCode:'first_lesson_no_previous_record'});
+ expect(result.observation.previousTarget).toBeNull();expect(result.observation.toneSamples).toEqual([]);
+ expect(result.observation.fields.progress).toMatchObject({state:'known',value:'Current progress'});
+ expect(result.observation.fields.dailyTestAssessment).toMatchObject({state:'known',value:'0'});
+});
+test('academy_dailyrecord_get of a first lesson is observed with no blocker and no previous homework interview',async()=>{
+ const {port}=firstLessonFixture();
+ const open={...range,schemaVersion:'academy.owner-admission/2' as const,allowedFrom:null,allowedThrough:null,studentScope:'source_verified' as const};
+ const service=new DailyRecordService(new NativeDailyRecordBackend(port,admission,()=>({username:'fictional',password:'fictional'}),open));
+ const result=await service.get({displayName:'Invented Student',lessonDate:scope.lessonDate,purpose:'Synthetic first lesson read',currentRequestRef:'first-lesson-request'}) as any;
+ expect(result).toMatchObject({status:'observed',sourceAvailability:'observed'});
+ expect(result.reasonCode).toBeUndefined();
+ expect(result.preparation.interviews.map((i:any)=>i.field)).not.toContain('previousHomeworkAssessment');
+ const previous=result.fields.find((f:any)=>f.field==='previousHomeworkAssessment');
+ expect(previous).toMatchObject({before:{state:'unknown',reasonCode:'first_lesson_no_previous_record'},target:null});
+ const intake=await service.intake({context:{schemaVersion:'academy.dailyrecord-user-context/1',purpose:'Synthetic first lesson intake',currentRequestRef:'first-lesson-intake',
+  scope,selectedFields:['progress','homework','lessonMemo','attendance','dailyTestAssessment','previousHomeworkAssessment'],memoAnswer:{kind:'not_supplied'},facts:[]}}) as any;
+ expect(intake.sourceAvailability).toBe('observed');expect(intake.blockers).toEqual([]);
+ expect(intake.interviews.map((i:any)=>i.field)).not.toContain('previousHomeworkAssessment');
+ // The other five fields keep the dispositions of a lesson with an earlier lesson.
+ const earlierService=new DailyRecordService(new NativeDailyRecordBackend(fixture().port,admission,()=>({username:'fictional',password:'fictional'}),open));
+ const earlier=await earlierService.intake({context:{schemaVersion:'academy.dailyrecord-user-context/1',purpose:'Synthetic earlier lesson intake',currentRequestRef:'earlier-lesson-intake',
+  scope,selectedFields:['progress','homework','lessonMemo','attendance','dailyTestAssessment','previousHomeworkAssessment'],memoAnswer:{kind:'not_supplied'},facts:[]}}) as any;
+ const others=(r:any)=>r.fields.filter((f:any)=>f.field!=='previousHomeworkAssessment').map((f:any)=>[f.field,f.disposition]);
+ expect(others(intake)).toEqual(others(earlier));
+});

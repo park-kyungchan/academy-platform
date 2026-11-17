@@ -45,7 +45,8 @@ export function assertJournalAssessmentOptions(options:{field:string;value:strin
  if(canonicalJson(sort(options))!==canonicalJson(sort(expected)))throw Error('journal_assessment_options_drift');
 }
 export interface JournalHttpTarget {studentName:string;date:string;groupId:string;teacherKey:string;studentKey:string;courseKey:string;recordKey:string;membershipKey:string}
-export interface JournalHttpState {target:JournalHttpTarget;fields:Record<string,string>;previousRecordKey:string;previousDate:string;wireDigest:string}
+/** `previousRecordKey` and `previousDate` are both null on a student's first lesson; `fields` then holds no `previousHomeworkAssessment`. */
+export interface JournalHttpState {target:JournalHttpTarget;fields:Record<string,string>;previousRecordKey:string|null;previousDate:string|null;wireDigest:string}
 export interface JournalHttpAction {attemptId:string;target:JournalHttpTarget;field:JournalHttpField;effectRecordKey:string;before:string;after:string;wireDigest:string}
 export interface JournalHttpAdmission {
   /** Host integration retrieves the actual current teacher decision and durably consumes this exact action before dispatch. Caller flags are not authority. */
@@ -78,6 +79,7 @@ export function acceptNativeJournalDecision(value:unknown,reviewDigest:string):b
 function verifiedState(action:JournalHttpAction,state:JournalHttpState){
   assertExactKeys(state,['target','fields','previousRecordKey','previousDate','wireDigest']);target(state.target);
   if(canonicalJson(state.target)!==canonicalJson(action.target)||state.wireDigest!==action.wireDigest)throw Error('journal_http_source_drift');
+  if(action.field==='previousHomeworkAssessment'&&(state.previousRecordKey===null||state.previousDate===null))throw Error('journal_http_previous_record_absent');
   const expectedRecord=action.field==='previousHomeworkAssessment'?state.previousRecordKey:state.target.recordKey;
   if(action.effectRecordKey!==expectedRecord)throw Error('journal_http_effect_record_conflict');
   if(action.field==='previousHomeworkAssessment'){assertDate(state.previousDate);readLiteralKey(state.previousRecordKey);if(state.previousDate>=state.target.date||state.previousRecordKey===state.target.recordKey)throw Error('journal_http_previous_occurrence_unverified');}
