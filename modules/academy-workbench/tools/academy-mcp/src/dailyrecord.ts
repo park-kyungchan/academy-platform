@@ -1,6 +1,6 @@
 import {randomUUID,createHash} from 'node:crypto';
 import {z} from 'zod';
-import {dailyRecordContextSchema,dailyRecordDateSchema,dailyRecordFieldSchema,dailyRecordFields,dailyRecordIdSchema,dailyRecordScopeSchema,dailyRecordWorkflowContext,type DailyRecordContext,type DailyRecordField,type DailyRecordScope} from './dailyrecord-context.ts';
+import {ASSESSMENT_CODE_TABLES,dailyRecordContextSchema,dailyRecordDateSchema,dailyRecordFieldSchema,dailyRecordFields,dailyRecordIdSchema,dailyRecordScopeSchema,dailyRecordWorkflowContext,type DailyRecordContext,type DailyRecordField,type DailyRecordScope} from './dailyrecord-context.ts';
 import {freezeLabelData} from './item-label-context.ts';
 import {itemAnswerLookupSchema,projectItemAnswerRead} from './item-answer-lookup.ts';
 import {resolveStudentByName,studentResolveInputSchema} from './student-resolver.ts';
@@ -103,7 +103,8 @@ export type PrestudyReportObservation={student:{studentId:string;displayName:str
 export const textbookSectionResultsGetSchema=z.object({displayName:z.string().trim().min(1).max(200),
   purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema,
   bookLabel:z.string().trim().min(1).max(200).optional(),
-  sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required').optional()}).strict();
+  sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required').optional(),
+  view:z.enum(['full','compact']).optional()}).strict();
 export type TextbookSectionResultsGet=z.infer<typeof textbookSectionResultsGetSchema>;
 /** Clinic (wrong-answer/similar) bundle read by exact student name. Clinic
  * papers have no server score-input support, so this read can only bundle
@@ -208,9 +209,9 @@ export function textbookSectionNotInEither(base:Record<string,unknown>,displayNa
 export function isTextbookSectionNotInEither(error:unknown){return error instanceof Error&&error.message===TEXTBOOK_SECTION_NOT_IN_EITHER;}
 function validValue(field:DailyRecordField,value:string){
   if(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value))return false;
-  if(field==='attendance')return ['Y','N','L',' ',''].includes(value);
-  if(field==='dailyTestAssessment')return ['-1','0','1','2','3','4','5','6','7','8','9','10'].includes(value);
-  if(field==='previousHomeworkAssessment')return ['-1','0','1','2','3','4','5'].includes(value);
+  if(field==='attendance')return (ASSESSMENT_CODE_TABLES.attendance as readonly string[]).includes(value);
+  if(field==='dailyTestAssessment')return (ASSESSMENT_CODE_TABLES.dailyTestAssessment as readonly string[]).includes(value);
+  if(field==='previousHomeworkAssessment')return (ASSESSMENT_CODE_TABLES.previousHomeworkAssessment as readonly string[]).includes(value);
   return value.split('').reduce((n,c)=>n+(c.charCodeAt(0)>127?2:1),0)<=400;
 }
 function unknownAssessment(field:DailyRecordField,value:string){return (field==='dailyTestAssessment'||field==='previousHomeworkAssessment')&&value==='-1';}
@@ -271,7 +272,7 @@ type ReviewedPatch={field:DailyRecordField;target:z.infer<typeof currentTargetSc
 type StoredReview={reviewDigest:string;status:string;scope:DailyRecordScope;requestRef:string;observationHandle:string|null;
   patch:{field:DailyRecordField;before:string;after:string;effectRecordKey:string}[];reviewPolicy:ReviewPolicyPins;reviewedBy:DailyRecordAttribution;reviewedAt:string;
   /** Digest of the exact context and proposals this review judged; a save must submit the same. */
-  inputDigest:string};
+  inputDigest:string;inputLength?:number};
 
 /** How long an unchanged readback must wait before it may prove an uncertain dispatch did not land. */
 
@@ -366,7 +367,7 @@ export class DailyRecordService {
       academyWrites:0,parentSends:0,nativePrintInvoked:false,automaticRetryAllowed:false,sourceContentIsUntrustedData:true,execution:'read_only' as const};
     if(!this.backend?.readItemAnswers)return {...base,status:'unavailable' as const,reasonCode:'item_answer_backend_not_configured'};
     try{
-      const result={...base,...projectItemAnswerRead(await this.#serial(()=>this.backend!.readItemAnswers!(input.labels)),input.labels)};
+      const result={...base,...projectItemAnswerRead(await this.#serial(()=>this.backend!.readItemAnswers!(input.labels)),input.labels,input.view)};
       if(toolResultBytes(result)>512*1024)throw Error('item_answer_result_too_large');
       return freezeLabelData(result);
     }
@@ -449,6 +450,7 @@ export class DailyRecordService {
           if(!Array.isArray(records)||records.length!==input.sourceTitles.length
             ||new Set(records.map(r=>r.sourceTitle)).size!==input.sourceTitles.length
             ||records.some(r=>!input.sourceTitles!.includes(r.sourceTitle)))throw Error('textbook_section_scope_conflict');
+          if(input.view==='compact')return {...base,status:'observed' as const,...observation,records:records.map(({items:_items,...rest})=>rest)};
         }else if(!Array.isArray((observation as TextbookSectionIndexObservation).index))throw Error('textbook_section_scope_conflict');
         return {...base,status:'observed' as const,...observation};
       });
@@ -569,7 +571,7 @@ export class DailyRecordService {
     }
     return {...this.#base(context),status:blockers.length?'held':interviews.length?'interview_required':'ready_for_review',observationHandle,
       observationPersistence:observationHandle&&this.workflow?'owner_durable' as const:'process_local' as const,
-      attribution:attribution?attributionSummary(attribution):null,fields,interviews,blockers,
+      attribution:attribution?attributionSummary(attribution):null,fields,interviews,assessmentCodeTables:ASSESSMENT_CODE_TABLES,blockers,
       source:source?{observedAt:source.observedAt,sourceRevision:source.sourceRevision,wireDigest:source.wireDigest,transmissionState:source.transmissionState}:null,
       toneSamples:source?.toneSamples.filter(s=>this.parentSafeguard?.checkLines(s.text))??[],toneSelection:'hyphen_lines_only_other_formats_ignored',sourceAvailability:read.status,failure:'failure' in read?read.failure:null,execution:'not_supported'};
   }
@@ -648,7 +650,9 @@ export class DailyRecordService {
       }
       const unique=[...new Set(blockers)];
       return {field:p.field,target,before,after:p.value,factRefs:p.factRefs,learningEntries:p.learningEntries??null,learningSuggestedRendering,
-        learningSuggestionMeaning:learningSuggestedRendering===null?null:'format_example_only_teacher_must_review_meaning',disposition:unique.length?'blocked':changed?'proposed':'noop',blockers:unique,missingFactFragments:missingFragments,
+        learningSuggestionMeaning:learningSuggestedRendering===null?null:'format_example_only_teacher_must_review_meaning',
+        ...(unique.includes('learning_render_mismatch')?{expectedActivityFormat:'suffix_only_without_unit_title' as const}:{}),
+        disposition:unique.length?'blocked':changed?'proposed':'noop',blockers:unique,missingFactFragments:missingFragments,
         holdActions:holdActions(context.scope,p.field,unique,p.learningEntries),
         semanticFactReview:'teacher_review_required_not_proven_by_fragment_checks'};
     });
@@ -657,7 +661,8 @@ export class DailyRecordService {
     const parentSafeguard=this.parentSafeguard?{sourceRef:this.parentSafeguard.sourceRef,policySha256:this.parentSafeguard.policySha256,safeguardSourceSha256:this.parentSafeguard.safeguardSourceSha256}:null;
     const cismSource=cism?{observationHandle:input.cismObservationHandle,scope:cism.scope,selection:cism.selection,observedAt:cism.observedAt,sourceRevision:cism.sourceRevision,evidenceRefs:cism.evidenceRefs}:null;
     // The exact submitted input is part of the digest, so distinct reviewed inputs never share one immutable review record.
-    const inputDigest=textDigest(canonicalJson({context,proposals:input.proposals,cismObservationHandle:input.cismObservationHandle??null}));
+    const inputJson=canonicalJson({context,proposals:input.proposals,cismObservationHandle:input.cismObservationHandle??null});
+    const inputDigest=textDigest(inputJson);
     const body={observationHandle:input.observationHandle??null,inputDigest,scope:context.scope,requestRef:context.currentRequestRef,userContextDigest:digest(context),parentSafeguard,cismSource,learningPolicy:this.learningPolicy?{bundleSha256:this.learningPolicy.bundleSha256,configSha256:this.learningPolicy.configSha256,catalogSha256:this.learningPolicy.catalogSha256}:null,
       sourceRevision:held?.observation.sourceRevision??null,wireDigest:held?.observation.wireDigest??null,transmissionState:read?.status==='observed'?read.observation.transmissionState:held?.observation.transmissionState??'unknown',rows,patch};
     const status=rows.some(r=>r.blockers.length)||interviews.length?'held' as const:'prepared' as const,reviewDigest=digest(body);
@@ -667,7 +672,7 @@ export class DailyRecordService {
       const record:StoredReview={reviewDigest,status,scope:context.scope,requestRef:context.currentRequestRef,observationHandle:input.observationHandle,
         patch:(patch as ReviewedPatch[]).map(p=>({field:p.field,before:p.before??'',after:p.after,effectRecordKey:p.target?.recordId??''})),
         reviewPolicy:this.#policyPins(),reviewedBy,reviewedAt:new Date(this.now()).toISOString(),
-        inputDigest};
+        inputDigest,inputLength:inputJson.length};
       this.workflow.store.publishOnce('review',reviewDigest,record);
       this.workflow.store.appendAudit(workflowRequestKey(context.scope,context.currentRequestRef),{event:'review_recorded',reviewDigest,by:attributionSummary(reviewedBy),fields:record.patch.map(p=>p.field)});
       reviewRecord={persisted:true,reviewedBy:attributionSummary(reviewedBy)};
@@ -726,9 +731,15 @@ export class DailyRecordService {
     if(recorded.created)store.appendAudit(requestKey,{event:'request_recorded',instructionSha256,sessionRef:input.request.instruction.sessionRef??null,by});
     const prior=store.get('review',input.reviewDigest) as StoredReview|null;
     if(!prior)return hold('prior_review_record_required');
-    if(prior.status!=='prepared'||!canonicalSame(prior.scope,scope)||prior.requestRef!==requestRef
-      ||prior.observationHandle!==input.observationHandle||!canonicalSame(prior.reviewPolicy,this.#policyPins())
-      ||prior.inputDigest!==textDigest(canonicalJson({context,proposals:input.proposals,cismObservationHandle:input.cismObservationHandle??null})))return hold('prior_review_record_mismatch');
+    const inputJson=canonicalJson({context,proposals:input.proposals,cismObservationHandle:input.cismObservationHandle??null});
+    const mismatchPaths:string[]=[];
+    if(prior.status!=='prepared')mismatchPaths.push('status');
+    if(!canonicalSame(prior.scope,scope))mismatchPaths.push('scope');
+    if(prior.requestRef!==requestRef)mismatchPaths.push('requestRef');
+    if(prior.observationHandle!==input.observationHandle)mismatchPaths.push('observationHandle');
+    if(!canonicalSame(prior.reviewPolicy,this.#policyPins()))mismatchPaths.push('reviewPolicy');
+    if(prior.inputDigest!==textDigest(inputJson))mismatchPaths.push('inputDigest');
+    if(mismatchPaths.length)return hold('prior_review_record_mismatch',{mismatchPaths,...(mismatchPaths.includes('inputDigest')?{expectedLen:prior.inputLength??null,actualLen:inputJson.length}:{})});
     const key=(p:{field:DailyRecordField;effectRecordKey:string;before:string;after:string})=>executionKey(requestRef,scope,p.field,p.effectRecordKey,p.before,p.after);
     const report=(p:StoredReview['patch'][number],extra:Record<string,unknown>={})=>({field:p.field,executionState:fieldExecutionState(store,key(p)),...extra});
     try{

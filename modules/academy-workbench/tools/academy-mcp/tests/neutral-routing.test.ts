@@ -312,7 +312,15 @@ test('bridge validates before upstream launch and preserves safe SDK failure cau
  await withNeutralClient(async({base,events,client})=>{
   const before=await readFile(events,'utf8');
   const invalid=await client.callTool({name:'academy_source_status',arguments:{PRIVATE_FIELD_CANARY:'PRIVATE_VALUE_CANARY'}});
-  expect(invalid.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',phase:'input_validation',academyWrites:0,failure:{category:'input_validation'}});
+  expect(invalid.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',phase:'input_validation',academyWrites:0,failure:{category:'input_validation'},issues:[{kind:'additional_properties',path:[]}]});
+  expect(JSON.stringify(invalid)).not.toContain('PRIVATE_FIELD_CANARY');
+  expect(JSON.stringify(invalid)).not.toContain('PRIVATE_VALUE_CANARY');
+  const invalidGet=await client.callTool({name:'academy_dailyrecord_get',arguments:{purpose:'check',currentRequestRef:'req-1',lessonDate:12345}});
+  expect(invalidGet.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',phase:'input_validation'});
+  expect((invalidGet.structuredContent as any).issues).toEqual(expect.arrayContaining([
+   expect.objectContaining({kind:'required_property',missingKey:'displayName'}),
+  ]));
+  expect(JSON.stringify(invalidGet)).not.toContain('12345');
   expect(await readFile(events,'utf8')).toBe(before);
   for(const code of ['prestudy_search_form_drift','PRIVATE_SECRET_CANARY']){
    await writeFile(resolve(base,'inject-source-status-error'),code);

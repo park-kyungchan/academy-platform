@@ -4,6 +4,8 @@ import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
 import {createHash} from 'node:crypto';
 import {DailyRecordService} from '../src/dailyrecord.ts';
+import {dailyRecordContextSchema,ASSESSMENT_CODE_TABLES} from '../src/dailyrecord-context.ts';
+import {DailyRecordWorkflowStore} from '../src/dailyrecord-workflow.ts';
 import {dailyRecordToolConfiguration} from '../src/dailyrecord-tools.ts';
 import {backend,clock,context,fact,observation,proposal,safeguard,learningPolicy} from './dailyrecord-fixture.ts';
 
@@ -156,4 +158,148 @@ test('non-question rendering is a field-local hold and cannot support an invente
   c.facts=[{...fact('progress','유형 10까지 풀이 진행.'),requiredFragments:['유형 10']}];
   const corrected=await service.review({context:c,observationHandle:intake.observationHandle,proposals:[proposal('progress','유형 10까지 풀이 진행.')]});
   expect(corrected.rows[0].blockers).not.toContain('count_rendering_must_preserve_count');
+});
+
+test('dailyRecordFactSchema defaults omitted array fields to empty arrays',()=>{
+  const base=context();
+  const parsed=dailyRecordContextSchema.parse({
+    ...base,
+    facts:[{ref:'f-min',field:'dailyTestAssessment',text:'테스트 점수 8',explicitValue:'8'}],
+  });
+  expect(parsed.facts[0]).toMatchObject({requiredFragments:[],questionCounts:[],deadlines:[],stageClaims:[]});
+});
+
+test('intake and get expose assessmentCodeTables and compact view omits authoringHandle/answerLiteral/items',async()=>{
+  const obs=observation();
+  const numScope={...obs.scope,sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',studentId:'77001'};
+  const numObs={...obs,scope:numScope,target:{...obs.target,sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',studentId:'77001'},previousTarget:obs.previousTarget?{...obs.previousTarget,sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',studentId:'77001'}:null,toneSamples:obs.toneSamples.map(s=>({...s,target:{...s.target,sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',studentId:'77001'}}))};
+  const b={
+    ...backend(()=>numObs),
+    readRoutingAdmission:()=>({sourceNamespace:'academy.lms.dayrecord' as const,teacherId:'99001',allowedFrom:'2040-01-01',allowedThrough:'2040-01-31'}),
+    searchStudentsByName:async(name:string)=>[{studentKey:'77001',studentName:name}],
+    readItemAnswers:async(labels:readonly string[])=>({
+      family:'item_answer',status:'observed',requestedAnswerLabels:labels,pendingAnswerLabels:[],answerBlockedReason:null,
+      itemAnswers:labels.map(l=>({identity:{sourceNamespace:'academy_item',lectureKey:l,outerLectureKey:l,sourceId:l},sourceUnitName:'Unit 1',sourcePatternName:'Pattern A',answerLiteral:'1|_|42',answerAvailability:'literal_payload_not_rendered',answerMeaning:'source_official_item_answer_not_student_response',rendering:'not_qualified',paperMembership:'unqualified'})),
+      coverage:'exact_requested_shared_answers_not_printed_versions',observedAt:new Date(clock).toISOString(),nativePrintInvoked:false,automaticRetryAllowed:false,
+    }),
+    readTextbookSectionsByName:async()=>({
+      student:{studentId:'student-synthetic',displayName:'Synthetic Student'},courseKey:'5',bookNo:'7',
+      records:[{sourceTitle:'Sec 1',score:100,correctCount:1,itemCount:1,items:[{ordinal:'1',lectureKey:'101',outerLectureKey:'101',scoring:'O' as const}],sourceDate:{literal:'2040-01-12',precision:'day',meaning:'source_apply_date_not_exact_grade_time'}}],
+      observedAt:new Date(clock).toISOString(),coverage:'exact_selected_existing_records_not_whole_book',
+    }),
+  };
+  const service=new DailyRecordService(b,safeguard,()=>clock,learningPolicy);
+  const intake=await service.intake({context:context()});
+  expect(intake.assessmentCodeTables).toEqual(ASSESSMENT_CODE_TABLES);
+  const fullGet=await service.get({displayName:'Synthetic Student',lessonDate:'2040-01-16',purpose:'check',currentRequestRef:'req-1'});
+  expect(fullGet).toMatchObject({status:'observed',assessmentCodeTables:ASSESSMENT_CODE_TABLES});
+  expect('authoringHandle' in fullGet).toBe(true);
+  const compactGet=await service.get({displayName:'Synthetic Student',lessonDate:'2040-01-16',purpose:'check',currentRequestRef:'req-1',view:'compact'});
+  expect(compactGet).toMatchObject({status:'observed',assessmentCodeTables:ASSESSMENT_CODE_TABLES});
+  expect('authoringHandle' in compactGet).toBe(false);
+  const compactAns=await service.itemAnswers({labels:['101'],purpose:'check',currentRequestRef:'req-1',view:'compact'});
+  expect(compactAns.status).toBe('observed');
+  expect('answerLiteral' in (compactAns as any).answers[0]).toBe(false);
+  expect((compactAns as any).answers[0].answerPayloadCandidate).toBe('42');
+  const compactSec=await service.textbookSectionsByName({displayName:'Synthetic Student',purpose:'check',currentRequestRef:'req-1',sourceTitles:['Sec 1'],view:'compact'});
+  expect(compactSec.status).toBe('observed');
+  expect('items' in (compactSec as any).records[0]).toBe(false);
+  expect((compactSec as any).records[0].score).toBe(100);
+});
+
+test('learning_render_mismatch row includes expectedActivityFormat hint',async()=>{
+  const strictPolicy={...learningPolicy,review:()=>['learning_render_mismatch']};
+  const service=new DailyRecordService(backend(),safeguard,()=>clock,strictPolicy),c=context();
+  const intake=await service.intake({context:c});
+  const rev=await service.review({context:c,observationHandle:intake.observationHandle,proposals:[proposal('progress','- 지정 문제 12문항 풀이 진행.')]});
+  expect(rev.status).toBe('held');
+  expect(rev.rows[0].blockers).toContain('learning_render_mismatch');
+  expect((rev.rows[0] as any).expectedActivityFormat).toBe('suffix_only_without_unit_title');
+});
+
+test('a save whose text differs from the reviewed text only in line endings is held with sanitized mismatchPaths',async()=>{
+  const dir=await mkdtemp(resolve(tmpdir(),'synthetic-workflow-norm-'));
+  try{
+    const store=new DailyRecordWorkflowStore(dir);
+    let saved=0;
+    const writeBackend={
+      saveConfigured:()=>false,
+      requestBoundSaveConfigured:()=>true,
+      saveDailyRecord:async(_scope:any,patches:any[])=>{saved+=patches.length;return patches.map(p=>({field:p.field,status:'persisted' as const,dispatched:true}));},
+    };
+    const service=new DailyRecordService(backend(),safeguard,()=>clock,learningPolicy,writeBackend,{store});
+    const c=context();
+    c.facts=[fact('progress','첫째 줄\n둘째 줄\n지정 문제 12문항 풀이 진행.')];
+    const intake=await service.intake({context:c});
+    const p={...proposal('progress','- 지정 문제 12문항 풀이 진행 (보충).'),decision:{kind:'replace' as const,requestRef:c.currentRequestRef}};
+    const rev=await service.review({context:c,observationHandle:intake.observationHandle!,proposals:[p]});
+    expect(rev.status).toBe('prepared');
+    // The digest covers the exact submitted input: other line endings are a different text and are held.
+    for(const text of ['첫째 줄\\n둘째 줄\\r\\n지정 문제 12문항 풀이 진행.','첫째 줄\r\n둘째 줄\r\n지정 문제 12문항 풀이 진행.']){
+      const held=await service.save({
+        context:{...c,facts:[fact('progress',text)]},
+        observationHandle:intake.observationHandle!,
+        reviewDigest:rev.reviewDigest,
+        proposals:[p],
+        request:{requestRef:c.currentRequestRef,instruction:{text:'save progress'}},
+      });
+      expect(held).toMatchObject({status:'held',reasonCode:'prior_review_record_mismatch',mismatchPaths:['inputDigest'],academyWrites:0});
+    }
+    expect(saved).toBe(0);
+
+    // Real mismatch returns sanitized mismatchPaths and lengths without raw text.
+    const cMismatch={...c,facts:[fact('progress','완전히 다른 내용 12문항')]};
+    const bad=await service.save({
+      context:cMismatch,
+      observationHandle:intake.observationHandle!,
+      reviewDigest:rev.reviewDigest,
+      proposals:[p],
+      request:{requestRef:c.currentRequestRef,instruction:{text:'save progress'}},
+    });
+    expect(bad).toMatchObject({status:'held',reasonCode:'prior_review_record_mismatch',mismatchPaths:['inputDigest']});
+    expect(typeof (bad as any).expectedLen).toBe('number');
+    expect(typeof (bad as any).actualLen).toBe('number');
+    expect(JSON.stringify({reasonCode:(bad as any).reasonCode,mismatchPaths:(bad as any).mismatchPaths,expectedLen:(bad as any).expectedLen,actualLen:(bad as any).actualLen})).not.toContain('완전히 다른 내용');
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+// Digests the base server (b7462e6) computed for these exact inputs, with this
+// fixture. A review recorded by that server must still be saved after an upgrade.
+const baseReviewVectors=[
+  {name:'fact text with CRLF',fact:'첫째 줄\r\n지정 문제 12문항 풀이 진행.',value:'- 지정 문제 12문항 풀이 진행 (보충).',
+    inputDigest:'84f3ff10c0711adb934b410e4587b8dded485d829b3268db164a81e247e14186',userContextDigest:'95ddaebd39f58221cf0e5bfeccdd9db8571edfa901b995562310ea422308faff',bodyDigest:'fc9fd68dd04025fbdf056317247bbde591eb72a4f4d1dace15391dfda69b8e0f'},
+  {name:'fact text with a literal backslash-n',fact:'첫째 줄\\n지정 문제 12문항 풀이 진행.',value:'- 지정 문제 12문항 풀이 진행 (보충).',
+    inputDigest:'d3c2a37dc923be9d84704619debb1ce78490170d046c71ba6441e798df279f0c',userContextDigest:'1daa4e2b61c56e2a9460a4be5a5c68b6d692b0f51b4727f1e6fa4bfe2e0bba9a',bodyDigest:'dbcb2ea0771d2bfd82af3bab0d0c00eb5e94759e01f366f35ea3bd8dea723c6c'},
+  {name:'proposal value with a literal backslash-n',fact:'지정 문제 12문항 풀이 진행.',value:'- 지정 문제 12문항 풀이 진행\\n(보충).',
+    inputDigest:'833b834f2ed08c7152e308eeb9990871259b9174ee4460f738155c68a94e9738',userContextDigest:'cd8677dcb0b9e4331f2064a7610be190b8eb91efa355c55461a71c139735346b',bodyDigest:'d5cbf767ff8b41b56f9dc064fdc71b49aa1699ac3a2cb34db05ef9610c37bbe9'},
+];
+const reviewBodyKeys=['observationHandle','inputDigest','scope','requestRef','userContextDigest','parentSafeguard','cismSource','learningPolicy','sourceRevision','wireDigest','transmissionState','rows','patch'];
+for(const vector of baseReviewVectors)test(`a review recorded by the base server is saved after the upgrade: ${vector.name}`,async()=>{
+  const dir=await mkdtemp(resolve(tmpdir(),'synthetic-workflow-upgrade-'));
+  try{
+    // The store keeps the record exactly as the base server wrote it: its inputDigest, no inputLength.
+    class BaseRecordStore extends DailyRecordWorkflowStore{
+      override publishOnce(kind:Parameters<DailyRecordWorkflowStore['publishOnce']>[0],id:string,record:unknown){
+        if(kind!=='review')return super.publishOnce(kind,id,record);
+        const {inputLength:_omitted,...rest}=record as Record<string,unknown>;
+        return super.publishOnce(kind,id,{...rest,inputDigest:vector.inputDigest});
+      }
+    }
+    let writes=0;
+    const writer={saveConfigured:()=>false,requestBoundSaveConfigured:()=>true,
+      saveDailyRecord:async(_scope:any,patches:any[])=>{writes+=patches.length;return patches.map(p=>({field:p.field,status:'persisted' as const,dispatched:true}));}};
+    const service=new DailyRecordService(backend(),safeguard,()=>clock,learningPolicy,writer,{store:new BaseRecordStore(dir)});
+    const c=context();c.facts=[fact('progress',vector.fact)];
+    const p=proposal('progress',vector.value);
+    const intake=await service.intake({context:c});
+    const rev=await service.review({context:c,observationHandle:intake.observationHandle,proposals:[p]}) as Record<string,any>;
+    expect(rev.status).toBe('prepared');
+    const result=await service.save({context:c,observationHandle:intake.observationHandle!,reviewDigest:rev.reviewDigest,proposals:[p],
+      request:{requestRef:c.currentRequestRef,instruction:{text:'save progress'}}});
+    expect(result).toMatchObject({status:'saved',academyWrites:1});
+    expect(writes).toBe(1);
+    expect({inputDigest:rev.inputDigest,userContextDigest:rev.userContextDigest}).toEqual({inputDigest:vector.inputDigest,userContextDigest:vector.userContextDigest});
+    // Every reviewed fact except the random observation handle digests as at the base.
+    expect(createHash('sha256').update(JSON.stringify(Object.fromEntries(reviewBodyKeys.map(k=>[k,k==='observationHandle'?null:rev[k]])))).digest('hex')).toBe(vector.bodyDigest);
+  }finally{await rm(dir,{recursive:true,force:true});}
 });
