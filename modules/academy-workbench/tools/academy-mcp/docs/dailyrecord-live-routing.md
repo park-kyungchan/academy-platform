@@ -122,6 +122,46 @@ and owner mismatch without exposing a path or numeric identity. It is available
 in tool failures, discovery error data, and a fresh bridge's startup diagnostic.
 It identifies a failed check only; it does not repair ownership or authorize a retry.
 
+## Tool surface file
+
+A release pointer (`academy.mcp-release/1` or `/2`) may pin an optional
+`surface` member, `{path, sha256}`, read and verified like `registry`. The file
+decides what `tools/list` shows; it never changes what a call accepts.
+
+```json
+{"schemaVersion": "academy.mcp-surface/1",
+ "tools": [{"name": "academy_dailyrecord_get",
+            "title": "Read a DailyRecord",
+            "description": "Read one DailyRecord. Admitted dates: {{admittedDates}}.",
+            "inputSchema": {"type": "object", "properties": {}}}]}
+```
+
+- `name` and `description` are required; `title` and `inputSchema` are
+  optional; no other member is accepted. Names are unique, and each is a tool
+  of the release's registry or `academy_runtime_identity`. An `inputSchema` is
+  an object whose `type` is `"object"`. A file that breaks any of these fails
+  the release with `release_surface_unqualified`; bytes that do not match the
+  pin fail as a registry pin does.
+- `tools/list` returns the surface's tools in its order and no other. The
+  description is shown verbatim: no routing context, scope sentence or date
+  hint is added. The only substitution is `{{admittedDates}}`, which becomes
+  `<allowedFrom> through <allowedThrough>` of the read admission (`unbounded`
+  for a missing bound). `inputSchema` and `title` are the surface's when given;
+  otherwise, and for `annotations` and `outputSchema`, the registry tool's.
+- `tools/call` refuses a name that the surface does not list with
+  `unknown_tool` before any endpoint starts. A listed name is validated against
+  the registry's `inputSchema`, not the displayed one, so a displayed schema
+  may be narrower than what an endpoint accepts.
+- `academy_runtime_identity` reports `surfaceSha256` (`null` without a
+  surface); it is callable only if the surface lists it.
+- Without `surface`, `tools/list` is unchanged
+  (`tests/golden/surface-absent-tools-list.json`).
+
+With or without a surface, a `tool_input_invalid` result carries at most five
+`issues` of the form `{kind, path}` (plus `missingKey` or `expectedType` when
+the schema names them); no argument value or caller key appears. Tests:
+`tests/surface.test.ts`.
+
 ## Item answers
 
 `academy_item_answer_lookup` reads a bounded set of exact numeric item labels
