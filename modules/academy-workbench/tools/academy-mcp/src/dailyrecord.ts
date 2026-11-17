@@ -71,8 +71,7 @@ export const textbookSectionResultsSchema=z.object({displayName:z.string().trim(
   sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required')}).strict();
 export type TextbookSectionResults=z.infer<typeof textbookSectionResultsSchema>;
 export type TextbookSectionObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;
-  records:{sourceTitle:string;score:number;correctCount:number;itemCount:number;items:{ordinal:string;lectureKey:string|null;outerLectureKey:string|null;scoring:'O'|'X'}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];
-  failedTitles?:{sourceTitle:string;reasonCode:string}[];observedAt:string;coverage:string};
+  records:{sourceTitle:string;score:number;correctCount:number;itemCount:number;items:{ordinal:string;lectureKey:string|null;outerLectureKey:string|null;scoring:'O'|'X'}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string};
 /** Prestudy video read by exact student name. Upload (waiting list), completed
  * list membership, AI score/star literals and teacher review are four
  * distinct axes; teacherJudgment is never derived from a source OK/score. */
@@ -270,27 +269,6 @@ function holdActions(scope:DailyRecordScope,field:DailyRecordField,blockers:read
 }
 type ReviewPolicyPins={learningPolicy:{bundleSha256:string;configSha256:string;catalogSha256:string}|null;parentSafeguard:{policySha256:string;safeguardSourceSha256:string}|null};
 type ReviewedPatch={field:DailyRecordField;target:z.infer<typeof currentTargetSchema>|null;before:string|null;after:string};
-const normalizeLineEndings=(s:string)=>s.replace(/\r\n/g,'\n').replace(/\\r\\n/g,'\n').replace(/\\n/g,'\n');
-function normalizeContextForDigest(context:DailyRecordContext){
-  return {
-    ...context,
-    memoAnswer:context.memoAnswer.kind==='content'
-      ?{...context.memoAnswer,text:normalizeLineEndings(context.memoAnswer.text)}
-      :context.memoAnswer,
-    facts:context.facts.map(f=>({...f,text:normalizeLineEndings(f.text),requiredFragments:f.requiredFragments.map(normalizeLineEndings)})),
-  };
-}
-function normalizeReviewDigestPayload(input:{context:DailyRecordContext;proposals:Proposal[];cismObservationHandle:string|null}){
-  return canonicalJson({
-    context:normalizeContextForDigest(input.context),
-    proposals:input.proposals.map(p=>({
-      ...p,
-      value:normalizeLineEndings(p.value),
-      ...(p.teacherReported?{teacherReported:{...p.teacherReported,mappedText:normalizeLineEndings(p.teacherReported.mappedText),lines:p.teacherReported.lines.map(l=>({...l,text:normalizeLineEndings(l.text)}))}}:{}),
-    })),
-    cismObservationHandle:input.cismObservationHandle,
-  });
-}
 type StoredReview={reviewDigest:string;status:string;scope:DailyRecordScope;requestRef:string;observationHandle:string|null;
   patch:{field:DailyRecordField;before:string;after:string;effectRecordKey:string}[];reviewPolicy:ReviewPolicyPins;reviewedBy:DailyRecordAttribution;reviewedAt:string;
   /** Digest of the exact context and proposals this review judged; a save must submit the same. */
@@ -403,14 +381,11 @@ export class DailyRecordService {
     try{
       const result=await this.#serial(async()=>{
         const observation=await this.backend!.readTextbookSections!(freezeLabelData(structuredClone(input)));
-        const failed=observation.failedTitles??[];
-        const returnedTitles=[...observation.records.map(r=>r.sourceTitle),...failed.map(f=>f.sourceTitle)];
         if(observation.student.displayName!==input.displayName||observation.courseKey!==input.courseKey||observation.bookNo!==input.bookNo
-          ||(failed.length>0&&input.sourceTitles.length<=1)
-          ||returnedTitles.length!==input.sourceTitles.length
-          ||new Set(returnedTitles).size!==input.sourceTitles.length
-          ||returnedTitles.some(t=>!input.sourceTitles.includes(t)))throw Error('textbook_section_scope_conflict');
-        return {...base,status:failed.length?'partial' as const:'observed' as const,...observation};
+          ||observation.records.length!==input.sourceTitles.length
+          ||new Set(observation.records.map(r=>r.sourceTitle)).size!==input.sourceTitles.length
+          ||observation.records.some(r=>!input.sourceTitles.includes(r.sourceTitle)))throw Error('textbook_section_scope_conflict');
+        return {...base,status:'observed' as const,...observation};
       });
       if(toolResultBytes(result)>512*1024)throw Error('textbook_section_result_too_large');
       return freezeLabelData(result);
@@ -471,18 +446,11 @@ export class DailyRecordService {
           return {...base,status:'interview_required' as const,...observation};
         }
         if(input.sourceTitles){
-          const obs=observation as TextbookSectionObservation;
-          const records=obs.records;
-          const failed=obs.failedTitles??[];
-          const returnedTitles=[...(Array.isArray(records)?records.map(r=>r.sourceTitle):[]),...failed.map(f=>f.sourceTitle)];
-          if(!Array.isArray(records)||(failed.length>0&&input.sourceTitles.length<=1)
-            ||returnedTitles.length!==input.sourceTitles.length
-            ||new Set(returnedTitles).size!==input.sourceTitles.length
-            ||returnedTitles.some(t=>!input.sourceTitles!.includes(t)))throw Error('textbook_section_scope_conflict');
-          const projected=input.view==='compact'
-            ?{...obs,records:records.map(({items:_items,...rest})=>rest)}
-            :obs;
-          return {...base,status:failed.length?'partial' as const:'observed' as const,...projected};
+          const records=(observation as TextbookSectionObservation).records;
+          if(!Array.isArray(records)||records.length!==input.sourceTitles.length
+            ||new Set(records.map(r=>r.sourceTitle)).size!==input.sourceTitles.length
+            ||records.some(r=>!input.sourceTitles!.includes(r.sourceTitle)))throw Error('textbook_section_scope_conflict');
+          if(input.view==='compact')return {...base,status:'observed' as const,...observation,records:records.map(({items:_items,...rest})=>rest)};
         }else if(!Array.isArray((observation as TextbookSectionIndexObservation).index))throw Error('textbook_section_scope_conflict');
         return {...base,status:'observed' as const,...observation};
       });
@@ -509,25 +477,16 @@ export class DailyRecordService {
           if(first.kind!=='interview_required'||!Array.isArray(first.bindings)||first.bindings.length<2)throw Error('clinic_paper_scope_conflict');
           return {...base,status:'interview_required' as const,...first};
         }
-        let sections:ClinicPaperStatusObservation['sections'];let observedAt:string;let coverage:string;let indexBasis:string|undefined;let failedTitles:TextbookSectionObservation['failedTitles'];
+        let sections:ClinicPaperStatusObservation['sections'];let observedAt:string;let coverage:string;let indexBasis:string|undefined;
         if(input.sourceTitles){
           const grading=first as TextbookSectionObservation;
-          const failed=grading.failedTitles??[];
-          const returnedTitles=[...(Array.isArray(grading.records)?grading.records.map(r=>r.sourceTitle):[]),...failed.map(f=>f.sourceTitle)];
-          if(!Array.isArray(grading.records)||(failed.length>0&&input.sourceTitles.length<=1)
-            ||returnedTitles.length!==input.sourceTitles.length
-            ||new Set(returnedTitles).size!==input.sourceTitles.length
-            ||returnedTitles.some(t=>!input.sourceTitles!.includes(t)))throw Error('clinic_paper_scope_conflict');
-          sections=[
-            ...grading.records.map(r=>{
-              const wrongItems=r.items.filter(i=>i.scoring==='X').map(i=>({ordinal:i.ordinal,lectureKey:i.lectureKey,outerLectureKey:i.outerLectureKey}));
-              return {sourceTitle:r.sourceTitle,originalAttempt:'observed_original_attempt' as const,score:r.score,
-                correctCount:r.correctCount,itemCount:r.itemCount,wrongItems,clinicEligible:wrongItems.length>0,sourceDate:r.sourceDate};
-            }),
-            ...failed.map(f=>({sourceTitle:f.sourceTitle,originalAttempt:'not_observed_in_scope' as const,score:null,
-              correctCount:null,itemCount:null,wrongItems:null,clinicEligible:null,sourceDate:{literal:null,meaning:f.reasonCode}})),
-          ];
-          if(failed.length)failedTitles=failed;
+          if(!Array.isArray(grading.records)||grading.records.length!==input.sourceTitles.length
+            ||grading.records.some(r=>!input.sourceTitles!.includes(r.sourceTitle)))throw Error('clinic_paper_scope_conflict');
+          sections=grading.records.map(r=>{
+            const wrongItems=r.items.filter(i=>i.scoring==='X').map(i=>({ordinal:i.ordinal,lectureKey:i.lectureKey,outerLectureKey:i.outerLectureKey}));
+            return {sourceTitle:r.sourceTitle,originalAttempt:'observed_original_attempt' as const,score:r.score,
+              correctCount:r.correctCount,itemCount:r.itemCount,wrongItems,clinicEligible:wrongItems.length>0,sourceDate:r.sourceDate};
+          });
           observedAt=grading.observedAt;coverage=grading.coverage;
         }else{
           const indexObs=first as TextbookSectionIndexObservation;
@@ -540,7 +499,7 @@ export class DailyRecordService {
           bookLabel:(first as TextbookSectionIndexObservation).bookLabel??'',sections,
           generatedMembership:'unqualified',clinicGeneration:'unqualified',teacherJudgmentSlots:slots,
           observedAt,coverage,...(indexBasis?{indexBasis}:{})};
-        return {...base,status:failedTitles?.length?'partial' as const:'observed' as const,...observation,...(failedTitles?.length?{failedTitles}:{})};
+        return {...base,status:'observed' as const,...observation};
       });
       if(toolResultBytes(result)>512*1024)throw Error('clinic_paper_result_too_large');
       return freezeLabelData(result);
@@ -702,9 +661,9 @@ export class DailyRecordService {
     const parentSafeguard=this.parentSafeguard?{sourceRef:this.parentSafeguard.sourceRef,policySha256:this.parentSafeguard.policySha256,safeguardSourceSha256:this.parentSafeguard.safeguardSourceSha256}:null;
     const cismSource=cism?{observationHandle:input.cismObservationHandle,scope:cism.scope,selection:cism.selection,observedAt:cism.observedAt,sourceRevision:cism.sourceRevision,evidenceRefs:cism.evidenceRefs}:null;
     // The exact submitted input is part of the digest, so distinct reviewed inputs never share one immutable review record.
-    const normalizedPayload=normalizeReviewDigestPayload({context,proposals:input.proposals,cismObservationHandle:input.cismObservationHandle??null});
-    const inputDigest=textDigest(normalizedPayload);
-    const body={observationHandle:input.observationHandle??null,inputDigest,scope:context.scope,requestRef:context.currentRequestRef,userContextDigest:digest(normalizeContextForDigest(context)),parentSafeguard,cismSource,learningPolicy:this.learningPolicy?{bundleSha256:this.learningPolicy.bundleSha256,configSha256:this.learningPolicy.configSha256,catalogSha256:this.learningPolicy.catalogSha256}:null,
+    const inputJson=canonicalJson({context,proposals:input.proposals,cismObservationHandle:input.cismObservationHandle??null});
+    const inputDigest=textDigest(inputJson);
+    const body={observationHandle:input.observationHandle??null,inputDigest,scope:context.scope,requestRef:context.currentRequestRef,userContextDigest:digest(context),parentSafeguard,cismSource,learningPolicy:this.learningPolicy?{bundleSha256:this.learningPolicy.bundleSha256,configSha256:this.learningPolicy.configSha256,catalogSha256:this.learningPolicy.catalogSha256}:null,
       sourceRevision:held?.observation.sourceRevision??null,wireDigest:held?.observation.wireDigest??null,transmissionState:read?.status==='observed'?read.observation.transmissionState:held?.observation.transmissionState??'unknown',rows,patch};
     const status=rows.some(r=>r.blockers.length)||interviews.length?'held' as const:'prepared' as const,reviewDigest=digest(body);
     let reviewRecord:{persisted:boolean;reviewedBy:ReturnType<typeof attributionSummary>}|null=null;
@@ -713,7 +672,7 @@ export class DailyRecordService {
       const record:StoredReview={reviewDigest,status,scope:context.scope,requestRef:context.currentRequestRef,observationHandle:input.observationHandle,
         patch:(patch as ReviewedPatch[]).map(p=>({field:p.field,before:p.before??'',after:p.after,effectRecordKey:p.target?.recordId??''})),
         reviewPolicy:this.#policyPins(),reviewedBy,reviewedAt:new Date(this.now()).toISOString(),
-        inputDigest,inputLength:normalizedPayload.length};
+        inputDigest,inputLength:inputJson.length};
       this.workflow.store.publishOnce('review',reviewDigest,record);
       this.workflow.store.appendAudit(workflowRequestKey(context.scope,context.currentRequestRef),{event:'review_recorded',reviewDigest,by:attributionSummary(reviewedBy),fields:record.patch.map(p=>p.field)});
       reviewRecord={persisted:true,reviewedBy:attributionSummary(reviewedBy)};
@@ -772,16 +731,15 @@ export class DailyRecordService {
     if(recorded.created)store.appendAudit(requestKey,{event:'request_recorded',instructionSha256,sessionRef:input.request.instruction.sessionRef??null,by});
     const prior=store.get('review',input.reviewDigest) as StoredReview|null;
     if(!prior)return hold('prior_review_record_required');
-    const normalizedPayload=normalizeReviewDigestPayload({context,proposals:input.proposals,cismObservationHandle:input.cismObservationHandle??null});
-    const actualInputDigest=textDigest(normalizedPayload);
+    const inputJson=canonicalJson({context,proposals:input.proposals,cismObservationHandle:input.cismObservationHandle??null});
     const mismatchPaths:string[]=[];
     if(prior.status!=='prepared')mismatchPaths.push('status');
     if(!canonicalSame(prior.scope,scope))mismatchPaths.push('scope');
     if(prior.requestRef!==requestRef)mismatchPaths.push('requestRef');
     if(prior.observationHandle!==input.observationHandle)mismatchPaths.push('observationHandle');
     if(!canonicalSame(prior.reviewPolicy,this.#policyPins()))mismatchPaths.push('reviewPolicy');
-    if(prior.inputDigest!==actualInputDigest)mismatchPaths.push('inputDigest');
-    if(mismatchPaths.length)return hold('prior_review_record_mismatch',{mismatchPaths,...(mismatchPaths.includes('inputDigest')?{expectedLen:prior.inputLength??null,actualLen:normalizedPayload.length}:{})});
+    if(prior.inputDigest!==textDigest(inputJson))mismatchPaths.push('inputDigest');
+    if(mismatchPaths.length)return hold('prior_review_record_mismatch',{mismatchPaths,...(mismatchPaths.includes('inputDigest')?{expectedLen:prior.inputLength??null,actualLen:inputJson.length}:{})});
     const key=(p:{field:DailyRecordField;effectRecordKey:string;before:string;after:string})=>executionKey(requestRef,scope,p.field,p.effectRecordKey,p.before,p.after);
     const report=(p:StoredReview['patch'][number],extra:Record<string,unknown>={})=>({field:p.field,executionState:fieldExecutionState(store,key(p)),...extra});
     try{

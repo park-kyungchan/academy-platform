@@ -191,35 +191,54 @@ test('a dated source proof is request/date bound and expires before a dynamic st
  }finally{Date.now=realNow;}
 });
 
-test('multi-title textbook section read isolates per-title failures and returns partial status',async()=>{
- const f=fixture();
- const execCalls:string[][]=[];
- const backend=new NativeDailyRecordBackend({
-  ...f.port,
-  readTextbookBindings:async()=>[multiBindings[0]!],
-  execute:(async(req:any)=>{
-   execCalls.push([...req.sourceTitles]);
-   if(req.sourceTitles.length>1)throw Error('textbook_section_result_unqualified');
-   if(req.sourceTitles[0]==='Bad Title')throw Error('textbook_section_not_in_either_observed_source');
-   return {
-    family:'textbook',status:'observed',observedAt:'2040-01-12T10:00:00+09:00',coverage:'exact',
-    records:[{
-     sourceTitle:req.sourceTitles[0],studentKey:'77001',studentName:'Invented Student',courseKey:'5',bookNo:'7',
-     score:100,items:[{originalOrdinal:'1',lectureKey:'101',outerLectureKey:'101',scoring:'O'}],
-     sourceDate:{literal:'2040-01-12',precision:'day',meaning:'source_apply_date_not_exact_grade_time'},
-    }],
-   };
-  }) as any,
- },admission,()=>({username:'fictional',password:'fictional'}),range,new Set(['Invented Student']));
- const service=new DailyRecordService(backend);
- const partial=await service.textbookSectionsByName({displayName:'Invented Student',purpose:'check',currentRequestRef:'req-1',sourceTitles:['Good Title','Bad Title']});
- expect(partial).toMatchObject({
-  status:'partial',
-  records:[{sourceTitle:'Good Title',score:100}],
-  failedTitles:[{sourceTitle:'Bad Title',reasonCode:'textbook_section_not_in_either_observed_source'}],
+// One tool call sends one batch upstream; a failed or unqualified batch is
+// reported with the same code as before and is never followed by another call.
+type UpstreamRecord={sourceTitle:string;studentKey:string;score:number};
+function countingTextbook(answer:(titles:string[])=>unknown){
+ const calls:string[][]=[];
+ const record=(r:UpstreamRecord)=>({sourceTitle:r.sourceTitle,studentKey:r.studentKey,studentName:'Invented Student',courseKey:'5',bookNo:'7',score:r.score,
+  items:[{originalOrdinal:'1',lectureKey:'8101',outerLectureKey:null,scoring:r.score?'O':'X'}],sourceDate:{literal:null,precision:'unknown',meaning:'source_apply_date_not_exact_grade_time'}});
+ const port={authenticate:async()=>{},discoverDayRecordGroups:async()=>({groups:[]}),readTextbookBindings:async()=>[multiBindings[0]!],
+  execute:async(input:any)=>{calls.push([...input.sourceTitles]);const out=answer([...input.sourceTitles]) as any;
+   return Array.isArray(out)?{family:'textbook',status:'observed',observedAt:'2040-01-16T09:00:00.000Z',coverage:'x',records:out.map(record)}:out;},
+  journalState:async()=>{throw Error('not_called');},close:()=>{}};
+ const read=(sourceTitles:string[])=>new DailyRecordService(new NativeDailyRecordBackend(port as never,admission,()=>({username:'fictional',password:'fictional'})))
+  .textbookSectionsByName({...textbookRequest,sourceTitles});
+ return {calls,read};
+}
+const ok=(sourceTitle:string,score=100):UpstreamRecord=>({sourceTitle,studentKey:'77001',score});
+const notFound=(titles:string[])=>{if(titles.some(t=>t.startsWith('Missing')))throw Error('textbook_section_not_in_either_observed_source');return titles.map(t=>ok(t));};
+{
+ const cases:[string,(t:string[])=>unknown,Record<string,unknown>][]=[
+  ['record of another studentKey',()=>[ok('A'),{...ok('B'),studentKey:'77002'}],{status:'unavailable',reasonCode:'textbook_section_result_unqualified'}],
+  ['two conflicting records for one title',()=>[ok('A',100),ok('A',0)],{status:'unavailable',reasonCode:'textbook_section_scope_conflict'}],
+  ['extra conflicting record',()=>[ok('A'),ok('B'),ok('B',0)],{status:'unavailable',reasonCode:'textbook_section_result_unqualified'}],
+ ];
+ for(const [name,answer,expected] of cases)test(`multi-title textbook read: ${name} stays a refusal after exactly one upstream call`,async()=>{
+  const {calls,read}=countingTextbook(answer);
+  expect(await read(['A','B'])).toMatchObject(expected);
+  expect(calls).toEqual([['A','B']]);
  });
- expect(execCalls).toEqual([['Good Title','Bad Title'],['Good Title'],['Bad Title']]);
- // Single-title failure remains strict
- const single=await service.textbookSectionsByName({displayName:'Invented Student',purpose:'check',currentRequestRef:'req-1',sourceTitles:['Bad Title']});
- expect(single).toMatchObject({status:'not_observed_in_either_source'});
+}
+{
+ const cases:[string,string[],(t:string[])=>unknown,Record<string,unknown>][]=[
+  ['unknown error',['A','B'],()=>{throw Error('fictional_upstream_fault');},{status:'unavailable',reasonCode:'textbook_section_unqualified_no_automatic_retry'}],
+  ['blocked batch',['A','B'],()=>({family:'textbook',status:'blocked',records:[],observedAt:'2040-01-16T09:00:00.000Z',coverage:'x'}),{status:'unavailable',reasonCode:'textbook_section_result_unqualified'}],
+  ['one title not found',['A','Missing B'],notFound,{status:'not_observed_in_either_source'}],
+  ['one title not returned',['A','Missing B'],()=>[ok('A')],{status:'unavailable',reasonCode:'textbook_section_result_unqualified'}],
+  ['all titles not found',['Missing A','Missing B'],notFound,{status:'not_observed_in_either_source'}],
+ ];
+ for(const [name,titles,answer,expected] of cases)test(`multi-title textbook read: ${name} gives the batch's code after exactly one upstream call`,async()=>{
+  const {calls,read}=countingTextbook(answer);const result=await read(titles);
+  expect(result).toMatchObject({...expected,academyWrites:0,parentSends:0,automaticRetryAllowed:false});
+  expect('failedTitles' in result).toBe(false);
+  expect(calls).toEqual([titles]);
+ });
+}
+test('multi-title textbook read keeps the source order of records',async()=>{
+ const {calls,read}=countingTextbook(()=>[ok('B',0),ok('A',100)]);
+ const result=await read(['A','B']) as any;
+ expect(result.status).toBe('observed');
+ expect(result.records.map((r:any)=>r.sourceTitle)).toEqual(['B','A']);
+ expect(calls).toEqual([['A','B']]);
 });

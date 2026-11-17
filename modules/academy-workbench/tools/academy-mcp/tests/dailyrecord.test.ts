@@ -217,7 +217,7 @@ test('learning_render_mismatch row includes expectedActivityFormat hint',async()
   expect((rev.rows[0] as any).expectedActivityFormat).toBe('suffix_only_without_unit_title');
 });
 
-test('prior_review_record_mismatch normalizes line endings and reports sanitized mismatchPaths on real mismatch',async()=>{
+test('a save whose text differs from the reviewed text only in line endings is held with sanitized mismatchPaths',async()=>{
   const dir=await mkdtemp(resolve(tmpdir(),'synthetic-workflow-norm-'));
   try{
     const store=new DailyRecordWorkflowStore(dir);
@@ -234,17 +234,18 @@ test('prior_review_record_mismatch normalizes line endings and reports sanitized
     const p={...proposal('progress','- 지정 문제 12문항 풀이 진행 (보충).'),decision:{kind:'replace' as const,requestRef:c.currentRequestRef}};
     const rev=await service.review({context:c,observationHandle:intake.observationHandle!,proposals:[p]});
     expect(rev.status).toBe('prepared');
-    // Save with literal \\n in facts[].text — should match the normalized inputDigest!
-    const cEscaped={...c,facts:[fact('progress','첫째 줄\\n둘째 줄\\r\\n지정 문제 12문항 풀이 진행.')]};
-    const ok=await service.save({
-      context:cEscaped,
-      observationHandle:intake.observationHandle!,
-      reviewDigest:rev.reviewDigest,
-      proposals:[p],
-      request:{requestRef:c.currentRequestRef,instruction:{text:'save progress'}},
-    });
-    expect(ok.status).toBe('saved');
-    expect(saved).toBe(1);
+    // The digest covers the exact submitted input: other line endings are a different text and are held.
+    for(const text of ['첫째 줄\\n둘째 줄\\r\\n지정 문제 12문항 풀이 진행.','첫째 줄\r\n둘째 줄\r\n지정 문제 12문항 풀이 진행.']){
+      const held=await service.save({
+        context:{...c,facts:[fact('progress',text)]},
+        observationHandle:intake.observationHandle!,
+        reviewDigest:rev.reviewDigest,
+        proposals:[p],
+        request:{requestRef:c.currentRequestRef,instruction:{text:'save progress'}},
+      });
+      expect(held).toMatchObject({status:'held',reasonCode:'prior_review_record_mismatch',mismatchPaths:['inputDigest'],academyWrites:0});
+    }
+    expect(saved).toBe(0);
 
     // Real mismatch returns sanitized mismatchPaths and lengths without raw text.
     const cMismatch={...c,facts:[fact('progress','완전히 다른 내용 12문항')]};
@@ -259,5 +260,46 @@ test('prior_review_record_mismatch normalizes line endings and reports sanitized
     expect(typeof (bad as any).expectedLen).toBe('number');
     expect(typeof (bad as any).actualLen).toBe('number');
     expect(JSON.stringify({reasonCode:(bad as any).reasonCode,mismatchPaths:(bad as any).mismatchPaths,expectedLen:(bad as any).expectedLen,actualLen:(bad as any).actualLen})).not.toContain('완전히 다른 내용');
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+// Digests the base server (b7462e6) computed for these exact inputs, with this
+// fixture. A review recorded by that server must still be saved after an upgrade.
+const baseReviewVectors=[
+  {name:'fact text with CRLF',fact:'첫째 줄\r\n지정 문제 12문항 풀이 진행.',value:'- 지정 문제 12문항 풀이 진행 (보충).',
+    inputDigest:'84f3ff10c0711adb934b410e4587b8dded485d829b3268db164a81e247e14186',userContextDigest:'95ddaebd39f58221cf0e5bfeccdd9db8571edfa901b995562310ea422308faff',bodyDigest:'fc9fd68dd04025fbdf056317247bbde591eb72a4f4d1dace15391dfda69b8e0f'},
+  {name:'fact text with a literal backslash-n',fact:'첫째 줄\\n지정 문제 12문항 풀이 진행.',value:'- 지정 문제 12문항 풀이 진행 (보충).',
+    inputDigest:'d3c2a37dc923be9d84704619debb1ce78490170d046c71ba6441e798df279f0c',userContextDigest:'1daa4e2b61c56e2a9460a4be5a5c68b6d692b0f51b4727f1e6fa4bfe2e0bba9a',bodyDigest:'dbcb2ea0771d2bfd82af3bab0d0c00eb5e94759e01f366f35ea3bd8dea723c6c'},
+  {name:'proposal value with a literal backslash-n',fact:'지정 문제 12문항 풀이 진행.',value:'- 지정 문제 12문항 풀이 진행\\n(보충).',
+    inputDigest:'833b834f2ed08c7152e308eeb9990871259b9174ee4460f738155c68a94e9738',userContextDigest:'cd8677dcb0b9e4331f2064a7610be190b8eb91efa355c55461a71c139735346b',bodyDigest:'d5cbf767ff8b41b56f9dc064fdc71b49aa1699ac3a2cb34db05ef9610c37bbe9'},
+];
+const reviewBodyKeys=['observationHandle','inputDigest','scope','requestRef','userContextDigest','parentSafeguard','cismSource','learningPolicy','sourceRevision','wireDigest','transmissionState','rows','patch'];
+for(const vector of baseReviewVectors)test(`a review recorded by the base server is saved after the upgrade: ${vector.name}`,async()=>{
+  const dir=await mkdtemp(resolve(tmpdir(),'synthetic-workflow-upgrade-'));
+  try{
+    // The store keeps the record exactly as the base server wrote it: its inputDigest, no inputLength.
+    class BaseRecordStore extends DailyRecordWorkflowStore{
+      override publishOnce(kind:Parameters<DailyRecordWorkflowStore['publishOnce']>[0],id:string,record:unknown){
+        if(kind!=='review')return super.publishOnce(kind,id,record);
+        const {inputLength:_omitted,...rest}=record as Record<string,unknown>;
+        return super.publishOnce(kind,id,{...rest,inputDigest:vector.inputDigest});
+      }
+    }
+    let writes=0;
+    const writer={saveConfigured:()=>false,requestBoundSaveConfigured:()=>true,
+      saveDailyRecord:async(_scope:any,patches:any[])=>{writes+=patches.length;return patches.map(p=>({field:p.field,status:'persisted' as const,dispatched:true}));}};
+    const service=new DailyRecordService(backend(),safeguard,()=>clock,learningPolicy,writer,{store:new BaseRecordStore(dir)});
+    const c=context();c.facts=[fact('progress',vector.fact)];
+    const p=proposal('progress',vector.value);
+    const intake=await service.intake({context:c});
+    const rev=await service.review({context:c,observationHandle:intake.observationHandle,proposals:[p]}) as Record<string,any>;
+    expect(rev.status).toBe('prepared');
+    const result=await service.save({context:c,observationHandle:intake.observationHandle!,reviewDigest:rev.reviewDigest,proposals:[p],
+      request:{requestRef:c.currentRequestRef,instruction:{text:'save progress'}}});
+    expect(result).toMatchObject({status:'saved',academyWrites:1});
+    expect(writes).toBe(1);
+    expect({inputDigest:rev.inputDigest,userContextDigest:rev.userContextDigest}).toEqual({inputDigest:vector.inputDigest,userContextDigest:vector.userContextDigest});
+    // Every reviewed fact except the random observation handle digests as at the base.
+    expect(createHash('sha256').update(JSON.stringify(Object.fromEntries(reviewBodyKeys.map(k=>[k,k==='observationHandle'?null:rev[k]])))).digest('hex')).toBe(vector.bodyDigest);
   }finally{await rm(dir,{recursive:true,force:true});}
 });
