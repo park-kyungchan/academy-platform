@@ -11,6 +11,8 @@ import {DailyRecordService} from '../src/dailyrecord.ts';
 import {registerDailyRecordTools} from '../src/dailyrecord-tools.ts';
 import {installToolAudit} from '../src/tool-audit.ts';
 import {readDailyTestHeaders} from '../src/dailytest-header-route.ts';
+import {academyDateInputSchema,resolveAcademyDate} from '../src/read-input.ts';
+import {registerCismWeeklyTools} from '../src/cism-weekly-tools.ts';
 
 // TASK-FLEX-2. Fictional data only; no request leaves the process.
 // Fixture clock: 2026-11-17 12:00 in Asia/Seoul.
@@ -223,4 +225,84 @@ test('check 3: a loose book name selects the one agreeing bound book; one that a
       expect(none.bindings.map((b:any)=>b.bookLabel)).toEqual([bookTwo,bookOne]);
     }
   }finally{await e.close();}
+},30000);
+
+// TASK-FLEX-2R. Repairs of review blocking 1, Lead decision on note 1, note 4.
+const davinci='(22개정) 초5-1 다빈치 2권(2022개정)',secondTerm='(22개정) 초5-2 가우스 2권 초5-2 발전 2권(2022개정)';
+const bookTools=(bookNo:string):[string,Record<string,unknown>][]=>[
+  ['academy_textbook_section_results_get',{}],
+  ['academy_textbook_section_results_get',{sourceTitles:['Section of book '+bookNo]}],
+  ['academy_clinic_paper_status_get',{}],
+  ['academy_clinic_paper_status_get',{sourceTitles:['Section of book '+bookNo]}],
+  ['academy_item_section_trace',{labels:['8101']}],
+];
+
+test('repair check 1: 쎈 5-1-2 and 가우스 하 ask when no bound label has 쎈 or 하; 가우스 2학기 selects the second-term book',async()=>{
+  const lacking=[{courseKey:'5',bookNo:'71',studentKey:student.studentId,bookLabel:bookOne},{courseKey:'5',bookNo:'90',studentKey:student.studentId,bookLabel:davinci}];
+  const e=await endpoint(lacking);
+  try{
+    for(const [name,extra] of bookTools('90')){
+      for(const bookLabel of ['쎈 5-1-2','가우스 하']){
+        const answer=await e.call(name,{displayName:student.displayName,bookLabel,...extra});
+        expect(answer).toMatchObject({status:'interview_required',kind:'interview_required',bookSelection:{requested:bookLabel,match:'none'}});
+        expect(answer.bindings.map((b:any)=>b.bookLabel)).toEqual([bookOne,davinci]);
+      }
+    }
+    expect(e.events.filter(x=>x.startsWith('textbook:'))).toEqual([]);
+  }finally{await e.close();}
+  const terms=[{courseKey:'5',bookNo:'72',studentKey:student.studentId,bookLabel:bookTwo},{courseKey:'5',bookNo:'73',studentKey:student.studentId,bookLabel:secondTerm}];
+  const t=await endpoint(terms);
+  try{
+    for(const [name,extra] of bookTools('73')){
+      const answer=await t.call(name,{displayName:student.displayName,bookLabel:'가우스 2학기',...extra});
+      expect(answer.status).toBe('observed');
+      expect(answer.bookSelection).toEqual({requested:'가우스 2학기',boundLabel:secondTerm,match:'loose'});
+      if(name!=='academy_item_section_trace')expect(answer.bookNo).toBe('73');
+      else expect(answer.books).toEqual([{bookLabel:secondTerm,sectionsScanned:1,sectionsFailed:0}]);
+    }
+  }finally{await t.close();}
+},30000);
+
+test('repair check 2: a month-day takes the year among last, this and next that puts it nearest to today in Asia/Seoul',async()=>{
+  const at=(seoulDay:string)=>Date.parse(seoulDay+'T12:00:00+09:00');
+  const cases:[string,string,string][]=[
+    ['2026-12-30','1월 2일','2027-01-02'],['2026-12-30','1/2','2027-01-02'],
+    ['2026-01-03','12월 30일','2025-12-30'],
+    ['2026-11-17','11월 16일','2026-11-16'],['2026-11-17','11월 19일','2026-11-19'],
+    // A tie (183 days back and ahead) takes the earlier date.
+    ['2028-07-02','1월 1일','2028-01-01'],
+  ];
+  for(const [today,text,date] of cases)expect([today,text,resolveAcademyDate(text,at(today))]).toEqual([today,text,date]);
+  // 23:30 on 2026-12-30 in Asia/Seoul is still 2026-12-30 there.
+  expect(resolveAcademyDate('1월 2일',Date.parse('2026-12-30T14:30:00Z'))).toBe('2027-01-02');
+  setSystemTime(new Date(at('2026-12-30')));
+  const e=await endpoint();
+  try{
+    for(const lessonDate of ['1월 2일','1/2']){
+      const answer=await e.call('academy_dailyrecord_get',{displayName:student.displayName,lessonDate});
+      expect(answer).toMatchObject({status:'observed',lessonDate:'2027-01-02',scope:{lessonDate:'2027-01-02'}});
+    }
+  }finally{await e.close();}
+  expect(academyDateInputSchema.description).toContain('nearest to today');
+  expect(academyDateInputSchema.description).not.toContain('31 days');
+},30000);
+
+test('repair check 3: a metadata read that fails after its date was resolved states that date',async()=>{
+  setSystemTime(fixtureNow);
+  const scope={sourceNamespace:'academy.lms.metadata',teacherId,studentId:student.studentId,lessonDate:'어제'};
+  const failing=new DailyRecordService({readDailyRecord:async()=>{throw Error('not_called');},readStudentMetadata:async()=>{throw Error('source_authentication_failed');}} as never,null,()=>fixtureNow.valueOf());
+  const failed:any=await failing.metadata({scope,queries:[{kind:'daily_history',periods:['11']}]});
+  expect(failed).toMatchObject({status:'unavailable',reasonCode:'source_authentication_failed',lessonDate:'2026-11-16',academyWrites:0});
+  const missing:any=await new DailyRecordService(null,null,()=>fixtureNow.valueOf()).metadata({scope:{...scope,lessonDate:'11/16'},queries:[{kind:'daily_metadata'}]});
+  expect(missing).toMatchObject({status:'unavailable',reasonCode:'student_metadata_backend_not_configured',lessonDate:'2026-11-16'});
+  // The metadata read by name and the CISM week read that take a date state it on failure too.
+  const byName:any=await failing.metadataByName({displayName:student.displayName,lessonDate:'11월 16일',queries:[{kind:'daily_metadata'}]});
+  expect(byName).toMatchObject({status:'unavailable',lessonDate:'2026-11-16'});
+  const tools=new Map<string,any>(),root=await mkdtemp(resolve(tmpdir(),'flex-2r-cism-'));
+  try{
+    registerCismWeeklyTools({registerTool:(n:string,c:any,h:any)=>tools.set(n,{c,h})} as any,{readCismReport:async()=>{throw Error('cism_source_port_unavailable');},applyCismField:async()=>{throw Error('not_called');}} as never,root);
+    const get=tools.get('academy_cism_weekly_get');
+    const answer=(await get.h(get.c.inputSchema.parse({date:'11/16'}))).structuredContent;
+    expect(answer).toMatchObject({status:'failed',code:'cism_source_port_unavailable',date:'2026-11-16',academyWrites:0});
+  }finally{await rm(root,{recursive:true,force:true});}
 },30000);

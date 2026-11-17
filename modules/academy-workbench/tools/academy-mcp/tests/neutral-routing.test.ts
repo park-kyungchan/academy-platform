@@ -69,6 +69,16 @@ test('composite preserves safe upstream metadata failures without exposing unkno
   expect(await readFile(events,'utf8')).not.toContain('headers');
  },false,false,false,true);
 },20000);
+test('repair check 3: a composite DailyTest read that fails after its date was resolved states that date',async()=>{
+ await withNeutralClient(async({base,client})=>{
+  await writeFile(resolve(base,'inject-metadata-error'),'source_authentication_failed');
+  const result:any=await client.callTool({name:'academy_dailytest_history_with_headers',arguments:{displayName:'Invented Student',lessonDate:'2040-01-16',periods:['11']}});
+  expect(result.structuredContent).toMatchObject({status:'blocked',code:'source_authentication_failed',failedSource:'metadata',lessonDate:'2040-01-16'});
+  const refused:any=await client.callTool({name:'academy_dailytest_history_with_headers',arguments:{displayName:'Invented Student',lessonDate:'next week',periods:['11']}});
+  expect(refused.structuredContent).toMatchObject({status:'blocked',code:'date_form_unsupported_use_yyyy_mm_dd_today_yesterday_or_month_day'});
+  expect(refused.structuredContent.lessonDate).toBeUndefined();
+ },false,false,false,true);
+},20000);
 test('neutral MCP runs resolve and intake in one upstream lifetime and logs metadata only',async()=>{
   await withNeutralClient(async({base,events,client})=>{
     const tools=(await client.listTools()).tools,tool=tools.find(t=>t.name==='academy_dailyrecord_get')!;
