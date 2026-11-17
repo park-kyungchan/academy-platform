@@ -126,18 +126,31 @@ It identifies a failed check only; it does not repair ownership or authorize a r
 
 A release pointer (`academy.mcp-release/1` or `/2`) may pin an optional
 `surface` member, `{path, sha256}`, read and verified like `registry`. The file
-decides what `tools/list` shows; it never changes what a call accepts.
+decides what `tools/list` shows and the server's `instructions`; it never
+changes what a call accepts.
 
 ```json
 {"schemaVersion": "academy.mcp-surface/1",
+ "instructions": "Resolve the student first. Admitted dates: {{admittedDates}}.",
  "tools": [{"name": "academy_dailyrecord_get",
             "title": "Read a DailyRecord",
             "description": "Read one DailyRecord. Admitted dates: {{admittedDates}}.",
             "inputSchema": {"type": "object", "properties": {}}}]}
 ```
 
-- `name` and `description` are required; `title` and `inputSchema` are
-  optional; no other member is accepted. Names are unique, and each is a tool
+- `instructions` is optional: a string of at most 16,384 bytes in UTF-8. A
+  value that is not a string or is longer fails the release with
+  `release_surface_unqualified`. The bridge answers `initialize` with the
+  `instructions` of the release it loads at start, with `{{admittedDates}}`
+  filled as in `tools/list`; the text stays fixed for the life of the process,
+  so a pointer change under a running bridge does not change it. Without the
+  member (or without a surface), `initialize` is unchanged
+  (`tests/golden/surface-absent-initialize.json`). The surface hash in
+  `academy_runtime_identity` covers the text. An empty string adds no
+  `instructions` member, as the SDK omits an empty text.
+- In `tools`, `name` and `description` are required; `title` and
+  `inputSchema` are optional; no other member is accepted, here or at the top
+  level. Names are unique, and each is a tool
   of the release's registry or `academy_runtime_identity`. An `inputSchema` is
   an object whose `type` is `"object"`. A file that breaks any of these fails
   the release with `release_surface_unqualified`; bytes that do not match the
@@ -160,7 +173,7 @@ decides what `tools/list` shows; it never changes what a call accepts.
 With or without a surface, a `tool_input_invalid` result carries at most five
 `issues` of the form `{kind, path}` (plus `missingKey` or `expectedType` when
 the schema names them); no argument value or caller key appears. Tests:
-`tests/surface.test.ts`.
+`tests/surface.test.ts` and `tests/instructions.test.ts`.
 
 ## Item answers
 
