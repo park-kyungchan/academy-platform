@@ -197,6 +197,24 @@ test('repair check 4: natural grade and term names find exactly the book',async(
   }finally{await close();}
 },30000);
 
+test('grade without term: 중1 가우스 and 가우스 5학년 2권 find every term of that grade; a near miss suggests that grade first',async()=>{
+  const {client,close}=await connect([process.execPath,'--preload',deny,endpoint]);
+  try{
+    const books=async(book:string)=>{const answer=await call(client,{book});expect(answer.status).toBe('observed');return answer.records.map((r:any)=>r.book).sort();};
+    expect(await books('중1 가우스')).toEqual(['가우스 중1-1-1','가우스 중1-1-2','가우스 중1-2-3','가우스 중1-2-4']);
+    expect(await books('가우스 중학교 1학년')).toEqual(['가우스 중1-1-1','가우스 중1-1-2','가우스 중1-2-3','가우스 중1-2-4']);
+    expect(await books('가우스 5학년 2권')).toEqual(['가우스 5-1-2','가우스 5-2-2']);
+    expect(await books('초5 가우스')).toEqual(['가우스 5-1-1','가우스 5-1-2','가우스 5-2-1','가우스 5-2-2']);
+    expect(await books('중1 다빈치')).toEqual(['다빈치 중1-1','다빈치 중1-2']);
+    // A term still narrows, and a unit-like number is not a grade.
+    expect(await books('가우스 중1 1학기')).toEqual(['가우스 중1-1-1','가우스 중1-1-2']);
+    const all=await call(client,{book:'중1'});
+    expect(all.matchCount).toBe(12);expect(all.otherBooks.length).toBe(8);
+    const miss=await call(client,{book:'가우스플러스 중1'});
+    expect(miss.status).toBe('not_found');expect(miss.suggestions[0]).toStartWith('가우스 중1');
+  }finally{await close();}
+},30000);
+
 test('repair check 5: the build over raw pages 1-16 keeps the TOC page, drops the plan grid and body pages, and repeats its bytes',async()=>{
   const dir=await mkdtemp(resolve(tmpdir(),'toc-build-1r-'));
   try{

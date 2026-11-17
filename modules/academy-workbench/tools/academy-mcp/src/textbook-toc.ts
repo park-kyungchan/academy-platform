@@ -16,7 +16,7 @@ export const textbookTocInput=z.object({
   book:z.string().trim().min(1).max(200),
   unit:z.string().trim().regex(/^\d{1,2}(?:-\d{1,2})?$/).optional(),
 }).strict();
-export const textbookTocDescription='Units, pages and chapter assessments (대단원 총괄평가) of a catalog textbook, from pinned TOC data kept as text: no LMS request, no network, no PDF download, no image read. Use it first whenever a book\'s units or pages are needed. book: a canonical name (가우스 5-1-2, 가우스 중1-1-2, 가우스 공통수학1 1권), an LMS bound-book label as listed for the student, grade and term words (가우스 5학년 1학기 2권, 가우스 중1 1학기), a name without volume (가우스 5-1 gives every volume) or a sample file name. unit: "6" or "6-5" returns only chapter 6. Answers observed with at most 4 books (toc text, units with code/title/pages, or outline items), or not_found with canonical names to choose from. noTextToc: no TOC text is kept for that book: ask the teacher; do not download the PDF.';
+export const textbookTocDescription='Units, pages and chapter assessments (대단원 총괄평가) of a catalog textbook, from pinned TOC data kept as text: no LMS request, no network, no PDF download, no image read. Use it first whenever a book\'s units or pages are needed. book: a canonical name (가우스 5-1-2, 가우스 중1-1-2, 가우스 공통수학1 1권), an LMS bound-book label as listed for the student, grade and term words (가우스 5학년 1학기 2권, 가우스 중1 1학기), a name without volume (가우스 5-1 gives every volume) or term (중1 가우스 gives every term) or a sample file name. unit: "6" or "6-5" returns only chapter 6. Answers observed with at most 4 books (toc text, units with code/title/pages, or outline items), or not_found with canonical names to choose from. noTextToc: no TOC text is kept for that book: ask the teacher; do not download the PDF.';
 
 const compact=(s:string)=>s.normalize('NFC').replace(/\s+/g,'');
 type Parsed={brand:string;level:string;grade:string;term:string;volume:string|null}|{brand:string;subject:string;volume:string|null};
@@ -39,13 +39,16 @@ function match(query:string):{found:TocRecord[];suggestions:string[]}{
   if(exact.length)return {found:exact,suggestions:[]};
   const named=allSeriesWords.filter(w=>c.includes(compact(w)));
   const gradeTerm=/(초|중|고)?\s*(\d)\s*-\s*(\d)(?:\s*-\s*(\d))?/.exec(q);
+  // A grade without a term (중1, 초5, 5학년, 중학교 1학년) names every term of that grade.
+  const gradeOnly=gradeTerm?null:/(?:(초|중|고)(?:등학교|학교|등)?\s*(\d)(?![\d-])|(\d)\s*학년)/.exec(q);
+  const grade=gradeTerm?{level:gradeTerm[1],grade:gradeTerm[2],term:gradeTerm[3]}:gradeOnly?{level:gradeOnly[1],grade:gradeOnly[2]??gradeOnly[3],term:undefined}:null;
   const volume=gradeTerm?.[4]??/(\d)\s*권/.exec(q)?.[1]??null;
   const brandOk=(r:TocRecord)=>!named.length||seriesWords(r).some(w=>named.includes(w));
   // 가우스플러스 is a separate workbook with no sample PDF: never answer it with a 가우스 book.
   let found=/플러스/.test(c)?[]:records.filter(r=>{
     const p=parsed.get(r)!;if(!brandOk(r))return false;
-    if('grade' in p)return !!gradeTerm&&p.grade===gradeTerm[2]&&p.term===gradeTerm[3]&&(gradeTerm[1]==='중')===(p.level==='중')
-      &&gradeTerm[1]!=='고'&&(!volume||!p.volume||p.volume===volume);
+    if('grade' in p)return !!grade&&p.grade===grade.grade&&(!grade.term||p.term===grade.term)&&(grade.level==='중')===(p.level==='중')
+      &&grade.level!=='고'&&(!volume||!p.volume||p.volume===volume);
     return [p.subject,...r.aliases].some(s=>c.includes(compact(s)))&&(!volume||p.volume===volume);
   });
   // The longest subject named wins: 미적분1 over 미적분.
@@ -53,7 +56,7 @@ function match(query:string):{found:TocRecord[];suggestions:string[]}{
   const longest=Math.max(0,...found.map(subjectLength));found=found.filter(r=>subjectLength(r)===longest);
   if(found.length)return {found,suggestions:[]};
   // Suggestions: the same brand and grade first, then the same grade, then the same brand.
-  const sameGrade=(r:TocRecord)=>{const p=parsed.get(r)!;return !!gradeTerm&&'grade' in p&&p.grade===gradeTerm[2]&&(gradeTerm[1]==='중')===(p.level==='중');};
+  const sameGrade=(r:TocRecord)=>{const p=parsed.get(r)!;return !!grade&&'grade' in p&&p.grade===grade.grade&&(grade.level==='중')===(p.level==='중');};
   const score=(r:TocRecord)=>(named.length&&brandOk(r)?1:0)+(sameGrade(r)?2:0);
   const suggestions=records.filter(r=>score(r)>0).sort((a,b)=>score(b)-score(a)||(a.book<b.book?-1:a.book>b.book?1:0)).map(r=>r.book).slice(0,20);
   return {found:[],suggestions};
