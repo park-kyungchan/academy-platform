@@ -1,5 +1,5 @@
 import type {DailyRecordContext} from '../src/dailyrecord-context.ts';
-import type {DailyRecordObservation,DailyRecordParentSafeguard,DailyRecordReadBackend,DailyRecordLearningPolicy} from '../src/dailyrecord.ts';
+import type {DailyRecordObservation,DailyRecordParentSafeguard,DailyRecordReadBackend} from '../src/dailyrecord.ts';
 
 // Purpose-built fictional identities and dates; never sampled from runtime records.
 export const clock=Date.parse('2040-01-16T09:00:00Z');
@@ -17,5 +17,5 @@ export function backend(read:()=>DailyRecordObservation=observation):DailyRecord
 export const safeguard:DailyRecordParentSafeguard={policySha256:'3'.repeat(64),safeguardSourceSha256:'4'.repeat(64),sourceRef:'synthetic-safeguard',checkLines:text=>/^- [^\r\n]+(?:\n- [^\r\n]+)*$/.test(text),check:text=>/교사\s*(?:최종\s*)?완료\s*판정|최종 승인 대기/.test(text)};
 export function proposal(field:DailyRecordContext['selectedFields'][number],value:string){return {field,value:['progress','homework','lessonMemo'].includes(field)&&value&&!value.startsWith('- ')?'- '+value:value,factRefs:['user-fact:'+field],decision:{kind:'replace' as const,requestRef:'synthetic-current-user-request'}};}
 
-// Stub only for pre-existing narrative/fact tests; canonical integration has separate owner-bundle tests.
-export const learningPolicy:DailyRecordLearningPolicy={bundleSha256:'5'.repeat(64),configSha256:'6'.repeat(64),catalogSha256:'7'.repeat(64),review:()=>[]};
+// The service's retired fourth (learning-policy) slot; the review consults no learning catalog.
+export const learningPolicy=null;

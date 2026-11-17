@@ -196,19 +196,14 @@ test('a student outside the launch list saves by the intake-recorded name, and o
   expect(writes).toBe(1);
 });
 
-test('held mapping rows carry field-local actions and a scoped correction target without inventing a mapping',async()=>{
-  const policy={bundleSha256:'5'.repeat(64),configSha256:'6'.repeat(64),catalogSha256:'7'.repeat(64),review:()=>['student_book_binding_unverified_ask_teacher','learning_mapping_unqualified']};
-  const service=new DailyRecordService(backend(),safeguard,()=>clock,policy);
+test('held rows carry field-local actions without a correction scope or a mapping',async()=>{
+  const service=new DailyRecordService(backend(),safeguard,()=>clock);
   const c=context(),intake=await service.intake({context:c});
-  const entries=[{bookRef:'fictional-book',unitRef:'fictional-unit',scope:'unit' as const,sectionRefs:[],activity:'fictional activity',deadline:null}];
-  const review:any=await service.review({context:c,observationHandle:intake.observationHandle!,proposals:[{...proposal('progress','지정 문제 12문항 풀이 진행.'),learningEntries:entries}]});
+  const review:any=await service.review({context:c,observationHandle:intake.observationHandle!,proposals:[proposal('progress','지정 문제 13문항 풀이 진행.')]});
   expect(review.status).toBe('held');
   expect(review.rows[0].holdActions).toEqual([
-    {field:'progress',code:'student_book_binding_unverified_ask_teacher',action:'teacher_interview',guidance:expect.stringContaining('scoped correction'),
-      correctionScope:{scope:c.scope,field:'progress',learningEntries:entries,appliesTo:'this_student_edition_unit_activity_only'}},
-    {field:'progress',code:'learning_mapping_unqualified',action:'owner_catalog_binding',guidance:expect.stringContaining('Never invent'),
-      correctionScope:expect.objectContaining({appliesTo:'this_student_edition_unit_activity_only'})}]);
-  expect(review.patch).toEqual([]);expect(review.rows[0].learningSuggestedRendering).toBeNull();
+    {field:'progress',code:'unsupported_question_count',action:'supply_or_correct_fact',guidance:expect.stringContaining('teacher facts')}]);
+  expect(review.patch).toEqual([]);
 });
 
 test('the kernel lock serializes holders, times out while held and is released when a holder process dies',async()=>{

@@ -2,7 +2,7 @@ import {installToolAudit} from './tool-audit.ts';
 import {academyRoutingDescription} from './routing-context.ts';
 import {runtimeIdentityConfiguration,registerRuntimeIdentity} from './runtime-identity.ts';
 import {installStdioDiagnostics,createAcademyStdioTransport} from './stdio-diagnostics.ts';
-import {dailyRecordLearningConfiguration} from './dailyrecord-learning.ts';
+import {withoutRetiredLearningArguments} from './dailyrecord-learning.ts';
 import { McpServer } from '@modelcontextprotocol/server';
 import { capabilitiesInputSchema, loadService, sourceStatusInputSchema } from './service.ts';
 import { readOnlyAnnotations } from './contracts.ts';
@@ -19,7 +19,7 @@ const service = await loadService(repoRoot);
 const server = new McpServer({ name: 'academy-operations', version: '0.1.0' });
 installToolAudit(server,{endpoint:'server'});
 const runtimeIdentity=await runtimeIdentityConfiguration(process.argv.slice(2));
-const learning=await dailyRecordLearningConfiguration(runtimeIdentity.remainingArgs);
+const learning=withoutRetiredLearningArguments(runtimeIdentity.remainingArgs);
 const configuration=await dailyRecordToolConfiguration(learning.remainingArgs);
 // P3: read backend is injected once by the owner launch configuration, the
 // same path as dailyrecord-server.ts. Without owner args the backend stays
@@ -32,7 +32,7 @@ const native=await nativeDailyRecordConfiguration(hasNativeTriple?configuration.
 const labelArgs=hasNativeTriple?configuration.remainingArgs.slice(3):configuration.remainingArgs;
 registerItemLabelTools(server,await loadItemLabelIndex(labelArgs));
 registerRuntimeIdentity(server,runtimeIdentity.identity);
-registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,configuration.parentSafeguard,Date.now,learning.learningPolicy,native?.backend??null));
+registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,configuration.parentSafeguard,Date.now,null,native?.backend??null));
 if(native)process.once('exit',native.close);
 server.registerTool('academy_capabilities', {
   title: 'Academy operational hierarchy and source contracts',
