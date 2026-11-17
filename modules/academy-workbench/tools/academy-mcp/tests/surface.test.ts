@@ -87,7 +87,7 @@ const surfaceDoc=(tools:unknown[],extra:Record<string,unknown>={})=>({schemaVers
 
 test('surface tools/list: surface names in order, verbatim descriptions, placeholder replaced, surface schema where given, registry members kept',async()=>{
  const f=await fixtureBase();
- const narrowed={type:'object',properties:{displayName:{type:'string',minLength:2}},required:['displayName'],additionalProperties:false};
+ const narrowed={type:'object' as const,properties:{displayName:{type:'string',minLength:2}},required:['displayName'],additionalProperties:false};
  const surface=await f.pin('surface.json',surfaceDoc([
   {name:'fictional_unrouted_tool',description:'Unrouted first. Dates {{admittedDates}}; again {{admittedDates}}.'},
   {name:'academy_student_resolve',title:'Surface resolve title',description:'Resolve one exact student name.',inputSchema:narrowed},
@@ -158,10 +158,15 @@ test('an unqualified surface makes the release fail to load with release_surface
    await f.publish({surface:await f.pin('surface.json',value)});
    expect({label,...await loadFailure(f.base)}).toEqual({label,message:'release_surface_unqualified',code:'release_surface_unqualified'});
   }
-  // The same through the bridge: listing and calling fail closed with that code.
-  await f.publish({surface:await f.pin('surface.json',cases[0]![1])});
+  // The same through the bridge: a fresh bridge refuses to start, a running one fails closed per request.
+  const unqualified=await f.pin('surface.json',cases[0]![1]);
+  await f.publish({surface:unqualified});
+  const fresh=Bun.spawn([process.execPath,'--preload',deny,entry],{env:f.env,stdin:'ignore',stdout:'pipe',stderr:'pipe'});
+  expect(await fresh.exited).toBe(1);expect(await new Response(fresh.stderr).text()).toBe('release_surface_unqualified\n');
+  await f.publish();
   const {client,close}=await connect(f.env);
   try{
+   await f.publish({surface:unqualified});
    const before=await readFile(f.events,'utf8').catch(()=>'');
    const called=await client.callTool({name:'academy_source_status',arguments:{}});
    expect(called.structuredContent).toMatchObject({status:'blocked',code:'release_surface_unqualified',failure:{category:'contract_drift'}});
@@ -217,7 +222,7 @@ test('tool_input_invalid carries at most 5 issues without argument values, with 
 
 test('a listed tool is validated against the registry schema, not the narrower displayed one, and reaches its endpoint',async()=>{
  const f=await discoveredBase();
- const displayed={type:'object',properties:{mode:{type:'string'}},required:['mode'],additionalProperties:false};
+ const displayed={type:'object' as const,properties:{mode:{type:'string'}},required:['mode'],additionalProperties:false};
  await f.publish({surface:await f.pin('surface.json',surfaceDoc([{name:'academy_source_status',description:'Coverage of saved evidence.',inputSchema:displayed}]))});
  const {client,close}=await connect(f.env);
  try{
