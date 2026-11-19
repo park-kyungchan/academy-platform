@@ -38,6 +38,13 @@ Output contains paths, file hashes/byte counts, student/operation counts and exp
 After a kill between writes, or when only final stdout fails, the owner root
 remains; the Lead removes it before a new run.
 
+A standing owner root has no credential document and no expiry: `prepare-owner --standing`
+takes the same arguments without `--secret-env`, `--secret-key` and `--expires-at` (any of them
+refuses with `prepare_input_invalid`); `--paper-form` may be absent (the roster's `paper_form` is
+then null, so only `--families dailyrecord` passes its preflight). It writes `account-lock.json`,
+`transport-admission.json` and `roster.json` with the same checks and rollback, and prints
+`"standing":true` with the three documents' hashes and no expiry. Only `edu lesson` uses it.
+
 First capture (one book; explicitly authorized by the Lead):
 ```sh
 academy-capture textbook --owner-root "$OWNER_ROOT" --admission transport-admission.json --admission-sha256 "$(jq -r '.documents["transport-admission.json"].sha256' "$PREP_RESULT")" --credential credential.json --credential-sha256 "$(jq -r '.documents["credential.json"].sha256' "$PREP_RESULT")" --roster "$OWNER_ROOT/roster.json" --spool "$SPOOL" --date 2026-11-13 --max-requests 5 --no-detail
@@ -358,3 +365,75 @@ is 43 kB.
 A table is for reading: a line break in a text renders as a space, and a text equal to one
 of the engine's marks (`(missing)`, a trailing ` (stale)`) cannot be told from the mark.
 The exact bytes of a member are read with the engine's `get` or `search`.
+
+## The lesson command `edu lesson` (crate `crates/edu`)
+
+`edu [--config PATH] lesson VERB` answers a lesson session's reads from the read store and
+captures a date with the family above. The default configuration file is
+`/etc/education-platform/lesson.json`; no other argument names a path.
+
+| Verb | What it does |
+| --- | --- |
+| `day DATE [--refresh]` | The view `daily_records` of the date |
+| `record DATE STUDENT [--refresh] [--exact]` | The view `daily_record` of one student; with `--exact` each row as one JSON object of its members (a missing member left out, plus `observed_at`), because the table renders a line break as a space |
+| `history STUDENT_ID [--since DATE]` | The view `record_history` (at most 24 rows, the newest first); without `--since` the date 56 days before today |
+| `refresh DATE...` | 1 to 31 distinct dates: captures them and prints one coverage line per date |
+
+Every date is checked before the configuration, the engine or the LMS: a date that does not exist
+or is not spelled `YYYY-MM-DD` refuses with `lesson_date_invalid`; for `day`, `record` and `refresh`
+a date after today in Asia/Seoul (UTC+9) refuses with `lesson_date_in_future`. STUDENT is a
+student id (1 to 12 digits) or a name as the date's row shows it; a name is resolved with the
+engine's `search` among that date's rows: no student is `lesson_student_not_found`, two or more
+student ids are `{"status":"lesson_student_ambiguous","count":N}`. A student in two courses is one
+student. Other words refuse with `lesson_usage_invalid` or `lesson_student_invalid`.
+
+Order of a run: the configuration; the installed `academy_read` schema's digest (the engine's
+`describe`) against the embedded schema with its spool root replaced by the configured spool
+(`lesson_schema_mismatch`; a store file that is absent or an answer that is not the engine's is
+`lesson_store_unavailable`); the two spool directories (the family's `initialize`); the index of
+`lesson_record` and `lesson_day` (`lesson_index_failed` when a source failed, with no table). `day`
+and `record` capture their date only when the store holds no `lesson_day` of it or with `--refresh`,
+then index again; `history` never contacts the LMS. The engine runs in process (`ont::run`) with
+the clock's time at each call and the process's real and effective user ids. It never installs
+a schema. The engine answers only a caller whose two ids are 0: any other caller ends with the
+engine's code `principal_not_trusted` at that first `describe`, before the owner root or the
+secret file is read and before any request. `lesson_schema_mismatch` means that `describe`
+answered and its `academy_read` digest is absent or differs; a refused or failed `describe` is
+reported by the engine's own code, else `lesson_store_unavailable`. The library entry
+`edu::run` takes the two ids as it takes the clock and the transport; the tests pass 0 and 0.
+
+A capture reads the standing owner root's admission and roster by their digests, runs the
+family's `preflight` and `run` over one `NativeSession` (one login for all dates, one request per
+date, the optional raw recorder), and is refused with the first refused date's code (earlier dates
+stay published). The credential is `prepare_owner::SecretFileCredentials`: the secret file's
+`KEY=value` line and the identity file's `sourceUsername`, read with the preparation's parser and
+file checks when the session opens, never written. A busy account lock is retried every 250 ms
+until `lockWaitSeconds` have passed, then the run ends with `owner_account_busy`.
+
+Line 1 is one JSON object. `day` and `record`: `status`, `date`, `captured_at` (the `lesson_day`
+object's time, in seconds) and `age_seconds`, its `rows`, `stored`, `outside_roster`,
+`cut_fields`, `login` (`new` when this run sent a request, which begins with the login, else
+`none`), `requests` (every request of the run, the login exchanges included) and
+`lock_wait_seconds`; `record` adds `student_id`. `history`: `status`, `since`, `rows` and the
+oldest `captured_at` of those rows with its `age_seconds` (null without rows), and the last three.
+`refresh`: `status`, `dates` and the last three. Then the engine's table unchanged. A refusal is
+`{"status":"<code>"}` alone with exit code 2: a code of this command, of the family, of the
+session or of the owner root. Nothing is written on standard error.
+
+Each run whose configuration was read appends one line to `<directory of the store>/lesson-runs.jsonl`
+(mode 0600): `time`, `verb`, `dates` (how many), `login`, `requests`, `lock_wait_seconds`, `status`.
+A run log that cannot be written ends the run with `lesson_run_log_failed`.
+
+The configuration file is owned by the caller and not writable by group or others
+(`lesson_config_refused`; also for an unknown member or a relative path):
+
+```json
+{"schemaVersion":"edu.lesson-config/1","ownerRoot":"/absolute/standing-owner-root",
+ "admissionSha256":"<hex>","rosterSha256":"<hex>","spool":"/var/lib/academy-read/spool",
+ "store":"/var/lib/academy-read/store.sqlite","secretFile":"/absolute/secret.env",
+ "secretKey":"<KEY>","identityFile":"/absolute/identity.json","rawDir":"/absolute/raw",
+ "lockWaitSeconds":30}
+```
+
+`rawDir` may be absent (no raw answers are kept) and `lockWaitSeconds` defaults to 30 (at most 3600).
+The tests are `crates/edu/tests/lesson.rs`, on an invented LMS and an invented page.

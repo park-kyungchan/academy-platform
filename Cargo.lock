@@ -247,6 +247,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "edu"
+version = "0.0.0"
+dependencies = [
+ "edu-academy-core",
+ "edu-academy-ontology",
+ "edu-academy-sources",
+ "ont",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "edu-academy-core"
 version = "0.0.0"
 dependencies = [
