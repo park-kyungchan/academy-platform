@@ -1,6 +1,6 @@
 {
  "schemaVersion": "academy.release-tools-fixture/1",
- "source": "Release v5 (host-s15-flex1-b79e66a-v5): the tools of its surface.json; endpoint, upstreamName and inputSchema from its registry.json. Tool contracts only.",
+ "source": "Release v5 (built from b79e66a): the tools of its surface.json; endpoint, upstreamName and inputSchema from its registry.json. Tool contracts only.",
  "tools": [
   {
    "name": "academy_dailyrecord_get",

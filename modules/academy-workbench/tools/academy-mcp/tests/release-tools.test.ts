@@ -40,8 +40,8 @@ const hiddenTools:Record<Program,string[]>={
  saved:['academy_endpoint_identity'],
  dailyrecord:['academy_endpoint_identity','academy_textbook_units_get'],
 };
-/** The paper endpoints' tools are compared by unit z1s2, with the paper server. */
-const comparedByZ1s2=fixture.tools.filter(t=>t.endpoint==='paper1'||t.endpoint==='paper2').map(t=>t.name);
+/** The paper endpoints' tools are not compared here: the change that adds the paper server compares them. */
+const comparedWithPaperServer=fixture.tools.filter(t=>t.endpoint==='paper1'||t.endpoint==='paper2').map(t=>t.name);
 
 /** JSON pointers at which two schemas differ, ignoring the top-level `$schema`. */
 function differences(a:unknown,b:unknown,path=''):string[]{
@@ -73,7 +73,7 @@ describe('release v5 tools against the endpoint programs',()=>{
   expect(fixture.tools.map(t=>t.name)).toEqual(surface.tools.map(t=>t.name));
   expect(fixture.tools.filter(t=>t.servedBy!=='bridge')).toHaveLength(38);
   expect(fixture.tools.filter(t=>t.servedBy==='bridge')).toEqual([{name:'academy_runtime_identity',servedBy:'bridge',compared:false}]);
-  expect(comparedByZ1s2.sort()).toEqual(['academy_daily_test_inventory','academy_paper_definition_lookup','academy_paper_headers',
+  expect(comparedWithPaperServer.sort()).toEqual(['academy_daily_test_inventory','academy_paper_definition_lookup','academy_paper_headers',
    'academy_paper_read_contracts','academy_printed_paper_lookup','academy_source_read_contracts','class2_academy_paper_headers']);
  });
 
