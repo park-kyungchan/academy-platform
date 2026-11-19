@@ -1,6 +1,6 @@
 # Read tool input: the words a teacher or a model uses
 
-Source: `src/read-input.ts`. Tests: `tests/read-input-flex.test.ts`.
+Source: `src/read-input.ts`. Tests: `tests/read-input-flex.test.ts`. What these inputs change in the release (registered schemas, `release/surface.json`): [release v6 differences](release-v6-differences.md#input-schemas).
 
 ## Request identity
 

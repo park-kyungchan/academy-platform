@@ -281,7 +281,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       // Source bookLabel cells are not always titles (a progress row can
       // yield a percent literal), so attach each binding's first observed
       // section title as a selection hint. The hint never selects; the
-      // caller still echoes the exact bookLabel on the second call.
+      // caller selects with a bookLabel on the second call.
       const candidates:{bookLabel:string;bookNo:string;hint?:string}[]=[];
       for(const b of choice?.kind==='interview'?choice.candidates:bindings){
         let hint:string|undefined;

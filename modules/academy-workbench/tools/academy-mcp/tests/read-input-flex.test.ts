@@ -117,10 +117,13 @@ test('check 1: four read tools answer without purpose and currentRequestRef as w
   }finally{await e.close();}
 },30000);
 
-test('check 1: through the bridge, academy_dailyrecord_get and academy_student_resolve need no request identity',async()=>{
+/** A bridge whose registry is its own `--discover` output of the fictional
+ * dailyrecord endpoint (tests/gates-upstream-fixture.ts), as a release is built:
+ * calls are validated against that registry. */
+async function bridgeFromDiscovery(label:string){
   const entry=resolve(import.meta.dir,'../src/neutral-server.ts'),deny=resolve(import.meta.dir,'network-deny.ts');
   const hash=(bytes:string|Buffer)=>createHash('sha256').update(bytes).digest('hex');
-  const base=await mkdtemp(resolve(tmpdir(),'flex-2-bridge-'));
+  const base=await mkdtemp(resolve(tmpdir(),label+'-'));
   try{
     const events=resolve(base,'events.txt');await writeFile(events,'');
     const endpointsValue={dailyrecord:{command:process.execPath,args:['--preload',deny,resolve(import.meta.dir,'gates-upstream-fixture.ts'),events]}};
@@ -131,26 +134,61 @@ test('check 1: through the bridge, academy_dailyrecord_get and academy_student_r
     expect(await discovery.exited).toBe(0);
     const pin=async(name:string,bytes:string)=>{const path=resolve(base,'pinned-'+name);await writeFile(path,bytes,{mode:0o600,flag:'wx'});return {path,sha256:hash(bytes)};};
     const registry=await pin('registry.json',await readFile(resolve(base,'registry.json'),'utf8'));
-    const release={schemaVersion:'academy.mcp-release/1',generation:'flex-2',routing:await pin('routing.json','{}'),endpoints:await pin('endpoints.json',JSON.stringify(endpointsValue)),registry};
+    const release={schemaVersion:'academy.mcp-release/1',generation:label,routing:await pin('routing.json','{}'),endpoints:await pin('endpoints.json',JSON.stringify(endpointsValue)),registry};
     await writeFile(resolve(base,'release.tmp'),JSON.stringify(release),{mode:0o600});await rename(resolve(base,'release.tmp'),resolve(base,'release.json'));
     const client=new Client({name:'fictional-flex-bridge-client',version:'1.0.0'});
     const transport=new StdioClientTransport({command:process.execPath,args:['--preload',deny,entry],env,stderr:'pipe'});
     await client.connect(transport);
-    try{
-      const tools=(await client.listTools()).tools;
-      for(const name of ['academy_dailyrecord_get','academy_student_resolve','academy_prestudy_get','academy_textbook_section_results_get']){
-        const required=(tools.find(t=>t.name===name)!.inputSchema.required??[]) as string[];
-        expect(required).not.toContain('purpose');expect(required).not.toContain('currentRequestRef');
+    return {client,close:async()=>{try{await client.close();await transport.close();}finally{await rm(base,{recursive:true,force:true});}}};
+  }catch(error){await rm(base,{recursive:true,force:true});throw error;}
+}
+
+test('check 1: through the bridge, academy_dailyrecord_get and academy_student_resolve need no request identity',async()=>{
+  const {client,close}=await bridgeFromDiscovery('flex-2');
+  try{
+    const tools=(await client.listTools()).tools;
+    for(const name of ['academy_dailyrecord_get','academy_student_resolve','academy_prestudy_get','academy_textbook_section_results_get']){
+      const required=(tools.find(t=>t.name===name)!.inputSchema.required??[]) as string[];
+      expect(required).not.toContain('purpose');expect(required).not.toContain('currentRequestRef');
+    }
+    const got:any=await client.callTool({name:'academy_dailyrecord_get',arguments:{displayName:'Unlisted Student',lessonDate:'2041-06-30'}});
+    expect(got.isError).toBeFalsy();
+    expect(got.structuredContent).toMatchObject({status:'observed',purpose:'academy_dailyrecord_get',lessonDate:'2041-06-30',scope:{studentId:'77009',lessonDate:'2041-06-30'}});
+    expect(got.structuredContent.currentRequestRef).toMatch(generatedRef);
+    const resolved:any=await client.callTool({name:'academy_student_resolve',arguments:{displayName:'Unlisted Student'}});
+    expect(resolved.structuredContent).toMatchObject({status:'resolved',studentKey:'77009',purpose:'academy_student_resolve'});
+    expect(resolved.structuredContent.currentRequestRef).toMatch(generatedRef);
+  }finally{await close();}
+},120000);
+
+// The first use: a lesson session asks for a student's textbook section index
+// with a short book label and no sourceTitles (the call shape of the recorded
+// error, which answered textbook_binding_missing_or_ambiguous). Through the
+// bridge, against the fixture's textbook list (tests/fixtures/textbook-list.json).
+test('first use: a short book label naming one listed book answers with bookSelection; one naming two asks with both',async()=>{
+  const list=(JSON.parse(await readFile(resolve(import.meta.dir,'fixtures/textbook-list.json'),'utf8')) as {bindings:{bookNo:string;bookLabel:string}[]}).bindings;
+  const label=(bookNo:string)=>list.find(b=>b.bookNo===bookNo)!.bookLabel;
+  const {client,close}=await bridgeFromDiscovery('first-use');
+  try{
+    const call=async(args:Record<string,unknown>)=>{
+      const result:any=await client.callTool({name:'academy_textbook_section_results_get',arguments:{displayName:'Unlisted Student',...args}});
+      expect(JSON.stringify(result)).not.toContain('textbook_binding_missing_or_ambiguous');
+      expect(result.isError).toBeFalsy();
+      return result.structuredContent as Record<string,any>;
+    };
+    for(const view of [{},{view:'compact'}]){
+      for(const [bookLabel,bookNo] of [['다빈치','90'],['가우스 2권','72'],['가우스 5-1-1','71']] as const){
+        const one=await call({bookLabel,...view});
+        expect(one).toMatchObject({status:'observed',purpose:'academy_textbook_section_results_get',bookNo,bookLabel:label(bookNo),
+          bookSelection:{requested:bookLabel,boundLabel:label(bookNo),match:'loose'}});
+        expect(one.index.map((r:any)=>r.sourceTitle)).toEqual(['Section of book '+bookNo]);
+        expect(one.currentRequestRef).toMatch(generatedRef);
       }
-      const got:any=await client.callTool({name:'academy_dailyrecord_get',arguments:{displayName:'Unlisted Student',lessonDate:'2041-06-30'}});
-      expect(got.isError).toBeFalsy();
-      expect(got.structuredContent).toMatchObject({status:'observed',purpose:'academy_dailyrecord_get',lessonDate:'2041-06-30',scope:{studentId:'77009',lessonDate:'2041-06-30'}});
-      expect(got.structuredContent.currentRequestRef).toMatch(generatedRef);
-      const resolved:any=await client.callTool({name:'academy_student_resolve',arguments:{displayName:'Unlisted Student'}});
-      expect(resolved.structuredContent).toMatchObject({status:'resolved',studentKey:'77009',purpose:'academy_student_resolve'});
-      expect(resolved.structuredContent.currentRequestRef).toMatch(generatedRef);
-    }finally{await client.close();await transport.close();}
-  }finally{await rm(base,{recursive:true,force:true});}
+      const two=await call({bookLabel:'가우스',...view});
+      expect(two).toMatchObject({status:'interview_required',kind:'interview_required',bookSelection:{requested:'가우스',match:'several'}});
+      expect(two.bindings.map((b:any)=>b.bookLabel)).toEqual([label('71'),label('72')]);
+    }
+  }finally{await close();}
 },120000);
 
 test('check 2: 어제, 11월 16일(일), 11/16 and 2026-11-16 give the same answer on 2026-11-17 in Asia/Seoul',async()=>{

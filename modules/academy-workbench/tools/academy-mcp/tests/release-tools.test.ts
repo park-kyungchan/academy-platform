@@ -7,6 +7,8 @@ import {Client} from '@modelcontextprotocol/client';
 import {StdioClientTransport} from '@modelcontextprotocol/client/stdio';
 import {dailyRecordGetSchema} from '../src/dailyrecord-read.ts';
 import {dailyTestHeaderRouteSchema} from '../src/dailytest-header-route.ts';
+import {academyDateInputSchema} from '../src/read-input.ts';
+import {poolQuestionContentInputSchema} from '../src/pool-question-content.ts';
 
 // Compares the tools of release v5 (tests/fixtures/release-v5-tools.json, taken from its
 // surface.json and registry.json) with what the saved and dailyrecord endpoint programs
@@ -31,9 +33,32 @@ const bridgeSchemas:Record<string,JsonSchema>={
  dailyRecordGetSchema:z.toJSONSchema(dailyRecordGetSchema,{io:'input'}) as JsonSchema,
  dailyTestHeaderRouteSchema:z.toJSONSchema(dailyTestHeaderRouteSchema,{io:'input'}) as JsonSchema,
 };
-/** Every input-schema difference of v6 from v5, by JSON pointer; each is explained in docs/release-v6-differences.md. */
+/** Every input-schema difference of v6 from v5, by the JSON pointer of the member that
+ * differs: each difference lies at or under a listed pointer, and each listed pointer has
+ * one. `required` is compared as a set. Each is explained in docs/release-v6-differences.md. */
+const identity=['/properties/currentRequestRef','/properties/purpose'];
+const period=(kind:number)=>`/properties/queries/items/oneOf/${kind}/properties/period`;
 const knownDifferences:Record<string,string[]>={
- academy_dailyrecord_get:['/properties/lessonDate/description','/properties/view'],
+ academy_dailyrecord_get:[...identity,'/properties/lessonDate','/properties/view','/required'],
+ academy_dailytest_history_with_headers:[...identity,'/properties/lessonDate','/required'],
+ academy_student_resolve:['/properties/lessonDate','/required'],
+ academy_student_metadata_get:[...identity,'/properties/lessonDate',period(0),period(4),'/required'],
+ academy_student_metadata:[...identity,period(0),period(4),'/properties/scope/properties/lessonDate','/required'],
+ academy_textbook_section_results_get:[...identity,'/required'],
+ academy_textbook_section_results:[...identity,'/required'],
+ academy_clinic_paper_status_get:[...identity,'/required'],
+ academy_item_section_trace:[...identity,'/required'],
+ academy_item_answer_lookup:['/required'],
+ academy_prestudy_get:[...identity,'/required'],
+ academy_prestudy_report_get:[...identity,'/required'],
+ academy_review_type_questions:['/properties/purpose','/required'],
+ academy_cism_weekly_get:['/properties/date'],
+};
+/** Input schemas changed for v6 of tools that neither v5 nor these two endpoints route
+ * (the pool server's): no v5 record to compare with, so each states its v6 form. */
+const changedOutsideTheEndpoints:Record<string,{pointers:string[];schema:JsonSchema;check:(schema:JsonSchema)=>unknown}>={
+ academy_pool_question_content:{pointers:['/properties/purpose','/required'],schema:z.toJSONSchema(poolQuestionContentInputSchema,{io:'input'}) as JsonSchema,
+  check:schema=>({purposeDefault:at(schema,'/properties/purpose/default'),purposeRequired:((schema.required??[]) as string[]).includes('purpose')})},
 };
 /** Registered by a program and deliberately absent from the surface. */
 const hiddenTools:Record<Program,string[]>={
@@ -43,14 +68,49 @@ const hiddenTools:Record<Program,string[]>={
 /** The paper endpoints' tools are not compared here: the change that adds the paper server compares them. */
 const comparedWithPaperServer=fixture.tools.filter(t=>t.endpoint==='paper1'||t.endpoint==='paper2').map(t=>t.name);
 
-/** JSON pointers at which two schemas differ, ignoring the top-level `$schema`. */
+/** JSON pointers at which two schemas differ, ignoring the top-level `$schema`; a
+ * `required` list is compared as a set, so its order and indices do not count. */
 function differences(a:unknown,b:unknown,path=''):string[]{
+ if(path.endsWith('/required')&&Array.isArray(a)&&Array.isArray(b)){
+  const set=(list:unknown[])=>JSON.stringify([...new Set(list.map(String))].sort());
+  return set(a)===set(b)?[]:[path];
+ }
  if(a!==null&&b!==null&&typeof a==='object'&&typeof b==='object'&&Array.isArray(a)===Array.isArray(b)){
   const ao=a as Record<string,unknown>,bo=b as Record<string,unknown>;
   const keys=[...new Set([...Object.keys(ao),...Object.keys(bo)])].filter(k=>!(path===''&&k==='$schema'));
   return keys.flatMap(k=>!(k in ao)||!(k in bo)?[path+'/'+k]:differences(ao[k],bo[k],path+'/'+k));
  }
  return Object.is(a,b)?[]:[path];
+}
+
+const under=(path:string,member:string)=>path===member||path.startsWith(member+'/');
+
+/** The date members of a registered schema: string members described by the date
+ * input schema of src/read-input.ts, by JSON pointer. */
+const dateDescription=academyDateInputSchema.description!;
+function dateMembers(schema:unknown,path=''):string[]{
+ if(!schema||typeof schema!=='object'||Array.isArray(schema))return [];
+ const s=schema as JsonSchema;
+ if(typeof s.description==='string'&&s.description.includes(dateDescription))return [path];
+ const nested=(key:string)=>Object.entries((s[key]??{}) as Record<string,unknown>).flatMap(([k,v])=>dateMembers(v,`${path}/${key}/${k}`));
+ return [...nested('properties'),...(s.items?dateMembers(s.items,path+'/items'):[]),...nested('anyOf'),...nested('oneOf')];
+}
+const at=(schema:unknown,pointer:string)=>pointer.split('/').slice(1).reduce<unknown>((node,key)=>
+ node&&typeof node==='object'?(node as Record<string,unknown>)[key]:undefined,schema);
+/** Whether a displayed or registered string schema lets a value through: a `format` or a
+ * `pattern` that the value fails rules it out, as does a `const` or `enum` without it. */
+function acceptsString(schema:unknown,value:string):boolean{
+ const s=(schema??{}) as JsonSchema;
+ if(Array.isArray(s.anyOf))return s.anyOf.some(branch=>acceptsString(branch,value));
+ if(Array.isArray(s.oneOf))return s.oneOf.filter(branch=>acceptsString(branch,value)).length===1;
+ if(s.type!==undefined&&![s.type].flat().includes('string'))return false;
+ if('const' in s)return s.const===value;
+ if(Array.isArray(s.enum))return s.enum.includes(value);
+ if(s.format!==undefined)return false;
+ if(typeof s.pattern==='string'&&!new RegExp(s.pattern,'u').test(value))return false;
+ if(typeof s.minLength==='number'&&value.length<s.minLength)return false;
+ if(typeof s.maxLength==='number'&&value.length>s.maxLength)return false;
+ return true;
 }
 
 const listed:Partial<Record<Program,Map<string,JsonSchema>>>={};
@@ -83,18 +143,28 @@ describe('release v5 tools against the endpoint programs',()=>{
  });
 
  for(const tool of fixture.tools.filter(t=>t.servedBy!=='bridge'&&isProgram(t.endpoint))){
-  test(`${tool.name} keeps its v5 input schema (${tool.servedBy==='bridge_composition'?'bridge composition':tool.endpoint})`,()=>{
+  test(`${tool.name} keeps its v5 input schema but for the listed differences (${tool.servedBy==='bridge_composition'?'bridge composition':tool.endpoint})`,()=>{
    // A bridge composition is compared with the bridge's schema; an endpoint tool with what its program registers.
    const current=tool.servedBy==='bridge_composition'?bridgeSchemas[tool.bridgeSchema!]:registered(tool.endpoint as Program).get(tool.upstreamName!);
    expect(current).toBeDefined();
-   expect(differences(tool.inputSchema,current).sort()).toEqual(knownDifferences[tool.name]??[]);
+   const found=differences(tool.inputSchema,current).sort(),known=knownDifferences[tool.name]??[];
+   expect({unlisted:found.filter(path=>!known.some(member=>under(path,member))),unused:known.filter(member=>!found.some(path=>under(path,member)))})
+    .toEqual({unlisted:[],unused:[]});
   });
  }
 
- test('every known difference is listed in docs/release-v6-differences.md',()=>{
-  for(const [name,paths] of Object.entries(knownDifferences)){
-   for(const path of paths)expect(differencesPage).toContain(`\`${name}\` \`${path}\``);
+ test('every known difference is listed in docs/release-v6-differences.md, one row per tool',()=>{
+  const rows=new Map(differencesPage.split('\n').flatMap(line=>{const m=/^\| `(academy_\w+)` \|/.exec(line);return m?[[m[1]!,line] as const]:[];}));
+  expect([...rows.keys()].sort()).toEqual([...Object.keys(knownDifferences),...Object.keys(changedOutsideTheEndpoints)].sort());
+  const outside=Object.entries(changedOutsideTheEndpoints).map(([name,{pointers}])=>[name,pointers] as const);
+  for(const [name,paths] of [...Object.entries(knownDifferences),...outside]){
+   for(const path of paths)expect({name,row:rows.get(name)?.includes(`\`${path}\``)}).toEqual({name,row:true});
   }
+ });
+
+ test('academy_pool_question_content, outside the two endpoints, takes purpose by default',()=>{
+  const {schema,check}=changedOutsideTheEndpoints.academy_pool_question_content!;
+  expect(check(schema)).toEqual({purposeDefault:'teacher_requested_review',purposeRequired:false});
  });
 
  test('every registered tool is on the surface, except the named hidden tools',()=>{
@@ -121,6 +191,32 @@ describe('release v5 tools against the endpoint programs',()=>{
   // status tool, which has no members.
   expect(withoutMembers.sort()).toEqual(['academy_cism_section','academy_find_item_labels','academy_item_label_scope',
    'academy_review_type_questions','academy_source_status']);
+ });
+
+ test('each displayed date member lets 어제 and 11월 16일 through, as its registered schema does',()=>{
+  const route=new Map(fixture.tools.map(t=>[t.name,t]));
+  const displayed:string[]=[];
+  for(const shown of surface.tools){
+   const tool=route.get(shown.name);
+   if(!shown.inputSchema||!tool||!isProgram(tool.endpoint))continue;
+   const current=tool.servedBy==='bridge_composition'?bridgeSchemas[tool.bridgeSchema!]!:registered(tool.endpoint).get(tool.upstreamName!)!;
+   for(const pointer of dateMembers(current)){
+    for(const value of ['어제','11월 16일']){
+     expect({name:shown.name,pointer,value,registered:acceptsString(at(current,pointer),value)}).toEqual({name:shown.name,pointer,value,registered:true});
+    }
+    const node=at(shown.inputSchema,pointer);
+    if(node===undefined)continue;
+    displayed.push(`${shown.name} ${pointer}`);
+    for(const value of ['어제','11월 16일']){
+     expect({name:shown.name,pointer,value,displayed:acceptsString(node,value)}).toEqual({name:shown.name,pointer,value,displayed:true});
+    }
+   }
+  }
+  // The date members the surface displays; a date member inside a displayed
+  // `queries: {type: 'array'}` is not displayed.
+  expect(displayed.sort()).toEqual(['academy_cism_weekly_get /properties/date','academy_dailyrecord_get /properties/lessonDate',
+   'academy_dailytest_history_with_headers /properties/lessonDate','academy_student_metadata /properties/scope/properties/lessonDate',
+   'academy_student_metadata_get /properties/lessonDate','academy_student_resolve /properties/lessonDate']);
  });
 
  test('build:endpoints refuses an out directory other than modules/academy-workbench/.local/<name>/src',()=>{
