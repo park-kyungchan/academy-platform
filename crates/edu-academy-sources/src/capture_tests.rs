@@ -466,13 +466,7 @@ fn prepare_owner_binary_documents_feed_native_capture_and_partial_write_rolls_ba
         &serde_json::to_vec(&roster().paper_form).unwrap(),
     );
     let output_root = f.0.join("prepared");
-    let binary = std::env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("academy-capture");
+    let binary = academy_capture_binary();
     let out = std::process::Command::new(binary)
         .args(["prepare-owner", "--identity"])
         .arg(&identity)
@@ -738,13 +732,7 @@ fn replay_cli_mode(
     )
     .unwrap();
     fs::write(f.0.join("replay-identity.json"),br#"{"teacherSourceKey":"99001","teacherLabel":"Fictional Teacher","collegeSourceKey":"88001","sourceUsername":"Username_CANARY"}"#).unwrap();
-    let binary = std::env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("academy-capture");
+    let binary = academy_capture_binary();
     let mut command = std::process::Command::new(binary);
     command
         .arg("replay")
@@ -1141,13 +1129,7 @@ fn textbook_binary_admission_refusal_retains_cause_without_opening_credentials()
     let roster_path = f.0.join("roster.json");
     fs::write(&roster_path, serde_json::to_vec(&roster()).unwrap()).unwrap();
     fs::set_permissions(&roster_path, fs::Permissions::from_mode(0o600)).unwrap();
-    let binary = std::env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("academy-capture");
+    let binary = academy_capture_binary();
     let out = std::process::Command::new(binary)
         .args(["textbook", "--owner-root"])
         .arg(&f.0)
@@ -1210,4 +1192,16 @@ fn report_causes_are_bounded_codes_only_and_never_include_properties() {
     }));
     assert!(!serde_json::to_string(&chain).unwrap().contains("CANARY"));
     assert!(causes(&Error::error("Value CANARY/path")).is_empty());
+}
+
+/// The `academy-capture` binary of this build. A unit test gets no `CARGO_BIN_EXE_<name>` (Cargo sets
+/// it for integration tests only), and its own path differs by layout (`<profile>/deps/` before Cargo
+/// 1.100, `<profile>/build/<pkg>/<hash>/out/` with build-dir layout v2), so look in its ancestors for
+/// the final artifact, which stays in `<target-dir>/<profile>/`.
+fn academy_capture_binary() -> std::path::PathBuf {
+    let exe = std::env::current_exe().unwrap();
+    exe.ancestors()
+        .map(|d| d.join("academy-capture"))
+        .find(|p| p.is_file())
+        .unwrap()
 }

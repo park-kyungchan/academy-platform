@@ -230,7 +230,7 @@ pub fn select_source_function(source: &str, name: &str) -> Result<Option<String>
             i += 2;
             continue;
         }
-        if [b'\'', b'"', b'`'].contains(&c) {
+        if b"'\"`".contains(&c) {
             quote = c;
             i += 1;
             continue;
