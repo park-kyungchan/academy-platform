@@ -4,7 +4,7 @@
   {
    "name": "academy_dailyrecord_get",
    "title": "DailyRecord(수업일지) 조회",
-   "description": "Returns one student's live DailyRecord (수업일지, 일지) for one lesson date: status, fields[] (field, before.value; progress 진도, homework 숙제, lessonMemo 메모, attendance 출결, DT and homework assessments), scope, authoringHandle. Use it for every 일지 or 기록 조회, today or past, and to read back after a save. displayName: the name as the user wrote it. lessonDate: omit for today, else YYYY-MM-DD (어제 = yesterday). student_name_not_found: no record on that date. To write, call academy_dailyrecord_review next. Read only.",
+   "description": "Returns one student's live DailyRecord (수업일지, 일지) for one lesson date: status, fields[] (field, before.value; progress 진도, homework 숙제, lessonMemo 메모, attendance 출결, DT and homework assessments), scope, authoringHandle. Use it for every 일지 or 기록 조회, today or past, and to read back after a save. displayName: the name as the user wrote it. lessonDate: omit for today, else YYYY-MM-DD, 오늘, 어제, 11월 16일 or 11/16, resolved in Asia/Seoul; the answer states the resolved lessonDate. purpose and currentRequestRef are optional; the answer returns the ones it used. student_name_not_found: no record on that date. To write, call academy_dailyrecord_review next. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -19,22 +19,11 @@
      },
      "lessonDate": {
       "default": "today",
-      "anyOf": [
-       {
-        "type": "string",
-        "const": "today"
-       },
-       {
-        "type": "string",
-        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-       }
-      ]
+      "type": "string"
      }
     },
     "required": [
-     "displayName",
-     "purpose",
-     "currentRequestRef"
+     "displayName"
     ],
     "additionalProperties": false
    }
@@ -346,7 +335,7 @@
   {
    "name": "academy_student_resolve",
    "title": "학생 키(studentKey) 확인",
-   "description": "Returns studentKey, the native id that the paper and DT inventory tools take as studentId. DailyRecord, textbook, clinic, prestudy and DT history tools take the name and need no key. Without lessonDate it searches recent records only; if that gives student_name_not_found, call once more with lessonDate = a date the student had a lesson (from the user or an earlier result). If no such date is known, ask the user for one. scope.studentId of academy_dailyrecord_get is the same key. Read only.",
+   "description": "Returns studentKey, the native id that the paper and DT inventory tools take as studentId. DailyRecord, textbook, clinic, prestudy and DT history tools take the name and need no key. Without lessonDate it searches recent records only; if that gives student_name_not_found, call once more with lessonDate = a date the student had a lesson (from the user or an earlier result; YYYY-MM-DD, 오늘, 어제, 11월 16일 or 11/16, resolved in Asia/Seoul). If no such date is known, ask the user for one. scope.studentId of academy_dailyrecord_get is the same key. purpose and currentRequestRef are optional; the answer returns the ones it used. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -360,13 +349,10 @@
       "type": "string"
      },
      "lessonDate": {
-      "type": "string",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+      "type": "string"
      }
     },
     "required": [
-     "purpose",
-     "currentRequestRef",
      "displayName"
     ],
     "additionalProperties": false
@@ -375,7 +361,7 @@
   {
    "name": "academy_dailytest_history_with_headers",
    "title": "DailyTest(DT) 이력+시험지 제목",
-   "description": "Returns a student's DailyTest (DT) history with paper titles and question counts: periods[].rows[].header.title, sourcePaperCount. Use it for DT 이력, 시험 기록, 몇 개 쳤는지. lessonDate: a date the student had a lesson (the user's date, or today). periods: '11' = last month, '12' = 1-2 months ago … '16' = 5-6 months ago; all six for 전부. 32 papers per call; for more, call again with headerOffset = nextHeaderOffset, expectedSelectionSha256 = selectionSha256. native_dailyrecord_occurrence_unverified: no lesson that day; use academy_student_resolve, then academy_daily_test_inventory. Read only.",
+   "description": "Returns a student's DailyTest (DT) history with paper titles and question counts: periods[].rows[].header.title, sourcePaperCount. Use it for DT 이력, 시험 기록, 몇 개 쳤는지. lessonDate: a date the student had a lesson (the user's date as written: YYYY-MM-DD, 오늘, 어제, 11월 16일 or 11/16, resolved in Asia/Seoul; or today). periods: '11' = last month, '12' = 1-2 months ago … '16' = 5-6 months ago; all six for 전부. 32 papers per call; for more, call again with headerOffset = nextHeaderOffset, expectedSelectionSha256 = selectionSha256. native_dailyrecord_occurrence_unverified: no lesson that day; use academy_student_resolve, then academy_daily_test_inventory. purpose and currentRequestRef are optional; the answer returns the ones it used. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -383,8 +369,7 @@
       "type": "string"
      },
      "lessonDate": {
-      "type": "string",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+      "type": "string"
      },
      "purpose": {
       "type": "string"
@@ -422,8 +407,6 @@
     "required": [
      "displayName",
      "lessonDate",
-     "purpose",
-     "currentRequestRef",
      "periods"
     ],
     "additionalProperties": false
@@ -432,7 +415,7 @@
   {
    "name": "academy_student_metadata_get",
    "title": "DT·시험 메타데이터(이름·날짜)",
-   "description": "Returns raw DailyTest and test-result rows without paper titles for a student name and lesson date: results[].observation. queries: one or more of {kind:'daily_inventory'}, {kind:'daily_history', periods} ('11' last month … '16' 5-6 months ago), {kind:'student_papers', period:{from, through}}, {kind:'printed_paper_metadata', paperCode, period}. Prefer academy_dailytest_history_with_headers when titles matter. lessonDate must be a date the student had a lesson; native_dailyrecord_occurrence_unverified means it was not: use academy_student_resolve then academy_daily_test_inventory. Read only.",
+   "description": "Returns raw DailyTest and test-result rows without paper titles for a student name and lesson date: results[].observation. queries: one or more of {kind:'daily_inventory'}, {kind:'daily_history', periods} ('11' last month … '16' 5-6 months ago), {kind:'student_papers', period:{from, through}} (dates in the forms of lessonDate), {kind:'printed_paper_metadata', paperCode, period}. Prefer academy_dailytest_history_with_headers when titles matter. lessonDate (YYYY-MM-DD, 오늘, 어제, 11월 16일 or 11/16, resolved in Asia/Seoul) must be a date the student had a lesson; native_dailyrecord_occurrence_unverified means it was not: use academy_student_resolve then academy_daily_test_inventory. purpose and currentRequestRef are optional; the answer returns the ones it used. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -440,8 +423,7 @@
       "type": "string"
      },
      "lessonDate": {
-      "type": "string",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+      "type": "string"
      },
      "purpose": {
       "type": "string"
@@ -511,8 +493,6 @@
     "required": [
      "displayName",
      "lessonDate",
-     "purpose",
-     "currentRequestRef",
      "queries"
     ],
     "additionalProperties": false
@@ -553,7 +533,7 @@
   {
    "name": "academy_student_metadata",
    "title": "DT·시험 메타데이터(키 지정)",
-   "description": "Returns the same rows as academy_student_metadata_get, keyed by a metadata scope {sourceNamespace:'academy.lms.metadata', teacherId, studentId, lessonDate} that an earlier result returned in full. Never build the scope yourself; with only a name, use academy_student_metadata_get. queries: as for that tool. Read only.",
+   "description": "Returns the same rows as academy_student_metadata_get, keyed by a metadata scope {sourceNamespace:'academy.lms.metadata', teacherId, studentId, lessonDate} that an earlier result returned in full. Never build the scope yourself; with only a name, use academy_student_metadata_get. queries: as for that tool. Dates take the forms of that tool. When the scope came from academy_student_resolve, pass the currentRequestRef that answer returned; purpose is optional. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -577,8 +557,7 @@
         "type": "string"
        },
        "lessonDate": {
-        "type": "string",
-        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        "type": "string"
        }
       },
       "required": [
@@ -594,8 +573,6 @@
      }
     },
     "required": [
-     "purpose",
-     "currentRequestRef",
      "scope",
      "queries"
     ],
@@ -605,7 +582,7 @@
   {
    "name": "academy_textbook_section_results_get",
    "title": "교재 소단원 채점 결과(O/X)",
-   "description": "Returns a student's textbook section results (교재 소단원, 필수예제, 유형다지기: score and O/X). Up to three calls with the same displayName: 1) no bookLabel: with several books, status interview_required and bindings[].bookLabel, the student's book list; 2) bookLabel = one of those labels verbatim, matched to the user's book words: index[].sourceTitle, courseKey, bookNo; 3) add sourceTitles = exact titles from that index: records[] with score and items[] (O/X, lectureKey). Stop at the step that answers the user. Read only. Book words such as '가우스 5-1-2' name one book (series 가우스, grade 5, semester 1, volume 2: 초5-1 가우스 2권), not sections 5-1 or 5-2; report that book's sections that have results.",
+   "description": "Returns a student's textbook section results (교재 소단원, 필수예제, 유형다지기: score and O/X). Up to three calls with the same displayName: 1) no bookLabel: with several books, status interview_required and bindings[].bookLabel, the student's book list; 2) bookLabel = one of those labels, or the user's book words as written (가우스 5-1-2, 다빈치 2권): index[].sourceTitle, courseKey, bookNo, and bookSelection.boundLabel, the book it chose; words that fit several books or none give interview_required with the candidate labels; 3) add sourceTitles = exact titles from that index: records[] with score and items[] (O/X, lectureKey). With the user's book words, start at step 2. Stop at the step that answers the user. purpose and currentRequestRef are optional; the answer returns the ones it used. Read only. Book words such as '가우스 5-1-2' name one book (series 가우스, grade 5, semester 1, volume 2: 초5-1 가우스 2권), not sections 5-1 or 5-2; report that book's sections that have results.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -636,9 +613,7 @@
      }
     },
     "required": [
-     "displayName",
-     "purpose",
-     "currentRequestRef"
+     "displayName"
     ],
     "additionalProperties": false
    }
@@ -646,7 +621,7 @@
   {
    "name": "academy_textbook_section_results",
    "title": "교재 소단원 채점 결과(키 지정)",
-   "description": "Returns the same section results as step 3 of academy_textbook_section_results_get, keyed by courseKey and bookNo copied from a step-2 result of that tool. Use it only when you hold those keys; otherwise use academy_textbook_section_results_get. sourceTitles: exact titles from its index. Read only.",
+   "description": "Returns the same section results as step 3 of academy_textbook_section_results_get, keyed by courseKey and bookNo copied from a step-2 result of that tool. Use it only when you hold those keys; otherwise use academy_textbook_section_results_get. sourceTitles: exact titles from its index. purpose and currentRequestRef are optional; the answer returns the ones it used. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -676,8 +651,6 @@
     },
     "required": [
      "displayName",
-     "purpose",
-     "currentRequestRef",
      "courseKey",
      "bookNo",
      "sourceTitles"
@@ -688,7 +661,7 @@
   {
    "name": "academy_clinic_paper_status_get",
    "title": "오답·유사클리닉 대상과 틀린 문항",
-   "description": "Returns clinic candidates (오답클리닉, 유사클리닉): sections whose original attempt has wrong items, with sections[].wrongItems[] (ordinal = item number, lectureKey). Use it for 틀린 문항 and 오답 of a book or section. Same steps as academy_textbook_section_results_get: no bookLabel gives bindings[].bookLabel; bookLabel verbatim gives sections[].sourceTitle; sourceTitles gives wrongItems. Whether a clinic paper was solved is not recorded in the LMS: say the teacher must confirm it. Read only.",
+   "description": "Returns clinic candidates (오답클리닉, 유사클리닉): sections whose original attempt has wrong items, with sections[].wrongItems[] (ordinal = item number, lectureKey). Use it for 틀린 문항 and 오답 of a book or section. Same steps as academy_textbook_section_results_get: no bookLabel gives bindings[].bookLabel; bookLabel (one of those labels or the user's book words) gives sections[].sourceTitle and bookSelection; sourceTitles gives wrongItems. Whether a clinic paper was solved is not recorded in the LMS: say the teacher must confirm it. purpose and currentRequestRef are optional; the answer returns the ones it used. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -719,9 +692,7 @@
      }
     },
     "required": [
-     "displayName",
-     "purpose",
-     "currentRequestRef"
+     "displayName"
     ],
     "additionalProperties": false
    }
@@ -729,7 +700,7 @@
   {
    "name": "academy_item_section_trace",
    "title": "문항 번호 → 원래 교재 섹션",
-   "description": "Returns the original textbook section of numeric item labels (lectureKey): items[].matches[] with sourceTitle, ordinal and O/X; ambiguousLabels lists labels found in several sections. When the student has more than one book, pass bookLabel (from bindings[].bookLabel of academy_textbook_section_results_get): scanning all books can time out. labels: the digits the user gave or lectureKey values of an earlier result, at most 32. Read only.",
+   "description": "Returns the original textbook section of numeric item labels (lectureKey): items[].matches[] with sourceTitle, ordinal and O/X; ambiguousLabels lists labels found in several sections. When the student has more than one book, pass bookLabel (a bindings[].bookLabel of academy_textbook_section_results_get, or the user's book words such as 가우스 5-1-2; bookSelection names the book chosen): scanning all books can time out. labels: the digits the user gave or lectureKey values of an earlier result, at most 32. purpose and currentRequestRef are optional; the answer returns the ones it used. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -755,8 +726,6 @@
     },
     "required": [
      "displayName",
-     "purpose",
-     "currentRequestRef",
      "labels"
     ],
     "additionalProperties": false
@@ -765,7 +734,7 @@
   {
    "name": "academy_item_answer_lookup",
    "title": "문항 정답 원문",
-   "description": "Returns the official answer text of numeric item labels (문항 번호, lectureKey): answers[].answerLiteral as '<prefix>|_|<answer>', with the source unit and pattern names. No student is needed. labels: the digits the user gave, or lectureKey values of an earlier result (wrongItems, items, matches), at most 32. Quote the answer part; escape '|' in Markdown tables. Read only.",
+   "description": "Returns the official answer text of numeric item labels (문항 번호, lectureKey): answers[].answerLiteral as '<prefix>|_|<answer>', with the source unit and pattern names. No student is needed. labels: the digits the user gave, or lectureKey values of an earlier result (wrongItems, items, matches), at most 32. Quote the answer part; escape '|' in Markdown tables. purpose and currentRequestRef are optional; the answer returns the ones it used. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -791,9 +760,7 @@
      }
     },
     "required": [
-     "labels",
-     "purpose",
-     "currentRequestRef"
+     "labels"
     ],
     "additionalProperties": false
    }
@@ -822,7 +789,7 @@
   {
    "name": "academy_prestudy_get",
    "title": "예습영상 목록·AI 점수",
-   "description": "Returns a student's prestudy videos (예습영상): waiting[] (uploaded, awaiting the teacher's check: 검사 대기), completed[] (unitLabel, dateLiteral, prestudyKey) and summary[] (AI score literals: 예습 점수). An empty summary means no AI score is shown: say so, do not derive one. For a report, pass prestudyKey to academy_prestudy_report_get. displayName: the name as the user wrote it. Read only.",
+   "description": "Returns a student's prestudy videos (예습영상): waiting[] (uploaded, awaiting the teacher's check: 검사 대기), completed[] (unitLabel, dateLiteral, prestudyKey) and summary[] (AI score literals: 예습 점수). An empty summary means no AI score is shown: say so, do not derive one. For a report, pass prestudyKey to academy_prestudy_report_get. displayName: the name as the user wrote it. purpose and currentRequestRef are optional; the answer returns the ones it used. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -837,9 +804,7 @@
      }
     },
     "required": [
-     "displayName",
-     "purpose",
-     "currentRequestRef"
+     "displayName"
     ],
     "additionalProperties": false
    }
@@ -847,7 +812,7 @@
   {
    "name": "academy_prestudy_report_get",
    "title": "예습영상 AI 리포트",
-   "description": "Returns the AI report of one prestudy video: sections[] with title and text blocks, and view.returnedSectionTitles. prestudyKey: from completed[] or waiting[] of academy_prestudy_get; for 최근 take the row with the latest dateLiteral. sectionTitles (optional): exact titles to narrow the output. When summarizing, name each section by its title. Read only.",
+   "description": "Returns the AI report of one prestudy video: sections[] with title and text blocks, and view.returnedSectionTitles. prestudyKey: from completed[] or waiting[] of academy_prestudy_get; for 최근 take the row with the latest dateLiteral. sectionTitles (optional): exact titles to narrow the output. When summarizing, name each section by its title. purpose and currentRequestRef are optional; the answer returns the ones it used. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -876,9 +841,7 @@
     },
     "required": [
      "displayName",
-     "prestudyKey",
-     "purpose",
-     "currentRequestRef"
+     "prestudyKey"
     ],
     "additionalProperties": false
    }
@@ -1187,13 +1150,12 @@
   {
    "name": "academy_cism_weekly_get",
    "title": "주간 CISM 읽기",
-   "description": "Returns the CISM week (Sunday to Saturday) that contains a date: report.reportSha256 and report.fields[] with fieldRef, label, kind, value, studentName. Step 1 of a CISM write (get, review, save, get), and the readback after a save. date: any YYYY-MM-DD in that week. Read only.",
+   "description": "Returns the CISM week (Sunday to Saturday) that contains a date: report.reportSha256 and report.fields[] with fieldRef, label, kind, value, studentName. Step 1 of a CISM write (get, review, save, get), and the readback after a save. date: any date in that week: YYYY-MM-DD, 오늘, 어제, 11월 16일 or 11/16, resolved in Asia/Seoul; the answer states the resolved date. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
      "date": {
-      "type": "string",
-      "format": "date"
+      "type": "string"
      }
     },
     "required": [

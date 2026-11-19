@@ -2,7 +2,7 @@ import {z} from 'zod';
 import {assessmentBindingSchema} from './assessment-binding.ts';
 export const reviewTypeQuestionsInputSchema=z.object({
   assessmentBinding:assessmentBindingSchema.optional(),hierarchyId:z.string().min(1).max(1024),labelId:z.string().min(1).max(1024),
-  purpose:z.enum(['teacher_requested_review','protocol_verification']),
+  purpose:z.enum(['teacher_requested_review','protocol_verification']).default('teacher_requested_review'),
   page:z.number().int().min(1).max(100000).default(1),offset:z.number().int().min(0).max(49).default(0),limit:z.number().int().min(1).max(20).default(10),
 }).strict();
 const scalar=z.union([z.string().max(100000),z.number().finite(),z.boolean(),z.null()]);

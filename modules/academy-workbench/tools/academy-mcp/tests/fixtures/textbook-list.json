@@ -1,0 +1,8 @@
+{
+  "note": "Fictional. The textbook list of the unlisted student (studentKey 77009) of tests/gates-upstream-fixture.ts: two books of one series and one of another.",
+  "bindings": [
+    {"courseKey": "5", "bookNo": "71", "studentKey": "77009", "bookLabel": "(22개정) 초5-1 가우스 1권 초5-1 발전 1권(2022개정)"},
+    {"courseKey": "5", "bookNo": "72", "studentKey": "77009", "bookLabel": "(22개정) 초5-1 가우스 2권 초5-1 발전 2권(2022개정)"},
+    {"courseKey": "5", "bookNo": "90", "studentKey": "77009", "bookLabel": "(22개정) 초5-1 다빈치 2권(2022개정)"}
+  ]
+}

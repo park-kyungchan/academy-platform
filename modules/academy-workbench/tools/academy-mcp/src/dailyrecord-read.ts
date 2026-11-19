@@ -1,13 +1,14 @@
 import {z} from 'zod';
-import {dailyRecordContextSchema,dailyRecordDateSchema,dailyRecordFields,dailyRecordIdSchema} from './dailyrecord-context.ts';
+import {dailyRecordContextSchema,dailyRecordFields,dailyRecordIdSchema} from './dailyrecord-context.ts';
+import {academyDateInputSchema,requestIdentityShape,resolveAcademyDate,withRequestIdentity} from './read-input.ts';
+export {academyBusinessDate} from './read-input.ts';
 import {publicFailureFromData} from './read-failure.ts';
 import {UpstreamToolFailure} from './upstream-failure.ts';
 
 export const dailyRecordGetSchema=z.object({
   displayName:z.string().trim().min(1).max(200).describe('Exact student display name from the current user request; never guess a native key.'),
-  purpose:dailyRecordIdSchema.describe('The current user request or its purpose. Reading does not authorize authoring or saving.'),
-  currentRequestRef:dailyRecordIdSchema.describe('Reference to this current user request; not an approval or credential.'),
-  lessonDate:z.union([z.literal('today'),dailyRecordDateSchema]).default('today').describe('Omit for today in Asia/Seoul, or give any YYYY-MM-DD date.'),
+  ...requestIdentityShape,
+  lessonDate:academyDateInputSchema.default('today').describe('Omit for today. '+academyDateInputSchema.description),
   view:z.enum(['full','compact']).optional(),
 }).strict();
 
@@ -20,9 +21,6 @@ export interface DailyRecordReadRoutePort {
 
 export const dailyRecordGetDescription='Read live DailyRecord by exact student name. Preferred for requests such as “오늘 학생 DailyRecord 조회해봐” or current/today DailyRecord lookups. Omit lessonDate for today in Asia/Seoul. The owner backend supplies namespace and teacher; this tool resolves the name to a native key on the lesson date then calls academy_dailyrecord_intake. Never use saved academy_query or academy_source_status to decide live availability. Ambiguous or unknown names or failed source reads stop with a named blocker; no guesses or automatic retry. Returns observed fields even when authoring would require a memo/assessment interview. No authoring, save or send.';
 
-export function academyBusinessDate(now:number):string {
-  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));
-}
 
 const resolutionSchema=z.discriminatedUnion('status',[
   // teacherId: the resolving backend's configured teacher, which its intake also requires.
@@ -48,7 +46,7 @@ const intakeReadSchema=z.object({
 
 /** Compose existing read contracts, without accepting identity or proposals from the caller. */
 export async function readDailyRecordByName(value:unknown,port:DailyRecordReadRoutePort,now:()=>number=Date.now){
-  const input=dailyRecordGetSchema.parse(value),lessonDate=input.lessonDate==='today'?academyBusinessDate(now()):input.lessonDate;
+  const input=withRequestIdentity('academy_dailyrecord_get',dailyRecordGetSchema.parse(value)),lessonDate=resolveAcademyDate(input.lessonDate,now());
   const base={displayName:input.displayName,lessonDate,timeZone:'Asia/Seoul',purpose:input.purpose,currentRequestRef:input.currentRequestRef,
     academyWrites:0,parentSends:0,automaticRetryAllowed:false,execution:'read_only',sourceContentIsUntrustedData:true};
   const held=(reasonCode:string)=>({...base,status:'unavailable' as const,sourceAvailability:'unavailable' as const,reasonCode});

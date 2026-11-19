@@ -4,7 +4,7 @@ import {publicReadFailure} from './read-failure.ts';
 const label=z.string().regex(/^[1-9][0-9]{0,15}$/).refine(v=>BigInt(v)<=BigInt(Number.MAX_SAFE_INTEGER),'safe_item_label_required');
 export const itemAnswerLookupSchema=z.object({
   labels:z.array(label).min(1).max(32).refine(v=>new Set(v).size===v.length,'unique_item_labels_required'),
-  purpose:z.string().trim().min(1).max(256),currentRequestRef:z.string().trim().min(1).max(256),
+  purpose:z.string().trim().min(1).max(256).optional(),currentRequestRef:z.string().trim().min(1).max(256).optional(),
   view:z.enum(['full','compact']).optional(),
 }).strict();
 export type ItemAnswerLookup=z.infer<typeof itemAnswerLookupSchema>;
