@@ -19,7 +19,9 @@
     "verify:mcp": "bun src/verify-rea-mcp.ts",
     "analyze": "bun src/analyze.ts",
     "test": "bun test tests",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "postinstall": "bun install --cwd ../../../../apps/academy/dc-gang-a --frozen-lockfile",
+    "build:endpoints": "bun scripts/build-endpoints.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.3.1",

@@ -7,7 +7,8 @@ import {renderTeacherReport} from '../src/teacher-report.ts';
 import {TeacherRetainedService,teacherQuerySchema,teacherReportSchema,MAX_TEACHER_MCP_BYTES} from '../src/teacher-retained.ts';
 import {toolResultBytes} from '../src/tool-result.ts';
 
-test('F1 actual SDK/wire invalid inputs stay fixed-size before either tool handler, without caller-key echo',async()=>{
+// Skipped: reads .private/academy-teacher-fixture, made only by the setup retired in 28ac72e (not restored, AGENTS.md); docs/known-skips.md.
+test.skip('F1 actual SDK/wire invalid inputs stay fixed-size before either tool handler, without caller-key echo',async()=>{
   const f=await teacherFixture(0);let callbacks=0;
   const connection=await teacherMemory({sourceRoot,authenticatedFetchPage:request=>{callbacks++;return f.fetchPage(request);}});
   try{
@@ -47,7 +48,8 @@ test('F1 actual SDK/wire invalid inputs stay fixed-size before either tool handl
   }finally{await connection.close();}
 },20000);
 
-test('F2 canonical sibling problems and separate branches render only their actual parent paths',async()=>{
+// Skipped: reads .private/academy-teacher-fixture, made only by the setup retired in 28ac72e (not restored, AGENTS.md); docs/known-skips.md.
+test.skip('F2 canonical sibling problems and separate branches render only their actual parent paths',async()=>{
   const regular=await teacherFixture(0),doc:any=await regular.binding.readDocument(regular.selector,regular.fetchPage);
   const sourceCatalog=doc.workContext.data.exactWork.assignments[0].catalog;
   expect(sourceCatalog.find((node:any)=>node.id==='problem-1').parent.value).toBe('page');
@@ -66,7 +68,8 @@ test('F2 canonical sibling problems and separate branches render only their actu
   expect(branches.some(line=>line.includes('[section] > Sibling section [section-2]'))).toBe(false);
 });
 
-test('F3 canonical print/distribution observations remain independent and issuance-bound',async()=>{
+// Skipped: reads .private/academy-teacher-fixture, made only by the setup retired in 28ac72e (not restored, AGENTS.md); docs/known-skips.md.
+test.skip('F3 canonical print/distribution observations remain independent and issuance-bound',async()=>{
   for(const [printed,distributed] of [['done','unknown'],['unknown','done'],['unknown','unknown'],['not_done','done']] as const){
     const f=await reviewedTeacherFixture(printed,distributed),doc:any=await f.binding.readDocument(f.selector,f.fetchPage);
     const review=doc.workContext.data.exactWork.assignments[0].attempts[0].activityReviews[0];
@@ -88,7 +91,8 @@ test('F3 canonical print/distribution observations remain independent and issuan
   expect(lines.some(line=>line.includes('현재 응시·발행 연결 확인'))).toBe(false);
 });
 
-test('F4 actual canonical report keeps teacher-reported, recorded, stage-observed and query-retrieved clocks separate across academy date boundary',async()=>{
+// Skipped: reads .private/academy-teacher-fixture, made only by the setup retired in 28ac72e (not restored, AGENTS.md); docs/known-skips.md.
+test.skip('F4 actual canonical report keeps teacher-reported, recorded, stage-observed and query-retrieved clocks separate across academy date boundary',async()=>{
   const f=await reviewedTeacherFixture('done','unknown');
   const connection=await teacherMemory({sourceRoot,authenticatedFetchPage:f.fetchPage});
   try{
@@ -106,7 +110,8 @@ test('F4 actual canonical report keeps teacher-reported, recorded, stage-observe
   }finally{await connection.close();}
 });
 
-test('actual SDK/wire retains Unicode pages, canonical refusals/drift and source guards without stdio child startup',async()=>{
+// Skipped: reads .private/academy-teacher-fixture, made only by the setup retired in 28ac72e (not restored, AGENTS.md); docs/known-skips.md.
+test.skip('actual SDK/wire retains Unicode pages, canonical refusals/drift and source guards without stdio child startup',async()=>{
   for(const mode of ['normal','malformed','snapshot','caller','refusal','transport'] as const){
     const f=await teacherFixture(30);let calls=0;
     const connection=await teacherMemory({sourceRoot,authenticatedFetchPage:async request=>{
@@ -142,7 +147,8 @@ test('actual SDK/wire retains Unicode pages, canonical refusals/drift and source
   }
 },20000);
 
-test('near-cap accepted CallToolResult stays within512KiB while its separately measured JSONRPC frame may exceed it',async()=>{
+// Skipped: reads .private/academy-teacher-fixture, made only by the setup retired in 28ac72e (not restored, AGENTS.md); docs/known-skips.md.
+test.skip('near-cap accepted CallToolResult stays within512KiB while its separately measured JSONRPC frame may exceed it',async()=>{
   const f=await teacherFixture(160),notes=f.source.rows.filter((record:any)=>record.payload.kind==='teacher_reported_note') as any[];
   notes.forEach((record,index)=>{record.payload.text=`near-cap-note-${index}:`+record.payload.text+'a'.repeat(1000);});
   const service=new TeacherRetainedService(f.binding,f.fetchPage),request={selector:f.selector,maxBytes:MAX_TEACHER_MCP_BYTES,limit:250};
