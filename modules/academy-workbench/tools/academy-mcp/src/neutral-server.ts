@@ -22,6 +22,7 @@ import {loadRuntimeRelease,withoutRetiredTools,type ToolSurface} from './runtime
 import {PaperScopeUnresolvedError,selectPaperRoute} from './paper-scope-routing.ts';
 import {observeAttribution} from './dailyrecord-workflow.ts';
 import {dailyRecordWorkflowToolSchemas} from './dailyrecord.ts';
+import {liftIntakeContext} from './dailyrecord-write-input.ts';
 const processStartedAt=new Date().toISOString();
 // Owner workflow attribution: what this bridge actually observes
 // about its caller (MCP client info, process, parent command, Herdr pane),
@@ -267,8 +268,9 @@ async function call(req:any){
   if(sha(after.identity)!==sha(active.identity))throw Error('release_pointer_changed');
   // Owner-durable handles are already portable across processes; only process-local ones are ticketed.
   if(entry.upstreamName==='academy_dailyrecord_intake'&&result.structuredContent?.observationHandle&&result.structuredContent.observationPersistence!=='owner_durable'){
-   const data=result.structuredContent,original=data.observationHandle,ticket='muse-academy-observation:'+randomUUID();
-   handles.set(ticket,{original,intake:structuredClone(data),scope:dailyRecordScopeSchema.parse(args.context.scope),request:args.context.currentRequestRef,at:Date.now(),releaseIdentity:sha(active.identity)});
+   // Intake takes its context members flat or inside context; the ticket binds the lifted ones.
+   const data=result.structuredContent,original=data.observationHandle,ticket='muse-academy-observation:'+randomUUID(),asked=liftIntakeContext(args as any).context;
+   handles.set(ticket,{original,intake:structuredClone(data),scope:dailyRecordScopeSchema.parse(asked.scope),request:asked.currentRequestRef as string,at:Date.now(),releaseIdentity:sha(active.identity)});
    if(handles.size>64)handles.delete(handles.keys().next().value!);
    data.observationHandle=ticket;result.content=[{type:'text',text:JSON.stringify(data)}];
   }
