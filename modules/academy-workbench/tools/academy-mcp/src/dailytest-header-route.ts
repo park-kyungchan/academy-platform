@@ -1,15 +1,16 @@
 import {z} from 'zod';
 import {createHash} from 'node:crypto';
 import {encodePaperCode} from '../../../../../apps/academy/dc-gang-a/src/lms/printedPaperCode.ts';
-import {dailyRecordDateSchema,dailyRecordIdSchema} from './dailyrecord-context.ts';
+import {dailyRecordDateSchema} from './dailyrecord-context.ts';
+import {academyDateInputSchema,requestIdentityShape,resolveAcademyDate,withRequestIdentity,withResolvedDate,type WithRequest} from './read-input.ts';
 import {toolResultBytes} from './tool-result.ts';
 
 const selector=z.enum(['11','12','13','14','15','16']);
 const key=z.string().regex(/^[1-9][0-9]{0,15}$/);
 const instant=z.iso.datetime({offset:true});
 export const dailyTestHeaderRouteSchema=z.object({
-  displayName:z.string().trim().min(1).max(200),lessonDate:dailyRecordDateSchema,
-  purpose:dailyRecordIdSchema,currentRequestRef:dailyRecordIdSchema,
+  displayName:z.string().trim().min(1).max(200),lessonDate:academyDateInputSchema,
+  ...requestIdentityShape,
   periods:z.array(selector).min(1).max(6).refine(x=>new Set(x).size===x.length,'unique_metadata_selectors_required'),
   maxHeaders:z.number().int().min(1).max(32).default(32),
   headerOffset:z.number().int().min(0).max(12000).default(0),
@@ -29,9 +30,15 @@ const headerRow=z.object({status:z.literal('observed'),paperCode:z.string(),requ
   contentHeader:z.object({sourceSha256:z.string().regex(/^[a-f0-9]{64}$/),metadataRows:z.array(z.object({label:z.string().max(200),value:z.string().max(2000)})).max(128)})});
 const headers=z.object({status:z.literal('observed'),scope:z.object({studentId:key}),observation:z.object({status:z.literal('observed'),rows:z.array(headerRow).max(32)})});
 
-/** Two independently admitted upstream reads; only keys observed in the first read may be joined. */
-export async function readDailyTestHeaders(value:unknown,port:{metadata(input:unknown):Promise<unknown>;headers(input:unknown):Promise<unknown>}){
-  const input=dailyTestHeaderRouteSchema.parse(value);
+type HeaderPort={metadata(input:unknown):Promise<unknown>;headers(input:unknown):Promise<unknown>};
+/** Two independently admitted upstream reads; only keys observed in the first read may be joined.
+ * A failure after the date is resolved keeps the date for the answer (`resolvedDateOf`). */
+export async function readDailyTestHeaders(value:unknown,port:HeaderPort,now:()=>number=Date.now){
+  const parsed=withRequestIdentity('academy_dailytest_history_with_headers',dailyTestHeaderRouteSchema.parse(value));
+  const input={...parsed,lessonDate:resolveAcademyDate(parsed.lessonDate,now())};
+  return withResolvedDate(input.lessonDate,()=>joinHeaders(input,port));
+}
+async function joinHeaders(input:WithRequest<z.output<typeof dailyTestHeaderRouteSchema>>,port:HeaderPort){
   const raw=await port.metadata({displayName:input.displayName,lessonDate:input.lessonDate,purpose:input.purpose,
     currentRequestRef:input.currentRequestRef,queries:[{kind:'daily_history',periods:input.periods}]});
   const result=metadata.parse(raw), history=result.results[0]!;

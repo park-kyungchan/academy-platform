@@ -15,6 +15,7 @@ import {resolveStudentByName} from './student-resolver.ts';
 import type {TextbookCatalogObservation,TextbookPdfObservation,TextbookSchoolLevel} from '../../../../../apps/academy/dc-gang-a/src/lms/textbookCatalogRead';
 import {isTextbookBookLabel} from '../../../../../apps/academy/dc-gang-a/src/lms/prestudyRead';
 import {itemAnswerLookupSchema} from './item-answer-lookup.ts';
+import {bookSelectionOf,chooseBookBinding} from './read-input.ts';
 import type {DailyRecordTeacherScope} from './dailyrecord-read.ts';
 
 const home='/opt/data/profiles/dc-gang-a-dev';
@@ -273,15 +274,16 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     await this.#authenticate();
     const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
     this.#assertTextbookBindings(bindings,student.studentId);
-    const selected=input.bookLabel?bindings.filter(b=>b.bookLabel===input.bookLabel):bindings;
-    if(input.bookLabel&&selected.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
-    if(!input.bookLabel&&bindings.length>1){
+    // The exact label wins, then a loose name (brand, grade-term, volume) that agrees with one binding.
+    const choice=input.bookLabel?chooseBookBinding(input.bookLabel,bindings):null;
+    const bookSelection=choice&&input.bookLabel?{bookSelection:bookSelectionOf(input.bookLabel,choice)}:{};
+    if(choice?.kind==='interview'||(!choice&&bindings.length>1)){
       // Source bookLabel cells are not always titles (a progress row can
       // yield a percent literal), so attach each binding's first observed
       // section title as a selection hint. The hint never selects; the
       // caller still echoes the exact bookLabel on the second call.
       const candidates:{bookLabel:string;bookNo:string;hint?:string}[]=[];
-      for(const b of bindings){
+      for(const b of choice?.kind==='interview'?choice.candidates:bindings){
         let hint:string|undefined;
         if(this.client.inspectTextbookIndex){
           try{
@@ -294,13 +296,13 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
         candidates.push(hint?{bookLabel:b.bookLabel,bookNo:b.bookNo,hint}:{bookLabel:b.bookLabel,bookNo:b.bookNo});
       }
       return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
-        bindings:candidates,reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
+        bindings:candidates,reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString(),...bookSelection};
     }
-    const binding=selected[0]!;
+    const binding=choice?.kind==='selected'?choice.binding:bindings[0]!;
     if(binding.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
     if(input.sourceTitles){
-      return this.#textbookSections(student,{displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,
-        courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:[...input.sourceTitles]});
+      return {...await this.#textbookSections(student,{displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,
+        courseKey:binding.courseKey,bookNo:binding.bookNo,sourceTitles:[...input.sourceTitles]}),...bookSelection};
     }
     if(!this.client.inspectTextbookIndex)throw Error('textbook_index_source_port_unavailable');
     const raw=await this.client.inspectTextbookIndex({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
@@ -312,7 +314,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
         ...(r.sources?{sources:r.sources}:{})}));
     const indexBasis=typeof raw.indexBasis==='string'?raw.indexBasis:'wrong_answer_note_only';
     return {student:{studentId:student.studentId,displayName:student.displayName},courseKey:binding.courseKey,bookNo:binding.bookNo,
-      bookLabel:binding.bookLabel,index,observedAt:new Date().toISOString(),indexBasis,
+      bookLabel:binding.bookLabel,index,observedAt:new Date().toISOString(),indexBasis,...bookSelection,
       coverage:indexBasis==='wrong_answer_note_plus_student_paper_search'
         ?'wrong_answer_note_index_plus_one_observed_student_paper_search_page_for_exact_student_course_book_not_section_grading_not_complete_history'
         :'wrong_answer_note_title_index_only_for_exact_student_course_book_not_section_grading_not_complete_history'};
@@ -329,10 +331,11 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     await this.#authenticate();
     const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
     this.#assertTextbookBindings(bindings,student.studentId);
-    const selected=input.bookLabel?bindings.filter(b=>b.bookLabel===input.bookLabel):bindings;
-    if(input.bookLabel&&selected.length!==1)throw Error('textbook_binding_missing_or_ambiguous');
-    if(!input.bookLabel&&selected.length>1)return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
-      bindings:selected.map(b=>({bookLabel:b.bookLabel,bookNo:b.bookNo})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString()};
+    const choice=input.bookLabel?chooseBookBinding(input.bookLabel,bindings):null;
+    const bookSelection=choice&&input.bookLabel?{bookSelection:bookSelectionOf(input.bookLabel,choice)}:{};
+    const selected=choice?.kind==='selected'?[choice.binding]:choice?choice.candidates:bindings;
+    if(choice?.kind==='interview'||selected.length>1)return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
+      bindings:selected.map(b=>({bookLabel:b.bookLabel,bookNo:b.bookNo})),reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString(),...bookSelection};
     const indexes: {binding:(typeof bindings)[number];titles:string[]}[]=[];
     let totalTitles=0;
     for(const binding of selected){
@@ -384,7 +387,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       unmatchedLabels:items.filter(i=>!i.matches.length).map(i=>i.label),
       ambiguousLabels:items.filter(i=>(matchedSections.get(i.label)?.size??0)>1).map(i=>i.label),
       sectionsScanned,sectionsFailed,observedAt:new Date().toISOString(),
-      coverage:'live_section_scan_original_attempt_lineage_not_generated_clinic_membership'};
+      coverage:'live_section_scan_original_attempt_lineage_not_generated_clinic_membership',...bookSelection};
   }
   saveConfigured():boolean{return this.saveApproval!==null&&typeof this.client.applyJournalAction==='function';}
   /** The owner client can write; authority comes from the per-request approval the owner workflow supplies. */
@@ -456,8 +459,9 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       lectureKeys:input.labels,answerReadAdmission:true});
   }
   async readStudentMetadata(value:Readonly<StudentMetadataBatch>):Promise<StudentMetadataObservation>{
-    const input=studentMetadataBatchSchema.parse(value),scope=input.scope;
-    if(scope.teacherId!==this.admission.teacherId)throw Error('native_metadata_scope_refused');
+    // The service fills request identity and resolves dates before this read.
+    const input={...studentMetadataBatchSchema.parse(value),purpose:value.purpose,currentRequestRef:value.currentRequestRef},scope=input.scope;
+    if(scope.teacherId!==this.admission.teacherId||!dailyRecordDateSchema.safeParse(scope.lessonDate).success)throw Error('native_metadata_scope_refused');
     // A key's name: the launch's pair, else this request's earlier source resolve.
     const resolved=this.#sourceResolved.get(input.currentRequestRef);
     const student=this.admission.students.find(s=>s.studentId===scope.studentId)
@@ -466,7 +470,8 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     return this.#readMetadata(input,student);
   }
   async readStudentMetadataByName(value:Readonly<StudentMetadataGet>):Promise<StudentMetadataObservation>{
-    const input=studentMetadataGetSchema.parse(value);
+    const input={...studentMetadataGetSchema.parse(value),purpose:value.purpose,currentRequestRef:value.currentRequestRef};
+    if(!dailyRecordDateSchema.safeParse(input.lessonDate).success)throw Error('native_dailyrecord_scope_refused');
     const configured=this.admission.students.find(s=>s.displayName===input.displayName);
     this.#requireMetadataMethods(input.queries);
     await this.#authenticate();

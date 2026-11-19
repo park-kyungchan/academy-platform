@@ -40,7 +40,10 @@ test('today is the academy date across UTC rollover, with exact real-date valida
   expect(academyBusinessDate(Date.parse('2040-01-16T14:59:59Z'))).toBe('2040-01-16');
   expect(academyBusinessDate(Date.parse('2040-01-16T15:00:00Z'))).toBe('2040-01-17');
   expect(dailyRecordGetSchema.parse(request).lessonDate).toBe('today');
-  expect(()=>dailyRecordGetSchema.parse({...request,lessonDate:'2040-02-30'})).toThrow();
+  // TASK-FLEX-2: the schema takes the date words; resolution refuses a date that does not exist, before any read.
+  const f=fixture();
+  await expect(readDailyRecordByName({...request,lessonDate:'2040-02-30'},f.port,()=>clock)).rejects.toThrow('date_form_unsupported_use_yyyy_mm_dd_today_yesterday_or_month_day');
+  expect(f.calls.names).toEqual([]);
 });
 test('caller cannot inject keys, teacher, namespace, admission, facts, memo answers or approvals',async()=>{
   for(const extra of [{studentId:'77002'},{teacherId:'99002'},{sourceNamespace:'foreign'},{admission:teacher},{facts:[]},{memoAnswer:{kind:'no_addition'}},{approved:true},{suppliedValues:[]}]){
