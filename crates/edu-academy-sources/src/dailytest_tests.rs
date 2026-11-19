@@ -586,13 +586,7 @@ fn prepare_owner_names_the_families_and_the_default_document_is_unchanged() {
     // The structural pin of the textbook mode, as the existing fixtures build it.
     let fields: Vec<Value> = ["clg_no","cls_no","p_pageno","check_da_test","check_fa_test","check_na_test","stu_name","chioce_cls","sort_date1","sort_date2"].iter().map(|name| serde_json::json!({"name":name,"tag":"input","type":"hidden","value":null,"checked":null,"options":[]})).collect();
     let form = put("form.json", &serde_json::to_vec(&serde_json::json!({"schemaVersion":"academy.paper-search-form/1","action":"/servlet/controller.tutor.base.TestPageListServlet?p_process=UserBySearchTestResult&ass_no=1001","method":"post","fields":fields})).unwrap());
-    let binary = std::env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("academy-capture");
+    let binary = academy_capture_binary();
     let prepare = |label: &str, families: Option<&str>| -> (Value, Vec<u8>) {
         let root = f.0.join(label);
         let mut command = std::process::Command::new(&binary);
@@ -701,13 +695,7 @@ fn prepare_owner_names_the_families_and_the_default_document_is_unchanged() {
 }
 
 fn binary() -> PathBuf {
-    std::env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("academy-capture")
+    academy_capture_binary()
 }
 
 #[test]
@@ -948,4 +936,16 @@ fn later_page_without_the_requested_selector_among_enabled_options_is_refused() 
             "<select name=\"sort_date\"><option value=\"1\">Recent week</option><option value=\"12\">Previous month</option><option value=\"11\" disabled>Recent month</option></select>{literal}"
         )
     });
+}
+
+/// The `academy-capture` binary of this build. A unit test gets no `CARGO_BIN_EXE_<name>` (Cargo sets
+/// it for integration tests only), and its own path differs by layout (`<profile>/deps/` before Cargo
+/// 1.100, `<profile>/build/<pkg>/<hash>/out/` with build-dir layout v2), so look in its ancestors for
+/// the final artifact, which stays in `<target-dir>/<profile>/`.
+fn academy_capture_binary() -> std::path::PathBuf {
+    let exe = std::env::current_exe().unwrap();
+    exe.ancestors()
+        .map(|d| d.join("academy-capture"))
+        .find(|p| p.is_file())
+        .unwrap()
 }

@@ -6,7 +6,7 @@ resolver = "3"
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.95"
+rust-version = "1.100"
 license = "UNLICENSED"
 publish = false
 
@@ -33,6 +33,15 @@ swc_ecma_regexp_visit = "=0.16.0"
 url = "=2.5.8"
 ureq = { version = "=3.4.1", default-features = false, features = ["rustls"] }
 signal-hook = { version = "=0.4.4", default-features = false, features = ["iterator"] }
+
+[workspace.lints.cargo]
+unused_dependencies = "deny"
+unused_workspace_dependencies = "deny"
+unused_workspace_package_fields = "deny"
+# A misspelled key here would otherwise pass with a warning.
+unknown_lints = "deny"
+# `missing_lints_inheritance` is left at its default: it fires on a member without
+# `[lints]`, which never reads these levels, so `deny` here cannot reach it.
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
