@@ -5,7 +5,7 @@ It currently contains module planning documentation and a synthetic scaffold
 smoke test; domain behavior and education-platform dependency pins follow in
 later PRs. Teacher web, auth, Postgres and UI are dropped under decision U1.
 
-Use the pinned Rust 1.95.0 toolchain:
+Use the pinned Rust 1.100.0 toolchain:
 
 ```sh
 cargo fmt --all -- --check
