@@ -20,7 +20,8 @@ const call=async(client:Client,name:string,args:Record<string,unknown>)=>{
   expect(JSON.parse((block as {text:string}).text)).toEqual(result.structuredContent);
   return result.structuredContent as any;
 };
-test('real SDK production discovery/schema and canonical Unicode pages reconstruct without loss',async()=>{
+// Skipped: reads .private/academy-teacher-fixture, made only by the setup retired in 28ac72e (not restored, AGENTS.md); docs/known-skips.md.
+test.skip('real SDK production discovery/schema and canonical Unicode pages reconstruct without loss',async()=>{
   const connection=await connect();
   try{
     const tools=(await connection.client.listTools()).tools;
@@ -35,7 +36,8 @@ test('real SDK production discovery/schema and canonical Unicode pages reconstru
     expect(notes[0].payload.text).toContain('가😀');expect(notes[159].payload.text).toContain('159');
   }finally{await connection.close();}
 },30000);
-test('real SDK Korean report pages are individually bounded and include explicit continuation to final section',async()=>{
+// Skipped: reads .private/academy-teacher-fixture, made only by the setup retired in 28ac72e (not restored, AGENTS.md); docs/known-skips.md.
+test.skip('real SDK Korean report pages are individually bounded and include explicit continuation to final section',async()=>{
   const connection=await connect();
   try{
     let cursor:string|undefined,pages=0;const texts:string[]=[];
@@ -50,7 +52,8 @@ test('real SDK Korean report pages are individually bounded and include explicit
     expect(texts.join('\n')).toContain('lesson_context');expect(texts.join('\n')).toContain('명시 배정');
   }finally{await connection.close();}
 },30000);
-test('real SDK reports refuse malformed, snapshot/caller drift, auth refusal and transport errors without echoing source errors',async()=>{
+// Skipped: reads .private/academy-teacher-fixture, made only by the setup retired in 28ac72e (not restored, AGENTS.md); docs/known-skips.md.
+test.skip('real SDK reports refuse malformed, snapshot/caller drift, auth refusal and transport errors without echoing source errors',async()=>{
   for(const [scenario,code] of [['malformed','retained_page_contract_conflict'],['snapshot-drift','retained_page_snapshot_conflict'],['caller-drift','retained_page_snapshot_conflict'],['refusal','owner_scope_conflict'],['transport-error','teacher_source_authenticated_transport_unavailable']]){
     const connection=await connect(scenario);
     try{

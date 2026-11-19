@@ -34,21 +34,23 @@ The existing MCP entrypoints also register `academy_dailyrecord_intake`, `academ
 
 ## Install and run
 
-In the integrated Education repository, run `bun run setup` from its root first. This installs this package and prepares `.private/academy-teacher-fixture`: a detached sparse worktree of the exact local ancestor `8f8c9bd61bd5e55445780b5569ecc40effcecef6` (tree `ccb0fc6302f664abe069086881961cec99cf2d85`). Only the 74 exact files in `architecture/academy-teacher-test-fixture.json` are checked out and hash-verified: canonical DC/Gang-a source, two fictional fixture files, and frozen dependency/ignore metadata. The native reader's commit, tree and file-hash guards are unchanged. Full Git history is required (`source.yml` uses `fetch-depth: 0`); setup performs no remote fetch and refuses an existing changed/incomplete fixture. It does not use historical absolute host worktrees or private student originals. Root `bun run check` includes this package's typecheck and complete synthetic tests.
+The integrated setup that prepared `.private/academy-teacher-fixture` was retired in `28ac72e`; the 15 tests that read it are skipped by name ([known skips](docs/known-skips.md)). This package's `postinstall` installs the locked dependencies of `apps/academy/dc-gang-a` (`jsdom`, `acorn` and their types, which the native source under `src/lms/` imports) with `bun install --cwd ../../../../apps/academy/dc-gang-a --frozen-lockfile`; this package adds no dependency of its own for them. Dependencies' own lifecycle scripts stay disabled (Bun runs only the package's own).
 
-After root setup, run these package commands from `modules/academy-workbench`:
+Run these package commands from `modules/academy-workbench`:
 
 ```sh
-bun install --cwd tools/academy-mcp --frozen-lockfile --ignore-scripts --cache-dir "$PWD/.local/cache/bun"
+bun install --cwd tools/academy-mcp --frozen-lockfile --cache-dir "$PWD/.local/cache/bun"
 bun run --cwd tools/academy-mcp check
 bun run --cwd tools/academy-mcp test
 bun run --cwd tools/academy-mcp verify:academy-mcp
 bun run --cwd tools/academy-mcp start
 ```
 
-The package lock pins the official MCP SDK 2.3.1, REA 6.5.0, Zod 4.4.3, TypeScript 7.0.2 and Bun types 1.4.2. The tested host uses Bun 1.3.14 and Node.js 22.22.1. REA's published runtime accepts this Node version. Its static JavaScript workflow needs no native decompiler. Dependency lifecycle scripts are disabled; native instrumentation providers are outside this first-stage delivery and are not claimed operational.
+The package lock pins the official MCP SDK 2.3.1, REA 6.5.0, Zod 4.4.3, TypeScript 7.0.2 and Bun types 1.4.2. The tested host uses Bun 1.3.14 and Node.js 22.22.1. REA's published runtime accepts this Node version. Its static JavaScript workflow needs no native decompiler. Native instrumentation providers are outside this first-stage delivery and are not claimed operational.
 
 For a stdio MCP client, the executable is `bun` and its argument is the absolute path to `tools/academy-mcp/src/server.ts`. Data paths are resolved from this source file, so the caller's working directory does not select a different data directory. This repository does not change any global/native client registration. `mcp.launch.json` is a repository-relative template: replace its `workingDirectory` placeholder with your clone root, then translate the fields into the selected client's native configuration. It is not an applied configuration or evidence that an active Codex session has registered the server.
+
+`bun run build:endpoints <out dir>` bundles the saved endpoint (`src/server.ts`) and the dailyrecord endpoint (`src/dailyrecord-server.ts`) for Bun into `<out dir>/server.js` and `<out dir>/dailyrecord-server.js`, with no network and no host path. A bundle resolves its data from `<out dir>/../../..` (`src/paths.ts`), so the script refuses any out directory other than `modules/academy-workbench/.local/<name>/src/` (given relative to this package's directory, or absolute), the place of the installed saved bundle; `.local/` is ignored by Git. What a release built this way changes against the previous release: [release v6 differences](docs/release-v6-differences.md); the tools it must keep: `release/surface.json`, checked by `tests/release-tools.test.ts`.
 
 ## Original three tools
 

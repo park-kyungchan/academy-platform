@@ -158,6 +158,16 @@
       "exposure": "open"
     },
     {
+      "name": "academy_textbook_toc_get",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_textbook_units_get",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
       "name": "academy_verify_paper_output",
       "class": "read",
       "exposure": "open"

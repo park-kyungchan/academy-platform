@@ -1,0 +1,1493 @@
+{
+ "schemaVersion": "academy.mcp-surface/1",
+ "tools": [
+  {
+   "name": "academy_dailyrecord_get",
+   "title": "DailyRecord(수업일지) 조회",
+   "description": "Returns one student's live DailyRecord (수업일지, 일지) for one lesson date: status, fields[] (field, before.value; progress 진도, homework 숙제, lessonMemo 메모, attendance 출결, DT and homework assessments), scope, authoringHandle. Use it for every 일지 or 기록 조회, today or past, and to read back after a save. displayName: the name as the user wrote it. lessonDate: omit for today, else YYYY-MM-DD (어제 = yesterday). student_name_not_found: no record on that date. To write, call academy_dailyrecord_review next. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "displayName": {
+      "type": "string"
+     },
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     },
+     "lessonDate": {
+      "default": "today",
+      "anyOf": [
+       {
+        "type": "string",
+        "const": "today"
+       },
+       {
+        "type": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+       }
+      ]
+     }
+    },
+    "required": [
+     "displayName",
+     "purpose",
+     "currentRequestRef"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_dailyrecord_review",
+   "title": "DailyRecord 문안 검토(저장 없음)",
+   "description": "Step 2 of a DailyRecord write (get, review, save, get). Returns prepared with reviewDigest, or held with blockers; no write. Minimal call: {observationHandle: the string authoringHandle.observationHandle of academy_dailyrecord_get (within 60 minutes), proposals: [{field, value}]}. 메모/코멘트 = lessonMemo, 진도 = progress, 숙제 = homework. set or replace follows the current value. Code fields (attendance, dailyTestAssessment, previousHomeworkAssessment) only when the user asks for that field. Deadline line '- YYYY-MM-DD까지'. Show rows[].warnings to the user. If held, fix the blocker or ask the user.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "context": {},
+     "observationHandle": {
+      "type": "string"
+     },
+     "cismObservationHandle": {
+      "type": "string"
+     },
+     "proposals": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "field": {
+         "type": "string",
+         "enum": [
+          "progress",
+          "homework",
+          "lessonMemo",
+          "attendance",
+          "dailyTestAssessment",
+          "previousHomeworkAssessment"
+         ]
+        },
+        "value": {
+         "type": "string"
+        },
+        "decision": {
+         "type": "object",
+         "properties": {
+          "kind": {
+           "type": "string",
+           "enum": [
+            "set",
+            "replace",
+            "clear"
+           ]
+          },
+          "requestRef": {
+           "type": "string"
+          }
+         },
+         "required": [
+          "kind"
+         ],
+         "additionalProperties": false
+        }
+       },
+       "required": [
+        "field",
+        "value"
+       ]
+      }
+     }
+    },
+    "required": [
+     "proposals"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_dailyrecord_save",
+   "title": "DailyRecord 저장(LMS 쓰기)",
+   "description": "Step 3: writes the reviewed fields to the LMS DailyRecord (an LMS write) and reads them back. Returns status saved, or held with reasonCode. Call it only after academy_dailyrecord_review returned prepared, and only when the user asked to save. Minimal call: {reviewDigest, instruction: the user's message verbatim}. Then read back with academy_dailyrecord_get. stale_source or drift: get, review, save again. A held uncertain dispatch: no retry; see academy_dailyrecord_execution_status.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "context": {},
+     "observationHandle": {
+      "type": "string"
+     },
+     "cismObservationHandle": {
+      "type": "string"
+     },
+     "reviewDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+     },
+     "proposals": {},
+     "request": {
+      "type": "object",
+      "properties": {
+       "requestRef": {
+        "type": "string"
+       },
+       "instruction": {
+        "type": "object",
+        "properties": {
+         "text": {
+          "type": "string"
+         },
+         "sessionRef": {
+          "type": "string"
+         },
+         "receivedAt": {
+          "type": "string",
+          "format": "date-time"
+         }
+        },
+        "required": [
+         "text"
+        ],
+        "additionalProperties": false
+       }
+      },
+      "required": [
+       "requestRef",
+       "instruction"
+      ],
+      "additionalProperties": false
+     },
+     "instruction": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "text": {
+          "type": "string"
+         },
+         "sessionRef": {
+          "type": "string"
+         },
+         "receivedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+         }
+        },
+        "required": [
+         "text"
+        ],
+        "additionalProperties": false
+       }
+      ]
+     }
+    },
+    "required": [
+     "reviewDigest"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_dailyrecord_intake",
+   "title": "DailyRecord 작성 전 읽기(scope 지정)",
+   "description": "Returns the DailyRecord before-state for an explicit scope, with observationHandle and the interviews still needed. Use it instead of academy_dailyrecord_get only when get returned authoringHandle null, or to read again after stale_source. context: {scope} copied from academy_dailyrecord_get; every other member is optional. Then review with the new observationHandle. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "context": {
+      "type": "object",
+      "properties": {
+       "scope": {}
+      },
+      "required": [
+       "scope"
+      ]
+     },
+     "suppliedValues": {
+      "type": "array"
+     }
+    },
+    "required": [
+     "context"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_dailyrecord_execution_status",
+   "title": "DailyRecord 저장 실행 상태",
+   "description": "Returns the recorded save attempts for one student and date: per-field executions with requestRef, state and who ran them. Reads the local save store only, no LMS request. Use it for 저장 실행 상태 and before academy_dailyrecord_reconcile; to see the saved text itself, use academy_dailyrecord_get. scope: copy scope from academy_dailyrecord_get for that date. requestRef (optional): adds that request's audit.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "scope": {
+      "type": "object",
+      "properties": {
+       "sourceNamespace": {
+        "type": "string"
+       },
+       "teacherId": {
+        "type": "string"
+       },
+       "studentId": {
+        "type": "string"
+       },
+       "lessonDate": {
+        "type": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+       }
+      },
+      "required": [
+       "sourceNamespace",
+       "teacherId",
+       "studentId",
+       "lessonDate"
+      ],
+      "additionalProperties": false
+     },
+     "requestRef": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "scope"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_dailyrecord_reconcile",
+   "title": "DailyRecord 불확실 저장 정리",
+   "description": "Reads the LMS DailyRecord once and classifies each unresolved save attempt of that student and date: persisted, not_persisted or conflict. No LMS write; the result is recorded locally. Use it when a save ended uncertain (연결 끊김, 들어갔는지 확인). context: as for academy_dailyrecord_review, scope from academy_dailyrecord_get. To close an attempt as not landed, add resolution {request: {requestRef, instruction: {text: the user's words}}, executions: {requestRef, field} pairs from academy_dailyrecord_execution_status}. not_persisted needs a new review and save.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "context": {},
+     "resolution": {
+      "type": "object",
+      "properties": {
+       "request": {
+        "type": "object",
+        "properties": {
+         "requestRef": {
+          "type": "string"
+         },
+         "instruction": {
+          "type": "object",
+          "properties": {
+           "text": {
+            "type": "string"
+           },
+           "sessionRef": {
+            "type": "string"
+           },
+           "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+           }
+          },
+          "required": [
+           "text"
+          ],
+          "additionalProperties": false
+         }
+        },
+        "required": [
+         "requestRef",
+         "instruction"
+        ],
+        "additionalProperties": false
+       },
+       "executions": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "requestRef": {
+           "type": "string"
+          },
+          "field": {
+           "type": "string",
+           "enum": [
+            "progress",
+            "homework",
+            "lessonMemo",
+            "attendance",
+            "dailyTestAssessment",
+            "previousHomeworkAssessment"
+           ]
+          }
+         },
+         "required": [
+          "requestRef",
+          "field"
+         ],
+         "additionalProperties": false
+        }
+       }
+      },
+      "required": [
+       "request",
+       "executions"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "required": [
+     "context"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_student_resolve",
+   "title": "학생 키(studentKey) 확인",
+   "description": "Returns studentKey, the native id that the paper and DT inventory tools take as studentId. DailyRecord, textbook, clinic, prestudy and DT history tools take the name and need no key. Without lessonDate it searches recent records only; if that gives student_name_not_found, call once more with lessonDate = a date the student had a lesson (from the user or an earlier result). If no such date is known, ask the user for one. scope.studentId of academy_dailyrecord_get is the same key. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     },
+     "displayName": {
+      "type": "string"
+     },
+     "lessonDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+     }
+    },
+    "required": [
+     "purpose",
+     "currentRequestRef",
+     "displayName"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_dailytest_history_with_headers",
+   "title": "DailyTest(DT) 이력+시험지 제목",
+   "description": "Returns a student's DailyTest (DT) history with paper titles and question counts: periods[].rows[].header.title, sourcePaperCount. Use it for DT 이력, 시험 기록, 몇 개 쳤는지. lessonDate: a date the student had a lesson (the user's date, or today). periods: '11' = last month, '12' = 1-2 months ago … '16' = 5-6 months ago; all six for 전부. 32 papers per call; for more, call again with headerOffset = nextHeaderOffset, expectedSelectionSha256 = selectionSha256. native_dailyrecord_occurrence_unverified: no lesson that day; use academy_student_resolve, then academy_daily_test_inventory. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "displayName": {
+      "type": "string"
+     },
+     "lessonDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+     },
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     },
+     "periods": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16"
+       ]
+      }
+     },
+     "maxHeaders": {
+      "default": 32,
+      "type": "integer"
+     },
+     "headerOffset": {
+      "default": 0,
+      "type": "integer"
+     },
+     "expectedSelectionSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+     }
+    },
+    "required": [
+     "displayName",
+     "lessonDate",
+     "purpose",
+     "currentRequestRef",
+     "periods"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_student_metadata_get",
+   "title": "DT·시험 메타데이터(이름·날짜)",
+   "description": "Returns raw DailyTest and test-result rows without paper titles for a student name and lesson date: results[].observation. queries: one or more of {kind:'daily_inventory'}, {kind:'daily_history', periods} ('11' last month … '16' 5-6 months ago), {kind:'student_papers', period:{from, through}}, {kind:'printed_paper_metadata', paperCode, period}. Prefer academy_dailytest_history_with_headers when titles matter. lessonDate must be a date the student had a lesson; native_dailyrecord_occurrence_unverified means it was not: use academy_student_resolve then academy_daily_test_inventory. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "displayName": {
+      "type": "string"
+     },
+     "lessonDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+     },
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     },
+     "queries": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "kind": {
+         "type": "string",
+         "enum": [
+          "student_papers",
+          "daily_metadata",
+          "daily_inventory",
+          "daily_history",
+          "printed_paper_metadata"
+         ]
+        },
+        "periods": {
+         "type": "array",
+         "items": {
+          "type": "string",
+          "enum": [
+           "11",
+           "12",
+           "13",
+           "14",
+           "15",
+           "16"
+          ]
+         }
+        },
+        "period": {
+         "type": "object",
+         "properties": {
+          "from": {
+           "type": "string",
+           "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "through": {
+           "type": "string",
+           "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+         },
+         "required": [
+          "from",
+          "through"
+         ],
+         "additionalProperties": false
+        },
+        "paperCode": {
+         "type": "string",
+         "pattern": "^#[3456789ABCDEFGHJKLMNPQRSTUVWXYZ][23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{0,10}$"
+        }
+       },
+       "required": [
+        "kind"
+       ],
+       "additionalProperties": false
+      }
+     }
+    },
+    "required": [
+     "displayName",
+     "lessonDate",
+     "purpose",
+     "currentRequestRef",
+     "queries"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_daily_test_inventory",
+   "title": "DT 결과 목록(학생 키)",
+   "description": "Returns a student's DailyTest (DT) result rows: paper key, attempt and score, per relative period (observations[].label and rows[]). studentId: studentKey of academy_student_resolve. Use it for DT 결과 목록, and when the name and date tools report no lesson on the date. periods: '11' last month, '12' 1-2 months ago … '16' 5-6 months ago; without periods only the page's current filter is read (often empty). Paper titles: academy_paper_headers or academy_dailytest_history_with_headers. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "studentId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,15}$"
+     },
+     "periods": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16"
+       ]
+      }
+     }
+    },
+    "required": [
+     "studentId"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_student_metadata",
+   "title": "DT·시험 메타데이터(키 지정)",
+   "description": "Returns the same rows as academy_student_metadata_get, keyed by a metadata scope {sourceNamespace:'academy.lms.metadata', teacherId, studentId, lessonDate} that an earlier result returned in full. Never build the scope yourself; with only a name, use academy_student_metadata_get. queries: as for that tool. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     },
+     "scope": {
+      "type": "object",
+      "properties": {
+       "sourceNamespace": {
+        "type": "string",
+        "const": "academy.lms.metadata"
+       },
+       "teacherId": {
+        "type": "string"
+       },
+       "studentId": {
+        "type": "string"
+       },
+       "lessonDate": {
+        "type": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+       }
+      },
+      "required": [
+       "sourceNamespace",
+       "teacherId",
+       "studentId",
+       "lessonDate"
+      ],
+      "additionalProperties": false
+     },
+     "queries": {
+      "type": "array"
+     }
+    },
+    "required": [
+     "purpose",
+     "currentRequestRef",
+     "scope",
+     "queries"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_textbook_section_results_get",
+   "title": "교재 소단원 채점 결과(O/X)",
+   "description": "Returns a student's textbook section results (교재 소단원, 필수예제, 유형다지기: score and O/X). Up to three calls with the same displayName: 1) no bookLabel: with several books, status interview_required and bindings[].bookLabel, the student's book list; 2) bookLabel = one of those labels verbatim, matched to the user's book words: index[].sourceTitle, courseKey, bookNo; 3) add sourceTitles = exact titles from that index: records[] with score and items[] (O/X, lectureKey). Stop at the step that answers the user. Read only. Book words such as '가우스 5-1-2' name one book (series 가우스, grade 5, semester 1, volume 2: 초5-1 가우스 2권), not sections 5-1 or 5-2; report that book's sections that have results.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "displayName": {
+      "type": "string"
+     },
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     },
+     "bookLabel": {
+      "type": "string"
+     },
+     "sourceTitles": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "view": {
+      "type": "string",
+      "enum": [
+       "full",
+       "compact"
+      ]
+     }
+    },
+    "required": [
+     "displayName",
+     "purpose",
+     "currentRequestRef"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_textbook_section_results",
+   "title": "교재 소단원 채점 결과(키 지정)",
+   "description": "Returns the same section results as step 3 of academy_textbook_section_results_get, keyed by courseKey and bookNo copied from a step-2 result of that tool. Use it only when you hold those keys; otherwise use academy_textbook_section_results_get. sourceTitles: exact titles from its index. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "displayName": {
+      "type": "string"
+     },
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     },
+     "courseKey": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,15}$"
+     },
+     "bookNo": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,15}$"
+     },
+     "sourceTitles": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    },
+    "required": [
+     "displayName",
+     "purpose",
+     "currentRequestRef",
+     "courseKey",
+     "bookNo",
+     "sourceTitles"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_clinic_paper_status_get",
+   "title": "오답·유사클리닉 대상과 틀린 문항",
+   "description": "Returns clinic candidates (오답클리닉, 유사클리닉): sections whose original attempt has wrong items, with sections[].wrongItems[] (ordinal = item number, lectureKey). Use it for 틀린 문항 and 오답 of a book or section. Same steps as academy_textbook_section_results_get: no bookLabel gives bindings[].bookLabel; bookLabel verbatim gives sections[].sourceTitle; sourceTitles gives wrongItems. Whether a clinic paper was solved is not recorded in the LMS: say the teacher must confirm it. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "displayName": {
+      "type": "string"
+     },
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     },
+     "bookLabel": {
+      "type": "string"
+     },
+     "sourceTitles": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "view": {
+      "type": "string",
+      "enum": [
+       "full",
+       "compact"
+      ]
+     }
+    },
+    "required": [
+     "displayName",
+     "purpose",
+     "currentRequestRef"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_item_section_trace",
+   "title": "문항 번호 → 원래 교재 섹션",
+   "description": "Returns the original textbook section of numeric item labels (lectureKey): items[].matches[] with sourceTitle, ordinal and O/X; ambiguousLabels lists labels found in several sections. When the student has more than one book, pass bookLabel (from bindings[].bookLabel of academy_textbook_section_results_get): scanning all books can time out. labels: the digits the user gave or lectureKey values of an earlier result, at most 32. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "displayName": {
+      "type": "string"
+     },
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     },
+     "labels": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "pattern": "^[1-9][0-9]{0,15}$"
+      }
+     },
+     "bookLabel": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "displayName",
+     "purpose",
+     "currentRequestRef",
+     "labels"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_item_answer_lookup",
+   "title": "문항 정답 원문",
+   "description": "Returns the official answer text of numeric item labels (문항 번호, lectureKey): answers[].answerLiteral as '<prefix>|_|<answer>', with the source unit and pattern names. No student is needed. labels: the digits the user gave, or lectureKey values of an earlier result (wrongItems, items, matches), at most 32. Quote the answer part; escape '|' in Markdown tables. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "labels": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "pattern": "^[1-9][0-9]{0,15}$"
+      }
+     },
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     },
+     "view": {
+      "type": "string",
+      "enum": [
+       "full",
+       "compact"
+      ]
+     }
+    },
+    "required": [
+     "labels",
+     "purpose",
+     "currentRequestRef"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_item_label_scope",
+   "inputSchema": {
+    "type": "object"
+   },
+   "description": "Type-label hierarchy: hierarchy IDs and the labels under one (유형 위계, 유형 라벨 목록). Not available in this generation: the call always answers unavailable. When the user asks for this, say that the function is unavailable; do not use another tool in its place (catalogs, textbook units, item numbers and student names are not type labels)."
+  },
+  {
+   "name": "academy_find_item_labels",
+   "inputSchema": {
+    "type": "object"
+   },
+   "description": "Type labels similar to a described type, under given hierarchy IDs (비슷한 유형 라벨 찾기). Not available in this generation: the call always answers unavailable. When the user asks for this, say that the function is unavailable; do not use another tool in its place (catalogs, textbook units, item numbers and student names are not type labels)."
+  },
+  {
+   "name": "academy_review_type_questions",
+   "inputSchema": {
+    "type": "object"
+   },
+   "description": "Questions, metadata and answers under one type label (유형 문제, 유형 문항 보기). Not available in this generation: the call always answers unavailable. When the user asks for this, say that the function is unavailable; do not use another tool in its place (catalogs, textbook units, item numbers and student names are not type labels)."
+  },
+  {
+   "name": "academy_prestudy_get",
+   "title": "예습영상 목록·AI 점수",
+   "description": "Returns a student's prestudy videos (예습영상): waiting[] (uploaded, awaiting the teacher's check: 검사 대기), completed[] (unitLabel, dateLiteral, prestudyKey) and summary[] (AI score literals: 예습 점수). An empty summary means no AI score is shown: say so, do not derive one. For a report, pass prestudyKey to academy_prestudy_report_get. displayName: the name as the user wrote it. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "displayName": {
+      "type": "string"
+     },
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "displayName",
+     "purpose",
+     "currentRequestRef"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_prestudy_report_get",
+   "title": "예습영상 AI 리포트",
+   "description": "Returns the AI report of one prestudy video: sections[] with title and text blocks, and view.returnedSectionTitles. prestudyKey: from completed[] or waiting[] of academy_prestudy_get; for 최근 take the row with the latest dateLiteral. sectionTitles (optional): exact titles to narrow the output. When summarizing, name each section by its title. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "displayName": {
+      "type": "string"
+     },
+     "prestudyKey": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,15}$"
+     },
+     "sectionTitles": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "maxOutputBytes": {
+      "type": "integer"
+     },
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "displayName",
+     "prestudyKey",
+     "purpose",
+     "currentRequestRef"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_printed_paper_lookup",
+   "title": "출력코드 시험지 응시 기록",
+   "description": "Returns whether and how a student took one printed paper (출력코드 #…) in a period: observation.status and observation.rows[] (sourceScore). studentId: studentKey of academy_student_resolve. paperCode: the code as given, with '#'. period: {from, through} as YYYY-MM-DD from the user's dates. For the paper's title and question count use academy_paper_definition_lookup. A not-found result covers the searched page only. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "studentId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,15}$"
+     },
+     "paperCode": {
+      "type": "string",
+      "pattern": "^#[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{1,11}$"
+     },
+     "period": {
+      "type": "object",
+      "properties": {
+       "from": {
+        "type": "string",
+        "format": "date"
+       },
+       "through": {
+        "type": "string",
+        "format": "date"
+       }
+      },
+      "required": [
+       "from",
+       "through"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "required": [
+     "studentId",
+     "paperCode",
+     "period"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_paper_definition_lookup",
+   "title": "출력코드 시험지 이름·문항 수",
+   "description": "Returns one printed paper's definition: observation.information with title, questionCount, category and level. Use it for 시험지 이름 and 문항 수 of one code; for titles of several codes use academy_paper_headers. studentId: studentKey of academy_student_resolve (it selects the student's paper scope). paperCode: '#…' as given. It does not show whether the student took the paper. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "studentId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,15}$"
+     },
+     "paperCode": {
+      "type": "string",
+      "pattern": "^#[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{1,11}$"
+     },
+     "view": {
+      "default": "definition",
+      "type": "string",
+      "enum": [
+       "definition",
+       "header"
+      ]
+     }
+    },
+    "required": [
+     "studentId",
+     "paperCode"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_paper_headers",
+   "title": "시험지 여러 개 제목",
+   "description": "Returns the headers of up to 32 printed papers in one call: observation.rows[].contentHeader.metadataRows (label 시험지 제목 = the title). Use it for the titles of several codes (시험지 제목, 뭐였는지). studentId: studentKey of academy_student_resolve. paperCodes: the codes as given, each with '#'. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "studentId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,15}$"
+     },
+     "paperCodes": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "pattern": "^#[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{1,11}$"
+      }
+     }
+    },
+    "required": [
+     "studentId",
+     "paperCodes"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "class2_academy_paper_headers",
+   "title": "시험지 정의 묶음(두 번째 시험지 범위 전용)",
+   "description": "Same as academy_paper_headers, plus view 'definition' to read the definitions of up to 32 codes in one call. Works only for students in the second paper scope; for other students it fails with paper_scope_unresolved. Use academy_paper_headers or academy_paper_definition_lookup first; use this only for many definitions of such a student. studentId: studentKey of academy_student_resolve. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "studentId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,15}$"
+     },
+     "paperCodes": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "pattern": "^#[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{1,11}$"
+      }
+     },
+     "view": {
+      "default": "header",
+      "type": "string",
+      "enum": [
+       "header",
+       "definition"
+      ]
+     }
+    },
+    "required": [
+     "studentId",
+     "paperCodes"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_paper_read_contracts",
+   "title": "시험 검색 폼·TestPool 계약",
+   "description": "Returns the form fields and functions of the LMS paper search and TestPool pages (시험 검색 폼, 읽기 계약); status inert_contracts_observed; no student rows. Pair it with academy_source_read_contracts kind 'printed_code' for the converter. studentId: studentKey of academy_student_resolve. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "studentId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,15}$"
+     }
+    },
+    "required": [
+     "studentId"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_source_read_contracts",
+   "title": "DT 카탈로그·출력코드 변환기 계약",
+   "description": "Returns the static program of one LMS source page, without running it: kind 'printed_code' = the printed-code converter (출력코드 변환기), 'daily_test_catalog' = the DT catalog page, 'middle1_definitions' or 'elementary5_fraction_definitions' = definition tables (optional unitCodes, unitNames). For questions about how the LMS reads, not for student results. studentId: studentKey of academy_student_resolve. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "studentId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,15}$"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "printed_code",
+       "daily_test_catalog",
+       "middle1_definitions",
+       "elementary5_fraction_definitions"
+      ]
+     },
+     "unitCodes": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "pattern": "^(5-[1-7]|6-[1-5]|7-[12])$"
+      }
+     },
+     "unitNames": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
+     }
+    },
+    "required": [
+     "studentId",
+     "kind"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_textbook_catalog",
+   "title": "교재 카탈로그·PDF 목록",
+   "description": "Returns the LMS textbook and workbook PDF catalog: entries[] with sourceLabels, kind (sample, answer …), filename and documentRef. Use it to find a book (교재 카탈로그) and to see whether it has an answer PDF (답지). schoolLevel: elementary 초등, middle 중등 (default), high 고등. query: words of the book name. documentKind: optional filter. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "schoolLevel": {
+      "default": "middle",
+      "type": "string",
+      "enum": [
+       "elementary",
+       "middle",
+       "high"
+      ]
+     },
+     "documentKind": {
+      "default": "all",
+      "type": "string",
+      "enum": [
+       "sample",
+       "answer",
+       "repair",
+       "daily",
+       "other",
+       "all"
+      ]
+     },
+     "query": {
+      "type": "string"
+     },
+     "offset": {
+      "default": 0,
+      "type": "integer"
+     },
+     "limit": {
+      "default": 10,
+      "type": "integer"
+     }
+    },
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_textbook_pdf",
+   "title": "교재 PDF 받기",
+   "description": "Downloads one catalog PDF into a local artifact and returns its sha256 and path, not its text. documentRef and schoolLevel: from an entries[] row of academy_textbook_catalog. For a TOC or unit names call academy_textbook_toc_get instead: no download. LMS read plus one local file.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "schoolLevel": {
+      "default": "middle",
+      "type": "string",
+      "enum": [
+       "elementary",
+       "middle",
+       "high"
+      ]
+     },
+     "documentRef": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+     }
+    },
+    "required": [
+     "documentRef"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_textbook_toc_get",
+   "title": "Read a textbook TOC (units, pages, chapter assessments) from pinned data",
+   "description": "Units, pages and chapter assessments (대단원 총괄평가) of any catalog textbook, from kept text data: no LMS request, no PDF, no image. Call it first for a book's units or pages. book: a name such as 가우스 5-1-2, 초5-1 가우스 2권, 가우스 5학년 1학기 2권, or the LMS bound-book label; without a volume it gives every volume. unit: '6' or '6-5'. not_found lists names to choose from.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "book": {
+      "type": "string"
+     },
+     "unit": {
+      "type": "string",
+      "pattern": "^\\d{1,2}(?:-\\d{1,2})?$"
+     }
+    },
+    "required": [
+     "book"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_cism_month",
+   "title": "월별 CISM 빈 칸",
+   "description": "Returns every CISM week that touches one month: reports[] with the week's report (weekLabel, fields with values) and emptyFields, the count of empty fields. Use it for a month overview (월별 CISM, 빈 칸 몇 개). month: YYYY-MM. For one week's editable fields use academy_cism_weekly_get. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "month": {
+      "type": "string",
+      "pattern": "^20\\d{2}-(0[1-9]|1[0-2])$"
+     }
+    },
+    "required": [
+     "month"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_cism_weekly_get",
+   "title": "주간 CISM 읽기",
+   "description": "Returns the CISM week (Sunday to Saturday) that contains a date: report.reportSha256 and report.fields[] with fieldRef, label, kind, value, studentName. Step 1 of a CISM write (get, review, save, get), and the readback after a save. date: any YYYY-MM-DD in that week. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "date": {
+      "type": "string",
+      "format": "date"
+     }
+    },
+    "required": [
+     "date"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_cism_weekly_review",
+   "title": "주간 CISM 문안 검토",
+   "description": "Step 2 of a CISM write: checks proposed text against the current week and records the review. Returns status reviewed and reviewDigest; no LMS write. date: as in the get. expectedReportSha256: report.reportSha256 of academy_cism_weekly_get. request: {requestRef: your id, instruction: the user's message verbatim}. changes[]: {fieldRef from report.fields[], before = that field's current value ('' if empty), after = the new text from same-week DailyRecords or the user, evidenceRefs = the dated sources used}. Only empty fields are filled unless edit is complete_existing_narrative. Never invent numbers.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "date": {
+      "type": "string",
+      "format": "date"
+     },
+     "expectedReportSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+     },
+     "request": {
+      "type": "object",
+      "properties": {
+       "requestRef": {
+        "type": "string"
+       },
+       "instruction": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "requestRef",
+       "instruction"
+      ],
+      "additionalProperties": false
+     },
+     "changes": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "fieldRef": {
+         "type": "string",
+         "pattern": "^[a-f0-9]{64}$"
+        },
+        "before": {
+         "type": "string"
+        },
+        "after": {
+         "type": "string"
+        },
+        "edit": {
+         "default": "fill_empty",
+         "type": "string",
+         "enum": [
+          "fill_empty",
+          "complete_existing_narrative"
+         ]
+        },
+        "evidenceRefs": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        }
+       },
+       "required": [
+        "fieldRef",
+        "before",
+        "after",
+        "evidenceRefs"
+       ],
+       "additionalProperties": false
+      }
+     }
+    },
+    "required": [
+     "date",
+     "expectedReportSha256",
+     "request",
+     "changes"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_cism_weekly_save",
+   "title": "주간 CISM 저장(LMS 쓰기)",
+   "description": "Step 3: writes the reviewed CISM fields to the LMS (an LMS write), one request per change, and reads each back. Returns status persisted. Call only after academy_cism_weekly_review returned reviewed. date, expectedReportSha256, request and changes: exactly as in that review; reviewDigest: from it. Then call academy_cism_weekly_get to confirm. On a failure stop: never repeat the save for the same field.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "date": {
+      "type": "string",
+      "format": "date"
+     },
+     "expectedReportSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+     },
+     "request": {
+      "type": "object"
+     },
+     "changes": {
+      "type": "array"
+     },
+     "reviewDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+     }
+    },
+    "required": [
+     "date",
+     "expectedReportSha256",
+     "request",
+     "changes",
+     "reviewDigest"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_cism_section",
+   "inputSchema": {
+    "type": "object",
+    "properties": {}
+   },
+   "description": "One section of a CISM report (CISM 항목 하나, e.g. 부진아 지도 내용). Not available in this generation: the call always answers unavailable (exact_cism_read_backend_not_configured). Say so; the month's CISM records are in academy_cism_month if the user wants those."
+  },
+  {
+   "name": "academy_runtime_identity",
+   "title": "연결된 MCP release 확인",
+   "description": "Returns the connected server's release generation, pointer and bridge hashes (release 세대, 브리지 해시) and surfaceSha256. No arguments. No LMS request."
+  },
+  {
+   "name": "academy_capabilities",
+   "title": "이 MCP의 학원 업무 목록",
+   "description": "Returns what this server knows about academy work: view 'hierarchy' (workflows, default), 'operations' (paged by offset and limit), 'source_contract' with operationId, or 'workflow_rules'. Use it for 이 MCP로 할 수 있는 일. A pinned inventory; no LMS request.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "view": {
+      "default": "hierarchy",
+      "type": "string",
+      "enum": [
+       "hierarchy",
+       "operations",
+       "source_contract",
+       "workflow_rules"
+      ]
+     },
+     "workflow": {
+      "type": "string",
+      "enum": [
+       "people",
+       "teaching",
+       "learning",
+       "assessment",
+       "materials",
+       "student_care",
+       "communication",
+       "source_support"
+      ]
+     },
+     "domain": {
+      "type": "string",
+      "enum": [
+       "identity",
+       "lesson",
+       "curriculum",
+       "prestudy",
+       "assessment",
+       "clinic",
+       "materials",
+       "smartbook",
+       "communication",
+       "counseling",
+       "device",
+       "book_order",
+       "navigation"
+      ]
+     },
+     "operationId": {
+      "type": "string"
+     },
+     "offset": {
+      "default": 0,
+      "type": "integer"
+     },
+     "limit": {
+      "default": 10,
+      "type": "integer"
+     }
+    },
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_query",
+   "title": "저장본 조회(과거 스냅샷)",
+   "description": "Returns preserved evidence from an older snapshot, never live data: roster, student_summary, student_history (facets such as books, daily_tests), student_records or lesson_context. Use it only when the user asks for 저장본 or 보존 자료. Call {kind:'roster'} first: studentId is the roster's opaque id, not a name or a native key. For live records keep to the live tools, even when they answer unavailable. No LMS request.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "sourceMode": {
+      "type": "string",
+      "const": "saved_context"
+     },
+     "query": {
+      "type": "object",
+      "properties": {
+       "kind": {
+        "type": "string",
+        "enum": [
+         "roster",
+         "student_summary",
+         "student_history",
+         "student_records",
+         "lesson_context"
+        ]
+       },
+       "studentId": {
+        "type": "string"
+       },
+       "facets": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "enum": [
+          "books",
+          "sections",
+          "attempts",
+          "assignments",
+          "videos",
+          "daily_tests",
+          "daily_records",
+          "teacher_events",
+          "daily_record_drafts"
+         ]
+        }
+       },
+       "facet": {
+        "type": "string",
+        "enum": [
+         "books",
+         "sections",
+         "attempts",
+         "assignments",
+         "videos",
+         "daily_tests",
+         "daily_records",
+         "teacher_events",
+         "daily_record_drafts"
+        ]
+       },
+       "bookEditionId": {
+        "type": "string"
+       },
+       "date": {
+        "type": "string",
+        "format": "date"
+       }
+      },
+      "required": [
+       "kind"
+      ],
+      "additionalProperties": false
+     },
+     "cursor": {
+      "type": "string"
+     },
+     "limit": {
+      "type": "integer",
+      "default": 10
+     }
+    },
+    "required": [
+     "query"
+    ],
+    "additionalProperties": false
+   }
+  },
+  {
+   "name": "academy_source_status",
+   "title": "저장본 수집 범위",
+   "description": "Returns the coverage of the saved snapshot: when it was collected (collectedThrough) and what is missing. Use it for 저장본 언제까지. It says nothing about live LMS availability. No arguments. No LMS request.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+   }
+  }
+ ]
+}
