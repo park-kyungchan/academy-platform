@@ -38,7 +38,10 @@ signal-hook = { version = "=0.4.4", default-features = false, features = ["itera
 unused_dependencies = "deny"
 unused_workspace_dependencies = "deny"
 unused_workspace_package_fields = "deny"
-missing_lints_inheritance = "deny"
+# A misspelled key here would otherwise pass with a warning.
+unknown_lints = "deny"
+# `missing_lints_inheritance` is left at its default: it fires on a member without
+# `[lints]`, which never reads these levels, so `deny` here cannot reach it.
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
