@@ -1,6 +1,6 @@
 import {randomUUID,createHash} from 'node:crypto';
 import {z} from 'zod';
-import {ASSESSMENT_CODE_TABLES,dailyRecordContextSchema,dailyRecordDateSchema,dailyRecordFieldSchema,dailyRecordFields,dailyRecordIdSchema,dailyRecordScopeSchema,dailyRecordWorkflowContext,type DailyRecordContext,type DailyRecordField,type DailyRecordScope} from './dailyrecord-context.ts';
+import {ASSESSMENT_CODE_LABELS,ASSESSMENT_CODE_TABLES,assessmentLabel,dailyRecordFieldsInputSchema,projectFields,dailyRecordContextSchema,dailyRecordDateSchema,dailyRecordFieldSchema,dailyRecordFields,dailyRecordIdSchema,dailyRecordScopeSchema,dailyRecordWorkflowContext,type DailyRecordContext,type DailyRecordField,type DailyRecordScope} from './dailyrecord-context.ts';
 import {freezeLabelData} from './item-label-context.ts';
 import {itemAnswerLookupSchema,projectItemAnswerRead} from './item-answer-lookup.ts';
 import {resolveStudentByName,studentResolveInputSchema} from './student-resolver.ts';
@@ -9,7 +9,7 @@ import {readFailureResult} from './read-failure.ts';
 import {academyDateInputSchema,requestIdentityShape,resolveAcademyDate,withRequestIdentity,type BookSelection,type WithRequest} from './read-input.ts';
 import {toolResultBytes} from './tool-result.ts';
 import {canonicalJson} from './dailyrecord-save-admission.ts';
-import {flexibleContextSchema,factWarnings,requestFromInstruction,resolveProposal,resolveWriteContext,saveInstructionSchema,type ResolvedProposal} from './dailyrecord-write-input.ts';
+import {flexibleContextSchema,intakeContextIssues,intakeFlatShape,liftIntakeContext,factWarnings,requestFromInstruction,resolveProposal,resolveWriteContext,saveInstructionSchema,type ResolvedProposal} from './dailyrecord-write-input.ts';
 import {attributionSchema,attributionSummary,consumedWithoutEffect,declaredActorSchema,executionKey,fieldExecutionState,needsReconciliation,studentExecutions,observeAttribution,requestBoundApproval,settledEffect,textDigest,unresolvedOnField,userRequestSchema,workflowLockKey,workflowRequestKey,canonicalSame,type DailyRecordActionApproval,type DailyRecordAttribution,type DailyRecordWorkflow} from './dailyrecord-workflow.ts';
 
 const hash=z.string().regex(/^[a-f0-9]{64}$/),instant=z.iso.datetime({offset:true});
@@ -33,7 +33,10 @@ const proposalSchema=z.object({field:dailyRecordFieldSchema,value:z.string().max
   decision:z.object({kind:z.enum(['set','replace','clear']),requestRef:dailyRecordIdSchema.optional()}).strict().optional(),learningEntries:z.array(learningEntrySchema).max(64).optional(),
   teacherReported:z.object({preserveBefore:z.boolean(),mappedText:z.string().max(8192),lines:z.array(z.object({factRef:dailyRecordIdSchema,text:z.string().min(3).max(1000)}).strict()).min(1).max(32)}).strict().optional(),
 }).strict();
-export const dailyRecordIntakeSchema=z.object({context:flexibleContextSchema.required({scope:true}),suppliedValues:z.array(proposalSchema).max(6).default([]),actor:declaredActorSchema.optional(),attribution:attributionSchema.optional()}).strict();
+/** `context` may be left out when its members are given at the top level (dailyrecord-write-input.ts); scope is required in exactly one of the two places. */
+export const dailyRecordIntakeSchema=z.object({context:flexibleContextSchema.optional(),...intakeFlatShape,fields:dailyRecordFieldsInputSchema,
+  suppliedValues:z.array(proposalSchema).max(6).default([]),actor:declaredActorSchema.optional(),attribution:attributionSchema.optional()}).strict()
+  .superRefine((value,context)=>{for(const issue of intakeContextIssues(value))context.addIssue({code:'custom',...issue});});
 export const dailyRecordReviewSchema=z.object({context:flexibleContextSchema.optional(),observationHandle:dailyRecordIdSchema.optional(),
   cismObservationHandle:dailyRecordIdSchema.optional(),
   proposals:z.array(proposalSchema).min(1).max(6),actor:declaredActorSchema.optional(),attribution:attributionSchema.optional(),
@@ -618,7 +621,7 @@ export class DailyRecordService {
     }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'student_resolve_unqualified_no_automatic_retry')};}
   }
   async intake(value:unknown){
-    const input=dailyRecordIntakeSchema.parse(value),context=resolveWriteContext(input.context,input.suppliedValues);
+    const input=liftIntakeContext(dailyRecordIntakeSchema.parse(value)),context=resolveWriteContext(input.context,input.suppliedValues);
     if(new Set(input.suppliedValues.map(p=>p.field)).size!==input.suppliedValues.length)throw Error('duplicate_proposal_field');
     const read=await this.#read(context.scope,context.currentRequestRef),source=read.status==='observed'?read.observation:null;
     const suppliedValues=input.suppliedValues.map(p=>resolveProposal(p,context,source?.fields[p.field]));
@@ -634,7 +637,8 @@ export class DailyRecordService {
       const noPrevious=field==='previousHomeworkAssessment'&&!!source&&source.previousTarget===null;
       if(field==='lessonMemo'){if(context.memoAnswer.kind==='not_supplied')interviews.push({field,reasonCode:'today_student_specific_memo_required'});}
       else if(!noPrevious&&!existing&&!supplied&&(!['progress','homework'].includes(field)||!facts))interviews.push({field,reasonCode:'explicit_value_or_qualified_existing_value_required'});
-      return {field,before:current,selected:context.selectedFields.includes(field),disposition:noPrevious?'no_previous_record':existing?'preserve_existing':supplied?'explicit_user_value':facts&&['progress','homework'].includes(field)?'user_facts_available':'missing',
+      const label=current.state==='known'?assessmentLabel(field,current.value):undefined;
+      return {field,before:label===undefined?current:{...current,label},selected:context.selectedFields.includes(field),disposition:noPrevious?'no_previous_record':existing?'preserve_existing':supplied?'explicit_user_value':facts&&['progress','homework'].includes(field)?'user_facts_available':'missing',
         target:field==='previousHomeworkAssessment'?source?.previousTarget??null:source?.target??null};
     });
     for(const p of suppliedValues)blockers.push(...proposalBlockers(p,context).map(b=>p.field+':'+b));
@@ -652,7 +656,7 @@ export class DailyRecordService {
     }
     return {...this.#base(context),status:blockers.length?'held':interviews.length?'interview_required':'ready_for_review',observationHandle,
       observationPersistence:observationHandle&&this.workflow?'owner_durable' as const:'process_local' as const,
-      attribution:attribution?attributionSummary(attribution):null,fields,interviews,assessmentCodeTables:ASSESSMENT_CODE_TABLES,blockers,warnings,
+      attribution:attribution?attributionSummary(attribution):null,fields:projectFields(fields,input.fields),interviews,assessmentCodeTables:ASSESSMENT_CODE_TABLES,assessmentCodeLabels:ASSESSMENT_CODE_LABELS,blockers,warnings,
       source:source?{observedAt:source.observedAt,sourceRevision:source.sourceRevision,wireDigest:source.wireDigest,transmissionState:source.transmissionState}:null,
       toneSamples:source?.toneSamples.filter(s=>this.parentSafeguard?.checkLines(s.text))??[],toneSelection:'hyphen_lines_only_other_formats_ignored',sourceAvailability:read.status,failure:'failure' in read?read.failure:null,execution:'not_supported'};
   }

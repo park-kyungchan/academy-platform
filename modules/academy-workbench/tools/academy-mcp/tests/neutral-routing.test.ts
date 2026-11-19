@@ -130,6 +130,23 @@ test('direct resolver receipt retains native audit failure for an empty dated re
     expect(receipt.upstreamOccurrence).toMatch(/^[a-f0-9-]{36}$/);
   });
 },20000);
+test('neutral intake ticketing takes the scope and request ref of a flat intake call',async()=>{
+  await withNeutralClient(async({client})=>{
+    const c=context(),{scope,currentRequestRef,...rest}=c;
+    const flat:any=await client.callTool({name:'academy_dailyrecord_intake',arguments:{...rest,currentRequestRef,...scope}});
+    expect(flat.isError).not.toBe(true);
+    expect(flat.structuredContent).toMatchObject({status:'ready_for_review',userContext:{scope,currentRequestRef}});
+    expect(flat.structuredContent.observationHandle).toContain('muse-academy-observation:');
+    const mixed:any=await client.callTool({name:'academy_dailyrecord_intake',arguments:{scope,context:{purpose:'mixed',currentRequestRef}}});
+    expect(mixed.isError).not.toBe(true);
+    expect(mixed.structuredContent.observationHandle).toContain('muse-academy-observation:');
+    // The ticket is bound to that scope and request: a review with the same context exchanges it.
+    const reviewed:any=await client.callTool({name:'academy_dailyrecord_review',arguments:{context:{scope,currentRequestRef},observationHandle:flat.structuredContent.observationHandle,
+      proposals:[{field:'progress',value:'- 지정 문제 12문항 풀이 진행.'}]}});
+    expect(reviewed.isError).not.toBe(true);
+    expect(reviewed.structuredContent).toMatchObject({status:'prepared'});
+  });
+},20000);
 test('neutral save composes intake, review and save in one upstream lifetime',async()=>{
   await withNeutralClient(async({events,client})=>{
     const c=context();

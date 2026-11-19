@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import {dailyRecordContextSchema,dailyRecordFields,type DailyRecordContext,type DailyRecordField,type DailyRecordScope} from './dailyrecord-context.ts';
+import {dailyRecordContextSchema,dailyRecordFields,dailyRecordIdSchema,dailyRecordScopeSchema,type DailyRecordContext,type DailyRecordField,type DailyRecordScope} from './dailyrecord-context.ts';
 import {userRequestSchema,type DailyRecordUserRequest} from './dailyrecord-workflow.ts';
 
 /**
@@ -9,7 +9,13 @@ import {userRequestSchema,type DailyRecordUserRequest} from './dailyrecord-workf
  * user's words. Every other member is optional; a member the caller gives
  * keeps its meaning.
  */
-export const flexibleContextSchema=z.object(dailyRecordContextSchema.shape).partial().strict();
+/** `no_addition` needs no requestRef here: the write path binds it to the request's own ref. */
+const flexibleMemoAnswerSchema=z.discriminatedUnion('kind',[
+  dailyRecordContextSchema.shape.memoAnswer.options[0],
+  z.object({kind:z.literal('no_addition'),requestRef:dailyRecordIdSchema.optional()}).strict(),
+  dailyRecordContextSchema.shape.memoAnswer.options[2],
+]);
+export const flexibleContextSchema=z.object({...dailyRecordContextSchema.shape,memoAnswer:flexibleMemoAnswerSchema}).partial().strict();
 export type FlexibleContext=z.infer<typeof flexibleContextSchema>;
 export const DEFAULT_WRITE_PURPOSE='DailyRecord write';
 
@@ -26,7 +32,8 @@ export function resolveWriteContext(context:FlexibleContext|undefined,proposals:
   const currentRequestRef=context?.currentRequestRef??bound?.requestRef??'dailyrecord-request:'+randomUUID();
   // The proposed memo is the memo answer; no proposed memo adds nothing; a blank one is asked for.
   const memo=proposals.find(p=>p.field==='lessonMemo');
-  const memoAnswer=context?.memoAnswer??(!memo?{kind:'no_addition' as const,requestRef:currentRequestRef}
+  const given=context?.memoAnswer;
+  const memoAnswer=given?(given.kind==='no_addition'?{kind:'no_addition' as const,requestRef:given.requestRef??currentRequestRef}:given):(!memo?{kind:'no_addition' as const,requestRef:currentRequestRef}
     :memoText.safeParse(memo.value).success?{kind:'content' as const,requestRef:currentRequestRef,text:memo.value}:{kind:'not_supplied' as const});
   const proposed=[...new Set(proposals.map(p=>p.field))];
   return dailyRecordContextSchema.parse({schemaVersion:context?.schemaVersion??'academy.dailyrecord-user-context/1',purpose:context?.purpose??DEFAULT_WRITE_PURPOSE,
@@ -60,4 +67,39 @@ export const saveInstructionSchema=z.union([z.string().max(4000),userRequestSche
 export function requestFromInstruction(instruction:z.infer<typeof saveInstructionSchema>,requestRef:string):DailyRecordUserRequest|null{
   const value=typeof instruction==='string'?{text:instruction}:instruction;
   return value.text.trim()?userRequestSchema.parse({requestRef,instruction:value}):null;
+}
+
+const flatContext=flexibleContextSchema.shape;
+const flatNote='Flat form of the context member of the same name; give it here or inside context, not both.';
+/** Intake's flat form: these context members may be given at the top level. */
+const flatContextShape={schemaVersion:flatContext.schemaVersion.describe(flatNote),purpose:flatContext.purpose.describe(flatNote),
+  currentRequestRef:flatContext.currentRequestRef.describe(flatNote),scope:flatContext.scope.describe(flatNote),
+  selectedFields:flatContext.selectedFields.describe(flatNote),memoAnswer:flatContext.memoAnswer.describe(flatNote),facts:flatContext.facts.describe(flatNote)};
+/** The scope written out at the top level; all four members together, and not when `scope` is given. */
+const flatScopeNote='Flat form of context.scope: give all four of sourceNamespace, teacherId, studentId and lessonDate, and no scope.';
+const flatScopeShape={sourceNamespace:dailyRecordScopeSchema.shape.sourceNamespace.optional().describe(flatScopeNote),
+  teacherId:dailyRecordScopeSchema.shape.teacherId.optional().describe(flatScopeNote),studentId:dailyRecordScopeSchema.shape.studentId.optional().describe(flatScopeNote),
+  lessonDate:dailyRecordScopeSchema.shape.lessonDate.optional().describe(flatScopeNote)};
+export const intakeFlatShape={...flatContextShape,...flatScopeShape};
+const flatContextKeys=Object.keys(flatContextShape) as (keyof typeof flatContextShape)[];
+const flatScopeKeys=Object.keys(flatScopeShape) as (keyof typeof flatScopeShape)[];
+type IntakeFlat={context?:FlexibleContext|undefined}&{[K in keyof typeof intakeFlatShape]?:z.infer<typeof intakeFlatShape[K]>|undefined};
+
+/** Refusals of the flat form: a member given both ways, a scope written out in part or given twice, no scope at all. */
+export function intakeContextIssues(input:IntakeFlat):{path:string[];message:string}[]{
+  const issues:{path:string[];message:string}[]=[],inside=input.context??{};
+  for(const key of flatContextKeys)if(input[key]!==undefined&&inside[key]!==undefined)issues.push({path:[key],message:'context_member_conflict'});
+  const written=flatScopeKeys.filter(key=>input[key]!==undefined);
+  if(written.length&&written.length<flatScopeKeys.length)issues.push({path:[written[0]!],message:'context_scope_members_incomplete'});
+  if(written.length===flatScopeKeys.length&&(input.scope!==undefined||inside.scope!==undefined))issues.push({path:[written[0]!],message:'context_member_conflict'});
+  if(!written.length&&input.scope===undefined&&inside.scope===undefined)issues.push({path:['context','scope'],message:'context_scope_required'});
+  return issues;
+}
+/** The input with its flat members lifted into context; call it on input that passed intakeContextIssues. */
+export function liftIntakeContext<T extends IntakeFlat>(input:T):Omit<T,keyof typeof intakeFlatShape|'context'>&{context:FlexibleContext&{scope:DailyRecordScope}}{
+  const {context,...rest}=input as IntakeFlat&Record<string,unknown>,lifted:Record<string,unknown>={...context};
+  for(const key of flatContextKeys)if(rest[key]!==undefined)lifted[key]=rest[key];
+  if(flatScopeKeys.every(key=>rest[key]!==undefined))lifted.scope=Object.fromEntries(flatScopeKeys.map(key=>[key,rest[key]]));
+  for(const key of [...flatContextKeys,...flatScopeKeys])delete rest[key];
+  return {...rest,context:lifted} as never;
 }
