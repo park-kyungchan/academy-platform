@@ -2,7 +2,7 @@
 
 ## Rust migration entry
 
-- New implementation uses the private Cargo workspace at `crates/edu-dc-gang-a/` and pinned Rust 1.95.0. The crate currently has documentation and a synthetic smoke test only; planned modules are not implemented behavior.
+- New implementation uses the private Cargo workspace at `crates/edu-dc-gang-a/` and pinned Rust 1.100.0 (`rust-toolchain.toml`). The crate currently has documentation and a synthetic smoke test only; planned modules are not implemented behavior.
 - Preserve `publish = false`, workspace lint inheritance, `unsafe_code = "forbid"`, and Clippy `unwrap_used` / `expect_used` denial. Education-platform dependency pins come in a later PR.
 - Verify with `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, and `cargo test --workspace --locked`. Local builds use `-j1` and a task-owned `CARGO_TARGET_DIR`, removed after verification.
 - Retain Bun CI while TypeScript tests remain. Remove `.github/workflows/bun-cloud.yml` with the remaining TypeScript deletions. The Bun instructions below apply to retained legacy maintenance.
