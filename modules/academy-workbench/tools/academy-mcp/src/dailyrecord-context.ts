@@ -1,5 +1,6 @@
 import {z} from 'zod';
 import {freezeLabelData} from './item-label-context.ts';
+import {JOURNAL_HTTP_SOURCE_CONTRACT} from '../../../../../apps/academy/dc-gang-a/src/lms/lessonJournalHttp';
 
 const text=z.string().min(1).max(4096).refine(value=>value.trim().length>0&&!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value),'nonempty_safe_text_required');
 export const dailyRecordFields=['progress','homework','lessonMemo','attendance','dailyTestAssessment','previousHomeworkAssessment'] as const;
@@ -13,6 +14,22 @@ export const ASSESSMENT_CODE_TABLES={
   dailyTestAssessment:['-1','0','1','2','3','4','5','6','7','8','9','10'] as const,
   previousHomeworkAssessment:['-1','0','1','2','3','4','5'] as const,
 } as const;
+/** The source page's own radio labels, by code, for the two assessment fields (the same table the live read checks); attendance has none. */
+export const ASSESSMENT_CODE_LABELS={
+  dailyTestAssessment:JOURNAL_HTTP_SOURCE_CONTRACT.assessmentLabels.daily_test_radio as Readonly<Record<string,string>>,
+  previousHomeworkAssessment:JOURNAL_HTTP_SOURCE_CONTRACT.assessmentLabels.homework_radio as Readonly<Record<string,string>>,
+} as const;
+/** The source label of a known assessment value, else undefined. */
+export function assessmentLabel(field:string,value:string):string|undefined{
+  const table=(ASSESSMENT_CODE_LABELS as Record<string,Readonly<Record<string,string>>>)[field];
+  return table&&Object.hasOwn(table,value)?table[value]:undefined;
+}
+/** `fields` input of the read tools: a list of field names, default all; the answer keeps the source order. */
+export const dailyRecordFieldsInputSchema=z.array(dailyRecordFieldSchema).min(1).max(6).optional()
+  .describe('Return only these fields[] entries (default all six).');
+export function projectFields<T extends {field:string}>(rows:readonly T[],names:readonly string[]|undefined):T[]{
+  return names?rows.filter(row=>names.includes(row.field)):[...rows];
+}
 
 export const dailyRecordFactSchema=z.object({ref:dailyRecordIdSchema,field:dailyRecordFieldSchema,text,origin:z.enum(['user_supplied','cism_section']).default('user_supplied'),
   explicitValue:z.string().max(8192).optional(),

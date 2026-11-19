@@ -7,13 +7,13 @@ import {publicReadFailure,publicFailureFromData} from './read-failure.ts';
 import {toolResult,withToolMeta} from './tool-result.ts';
 const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)??'null').digest('hex');
 const statuses=new Set(['observed','resolved','configured','ready_for_review','prepared','reviewed','saved','persisted','held','unavailable','failed','blocked','interview_required','settled','partial','page','refused','available','plan_only','consistent_caller_reported','ready']);
-/** Paths contain only declared schema keys and bounded numeric indices, never caller property names. */
+/** Paths contain only declared schema keys and bounded numeric indices, never caller property names. A custom issue also names its refusal `code` when the schema's own message is one (a snake_case code, never caller text). */
 export function inputIssues(schema:z.ZodType,input:unknown){
  const parsed=schema.safeParse(input);if(parsed.success)return [];
  const keys=new Set<string>();
  const visit=(value:any)=>{if(!value||typeof value!=='object')return;for(const [k,v] of Object.entries(value)){if(k==='properties'&&v&&typeof v==='object')Object.keys(v).forEach(k=>keys.add(k));visit(v);}};
  visit(z.toJSONSchema(schema,{io:'input',unrepresentable:'any'}));
- return parsed.error.issues.slice(0,16).map(i=>({kind:i.code,path:i.path.slice(0,12).map(p=>typeof p==='number'&&p>=0&&p<=100000?p:typeof p==='string'&&keys.has(p)?p:'unknown_key')}));
+ return parsed.error.issues.slice(0,16).map(i=>({kind:i.code,...(i.code==='custom'&&/^[a-z][a-z0-9_]{0,95}$/.test(i.message)?{code:i.message}:{}),path:i.path.slice(0,12).map(p=>typeof p==='number'&&p>=0&&p<=100000?p:typeof p==='string'&&keys.has(p)?p:'unknown_key')}));
 }
 /** Install before registering tools. Public SDK hooks only; no private dispatch-table access.
  * Preflight returns safe input diagnostics before SDK converts validation to opaque text.

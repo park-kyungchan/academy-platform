@@ -19,8 +19,9 @@ test('existing label MCP discovers context-required DailyRecord tools while pres
     expect(saveRefused.structuredContent).toMatchObject({status:'unavailable',reasonCode:'dailyrecord_save_backend_not_configured',academyWrites:0});
     for(const name of ['academy_dailyrecord_intake','academy_dailyrecord_review','academy_cism_section']){
       const tool=tools.find(t=>t.name===name)!;expect(tool.annotations?.readOnlyHint).toBe(true);expect(tool.annotations?.destructiveHint).toBe(false);
-      // The review needs only proposals (and a handle for a patch); intake and CISM still need context (TASK-FLEX-1).
-      expect(tool.inputSchema.required).toContain(name==='academy_dailyrecord_review'?'proposals':'context');const refused=await client.callTool({name,arguments:{}});expect(refused.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',academyWrites:0});
+      // The review needs only proposals (and a handle for a patch); CISM still needs context (TASK-FLEX-1). Intake needs a scope, inside context or written at the top level, so it requires no member by name.
+      if(name==='academy_dailyrecord_intake')expect(tool.inputSchema.required??[]).toEqual([]);
+      else expect(tool.inputSchema.required).toContain(name==='academy_dailyrecord_review'?'proposals':'context');const refused=await client.callTool({name,arguments:{}});expect(refused.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',academyWrites:0});
     }
     const intake=await client.callTool({name:'academy_dailyrecord_intake',arguments:{context:context()}});
     expect(intake.isError).not.toBe(true);expect(intake.structuredContent).toMatchObject({status:'held',sourceAvailability:'unavailable',academyWrites:0,parentSends:0,observationHandle:null});

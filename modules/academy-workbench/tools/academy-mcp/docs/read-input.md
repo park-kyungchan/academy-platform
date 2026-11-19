@@ -4,7 +4,7 @@ Source: `src/read-input.ts`. Tests: `tests/read-input-flex.test.ts`. What these 
 
 ## Request identity
 
-`purpose` and `currentRequestRef` are optional on every read tool of the module. The DailyRecord write tools keep their `context` unchanged. When a member is left out, the server fills it:
+`purpose` and `currentRequestRef` are optional on every read tool of the module. The DailyRecord write tools keep their `context`; `academy_dailyrecord_intake` also takes the context members, and the scope written out as `sourceNamespace`, `teacherId`, `studentId` and `lessonDate`, at the top level (its flat form, [release v6 differences](release-v6-differences.md#input-schemas)). When a member is left out, the server fills it:
 
 - `purpose`: the tool's name;
 - `currentRequestRef`: `auto-<uuid>`, new for each call.

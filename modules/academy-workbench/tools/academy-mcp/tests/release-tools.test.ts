@@ -35,11 +35,18 @@ const bridgeSchemas:Record<string,JsonSchema>={
 };
 /** Every input-schema difference of v6 from v5, by the JSON pointer of the member that
  * differs: each difference lies at or under a listed pointer, and each listed pointer has
- * one. `required` is compared as a set. Each is explained in docs/release-v6-differences.md. */
+ * one. `required` is compared as a set, so a `required` list has no index pointer; an `oneOf` branch of a member is named by its index. Each is explained in docs/release-v6-differences.md. */
 const identity=['/properties/currentRequestRef','/properties/purpose'];
 const period=(kind:number)=>`/properties/queries/items/oneOf/${kind}/properties/period`;
+const memoAnswerNoAddition='/properties/context/properties/memoAnswer/oneOf/1/required';
+/** Intake's flat form: the context members, and the scope written out, at the top level. */
+const intakeFlat=['/properties/schemaVersion','/properties/purpose','/properties/currentRequestRef','/properties/scope','/properties/selectedFields',
+ '/properties/memoAnswer','/properties/facts','/properties/sourceNamespace','/properties/teacherId','/properties/studentId','/properties/lessonDate'];
 const knownDifferences:Record<string,string[]>={
- academy_dailyrecord_get:[...identity,'/properties/lessonDate','/properties/view','/required'],
+ academy_dailyrecord_get:[...identity,'/properties/lessonDate','/properties/view','/properties/fields','/required'],
+ academy_dailyrecord_intake:[...intakeFlat,'/properties/fields','/properties/context/required',memoAnswerNoAddition,'/required'],
+ academy_dailyrecord_review:[memoAnswerNoAddition],
+ academy_dailyrecord_save:[memoAnswerNoAddition],
  academy_dailytest_history_with_headers:[...identity,'/properties/lessonDate','/required'],
  academy_student_resolve:['/properties/lessonDate','/required'],
  academy_student_metadata_get:[...identity,'/properties/lessonDate',period(0),period(4),'/required'],

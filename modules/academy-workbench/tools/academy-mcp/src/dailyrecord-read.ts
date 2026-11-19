@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {dailyRecordContextSchema,dailyRecordFields,dailyRecordIdSchema} from './dailyrecord-context.ts';
+import {dailyRecordContextSchema,dailyRecordFields,dailyRecordFieldsInputSchema,dailyRecordIdSchema,projectFields} from './dailyrecord-context.ts';
 import {academyDateInputSchema,requestIdentityShape,resolveAcademyDate,withRequestIdentity} from './read-input.ts';
 export {academyBusinessDate} from './read-input.ts';
 import {publicFailureFromData} from './read-failure.ts';
@@ -10,6 +10,7 @@ export const dailyRecordGetSchema=z.object({
   ...requestIdentityShape,
   lessonDate:academyDateInputSchema.default('today').describe('Omit for today. '+academyDateInputSchema.description),
   view:z.enum(['full','compact']).optional(),
+  fields:dailyRecordFieldsInputSchema,
 }).strict();
 
 /** The configured teacher of the owner backend. Never part of tool input. */
@@ -35,12 +36,13 @@ const intakeReadSchema=z.object({
   source:z.object({observedAt:z.iso.datetime({offset:true}),sourceRevision:hash,wireDigest:hash,transmissionState:z.enum(['unknown','not_sent','already_sent'])}).nullable(),
   fields:z.array(z.object({field:z.enum(dailyRecordFields),selected:z.boolean(),disposition:z.string(),target:targetSchema.nullable(),
     before:z.discriminatedUnion('state',[
-      z.object({state:z.literal('known'),value:z.string(),evidenceRefs:z.array(dailyRecordIdSchema).min(1)}),
+      z.object({state:z.literal('known'),value:z.string(),evidenceRefs:z.array(dailyRecordIdSchema).min(1),label:z.string().optional()}),
       z.object({state:z.literal('unknown'),reasonCode:dailyRecordIdSchema}),
     ]),
   })).length(6),
   interviews:z.array(z.object({field:z.enum(dailyRecordFields),reasonCode:dailyRecordIdSchema})),
   assessmentCodeTables:z.record(z.string(),z.array(z.string())).optional(),
+  assessmentCodeLabels:z.record(z.string(),z.record(z.string(),z.string())).optional(),
   observationHandle:dailyRecordIdSchema.nullable().optional(),observationPersistence:z.enum(['owner_durable','process_local']).optional(),
 }).refine(v=>new Set(v.fields.map(f=>f.field)).size===dailyRecordFields.length,'unique_intake_fields_required');
 
@@ -74,9 +76,10 @@ export async function readDailyRecordByName(value:unknown,port:DailyRecordReadRo
     const age=now()-Date.parse(intake.source.observedAt);
     if(age<0||age>300000)return held('stale_source');
     return {...base,status:'observed' as const,sourceAvailability:'observed' as const,scope:context.scope,
-      route:['academy_student_resolve','academy_dailyrecord_intake'],fields:intake.fields,source:intake.source,
+      route:['academy_student_resolve','academy_dailyrecord_intake'],fields:projectFields(intake.fields,input.fields),source:intake.source,
       preparation:{status:intake.status,interviews:intake.interviews,requiredOnlyForAuthoring:true},
       ...(intake.assessmentCodeTables?{assessmentCodeTables:intake.assessmentCodeTables}:{}),
+      ...(intake.assessmentCodeLabels?{assessmentCodeLabels:intake.assessmentCodeLabels}:{}),
       transmissionState:intake.source.transmissionState,
       // An owner-durable handle lets any later process review and save this exact
       // scope and request; a process-local handle would not outlive this call.

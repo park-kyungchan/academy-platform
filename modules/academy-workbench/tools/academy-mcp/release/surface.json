@@ -4,7 +4,7 @@
   {
    "name": "academy_dailyrecord_get",
    "title": "DailyRecord(수업일지) 조회",
-   "description": "Returns one student's live DailyRecord (수업일지, 일지) for one lesson date: status, fields[] (field, before.value; progress 진도, homework 숙제, lessonMemo 메모, attendance 출결, DT and homework assessments), scope, authoringHandle. Use it for every 일지 or 기록 조회, today or past, and to read back after a save. displayName: the name as the user wrote it. lessonDate: omit for today, else YYYY-MM-DD, 오늘, 어제, 11월 16일 or 11/16, resolved in Asia/Seoul; the answer states the resolved lessonDate. purpose and currentRequestRef are optional; the answer returns the ones it used. student_name_not_found: no record on that date. To write, call academy_dailyrecord_review next. Read only.",
+   "description": "Returns one student's live DailyRecord (수업일지, 일지) for one lesson date: status, fields[] (field, before.value; progress 진도, homework 숙제, lessonMemo 메모, attendance 출결, DT and homework assessments; each dailyTestAssessment and previousHomeworkAssessment code also has its source page label as before.label, and assessmentCodeLabels lists every code with its label), scope, authoringHandle. Use it for every 일지 or 기록 조회, today or past, and to read back after a save. displayName: the name as the user wrote it. lessonDate: omit for today, else YYYY-MM-DD, 오늘, 어제, 11월 16일 or 11/16, resolved in Asia/Seoul; the answer states the resolved lessonDate. fields: optional list of field names, to return only those fields[] (default all six). view: compact leaves out authoringHandle. purpose and currentRequestRef are optional; the answer returns the ones it used. student_name_not_found: no record on that date. To write, call academy_dailyrecord_review next. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -20,6 +20,27 @@
      "lessonDate": {
       "default": "today",
       "type": "string"
+     },
+     "view": {
+      "type": "string",
+      "enum": [
+       "full",
+       "compact"
+      ]
+     },
+     "fields": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "progress",
+        "homework",
+        "lessonMemo",
+        "attendance",
+        "dailyTestAssessment",
+        "previousHomeworkAssessment"
+       ]
+      }
      }
     },
     "required": [
@@ -31,11 +52,37 @@
   {
    "name": "academy_dailyrecord_review",
    "title": "DailyRecord 문안 검토(저장 없음)",
-   "description": "Step 2 of a DailyRecord write (get, review, save, get). Returns prepared with reviewDigest, or held with blockers; no write. Minimal call: {observationHandle: the string authoringHandle.observationHandle of academy_dailyrecord_get (within 60 minutes), proposals: [{field, value}]}. 메모/코멘트 = lessonMemo, 진도 = progress, 숙제 = homework. set or replace follows the current value. Code fields (attendance, dailyTestAssessment, previousHomeworkAssessment) only when the user asks for that field. Deadline line '- YYYY-MM-DD까지'. Show rows[].warnings to the user. If held, fix the blocker or ask the user.",
+   "description": "Step 2 of a DailyRecord write (get, review, save, get). Returns prepared with reviewDigest, or held with blockers; no write. Minimal call: {observationHandle: the string authoringHandle.observationHandle of academy_dailyrecord_get (within 60 minutes), proposals: [{field, value}]}. 메모/코멘트 = lessonMemo, 진도 = progress, 숙제 = homework. set or replace follows the current value. Code fields (attendance, dailyTestAssessment, previousHomeworkAssessment) only when the user asks for that field. Deadline line '- YYYY-MM-DD까지'. context.memoAnswer {kind: no_addition} needs no requestRef; with a lessonMemo proposal it holds the row with no_addition_preserves_existing_memo. Show rows[].warnings to the user. If held, fix the blocker or ask the user.",
    "inputSchema": {
     "type": "object",
     "properties": {
-     "context": {},
+     "context": {
+      "type": "object",
+      "properties": {
+       "memoAnswer": {
+        "type": "object",
+        "properties": {
+         "kind": {
+          "type": "string",
+          "enum": [
+           "not_supplied",
+           "no_addition",
+           "content"
+          ]
+         },
+         "requestRef": {
+          "type": "string"
+         },
+         "text": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "kind"
+        ]
+       }
+      }
+     },
      "observationHandle": {
       "type": "string"
      },
@@ -98,11 +145,37 @@
   {
    "name": "academy_dailyrecord_save",
    "title": "DailyRecord 저장(LMS 쓰기)",
-   "description": "Step 3: writes the reviewed fields to the LMS DailyRecord (an LMS write) and reads them back. Returns status saved, or held with reasonCode. Call it only after academy_dailyrecord_review returned prepared, and only when the user asked to save. Minimal call: {reviewDigest, instruction: the user's message verbatim}. Then read back with academy_dailyrecord_get. stale_source or drift: get, review, save again. A held uncertain dispatch: no retry; see academy_dailyrecord_execution_status.",
+   "description": "Step 3: writes the reviewed fields to the LMS DailyRecord (an LMS write) and reads them back. Returns status saved, or held with reasonCode. Call it only after academy_dailyrecord_review returned prepared, and only when the user asked to save. Minimal call: {reviewDigest, instruction: the user's message verbatim}. context.memoAnswer {kind: no_addition} needs no requestRef. Then read back with academy_dailyrecord_get. stale_source or drift: get, review, save again. A held uncertain dispatch: no retry; see academy_dailyrecord_execution_status.",
    "inputSchema": {
     "type": "object",
     "properties": {
-     "context": {},
+     "context": {
+      "type": "object",
+      "properties": {
+       "memoAnswer": {
+        "type": "object",
+        "properties": {
+         "kind": {
+          "type": "string",
+          "enum": [
+           "not_supplied",
+           "no_addition",
+           "content"
+          ]
+         },
+         "requestRef": {
+          "type": "string"
+         },
+         "text": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "kind"
+        ]
+       }
+      }
+     },
      "observationHandle": {
       "type": "string"
      },
@@ -183,7 +256,7 @@
   {
    "name": "academy_dailyrecord_intake",
    "title": "DailyRecord 작성 전 읽기(scope 지정)",
-   "description": "Returns the DailyRecord before-state for an explicit scope, with observationHandle and the interviews still needed. Use it instead of academy_dailyrecord_get only when get returned authoringHandle null, or to read again after stale_source. context: {scope} copied from academy_dailyrecord_get; every other member is optional. Then review with the new observationHandle. Read only.",
+   "description": "Returns the DailyRecord before-state for an explicit scope, with observationHandle and the interviews still needed. Use it instead of academy_dailyrecord_get only when get returned authoringHandle null, or to read again after stale_source. The scope, copied from academy_dailyrecord_get, goes in context.scope or is written out at the top level as sourceNamespace, teacherId, studentId and lessonDate (all four); every other member is optional. The context members schemaVersion, purpose, currentRequestRef, scope, selectedFields, memoAnswer and facts may also be given at the top level instead of inside context; a member given in both places is refused with context_member_conflict. memoAnswer {kind: no_addition} needs no requestRef. fields: optional list of field names, to return only those fields[] (default all six); dailyTestAssessment and previousHomeworkAssessment values carry their source label as before.label. Then review with the new observationHandle. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -191,18 +264,68 @@
       "type": "object",
       "properties": {
        "scope": {}
-      },
-      "required": [
-       "scope"
-      ]
+      }
+     },
+     "scope": {},
+     "sourceNamespace": {
+      "type": "string"
+     },
+     "teacherId": {
+      "type": "string"
+     },
+     "studentId": {
+      "type": "string"
+     },
+     "lessonDate": {
+      "type": "string"
+     },
+     "schemaVersion": {
+      "type": "string"
+     },
+     "purpose": {
+      "type": "string"
+     },
+     "currentRequestRef": {
+      "type": "string"
+     },
+     "selectedFields": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "progress",
+        "homework",
+        "lessonMemo",
+        "attendance",
+        "dailyTestAssessment",
+        "previousHomeworkAssessment"
+       ]
+      }
+     },
+     "memoAnswer": {
+      "type": "object"
+     },
+     "facts": {
+      "type": "array"
+     },
+     "fields": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "progress",
+        "homework",
+        "lessonMemo",
+        "attendance",
+        "dailyTestAssessment",
+        "previousHomeworkAssessment"
+       ]
+      }
      },
      "suppliedValues": {
       "type": "array"
      }
     },
-    "required": [
-     "context"
-    ],
     "additionalProperties": false
    }
   },
