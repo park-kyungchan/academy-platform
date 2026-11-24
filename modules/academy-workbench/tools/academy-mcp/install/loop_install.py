@@ -68,7 +68,7 @@ if not os.path.isdir(DEPS): sys.exit('module_node_modules_missing@' + DEPS)
 full = subprocess.run(['git', '-C', REPO, 'rev-parse', commit + '^{commit}'], capture_output=True, text=True, check=True).stdout.strip()
 tmp = tempfile.mkdtemp(prefix='.build-', dir=BASE)
 try:
-    arch = subprocess.run(['git', '-C', REPO, 'archive', full, MOD, 'apps/academy/dc-gang-a/src/lms'], capture_output=True, check=True).stdout
+    arch = subprocess.run(['git', '-C', REPO, 'archive', full, MOD, 'apps/academy/dc-gang-a/src'], capture_output=True, check=True).stdout
     subprocess.run(['tar', '-x', '-C', tmp], input=arch, check=True)
     mdir = os.path.join(tmp, MOD); os.symlink(DEPS, os.path.join(mdir, 'node_modules'))
     out = os.path.join(tmp, 'server.mjs')

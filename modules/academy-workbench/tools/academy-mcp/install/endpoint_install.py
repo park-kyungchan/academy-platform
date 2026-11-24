@@ -49,7 +49,7 @@ if not os.path.exists(final):
     full = subprocess.run(['git', '-C', REPO, 'rev-parse', commit + '^{commit}'], capture_output=True, text=True, check=True).stdout.strip()
     tmp = tempfile.mkdtemp(prefix='.build-', dir=base)
     try:
-        arch = subprocess.run(['git', '-C', REPO, 'archive', full, MOD, 'apps/academy/dc-gang-a/src/lms'], capture_output=True, check=True).stdout
+        arch = subprocess.run(['git', '-C', REPO, 'archive', full, MOD, 'apps/academy/dc-gang-a/src'], capture_output=True, check=True).stdout
         subprocess.run(['tar', '-x', '-C', tmp], input=arch, check=True)
         os.symlink(DEPS, os.path.join(tmp, MOD, 'node_modules'))
         out = os.path.join(tmp, 'out.mjs')
