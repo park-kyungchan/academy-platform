@@ -124,4 +124,6 @@ printf 'changed\n' >>"$base/releases/g-old/registry.json"
 run 1 o python3 -I "$inst/loop_install.py" --restore "$kept" --base "$base"
 grep -q '^restore_hash_mismatch@registry' o.err || fail "restore of a changed pin"
 cmp -s "$base/release.json" "$base/releases/g-new/release.json" || fail "a refused restore changed the pointer"
+# The build archive holds apps/academy/dc-gang-a/src whole, not only its lms part.
+! grep -q "'apps/academy/dc-gang-a/src/lms'" "$inst/loop_install.py" "$inst/endpoint_install.py" || fail "an install script archives only src/lms"
 echo "test-academy-mcp-install: ok"
