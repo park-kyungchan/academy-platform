@@ -74,6 +74,36 @@ jobs:
         if: steps.scope.outputs.run_rust == 'true'
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Fetch the private engine dependency
+        if: steps.scope.outputs.run_rust == 'true'
+        shell: bash
+        env:
+          ONTOLOGY_PLATFORM_DEPLOY_KEY: ${{ secrets.ONTOLOGY_PLATFORM_DEPLOY_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          key_file="$work/key"
+          known_hosts="$work/known_hosts"
+          printf '%s\n' "$ONTOLOGY_PLATFORM_DEPLOY_KEY" > "$key_file"
+          chmod 600 "$key_file"
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/meta \
+            | jq -r '.ssh_keys[] | "github.com " + .' > "$known_hosts"
+          if [ ! -s "$known_hosts" ]; then
+            echo "no GitHub host keys were read" >&2
+            exit 1
+          fi
+          ssh_command="ssh -i $(printf %q "$key_file") -o IdentitiesOnly=yes -o UserKnownHostsFile=$(printf %q "$known_hosts") -o StrictHostKeyChecking=yes"
+          CARGO_NET_GIT_FETCH_WITH_CLI=true \
+          GIT_SSH_COMMAND="$ssh_command" \
+          GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0=url.ssh://git@github.com/park-kyungchan/ontology-platform.insteadOf \
+          GIT_CONFIG_VALUE_0=https://github.com/park-kyungchan/ontology-platform \
+          cargo fetch --locked
+          rm -f "$key_file" "$known_hosts"
+          unset ONTOLOGY_PLATFORM_DEPLOY_KEY GH_TOKEN
       - name: Check
         if: steps.scope.outputs.run_rust == 'true'
         run: ./check
