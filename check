@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The one check of this repository. An agent runs it before a push; the CI job
 # `rust` runs it unchanged. Call it from any directory, or as `bash <path>`.
-#   ./check       format, clippy, offline teacher harness, build, tests: the default members
+#   ./check       format, clippy, offline teacher harness, academy-mcp install scripts, build,
+#                 tests: the default members
 #   ./check all   the same steps over the whole workspace, so the frozen crate
 #                 edu-academy-mcp is built and tested too
 # Outside CI, on the host that has the build lock, it takes that lock (one Cargo
@@ -58,6 +59,7 @@ fi
 cargo fmt --all -- --check
 cargo clippy ${scope[@]+"${scope[@]}"} --all-targets --locked -- -D warnings
 python3 -B -m unittest discover -s crates/edu-academy-teacher/harness
+bash scripts/test-academy-mcp-install.sh
 cargo build ${scope[@]+"${scope[@]}"} --bins --examples --locked
 # shellcheck source=scripts/rust-test-env.sh
 source scripts/rust-test-env.sh "$fixture_parent" ${mcp[@]+"${mcp[@]}"}
