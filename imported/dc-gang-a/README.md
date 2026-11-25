@@ -1,0 +1,68 @@
+# Daechi instructor workbench
+
+The canonical private Rust workspace starts at `crates/edu-dc-gang-a/`.
+It currently contains module planning documentation and a synthetic scaffold
+smoke test; domain behavior and education-platform dependency pins follow in
+later PRs. Teacher web, auth, Postgres and UI are dropped under decision U1.
+
+Use the pinned Rust 1.100.0 toolchain:
+
+```sh
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+```
+
+Rust CI runs alongside `.github/workflows/bun-cloud.yml` while retained
+TypeScript tests still need the Bun job. Remove that workflow with the
+remaining TypeScript deletions after their consumers migrate.
+
+This repository holds the Main Sheet workbench and the LMS automation package for one instructor's date-first workflow. The running SPT service, academy LMS, Sheet, and official sender remain separate authorities. The teacher performs the final parent send.
+
+## Start on another Windows PC
+
+Clone the [GitHub repository](https://github.com/park-kyungchan/dc-gang-a), open its root in a coding agent, and read [AGENTS.md](AGENTS.md), the [portable workspace guide](docs/PORTABLE_WORKSPACE.md), and the [active handoff](handoffs/2026-09-28-antigravity-session-recovery.md). Antigravity CLI reads root `AGENTS.md`. Authentication, student records, and local runtime installations are not carried by Git. An access-controlled repository is recommended; this guide does not verify its current visibility.
+
+```powershell
+bun install --frozen-lockfile
+bun run typecheck
+bun run test:synthetic
+```
+
+The active work covers the synthetic 14:00 class projection, verified assessment and carry-forward models, and a dry-run plan to consolidate this instructor's companion tabs into the existing `박경찬` Main tab. See [the cutover candidate](docs/MAIN_SHEET_ONE_TAB_CUTOVER.md). The imported `lms-automation/` directory has its own `AGENTS.md` file.
+
+## Current state
+
+- `src/wholeLens/`, `src/assessment/`, `src/preclass/`, and `src/sheets/` are the active TypeScript/Bun domain path with synthetic tests. They do not prove a live LMS/app read or a production Sheet write.
+- `workbench_v2/` is a legacy Python projection reference. It does not connect to the LMS or Sheet.
+- `research/main-sheet-v2/` records an owner-owned synthetic Google Sheets prototype. Its successful bot write does not prove a write to the academy-owned workbook.
+- `research/backend-map/` is the bounded, privacy-reviewed backend map. App submission/grading joins and an independent parent-delivery receipt are still unverified.
+- The SPT snapshot was retired under user decision U2. Recover it from Git tag `archive/education-dc-gang-a-pre-spt-delete-20261105`. `lms-automation/` retains its selected `ganga` code, test, and dependency files; source commits and file hashes are in `docs/source-import-manifest.json`.
+- The saved-session client, its MCP server, smoke check, pipeline test, manual-session probe, and `ganga-read-client` skill were retired on 2026-09-27. The unused legacy PDF parser and Sheets bridge were also retired after their sole source dependency was found to be the removed MCP server. See [cleanup evidence](docs/cleanup-evidence.md).
+
+Read [AGENTS.md](AGENTS.md) for effect boundaries, [the Whole-Lens decision](docs/WHOLE_LENS_DECISION.md) for current priorities and the web-first mobile route, [the active handoff](handoffs/2026-09-28-antigravity-session-recovery.md) for continuation, and [the older Windows publication checkpoint](handoffs/2026-09-28-windows-antigravity.md) for historical evidence.
+
+The [Desktop harness](harness/README.md) and its [context map](harness/context-map.md) describe the original machine-local Python gate. It depends on sibling checkouts and an external transition package; use the TypeScript/Bun commands above for current local acceptance. A local gate pass is not production acceptance.
+
+## Local environment
+
+Use Bun with the pinned TypeScript development dependencies from this
+directory:
+
+```powershell
+bun install --frozen-lockfile
+bun run typecheck
+bun run test:synthetic
+```
+
+The test data is invented. Keep `config/` credentials and `data/` student material out of logs and version control. The imported LMS repository's old student databases and Git history were deliberately excluded. `.gitignore` is not a confidentiality boundary; review every staged path and diff before pushing.
+
+`workbench_v2/lms_read_adapter.py` remains a legacy reference for exact
+occurrence and DayRecord binding. Live app-grade joins remain unverified.
+Continue backend research only through exact, source-reviewed, task-scoped
+read operations with an authorized ephemeral session; new maintained code
+uses Rust. Preserve unknown app and delivery states until their
+selected-student read contracts are verified. Review a reversible Main-tab
+batch with the instructor before applying it; save any DayRecord fields only
+after teacher review and exact readback. The instructor performs the final
+Kakao send.

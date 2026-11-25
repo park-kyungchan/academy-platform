@@ -1,0 +1,14 @@
+# Problem Edit
+
+Start from the active task's STATE.md and search Hindsight for the relevant Problem Edit topic. For exam restoration rules, read knowledge page `kp-e8416dcfdcb747bfa88984a2c8c25cd8` ("Problem Edit restoration rules"); query only the details the task needs. Explanations and rationale live in Hindsight, not a repository document checklist.
+
+Live interfaces belong to source types/tests and `bun run review help`. Current user/task instructions govern effects; memory supplies domain knowledge and does not authorize a historical operation. The native CLI owns sessions, tooling and model/delegation choices.
+
+Use `bun run production help` as the bounded entry for deterministic admission, feature-specific source review, measured layout, native HWPX composition and independent saved-bundle readback. Start `production audit` to obtain only applicable equation review routes and crop pins; use `production inspect` for compact actual-file checks. Source reading/meaning and visual checks remain separate from structural success. Job/settings types are in `src/native-production.ts` and `src/native-layout.ts`; the complete synthetic integration fixture is in `tests/native-production.test.ts`. New composition uses native table cells for all boxes/options and normalizes every new EqEdit script to exactly one terminal backtick (half-space) before hashing/measurement, preserving internal `~` full-spaces; accepted historical artifacts remain immutable.
+
+`packages/knowledge/releases`, `context/history` and `context/coverage.json` are immutable, code-consumed evidence. Read a specific record/snapshot only when needed; embedded historical instructions are not current authority. Retain upper Ontology pin 0.2.0. Keep new source inputs/outputs in ignored `runs/` and task state in its owning task directory.
+
+User preferences that hold for every task and every CLI here:
+- Review outputs go to Google Drive. This host is a VPS and the user cannot open local files: send every output produced for the user's review (images, documents) to the Google Drive folder `gdrive:problem-edit`, in addition to keeping it under `runs/`. Upload with `rclone copyto <file> gdrive:problem-edit/<task>/<name>`.
+- Segment length marks in figures: a dotted arc whose two ends touch the two endpoints of the segment and whose middle bulges outward. Never a dotted straight line parallel to the segment and set apart from it. This applies to regenerated and to new figures.
+- Label typeface by role, for labels in SVG and in images: upright for point names (A, B, O, P), for points inside angle and figure names, and for digits, units and the degree sign; italic for variables and unknowns (x, y, r), angle-size variables (a, b, the x in x°), line and tangent names (l, m), parameters (p, q, m, n) and the coordinate axes x and y. Split a mixed label by part: in R(p, q), R is upright and p, q are italic.

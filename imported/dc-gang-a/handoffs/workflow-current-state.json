@@ -1,0 +1,434 @@
+{
+  "schemaVersion": 1,
+  "kind": "user_owned_workflow_checkpoint",
+  "observedAtUtc": "2026-10-01T05:24:00Z",
+  "source": "verified_sanitized_receipt",
+  "outcome": "academy_read_to_teacher_reviewed_main_sheet",
+  "activeStep": {
+    "owner": "lead",
+    "action": "verify_current_academy_scope"
+  },
+  "milestones": [
+    {
+      "id": "backend_dependency_gate",
+      "stage": "substrate",
+      "state": "reported_verified"
+    },
+    {
+      "id": "bounded_google_read_adapter",
+      "stage": "substrate",
+      "state": "reported_verified"
+    },
+    {
+      "id": "google_sign_in",
+      "stage": "live_access",
+      "state": "reported_verified"
+    },
+    {
+      "id": "gcp_project_identity",
+      "stage": "live_access",
+      "state": "reported_verified"
+    },
+    {
+      "id": "canonical_sheet_bot_iam",
+      "stage": "live_access",
+      "state": "reported_verified"
+    },
+    {
+      "id": "metadata_token_approval",
+      "stage": "live_access",
+      "state": "reported_verified"
+    },
+    {
+      "id": "current_academy_read",
+      "stage": "user_outcome",
+      "state": "unknown"
+    },
+    {
+      "id": "source_backed_sheet_preview",
+      "stage": "user_outcome",
+      "state": "not_started"
+    },
+    {
+      "id": "approved_sheet_write_readback",
+      "stage": "user_outcome",
+      "state": "verified"
+    },
+    {
+      "id": "approved_repeat_metadata_read",
+      "stage": "live_access",
+      "state": "verified"
+    },
+    {
+      "id": "metadata_section_acceptance",
+      "stage": "live_access",
+      "state": "verified"
+    },
+    {
+      "id": "metadata_preservation_preview",
+      "stage": "user_outcome",
+      "state": "verified"
+    },
+    {
+      "id": "native_image_drawing_inventory",
+      "stage": "user_outcome",
+      "state": "unknown"
+    },
+    {
+      "id": "native_backup_and_rollback_rehearsal",
+      "stage": "user_outcome",
+      "state": "verified"
+    },
+    {
+      "id": "legacy_spt_consumer_rebinding",
+      "stage": "user_outcome",
+      "state": "not_started"
+    },
+    {
+      "id": "main_sheet_deployment",
+      "stage": "user_outcome",
+      "state": "verified"
+    },
+    {
+      "id": "main_sheet_layout_deployment",
+      "stage": "user_outcome",
+      "state": "verified"
+    },
+    {
+      "id": "backend_projection_live",
+      "stage": "user_outcome",
+      "state": "not_started"
+    },
+    {
+      "id": "full_workflow_acceptance",
+      "stage": "user_outcome",
+      "state": "unknown"
+    }
+  ],
+  "contextMetrics": {
+    "status": "unavailable",
+    "usedTokens": null,
+    "maximumTokens": null
+  },
+  "permissions": {
+    "grantsAccess": false,
+    "grantsProductionWrites": false,
+    "changesManagedRuntime": false
+  },
+  "evidenceReferences": [
+    {
+      "fileName": "sheet-native-preservation-repeat-receipts-2026-10-01.jsonl",
+      "location": "workspace_parent",
+      "sha256": "c641630c9967baed1e3152e60b519cf488cc855ddd089fae995221dda6a4f48c",
+      "kind": "sanitized_live_metadata_receipt"
+    },
+    {
+      "fileName": "main-sheet-native-preservation-preview.json",
+      "location": "project_docs",
+      "sha256": "a35412c6228d0e91333ae4a68c06844fe0c3828c3fed22c3a8bfc1eec46624fe",
+      "kind": "derived_preservation_preview"
+    },
+    {
+      "fileName": "park-production-layout-deployment-receipt-2026-10-01.json",
+      "location": "workspace_parent",
+      "sha256": "c07bdf3a25f2da1d795003795cb8f35ef7d1e6e1089c8a0efa9e919cc7e7e089",
+      "kind": "sanitized_live_metadata_receipt"
+    },
+    {
+      "fileName": "main-sheet-live-input-map-2026-10-01.json",
+      "location": "project_docs",
+      "sha256": "524688266a90da40b9d1fe7f2d7dec5fb69f0ce8a83c5891cff51b14ec660422",
+      "kind": "derived_preservation_preview"
+    },
+    {
+      "fileName": "main-sheet-trailing-five-disposition-2026-10-01.json",
+      "location": "project_docs",
+      "sha256": "dedc291f2fd4c2e3ee51121a3af8268854169965a7fde310dbdb85960e2115fe",
+      "kind": "derived_preservation_preview"
+    },
+    {
+      "fileName": "academy-backend-source-survey-2026-10-02.json",
+      "location": "project_docs",
+      "sha256": "3c216a95585f498d42d9a4b96c744b786cc2835c259ebd30d03cbbb8639637d2",
+      "kind": "sanitized_live_metadata_receipt"
+    }
+  ],
+  "engineeringContext": {
+    "schemaVersion": 1,
+    "updatedAtUtc": "2026-10-06T13:15:36Z",
+    "objective": "Hermes Linux Backend: D3 owned D0/D2/D1 integrated at existing consumers. PR28 merged e6570e1, exact tested head afef3b0 and Actions37468997620 success. Independent source review FAIL->FAIL->PASS; D1 3+D3 4 resolved. Final PG/DOM HTTP31, workflow101, cloud/types pass. Native GUI unperformed: memory guard refusal; no bypass. No reader retirement, deployment/current academy auth/teacher acceptance/finalization/send/independent durability. Preserve foreign/unknown dirty and audit candidate. See review/d3-consumer-integration-2026-10-06.json; next bounded teacher/direct-client qualification.",
+    "priorityOrder": [
+      "development_test_feedback",
+      "continuity_lead_governance",
+      "google_api_integration"
+    ],
+    "ambiguityPolicy": "interview_before_dependent_implementation",
+    "modelPreference": {
+      "preferredFamilies": [
+        "gpt-6.1",
+        "gpt-6"
+      ],
+      "selection": "inherit_host_supported",
+      "activeModel": null,
+      "activeContextCapacity": null,
+      "configurationRequest": {
+        "contextWindow": 1050000,
+        "autoCompactionRatio": 0.75,
+        "autoCompactTokenLimit": 787500,
+        "application": "repo_file_verified_effective_runtime_unverified"
+      }
+    },
+    "confirmedDecisions": [
+      {
+        "id": "priority_order",
+        "statement": "Whole-Lens architecture and shared product consumers first: recover the existing site, reuse protected source/teacher history, expose real connection state, then qualify direct HTTP authentication/read/save/readback before Oct5 journal input. Reuse four private drafts and recorded answers; no repeated teacher recollection. Whole-class experience is already selected; do not reopen KG provider choice or Main transition. No browser source exception, generation/printing or parent send.",
+        "source": "user_interview"
+      },
+      {
+        "id": "model_family",
+        "statement": "Prefer GPT-6.1 or GPT-6 family models; inherit the actual host-supported model without inventing active model or context capacity.",
+        "source": "current_user_request"
+      },
+      {
+        "id": "lead_structure",
+        "statement": "User submitted final kickoff/pre-flight for dc-gang-a-dev session20261006_192758_0a13a2 / Project p_a5676068. Lead owns bounded Bot/Screen/app work. Reuse earlier analysis; do not edit peer tasks, duplicate capture or adopt foreign work. Preserve D0/D2, originals, dirty audit and teacher plan. Precise-task schema is exposed; zero-tool dc-review used a finite native reader, not Kanban/messaging. D1 browser/Screen: review/d1-native-observation-2026-10-06.json. No publication/official effects from kickoff; old budgets stay ended. No delegate_task, state mirror, force handback or engine edits.",
+        "source": "user_interview"
+      },
+      {
+        "id": "validation_selection",
+        "statement": "The Lead chooses useful validation according to actual changed scope and risk; no numeric threshold is prescribed.",
+        "source": "user_interview"
+      },
+      {
+        "id": "artifact_format",
+        "statement": "Write new engineering and artifacts in TypeScript or JSON; reserve Markdown for native runtime filenames.",
+        "source": "user_interview"
+      },
+      {
+        "id": "ambiguity_handling",
+        "statement": "Interview first to resolve incomplete context before dependent implementation. Do not over-infer, invent precision thresholds, or treat unanswered choices as approval. Independent confirmed setup and validation may proceed.",
+        "source": "user_interview"
+      },
+      {
+        "id": "q7_continuation_source",
+        "statement": "Use Git repository branches, commits and PRs as the continuation source. Published Cloud setup and the ZIP are dated evidence rather than competing current-state authorities.",
+        "source": "user_interview"
+      },
+      {
+        "id": "q8_google_api_scope",
+        "statement": "The user authorizes operating Google resources from Cloud and asks the Lead to propose API enablement from the complete Whole-Lens workflow. Preserve existing projects and the unresolved secondary-project role; the current artifact is a proposal, not an activation request.",
+        "source": "user_interview"
+      },
+      {
+        "id": "requested_context_configuration",
+        "statement": "Cloud filesystem only: context window 1,050,000 and 75 percent compaction at 787,500. Do not connect or change local Windows work. Repository TOML readback is verified; effective managed runtime capacity remains unverified and must be checked in a new session.",
+        "source": "current_user_request"
+      },
+      {
+        "id": "google_cost_scope",
+        "statement": "Current work must remain within Free Tier. For a later large service, prioritize maintainability and scalability at the architecture level instead of cost-driven shortcuts. Actual service billing/free-tier feasibility is not yet verified.",
+        "source": "user_interview"
+      },
+      {
+        "id": "phase_two_purpose_routing",
+        "statement": "Read existing repository product purpose, current scoped source contracts and confirmed answers before interviewing. Optimize agent routing so a new session does not ask the user to restate recorded intent.",
+        "source": "user_interview"
+      },
+      {
+        "id": "preparation_refresh_schedule",
+        "statement": "Automatic preparation refresh Monday-Friday between 13:15 and14:00 Asia/Seoul; manual refresh any day on demand. This latest user answer supersedes the earlier13:15-13:45 window; it does not prove an installed scheduler.",
+        "source": "user_interview"
+      },
+      {
+        "id": "preclass_source_coverage",
+        "statement": "Use DayRecord homework plus attributable teacher supplements and complete mapped unit inventories. Gauss video is mandatory; Davinci has none. Teacher confirms inspected videos and the eight aged-out historical units as resolved for video only. Visible lists age out about two weeks; this is not deletion or a TTL. Preserve private append-only completion and source history, ingest new/changed evidence and skip unchanged completed detail reads. Keep first solving/app grading, clinic generation/printing, written correction and teacher acceptance separate. Official finalization and sending remain human-owned.",
+        "source": "user_interview"
+      },
+      {
+        "id": "single_main_visibility",
+        "statement": "User selected transition A: design the new owned teacher web app as primary. Keep Park Main until useful workflow acceptance; later retain only necessary reviewed shared summaries, without duplicate teacher input. Preserve other instructors, shared tabs and deployed consumers. Main is not the history DB; tab ownership, exact summary fields, consumer parity and recovery precede any real Sheet transition. No deletion, migration or new sharing is admitted now; older sole-Main decisions remain historical.",
+        "source": "user_interview"
+      },
+      {
+        "id": "student_database_direction",
+        "statement": "User admits the real five-student Backend DB. Lead selected private PostgreSQL in the active-profile academy directory: Unix socket/peer auth/checksums, logical owner/student partitions, shared catalogs and append-only history. Start current courses/books/progress/recent lessons/results; backfill qualified history. Retain minimized source and teacher originals, not media, contacts, credentials or transcripts. No per-student DB/schema/tab. External encrypted recovery remains a candidate; verify atomic permissions/restore and distinguish same-volume backup from independent durability.",
+        "source": "user_interview"
+      },
+      {
+        "id": "student_knowledge_graph_ontology",
+        "statement": "Always design frontend, Backend and WebMCP through Whole-Lens: purpose, hierarchical typed meaning, authoritative evidence, deterministic logic, permitted Actions, human/agent experience, Evals and recovery. Reuse shared Ontology contracts and preserve Hermes native ownership; no parallel dispatcher/state mirror/context injector. Concept blank-test, original/wrong/similar clinic and Daily Test retain independent evidence/states; missing records do not imply nonperformance. Future KG remains a consumer, not this architecture's prerequisite or scope ceiling.",
+        "source": "user_interview"
+      },
+      {
+        "id": "preclass_cohort_presentation",
+        "statement": "Deliver the private personal teacher site under kcpalantir.tech for the five current students and future growth. Exact names/source keys remain private. Trace changing main/supplementary books through shared book-major-middle-minor-page-problem hierarchy, separate video/board/paper/attempt labels, source evidence and teacher history. Date-first scheduled occurrence review remains useful. Human UI/WebMCP use one scoped implementation; schemas/registration are not browser acceptance. Preserve root/Bible/Main/SPT/other consumers and unknown joins.",
+        "source": "user_interview"
+      },
+      {
+        "id": "backend_lead_authority",
+        "statement": "Sole current dc Lead owns product development/operations and commit/push/PR/checks/merge/readback/owned cleanup. Prior classified legacy removal requires unique evidence/recovery; preserve foreign work. User permits predecessor runtime/history but revokes its product authority; closure is not a universal development gate. Check actual conflicts/drift and stop overlapping or unknown writes. User admits secure teacher recovery and replacement of its existing app only; preserve identity/history and DB/tunnel/Hermes. No old-password disclosure, academy mutation, protection bypass or inherited worker budget.",
+        "source": "user_interview"
+      },
+      {
+        "id": "backend_execution_scope",
+        "statement": "All execution stays on connected Linux Backend; Windows Desktop is remote UI. Existing protected teacher app/tunnel recovery and compatible code updates are admitted, preserving identity/history/DB/tunnel settings. Current profile screen is usable only while running with agent control; never route a stopped fallback to the user display. Native secure login correction is admitted, not account reset or direct academy credential export. No engine/Host/other-container change, new gateway/Cron/account/DNS/IAM/billing or unqualified source activation.",
+        "source": "user_interview"
+      },
+      {
+        "id": "backend_repeat_operations",
+        "statement": "Active-screen source-change reflection plus manual refresh remains a product requirement, not an installed loop or grant. Latest direction requires supported direct HTTP/API authentication; the closeout interview refuses browser data-read/save exception. Never export website-vault passwords/cookies or replay old sessions. Reuse versioned content, long-lived mappings and classroomCyclePolicy, not invented TTLs. DB refresh needs exact fields/CAS/recovery/readback. No automatic academy save/finalization/send or new loop/job.",
+        "source": "user_interview"
+      },
+      {
+        "id": "backend_harness_scope",
+        "statement": "Prefer profile-scoped native vault for admitted site login; explain origin/encrypted persistence, preserve origin/2FA/approvals and never extract/persist academy cookies. Predecessor default/20261001_172008_38175d closure remains human-owned; no management-login retry/history edit. User approved official Cloudflare login in their browser; it completed and tunnel-list read succeeded. Preserve spt-classroom. Candidate dc.kcpalantir.tech needs new owned tunnel/hostname and actual teacher-only app authentication before disclosure; no root/Bible override or assumed Free Tier.",
+        "source": "user_interview"
+      },
+      {
+        "id": "backend_autonomous_goals",
+        "statement": "Keep Whole-Lens product purpose across source, teacher evidence, exact permitted effects, shared UI/agent consumers, Evals and recovery. Oct5 approved input/readback completed; latest teacher-final source supersedes earlier drafts. User permits formatting-only omission fixes after reported delivery, not wording/grade changes or resend. General academy access remains admitted direct HTTP/API reads; no recurring writes or browser/cookie export. Routine engineering/Git is Lead-owned; interview only consequential unresolved outcomes, risk, authority, cost or recovery.",
+        "source": "user_interview"
+      },
+      {
+        "id": "backend_ontology_reuse",
+        "statement": "Focus common Ontology reuse inside the P2 consumer; defer broader platform expansion. Shared knowledge, executed code reuse and product acceptance are separate claims. The accepted CTX02 public CLI/artifact schema is default/Backend-Project-bound and must not be impersonated or bypassed. Only qualified pure functions/owner-approved portable seams can be reused; request exact common-owner gaps rather than editing another Profile. No automatic cross-profile synchronization or state mirror is admitted.",
+        "source": "user_interview"
+      },
+      {
+        "id": "historical_approved_revision_views",
+        "statement": "For a past lesson, show the attributable final approved revision relevant to that lesson and retain later approved corrections separately for audit. The Lead recommends distinct occurrence/event, source-observed, approved and recorded times plus predecessor revisions. Approval time alone cannot reconstruct missing academy history. Missing original version or approval evidence remains unknown. Retaining real student/source payloads in a Backend DB requires a separately admitted protected destination and retention scope.",
+        "source": "user_interview"
+      }
+    ],
+    "assumptions": [],
+    "pendingInterview": [
+      {
+        "id": "secondary_google_project_role",
+        "question": "What operational role should the existing secondary dc-gang-a project have relative to the preserved baseline project?",
+        "dependentWork": "google_project_architecture",
+        "state": "not_asked"
+      },
+      {
+        "id": "ontology_acceptance_queries",
+        "question": "After stable P2/Main operation, which atomic prerequisite audits, student-evidence explanations and teacher decisions must the expanded personal mathematics KG answer in the prime-factorization example?",
+        "dependentWork": "student_ontology_architecture",
+        "state": "not_asked"
+      },
+      {
+        "id": "ontology_provider_selection",
+        "question": "After P2 acceptance, the Lead compares relational/graph/hybrid storage against teacher queries, temporal audit, access, scale and verified costs; which material operating risks or cost commitments require user admission before selecting a provider?",
+        "dependentWork": "hosted_student_database",
+        "state": "not_asked"
+      },
+      {
+        "id": "protected_history_storage_boundary",
+        "question": "External teacher-only primary and independent encrypted recovery candidates are accepted; operational categories are delegated. Lead selects and verifies exact account/resource/region/access, Free Tier, minimal source fields and actual restore before ingestion. Interview only a consequential privacy/cost/recovery tradeoff not settled by existing intent. Do not re-ask audience, logical student partitions or require a KG example.",
+        "dependentWork": "production_history_storage",
+        "state": "not_asked"
+      }
+    ],
+    "dispatch": [],
+    "nextSteps": [
+
+      {
+        "id": "five_student_product_delivery",
+        "owner": "lead",
+        "action": "resolve_continuation_source",
+        "referencePaths": ["review/d3-consumer-integration-2026-10-06.json", "review/domain-reconciliation-2026-10-06.json", "review/teacher-runtime-direct-source-recovery-2026-10-05.json", "docs/teacher-ontology-delivery-plan.ts", "review/bot-orchestration-session-closeout-2026-10-05.json", "review/teacher-password-recovery-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "src/academy/application.ts", "src/academy/nativeConnector.ts", "src/academy/main.ts", "src/academy/server.ts", "tests/academy/postgresStore.test.ts"],
+        "dependsOnQuestionIds": ["backend_lead_authority", "backend_execution_scope"]
+      },
+      {
+        "id": "source_domain_application_spine",
+        "owner": "lead",
+        "action": "validate_confirmed_changes",
+        "referencePaths": [
+          "review/classroom-cycle-policy-2026-10-05.json",
+          "review/preparation-history-integration-2026-10-05.json",
+          "review/item-answer-paper-lineage-2026-10-05.json",
+          "src/academy/classroomCyclePolicy.ts",
+          "docs/academy-whole-lens-target-architecture.json",
+          "docs/academy-student-evidence-contract.json",
+          "docs/academy-teacher-workspace-tool-contract.json",
+          "docs/academy-application-ingress-storage-design.ts",
+          "review/academy-ingress-read-integration-2026-10-04.json",
+          "tests/architecture/applicationIngressStorageDesign.test.ts",
+          "src/learning/model.ts",
+          "src/learning/revisions.ts"
+        ],
+        "dependsOnQuestionIds": ["preclass_source_coverage", "backend_repeat_operations"]
+      },
+      {
+        "id": "real_dayrecord_source_qualification",
+        "owner": "lead",
+        "action": "resolve_continuation_source",
+        "referencePaths": [
+          "review/academy-direct-journal-checkpoint-2026-10-06.json",
+          "review/lesson-journal-direct-http-blocker-2026-10-05.json",
+          "docs/academy-deterministic-read-contract.ts",
+          "src/lms/lessonJournalHitl.ts",
+          "src/lms/lessonJournalReviewBundle.ts",
+          "src/lms/dayRecordReadProtocol.ts",
+          "tests/lms/dayRecordNativeDomCases.ts",
+          "src/lms/endpointCatalog.ts",
+          "docs/academy-assessment-manual-read-contract.ts"
+        ],
+        "dependsOnQuestionIds": ["backend_autonomous_goals", "backend_repeat_operations"]
+      },
+      {
+        "id": "teacher_frontend_and_webmcp_ingress",
+        "owner": "lead",
+        "action": "resolve_continuation_source",
+        "referencePaths": [
+          "docs/academy-whole-lens-target-architecture.json",
+          "docs/academy-teacher-workspace-tool-contract.json",
+          "docs/academy-application-ingress-storage-design.ts",
+          "docs/main-sheet-live-refresh-wiring.json",
+          "docs/main-sheet-live-input-map-2026-10-01.json"
+        ],
+        "dependsOnQuestionIds": ["single_main_visibility"]
+      },
+      {
+        "id": "protected_history_resource_qualification",
+        "owner": "lead",
+        "action": "resolve_continuation_source",
+        "referencePaths": [
+          "docs/academy-whole-lens-target-architecture.json",
+          "docs/academy-student-evidence-contract.json",
+          "docs/student-database-architecture-2026-10-01.json",
+          "docs/academy-application-ingress-storage-design.ts"
+        ],
+        "dependsOnQuestionIds": [
+          "student_database_direction"
+        ]
+      },
+      {
+        "id": "native_unattended_operation_qualification",
+        "owner": "lead",
+        "action": "validate_confirmed_changes",
+        "referencePaths": [
+          "review/d3-consumer-integration-2026-10-06.json",
+          "review/d1-native-observation-2026-10-06.json",
+          "review/domain-reconciliation-2026-10-06.json",
+          "docs/bot-development-contract.ts",
+          "docs/bot-development-runbook.ts",
+          "docs/backend-autonomy-operating-contract.ts",
+          "docs/main-sheet-live-refresh-wiring.json",
+          "review/academy-ingress-read-integration-2026-10-04.json"
+        ],
+        "dependsOnQuestionIds": []
+      }
+    ],
+    "runtimeBoundary": {
+      "nativeHooks": "not_installed",
+      "automaticPerTurnInjection": "not_installed_by_project",
+      "dispatchExecution": "host_tools_only",
+      "executesNextStep": false,
+      "changesManagedRuntime": false
+    },
+    "historicalDecisionReferences": [
+      "review/cloud-optimization-2026-10-01.json",
+      "docs/google-api-enablement-proposal-2026-10-01.json",
+      "handoffs/harness-phase-two-checkpoint-2026-10-01.json"
+    ]
+  }
+}

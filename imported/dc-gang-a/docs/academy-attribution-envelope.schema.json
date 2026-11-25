@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "academy.attribution-envelope/1",
+  "title": "Runtime-neutral user instruction attribution envelope (P1)",
+  "type": "object",
+  "required": ["schemaVersion", "runtime", "runtimeSessionId", "requestRef", "requestTextSha256", "currentUserEventRef", "issuedAt", "expiresAt", "actionDigests"],
+  "properties": {
+    "schemaVersion": {"const": "academy.attribution-envelope/1"},
+    "runtime": {"enum": ["muse", "codex", "hermes"]},
+    "runtimeSessionId": {"type": "string", "minLength": 1, "maxLength": 256},
+    "requestRef": {"type": "string", "minLength": 1, "maxLength": 256},
+    "requestTextSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "currentUserEventRef": {"type": "string", "minLength": 1, "maxLength": 256},
+    "issuedAt": {"type": "string", "format": "date-time"},
+    "expiresAt": {"type": "string", "format": "date-time"},
+    "actionDigests": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+  },
+  "additionalProperties": false,
+  "description": "Runtime adapters only create this envelope from their own session store. Content judgement, freshness checks and durable consume-once stay in the owner service. Reads need no envelope; writes require one plus per-action consumption. See docs/academy-mcp-runtime-agnostic-problems.md P1."
+}

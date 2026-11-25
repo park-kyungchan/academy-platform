@@ -1,2 +1,4 @@
 # Preserve imported original source and licensed asset bytes without EOL conversion.
 * -text
+# The imported histories stay byte for byte: no end-of-line conversion and no whitespace fixing.
+imported/** -text -whitespace

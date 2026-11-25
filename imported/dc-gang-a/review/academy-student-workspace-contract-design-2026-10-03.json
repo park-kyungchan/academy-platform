@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "kind": "student_workspace_contract_design_review",
+  "status": "detailed_contract_design_verified_not_runtime_acceptance",
+  "owner": "dc-gang-a-dev",
+  "designVersion": "0.3",
+  "observedAtUtc": "2026-10-03T14:36:44Z",
+  "canonicalContinuation": "handoffs/workflow-current-state.json",
+  "scope": "Detailed serialized student evidence/history records and teacher-scene/WebMCP query, input, result, proposal and acknowledgement contracts. No source-server/production/runtime implementation.",
+  "sources": [
+    {"path":"docs/academy-whole-lens-target-architecture.json","sha256":"0ec613c1bab1432357be4979e35e658367fb0403e6e75836414b2284a14de7e0"},
+    {"path":"docs/academy-student-evidence-contract.json","sha256":"5aa927f9d0ec5026f3da7d7c394affd9902592f67206d4abf5b47420ad766c33"},
+    {"path":"docs/academy-teacher-workspace-tool-contract.json","sha256":"2c2f180f346b698b43784a4c5b969c771abe7d3525fd78b0b2c2748b2c73450e"},
+    {"path":"tests/architecture/studentEvidenceContracts.test.ts","sha256":"752b6e43c2a317b24771ee025e3817eb47a4569a7d7236a7955109910d343fa9"},
+    {"path":"tests/architecture/teacherWorkspaceContracts.test.ts","sha256":"0082ef984c7abf426133dad96fe263afdaa4765867f6a0e82eefdd68f5ca1688"}
+  ],
+  "contractInventory": {"dataDefinitions":32,"workspaceDefinitions":24,"recordTypes":11,"semanticTools":5,"teacherScenes":4},
+  "validation": [
+    {"command":"bun --no-env-file test --dots tests/architecture/studentEvidenceContracts.test.ts tests/architecture/teacherWorkspaceContracts.test.ts","passed":19,"failed":0,"expectations":295,"exitCode":0,"meaning":"Real local JSON Schema conformance using the already-declared MCP SDK AJV provider; not actual WebMCP, authentication or persistence."},
+    {"command":"bun --no-env-file run test:learning","passed":69,"failed":0,"expectations":215,"exitCode":0,"meaning":"Existing pure learning/revision/reconciliation/week contracts retained."},
+    {"command":"bun --no-env-file run typecheck","exitCode":0,"meaning":"Actual root TypeScript check, including the new design tests."},
+    {"command":"bun --no-env-file test --dots tests/harness/workflowCheckpoint.test.ts tests/harness/contextRouting.test.ts","passed":41,"failed":0,"expectations":240,"exitCode":0,"meaning":"Canonical checkpoint/context routing regression after the detailed-contract references were linked."},
+    {"command":"bun --no-env-file run workflow:context interview","exitCode":0,"metadataValid":true,"readPlanValid":true,"executesNextStep":false,"meaning":"Actual public context consumer reads the v0.3 design stage without executing the former queue."},
+    {"command":"git diff --check","exitCode":0}
+  ],
+  "testFirstEvidence": [
+    "Observed expected missing-design failures for unknown-knowledge, stored-attempt, teacher-revision, missing-work and empty-query contracts, then real schema GREEN.",
+    "Observed expected missing-design failures for scene-bound student input, partial result and persistence/recovery acknowledgement, then real schema GREEN.",
+    "Observed source-observation falsely satisfying a teacher-inspection DTO before adding its explicit basis constraint; the focused case then passed.",
+    "Observed class result with unknown roster coverage falsely satisfying observed status before adding roster and blocked-result privacy constraints; the focused case then passed.",
+    "Observed absent retained-history mode before adding exact entity/sequence-range input instead of a current-only/date-filtered timeline; the focused case then passed."
+  ],
+  "preservation": {
+    "retainedRepositoryFiles":25,
+    "allRetainedSourceBytesMatchTransferManifest":true,
+    "v02Snapshot":"Active-profile artifacts/architecture-design-20261003/target-architecture-v0.2.snapshot.json",
+    "v02Sha256":"af13ca1ad56c78e4c1bc1caf04f449f433face6ffc1474291282878f6f1f53c9",
+    "predecessorReview":"review/academy-whole-lens-architecture-design-2026-10-03.json",
+    "meaning":"The previous review's digest identifies v0.2, not the new v0.3 current artifact. Exact predecessor bytes remain retained; no historical PASS is relabelled as current runtime acceptance."
+  },
+  "effects": {"newDependencies":0,"sourceNetworkRequests":0,"sourceImplementationEdits":0,"gitPublication":0,"workerOrModelDispatch":0,"runtimeConfiguration":0,"databaseProvisionOrStudentIngestion":0,"sheetTransition":0,"journalSaveOrParentSend":0},
+  "notEstablished": [
+    "Authenticated owner/actor enforcement and source-to-student/effective-time/catalog joins",
+    "Atomic protected persistence, actual digest-chain integrity and independent backup/restore",
+    "Implemented teacher scenes, browser-standard registration/invocation or Hermes interoperability",
+    "Actual scene/cursor/cancellation enforcement and routine teacher acceptance",
+    "Complete academy source/pagination/history coverage or detailed field-to-source wiring"
+  ],
+  "nextBoundedDesignAction": "Specify the trusted application ingress, source-adapter-to-domain mappings and minimal protected-store/recovery placement against these contracts. Disposition retained branch changes before implementation; keep unknown source joins and real WebMCP/store gates open. Research capability/resource facts first and interview only consequential unresolved authority, privacy, operating meaning or cost; do not restart old publication/worker queues."
+}

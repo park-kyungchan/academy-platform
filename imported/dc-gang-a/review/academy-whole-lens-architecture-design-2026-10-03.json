@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "kind": "whole_lens_architecture_design_review",
+  "status": "design_unit_structurally_verified_not_product_acceptance",
+  "owner": "dc-gang-a-dev",
+  "design": "docs/academy-whole-lens-target-architecture.json",
+  "designSha256": "af13ca1ad56c78e4c1bc1caf04f449f433face6ffc1474291282878f6f1f53c9",
+  "canonicalContinuation": "handoffs/workflow-current-state.json",
+  "confirmedDirection": {
+    "frontend": "User selected A: new teacher web frontend becomes primary by verified transition; Main preserved until acceptance and later necessary shared summaries only, without duplicate input.",
+    "database": "Compact logically student-partitioned audit/traceability store connected to shared content catalogs. Actual protected resource/provider is unselected; no physical database-per-student or production creation is implied.",
+    "philosophy": "Whole-Lens operational Ontology across frontend, Backend and actual browser WebMCP: meaning, evidence, logic, permitted actions, experience, evaluation and recovery.",
+    "ownership": "Default academy reservation released; dc Lead owns later academy implementation and both branches' Git lifecycle. Former queue/budgets/scripts are not resumed by this design."
+  },
+  "verifiedIntake": {
+    "transferredFiles": 38,
+    "retainedSharedHistories": 3,
+    "allManifestBytesAndHashesMatch": true,
+    "retainedRepositoryFiles": 25,
+    "allRetainedRepositoryHashesMatch": true,
+    "coldCaptureBodiesIngested": false,
+    "clientOrBackendVersionsRechecked": false
+  },
+  "validation": [
+    {"name":"typed design validator", "scope":"Target architecture owner/status; all 17 catalog families accounted once; A/logical student partition; source/teacher state separation; true WebMCP criterion; privacy/outage/restore; existing source references; negative overclaim/resumed-plan cases; canonical entry and retained files", "passed":15, "failed":0, "typecheck":"passed", "evidence":"Active-profile cache/scratch/architecture-design-20261003/design-validation.json"},
+    {"name":"existing workflow/context regression", "command":"bun test --dots tests/harness/workflowCheckpoint.test.ts tests/harness/contextRouting.test.ts", "passed":41, "failed":0, "expectations":240, "exitCode":0},
+    {"name":"real public context consumer", "command":"bun run workflow:context interview", "exitCode":0, "metadataValid":true, "readPlanValid":true, "executesNextStep":false},
+    {"name":"diff whitespace gate", "command":"git diff --check", "exitCode":0}
+  ],
+  "preservation": {
+    "datedOperationalCheckpointFields": "Unchanged; only engineeringContext updated. Its legacy Main-oriented outcome/milestones retain dated operational evidence and are not the new frontend's acceptance claim.",
+    "dirtyWorktrees": "All 25 transferred retained files preserve their exact handoff bytes. No staging/reset/stash/commit/branch cleanup operation was performed.",
+    "history": "Original decisions/failures remain in Git, retained worktree generations and the transferred immutable handoff. SOURCE-CONTRACT-REQUEST and former worker/launcher authority remain historical, not the current queue."
+  },
+  "effectsPerformed": {
+    "designAndCanonicalEngineeringMetadataOnly": true,
+    "implementationEdits": 0,
+    "gitPublication": 0,
+    "workerDispatch": 0,
+    "runtimeConfiguration": 0,
+    "productionDbProvisionOrStudentMigration": 0,
+    "sheetTransition": 0,
+    "academySaveOrParentSendReplay": 0
+  },
+  "notEstablished": [
+    "Full teacher-accessible source, pagination and join coverage",
+    "Detailed final field/SQL schemas for every proposed entity",
+    "Protected operational DB or independent backup/actual restore",
+    "Implemented/teacher-accepted primary frontend",
+    "Actual browser WebMCP discovery/invocation and Hermes interoperability",
+    "A fresh controlled worker route or independent design/code acceptance",
+    "Implementation publication, exact-head CI, merge or owned cleanup"
+  ],
+  "nextBoundedDesignAction": "Refine the compact student evidence/history field contracts and representative teacher queries against the existing learning/revision union, then bind the primary teacher scene and semantic WebMCP input/result/action contracts to that same application spine. Recover known decisions first; interview only consequential unresolved operating meaning, authority, risk or cost. Do not resume the former repair/publication/worker queue."
+}

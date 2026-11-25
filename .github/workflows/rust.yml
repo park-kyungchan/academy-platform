@@ -57,7 +57,8 @@ jobs:
             fi
           fi
           if [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
-            if git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- . ':!docs/**' ':!README.md'; then
+            # imported/ is never built or tested here: a change there alone does not run the build either.
+            if git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- . ':!docs/**' ':!README.md' ':!imported/**'; then
               run_rust=false
             fi
           fi

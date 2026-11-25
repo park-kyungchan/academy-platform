@@ -17,5 +17,8 @@
     "src/**/*.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts"
+  ],
+  "exclude": [
+    "imported"
   ]
 }

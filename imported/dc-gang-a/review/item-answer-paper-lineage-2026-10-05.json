@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "kind": "scoped_item_answer_and_original_paper_lineage_handoff",
+  "asOfUtc": "2026-10-05T08:10:44Z",
+  "branch": "feat/item-answer-paper-lineage-20261005",
+  "baseSha": "105da827b2f2a181e0b2b454b00905fa7651415f",
+  "purpose": "Reduce in-class answer lookup and repeated header-entry burden while preserving source, original-attempt, generated-paper and teacher-judgment lanes.",
+  "implemented": [
+    {"path": "src/lms/itemAnswerRead.ts", "contract": "Read one exact reviewed GetLectureList key, validate exactly one identity-qualified row, preserve literal official answer fields and distinguish the qualified external solution pointer from unrendered literal payloads; not a student response or qualified special rendering."},
+    {"path": "src/lms/itemAnswerBatch.ts", "contract": "One to thirty-two unique literal keys in request order, observation callback before advancing, explicit pending suffix on first failure, no automatic retries; persistence failure propagates."},
+    {"path": "src/lms/itemAnswerAudit.ts", "contract": "Validate answer scope/order/status/pending and exact source namespaces, separate stable answer content from acquisition time; no storage/write authority."},
+    {"path": "src/lms/paperLineage.ts", "contract": "Index qualified retained textbook attempts once, match exact student/key/name and lecture/outer namespaces, preserve original paper/attempt/ordinal/OX/date and all evidence references. Physical generated clinic identity stays unknown."},
+    {"path": "harness/native_read_entry.ts", "contract": "For item_answer only: exact StudyCourse route and single reqCmd, both userForm pri_no and form1 g_pri_no equal the previously qualified admitted teacherKey, current academy origin/logout and no password form. Preserve native vault and all other family guards."}
+  ],
+  "existingPublicEntry": {
+    "prepare": "bun run endpoint:query --prepare-read <private-request.json> --output-script <private-script.js>",
+    "requestFields": ["family=item_answer", "teacherLabel", "previously qualified teacherKey", "lectureKeys", "answerReadAdmission=true"],
+    "execute": "Use the prepared expression through the admitted native browser on the current qualified StudyCourse page; never export cookies or use an unsupervised HTTP client.",
+    "recover": "Read __academyItemAnswerRecovery for the current invocation after an uncertain tool timeout, persist observed answers privately, then explicitly admit only pending keys; do not replay successful reads.",
+    "audit": "bun run endpoint:query --audit-read <private-result.json> --output-audit <private-audit.json>",
+    "trace": "Use tracePaperLineage with exact studentKey/studentName, orderedLabels and evidenceRef/acquisition pairs from retained textbook reads. Do not put student/answer snapshots in Git."
+  },
+  "actualPrivateAcquisition": {
+    "requestedLabels": 19,
+    "sourceAnswerFieldsObserved": 19,
+    "answerContentsObserved": 18,
+    "solutionFilePointersWithoutAnswerContent": 1,
+    "earlierPendingAnswersRecovered": 4,
+    "retainedOriginalMatchedLabels": 6,
+    "labelsWithoutRetainedOriginalMatch": 13,
+    "finalCompiledNativeReaderCanary": {"requestedLabels": 1, "observedLabels": 1, "pendingLabels": 0, "status": "observed", "publicCliAudit": "verified"},
+    "meaning": "Task-bounded teacher-authenticated same-origin HTTP acquisition; not direct SQL, whole history, unattended authentication, a physical print receipt or production consumer activation.",
+    "privateDataPublished": false
+  },
+  "validation": {
+    "endpointCatalog": {"pass": 79, "fail": 0, "files": 13},
+    "workflow": {"pass": 97, "fail": 0},
+    "architecture": {"pass": 31, "fail": 0},
+    "rootAndHarnessTypecheck": "passed",
+    "cloudCheck": "passed_synthetic_and_source_integrity_with_existing_backend_and_academy_integration_skips",
+    "review": "Lead self-review, not independent reviewer approval",
+    "newTestsIncludedInCloudGate": "test:endpoint-catalog",
+    "regressionsFoundAndRepaired": ["Native same-origin non-StudyCourse shell failed the new route refusal test; add exact route/single-selector binding.", "Checkpoint reference list initially exceeded the existing cap; retain only the receipt pointer without widening the checkpoint contract."],
+    "gitAndRequiredCi": "Separate actual publication readback; these local results do not certify CI or deployment."
+  },
+  "peerIntegration": {
+    "recipient": "Other existing feature-branch session / product implementation owner",
+    "delivery": "Repository handoff plus user-carried file; peer acknowledgement is not verified and no cross-profile synchronization is installed.",
+    "consume": ["Fetch the published branch/main and read this receipt before touching overlapping protocol, native entry, endpoint catalog or package test lists.", "Reconcile against the tested merge SHA; do not overwrite the existing dirty primary worktree or adopt its private raw evidence by implication.", "Reuse the new literal-answer and lineage seams in the existing UI/Backend/WebMCP scope; do not create another paper registry or demand repeated headers.", "Keep shared official answers out of arbitrary student partitions and retain source grading beside append-only teacher inspection."]
+  },
+  "openAcceptance": [
+    "Source solution-file retrieval and exact item/version linkage for the pointer-only item; current shared row has no qualified file URL, and a separate catalog observation did not provide PDF controls.",
+    "Special answer renderer and printed answer-version qualification.",
+    "Actual generated clinic instance/version, complete ordered membership, print/distribution and possible reprints.",
+    "Frontend, protected Backend history and browser WebMCP consumer wiring; this unit does not deploy or activate them."
+  ],
+  "boundaries": {"academyGradeSave": false, "paperGenerationOrNativePrint": false, "teacherInspectionInferred": false, "officialFinalization": false, "parentSending": false, "newServiceOrSchedule": false, "unattendedAuthentication": false, "peerReceiptVerified": false},
+  "recovery": "Retain original private teacher/source evidence and partial observations. Revert only this scoped code unit if needed; preserve foreign work, native learning and source locks. A blocked solution/paper contract must not erase acquired answers or certify an invented join."
+}
