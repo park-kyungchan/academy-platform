@@ -28,6 +28,10 @@ A change of one of these says so in the pull request and comes with the test tha
 
 `crates/edu-academy-mcp` (not a default member): parity work stopped; retired at the first cutover. Retained TypeScript/Bun reference source (`modules/`, `apps/`, `migration/`) and every file with a current Rust, live runtime or host consumer stay until their retirement conditions are met. Do not restore the retired Bun integration harness, context gates, custom receipts or automated review workflow. Historical pins and records describe their original observations, not current acceptance.
 
+## Imported
+
+`imported/` holds two former repositories' trees and histories ([imported/README.md](imported/README.md)). Do not change, format or build a file there: the Cargo workspace excludes it, `./check` and the CI job do not read it, and no test reads it as a fixture. The Academy's entry points use `apps/academy/dc-gang-a/`, not `imported/dc-gang-a/`; the Rust migration decides what of `imported/` survives. It holds the Academy's records as they are: never copy a file from there into a fixture or another path.
+
 ## Privacy and effects
 
 Preserve private context and original dated student, book and activity identities. Never read or publish credentials, use private student payloads as synthetic fixtures, contact Academy endpoints or infer operational effects from a repository check. Do not change the installed Academy bundle or host configuration as a side effect of source maintenance. Native profiles, sessions, databases, stores and credential consumers keep their owners. DailyRecord work follows [the policy](apps/academy/dc-gang-a/docs/daily-record-authoring-policy.md); drafts, review, save and transmission stay separate.

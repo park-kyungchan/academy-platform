@@ -26,3 +26,8 @@ Rust fixture ownership and historical replay recovery are documented in
 [docs/fixture-ownership.md](docs/fixture-ownership.md). Current Cargo checks read
 crate-owned fixtures; retained migration scripts require their complete original
 revision for historical reproduction.
+
+`imported/` holds the trees and histories of the former repositories `education-dc-gang-a` and
+`education-problem-edit`, byte for byte, merged here so that nothing is lost when they are archived. Nothing in this
+workspace builds or tests them; the Academy's entry points use `apps/academy/dc-gang-a/`; the Rust migration decides
+what of `imported/` survives. See [imported/README.md](imported/README.md).
