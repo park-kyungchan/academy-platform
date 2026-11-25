@@ -11,8 +11,8 @@ The rules come from the newest records the teacher accepted, which win over olde
   - A progress field may instead end every line with `~했습니다.`. One field never mixes the two forms.
   - Example: `- 가우스 중1-1-2, 6-2 정비례 관계 y=ax DailyTest 기본·발전 완료`.
 - **T3. lessonMemo is whole polite sentences.** One notice per line; every sentence ends in `~니다.`
-  - Example: `- 수요일(YYYY-MM-DD)에 학원서버 프린트 대단원총괄평가(60분 시간 제한)를 진행할 예정입니다.`
-- **T4. No internal words.** Banned: `채점`, `미실시`, `미완료`, `교사 확인`, `교사 검토`, `완료판정`, `시간 부족`, `확인 전`, `시리즈`/`버전`/`v` with a number, edition codes such as `1P6A`, and `22개정`. Rewrite each with the same meaning.
+  - Example: `- 수요일(YYYY-MM-DD)에 대단원총괄평가(60분 시간 제한)를 진행할 예정입니다.`
+- **T4. No internal words.** Banned: `채점`, `미실시`, `미완료`, `교사 확인`, `교사 검토`, `완료판정`, `시간 부족`, `확인 전`, `학원서버 프린트`, `어려운 시험지`, `시리즈`/`버전`/`v` with a number, edition codes such as `1P6A`, and `22개정`. Rewrite each with the same meaning.
   - `집에서는 채점하지 않고 등원 후 채점합니다.` → memo `- 집에서는 답을 맞춰 보지 않고 등원 후 학원에서 확인합니다.`
   - `(지난시간 미완료 숙제)` → `(지난 시간에 끝내지 못한 숙제)`
 - **T5. Concise.** No repeated word or phrase, no heading or label line (`해당범위`, `대단원 총괄평가:`), no quotation marks around the record's own text.
@@ -62,7 +62,7 @@ The rules come from the newest records the teacher accepted, which win over olde
   - `- [DailyTest] [기본] [가우스 중1-1 1권] 1-2 소인수분해 75점(4문항 중3문항 정답)` → `- 가우스 중1-1-1, 1-2 소인수분해 DailyTest 기본 75점(4문항 중 3문항 정답)`
   - DailyTest exists for Gauss books only. Add a book to a DailyTest line only when the source names exactly one full Gauss book.
 - **M8. A clinic is a print, not a book.** A clinic line names the books whose units it covers, joined by ` · `: `- 가우스 6-2-1 · 다빈치 6-1-1, 숙제 오답클리닉 완료`. Add no book the source does not name.
-- **M9. Assessments stay distinct.** Never merge or rename the chapter test in the book, the printed chapter test from the LMS (`학원서버 프린트 대단원총괄평가`), `학력인증평가`, `월말평가` and DailyTest.
+- **M9. Assessments stay distinct.** Never merge or rename the chapter test in the book (`대단원총괄평가(교재 내)`), the printed chapter test (`대단원총괄평가(60분)` or `대단원총괄평가`, without `학원서버 프린트`), `학력인증평가`, `월말평가` and DailyTest.
 - **M10. Units of measure.** `N문항` (never `N문제`), `N문항 중 K문항 정답`, `N점`, `p.N~p.M`, `N회차`, `N번`.
   - `(1·2회, 10문제 중 9정답)` → `(1·2회, 10문항 중 9문항 정답)`
-- **M11. Codes.** Keep printed-paper codes (`(#<code>)`), item numbers, item IDs and phone numbers exactly. Remove edition labels.
+- **M11. Codes.** Keep printed-paper codes (`(#<code>)`), item numbers, item IDs and phone numbers exactly. Remove edition labels and informal qualifiers such as `어려운 시험지` (write `<unit title>(#<code>)` directly).
