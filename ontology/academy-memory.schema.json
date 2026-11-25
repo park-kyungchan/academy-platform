@@ -1,0 +1,1639 @@
+{
+  "format": "ontology-schema/v1",
+  "domain": "academy_memory",
+  "version": 1,
+  "namespace": {
+    "instance": "vps://palantirkc",
+    "account": "root"
+  },
+  "scope_keys": [],
+  "value_types": {
+    "iso_date": {
+      "base": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "key_digits": {
+      "base": "string",
+      "pattern": "^[0-9]{1,32}$"
+    },
+    "provenance": {
+      "base": "string",
+      "enum": [
+        "server_observed",
+        "teacher_confirmed",
+        "local_state",
+        "planned",
+        "unconfirmed"
+      ]
+    },
+    "student_status": {
+      "base": "string",
+      "enum": [
+        "onboarding",
+        "active",
+        "paused",
+        "transferred",
+        "archived"
+      ]
+    },
+    "binding_status": {
+      "base": "string",
+      "enum": [
+        "active",
+        "candidate",
+        "retired"
+      ]
+    },
+    "observation_kind": {
+      "base": "string",
+      "enum": [
+        "dailyrecord",
+        "prestudy",
+        "prestudy_report",
+        "section_results",
+        "dailytest",
+        "clinic",
+        "metadata",
+        "other"
+      ]
+    },
+    "reminder_status": {
+      "base": "string",
+      "enum": [
+        "open",
+        "closed"
+      ]
+    },
+    "counseling_status": {
+      "base": "string",
+      "enum": [
+        "prepared",
+        "held",
+        "closed"
+      ]
+    }
+  },
+  "sources": {},
+  "object_types": {
+    "student": {
+      "description": "A student as the teacher and the agent know them, with the date as of which the memory holds the server's records. Native key: the slug.",
+      "owner": "ontology",
+      "primary_key": {
+        "from": "/native_key"
+      },
+      "title": "slug",
+      "properties": {
+        "slug": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 100,
+          "description": "The slug the teacher's files use; the caller passes it equal to the native key. A view argument, so ASCII letters, digits and . _ : / - only."
+        },
+        "name": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 100,
+          "description": "The name the teacher uses for the student."
+        },
+        "student_id": {
+          "type": {
+            "value_type": "key_digits"
+          },
+          "required": false,
+          "max_bytes": 32,
+          "description": "The Academy server's student id, by which the domains academy and academy_read know the same student."
+        },
+        "course_id": {
+          "type": {
+            "value_type": "key_digits"
+          },
+          "required": false,
+          "max_bytes": 32,
+          "description": "The Academy server's course id of the student."
+        },
+        "membership_id": {
+          "type": {
+            "value_type": "key_digits"
+          },
+          "required": false,
+          "max_bytes": 32,
+          "description": "The Academy server's course membership key of the student."
+        },
+        "status": {
+          "type": {
+            "value_type": "student_status"
+          },
+          "required": true,
+          "description": "Where the student stands: onboarding, active, paused, transferred or archived."
+        },
+        "class_slot": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 100,
+          "description": "The class the student attends, as the teacher names it."
+        },
+        "surface": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 2000,
+          "description": "The few facts a lesson starts from."
+        },
+        "memory_as_of": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": false,
+          "max_bytes": 10,
+          "description": "The last lesson date whose records this memory holds; the server's records after it are not yet read."
+        },
+        "updated_at": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 40,
+          "description": "When the student's memory was last written. A UTC time YYYY-MM-DDTHH:MM:SSZ set by the caller."
+        }
+      }
+    },
+    "textbook_binding": {
+      "description": "A book the student works in, as read from the Academy server. Native key: <slug>|<book_no>.",
+      "owner": "ontology",
+      "primary_key": {
+        "from": "/native_key"
+      },
+      "title": "book_label",
+      "properties": {
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "The student, keyed by the slug the teacher's files use."
+        },
+        "book_no": {
+          "type": {
+            "value_type": "key_digits"
+          },
+          "required": true,
+          "max_bytes": 32,
+          "description": "The Academy server's book number."
+        },
+        "course_key": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 40,
+          "description": "The Academy server's course key of the book."
+        },
+        "book_label": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 600,
+          "description": "The book's label word for word as the Academy's server names it."
+        },
+        "role": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 200,
+          "description": "What the book is for in the student's lessons."
+        },
+        "status": {
+          "type": {
+            "value_type": "binding_status"
+          },
+          "required": true,
+          "description": "active, candidate or retired."
+        },
+        "provenance": {
+          "type": {
+            "value_type": "provenance"
+          },
+          "required": false,
+          "description": "Where the reading comes from."
+        },
+        "observed_at": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 40,
+          "description": "When the binding was read. A UTC time YYYY-MM-DDTHH:MM:SSZ set by the caller."
+        }
+      }
+    },
+    "observation": {
+      "description": "One reading of one Academy server record with its kind, its record id and its time. Native key: given by the caller.",
+      "owner": "ontology",
+      "primary_key": {
+        "from": "/native_key"
+      },
+      "title": "summary",
+      "properties": {
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "The student, keyed by the slug the teacher's files use."
+        },
+        "kind": {
+          "type": {
+            "value_type": "observation_kind"
+          },
+          "required": true,
+          "description": "What the Academy server's record is."
+        },
+        "lesson_date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "max_bytes": 10,
+          "description": "The lesson date the record belongs to."
+        },
+        "observed_at": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 40,
+          "description": "When the record was read. A UTC time YYYY-MM-DDTHH:MM:SSZ set by the caller."
+        },
+        "tool": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 100,
+          "description": "The tool of the Academy server that answered the record."
+        },
+        "record_id": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 100,
+          "description": "The Academy server's id of the record, by which a later reading links the two."
+        },
+        "summary": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1500,
+          "description": "What the record says, in short."
+        }
+      }
+    },
+    "lesson_note": {
+      "description": "The teacher's or the agent's note of one lesson day. Native key: <slug>|<lesson_date>.",
+      "owner": "ontology",
+      "primary_key": {
+        "from": "/native_key"
+      },
+      "title": "lesson_date",
+      "properties": {
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "The student, keyed by the slug the teacher's files use."
+        },
+        "lesson_date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "max_bytes": 10,
+          "description": "The lesson date of the note."
+        },
+        "text": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 8000,
+          "description": "The note of the lesson."
+        },
+        "provenance": {
+          "type": {
+            "value_type": "provenance"
+          },
+          "required": true,
+          "description": "Where the note comes from."
+        },
+        "written_at": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 40,
+          "description": "When the note was written. A UTC time YYYY-MM-DDTHH:MM:SSZ set by the caller."
+        }
+      }
+    },
+    "reminder": {
+      "description": "Something to remember for a student or a whole class. Native key: the reminder's id.",
+      "owner": "ontology",
+      "primary_key": {
+        "from": "/native_key"
+      },
+      "title": "text",
+      "properties": {
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": false,
+          "description": "The student; absent for a reminder of a whole class."
+        },
+        "text": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 600,
+          "description": "What to remember."
+        },
+        "status": {
+          "type": {
+            "value_type": "reminder_status"
+          },
+          "required": true,
+          "description": "open or closed."
+        },
+        "due": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": false,
+          "max_bytes": 10,
+          "description": "The date by which it is due."
+        },
+        "provenance": {
+          "type": {
+            "value_type": "provenance"
+          },
+          "required": false,
+          "description": "Where the reminder comes from."
+        },
+        "updated_at": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 40,
+          "description": "When the reminder was last written. A UTC time YYYY-MM-DDTHH:MM:SSZ set by the caller."
+        }
+      }
+    },
+    "counseling": {
+      "description": "One counseling of a student: its form, its result and its state. Native key: <slug>|<date>.",
+      "owner": "ontology",
+      "primary_key": {
+        "from": "/native_key"
+      },
+      "title": "date",
+      "properties": {
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "The student, keyed by the slug the teacher's files use."
+        },
+        "date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "max_bytes": 10,
+          "description": "The date of the counseling."
+        },
+        "purpose": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 600,
+          "description": "What the counseling is for."
+        },
+        "form": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 8000,
+          "description": "The prepared form."
+        },
+        "result": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 8000,
+          "description": "What the counseling found."
+        },
+        "status": {
+          "type": {
+            "value_type": "counseling_status"
+          },
+          "required": true,
+          "description": "prepared, held or closed."
+        },
+        "stored_at": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 300,
+          "description": "Where the full form is kept, as a path relative to the teacher's work."
+        }
+      }
+    }
+  },
+  "link_types": {
+    "binding_student": {
+      "from": "textbook_binding",
+      "via": "student",
+      "to": "student",
+      "cardinality": "many_to_one",
+      "names": {
+        "forward": "binding_student",
+        "reverse": "bindings"
+      }
+    },
+    "observation_student": {
+      "from": "observation",
+      "via": "student",
+      "to": "student",
+      "cardinality": "many_to_one",
+      "names": {
+        "forward": "observation_student",
+        "reverse": "observations"
+      }
+    },
+    "note_student": {
+      "from": "lesson_note",
+      "via": "student",
+      "to": "student",
+      "cardinality": "many_to_one",
+      "names": {
+        "forward": "note_student",
+        "reverse": "lesson_notes"
+      }
+    },
+    "reminder_student": {
+      "from": "reminder",
+      "via": "student",
+      "to": "student",
+      "cardinality": "many_to_one",
+      "names": {
+        "forward": "reminder_student",
+        "reverse": "reminders"
+      }
+    },
+    "counseling_student": {
+      "from": "counseling",
+      "via": "student",
+      "to": "student",
+      "cardinality": "many_to_one",
+      "names": {
+        "forward": "counseling_student",
+        "reverse": "counselings"
+      }
+    }
+  },
+  "action_types": {
+    "register_student": {
+      "description": "Create or modify a student from its properties; a property left out keeps its value.",
+      "parameters": {
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "The student, keyed by the slug the teacher's files use."
+        },
+        "slug": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 100,
+          "description": "The slug the teacher's files use; the caller passes it equal to the native key. A view argument, so ASCII letters, digits and . _ : / - only."
+        },
+        "name": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 100,
+          "description": "The name the teacher uses for the student."
+        },
+        "student_id": {
+          "type": {
+            "value_type": "key_digits"
+          },
+          "required": false,
+          "max_bytes": 32,
+          "description": "The Academy server's student id, by which the domains academy and academy_read know the same student."
+        },
+        "course_id": {
+          "type": {
+            "value_type": "key_digits"
+          },
+          "required": false,
+          "max_bytes": 32,
+          "description": "The Academy server's course id of the student."
+        },
+        "membership_id": {
+          "type": {
+            "value_type": "key_digits"
+          },
+          "required": false,
+          "max_bytes": 32,
+          "description": "The Academy server's course membership key of the student."
+        },
+        "status": {
+          "type": {
+            "value_type": "student_status"
+          },
+          "required": true,
+          "description": "Where the student stands: onboarding, active, paused, transferred or archived."
+        },
+        "class_slot": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 100,
+          "description": "The class the student attends, as the teacher names it."
+        },
+        "surface": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 2000,
+          "description": "The few facts a lesson starts from."
+        },
+        "memory_as_of": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": false,
+          "max_bytes": 10,
+          "description": "The last lesson date whose records this memory holds; the server's records after it are not yet read."
+        },
+        "updated_at": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 40,
+          "description": "When the student's memory was last written. A UTC time YYYY-MM-DDTHH:MM:SSZ set by the caller."
+        }
+      },
+      "submission_criteria": [],
+      "rules": [
+        {
+          "create_or_modify_object": "student",
+          "set": {
+            "slug": "$slug",
+            "name": "$name",
+            "student_id": "$student_id",
+            "course_id": "$course_id",
+            "membership_id": "$membership_id",
+            "status": "$status",
+            "class_slot": "$class_slot",
+            "surface": "$surface",
+            "memory_as_of": "$memory_as_of",
+            "updated_at": "$updated_at"
+          }
+        }
+      ]
+    },
+    "set_surface": {
+      "description": "Set the few facts a lesson starts from.",
+      "parameters": {
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "The student, keyed by the slug the teacher's files use."
+        },
+        "surface": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 2000,
+          "description": "The few facts a lesson starts from."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "student_missing",
+          "message": "Apply register_student for this student first.",
+          "all": [
+            {
+              "exists": "$student"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "modify_object": "student",
+          "set": {
+            "surface": "$surface"
+          }
+        }
+      ]
+    },
+    "bind_textbook": {
+      "description": "Create or modify a binding of a book to a student.",
+      "parameters": {
+        "binding": {
+          "type": {
+            "ref": "textbook_binding"
+          },
+          "required": true,
+          "description": "The binding, keyed <slug>|<book_no>."
+        },
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "The student, keyed by the slug the teacher's files use."
+        },
+        "book_no": {
+          "type": {
+            "value_type": "key_digits"
+          },
+          "required": true,
+          "max_bytes": 32,
+          "description": "The Academy server's book number."
+        },
+        "course_key": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 40,
+          "description": "The Academy server's course key of the book."
+        },
+        "book_label": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 600,
+          "description": "The book's label word for word as the Academy's server names it."
+        },
+        "role": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 200,
+          "description": "What the book is for in the student's lessons."
+        },
+        "status": {
+          "type": {
+            "value_type": "binding_status"
+          },
+          "required": true,
+          "description": "active, candidate or retired."
+        },
+        "provenance": {
+          "type": {
+            "value_type": "provenance"
+          },
+          "required": false,
+          "description": "Where the reading comes from."
+        },
+        "observed_at": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 40,
+          "description": "When the binding was read. A UTC time YYYY-MM-DDTHH:MM:SSZ set by the caller."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "student_missing",
+          "message": "Apply register_student for this student first.",
+          "all": [
+            {
+              "exists": "$student"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "create_or_modify_object": "textbook_binding",
+          "set": {
+            "student": "$student",
+            "book_no": "$book_no",
+            "course_key": "$course_key",
+            "book_label": "$book_label",
+            "role": "$role",
+            "status": "$status",
+            "provenance": "$provenance",
+            "observed_at": "$observed_at"
+          }
+        }
+      ]
+    },
+    "retire_binding": {
+      "description": "Retire a binding: the book is no longer the student's.",
+      "parameters": {
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "The student, keyed by the slug the teacher's files use."
+        },
+        "binding": {
+          "type": {
+            "ref": "textbook_binding"
+          },
+          "required": true,
+          "description": "The binding, keyed <slug>|<book_no>."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "student_missing",
+          "message": "Apply register_student for this student first.",
+          "all": [
+            {
+              "exists": "$student"
+            }
+          ]
+        },
+        {
+          "code": "binding_missing",
+          "message": "The binding does not exist.",
+          "all": [
+            {
+              "exists": "$binding"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "modify_object": "textbook_binding",
+          "set": {
+            "status": "retired"
+          }
+        }
+      ]
+    },
+    "record_observation": {
+      "description": "Create or modify an observation by its key.",
+      "parameters": {
+        "observation": {
+          "type": {
+            "ref": "observation"
+          },
+          "required": true,
+          "description": "The observation, keyed by the caller."
+        },
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "The student, keyed by the slug the teacher's files use."
+        },
+        "kind": {
+          "type": {
+            "value_type": "observation_kind"
+          },
+          "required": true,
+          "description": "What the Academy server's record is."
+        },
+        "lesson_date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "max_bytes": 10,
+          "description": "The lesson date the record belongs to."
+        },
+        "observed_at": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 40,
+          "description": "When the record was read. A UTC time YYYY-MM-DDTHH:MM:SSZ set by the caller."
+        },
+        "tool": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 100,
+          "description": "The tool of the Academy server that answered the record."
+        },
+        "record_id": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 100,
+          "description": "The Academy server's id of the record, by which a later reading links the two."
+        },
+        "summary": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 1500,
+          "description": "What the record says, in short."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "student_missing",
+          "message": "Apply register_student for this student first.",
+          "all": [
+            {
+              "exists": "$student"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "create_or_modify_object": "observation",
+          "set": {
+            "student": "$student",
+            "kind": "$kind",
+            "lesson_date": "$lesson_date",
+            "observed_at": "$observed_at",
+            "tool": "$tool",
+            "record_id": "$record_id",
+            "summary": "$summary"
+          }
+        }
+      ]
+    },
+    "write_lesson_note": {
+      "description": "Create or modify the note of one lesson day.",
+      "parameters": {
+        "note": {
+          "type": {
+            "ref": "lesson_note"
+          },
+          "required": true,
+          "description": "The note, keyed <slug>|<lesson_date>."
+        },
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "The student, keyed by the slug the teacher's files use."
+        },
+        "lesson_date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "max_bytes": 10,
+          "description": "The lesson date of the note."
+        },
+        "text": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 8000,
+          "description": "The note of the lesson."
+        },
+        "provenance": {
+          "type": {
+            "value_type": "provenance"
+          },
+          "required": true,
+          "description": "Where the note comes from."
+        },
+        "written_at": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 40,
+          "description": "When the note was written. A UTC time YYYY-MM-DDTHH:MM:SSZ set by the caller."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "student_missing",
+          "message": "Apply register_student for this student first.",
+          "all": [
+            {
+              "exists": "$student"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "create_or_modify_object": "lesson_note",
+          "set": {
+            "student": "$student",
+            "lesson_date": "$lesson_date",
+            "text": "$text",
+            "provenance": "$provenance",
+            "written_at": "$written_at"
+          }
+        }
+      ]
+    },
+    "open_reminder": {
+      "description": "Create or modify a reminder with status open; without student it is a reminder of a whole class.",
+      "parameters": {
+        "reminder": {
+          "type": {
+            "ref": "reminder"
+          },
+          "required": true,
+          "description": "The reminder, keyed by its id."
+        },
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": false,
+          "description": "The student; absent for a reminder of a whole class."
+        },
+        "text": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 600,
+          "description": "What to remember."
+        },
+        "due": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": false,
+          "max_bytes": 10,
+          "description": "The date by which it is due."
+        },
+        "provenance": {
+          "type": {
+            "value_type": "provenance"
+          },
+          "required": false,
+          "description": "Where the reminder comes from."
+        },
+        "updated_at": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 40,
+          "description": "When the reminder was last written. A UTC time YYYY-MM-DDTHH:MM:SSZ set by the caller."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "student_missing",
+          "message": "Apply register_student for this student first, or name no student.",
+          "any": [
+            {
+              "none": [
+                {
+                  "present": "$student"
+                }
+              ]
+            },
+            {
+              "exists": "$student"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "create_or_modify_object": "reminder",
+          "set": {
+            "student": "$student",
+            "text": "$text",
+            "due": "$due",
+            "provenance": "$provenance",
+            "updated_at": "$updated_at",
+            "status": "open"
+          }
+        }
+      ]
+    },
+    "close_reminder": {
+      "description": "Close an open reminder.",
+      "parameters": {
+        "reminder": {
+          "type": {
+            "ref": "reminder"
+          },
+          "required": true,
+          "description": "The reminder, keyed by its id."
+        },
+        "updated_at": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 40,
+          "description": "When the reminder was last written. A UTC time YYYY-MM-DDTHH:MM:SSZ set by the caller."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "reminder_not_open",
+          "message": "The reminder is missing or not open.",
+          "all": [
+            {
+              "exists": "$reminder"
+            },
+            {
+              "eq": [
+                "$reminder.status",
+                "open"
+              ]
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "modify_object": "reminder",
+          "set": {
+            "updated_at": "$updated_at",
+            "status": "closed"
+          }
+        }
+      ]
+    },
+    "prepare_counseling": {
+      "description": "Create a counseling with status prepared; its key may not exist yet.",
+      "parameters": {
+        "counseling": {
+          "type": {
+            "ref": "counseling"
+          },
+          "required": true,
+          "description": "The counseling, keyed <slug>|<date>."
+        },
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "The student, keyed by the slug the teacher's files use."
+        },
+        "date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "max_bytes": 10,
+          "description": "The date of the counseling."
+        },
+        "purpose": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 600,
+          "description": "What the counseling is for."
+        },
+        "form": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 8000,
+          "description": "The prepared form."
+        },
+        "stored_at": {
+          "type": "string",
+          "required": false,
+          "max_bytes": 300,
+          "description": "Where the full form is kept, as a path relative to the teacher's work."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "student_missing",
+          "message": "Apply register_student for this student first.",
+          "all": [
+            {
+              "exists": "$student"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "create_object": "counseling",
+          "set": {
+            "student": "$student",
+            "date": "$date",
+            "purpose": "$purpose",
+            "form": "$form",
+            "stored_at": "$stored_at",
+            "status": "prepared"
+          }
+        }
+      ]
+    },
+    "record_counseling": {
+      "description": "Record the result of a counseling and set its status held.",
+      "parameters": {
+        "counseling": {
+          "type": {
+            "ref": "counseling"
+          },
+          "required": true,
+          "description": "The counseling, keyed <slug>|<date>."
+        },
+        "result": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 8000,
+          "description": "What the counseling found."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "counseling_missing",
+          "message": "The counseling does not exist.",
+          "all": [
+            {
+              "exists": "$counseling"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "modify_object": "counseling",
+          "set": {
+            "result": "$result",
+            "status": "held"
+          }
+        }
+      ]
+    },
+    "close_counseling": {
+      "description": "Close a counseling.",
+      "parameters": {
+        "counseling": {
+          "type": {
+            "ref": "counseling"
+          },
+          "required": true,
+          "description": "The counseling, keyed <slug>|<date>."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "counseling_missing",
+          "message": "The counseling does not exist.",
+          "all": [
+            {
+              "exists": "$counseling"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "modify_object": "counseling",
+          "set": {
+            "status": "closed"
+          }
+        }
+      ]
+    },
+    "close_lesson_day": {
+      "description": "Close a lesson day: the student's memory holds the server's records up to the date.",
+      "parameters": {
+        "student": {
+          "type": {
+            "ref": "student"
+          },
+          "required": true,
+          "description": "The student, keyed by the slug the teacher's files use."
+        },
+        "lesson_date": {
+          "type": {
+            "value_type": "iso_date"
+          },
+          "required": true,
+          "max_bytes": 10,
+          "description": "The lesson date the memory now holds."
+        },
+        "updated_at": {
+          "type": "string",
+          "required": true,
+          "max_bytes": 40,
+          "description": "When the memory was written. A UTC time YYYY-MM-DDTHH:MM:SSZ set by the caller."
+        }
+      },
+      "submission_criteria": [
+        {
+          "code": "student_missing",
+          "message": "Apply register_student for this student first.",
+          "all": [
+            {
+              "exists": "$student"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "modify_object": "student",
+          "set": {
+            "memory_as_of": "$lesson_date",
+            "updated_at": "$updated_at"
+          }
+        }
+      ]
+    }
+  },
+  "functions": {},
+  "grants": [
+    {
+      "principal": "agent",
+      "scope": {},
+      "read": [
+        "student",
+        "textbook_binding",
+        "observation",
+        "lesson_note",
+        "reminder",
+        "counseling"
+      ],
+      "derive": [
+        "student",
+        "textbook_binding",
+        "observation",
+        "lesson_note",
+        "reminder",
+        "counseling"
+      ],
+      "actions": [
+        "register_student",
+        "set_surface",
+        "bind_textbook",
+        "retire_binding",
+        "record_observation",
+        "write_lesson_note",
+        "open_reminder",
+        "close_reminder",
+        "prepare_counseling",
+        "record_counseling",
+        "close_counseling",
+        "close_lesson_day"
+      ]
+    }
+  ],
+  "views": {
+    "student_card": {
+      "description": "The student's own properties.",
+      "object_type": "student",
+      "args": [
+        "student"
+      ],
+      "filter": {
+        "eq": [
+          "slug",
+          "$student"
+        ]
+      },
+      "order": [
+        {
+          "property": "$key",
+          "direction": "asc"
+        }
+      ],
+      "limit": 1,
+      "columns": [
+        {
+          "header": "Slug",
+          "property": "slug"
+        },
+        {
+          "header": "Name",
+          "property": "name"
+        },
+        {
+          "header": "Status",
+          "property": "status"
+        },
+        {
+          "header": "Class slot",
+          "property": "class_slot"
+        },
+        {
+          "header": "Student id",
+          "property": "student_id"
+        },
+        {
+          "header": "Course id",
+          "property": "course_id"
+        },
+        {
+          "header": "Membership id",
+          "property": "membership_id"
+        },
+        {
+          "header": "Memory as of",
+          "property": "memory_as_of"
+        },
+        {
+          "header": "Updated at",
+          "property": "updated_at"
+        },
+        {
+          "header": "Surface",
+          "property": "surface"
+        }
+      ]
+    },
+    "student_bindings": {
+      "description": "The student's active bindings.",
+      "object_type": "textbook_binding",
+      "args": [
+        "student"
+      ],
+      "filter": {
+        "all": [
+          {
+            "eq": [
+              "student",
+              "$student"
+            ]
+          },
+          {
+            "eq": [
+              "status",
+              "active"
+            ]
+          }
+        ]
+      },
+      "order": [
+        {
+          "property": "book_no",
+          "direction": "asc"
+        }
+      ],
+      "limit": 100,
+      "columns": [
+        {
+          "header": "Key",
+          "property": "$key"
+        },
+        {
+          "header": "Book number",
+          "property": "book_no"
+        },
+        {
+          "header": "Course key",
+          "property": "course_key"
+        },
+        {
+          "header": "Book label",
+          "property": "book_label"
+        },
+        {
+          "header": "Role",
+          "property": "role"
+        },
+        {
+          "header": "Provenance",
+          "property": "provenance"
+        },
+        {
+          "header": "Observed at",
+          "property": "observed_at"
+        }
+      ]
+    },
+    "student_observations": {
+      "description": "The student's twelve newest observations, newest observed_at first.",
+      "object_type": "observation",
+      "args": [
+        "student"
+      ],
+      "filter": {
+        "eq": [
+          "student",
+          "$student"
+        ]
+      },
+      "order": [
+        {
+          "property": "observed_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 12,
+      "columns": [
+        {
+          "header": "Observed at",
+          "property": "observed_at"
+        },
+        {
+          "header": "Kind",
+          "property": "kind"
+        },
+        {
+          "header": "Lesson date",
+          "property": "lesson_date"
+        },
+        {
+          "header": "Tool",
+          "property": "tool"
+        },
+        {
+          "header": "Record id",
+          "property": "record_id"
+        },
+        {
+          "header": "Summary",
+          "property": "summary"
+        }
+      ]
+    },
+    "student_notes": {
+      "description": "The student's three newest lesson notes, newest lesson_date first.",
+      "object_type": "lesson_note",
+      "args": [
+        "student"
+      ],
+      "filter": {
+        "eq": [
+          "student",
+          "$student"
+        ]
+      },
+      "order": [
+        {
+          "property": "lesson_date",
+          "direction": "desc"
+        }
+      ],
+      "limit": 3,
+      "columns": [
+        {
+          "header": "Lesson date",
+          "property": "lesson_date"
+        },
+        {
+          "header": "Provenance",
+          "property": "provenance"
+        },
+        {
+          "header": "Written at",
+          "property": "written_at"
+        },
+        {
+          "header": "Text",
+          "property": "text"
+        }
+      ]
+    },
+    "student_reminders": {
+      "description": "The student's open reminders.",
+      "object_type": "reminder",
+      "args": [
+        "student"
+      ],
+      "filter": {
+        "all": [
+          {
+            "eq": [
+              "student",
+              "$student"
+            ]
+          },
+          {
+            "eq": [
+              "status",
+              "open"
+            ]
+          }
+        ]
+      },
+      "order": [
+        {
+          "property": "$key",
+          "direction": "asc"
+        }
+      ],
+      "limit": 100,
+      "columns": [
+        {
+          "header": "Key",
+          "property": "$key"
+        },
+        {
+          "header": "Text",
+          "property": "text"
+        },
+        {
+          "header": "Due",
+          "property": "due"
+        },
+        {
+          "header": "Provenance",
+          "property": "provenance"
+        },
+        {
+          "header": "Updated at",
+          "property": "updated_at"
+        }
+      ]
+    },
+    "student_counselings": {
+      "description": "The student's two newest counselings, newest date first.",
+      "object_type": "counseling",
+      "args": [
+        "student"
+      ],
+      "filter": {
+        "eq": [
+          "student",
+          "$student"
+        ]
+      },
+      "order": [
+        {
+          "property": "date",
+          "direction": "desc"
+        }
+      ],
+      "limit": 2,
+      "columns": [
+        {
+          "header": "Date",
+          "property": "date"
+        },
+        {
+          "header": "Status",
+          "property": "status"
+        },
+        {
+          "header": "Purpose",
+          "property": "purpose"
+        },
+        {
+          "header": "Stored at",
+          "property": "stored_at"
+        },
+        {
+          "header": "Form",
+          "property": "form"
+        },
+        {
+          "header": "Result",
+          "property": "result"
+        }
+      ]
+    },
+    "roster": {
+      "description": "The students whose status is active or onboarding.",
+      "object_type": "student",
+      "args": [],
+      "filter": {
+        "in": [
+          "status",
+          [
+            "active",
+            "onboarding"
+          ]
+        ]
+      },
+      "order": [
+        {
+          "property": "$key",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200,
+      "columns": [
+        {
+          "header": "Key",
+          "property": "$key"
+        },
+        {
+          "header": "Name",
+          "property": "name"
+        },
+        {
+          "header": "Class slot",
+          "property": "class_slot"
+        },
+        {
+          "header": "Memory as of",
+          "property": "memory_as_of"
+        }
+      ]
+    },
+    "open_reminders": {
+      "description": "Every open reminder, of a student or of a whole class.",
+      "object_type": "reminder",
+      "args": [],
+      "filter": {
+        "eq": [
+          "status",
+          "open"
+        ]
+      },
+      "order": [
+        {
+          "property": "$key",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200,
+      "columns": [
+        {
+          "header": "Key",
+          "property": "$key"
+        },
+        {
+          "header": "Student",
+          "property": "student"
+        },
+        {
+          "header": "Text",
+          "property": "text"
+        },
+        {
+          "header": "Due",
+          "property": "due"
+        },
+        {
+          "header": "Provenance",
+          "property": "provenance"
+        },
+        {
+          "header": "Updated at",
+          "property": "updated_at"
+        }
+      ]
+    }
+  }
+}

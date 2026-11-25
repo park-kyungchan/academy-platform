@@ -33,6 +33,13 @@ pub const SCHEMA: &str = include_str!("../../../ontology/academy.schema.json");
 /// `ACADEMY_READ_SPOOL_ROOT`.
 pub const ACADEMY_READ_SCHEMA: &str = include_str!("../../../ontology/academy-read.schema.json");
 
+/// The schema `academy_memory`: what the teacher and the agent know about each
+/// student and as of when (`docs/academy-memory.md`). It is installed in the
+/// host's store beside the domain `work`, whose namespace it declares; the
+/// Academy's server stays the authority of the records it reads.
+pub const ACADEMY_MEMORY_SCHEMA: &str =
+    include_str!("../../../ontology/academy-memory.schema.json");
+
 /// The spool root that `ACADEMY_READ_SCHEMA` names in its source globs.
 pub const ACADEMY_READ_SPOOL_ROOT: &str = "/var/lib/academy-read/spool";
 
