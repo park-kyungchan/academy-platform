@@ -89,6 +89,28 @@ Each view is a table over one type. A view with the argument `student` takes the
 
 There is one grant: the principal `agent`, with no role and scope `{}`, reads and derives every type and may apply every action.
 
+## A lesson day and a counseling
+
+The skills `academy-lesson-day` and `academy-counseling` (under `content/skills/`) make a session start from this domain, through the command `edu-academy-memory` (`crates/edu-academy-memory/README.md`). The Academy's server stays the authority; the memory says which of its records were already read, and as of when.
+
+A lesson day, for each scheduled student:
+
+1. `brief <slug>` and `due <slug> <lesson_date>`, before any live read. The student's memory is read from the store, not from the per-student files the import took; a student's counseling file, which the import does not take, is read as before.
+2. A live read of the Academy's server only for a kind that `due` lists, or that the teacher asks to be read fresh, at most one per kind. A read is keyed by the `book_no` and `course_key` of the binding `due` prints, never by a shortened label; a tool that takes only a label gets `book_label` word for word. Reads stay one at a time, on the one account.
+3. After each live read, `observed` with the tool's `observedAt` as `--at` and a summary of what the lesson needs from it; a binding the read shows is written with `bind`.
+4. The teacher's words that should outlast the day go to `note` with the provenance `teacher_confirmed`; a reminder goes to `remind`.
+5. At the end of the day, `day-close <lesson_date>` for the students of the day, which sets each one's `memory_as_of` to that date. Every student it refuses (`nothing_read`) is reported to the teacher.
+
+A DailyRecord saved and read back, and a pre-study review the teacher accepted, are each written with `observed` too.
+
+A counseling:
+
+1. `brief <slug>`, then a form in the sections Purpose, Background, Lessons so far, Results, Homework and Points for the call, shown to the teacher.
+2. When the teacher accepts it, `counsel prepare <slug> <date>` with the purpose and the form. A copy leaves the host only at the teacher's word, and where it went is given as `--stored-at` in that same call, because `prepare_counseling` cannot run again on the same key.
+3. After the call, the teacher's words become `counsel result`; a follow-up is a reminder; `counsel close` when the teacher says the matter is closed.
+
+Writes to the Academy's server (a DailyRecord or CISM save, a print, a message to a parent) still happen only at the teacher's request; the writes above go to the store only.
+
 ## Not here
 
 This domain has no reader restriction, erase rule or other security measure. Installing it on the host and importing the students are host steps that happen after the merge.

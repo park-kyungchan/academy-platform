@@ -32,7 +32,7 @@ The full rules, with examples, are in [references/writing-rules.md](references/w
 - **Lines.** Every line starts with `- `; one LF between lines; no blank line, fence, indent, number or table.
 - **One item per line, with its book.** `- <book>, <unit code> <unit title> <activity> <status>`. A progress line ends with its status or score; a homework line ends with the task; a memo line is a whole sentence ending in `니다.`.
 - **Mapping.** Done in the lesson → `progress`. Assigned for next time → `homework`. Plans, carry-overs, reasons, requests and how-to sentences → `lessonMemo`.
-- **Names.** Canonical book names, vocabulary and units as the reference lists them. Unit codes and titles are kept literally.
+- **Names.** Canonical book names, vocabulary and units as the reference lists them. Unit codes and titles are kept literally. A progress line names a unit that `academy_textbook_toc_get` lists for its book.
 - **Length.** At most 400 units per text field, where every character above U+007F (every Korean character) counts 2: about 200 Korean characters. Longer text is refused with `invalid_explicit_field_value`.
 
 ## 3. Facts that must not change
@@ -56,9 +56,10 @@ If a rule cannot be met without changing a fact, do not save that record: list i
 1. **Read.** `academy_dailyrecord_get` for the student and lesson date. Keep the old text of every field: it is the original that must be restorable.
 2. **Draft.** Write the new text of the fields that change, by the rules. Check the facts of section 3 yourself.
 3. **Show the teacher.** Show old and new text per field, and every record you skipped with its reason. Drafting, review, saving and sending to a parent are separate steps.
-4. **Review.** `academy_dailyrecord_review`. Never get past a blocker by changing a fact or by moving text to a field the rules do not allow.
-5. **Save** only when the teacher asks to save in this session and no hold in the day's `STATE.md` forbids it: `academy_dailyrecord_save`, one student and date at a time.
+4. **Review.** `academy_dailyrecord_review`, directly after a fresh `academy_dailyrecord_get` or `academy_dailyrecord_intake`; otherwise the review holds `stale_source`. The review takes only `context`, `observationHandle`, `cismObservationHandle` and `proposals`. Never get past a blocker by changing a fact or by moving text to a field the rules do not allow.
+5. **Save** only when the teacher asks to save in this session and no hold in the day's `STATE.md` forbids it: `academy_dailyrecord_save`, one student and date at a time. The save holds `request_instruction_conflict` unless the instruction it is given, in either form the tool takes (a string or `{text}`), is the text recorded for that `requestRef`.
 6. **Read back.** `academy_dailyrecord_get` again. Compare each saved field with the reviewed text and the code fields with step 1. Report the result per field.
+7. **Write the memory.** After a save that the readback confirms, run `edu-academy-memory observed <slug> dailyrecord <lesson_date> --at <observedAt of the readback, UTC to the second> --summary <what the saved record says> --tool academy_dailyrecord_get`, as the skill `academy-lesson-day` says.
 
 An uncertain save (connection lost, unknown whether it landed) is never repeated blindly: `academy_dailyrecord_execution_status` and `academy_dailyrecord_reconcile` settle it, and the teacher hears the outcome.
 
