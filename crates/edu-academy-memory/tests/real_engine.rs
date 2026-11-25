@@ -417,7 +417,7 @@ fn a_lesson_day_through_every_subcommand() {
     let out = s.run(&["roster"]);
     assert_eq!(
         out.stdout,
-        "stu-a\tclass_slot=slot-2\tmemory_as_of=none\nstu-b\tclass_slot=none\tmemory_as_of=none\n"
+        "stu-a\tclass_slot=slot-2\tmemory_as_of=-\nstu-b\tclass_slot=none\tmemory_as_of=-\n"
     );
 
     let due = s.run(&["due", "stu-a", "2040-01-02"]).json();
@@ -733,4 +733,51 @@ fn brief_stays_within_6000_bytes_on_a_full_store() {
             .starts_with("- 2040-01-05 local_state: nnn")
     );
     assert!(parts[4].trim_end().ends_with("more)"));
+}
+
+#[test]
+#[ignore = "needs the engine EDU_ONT_BIN names"]
+fn import_twice_creates_nothing_the_second_time() {
+    let s = Scratch::new();
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/import-class");
+    let fixture = fixture.to_str().unwrap();
+    let report = |out: &Out| -> Value {
+        // The fixture holds rows that cannot be read: exit 1, a report.
+        assert_eq!(out.code, 1, "{}", out.stderr);
+        serde_json::from_str(out.stdout.trim()).unwrap_or_else(|_| panic!("{}", out.stdout))
+    };
+    let first = report(&s.run(&["import", fixture]));
+    for (slug, student) in first["students"].as_object().unwrap() {
+        assert_eq!(student["refused"], 0, "{slug}: {first}");
+    }
+    assert_eq!(first["class_reminders"]["refused"], 0, "{first}");
+    assert_eq!(first["students"]["stu-a"]["created"], 11, "{first}");
+    assert_eq!(first["parse"].as_array().unwrap().len(), 7, "{first}");
+
+    let before = s.run(&["show", "student", "stu-a"]).stdout;
+    let second = report(&s.run(&["import", fixture]));
+    let students = second["students"].as_object().unwrap();
+    assert_eq!(students.len(), 5, "{second}");
+    for (slug, student) in students {
+        assert_eq!(student["created"], 0, "{slug}: {second}");
+        assert_eq!(student["refused"], 0, "{slug}: {second}");
+        assert!(student["already_applied"].as_u64().unwrap() > 0, "{slug}");
+    }
+    assert_eq!(
+        second["class_reminders"],
+        json!({"created": 0, "already_applied": 2, "refused": 0})
+    );
+    // No object's revision moved.
+    assert_eq!(s.run(&["show", "student", "stu-a"]).stdout, before);
+    let roster = s.run(&["roster"]).stdout;
+    assert!(
+        roster.contains("stu-a\tclass_slot=Slot One\tmemory_as_of=2040-01-05\n"),
+        "{roster}"
+    );
+    assert!(
+        roster.contains("stu-d\tclass_slot=Slot Three\tmemory_as_of=-\n"),
+        "{roster}"
+    );
+    let brief = s.run(&["brief", "stu-a"]).stdout;
+    assert!(brief.contains("book_no=1001 course_key=CK-1B"), "{brief}");
 }
