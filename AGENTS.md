@@ -19,6 +19,7 @@ Tooling for a teacher's Academy work. The route in use is the installed TypeScri
 | Engine pin (`ont*` `rev` in `Cargo.toml`) | `ontology-platform` | The ledger tests of `edu-academy-ontology` |
 | Account lock: every Rust path that authenticates to the LMS holds the shared account lock | `docs/academy-account-lock.md` | The installed TypeScript server and the lesson sessions |
 | One-field live driver input and output | `crates/edu-academy-sources/README.md` | Callers of `academy-live-driver` |
+| The `edu-academy-memory` subcommands, their output and refusal codes | `crates/edu-academy-memory/README.md` | The lesson-day session and its memory skill |
 | Crate-owned fixtures and their hashes | `docs/fixture-ownership.md` | Tests of every crate |
 
 A change of one of these says so in the pull request and comes with the test that fails on the old behaviour.

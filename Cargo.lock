@@ -276,6 +276,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "edu-academy-memory"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "edu-academy-ontology"
 version = "0.0.0"
 dependencies = [

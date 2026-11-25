@@ -6,6 +6,7 @@ The maintained implementation is a Rust Cargo workspace:
 - `edu-academy-sources`: bounded source adapters and offline tooling.
 - `edu-academy-teacher`: the teacher-facing surface (record store, tools, offline harness).
 - `edu-academy-ontology`: the `academy` schema and the engine ledger of save attempts.
+- `edu-academy-memory`: the command `edu-academy-memory`, a student's memory in the domain `academy_memory` read and written through the host's engine run as a process.
 - `edu-academy-mcp`: MCP transport and synthetic endpoint qualification. Frozen: not a default member; `./check all` covers it; it is retired at the first cutover.
 
 The Academy Rust replacement is not yet qualified for native activation. Retained TypeScript source, migration fixtures and private context remain available to their existing consumers until their specific retirement conditions are met. Repository checks do not authorize Academy calls, deployment, record writes or parent transmission.

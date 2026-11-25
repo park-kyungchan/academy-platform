@@ -1,0 +1,29 @@
+[package]
+name = "edu-academy-memory"
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "edu-academy-memory"
+path = "src/main.rs"
+
+[[test]]
+name = "cli"
+path = "tests/cli.rs"
+# The test's own main also serves as the stand-in engine when the script it
+# writes cannot be executed (a noexec temporary directory).
+harness = false
+
+[[test]]
+name = "real_engine"
+path = "tests/real_engine.rs"
+
+[dependencies]
+serde_json.workspace = true
+sha2.workspace = true
+
+[lints]
+workspace = true
