@@ -251,6 +251,19 @@ fn body(store: &Store) -> PathBuf {
         .unwrap()
         .path()
 }
+fn uid_4242_mapped() -> bool {
+    let Ok(map) = fs::read_to_string("/proc/self/uid_map") else {
+        return true;
+    };
+    map.lines().any(|l| {
+        let n: Vec<u64> = l
+            .split_whitespace()
+            .filter_map(|x| x.parse().ok())
+            .collect();
+        n.len() == 3 && n[0] <= 4242 && 4242 < n[0] + n[2]
+    })
+}
+
 #[test]
 fn body_file_checked() {
     let status = fs::read_to_string("/proc/self/status").unwrap();
@@ -268,6 +281,10 @@ fn body_file_checked() {
     ] {
         if damage == "owner" && uid != 0 {
             eprintln!("owner case skipped: not root");
+            continue;
+        }
+        if damage == "owner" && !uid_4242_mapped() {
+            eprintln!("owner case skipped: uid 4242 not mapped");
             continue;
         }
         let root = root(damage);
