@@ -10,7 +10,7 @@ Every value below is invented.
 | --- | --- | --- |
 | `brief <slug>` | `edu-academy-memory brief stu-a` | text of at most 6,000 bytes in six sections (see below) |
 | `show <type> <key>` | `edu-academy-memory show observation 'stu-a\|dailytest\|2040-01-02\|2040-01-02T09:00:00Z'` | one object whole, as text: `<type> <key>`, `head: <revision>`, then `<property>: <value>` per property |
-| `roster` | `edu-academy-memory roster` | one line per active or onboarding student: `<slug>\tclass_slot=<v>\tmemory_as_of=<v>` (`none` when absent) |
+| `roster` | `edu-academy-memory roster` | one line per active or onboarding student: `<slug>\tclass_slot=<v>\tmemory_as_of=<v>` (`class_slot` is `none` when absent, `memory_as_of` is `-`) |
 | `due <slug> <lesson_date>` | `edu-academy-memory due stu-a 2040-01-02` | `{"student","lesson_date","memory_as_of","have":[{"kind","observed_at"}],"due":[kinds],"bindings":[{"book_no","course_key","book_label"}]}` |
 
 `brief` reads everything through the engine's `search`. It follows every continuation and sorts the results itself; it never uses a view. Each section has its own byte budget, which covers the separating blank line, the heading, every entry line and the section's last line:
@@ -60,7 +60,7 @@ Under `<directory>/students` it reads:
 | `REGISTRY.md` | The table with the header `Slug`, `Student Name`, `studentId`, `courseId`, `membershipId`, `Status`, `Class Slot`, `Directory`: one student a row (`register_student`; the status in lower case; an id cell of `-` or empty is left out). A line before the table with a reminder id and the word `OPEN` or `CLOSED` is a reminder of the whole class: its text is the line without the id and the word (and the brackets or marks that are empty without them), its provenance `local_state`. |
 | `<slug>/profile.md` | The table with the columns `ID`, `Status`, `Summary`, `Provenance`: one reminder a row (`remind open`, then `remind close` when the status is `CLOSED`); the provenance is the first tag of its cell, in lower case. A reminder id is `R-YYYYMMDD-<KEY>` (capitals, digits, `-`) or `R-YYYYMMDD-NNN`, at most 32 bytes. |
 | `<slug>/textbook-ledger.md` | Every table with a `bookNo` column; the rows of one book number are merged before any write. The label and the course key come from a table with `Verbatim bookLabel` when there is one, else from `Book Name` and `courseKey`; the role (`Role / Track`), the provenance (first tag), the status and the time (`Observed / Confirmed At`, kept only when it is a UTC time) come from the first row that has a value. Status `ACTIVE` binds; a status that contains `CANDIDATE` binds with status `candidate`; any other binds and unbinds. |
-| `<slug>/progress-log.md` | Each section headed `## YYYY-MM-DD`, with or without text after the date (heading line included), is a note of that date with the provenance `local_state`, its text the section word for word, trailing blank lines left out. Two sections of one date are joined in file order with an empty line. A text over 8,000 bytes is cut at a character boundary and ends with the line `(cut)`, 8,000 bytes at most. Other `##` headings are not read; a heading that begins like a date but is none is a parse entry. After the notes `day-close` is applied with the newest note's date; a student with no dated section gets none, so its `memory_as_of` stays `none` in `roster`. |
+| `<slug>/progress-log.md` | Each section headed `## YYYY-MM-DD`, with or without text after the date (heading line included), is a note of that date with the provenance `local_state`, its text the section word for word, trailing blank lines left out. Two sections of one date are joined in file order with an empty line. A text over 8,000 bytes is cut at a character boundary and ends with the line `(cut)`, 8,000 bytes at most. Other `##` headings are not read; a heading that begins like a date but is none is a parse entry. After the notes `day-close` is applied with the newest note's date; a student with no dated section gets none, so `roster` shows `-` as its `memory_as_of`. |
 | `<slug>/CONTEXT.md` | The bullets (and their indented continuation lines) under the heading that contains `Current Surface`, up to the next heading of the same or a higher level: `surface`, cut at 2,000 bytes. |
 | `<slug>/hindsight-staging.jsonl` | Not imported; only its lines are counted. |
 
@@ -97,4 +97,5 @@ A refusal is one line on standard error, `{"error":{"code","field","detail"}}`, 
 
 ```sh
 EDU_ONT_BIN="$(command -v ont)" cargo test --locked -p edu-academy-memory --test real_engine -- --ignored
+# only the import test: add the filter `import` before `--ignored`
 ```

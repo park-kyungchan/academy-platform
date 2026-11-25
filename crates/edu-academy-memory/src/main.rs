@@ -626,7 +626,7 @@ fn roster(engine: &Engine, args: &[String]) -> Result<String, Refusal> {
                 "{}\tclass_slot={}\tmemory_as_of={}\n",
                 text::flat(&s.key),
                 text::flat(&field_or_none(&s.fields, "class_slot")),
-                field_or_none(&s.fields, "memory_as_of")
+                engine::text(&s.fields, "memory_as_of").unwrap_or_else(|| "-".to_owned())
             )
         })
         .collect())

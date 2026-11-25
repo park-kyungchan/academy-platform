@@ -417,7 +417,7 @@ fn a_lesson_day_through_every_subcommand() {
     let out = s.run(&["roster"]);
     assert_eq!(
         out.stdout,
-        "stu-a\tclass_slot=slot-2\tmemory_as_of=none\nstu-b\tclass_slot=none\tmemory_as_of=none\n"
+        "stu-a\tclass_slot=slot-2\tmemory_as_of=-\nstu-b\tclass_slot=none\tmemory_as_of=-\n"
     );
 
     let due = s.run(&["due", "stu-a", "2040-01-02"]).json();
@@ -775,7 +775,7 @@ fn import_twice_creates_nothing_the_second_time() {
         "{roster}"
     );
     assert!(
-        roster.contains("stu-d\tclass_slot=Slot Three\tmemory_as_of=none\n"),
+        roster.contains("stu-d\tclass_slot=Slot Three\tmemory_as_of=-\n"),
         "{roster}"
     );
     let brief = s.run(&["brief", "stu-a"]).stdout;

@@ -1178,7 +1178,7 @@ fn roster_prints_one_line_per_student() {
     let out = stage.run(&["roster"]);
     assert_eq!(
         out.stdout,
-        "stu-a\tclass_slot=Slot One\tmemory_as_of=2040-01-02\nstu-b\tclass_slot=none\tmemory_as_of=none\n"
+        "stu-a\tclass_slot=Slot One\tmemory_as_of=2040-01-02\nstu-b\tclass_slot=none\tmemory_as_of=-\n"
     );
     let (_, search) = stage.call(1);
     assert_eq!(
@@ -1532,8 +1532,8 @@ fn import_then_roster_and_brief_show_what_was_read() {
         "stu-a\tclass_slot=Slot One\tmemory_as_of=2040-01-05\n\
          stu-b\tclass_slot=Slot Two\tmemory_as_of=2040-01-03\n\
          stu-c\tclass_slot=Slot One\tmemory_as_of=2040-01-04\n\
-         stu-d\tclass_slot=Slot Three\tmemory_as_of=none\n\
-         stu-f\tclass_slot=Slot Two\tmemory_as_of=none\n"
+         stu-d\tclass_slot=Slot Three\tmemory_as_of=-\n\
+         stu-f\tclass_slot=Slot Two\tmemory_as_of=-\n"
     );
     let brief = stage.run(&["brief", "stu-a"]).stdout;
     assert!(
