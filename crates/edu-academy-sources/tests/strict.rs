@@ -9,6 +9,18 @@ use std::{
     os::unix::fs::{PermissionsExt, symlink},
     path::{Path, PathBuf},
 };
+fn uid_12345_mapped() -> bool {
+    let Ok(map) = fs::read_to_string("/proc/self/uid_map") else {
+        return true;
+    };
+    map.lines().any(|l| {
+        let n: Vec<u64> = l
+            .split_whitespace()
+            .filter_map(|x| x.parse().ok())
+            .collect();
+        n.len() == 3 && n[0] <= 12345 && 12345 < n[0] + n[2]
+    })
+}
 fn private(p: &Path) {
     fs::create_dir(p).unwrap();
     fs::set_permissions(p, fs::Permissions::from_mode(0o700)).unwrap();
@@ -93,7 +105,9 @@ fn strict_parent_and_root_replacement_in_place_and_uid() {
     private(&r);
     leaf(&r);
     assert!(reader.read("d/leaf", &h, 100).is_err());
-    if rustix::process::geteuid().as_raw() == 0 {
+    if rustix::process::geteuid().as_raw() == 0 && !uid_12345_mapped() {
+        eprintln!("uid case skipped: uid 12345 not mapped");
+    } else if rustix::process::geteuid().as_raw() == 0 {
         let r = fixture("uid");
         leaf(&r);
         rustix::fs::chownat(
