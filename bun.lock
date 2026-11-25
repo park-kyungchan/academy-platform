@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@palantirkc/education-platform",
+      "name": "@palantirkc/academy-platform",
       "dependencies": {
         "@palantirkc/ontology": "file:releases/palantirkc-ontology-0.2.0.tgz",
       },

@@ -1,4 +1,4 @@
-# Working in education-platform
+# Working in academy-platform
 
 Shared rules of this host: `/root/.agents/AGENTS.md`. This page adds only what is particular to this repository. What the repository is: `README.md`. For Academy classroom practice use the [Hindsight knowledge entry](docs/academy-practical-entry.md); it holds locators only.
 
