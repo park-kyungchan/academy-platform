@@ -1,6 +1,7 @@
 //! edu-academy-memory: a student's memory in the domain `academy_memory`, read
 //! and written through the host's engine run as a process. See README.md.
 mod engine;
+mod import;
 mod text;
 
 use engine::{Engine, Found, Got, value};
@@ -26,7 +27,7 @@ const DUE_KINDS: [&str; 5] = [
     "dailytest",
     "clinic",
 ];
-const USAGE: &str = "edu-academy-memory [--store <path>] (brief <slug> | show <type> <key> | roster | due <slug> <lesson_date> | student | surface | bind | unbind | observed | note | remind open|close | counsel prepare|result|close | day-close <lesson_date> <slug>...); see README.md";
+const USAGE: &str = "edu-academy-memory [--store <path>] (brief <slug> | show <type> <key> | roster | due <slug> <lesson_date> | import <directory> [--dry-run] | student | surface | bind | unbind | observed | note | remind open|close | counsel prepare|result|close | day-close <lesson_date> <slug>...); see README.md";
 
 /// A refusal: one line {"error":{code,field,detail}} on standard error.
 pub struct Refusal {
@@ -101,6 +102,8 @@ struct Domain {
     /// Every object type with its properties, in the schema's order of keys.
     types: BTreeMap<String, Vec<String>>,
     kinds: Vec<String>,
+    provenances: Vec<String>,
+    student_statuses: Vec<String>,
 }
 
 fn domain() -> Domain {
@@ -123,20 +126,24 @@ fn domain() -> Domain {
                 .collect()
         })
         .unwrap_or_default();
-    let kinds = schema
-        .pointer("/value_types/observation_kind/enum")
-        .and_then(Value::as_array)
-        .map(|k| {
-            k.iter()
-                .filter_map(Value::as_str)
-                .map(str::to_owned)
-                .collect()
-        })
-        .unwrap_or_default();
+    let values = |name: &str| -> Vec<String> {
+        schema
+            .pointer(&format!("/value_types/{name}/enum"))
+            .and_then(Value::as_array)
+            .map(|k| {
+                k.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
     Domain {
         namespace: schema.get("namespace").cloned().unwrap_or(Value::Null),
         types,
-        kinds,
+        kinds: values("observation_kind"),
+        provenances: values("provenance"),
+        student_statuses: values("student_status"),
     }
 }
 
@@ -199,6 +206,7 @@ fn run() -> Result<i32, Refusal> {
                 refusal
             })
         }
+        "import" => import::run(&engine, &domain, rest),
         _ => write_command(&engine, &domain, &command, rest).map(|answer| {
             println!("{answer}");
             0
@@ -741,9 +749,123 @@ impl Write {
         Ok(self.answer(&outcome))
     }
 
+    /// Whether the object already holds every value this write sets, but for
+    /// `status`, which it holds as `status` says: the final state of a pair.
+    fn holds_with_status(&self, object: &Got, status: &str) -> bool {
+        value(&object.fields, "status") == Some(&json!(status))
+            && self
+                .sets
+                .iter()
+                .filter(|(name, _)| *name != "status")
+                .all(|(name, v)| value(&object.fields, name) == Some(v))
+    }
+
     fn answer(&self, outcome: &str) -> Value {
         json!({"action": self.action, "key": self.key, "outcome": outcome})
     }
+}
+
+/// The values of a student the writes below set.
+struct Registered<'a> {
+    name: &'a str,
+    student_id: Option<&'a str>,
+    course_id: Option<&'a str>,
+    membership_id: Option<&'a str>,
+    status: &'a str,
+    class_slot: Option<&'a str>,
+}
+
+fn student_write(engine: &Engine, slug: &str, r: &Registered) -> Write {
+    let mut w = Write::new("register_student", slug.to_owned());
+    w.param("student", engine.id("student", slug));
+    w.set("slug", json!(slug));
+    w.set("name", json!(r.name));
+    w.set_opt("student_id", r.student_id);
+    w.set_opt("course_id", r.course_id);
+    w.set_opt("membership_id", r.membership_id);
+    w.set("status", json!(r.status));
+    w.set_opt("class_slot", r.class_slot);
+    w
+}
+
+fn surface_write(engine: &Engine, slug: &str, surface: &str) -> Write {
+    let mut w = Write::new("set_surface", slug.to_owned());
+    w.param("student", engine.id("student", slug));
+    w.set("surface", json!(surface));
+    w
+}
+
+/// The values of a binding the writes below set.
+struct Binding<'a> {
+    label: &'a str,
+    course_key: Option<&'a str>,
+    role: Option<&'a str>,
+    status: &'a str,
+    provenance: &'a str,
+    at: Option<&'a str>,
+}
+
+fn bind_write(engine: &Engine, slug: &str, book: &str, b: &Binding) -> Write {
+    let key = format!("{slug}|{book}");
+    let mut w = Write::new("bind_textbook", key.clone());
+    w.param("binding", engine.id("textbook_binding", &key));
+    w.set("student", engine.id("student", slug));
+    w.set("book_no", json!(book));
+    w.set("book_label", json!(b.label));
+    w.set_opt("course_key", b.course_key);
+    w.set_opt("role", b.role);
+    w.set("status", json!(b.status));
+    w.set("provenance", json!(b.provenance));
+    w.set_opt("observed_at", b.at);
+    w
+}
+
+fn unbind_write(engine: &Engine, slug: &str, book: &str) -> Write {
+    let key = format!("{slug}|{book}");
+    let mut w = Write::new("retire_binding", key.clone());
+    w.param("student", engine.id("student", slug));
+    w.param("binding", engine.id("textbook_binding", &key));
+    w.fixed("status", "retired");
+    w
+}
+
+fn note_write(engine: &Engine, slug: &str, date: &str, text: &str, provenance: &str) -> Write {
+    let key = format!("{slug}|{date}");
+    let mut w = Write::new("write_lesson_note", key.clone());
+    w.param("note", engine.id("lesson_note", &key));
+    w.set("student", engine.id("student", slug));
+    w.set("lesson_date", json!(date));
+    w.set("text", json!(text));
+    w.set("provenance", json!(provenance));
+    w
+}
+
+/// The values of a reminder the writes below set.
+struct Reminder<'a> {
+    text: &'a str,
+    student: Option<&'a str>,
+    due: Option<&'a str>,
+    provenance: &'a str,
+}
+
+fn open_write(engine: &Engine, id: &str, r: &Reminder) -> Write {
+    let mut w = Write::new("open_reminder", id.to_owned());
+    w.param("reminder", engine.id("reminder", id));
+    w.set("text", json!(r.text));
+    if let Some(slug) = r.student {
+        w.set("student", engine.id("student", slug));
+    }
+    w.set_opt("due", r.due);
+    w.set("provenance", json!(r.provenance));
+    w.fixed("status", "open");
+    w
+}
+
+fn close_write(engine: &Engine, id: &str) -> Write {
+    let mut w = Write::new("close_reminder", id.to_owned());
+    w.param("reminder", engine.id("reminder", id));
+    w.fixed("status", "closed");
+    w
 }
 
 fn write_command(
@@ -759,10 +881,8 @@ fn write_command(
             let slug = a.positional[0].as_str();
             check_slug(slug, "slug")?;
             let surface = content(a.required("text")?, "--text")?;
-            let mut w = Write::new("set_surface", slug.to_owned());
-            w.param("student", engine.id("student", slug));
-            w.set("surface", json!(surface));
-            w.commit(engine, engine.get("student", slug)?.as_ref())
+            surface_write(engine, slug, &surface)
+                .commit(engine, engine.get("student", slug)?.as_ref())
         }
         "bind" => {
             let a = Args::parse(
@@ -783,16 +903,19 @@ fn write_command(
                 check_utc(at, "--at")?;
             }
             let key = format!("{slug}|{book}");
-            let mut w = Write::new("bind_textbook", key.clone());
-            w.param("binding", engine.id("textbook_binding", &key));
-            w.set("student", engine.id("student", slug));
-            w.set("book_no", json!(book));
-            w.set("book_label", json!(label));
-            w.set_opt("course_key", a.opt("course-key"));
-            w.set_opt("role", a.opt("role"));
-            w.set("status", json!(status));
-            w.set("provenance", json!(provenance));
-            w.set_opt("observed_at", a.opt("at"));
+            let w = bind_write(
+                engine,
+                slug,
+                book,
+                &Binding {
+                    label,
+                    course_key: a.opt("course-key"),
+                    role: a.opt("role"),
+                    status,
+                    provenance,
+                    at: a.opt("at"),
+                },
+            );
             w.commit(engine, engine.get("textbook_binding", &key)?.as_ref())
         }
         "unbind" => {
@@ -801,11 +924,8 @@ fn write_command(
             check_slug(slug, "slug")?;
             check_digits(book, "book_no")?;
             let key = format!("{slug}|{book}");
-            let mut w = Write::new("retire_binding", key.clone());
-            w.param("student", engine.id("student", slug));
-            w.param("binding", engine.id("textbook_binding", &key));
-            w.fixed("status", "retired");
-            w.commit(engine, engine.get("textbook_binding", &key)?.as_ref())
+            unbind_write(engine, slug, book)
+                .commit(engine, engine.get("textbook_binding", &key)?.as_ref())
         }
         "observed" => {
             let a = Args::parse(
@@ -849,13 +969,8 @@ fn write_command(
             let provenance = a.required("provenance")?;
             let text = content(a.required("text")?, "--text")?;
             let key = format!("{slug}|{date}");
-            let mut w = Write::new("write_lesson_note", key.clone());
-            w.param("note", engine.id("lesson_note", &key));
-            w.set("student", engine.id("student", slug));
-            w.set("lesson_date", json!(date));
-            w.set("text", json!(text));
-            w.set("provenance", json!(provenance));
-            w.commit(engine, engine.get("lesson_note", &key)?.as_ref())
+            note_write(engine, slug, date, &text, provenance)
+                .commit(engine, engine.get("lesson_note", &key)?.as_ref())
         }
         "remind" => remind(engine, args),
         "counsel" => counsel(engine, args),
@@ -890,15 +1005,18 @@ fn student(engine: &Engine, args: &[String]) -> Result<Value, Refusal> {
             ));
         }
     };
-    let mut w = Write::new("register_student", slug.to_owned());
-    w.param("student", engine.id("student", slug));
-    w.set("slug", json!(slug));
-    w.set("name", json!(name));
-    w.set_opt("student_id", a.opt("student-id"));
-    w.set_opt("course_id", a.opt("course-id"));
-    w.set_opt("membership_id", a.opt("membership-id"));
-    w.set("status", json!(status));
-    w.set_opt("class_slot", a.opt("class-slot"));
+    let w = student_write(
+        engine,
+        slug,
+        &Registered {
+            name,
+            student_id: a.opt("student-id"),
+            course_id: a.opt("course-id"),
+            membership_id: a.opt("membership-id"),
+            status: &status,
+            class_slot: a.opt("class-slot"),
+        },
+    );
     w.commit(engine, current.as_ref())
 }
 
@@ -926,25 +1044,23 @@ fn remind(engine: &Engine, args: &[String]) -> Result<Value, Refusal> {
             if let Some(due) = a.opt("due") {
                 check_date(due, "--due")?;
             }
-            let mut w = Write::new("open_reminder", id.to_owned());
-            w.param("reminder", engine.id("reminder", id));
-            w.set("text", json!(text));
-            if let Some(slug) = a.opt("student") {
-                w.set("student", engine.id("student", slug));
-            }
-            w.set_opt("due", a.opt("due"));
-            w.set("provenance", json!(provenance));
-            w.fixed("status", "open");
+            let w = open_write(
+                engine,
+                id,
+                &Reminder {
+                    text,
+                    student: a.opt("student"),
+                    due: a.opt("due"),
+                    provenance,
+                },
+            );
             w.commit(engine, engine.get("reminder", id)?.as_ref())
         }
         Some("close") => {
             let a = Args::parse(&args[1..], &[], &["id"])?;
             let id = a.positional[0].as_str();
             check_id(id)?;
-            let mut w = Write::new("close_reminder", id.to_owned());
-            w.param("reminder", engine.id("reminder", id));
-            w.fixed("status", "closed");
-            w.commit(engine, engine.get("reminder", id)?.as_ref())
+            close_write(engine, id).commit(engine, engine.get("reminder", id)?.as_ref())
         }
         _ => Err(Refusal::usage(
             "",
