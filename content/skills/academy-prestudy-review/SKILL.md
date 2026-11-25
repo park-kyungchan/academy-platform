@@ -21,6 +21,8 @@ Before a Gauss minor unit, the student records a pre-study video (`예습영상`
 
 Read one tool call at a time. Use the tool descriptions for the arguments.
 
+After a review that the teacher accepted, run `edu-academy-memory observed <slug> prestudy_report <lesson_date> --at <observedAt of the report, UTC to the second> --summary <the teacher's judgment and the points it rests on> --tool academy_prestudy_report_get`, as the skill `academy-lesson-day` says.
+
 ## 3. Keep the evidence channels apart
 
 | Channel | What can be said |
