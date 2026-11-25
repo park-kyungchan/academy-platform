@@ -1,0 +1,59 @@
+# Local credentials and secrets
+credentials*.json
+token*.json
+*.env
+.env*
+scratch/
+
+# Local credentials and student material
+config/
+data/
+docs/cartography.md
+1.png
+
+# Raw student session logs and live state (never exposed to remote Git)
+data/raw_sessions/**/session_state.json
+data/raw_sessions/**/OBSERVATION_TEMPLATE.md
+data/raw_sessions/**/*.log
+data/raw_sessions/**/*.csv
+data/raw_sessions/**/*.tmp
+data/sync_payloads/
+
+# Local Python environments and generated files
+.venv/
+node_modules/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local probes and exports
+*.log
+*.sqlite3
+
+# Machine-local Codex settings and verification receipts
+/.codex/
+/work/
+
+# Historical ledger contains student identifiers and superseded instructions
+/docs/decision_ledger.json
+
+# Monorepo source imports never include local records or authentication
+/lms-automation/data/
+/lms-automation/config/
+/lms-automation/.git.backup/
+/spt/.openai/hosting.json
+
+# Private roster and browser captures stay local
+/data/canonical/
+/.playwright-mcp/
+
+# Private student/class records remain local and are never staged.
+/context/private-students
+/context/student-audit-*
+/operations/[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-class[0-9]*
+/operations/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-class[0-9]*
+*[! -~]*
+/harness/private-student-context/build-learning-catalog.ts
+
+# Rust build artifacts
+/target/

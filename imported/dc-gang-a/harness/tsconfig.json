@@ -1,0 +1,28 @@
+{
+  "extends": "../tsconfig.json",
+  "include": [
+    "checkpoint.ts",
+    "resume.ts",
+    "runtime_preflight.ts",
+    "chrome_devtools_session.ts",
+    "lead.ts",
+    "feedback_coverage.ts",
+    "cloud.ts",
+    "cloud_environment.ts",
+    "backend_dependencies.ts",
+    "native_preservation_preview.ts",
+    "workflow_checkpoint.ts",
+    "context_routing.ts",
+    "workspace_entry.ts",
+    "preclass_preview.ts",
+    "codex_model_config.ts",
+    "endpoints.ts",
+    "assessment_read.ts",
+    "academy_browser_rehearsal.ts",
+    "tools/verify_evidence.ts",
+    "tools/prepush_audit.ts"
+  ],
+  "exclude": [
+    "../node_modules"
+  ]
+}

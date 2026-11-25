@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "kind": "instructor_operational_ontology_target_architecture",
+  "designVersion": "0.4",
+  "status": "design_and_scoped_source_integration_runtime_acceptance_open",
+  "owner": "dc-gang-a-dev",
+  "canonicalContinuation": "handoffs/workflow-current-state.json",
+  "detailedContracts": {
+    "studentEvidenceHistory": "docs/academy-student-evidence-contract.json",
+    "teacherSceneAndWebMcp": "docs/academy-teacher-workspace-tool-contract.json",
+    "applicationIngressStorage": "docs/academy-application-ingress-storage-design.ts",
+    "nativeAutonomy": "docs/backend-autonomy-operating-contract.ts",
+    "classroomCyclePolicy": "src/academy/classroomCyclePolicy.ts",
+    "designConformanceTests": ["tests/architecture/studentEvidenceContracts.test.ts", "tests/architecture/teacherWorkspaceContracts.test.ts", "tests/architecture/applicationIngressStorageDesign.test.ts"],
+    "unitPredecessor": {"version":"0.3","sha256":"0ec613c1bab1432357be4979e35e658367fb0403e6e75836414b2284a14de7e0","snapshot":"Active-profile artifacts/architecture-design-20261004/target-architecture-v0.3.snapshot.json"},
+    "meaning": "Concrete serialized field, query, scene/tool input/result and acknowledgement design contracts. Schema conformance is not authenticated enforcement, runtime persistence, actual browser interoperability or teacher acceptance.",
+    "predecessorVersion": "0.2",
+    "predecessorSha256": "af13ca1ad56c78e4c1bc1caf04f449f433face6ffc1474291282878f6f1f53c9",
+    "predecessorSnapshot": "Active-profile artifacts/architecture-design-20261003/target-architecture-v0.2.snapshot.json"
+  },
+  "goal": "One instructor-oriented Ontology-Driven System: a compact student-auditable evidence/history store, a qualified typed Backend and a primary teacher frontend with actual browser WebMCP. Connect purpose, meaning, authoritative evidence, deterministic logic, permitted actions, human/agent experience, evaluation and recovery across the whole architecture.",
+  "confirmedDecisions": [
+    {"id":"ownership_reset","source":"current_user_and_verified_handoff","meaning":"The dc Lead owns academy research/design/implementation and Git integration. The latest user explicitly resumed retained-reader integration/publication and permits classified legacy removal after unique evidence/recovery are secured. Default released its reservation. Old worker budgets/scripts/native identities do not transfer."},
+    {"id":"frontend_transition_a","source":"current_user_interview","meaning":"Design the new owned teacher web application as the primary workspace. Preserve Main until useful workflow acceptance; later retain only necessary reviewed shared summaries. Avoid duplicate input. Preserve other instructors, shared tabs and deployed consumers; no Sheet deletion, migration or new sharing is admitted now."},
+    {"id":"compact_student_audit_store","source":"current_user_interview_and_existing_logical_partition_decision","meaning":"Provide a small logically student-partitioned database with exact evidence, decisions, revisions and explainable provenance. Shared content catalogs remain shared. This is not one physical database/schema/Sheet tab per student, a raw academy mirror or an already-provisioned production store."},
+    {"id":"whole_lens_every_layer","source":"current_user_interview","meaning":"Use the same Ontology philosophy for frontend, Backend and WebMCP purpose. Interview consequential unclear intent before dependent work; do not ask the teacher to design technical plumbing."},
+    {"id":"learning_evidence_separation","source":"current_user_and_prior_interviews","meaning":"Concept blank-test, original paper, wrong-answer clinic, similar clinic and Daily Test have distinct evidence, identities and states. Assignment, generation, physical provision, written solving, app answer entry, stored grading, teacher inspection and mastery are not a universal completion flag."},
+    {"id":"outage_and_recovery","source":"prior_user_interviews_consumed","meaning":"Show last verified source scope/time/limits on outage and continue attributable teacher drafts through a qualified capture path. Non-regenerable originals, judgments, approvals/corrections and required historical evidence need independent copy and actual restore verification; cache is expendable."}
+  ],
+  "ownership": {
+    "academy": "Externally owned official records and server behavior. Do not alter the academy website/server or claim direct SQL/native-app access.",
+    "product": "Academy-specific source contracts, identity bindings, operational meaning, evidence/history, queries, teacher experience and permitted domain actions.",
+    "sharedOntology": "Common work/evidence/context/operation/evaluation contracts and owner-approved portable seams. No student raw material, product source-selector ownership or automatic profile synchronization.",
+    "hermes": "Native Profile/Project/Session/Task, credentials, model/tool execution, dispatch, safety, learning and prompt/cache/compaction. No product-side mirror, dispatcher or context injector.",
+    "teacher": "Consequential teaching judgment, official-record finalization and final parent sending.",
+    "originalMedia": "SPT D1/R2 and other original sources retain their existing event/audio/media authority; references do not transfer ownership."
+  },
+  "hierarchy": {
+    "operational": ["teacher owner", "student partition", "effective enrollment/assignment", "timezone-qualified week view", "regular/makeup lesson occurrence", "activity assignment and actual work", "source attempt/item evidence", "teacher judgment/revision"],
+    "sharedContent": ["curriculum and edition/version", "major unit", "middle unit", "minor unit", "printed page", "individual problem"],
+    "rule": "Weeks and lessons are views/relations, not duplicated content catalogs. An activity may span lessons; carryover and new homework require explicit teacher relations. Printed page labels, PDF indices, paper keys/codes, original exam ordinals and clinic positions retain separate namespaces.",
+    "knowledge": "Reuse Knowledge<T>, ContentScope, LessonContext and validated catalog relationships. Known values require evidence references; unresolved identity/content/temporal joins remain unknown. Proposed richer evidence kinds must extend, not silently reinterpret, the existing learning union."
+  },
+  "logicalDataContracts": [
+    {"entity":"StudentPartition","keys":["ownerId","studentId"],"meaning":"Authenticated logical query/write boundary; a string namespace alone is not access control."},
+    {"entity":"IdentityBinding","keys":["sourceNamespace","literalSourceKey","effectivePeriod","evidenceRevision"],"meaning":"Versioned exact source-to-product binding. Names, titles, row positions and successful numeric conversion are not join proof."},
+    {"entity":"EnrollmentAssignment","keys":["studentId","sourceCourseNamespace","sourceCourseKey","effectivePeriod","editionId_or_unknown"],"meaning":"Keep source course, user-course and LMS lesson course identities separate until independently corroborated."},
+    {"entity":"LessonOccurrence","keys":["studentId","teacherId","sourceRecordKey","membershipKey","localDate","timeZone"],"meaning":"Regular/makeup identity and optional makeup-for relation; no inferred absence from a non-scheduled date."},
+    {"entity":"ActivityAssignment","keys":["assignmentId","studentId","contentScope","activityKind","teacherRevision"],"meaning":"Kinds include concept_blank_test, original_practice, wrong_clinic, similar_clinic and daily_test; links to due date/lesson may be unknown. No fixed mandatory order."},
+    {"entity":"PaperInstance","keys":["sourceNamespace","paperKey","paperKind","sourceVersion_or_unknown"],"meaning":"Original/wrong/similar paper identity, generation, assignment and physical print/provision evidence are distinct."},
+    {"entity":"AssessmentAttempt","keys":["studentId","sourceNamespace","attemptKey","paperKey"],"meaning":"Preserve source score literally and its original grade; observation time does not create an event/grade timestamp."},
+    {"entity":"ItemOutcome","keys":["attemptKey","originalExamOrdinal","sourceItemKey_or_unknown"],"meaning":"Per-question stored O/X is evidence about that attempt, not teacher correction or mastery. Never copy a scalar grade to multiple questions."},
+    {"entity":"LearningEvidence","keys":["evidenceId","studentId","sourceRecordIdentity","contractVersion","contentScope","occurrence_or_unknown"],"meaning":"Minimal typed evidence: teacher concept-test observation, handwritten work reference, app entry, stored grade, upload/watch reference or correction inspection, only when its source is qualified."},
+    {"entity":"TeacherRevision","keys":["studentId","entityId","revisionId","priorRevisionId","actorId","evidenceBasis"],"meaning":"Separate notes, plans, model drafts, reviews, approvals and corrections. Append history; reversal is compensation, not deletion."},
+    {"entity":"CarryoverRelation","keys":["priorAssignmentOrActivity","targetOccurrence_or_unknown","teacherRevision"],"meaning":"Deferred classroom work and newly assigned homework are not interchangeable."},
+    {"entity":"EvidenceQueryResult","keys":["queryScope","sourceRevisions","observedAt","coverage","freshness","unresolvedJoins"],"meaning":"Derived bounded result shared by human UI and agent tools; not a new authoritative source or native Task store."}
+  ],
+  "stateDimensions": {
+    "coverage": ["unknown", "not_observed", "partially_observed", "fully_observed", "conflict"],
+    "knowledge": ["known_with_evidence", "unknown_with_reason"],
+    "independentEvidence": ["assignment", "generation", "physical_provision", "written_solving", "app_entry", "stored_grade", "teacher_inspection", "conceptual_judgment"],
+    "missingEvidenceRule": "A missing record can be unobserved, unrecorded, unmapped or truly not performed. Only explicit attributable evidence establishes not_performed; absence of a row does not.",
+    "clocks": ["literal source date and precision", "event/lesson time", "source observed time", "teacher approval time", "product recording time"],
+    "auditRule": "Later teacher inspection or a corrected official memo never overwrites the original attempt or falsely repairs an earlier evidence gap."
+  },
+  "backendComponents": [
+    {"id":"qualified_sources","role":"Existing endpoint catalog and semantic adapters; exact effect, authentication, identity, response, page and drift contracts. No arbitrary URL/SQL/script domain executor.","reuse":["src/lms/endpointCatalog.ts","docs/academy-backend-reengineering-contract.ts"],"gap":"Retained branch readers need architecture disposition and qualification, not immediate publication."},
+    {"id":"domain_language","role":"Operational entities, explicit relations, unknowns and teacher/source authority. Shared concept catalogs plus student-linked evidence.","reuse":["src/learning/model.ts","src/learning/revisions.ts","docs/learning/domain-design.json"],"gap":"Typed teacher text, multiple activity kinds and source attempt/media relations are not fully represented by the present learning union."},
+    {"id":"compact_protected_store","role":"Student-keyed indexed evidence/history, source bindings and shared catalogs. Transactional expected-head/idempotency/append/readback; minimized version payloads plus queryable typed keys.","reuse":["docs/student-database-architecture-2026-10-01.json","src/storage/syntheticLearningSqlite.ts"],"gap":"Synthetic SQLite is not the product DB. Actual protected destination, authentication, durability, independent backup/restore and cost are unselected."},
+    {"id":"deterministic_queries","role":"Bounded joins, hierarchy traversal, source coverage and explainable calculations; no model call for transport, IDs, selection or counts.","reuse":["src/learning/model.ts","src/learning/revisions.ts"],"gap":"Qualified source-to-domain joins and full teacher-accessible functional coverage remain incomplete."},
+    {"id":"teacher_and_agent_application","role":"One application/read-model implementation used by primary teacher UI and constrained semantic WebMCP tools. Distinct human/agent permissions and revision checks.","reuse":["docs/main-sheet-live-refresh-wiring.json","docs/CODEX_CONTEXT.md"],"gap":"Existing Main is transition evidence, not the new web frontend or an accepted browser WebMCP consumer."},
+    {"id":"evaluation_and_recovery","role":"Source and scope refusal, actual teacher/agent parity, drift/outage reconciliation, restore and visible uncertain effects.","reuse":["package.json","docs/learning/domain-design.json"],"gap":"A structural design check or prior source/synthetic pass is not implementation, production or teacher acceptance."}
+  ],
+  "studentDatabaseBoundary": {
+    "logicalPartition":"One compact operational store with owner/student-qualified records and shared catalogs; per-student audit views and selective exports, not physical database multiplication.",
+    "storageLanes":["qualified shared metadata/catalog", "minimal exact-subject source evidence", "non-regenerable teacher revisions", "original media references", "expendable derived cache"],
+    "access":"Teacher-only plus task agents admitted to exact needed subjects/fields; enforce at the Backend/store, not merely browser UI or tool hints. Public Git/common owners receive schema and minimized evidence only.",
+    "retention":"Preserve existing no-fixed-expiry teacher note/review/correction intent. Retain only decision-relevant source fields and accepted-time evidence versions; raw acquisition scratch is not an indefinite-retention DB policy.",
+    "recovery":"Distinguish input received, protected history saved/read back, independent copy verified and actual restore verified. Qualify Backend damage/replacement failure domains before durable lossless-recovery claims.",
+    "provider":"Unselected. Lead compares compact relational persistence candidates against real concurrency, access, restore, operating burden and current Free Tier feasibility. Do not provision, copy students or promise a zero bill.",
+    "futureKG":"A connected future query/projection over qualified content and teacher-reviewed evidence; no KG example, graph provider or general Ontology engine is a prerequisite for this architecture."
+  },
+  "frontend": {
+    "primary":"Owned teacher web workspace, designed from the operational hierarchy rather than reproducing academy navigation.",
+    "scenes":["Date-first complete class with absence/makeup labels and explicit coverage", "Selected student hierarchical evidence/timeline", "Parallel classroom activities and attributable teacher input", "Carryover/homework and after-class review/drafts", "History correction, source conflict and recovery status"],
+    "transition":"Keep Park Main and legacy consumers until parity, teacher usefulness, record recovery and consumer rebinding are verified. Later project only reviewed necessary shared summaries through one writer; no duplicate teacher entry or silent expansion of sharing.",
+    "officialEffects":"Teacher review, official save and final parent sending remain separate. This design performs none; current future authority does not replay any prior journal or message.",
+    "mobile":"Do not reopen the paused mobile implementation. Responsive design is not physical-device acceptance.",
+    "outage":"Display last verified time/scope without refreshing its timestamp merely by opening the page. Continue drafts only through an actually qualified capture/save path; reconcile exact original targets after reconnection."
+  },
+  "webMcp": {
+    "purpose":"Expose the same operational meaning, typed inputs/results, evidence explanation and controlled application actions to agents inside the teacher's actual web context. Reduce repeated route/DOM rediscovery while preserving shared human context and user control.",
+    "whyNotGenericAutomation":"Tool verbs represent teacher work, not arbitrary browser clicks, raw HTTP, SQL or code execution. Schema and natural-language descriptions communicate meaning; trusted Backend validation enforces identity, fields, authority and revision.",
+    "candidateTools":[
+      {"name":"query_class_preparation","effect":"read_compute","result":"All verified scheduled occurrences plus per-source coverage, evidence and unknowns."},
+      {"name":"query_student_learning","effect":"read_compute","result":"Bounded student/content/time hierarchy with original evidence and separate teacher revisions."},
+      {"name":"explain_learning_evidence","effect":"read_compute","result":"Trace a displayed claim/gap/conflict to exact evidence and mapping versions."},
+      {"name":"draft_lesson_review","effect":"draft_proposal_not_official_save","result":"Source-bound proposed text/assignment differences; persisting a draft is a separately qualified product write."},
+      {"name":"record_teacher_observation","effect":"protected_product_write_not_implemented","result":"Attributable append-only teacher evidence only after actor, destination, expected revision and write admission qualify."}
+    ],
+    "implementationStatus":"Designed, not registered or exercised. Use an actual browser-standard modelContext API on the owned origin; resolve the pinned specification/Chrome API surface against the selected real browser and Hermes consumer. Do not shim an absent API or label Backend MCP-like JSON as browser WebMCP acceptance.",
+    "security":"Source/teacher text is untrusted content, not instructions. Annotation hints are not authorization. Maintain origin/permissions boundaries, exact owner/student scope, cancellation, output limits and separately admitted consequential effects; no academy-site injection or default cross-origin exposure.",
+    "acceptance":"Actual supported browser discovery -> typed invocation -> shared application/Backend operation -> exact structured result -> teacher-visible same-context effect/state; include denied scope, stale revision, navigation/cancellation and source-outage cases. Registration alone is insufficient.",
+    "references":["https://webmachinelearning.github.io/webmcp/","https://developer.chrome.com/docs/ai/webmcp","https://developer.chrome.com/docs/ai/webmcp/imperative-api","https://developer.chrome.com/docs/ai/webmcp/secure-tools"]
+  },
+  "coverageDisposition": {
+    "sourceInventory":"bun run endpoint:query --projection coverage",
+    "knownCatalogEntries":95,
+    "knownFamilies":17,
+    "familyGroups":[
+      {"area":"identity_enrollment_and_navigation","families":["identity","enrollment","navigation"],"status":"Current teacher-scoped roster/course observations are bounded evidence, not formal whole-enrollment/page acceptance."},
+      {"area":"schedule_journal_attendance_and_lessons","families":["CourseMainIndex","BaseManageIndex","lesson"],"status":"Selected calendar/DayRecord keys read; all-time coverage, field-specific header evidence and native DOM regression remain incomplete."},
+      {"area":"curriculum_progress_prestudy_and_textbooks","families":["CourseManageIndex","curriculum"],"status":"Existing textbook grading and name-filtered prestudy lists observed; course/content/lesson and media joins remain partial."},
+      {"area":"assessments_papers_and_workbooks","families":["FAIndex","NAIndex","assessment","paper","SmartBookIndex"],"status":"Existing textbook/DT score variants have bounded reads; FA/NA/DA and full assignment/history qualification remain open. Empty name-query rows do not establish absence."},
+      {"area":"reports_counseling_and_other_support","families":["BackendMap","counseling","book_order","device"],"status":"Keep report/delivery, counseling, media and support capability boundaries visible. Mutating/unknown variants are not read probes; no physical DB/native-app completeness claim."}
+    ],
+    "currentAcquisition":"Teacher-only task-local receipt: five real students, nine observed teacher-owned courses, 28 selected occurrence/journal rows, 101 textbook plus 53 DT/ZT stored score targets and 1176 scored item occurrences. These are current bounded observations, not whole-program acceptance; no student names, keys, notes, answers or raw payloads are included in this design.",
+    "remaining":"Whole teacher-accessible learning coverage, formal enrollment/page completeness, all-time journals, exact prestudy/content/occurrence joins, video-watch/correction/teacher-inspection evidence, qualified durable history and real WebMCP consumption are not established."
+  },
+  "acceptanceFlow": {
+    "status":"Lead_proposed_complete_design_acceptance_flow_not_executed",
+    "scope":"One complete normal teacher day across every scheduled student, with regular/makeup/absence and parallel activity exceptions, connected to student history; repeat with outage and later correction.",
+    "steps":["Discover exact date/teacher/roster and coverage", "Read assigned ranges, prestudy, attempts and stored grades with unknown joins visible", "Trace concept-test/original/wrong/similar/Daily Test evidence independently", "Capture/review teacher observations and carryover without overwriting source grades", "Produce after-class official-record/parent drafts without saving or sending", "Requery accepted-time evidence and later teacher corrections", "Exercise actual WebMCP discovery/invocation against the same teacher scene", "Restore non-regenerable history from the independently qualified copy"],
+    "failureCases":["Missing concept-test note does not assert not_performed", "O/X or a print icon does not assert clinic solving or mastery", "Foreign/name-only/unresolved joins remain refused or unknown", "Partial roster/page/date coverage is not complete", "Source outage retains honest last-verified views and teacher drafts", "Concurrent human/agent edits preserve expected-head conflicts and original history", "Cancellation/navigation preserves explicit uncertain outcomes", "Failed/uncertain official effects are not blindly retried or reported delivered"],
+    "measurements":["Actual cold/warm source request counts and auth/page waits", "Parser/join and returned-payload sizes", "End-to-end usable refresh on the normal class", "Unknown/missing/conflicting evidence disposition", "Teacher corrections, repeated explanations and intervention burden", "Actual save/independent-copy/restore outcomes"],
+    "numericSla":"Not invented; measure the useful workflow and interview only a material operating tradeoff."
+  },
+  "deliveryPlan": [
+    {"id":"D1","status":"design_contracts_verified_runtime_not_implemented","goal":"Operational hierarchy, compact student evidence/history fields and teacher scene/WebMCP query/input/result contracts are linked in detailedContracts.","existingTargets":["src/learning/model.ts","src/learning/revisions.ts","docs/learning/domain-design.json"],"validation":"Synthetic schema conformance and retained pure-domain contracts exercised; authenticated scope, source joins, protected transactions, actual browser tools and teacher acceptance remain later runtime gates."},
+    {"id":"D2","status":"future_implementation_not_admitted","goal":"Disposition retained readers, qualify missing source operations and connect one semantic application spine without a second catalog/dispatcher.","existingTargets":["src/lms/endpointCatalog.ts","harness/endpoints.ts","docs/academy-backend-reengineering-contract.ts"],"validation":"Actual exact-scope reads, page/identity/effect refusals, independent DayRecord header evidence and native DOM cases; preserve failed generations."},
+    {"id":"D3","status":"resource_admission_required","goal":"Select the compact protected store and independent recovery placement; qualify typed revision/access/restore behavior before real history ingestion.","existingTargets":["docs/student-database-architecture-2026-10-01.json","src/storage/syntheticLearningSqlite.ts"],"validation":"Actual resource/audience/cost admission, atomic writer semantics and independent restore; no raw student migration now."},
+    {"id":"D4","status":"future_implementation_not_admitted","goal":"Build the primary teacher scene and browser WebMCP adapter over the same qualified application logic.","existingTargets":["docs/main-sheet-live-refresh-wiring.json","package.json"],"validation":"Actual browser/Hermes invocation and visible teacher-agent parity; no installed engine/browser flag/sandbox workaround."},
+    {"id":"D5","status":"future_acceptance_not_admitted","goal":"Exercise the complete teacher-day/outage/correction workflow and evaluate usefulness without reducing the whole system to successful canaries.","existingTargets":["docs/WHOLE_LENS_DECISION.md","package.json"],"validation":"Source coverage, normal-scale teacher feedback, lossless required-history recovery and actor-specific effect gates."},
+    {"id":"D6","status":"separate_transition_and_git_admission_required","goal":"After architecture disposition and accepted workflow, complete owned Git delivery and deliberately transition Main/shared consumers.","existingTargets":["handoffs/workflow-current-state.json","docs/main-sheet-live-refresh-wiring.json"],"validation":"Fresh exact-head Git/CI/merge/readback and owned cleanup; approved summary scope/consumer parity/recovery before Sheet changes."}
+  ],
+  "executionPolicy": {
+    "now":"Complete source-grounded design, scoped retained-reader integration, exact-head Git delivery and classified owned legacy cleanup. The latest user delegates operational resource/migration/academy/worker categories, but exact targets, supported authentication, field-specific effects, Free Tier, recovery and native controls must qualify before those effects. Teacher finalization/sending remain human-owned.",
+    "mechanicalWork":"Deterministic code first.",
+    "workers":"No worker is launched. New use requires actual detailed native role/model/provider/reasoning/tool/effect/input/output/budget controls. User prefers literal gpt-6.1-sol for complex work and gpt-6-luna only for negligible judgment, with effort selected by complexity; reconcile effective existing instructions before any execution, never inherit old budgets/scripts.",
+    "excludedNow":["Worker/model dispatch without fresh effective native controls", "Client/Backend version rechecking", "Installed engine/Host/other-container changes", "Unqualified services/jobs/accounts/IAM/billing or student migration", "Public student raw data", "Credential/session extraction", "Approval/redaction bypass", "Sandbox bypass", "Teacher finalization or parent-send replay"]
+  },
+  "sourceReferences": [
+    "AGENTS.md",
+    "handoffs/workflow-current-state.json",
+    "docs/CODEX_CONTEXT.md",
+    "docs/WHOLE_LENS_DECISION.md",
+    "docs/learning/domain-design.json",
+    "docs/academy-student-evidence-contract.json",
+    "docs/academy-teacher-workspace-tool-contract.json",
+    "docs/student-database-architecture-2026-10-01.json",
+    "docs/academy-backend-reengineering-contract.ts",
+    "docs/main-sheet-live-refresh-wiring.json",
+    "src/learning/model.ts",
+    "src/learning/revisions.ts",
+    "Active-profile architecture-handoff-20261003-524dfe/HANDOFF.json and its verified transfer manifest",
+    "Selected prior architecture-design.v0.1 and architecture-interview-brief fields; cold captures not ingested",
+    "Active-profile student-free sanitized-acquisition-receipt.json; private raw values not included"
+  ],
+  "verificationMeaning":"This is a source-grounded target architecture and plan. Structural checks establish design consistency and coverage accounting, not a deployed DB/frontend, actual WebMCP interoperability, restored history, teacher acceptance or production authorization."
+}

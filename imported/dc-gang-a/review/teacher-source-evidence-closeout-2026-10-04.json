@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "kind": "bounded_source_delivery_and_successor_handoff",
+  "profile": "dc-gang-a-dev",
+  "repository": "park-kyungchan/dc-gang-a",
+  "canonicalCheckpoint": "handoffs/workflow-current-state.json",
+  "status": "reviewed_candidate_for_exact_head_git_publication",
+  "wholeProductComplete": false,
+  "currentUserDecision": "Finish this bounded commit/push/PR/CI/merge/readback/owned cleanup, prepare a Whole-Lens successor direction and priority review, close profile-owned live sessions through the native lifecycle and yield. Do not continue new product features in this closeout.",
+  "verifiedDelivery": {
+    "storeReadback": {"registeredStudentPartitions": 5, "currentRecordHeads": 143, "textbookAssessments": 102, "textbookItemOccurrences": 906, "dayRecordOccurrences": 32, "observedDates": 10, "dateWindow": {"start": "2026-09-28", "end": "2026-10-17"}, "academyNetworkRequestsDuringCloseout": 0},
+    "dayRecord": "Public native preparation supplies the qualified two-row/thirteen-column contract; exact signatures/column groups/outer nested cells/principal/student/date/group/record/membership and independent selected-record reads remain enforced. Retain omitted-closing-thead compatibility only for exact thirteen-td data rows.",
+    "application": "Authenticated application/server date-class query and cohort availableLessonDates; teacher UI and native CLI date-scene wiring remain unfinished.",
+    "webmcp": "User registered the official trial and supplied the public deployment token through a native form. Exact-host-only response header equality and anonymous 401 were read back. Native CDP reports UnknownTrial with absent modelContext APIs. No tool discovery/invocation acceptance, installed-engine change or shim success.",
+    "stableEvidence": "Pure planners retain exact source namespaces, literal scores/date precision, stable entity identities, acquisition provenance, duplicate-identity refusal, original audit validation and append-only/CAS store boundaries. Grading is not teacher inspection, mastery or finalization."
+  },
+  "validation": {
+    "cloudCheck": "passed_synthetic_and_source_integrity_not_live_acceptance",
+    "repairedSetupFailures": ["Native DOM bundle exceeded the browser bridge line limit; split only transport chunks without changing test/engine semantics, then all sixteen cases passed", "Closeout resolve_continuation_source initially omitted its required recorded-decision dependency; bound it to existing backend_lead_authority and reran the unchanged checkpoint validator"],
+    "actualPostgresProduct": {"pass": 25, "fail": 0, "skip": 0},
+    "nativeDomRegression": {"strictCases": 12, "qualifiedShapeCases": 4, "allPassed": true, "academyRequests": 0, "actualSourceQualification": false},
+    "typechecks": ["project", "harness", "agent-runtime"],
+    "privacyReview": "Lead self-review of the full explicit staged paths/diff plus the staged pattern/protected-path audit; actual token, credentials, student names/keys, raw source fields/media and private runtime evidence stay outside Git.",
+    "independentReview": "not_dispatched_no_fresh_restricted_worker_admission; meet actual repository-required review/check rules through GitHub without bypass",
+    "branchProtectionInspection": "Administration endpoint returned 403; rulesets list was empty. Neither proves no branch protection. Normal exact-head merge must enforce repository rules."
+  },
+  "publication": {
+    "ownedBranch": "feat/teacher-source-evidence-20261004",
+    "base": "main",
+    "verificationOwner": "Fresh GitHub PR/head/checks/merge and local/remote main readback, not this pre-publication record",
+    "retainedForeignBranch": {"name": "codex/cloud-startup-scope-2026-10-01", "sha": "63ce4cbe64a4870f2a01c4387660efe43a4c2884", "pr": 6, "state": "closed_unmerged_superseded_foreign_work_preserved", "reason": "The existing PR thread explicitly preserves this foreign unique commit; profile-owned branch cleanup does not admit its deletion."}
+  },
+  "nativeLifecycle": {
+    "requestedProfile": "dc-gang-a-dev",
+    "storedPredecessorSession": "20261004_065829_25e358",
+    "closeMethod": "session.close through the authenticated native control transport; preserve resumable history",
+    "controlProbe": "Authenticated loopback native RPC transport unavailable; no credentials extracted, no direct native DB writes, no archive/delete substituted for runtime close.",
+    "handoffDisposition": "Successor must verify predecessor release and profile-owned live sessions before consequential writes. This report is not lease revocation, runtime-close verification or automatic successor launch.",
+    "preserveOperatingProcesses": ["owned teacher service proc_8316b2be3be4 with persist_on_release", "owned tunnel proc_630d670f8407 with persist_on_release", "private PostgreSQL peer Unix socket on port 55432"],
+    "notEstablished": ["all profile runtime sessions closed", "restart/reboot/24h unattended acceptance", "independent off-Backend recovery"]
+  },
+  "successor": {
+    "mode": "user_started_fresh_session_first_grounded_whole_lens_priority_review_then_still_admitted_execution",
+    "firstUsefulOutput": "Read the canonical engineering decisions and linked current contracts; verify current profile/Project/cwd, Git publication and native ownership. Give concise evidence-grounded findings, recommended priorities and only consequential unresolved privacy/cost/authority or teacher participation questions. Do not send a readiness acknowledgement, replay an old queue or make the user design technical plumbing.",
+    "wholeMission": "An actually usable personal teacher system connecting shared book/major/middle/minor/page/problem definitions to date-first every-student preparation, selected-student source evidence, attributable judgment/history/review/carryover/safe drafts, consistent authenticated UI/agent operations, scoped refresh and independently recoverable data. A bounded DB intake, header, plan, schema or Git merge is not the whole outcome.",
+    "remainingAcceptance": ["actual native teacher login; registration exists but fresh login was refused and the user confirms the same password", "wider qualified current/recent source coverage and real hierarchy; preserve unknown joins", "date-class/student/evidence/review-carryover UI and native scene binding plus attributable teacher inputs/history/drafts", "actual supported browser authenticated WebMCP discovery/invocation, owner/stale-state refusals and shared application semantics", "independent encrypted destination/key/actual restoration, operational continuity and verified cost/privacy", "useful teacher end-to-end review, without academy mutation, official finalization or final parent sending"],
+    "settledDecisions": ["new private teacher app is primary candidate; preserve Main/other instructors/deployed consumers until acceptance", "five logical student partitions/shared catalogs, not per-student DBs or tabs", "current/recent first and qualified history backfill; selected or explicit whole refresh, not mandatory polling/scheduling", "teacher judgment, official finalization and parent sending remain human-owned", "Free Tier preference is not verified zero billing", "KG/provider questions are future consumers, not a prerequisite for current teacher-product architecture", "native new-password safeguards, redaction, approvals and learning stay enabled; no password-difference assumption or repeated declined-save request"],
+    "proposalNotAuthority": "Prioritize actual teacher access and coherent source-to-scene usefulness; qualify a supported WebMCP consumer rather than alter the installed engine. Reconcile priorities against the whole mission before selecting the next bounded unit. New account/IAM/billing/deployment/schedule/worker/Host effects require their applicable explicit admission.",
+    "requiredInputs": ["AGENTS.md", "docs/hermes-backend-profile.ts", "handoffs/workflow-current-state.json", "docs/CODEX_CONTEXT.md", "docs/WHOLE_LENS_DECISION.md", "docs/teacher-ontology-delivery-plan.ts", "docs/academy-dayrecord-column-qualification-2026-10-04.json", "review/webmcp-origin-trial-2026-10-04.json", "docs/academy-whole-lens-target-architecture.json", "docs/academy-teacher-workspace-tool-contract.json"],
+    "sharedOntologyOwner": "/opt/data/shared-llm-wiki/concepts/ontology-aip-evals-sdlc-agent-start.md",
+    "entry": "bun run workflow:context continuation"
+  },
+  "recovery": "Preserve native history, protected runtime/evidence and source revisions. Pre-publication Git history bundle is retained in the active-profile closeout scratch directory. Revert only this owned code unit via a normal reviewed commit if required; never reset main, delete foreign work, rewrite authentication, export academy sessions or recreate already-consumed invitations. Token-header removal uses the exact owned configuration without touching root/Bible/SPT consumers."
+}

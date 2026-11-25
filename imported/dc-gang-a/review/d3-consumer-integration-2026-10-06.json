@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "kind": "domain_consumer_integration_source_acceptance",
+  "workId": "D3-1452be",
+  "owner": "dc-gang-a-dev",
+  "projectId": "p_a5676068",
+  "scope": "Existing D0/D2/D1 teacher application and engineering consumers; source-only integration, not deployment or academy operation.",
+  "generation": {
+    "observedPrimaryHead": "7a08a152c0443f938d66134747f19b1dcadcde98",
+    "integrationBaseHead": "2cd65bed1261c627e75b978ca02b7261b6280ed6",
+    "baselineTreesEqual": true,
+    "ownedSourcePaths": 47,
+    "reviewedSourceBodies": 93,
+    "reviewedGenerationDigest": "b578466b8708ff647fedecf58bd869cbed1922efb5573169557437e6965eeb1a",
+    "inventoryRef": "/opt/data/artifacts/dc-d3-integration-20261006-1452be/consumer-generation-final.json",
+    "metadataAfterReview": "This closeout receipt and bounded canonical objective/reference updates are non-executing metadata; source code remains pinned to the accepted generation."
+  },
+  "consumerAcceptance": {
+    "path": ["src/academy/web/client.ts", "src/academy/web/teacherObservationEditor.ts", "src/academy/server.ts", "src/academy/application.ts", "src/academy/records.ts", "src/academy/postgresStore.ts"],
+    "runtimeCaller": "src/academy/main.ts",
+    "syntheticCaller": "harness/academy_browser_rehearsal.ts",
+    "engineeringCallers": ["harness/workflow_checkpoint.ts", "harness/endpoints.ts", "harness/cloud.ts", "package.json", ".github/workflows/bun-cloud.yml"],
+    "status": "Existing consumers already use the corrected implementation; no redundant reader retirement or cosmetic cutover was needed.",
+    "newParallelFramework": false,
+    "mainSptSharedConsumersPreserved": true
+  },
+  "independentReview": {
+    "route": "Native restricted input-only dc-review oneshot; not Kanban or canonical messaging completion.",
+    "model": "gpt-6.1-sol",
+    "provider": "openai-codex",
+    "history": [
+      {"sessionId": "20261006_211119_bd1e6d", "status": "FAIL", "effort": "xhigh", "findings": ["D3-POSTFIX-001", "D3-POSTFIX-002", "D3-POSTFIX-003"]},
+      {"sessionId": "20261006_214219_12fcd2", "status": "FAIL", "effort": "high", "findings": ["D3-POSTFIX-004"]},
+      {"sessionId": "20261006_215830_82cb59", "status": "PASS", "effort": "high", "findings": []}
+    ],
+    "resolvedFindings": ["D1-OBS-001", "D1-OBS-002", "D1-OBS-003", "D3-POSTFIX-001", "D3-POSTFIX-002", "D3-POSTFIX-003", "D3-POSTFIX-004"],
+    "nativeCorrelation": "Exact native user input semantically equals the frozen packet; native session records verify model, provider, high effort, closed session, one API call and zero tool calls for final review.",
+    "finalResultRef": "/opt/data/artifacts/dc-d3-integration-20261006-1452be/postfix-review-result-final.json",
+    "freshAssignmentBudgets": "Each changed-generation assignment had one launch, three turns and configured 300-second budget. No old session was resumed or tools widened; configured budget is not a hard wall-time guarantee."
+  },
+  "repairs": [
+    {"id": "D3-POSTFIX-001", "change": "Fresh identical observation intents append their own actor/request/predecessor; exact idempotency replay and source-content deduplication remain distinct."},
+    {"id": "D3-POSTFIX-002", "change": "Shared draft notifications update the mounted editor; actual client owns abort-based subscription cleanup."},
+    {"id": "D3-POSTFIX-003", "change": "Bounded UTF-8 streaming ingress supports 16000-character observations, including Korean and JSON escaping; known pre-write size refusal retains editable text, while uncertain failures still require exact recovery."},
+    {"id": "D3-POSTFIX-004", "change": "Validated observation head sequence prevents an older precommit student snapshot from replacing confirmed text/base; dirty reconciliation remains explicit."}
+  ],
+  "verification": {
+    "redBeforeRepair": ["d3-001-red.log", "d3-002-red.log", "d3-003-red.log", "d3-004-red.log"],
+    "syntheticPostgresDomHttp": {"pass": 31, "fail": 0, "skip": 0, "files": 10, "observationBrowserCases": 10, "nativeGui": false},
+    "workflow": {"pass": 101, "fail": 0, "files": 9},
+    "typecheck": "PASS",
+    "harnessTypecheck": "PASS",
+    "cloudGate": "PASS in synthetic/source-integrity scope, with declared capability skips; not teacher or production acceptance.",
+    "artifactRoot": "/opt/data/artifacts/dc-d3-integration-20261006-1452be",
+    "temporaryDatabase": "Owned Unix-socket dc_academy_test fixture stopped; pg_ctl status readback exit3. No primary academy DB opened."
+  },
+  "nativeGui": {
+    "status": "UNPERFORMED_NATIVE_MEMORY_REFUSAL",
+    "startRefusal": {"availableMb": 1383, "requiredMb": 1536},
+    "recovery": "No threshold change, alternate executor, process kill, browser tab, control handback or repeated start. Same-profile Screen remained stopped.",
+    "retainedD1Evidence": "17 dated native cases remain prior-generation evidence only."
+  },
+  "excluded": ["Foreign dirty teacher plan", "Unknown preexisting profile/autonomy/test deltas", "User kickoff packet", "Separate retained contract-audit candidate", "Shared-Wiki repair"],
+  "publication": {
+    "status": "SOURCE_MERGED_EXACT_HEAD_READBACK",
+    "sourcePr": 28,
+    "url": "https://github.com/park-kyungchan/dc-gang-a/pull/28",
+    "testedHead": "afef3b0ac4b210bcfcf3c5b296689586529712e9",
+    "publishedChangedPaths": 48,
+    "actionsRunId": 37468997620,
+    "actionsJobId": 112287239502,
+    "actionsJob": "linux-clean-checkout",
+    "actionsConclusion": "success",
+    "checkRollupLimitation": "Native repo token denied GraphQL statusCheckRollup. Permitted Actions API matched PR28, exact head, completed workflow/job and every step; no permission widening or admin bypass.",
+    "normalMatchedHeadMerge": true,
+    "sourceMergeCommit": "e6570e123a8bdf78b3a611b29a050e3236bf3b0f",
+    "mergedAtUtc": "2026-10-06T13:13:58Z",
+    "remoteMainReadback": "e6570e123a8bdf78b3a611b29a050e3236bf3b0f",
+    "ownedCleanup": "Deferred until this metadata closeout is published and primary reconciliation preserves all five foreign/unknown paths. Final exact cleanup is retained in the local result artifact."
+  },
+  "unmetGates": ["Final-generation native GUI replay", "Current exact direct-HTTP authentication and field-specific source qualification", "Teacher/product acceptance on permitted originals", "Production deployment and native WebMCP/physical-device acceptance", "Independent backup/restore or reload/process-restart draft durability"],
+  "nextOwner": "dc-gang-a-dev: select bounded teacher acceptance and current exact direct-HTTP credential/source qualification under separate admission; do not rebuild D0/D2/D1. Native GUI memory restriction keeps its native owner; no service interruption is implied.",
+  "effectLimits": {"academyReads": 0, "productionWrites": 0, "deploymentPerformed": false, "officialFinalization": false, "parentSent": false, "newSchedule": false, "sheetTransition": false, "independentDurabilityAccepted": false, "recipientAcceptanceObserved": false}
+}

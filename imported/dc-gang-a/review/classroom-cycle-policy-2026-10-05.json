@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "kind": "classroom_cycle_policy_and_bounded_raw_intake_receipt",
+  "branch": "raw/classroom-20261005-parts-1-2",
+  "status": "scoped_rules_and_source_intake_verified_whole_audit_open",
+  "teacherDecisions": {
+    "gauss": "Video is always required for every progressed minor unit through latest homework. Surface pending teacher reviews and every separate classroom-cycle obligation.",
+    "davinci": "No prestudy video duty; accidental uploads are ignored for readiness. Wrong and similar clinic completion remains teacher-owned.",
+    "classroom": "Teacher explicitly completes notebook inspection, concept blank-test after feedback, final written original/similar clinics, printed Daily Test solutions and Havruta. App solving/grading belongs to the student and is separately sourced.",
+    "refresh": "New submissions/grading should reflect while the teacher screen is open, plus manual refresh. This supersedes the earlier click-only product requirement; no loop, scheduler or service is installed by this unit."
+  },
+  "verified": {
+    "privateSourceScope": {"scheduledSubjects":4,"observedBooks":7,"indexedExistingResultRecords":83,"readExistingResultRecords":83,"scoredItemOccurrences":691,"gaussMinorUnitLabelCandidates":40,"fullProgressOrUploadHistory":false},
+    "database": {"existingRegisteredPartitions":5,"sourceTargetsRefreshedAndReadBack":91,"unchanged":89,"newSourceVersions":2,"teacherJudgmentsWritten":0,"academyWrites":0,"independentRecovery":false},
+    "policyConsumer": ["src/academy/classroomCyclePolicy.ts", "AGENTS.md", "docs/workflow-routing.json", "harness/context_routing.ts", "docs/academy-whole-lens-target-architecture.json", "private typed raw audit projection"],
+    "validation": {"projectTypecheck":"passed","harnessTypecheck":"passed","privateAcquisitionAndIntakeTypecheck":"passed","architectureTests":{"pass":31,"fail":0},"contextAndCheckpointTests":{"pass":41,"fail":0},"tdd":"Missing policy, missing Davinci behavior, missing refresh guidance and missing context integration were observed failing before their implementations."}
+  },
+  "limits": ["All returned wrong-note results were read; that is not all unstarted/ungraded/zero-wrong work or complete expected-unit inventory.", "Prestudy list labels and name matches are candidates, not exact student/book/lesson/version joins or video content review.", "Complete progressed-unit UserSearch/detail contracts remain unqualified and were not invoked.", "Actual teacher inspection awaits explicit classroom reports; no synthetic completion.", "Automatic active-screen refresh and actual supported WebMCP remain implementation/acceptance work, not established by a policy.", "Official journal entry needs exact reviewed values, field-specific wire/readback and recovery; final sending stays human-owned.", "PR16 was independently observed merged at 42e6f1ad9177c91837f0c4dc0bed0a63452210f1. Preserve its separate closeout and ended Bot budgets; this raw unit does not restart its app/tunnel or replay workers."],
+  "privacy": {"studentNames":false,"sourceIdentifierValues":false,"sourceFieldValues":false,"credentials":false,"privateMedia":false,"rawArtifactsPublished":false},
+  "review": "Lead self-review and real tests; no independently admitted worker or independent approval claimed.",
+  "nextBoundedAction": "Qualify complete current/expected minor-unit coverage and exact prestudy joins through existing source owners, then join teacher-reported classroom judgments without overwriting original source grades. Continue the admitted raw classroom cycle; do not replay frontend rollout or install a refresh schedule."
+}

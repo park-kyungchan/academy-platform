@@ -1,0 +1,5 @@
+# Historical source and manifests use byte-exact SHA-256 checks.
+# Preserve each file's original line endings across Windows checkouts.
+* -text
+# Preserve byte-exact upstream OFL license text, including its trailing space.
+src/academy/web/assets/NotoSansKR-OFL.txt -whitespace

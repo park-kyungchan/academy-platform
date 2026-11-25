@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "kind": "source_qualified_dayrecord_column_contract",
+  "status": "actual_native_read_and_independent_occurrence_readback_verified",
+  "origin": "https://dc.gang-a.kr",
+  "sourceOperations": ["POST DayRecordServlet p_process=Main", "GET CourseScheduleServlet reqCmd=SelSglRecord"],
+  "sourceDateRange": {"start": "2026-09-28", "end": "2026-10-17", "meaning": "observed_calendar_window_not_all_history"},
+  "actualAcceptance": {"datesRequested": 10, "occurrencesRequested": 32, "occurrencesVerified": 32, "studentPartitions": 5, "academyMutations": 0, "parentSending": 0},
+  "header": {"rows": 2, "leafColumns": 13, "identityColumns": [0, 1, 2], "previousProgressColumns": [3, 4, 5, 6], "currentProgressColumns": [7, 8, 9, 10, 11, 12], "sourceQuirk": "The source omits the closing thead, so data rows remain in the parsed thead. Only the exact two qualified header rows are selected; extra rows must be unspanned thirteen-td data rows."},
+  "handlerColumns": {"onOpenDaysMain": 0, "onFoStuMemo": 2, "openHomeWorkRate": 5, "onDailyReport": 7, "onAttn": 8, "setDailyTest": 9, "onFoPrg": 10, "onFoHw": 11, "onFoMm": 12},
+  "nestedCellRule": "Resolve event controls to the containing qualified outer student-row cell, not the nearest nested td. Every original signature, event, column group and tuple comparison remains enforced.",
+  "readFields": ["attendance", "progress", "homework", "lessonMemo", "persistentMemo"],
+  "refusals": ["unknown_source_headers_or_spans", "foreign_principal", "unsupported_handler_or_signature", "wrong_column", "conflicting_student_record_membership", "ambiguous_selected_xml", "changed_date_or_group", "missing_native_authentication"],
+  "implementation": ["src/lms/dayRecordColumnContract.ts", "src/lms/dayRecordReadProtocol.ts", "harness/native_read_entry.ts", "harness/academy_read_prepare.ts"],
+  "evaluations": ["tests/lms/dayRecordColumnContract.test.ts", "tests/lms/dayRecordMultiHeaderNativeCases.ts", "tests/lms/dayRecordNativeDomCases.ts", "tests/lms/academyReadIntegration.test.ts"],
+  "privacy": {"studentNamesIncluded": false, "identifierValuesIncluded": false, "sourceFieldValuesIncluded": false, "sessionValuesIncluded": false},
+  "limits": ["No academy save, finalization or parent-delivery authority", "Empty future-lesson fields do not prove nonperformance", "Calendar course_seq is not aliased to learning course_key", "Observed date window does not establish complete history or current enrollment", "Source presence is not teacher inspection or mastery", "Actual WebMCP and the whole teacher product remain unaccepted"]
+}

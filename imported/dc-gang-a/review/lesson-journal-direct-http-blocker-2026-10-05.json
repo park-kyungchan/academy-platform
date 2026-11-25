@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "kind": "bounded_lesson_journal_transport_blocker_receipt",
+  "observedAtUtc": "2026-10-05T14:36:18Z",
+  "scope": "october_5_teacher_reviewed_journal_closeout_and_critical_path_diagnosis",
+  "goalComplete": false,
+  "currentDecisions": {
+    "source": "current_native_user_interview",
+    "save": "The teacher permits the requested journals to be entered after final approval in this session and independently reviews and sends afterward.",
+    "transport": "The teacher explicitly refuses a native-browser data-read/save exception. Qualify actual direct HTTP authentication, read, save and independent readback before academy input.",
+    "typeHeader": "Verify the original assigned clinic header before deciding the conditionally reported type; do not silently normalize or add it.",
+    "cleanup": "Reuse deterministic contextual typed consumers; remove only demonstrated redundant active machinery after checking ownership, consumers and recovery. Preserve originals, history, necessary compatibility and native safeguards."
+  },
+  "verified": {
+    "privateReview": {"requestedStudentDrafts": 4, "retainedDayRows": 4, "retainedMetadataObservationsAudited": 26, "sourceAuditConsumer": "src/lms/academySourceAudit.ts", "teacherAssessmentAndSourceResultLanesPreserved": true, "partSpecificMemoScopePreserved": true, "finalValuesApproved": false, "fileMode": "600", "studentValuesPublished": false},
+    "privateApplicationRead": {"consumer": "TeacherApplication.classPreparation", "transaction": "repeatable_read_read_only", "requestedOccurrencesMatched": 4, "registeredPartitions": 5, "freshAcademyRead": false, "sourceClockIsNotQueryTime": true},
+    "publicTeacherEntry": {"origin": "https://dc.kcpalantir.tech", "result": "Cloudflare Tunnel error 1033", "authenticatedWebMcpInvocation": false, "historicalProcessHandleLookups": "not_found_not_runtime_close_proof"},
+    "webMcpSource": {"path": "src/academy/web/client.ts", "operation": "query_student_learning", "consumer": "owned_teacher_application_read_only_scene", "academySaveCapability": false},
+    "journalSource": {"path": "src/lms/lessonJournalHitl.ts", "execution": "not_supported", "assessmentConsumer": "src/lms/lessonJournalReviewBundle.ts", "assessmentWriteAdapter": "not_verified", "previousHomeworkAssessment": "requires_separate_previous_occurrence"},
+    "entryVersionSkew": {"mainEndpointHelp": "native_browser_vault_preparation", "mainContractTopicQuery": "unsupported_flag", "newerContractOwner": "unmerged_foreign_contract_audit_worktree_inspected_read_only", "candidateContractAdoptedOrOverwritten": false},
+    "directLoginEntry": {"origin": "https://dc.gang-a.kr", "path": "/c_login.jsp", "status": 200, "passwordFormPresent": true, "authenticated": false, "scope": "unauthenticated_login_entry_only_not_academy_student_data"},
+    "credentialRoute": {"nativeLocalWebsiteLoginPresent": true, "nativeWebsiteVaultConsumer": "exact_origin_browser_page_fill_only", "bitwardenSecretSourceEnabled": false, "onePasswordSecretSourceEnabled": false, "commandSecretSourceEnabled": "not_configured", "supportedDirectHttpCredentialConsumerQualified": false, "secretValuesReadOrPublished": false}
+  },
+  "criticalBlocker": {
+    "code": "supported_direct_http_credential_consumer_not_qualified",
+    "meaning": "A saved website login is not a supported direct HTTP credential injection. Do not decrypt or export it, copy browser cookies, replay historical sessions, substitute browser execution, change the installed engine or claim a public login page establishes authentication.",
+    "requiredNextUnit": "Admit and qualify a supported origin-bound non-browser credential consumer with the actual native/secret-source owner; then exercise fresh academy login and the existing scoped parsers, qualify original header and field-specific save/readback, obtain exact final-value approval and perform the scoped reflection.",
+    "nativeConfigurationChanged": false,
+    "newSecretManagerOrAccountConfigured": false,
+    "directHttpClientLiveAuthenticated": false,
+    "taskCompletionClaim": "blocked_not_complete"
+  },
+  "validation": {"publicWorkflowContextEntry": "passed", "checkpointMetadataValid": true, "focusedTests": {"passed": 155, "failed": 0, "files": 4, "scope": "synthetic_continuity_and_journal_HITL_boundaries_not_live_authentication_or_save"}, "initialCheckpointFailure": "Four tests failed after the authored checkpoint strings exceeded the existing640-character limit; shorten only the owned current summaries, preserve detailed receipt and rerun without weakening validation.", "diffCheck": "passed", "gitPublication": "not_performed_owned_checkpoint_and_receipt_remain_local_uncommitted"},
+  "effects": {"academyStudentDataRequests": 0, "academyWrites": 0, "officialFinalizations": 0, "parentSends": 0, "productionDbWrites": 0, "newWorkers": 0, "newServicesOrJobs": 0, "engineHostOtherContainerChanges": 0},
+  "preservation": {"foreignDirtyContractAuditWorktree": "unchanged", "originalPrivateCollection": "retained", "oldApproval": "not_promoted", "persistentStudentMemos": "unchanged", "unrelatedTeachersStudentsConsumers": "unchanged"},
+  "references": ["handoffs/workflow-current-state.json", "src/academy/application.ts", "src/academy/web/client.ts", "src/lms/lessonJournalHitl.ts", "src/lms/lessonJournalReviewBundle.ts", "review/webmcp-origin-trial-2026-10-04.json", "https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-vault", "https://hermes-agent.nousresearch.com/docs/user-guide/secrets", "https://developer.chrome.com/docs/ai/webmcp/imperative-api"],
+  "recovery": "No academy or production database write occurred. Preserve the private review and exact original source clocks. Resume only after the missing supported credential route is established; do not treat a new session, schema pass, WebMCP registration or cleanup as renewed transport/write authority."
+}

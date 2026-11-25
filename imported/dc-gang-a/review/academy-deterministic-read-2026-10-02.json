@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "kind": "deterministic_academy_read_program_checkpoint",
+  "status": "three_scoped_read_families_verified_whole_backend_acceptance_unresolved",
+  "scope": "Retain the entire 95-entry/17-family known interface inventory while connecting maintained read preparation and source audit to its existing public CLI. No physical DB/native-app completeness or blanket effect authority.",
+  "consumer": {
+    "entry": "bun run endpoint:query --help",
+    "coverage": "bun run endpoint:query --projection coverage",
+    "prepare": "bun run endpoint:query --prepare-read <active-profile-private-request.json> --output-script <active-profile-private-script.js>",
+    "audit": "bun run endpoint:query --audit-read <active-profile-private-result.json> --output-audit <active-profile-private-audit.json>",
+    "authentication": "Native origin-bound browser/vault; manually agent-invoked, no cookie extraction or independent renewal service"
+  },
+  "implementation": [
+    "src/lms/academyReadProtocol.ts",
+    "src/lms/dayRecordReadProtocol.ts",
+    "src/lms/academySourceAudit.ts",
+    "harness/academy_read_prepare.ts",
+    "harness/native_read_entry.ts",
+    "harness/endpoints.ts",
+    "src/lms/endpointCatalog.ts",
+    "docs/academy-deterministic-read-contract.ts"
+  ],
+  "actualCanaries": {
+    "publicPreparationExecuted": true,
+    "compiledExpressionsExecutedInAuthenticatedBrowser": true,
+    "textbook": {"sourceRecords":3,"teacherSuppliedPhotos":5,"exactSourceWrongReferencesMatched":9},
+    "dayRecord": {"requestedStudents":4,"independentSelectedRecordDateAndKeyMatches":4},
+    "dailyZero": {"exactCurrentStudentAttemptTargets":1},
+    "allThreeSourceAuditsExecutedThroughPublicCli": true,
+    "rawStudentValues": "Excluded from public evidence; actual scoped response/identity/image evidence stays in the active profile private artifacts."
+  },
+  "separateJournalOperation": {
+    "authorization": "Current user request, independent four-target source verification and native exact-draft approval",
+    "dateKst": "2026-10-02",
+    "students":4,
+    "changedFields":14,
+    "allRequestedFieldReadbacksMatched":true,
+    "persistentMemoAndPreviousColumnsPreserved":true,
+    "teacherFinalReview":"pending",
+    "parentsSent":false,
+    "recurringWriteEnvelopeActivated":false,
+    "privateEvidence": "Active profile artifacts/2026-10-02-four-student-journal-save-readback.json; not for Git"
+  },
+  "codeLevelDisposition": {
+    "pr6": {
+      "reviewedHead":"63ce4cbe64a4870f2a01c4387660efe43a4c2884",
+      "decision":"supersede_and_close_without_merging_old_cloud_snapshot",
+      "reason":"Its six-file change is for retired /workspace Codex Cloud entry/model policy. Merging old AGENTS/Cloud prose would conflict with the current Backend Lead. Its descriptor-based exact-byte migration still performs in-place writes after a check and is not server CAS or atomic replacement; the managed parent path does not apply here.",
+      "retainedUsefulMeaning":"Request-scope Git-only fast path, integrated into current native AGENTS without Cloud revival or parent-file overwrite.",
+      "foreignBranch":"preserve"
+    },
+    "pr10": {
+      "reviewedHead":"4d9e70d8712435f5fd1a6aed434f84366ddb180b",
+      "state":"already_merged",
+      "decision":"retain_codec_and_source_guard_reuse",
+      "reason":"Strict custom-base32 display conversion, unsupported-key preservation and existing result guards remain useful. They do not select a source family, grant identity/permission, or identify a generated clinic. Shared stored-score parser is reused without enabling generation variants."
+    },
+    "pr11": {"base":"be4729dd8621dd012598107c2d802357aaadceb9","decision":"retain_source_inventory_and_enrich_existing_consumer_not_build_another_registry"},
+    "legacyProjection":"Reject unverified raw-learning conversion instead of generating answer keys, LEC identities, 55-minute duration or invented submission times. Legacy live requests remain disabled."
+  },
+  "validation": {
+    "tdd":"Observed RED/GREEN public plan, source read, public prepare, family separation, audit normalization, coverage discovery and legacy projection refusals",
+    "focusedEndpointAndReadAudit":{"pass":39,"fail":0,"assertions":1021},
+    "portable":{"command":"bun run cloud:check","exitCode":0,"passExecutions":783,"failExecutions":0,"skipExecutions":1},
+    "skip":"Existing optional Poppler-dependent test, not a hidden live gate",
+    "review":"Lead self-review, not independent worker approval"
+  },
+  "webMcp": {
+    "teacherDecision":"Keep site/installed engine unchanged; qualify existing APIs and common typed contracts now, attach WebMCP only after support and website authority exist.",
+    "browser":"Chrome/145.0.7632.6",
+    "securePortalDocumentApiExposed":false,
+    "securePortalNavigatorApiExposed":false,
+    "annotatedFormsObserved":0,
+    "officialReference":"https://developer.chrome.com/docs/ai/webmcp/imperative-api",
+    "meaning":"Document-scoped frontend tool API, distinct from backend MCP/SQL or automatic synchronization",
+    "resourceTreeScope":"Existing 18-document source survey plus secure-portal resource-origin observation; idle cleanup refused later tree capture. Empty about:blank was retained as failure, not certified authenticated Tree coverage.",
+    "runtimeSiteOrServiceChange":false
+  },
+  "remainingBoundaries": [
+    "Every unknown/effectful catalog selector stays blocked. More exact wire/effect/identity/response/page qualifications are needed for every additional teacher-accessible data family.",
+    "Wrong-note results do not prove unstarted/ungraded-stage inventory; original O/X does not establish clinic solving/re-entry or teacher mastery.",
+    "Expiring page-cache print markers are not durable physical printer receipts; native cache storage/transport remains unverified.",
+    "Actual protected persistent student-history resource, retention/restore and production deployment remain separate decisions.",
+    "Zero-context discovery and native read preparation are shipped consumers, not unattended authentication or whole-academy final acceptance."
+  ],
+  "recovery":"Revert only this owned source unit if necessary. Preserve original source evidence, private grade/photos/journal receipts, PR6 foreign history and native learning. Refuse stale scope/credential/source state rather than retry unknown effects."
+}
