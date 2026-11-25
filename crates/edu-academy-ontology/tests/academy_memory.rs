@@ -113,7 +113,7 @@ impl Env {
         let md = result["markdown"].as_str().unwrap();
         let rows: Vec<String> = md
             .lines()
-            .filter(|l| l.starts_with('|'))
+            .filter(|l| l.starts_with('|') && !l.starts_with("| (+"))
             .skip(2)
             .map(str::to_string)
             .collect();
