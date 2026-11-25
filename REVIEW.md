@@ -1,4 +1,4 @@
-# Review policy of education-platform
+# Review policy of academy-platform
 
 For the one reviewer session of a pull request (and for the automatic reviewer). Review the head whose required check `rust` passed.
 

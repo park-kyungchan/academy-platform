@@ -1,12 +1,12 @@
 {
   "schemaVersion": "1.0.0",
   "kind": "project",
-  "id": "education-platform:project:manifest",
-  "projectId": "education-platform",
+  "id": "academy-platform:project:manifest",
+  "projectId": "academy-platform",
   "domainId": "education",
   "createdAt": "2026-10-11T00:00:00.000Z",
   "payload": {
-    "name": "Education platform",
+    "name": "Academy platform",
     "status": "active",
     "scope": "Independent mathematical core, curriculum and education applications with explicit source and native ownership.",
     "ontologyPackage": {
@@ -20,7 +20,7 @@
     "details": {
       "semanticOwner": "ontology-platform",
       "runtimeOwner": "existing-native-hermes-projects-and-profiles",
-      "visibility": "private",
+      "visibility": "public",
       "acceptance": "integration-authorized; domain acceptance remains separate",
       "sourceMapRef": "architecture/source-map.json",
       "nativeEffects": false

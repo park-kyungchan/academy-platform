@@ -4,7 +4,7 @@ Current: 2026-11-04, after the user-approved repository reorganization and educa
 
 | Root | One purpose | Creation rule |
 |---|---|---|
-| `platforms/<repo>/` | Main checkout of a platform or module repository | Platforms: agent-platform, ontology-platform, education-platform. Modules: `<platform>-<module>`, e.g. agent-vps-operations or education-dc-gang-a |
+| `platforms/<repo>/` | Main checkout of a platform or module repository | Platforms: agent-platform, ontology-platform, academy-platform. Modules: `<platform>-<module>`, e.g. agent-vps-operations |
 | `work/<scope>-<topic>/` | One active task with STATE.md, decisions and evidence | New task state goes here; scopes include ap, ont, edu, ws and mem |
 | `work/<id>/wt/<repo>/` | Git worktree belonging to that task | Create with Git; record main checkout and branch in the task state |
 | `external/<name>/` | External reference or pinned vendor source | Preserve revision and provenance |
@@ -12,11 +12,13 @@ Current: 2026-11-04, after the user-approved repository reorganization and educa
 | `archive/INDEX.md` | Index of verified Google Drive archives | Restore by index; archives grant no execution authority |
 | `private/` | Existing private custody | No layout scan, content inspection or implicit move |
 
-Current main checkouts are `/home/palantirkc/platforms/{agent-platform,ontology-platform,education-platform,agent-vps-operations,education-dc-gang-a}`. Main checkout existence does not select a writable branch; use the assigned task and native Git state.
+Current main checkouts are `/home/palantirkc/platforms/{agent-platform,ontology-platform,education-platform,agent-vps-operations}`. Main checkout existence does not select a writable branch; use the assigned task and native Git state.
 
 `projects/` retains only the out-of-program D-9 repositories bible-commentary-station, daniel-prayer-operations and park-kyungchan.github.io, plus archived academy-workbench whose local checkout supports custody worktrees. No new task state belongs in `projects/`, `operations/` or top-level `worktrees/`.
 
-Repository renames (2026-11-04): vps-operations → agent-vps-operations; dc-gang-a → education-dc-gang-a; problem-edit → education-problem-edit; academy-observation-module → education-academy-observation. The latter two remain module repositories; obtain their checkout from the assigned task state.
+Repository renames (2026-11-04): vps-operations → agent-vps-operations; dc-gang-a → education-dc-gang-a; problem-edit → education-problem-edit; academy-observation-module → education-academy-observation. Of the latter two, education-academy-observation remains a module repository; obtain its checkout from the assigned task state. education-dc-gang-a and education-problem-edit are no longer module checkouts: their trees and histories are imported into the Academy's repository (see the next paragraph).
+
+The Academy has one repository, park-kyungchan/academy-platform (named education-platform until 2026-11-25). It holds the Academy's code and, under `imported/`, the whole tree and history of two former repositories: `imported/dc-gang-a/` (education-dc-gang-a) and `imported/problem-edit/` (education-problem-edit). `imported/` is a record: nothing builds, tests or changes it (`imported/README.md`). The Academy's entry points use `apps/academy/dc-gang-a/`, not `imported/dc-gang-a/`. The checkout path `/home/palantirkc/platforms/academy-platform` takes effect at regroup-cutover; until then the checkout stays at `/home/palantirkc/platforms/education-platform`.
 
 Agent-harness-engineering and housing-board-module are deleted. Math-research-module, gang-a, math-education and academy-workbench are archived; only academy-workbench keeps its projects/ checkout for custody. See PATH-MAP.tsv for historical sources and current dispositions. Retired harness records do not define current runtime policy.
 
@@ -40,4 +42,4 @@ Use native Git move/repair and explicit consumer readback for future relocation.
 
 Rust `ap` is implemented in agent-platform and installed at `/usr/local/bin/ap`; `ap --help` lists its verbs. Source checks do not establish fresh-session native loading, runtime activation or business acceptance. Native settings and services retain task-specific authority.
 
-This work/ws-layout-standard directory currently holds ordinary work records, not a Git worktree. The Nov4 versioned source for LAYOUT.md and PATH-MAP.tsv is education-platform `docs/workspace-layout/`; the published work-record copies remain the shared entry paths.
+This work/ws-layout-standard directory currently holds ordinary work records, not a Git worktree. The Nov4 versioned source for LAYOUT.md and PATH-MAP.tsv is academy-platform `docs/workspace-layout/`; the published work-record copies remain the shared entry paths.

@@ -1,4 +1,4 @@
-# Education platform
+# Academy platform
 
 The maintained implementation is a Rust Cargo workspace:
 
