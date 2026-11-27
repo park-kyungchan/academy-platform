@@ -33,12 +33,13 @@ relied on by the teacher's lesson and counseling sessions, by the tool surface
 
 | Read | Request |
 | --- | --- |
-| live list | `GET /servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookProgress` |
+| live list | `POST /servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookProgress`, body `student_name=<name>` (the request the tool sends today) |
+| the live path as built | every other request the tool sends today when the live list holds the book, as its existing tests' fixture transports record them (the login exchange, the paper search `p_process=UserBySearchTestResult` of `TestPageListServlet`, and the single-user result `p_process=getStudyResultSingleTestingSingleUser` of `TestpageSelectExServlet`) |
 | wrong-answer note | `POST /servlet/controller.common.TestpageSelectExServlet`, body `p_process=getWrongAnswerNoteResult` with `answerNoteResult` naming the one course, book and student |
 | course-book report | `POST /servlet/controller.coursemanage.TextBookManageServlet`, body `reqCmd=getCourseBookReport&course_key=%u&book_no=%u&student_pri_no=%u` |
 | report views | `GET` of `ReportViewServlet` with one view of R8; its full path is pinned by the unit that builds it |
 
-The two POSTs are reads: they change no Academy data. An example of the binding line, with
+Every POST of this list is a read: it changes no Academy data. The read list is the whole set that the mock transport of R9 allows; R1 keeps the live path's requests in it, so the unchanged live path passes R9. An example of the binding line, with
 invented values: `- book_no=1234 course_key=56 label=Invented Book 2-1`.
 
 ### Answer

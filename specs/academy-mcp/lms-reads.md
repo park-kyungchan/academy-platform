@@ -10,7 +10,7 @@ by the lesson-day and prestudy-review skills and by the units that build and che
 
 ## Requirements
 
-- R1: `academy_lms_schedule_get` takes `view` `attendance`, `study_schedule` or `course_study_manager` and sends only the GET of that view in the table "Routes"; `academy_prestudy_get` with `view` `videos`, `incomplete` or `teacher_summary` sends only the GETs of the prestudy rows of that table. (no test yet; observed by the unit that builds the LMS reads)
+- R1: `academy_lms_schedule_get` takes `view` `attendance`, `study_schedule` or `course_study_manager` and sends only the GET of that view in the table "Routes"; `academy_prestudy_get` sends only the requests of its rows of that table: those of its `view` (`videos` when no `view` and no `reportId` is given), and, with `reportId`, those of the report row once for that key. (no test yet; observed by the unit that builds the LMS reads)
 - R2: The reads send no POST, other than the prestudy list search form that the table names, which changes no Academy data; no request leaves the table. (no test yet; observed by the unit that builds the LMS reads)
 - R3: Before its first LMS request a call takes the shared account lock of `docs/academy-account-lock.md` with `/usr/bin/flock --nonblock` and holds it until its last; when the lock is busy the call ends with a tool error carrying `owner_account_busy`, and 0 HTTP requests are sent. (no test yet; observed by the unit that builds the LMS reads)
 - R4: A redirect to the login page, the login page itself, a session-error page (`normal_session_error.jsp`, `popup_session_error.jsp`), or a page with a password input refuses the call with `authentication_required`; no row of such a page is answered and no login is retried within the call (fail closed). (no test yet; observed by the unit that builds the LMS reads)
@@ -29,8 +29,12 @@ by the lesson-day and prestudy-review skills and by the units that build and che
 | `academy_lms_schedule_get(view:'attendance')` | `GET /servlet/controller.cct.tutor.AttendanceServlet?p_process=Main` |
 | `academy_lms_schedule_get(view:'study_schedule')` | `GET /servlet/controller.coursemanage.CourseManageServlet?reqCmd=StudySchedule` |
 | `academy_lms_schedule_get(view:'course_study_manager')` | `GET /servlet/controller.coursemanage.CourseManageServlet?reqCmd=CourseStudyManager` |
-| `academy_prestudy_get(view:'videos')` and `(view:'incomplete')` | `GET /servlet/controller.coursemanage.CourseManageServlet?reqCmd=WebUnPreStudy` (and `reqCmd=WebCtPreStudy` for completed rows); the search is `POST` of the page's `form1` with its own hidden scope fields |
+| `academy_prestudy_get(view:'videos')` | the requests of the old `academy_prestudy_get`, in its order: `GET /servlet/controller.coursemanage.CourseManageServlet?reqCmd=WebUnPreStudy` and the `POST` of that page's `form1`; `GET ...CourseManageServlet?reqCmd=WebCtPreStudy` and the `POST` of that page's `form1`; `GET ...CourseManageServlet?reqCmd=TeacherPrestudySummary` |
+| `academy_prestudy_get(view:'incomplete')` | `GET /servlet/controller.coursemanage.CourseManageServlet?reqCmd=WebUnPreStudy` and the `POST` of that page's `form1` |
 | `academy_prestudy_get(view:'teacher_summary')` | `GET /servlet/controller.coursemanage.CourseManageServlet?reqCmd=TeacherPrestudySummary` |
+| `academy_prestudy_get(includeReports:true, reportId)` | the requests of the old `academy_prestudy_report_get`: `GET /servlet/controller.coursemanage.CourseManageServlet?reqCmd=WebPreStudy&prestudy_key=<reportId>`, then `GET /app-ui/solution_common/prestudy/prestudy_ai_report.jsp?analysis_key=<key>` with the analysis key that the first page gives |
+
+A `form1` POST is the list's search form: it changes no Academy data. `includeReports:true` without `reportId`, or `reportId` without `includeReports:true`, refuses with an invalid input before any request. The `view` rows answer what the old tool of the same requests answered, as [tool-surface.md](tool-surface.md) R4 requires.
 
 The query parameters of a view beyond the command (a date, a period, a class) are those the
 page's own form carries; a hidden scope field is read back from the live page, never built
