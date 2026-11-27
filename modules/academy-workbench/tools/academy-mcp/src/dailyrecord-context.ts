@@ -3,8 +3,6 @@ import {freezeLabelData} from './item-label-context.ts';
 import {JOURNAL_HTTP_SOURCE_CONTRACT} from '../../../../../apps/academy/dc-gang-a/src/lms/lessonJournalHttp';
 
 const text=z.string().min(1).max(4096).refine(value=>value.trim().length>0&&!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value),'nonempty_safe_text_required');
-/** The bound the memo of a DailyRecord write meets at review, stated to the caller in the input schema. */
-export const memoBoundNote='Lesson memo text: at most 400 units, where a non-ASCII character (Korean included) counts 2 and any other character 1.';
 export const dailyRecordFields=['progress','homework','lessonMemo','attendance','dailyTestAssessment','previousHomeworkAssessment'] as const;
 export type DailyRecordField=typeof dailyRecordFields[number];
 export const dailyRecordFieldSchema=z.enum(dailyRecordFields);
@@ -55,7 +53,7 @@ export const dailyRecordContextSchema=z.object({schemaVersion:z.literal('academy
   memoAnswer:z.discriminatedUnion('kind',[
     z.object({kind:z.literal('not_supplied')}).strict(),
     z.object({kind:z.literal('no_addition'),requestRef:dailyRecordIdSchema}).strict(),
-    z.object({kind:z.literal('content'),requestRef:dailyRecordIdSchema,text:text.describe(memoBoundNote)}).strict(),
+    z.object({kind:z.literal('content'),requestRef:dailyRecordIdSchema,text}).strict(),
   ]),facts:z.array(dailyRecordFactSchema).max(64),
 }).strict().superRefine((value,context)=>{
   if(new Set(value.selectedFields).size!==value.selectedFields.length)context.addIssue({code:'custom',message:'duplicate_selected_field'});

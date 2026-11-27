@@ -3500,8 +3500,7 @@
                       "text": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 4096,
-                        "description": "Lesson memo text: at most 400 units, where a non-ASCII character (Korean included) counts 2 and any other character 1."
+                        "maxLength": 4096
                       }
                     },
                     "required": [

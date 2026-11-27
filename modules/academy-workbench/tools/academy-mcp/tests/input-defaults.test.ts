@@ -1,6 +1,6 @@
 import {expect,test} from 'bun:test';
 import {z} from 'zod';
-import {DailyRecordService,dailyRecordIntakeSchema,dailyRecordReviewSchema,dailyRecordSaveSchema,studentMetadataBatchSchema,studentMetadataGetSchema} from '../src/dailyrecord.ts';
+import {DailyRecordService,dailyRecordReconcileSchema,dailyRecordIntakeSchema,dailyRecordReviewSchema,dailyRecordSaveSchema,studentMetadataBatchSchema,studentMetadataGetSchema} from '../src/dailyrecord.ts';
 import {dailyTestHeaderRouteSchema,readDailyTestHeaders} from '../src/dailytest-header-route.ts';
 import {dailyRecordGetSchema} from '../src/dailyrecord-read.ts';
 
@@ -67,4 +67,11 @@ test('the memo bound of intake, review and save is stated in the input schema',(
     expect(text).toContain('non-ASCII character');
     expect(text).toContain('counts 2');
   }
+});
+
+test('the memo content member stays strict and its bound is not stated on the context of other tools',()=>{
+  const memo=(extra:object)=>dailyRecordIntakeSchema.safeParse({context:{scope:{sourceNamespace:'academy.lms.dayrecord',teacherId:'99001',studentId:'77001',lessonDate:'2040-03-15'},memoAnswer:{kind:'content',requestRef:'r',text:'메모',...extra}}});
+  expect(memo({}).success).toBe(true);
+  expect(memo({extra:1}).success).toBe(false);
+  expect(JSON.stringify(z.toJSONSchema(dailyRecordReconcileSchema as never,{io:'input'}))).not.toContain('at most 400 units');
 });
