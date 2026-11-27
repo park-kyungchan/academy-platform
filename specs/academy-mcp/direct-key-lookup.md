@@ -22,8 +22,8 @@ relied on by the teacher's lesson and counseling sessions, by the tool surface
 - R6: A key that is not 1 to 32 ASCII digits refuses with an invalid input before any LMS request. (no test yet; observed by the unit that builds the direct-key fallback)
 - R7: The fallback reads `edu-academy-memory` only: it never binds, unbinds or writes an observation. (no test yet; observed by the unit that builds the direct-key fallback)
 - R8: The report views of `ReportViewServlet` that a tool may read are exactly `SmartBookReportView`, `DiagReportView`, `NewStudentReportView`, `FaView`, `GaReportView` and `NaScoreResultView`, each by GET; any other view name refuses with an invalid input before any request. (no test yet; observed by the unit that builds the direct-key fallback)
-- R9: I1 `write_forbidden`: under a mock transport that answers `write_forbidden` to every request not in the read list of the Interface, every call of R2 to R8 on the synthetic fixtures completes or refuses with its own code, and the transport records 0 `write_forbidden` requests. (no test yet; observed by the unit that builds the direct-key fallback)
-- R10: Account lock: before its first LMS request the TypeScript server takes the shared account lock of `docs/academy-account-lock.md` with `/usr/bin/flock --nonblock` and holds it until its last request of the call; when the lock is busy the call ends with a tool error carrying `owner_account_busy`, and 0 HTTP requests are sent. A Rust owner refuses in the same case with `owner_account_busy`, as that document states. (no test yet; observed by the unit that builds the direct-key fallback)
+- R9: I1 `write_forbidden`: under a mock transport that answers `write_forbidden` to every request whose route is classed write (by its named route and operation, never by its method alone, as [tool-surface.md](tool-surface.md) "Request classes" states) or that is not in the read list of the Interface, every call of R2 to R8 on the synthetic fixtures completes or refuses with its own code, and the transport records 0 `write_forbidden` requests. (no test yet; observed by the unit that builds the direct-key fallback)
+- R10: Account lock: before its first LMS request a call of the TypeScript server takes the shared account lock of `docs/academy-account-lock.md`, waiting up to 45 seconds, and holds it until its last request; when the lock is still held after 45 seconds the call ends with a tool error carrying `owner_account_busy`, and 0 HTTP requests are sent. A Rust owner that finds the lock held fails at once with `owner_account_busy`, and `edu lesson` retries for up to its `lockWaitSeconds`, as that document states. (no test yet; observed by the unit that builds the direct-key fallback)
 - R11: A page that is the LMS login page, a session-error page or a redirect to either refuses the call with `authentication_required` and answers no row (fail closed). (no test yet; observed by the unit that builds the direct-key fallback)
 - R12: No error and no log line of the fallback holds a student name, a record text or a key value. (no test yet; observed by the unit that builds the direct-key fallback)
 
@@ -59,8 +59,10 @@ keys came from R2.
 ### Account lock
 
 The shared lock file and its order are those of `docs/academy-account-lock.md`; in Rust the
-lock is taken by `OwnerRoot::account`. The TypeScript server runs `/usr/bin/flock --nonblock`
-on the same path; the path is host configuration and is not in this repository.
+lock is taken by `OwnerRoot::account`, which does not wait. The TypeScript server's installed
+endpoint command takes the same file with `flock --wait 45`
+(`modules/academy-workbench/tools/academy-mcp/src/upstream-process.ts`), so it waits up to 45
+seconds. The path is host configuration and is not in this repository.
 
 ### Tests
 

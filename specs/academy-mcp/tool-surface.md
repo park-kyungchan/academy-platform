@@ -18,7 +18,7 @@ and check the surface.
 
 Size
 
-- R1: After the consolidation of the existing tools, `tools[]` of `surface.json` holds at most 15 tools and its compact JSON is at most 22 KiB (22,528 B). (no test yet; observed by the unit that consolidates the tool surface)
+- R1: After the consolidation of the existing tools, `tools[]` of `surface.json` holds at most 15 tools and its compact JSON is at most 18 KiB (18,432 B), which leaves at least 6 KiB for the 7 new tools under R2. (no test yet; observed by the unit that consolidates the tool surface)
 - R2: After the 7 new tools of the table "New tools" are added, `tools[]` holds at most 24 tools (22 planned) and its compact JSON is at most 24 KiB (24,576 B). (no test yet; observed by each unit that adds a new tool)
 
 Accounting
@@ -41,8 +41,9 @@ Skills
 
 Writes
 
-- R12: Write-tool separation: the LMS requests of a `*_save` call are only its pre-write GET of the page from which it computes `wireSha256`, a single write POST for each change or step that its review names (one POST for a review of one change; see [gated-writes.md](gated-writes.md) for the two steps of an exam paper), and its post-write readback GET; it sends no other read or browse request and answers no standalone read view such as `intake`, `status` or `reconcile`. (no test yet; observed by the unit that consolidates the tool surface)
-- R13: No tool other than a `*_save` tool sends an LMS request that changes Academy data; a `*_review` tool sends no POST. (no test yet; observed by the unit that consolidates the tool surface)
+- R12: Write-tool separation: every LMS request is classed read or write by its named route and operation (Interface, "Request classes"), never by its HTTP method alone. A `*_save` call sends only login requests, optionally one initial before-state read request, and, for each reviewed change or step, at most one pre-write before-state or `wireSha256` read request, one write request and one readback read request; it sends no browse query and answers no standalone read view such as `intake`, `status` or `reconcile`. (no test yet; observed by the unit that consolidates the tool surface)
+- R13: No tool other than a `*_save` tool sends a request classed write; a `*_review` tool sends only requests classed read. (no test yet; observed by the unit that consolidates the tool surface)
+- R14: The consolidation trims repeated prose of the descriptions but keeps, in the description of each consolidated tool, every Korean trigger keyword of the descriptions of the old tools it replaces (each Hangul term of those descriptions at commit 76d04632) and their step and parameter contracts (the numbered steps, the parameters and their allowed values). (no test yet; observed by the unit that consolidates the tool surface)
 
 ## Interface
 
@@ -53,8 +54,15 @@ The bytes of `JSON.stringify(surface.tools)` (no whitespace between tokens, UTF-
 
 | Stage | Tools | Compact `tools[]` |
 | --- | --- | --- |
-| After consolidation (R1) | at most 15 | at most 22 KiB (22,528 B) |
+| After consolidation (R1) | at most 15 | at most 18 KiB (18,432 B), at least 6 KiB below the R2 limit |
 | After the 7 new tools (R2) | at most 24, 22 planned | at most 24 KiB (24,576 B) |
+
+### Request classes
+
+A request is read or write as `apps/academy/dc-gang-a/src/lms/lmsRouteRegistry.ts` and
+`apps/academy/dc-gang-a/src/lms/endpointCandidates.ts` class its named route and operation. The
+HTTP method does not decide it: `academy_dailyrecord_save` writes with a GET and reads with a
+POST. A route that neither classes is write until the unit that adds it classes it.
 
 ### Old to new
 
@@ -156,6 +164,9 @@ the tools over recorded synthetic fixture transports.
 
 - The members that each tool answers beyond the parity of R4; each tool's own contract
   states them.
-- The text of the descriptions, beyond R6 and R7.
+- The text of the descriptions, beyond R6, R7 and R14.
 - The Rust replacement's tools; no Rust MCP crate is part of this surface.
 - Installing a release generation; `surface.json` is installed by the release install.
+- The retired snapshot and non-DailyTest reads `academy_query`, `academy_source_status` and
+  `academy_student_metadata_get`: no tool of the new surface answers their old snapshot or
+  non-DailyTest rows.

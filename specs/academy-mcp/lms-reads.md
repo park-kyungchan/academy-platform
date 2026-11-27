@@ -10,12 +10,12 @@ by the lesson-day and prestudy-review skills and by the units that build and che
 
 ## Requirements
 
-- R1: `academy_lms_schedule_get` takes `view` `attendance`, `study_schedule` or `course_study_manager` and sends only the GET of that view in the table "Routes"; `academy_prestudy_get` sends only the requests of its rows of that table: those of its `view` (`videos` when no `view` and no `reportId` is given), and, with `reportId`, those of the report row once for that key. (no test yet; observed by the unit that builds the LMS reads)
-- R2: The reads send no POST other than those the table names (the login exchange, the student name search and the prestudy list search forms), none of which changes Academy data; no request leaves the table. (no test yet; observed by the unit that builds the LMS reads)
-- R3: Before its first LMS request a call takes the shared account lock of `docs/academy-account-lock.md` with `/usr/bin/flock --nonblock` and holds it until its last; when the lock is busy the call ends with a tool error carrying `owner_account_busy`, and 0 HTTP requests are sent. (no test yet; observed by the unit that builds the LMS reads)
+- R1: `academy_lms_schedule_get` takes `view` `attendance`, `study_schedule` or `course_study_manager` and sends only the requests of that view's rows in the table "Routes"; `academy_prestudy_get` sends only the requests of its rows of that table: those of its `view` (`videos` when no `view` and no `reportId` is given), and, with `reportId`, those of the report row once for that key. (no test yet; observed by the unit that builds the LMS reads)
+- R2: The reads send 0 write requests: every request is a GET or a POST search form whose route is classed read by its named route and operation, never by its method alone (as [tool-surface.md](tool-surface.md) "Request classes" states); the only POSTs are those the table names (the login exchange, the student name search and the prestudy list search forms), and no request leaves the table. (no test yet; observed by the unit that builds the LMS reads)
+- R3: Before its first LMS request a call takes the shared account lock of `docs/academy-account-lock.md`, waiting up to 45 seconds, and holds it until its last request; when the lock is still held after 45 seconds the call ends with a tool error carrying `owner_account_busy`, and 0 HTTP requests are sent. (no test yet; observed by the unit that builds the LMS reads)
 - R4: A redirect to the login page, the login page itself, a session-error page (`normal_session_error.jsp`, `popup_session_error.jsp`), or a page with a password input refuses the call with `authentication_required`; no row of such a page is answered and no login is retried within the call (fail closed). (no test yet; observed by the unit that builds the LMS reads)
 - R5: A page whose scope fields (the teacher key and, where the page has them, the date or period) differ from those requested refuses with `scope_conflict`; a page without the form or table the read expects refuses with `source_drift`. (no test yet; observed by the unit that builds the LMS reads)
-- R6: I1 `write_forbidden`: under a mock transport that answers `write_forbidden` to every request not in the table "Routes", every view of both tools on the synthetic fixtures completes, and the transport records 0 `write_forbidden` requests. (no test yet; observed by the unit that builds the LMS reads)
+- R6: I1 `write_forbidden`: under a mock transport that answers `write_forbidden` to every request whose route is classed write, or that is not in the table "Routes", every view of both tools on the synthetic fixtures completes, and the transport records 0 `write_forbidden` requests. (no test yet; observed by the unit that builds the LMS reads)
 - R7: A date that is not a calendar date written `YYYY-MM-DD`, or a period over 31 days, refuses with an invalid input before any request. (no test yet; observed by the unit that builds the LMS reads)
 - R8: A page larger than 2 MiB, or one that yields more than 1000 rows, refuses with `source_rejected`. (no test yet; observed by the unit that builds the LMS reads)
 - R9: No video URL and no cookie is answered or logged; an answer holds the page's labels, dates, keys and status literals only. (no test yet; observed by the unit that builds the LMS reads)
@@ -58,6 +58,7 @@ from the caller's input.
 | One page | 2 MiB |
 | Rows of one page | 1000 |
 | Period of one call | 31 days |
+| Wait for the account lock | 45 seconds |
 
 ### Tests
 

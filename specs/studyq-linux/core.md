@@ -27,7 +27,7 @@ Form and answer
 
 Assets
 
-- R9: Before it reads a template, `render` checks the asset manifest in `<dir>`: a missing `report.zip` or `NanumGothic-Regular.ttf` refuses with `asset_missing`, and a file whose SHA-256 differs from its manifest value refuses with `asset_hash_mismatch`; neither writes a PDF. (no test yet; observed by the unit that builds studyq-linux)
+- R9: Before it reads a template, `render` reads `manifest.json` in `<dir>` (Interface, "Asset manifest") and checks it: a manifest that is absent, not one JSON object of the members of the Interface, or of a `schemaVersion` other than `studyq-assets/1` refuses with `asset_manifest_invalid`; a `reportZipSha256` or `fontSha256` other than the pinned value, or a file whose SHA-256 differs from its entry under `files`, refuses with `asset_hash_mismatch`; a file that `files` names and the directory lacks refuses with `asset_missing`. None of these writes a PDF. (no test yet; observed by the unit that builds studyq-linux)
 - R10: The executor never creates, changes or removes a file under `--assets`, and opens no network connection. (no test yet; observed by the unit that builds studyq-linux)
 - R11: `report.zip`, the templates inside it and the print archives are never committed to Git: no file of the repository has the SHA-256 of `report.zip` or of a template inside it. On the host they are installed read-only under `/usr/local/lib/academy-mcp/studyq-assets/`. (no test yet; observed by the unit that installs studyq-linux)
 - R12: The font of every page is `NanumGothic-Regular.ttf` of the manifest, embedded in the PDF; no other font is embedded. (no test yet; observed by the unit that builds studyq-linux)
@@ -78,10 +78,16 @@ An example answer, with invented values:
 
 ### Asset manifest
 
-| File in `--assets` | SHA-256 |
+`<dir>/manifest.json` is one JSON object with exactly these members:
+
+| Member | Value |
 | --- | --- |
-| `report.zip` | `0578b55567ccb977a9857a7a93287a6fd130abf64ef533e61b00ab63b82ea7b3` |
-| `NanumGothic-Regular.ttf` | `76f45ef4a6bcff344c837c95a7dcc26e017e38b5846d5ae0cdcb5b86be2e2d31` |
+| `schemaVersion` | `studyq-assets/1` |
+| `reportZipSha256` | `0578b55567ccb977a9857a7a93287a6fd130abf64ef533e61b00ab63b82ea7b3`, the SHA-256 of `report.zip` |
+| `fontSha256` | `76f45ef4a6bcff344c837c95a7dcc26e017e38b5846d5ae0cdcb5b86be2e2d31`, the SHA-256 of `NanumGothic-Regular.ttf` |
+| `files` | an object of per-file SHA-256 entries, `"<name>": "<64 hex>"`, one for each file of `<dir>` that the executor reads: at least `report.zip` and `NanumGothic-Regular.ttf`, whose entries equal the two pins above |
+
+An example of the shape, with the entries abbreviated: `{"schemaVersion":"studyq-assets/1","reportZipSha256":"0578b555…","fontSha256":"76f45ef4…","files":{"report.zip":"0578b555…","NanumGothic-Regular.ttf":"76f45ef4…"}}`.
 
 The font's hash equals that of `apps/academy/dc-gang-a/src/academy/web/assets/NanumGothic-Regular.ttf`
 in this repository. On the host the directory is `/usr/local/lib/academy-mcp/studyq-assets/`,
@@ -142,7 +148,7 @@ no key, and no file that holds one, is in this repository.
 | `input_invalid` | R4, R18, R21, R22 |
 | `type_unknown` | R5 |
 | `output_exists` | R6 |
-| `asset_missing`, `asset_hash_mismatch` | R9 |
+| `asset_manifest_invalid`, `asset_missing`, `asset_hash_mismatch` | R9 |
 | `archive_key_missing` | R23 |
 | `archive_missing` | an archive of R20 that does not exist |
 | `archive_refused` | R24, R25 |
