@@ -29,7 +29,7 @@ export type DailyRecordObservation=z.infer<typeof dailyRecordObservationSchema>;
 /** Retired members: accepted when present, never read. */
 const learningEntrySchema=z.object({bookRef:dailyRecordIdSchema,unitRef:dailyRecordIdSchema,scope:z.enum(['unit','sections']),sectionRefs:z.array(dailyRecordIdSchema).max(64),activity:z.string().min(1).max(400),deadline:dailyRecordDateSchema.nullable()}).strict();
 /** Only field and value are required; factRefs, decision and its requestRef have defaults (dailyrecord-write-input.ts). */
-const proposalSchema=z.object({field:dailyRecordFieldSchema,value:z.string().max(8192),factRefs:z.array(dailyRecordIdSchema).max(32).optional(),
+const proposalSchema=z.object({field:dailyRecordFieldSchema,value:z.string().max(8192).describe("The new text of the field. For lessonMemo: at most 400 units, where a non-ASCII character (Korean included) counts 2 and any other character 1; a longer memo is held at review."),factRefs:z.array(dailyRecordIdSchema).max(32).optional(),
   decision:z.object({kind:z.enum(['set','replace','clear']),requestRef:dailyRecordIdSchema.optional()}).strict().optional(),learningEntries:z.array(learningEntrySchema).max(64).optional(),
   teacherReported:z.object({preserveBefore:z.boolean(),mappedText:z.string().max(8192),lines:z.array(z.object({factRef:dailyRecordIdSchema,text:z.string().min(3).max(1000)}).strict()).min(1).max(32)}).strict().optional(),
 }).strict();
@@ -70,11 +70,11 @@ export const studentMetadataQuerySchema=z.discriminatedUnion('kind',[
 ]);
 /** Separate read-only query transport: never a DailyRecord field, fact, approval or credential input. */
 export const studentMetadataBatchSchema=z.object({...requestIdentityShape,
-  scope:dailyRecordScopeSchema.extend({sourceNamespace:z.literal('academy.lms.metadata'),lessonDate:academyDateInputSchema}).strict(),
+  scope:dailyRecordScopeSchema.extend({sourceNamespace:z.literal('academy.lms.metadata'),lessonDate:academyDateInputSchema.default('today').describe('Omit for today. '+academyDateInputSchema.description)}).strict(),
   queries:z.array(studentMetadataQuerySchema).min(1).max(8),
 }).strict();
 export type StudentMetadataBatch=WithRequest<z.infer<typeof studentMetadataBatchSchema>>;
-export const studentMetadataGetSchema=z.object({displayName:z.string().trim().min(1).max(200),lessonDate:academyDateInputSchema,
+export const studentMetadataGetSchema=z.object({displayName:z.string().trim().min(1).max(200),lessonDate:academyDateInputSchema.default('today').describe('Omit for today. '+academyDateInputSchema.description),
   ...requestIdentityShape,queries:z.array(studentMetadataQuerySchema).min(1).max(8)}).strict();
 export type StudentMetadataGet=WithRequest<z.infer<typeof studentMetadataGetSchema>>;
 export type StudentMetadataObservation={scope:StudentMetadataBatch['scope'];results:{query:StudentMetadataBatch['queries'][number];observation:unknown}[]};
