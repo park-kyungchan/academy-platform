@@ -18,7 +18,8 @@ test('V2 composite routes after student resolution to either pinned paper admiss
   let endpointPin=await f.pin('endpoints-two-papers.json',endpoints);
   const registry=JSON.parse(await readFile(f.release.registry.path,'utf8'));
   registry.push(...['paper2','paper1'].map(endpoint=>({endpoint,upstreamName:'academy_paper_headers',tool:{name:endpoint==='paper2'?'class2_academy_paper_headers':'academy_paper_headers',inputSchema:{type:'object'}}})));
-  registry.push({endpoint:'dailyrecord',upstreamName:'academy_dailytest_history',tool:{name:'academy_dailytest_history',inputSchema:{type:'object'}}});
+  // The bridge's discovery of the packaged fixture already writes the composition academy_dailytest_history.
+  expect(registry.filter((r:any)=>r.tool.name==='academy_dailytest_history')).toHaveLength(1);
   const registryPin=await f.pin('registry-two-papers.json',registry),originalRouting=JSON.parse(await readFile(f.release.routing.path,'utf8'));
   let n=0;const publish=async(scopes:any)=>{const routing=await f.pin(`scoped-routing-${++n}.json`,{...originalRouting,paperScopes:scopes});const pointer=await f.pin(`scoped-release-${n}.json`,{...f.release,generation:`scope-${n}`,routing,endpoints:endpointPin,registry:registryPin,endpointIdentities:{dailyrecord:f.manifest,...manifests}});await rename(pointer.path,resolve(f.base,'release.json'));};
   const call=()=>f.client.callTool({name:'academy_dailytest_history',arguments:{displayName:'Fictional Two',lessonDate:'2026-10-21',purpose:'Fictional request',currentRequestRef:'fictional-ref',periods:['11']}});

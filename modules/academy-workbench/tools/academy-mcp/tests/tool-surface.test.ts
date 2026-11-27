@@ -188,7 +188,7 @@ const minimalInputs:Record<string,Record<string,unknown>>={
 const oldArgs=(old:string,input:Record<string,unknown>)=>{
  const renamed:Record<string,Record<string,string>>={academy_capabilities:{capabilityView:'view'},academy_paper_definition_lookup:{definitionView:'view'},
   academy_prestudy_report_get:{reportId:'prestudyKey'}};
- const extra:Record<string,Record<string,unknown>>={academy_prestudy_report_get:{prestudyKey:'5002'}};
+ const extra:Record<string,Record<string,unknown>>={academy_prestudy_report_get:{prestudyKey:'5002'},academy_daily_test_inventory:{studentId:'77001'}};
  return {...Object.fromEntries(Object.entries(input).map(([k,v])=>[renamed[old]?.[k]??k,v])),...extra[old]};
 };
 

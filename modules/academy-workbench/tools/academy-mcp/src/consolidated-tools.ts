@@ -32,6 +32,8 @@ export interface Route{
   rename?:Readonly<Record<string,string>>;
   /** A bridge-served read: the runtime identity, or one of the bridge's own two compositions. */
   bridge?:'identity'|'dailyrecord_record'|'dailytest_headers';
+  /** Members the registry schema requires when this route is chosen (refused at input validation). */
+  required?:readonly string[];
 }
 export interface ConsolidatedTool{
   name:string;title:string;description:string;
@@ -41,6 +43,8 @@ export interface ConsolidatedTool{
   endpoint:string;
   /** The discriminating arguments (R5 validates only these). */
   selectors:readonly string[];
+  /** The route chosen when the first selector is absent. */
+  defaultRoute?:string;
   routes:Readonly<Record<string,Route>>;
 }
 
@@ -61,12 +65,12 @@ export const consolidatedTools:readonly ConsolidatedTool[]=[
    source_contracts:{upstream:'academy_source_read_contracts',endpoints:paper,keys:['studentId','kind','unitCodes','unitNames']},
    paper_contracts:{upstream:'academy_paper_read_contracts',endpoints:paper,keys:['studentId']},
   }},
- {name:'academy_dailyrecord_get',title:'DailyRecord(수업일지) 조회',endpoint:'dailyrecord',selectors:['view'],
+ {name:'academy_dailyrecord_get',title:'DailyRecord(수업일지) 조회',endpoint:'dailyrecord',selectors:['view'],defaultRoute:'record',
   description:"DailyRecord (수업일지, 일지) reads; no LMS write. view 'record' (default): one student's live record of one date: fields[] (field, before.value, code label before.label; progress 진도, homework 숙제, lessonMemo 메모, attendance 출결, DT and homework assessments), assessmentCodeLabels, scope, authoringHandle. For every 일지 or 기록 조회, today or past, and the readback after a save. displayName: the name as written. lessonDate: omit for today, else YYYY-MM-DD, 오늘, 어제, 11월 16일 or 11/16 (Asia/Seoul). fields: names to return (default all six). detail 'compact' drops authoringHandle. student_name_not_found: no record that date. 'intake': before-state of a scope with observationHandle and interviews; only when record gave authoringHandle null, or after stale_source. scope (from record) in context.scope or top-level (sourceNamespace, teacherId, studentId, lessonDate); context members (schemaVersion, purpose, currentRequestRef, selectedFields, memoAnswer, facts) may be top-level, given once (context_member_conflict); fields, suppliedValues. 'status': save attempts of scope (저장 실행 상태): per-field executions, requestRef, state, who; no LMS request; requestRef adds its audit. 'reconcile': reads the LMS once and classes each unresolved save of the record persisted, not_persisted or conflict (연결 끊김, 들어갔는지 확인); context as for review. To close one as not landed: resolution {request: {requestRef, instruction: {text: the user's words}}, executions: [{requestRef, field}] from 'status'}; not_persisted needs a new review and save. Writes: academy_dailyrecord_review.",
   inputSchema:schema({view:oneOf('record','intake','status','reconcile'),detail:oneOf('full','compact'),displayName:str,purpose:str,currentRequestRef:str,lessonDate:str,
    fields:fieldList,context:obj,scope:obj,requestRef:str,resolution:obj}),
   routes:{
-   record:{upstream:'academy_dailyrecord_get',endpoints:dr,keys:['displayName','purpose','currentRequestRef','lessonDate','fields','detail'],rename:{detail:'view'},bridge:'dailyrecord_record'},
+   record:{upstream:'academy_dailyrecord_get',endpoints:dr,keys:['displayName','purpose','currentRequestRef','lessonDate','fields','detail'],rename:{detail:'view'},bridge:'dailyrecord_record',required:['displayName']},
    intake:{upstream:'academy_dailyrecord_intake',endpoints:dr,keys:intakeKeys},
    status:{upstream:'academy_dailyrecord_execution_status',endpoints:dr,keys:['scope','requestRef',...audit]},
    reconcile:{upstream:'academy_dailyrecord_reconcile',endpoints:dr,keys:['context','resolution',...audit]},
@@ -176,11 +180,19 @@ export function isCompositionEntry(entry:{upstreamName:string;tool:{name:string}
 }
 
 /** The registry schema of a composition, which the bridge validates every call with: the
- * displayed members, every member that one of its routes takes, and no other member. */
+ * displayed members, every member that one of its routes takes, no other member, and the
+ * members a chosen route requires. */
 export function registrySchema(tool:ConsolidatedTool):Json{
-  const shown=tool.inputSchema as {properties:Json};
+  const shown=tool.inputSchema as {properties:Json;required?:string[]};
   const taken=[...new Set(Object.values(tool.routes).flatMap(r=>r.keys))].filter(k=>!Object.hasOwn(shown.properties,k));
-  return {...tool.inputSchema,properties:{...shown.properties,...Object.fromEntries(taken.map(k=>[k,{}]))},additionalProperties:false};
+  const selector=tool.selectors[0]!;
+  const chosen=(value:string):Json=>{
+    const named={properties:{[selector]:{const:value}},required:[selector]};
+    return value===tool.defaultRoute?{anyOf:[{not:{required:[selector]}},named]}:named;
+  };
+  const conditions=Object.entries(tool.routes).filter(([,r])=>r.required?.length).map(([value,r])=>({if:chosen(value),then:{required:[...r.required!]}}));
+  return {...tool.inputSchema,properties:{...shown.properties,...Object.fromEntries(taken.map(k=>[k,{}]))},required:shown.required??[],
+    additionalProperties:false,...(conditions.length?{allOf:conditions}:{})};
 }
 
 /** The registry entry of each composition, as `neutral-server.ts --discover` writes it. */
