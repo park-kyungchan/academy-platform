@@ -9,6 +9,7 @@ import {dailyRecordGetSchema} from '../src/dailyrecord-read.ts';
 import {dailyTestHeaderRouteSchema} from '../src/dailytest-header-route.ts';
 import {academyDateInputSchema} from '../src/read-input.ts';
 import {poolQuestionContentInputSchema} from '../src/pool-question-content.ts';
+import {consolidatedTools,consolidatedNames} from '../src/consolidated-tools.ts';
 
 // Compares the tools of release v5 (tests/fixtures/release-v5-tools.json, taken from its
 // surface.json and registry.json) with what the saved and dailyrecord endpoint programs
@@ -67,15 +68,17 @@ const changedOutsideTheEndpoints:Record<string,{pointers:string[];schema:JsonSch
  academy_pool_question_content:{pointers:['/properties/purpose','/required'],schema:z.toJSONSchema(poolQuestionContentInputSchema,{io:'input'}) as JsonSchema,
   check:schema=>({purposeDefault:at(schema,'/properties/purpose/default'),purposeRequired:((schema.required??[]) as string[]).includes('purpose')})},
 };
-/** Registered by a program and deliberately absent from the surface. `academy_student_metadata_get`
- * is the hidden upstream of the bridge composition `academy_dailytest_history_with_headers`. */
+/** Registered by a program, absent from the surface and routed to by no consolidated tool. */
 const hiddenTools:Record<Program,string[]>={
- saved:['academy_endpoint_identity','academy_student_metadata_get'],
- dailyrecord:['academy_endpoint_identity','academy_student_metadata_get','academy_textbook_units_get'],
+ saved:['academy_endpoint_identity'],
+ dailyrecord:['academy_endpoint_identity','academy_textbook_units_get'],
 };
-/** Fixture tools that the surface does not list: hidden upstream routes of the composition
- * (`academy_student_metadata_get` on the dailyrecord endpoint, paper2's `class2_academy_paper_headers`). */
-const hiddenRouteTargets=['academy_student_metadata_get','class2_academy_paper_headers'];
+/** The endpoint tools that the consolidated tools of the surface route to (src/consolidated-tools.ts). */
+const routeUpstreams=new Set(consolidatedTools.flatMap(t=>Object.values(t.routes).map(r=>r.upstream)));
+/** v5 tools that are neither on the surface nor a route: the retired bridge composition
+ * `academy_dailytest_history_with_headers` (now `academy_dailytest_history`) and paper2's alias
+ * `class2_academy_paper_headers`, which `selectPaperRoute` reaches from `academy_paper_headers`. */
+const hiddenRouteTargets=['academy_dailytest_history_with_headers','class2_academy_paper_headers'];
 /** The paper endpoints' tools are not compared here: the change that adds the paper server compares them. */
 const comparedWithPaperServer=fixture.tools.filter(t=>t.endpoint==='paper1'||t.endpoint==='paper2').map(t=>t.name);
 
@@ -140,9 +143,10 @@ afterAll(async()=>{for(const {client,transport} of open){await client.close();aw
 const registered=(program:Program)=>listed[program]!;
 
 describe('release v5 tools against the endpoint programs',()=>{
- test('the fixture holds the 30 routed tools of v5 that remain, the bridge-served runtime identity and no retired tool',()=>{
-  expect(fixture.tools.map(t=>t.name).filter(name=>!hiddenRouteTargets.includes(name))).toEqual(surface.tools.map(t=>t.name));
-  expect(surface.tools).toHaveLength(29);
+ test('each of the 30 routed v5 tools that remain is a surface tool or a route of a consolidated surface tool',()=>{
+  const onSurface=new Set(surface.tools.map(t=>t.name));
+  expect(fixture.tools.map(t=>t.name).filter(name=>!hiddenRouteTargets.includes(name)&&!onSurface.has(name)&&!routeUpstreams.has(name))).toEqual([]);
+  expect(surface.tools).toHaveLength(15);
   expect(fixture.tools.map(t=>t.name)).toEqual(expect.arrayContaining(hiddenRouteTargets));
   expect(fixture.tools.filter(t=>t.servedBy!=='bridge')).toHaveLength(30);
   expect(fixture.tools.filter(t=>t.servedBy==='bridge')).toEqual([{name:'academy_runtime_identity',servedBy:'bridge',compared:false}]);
@@ -180,10 +184,10 @@ describe('release v5 tools against the endpoint programs',()=>{
   expect(check(schema)).toEqual({purposeDefault:'teacher_requested_review',purposeRequired:false});
  });
 
- test('every registered tool is on the surface, except the named hidden tools',()=>{
+ test('every registered tool is on the surface or a route of a consolidated surface tool, except the named hidden tools',()=>{
   const onSurface=new Set(surface.tools.map(t=>t.name));
   for(const program of Object.keys(programs) as Program[]){
-   const missing=[...registered(program).keys()].filter(name=>!onSurface.has(name)).sort();
+   const missing=[...registered(program).keys()].filter(name=>!onSurface.has(name)&&!routeUpstreams.has(name)).sort();
    expect(missing).toEqual([...hiddenTools[program]].sort());
   }
  });
@@ -193,7 +197,8 @@ describe('release v5 tools against the endpoint programs',()=>{
   const withoutMembers:string[]=[];
   for(const shown of surface.tools){
    const tool=route.get(shown.name);
-   if(!shown.inputSchema||!tool||!isProgram(tool.endpoint))continue;
+   // A consolidated tool is validated by its routes' schemas (tests/tool-surface.test.ts).
+   if(!shown.inputSchema||!tool||!isProgram(tool.endpoint)||consolidatedNames.has(shown.name))continue;
    const current=tool.servedBy==='bridge_composition'?bridgeSchemas[tool.bridgeSchema!]!:registered(tool.endpoint).get(tool.upstreamName!)!;
    const members=Object.keys((shown.inputSchema.properties??{}) as object);
    if(!members.length)withoutMembers.push(shown.name);
@@ -207,18 +212,32 @@ describe('release v5 tools against the endpoint programs',()=>{
 
  test('each displayed date member lets 어제 and 11월 16일 through, as its registered schema does',()=>{
   const route=new Map(fixture.tools.map(t=>[t.name,t]));
-  const displayed:string[]=[];
+  const displayed=new Set<string>();
+  /** The registered schemas behind one surface tool: its own, or each of its routes' (with the route's renamed members). */
+  const behind=(name:string):{schema:JsonSchema;rename:Record<string,string>}[]=>{
+   const consolidated=consolidatedTools.find(t=>t.name===name);
+   if(!consolidated){
+    const tool=route.get(name);
+    if(!tool||!isProgram(tool.endpoint))return [];
+    return [{schema:tool.servedBy==='bridge_composition'?bridgeSchemas[tool.bridgeSchema!]!:registered(tool.endpoint).get(tool.upstreamName!)!,rename:{}}];
+   }
+   return Object.values(consolidated.routes).flatMap(r=>{
+    const schema=r.bridge==='dailyrecord_record'?bridgeSchemas.dailyRecordGetSchema:r.bridge==='dailytest_headers'?bridgeSchemas.dailyTestHeaderRouteSchema
+     :(['dailyrecord','saved'] as const).map(p=>registered(p).get(r.upstream)).find(Boolean);
+    return schema?[{schema,rename:Object.fromEntries(Object.entries(r.rename??{}).map(([k,v])=>[v,k]))}]:[];
+   });
+  };
   for(const shown of surface.tools){
-   const tool=route.get(shown.name);
-   if(!shown.inputSchema||!tool||!isProgram(tool.endpoint))continue;
-   const current=tool.servedBy==='bridge_composition'?bridgeSchemas[tool.bridgeSchema!]!:registered(tool.endpoint).get(tool.upstreamName!)!;
-   for(const pointer of dateMembers(current)){
+   if(!shown.inputSchema)continue;
+   for(const {schema:current,rename} of behind(shown.name))for(const pointer of dateMembers(current)){
     for(const value of ['어제','11월 16일']){
      expect({name:shown.name,pointer,value,registered:acceptsString(at(current,pointer),value)}).toEqual({name:shown.name,pointer,value,registered:true});
     }
-    const node=at(shown.inputSchema,pointer);
+    const member=/^\/properties\/([^/]+)$/.exec(pointer)?.[1];
+    const shownPointer=member!==undefined?'/properties/'+(rename[member]??member):pointer;
+    const node=at(shown.inputSchema,shownPointer);
     if(node===undefined)continue;
-    displayed.push(`${shown.name} ${pointer}`);
+    displayed.add(`${shown.name} ${shownPointer}`);
     for(const value of ['어제','11월 16일']){
      expect({name:shown.name,pointer,value,displayed:acceptsString(node,value)}).toEqual({name:shown.name,pointer,value,displayed:true});
     }
@@ -226,8 +245,8 @@ describe('release v5 tools against the endpoint programs',()=>{
   }
   // The date members the surface displays; a date member inside a displayed
   // `queries: {type: 'array'}` is not displayed.
-  expect(displayed.sort()).toEqual(['academy_cism_weekly_get /properties/date','academy_dailyrecord_get /properties/lessonDate',
-   'academy_dailytest_history_with_headers /properties/lessonDate','academy_student_resolve /properties/lessonDate']);
+  expect([...displayed].sort()).toEqual(['academy_cism_get /properties/date','academy_dailyrecord_get /properties/lessonDate',
+   'academy_dailytest_history /properties/lessonDate','academy_student_resolve /properties/lessonDate']);
  });
 
  test('build:endpoints refuses an out directory other than modules/academy-workbench/.local/<name>/src',()=>{

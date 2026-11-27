@@ -18,32 +18,32 @@ and check the surface.
 
 Size
 
-- R1: After the consolidation of the existing tools, `tools[]` of `surface.json` holds at most 15 tools and its compact JSON is at most 18 KiB (18,432 B), which leaves at least 6 KiB for the 7 new tools under R2. (no test yet; observed by the unit that consolidates the tool surface)
-- R2: After the 7 new tools of the table "New tools" are added, `tools[]` holds at most 24 tools (22 planned) and its compact JSON is at most 24 KiB (24,576 B). (no test yet; observed by each unit that adds a new tool)
+- R1: After the consolidation of the existing tools, `tools[]` of `surface.json` holds at most 15 tools and its compact JSON is at most 18 KiB (18,432 B), which leaves at least 5,568 B below the 24,000 B limit of R2 for the 7 new tools. Tests: `tool_surface_r1_r8_fifteen_tools`.
+- R2: After the 7 new tools of the table "New tools" are added, `tools[]` holds at most 24 tools (22 planned) and its compact JSON is at most 24,000 B. Until then the running cap holds: while `n` of the 7 new tools are not yet in `surface.json`, the compact JSON is at most 24,000 B − 795 B × `n` and `tools[]` holds at most 24 − `n` tools. Tests: `tool_surface_r2_running_cap`.
 
 Accounting
 
-- R3: Each of the 39 tools of the table "Old to new" is accounted for as its row states: a tool marked removed is not in `surface.json`, a tool marked kept is there under its own name, and a tool mapped to a new tool and argument is not there under its old name, while the new tool takes that argument. (no test yet; observed by the unit that consolidates the tool surface)
-- R4: For each mapped row, the new tool called with the row's argument and the old tool's other inputs answers, on the same recorded fixture transport, the members the old tool answered with the same values, and sends the same LMS requests. (no test yet; observed by the unit that consolidates the tool surface)
-- R5: A `view`, `scope` or `include` value that the tool's table does not list is refused as an invalid input before any LMS request. (no test yet; observed by the unit that consolidates the tool surface)
+- R3: Each of the 39 tools of the table "Old to new" is accounted for as its row states: a tool marked removed is not in `surface.json`, a tool marked kept is there under its own name, and a tool mapped to a new tool and argument is not there under its old name, while the new tool takes that argument. Tests: `tool_surface_r3_accounting`.
+- R4: For each mapped row, the new tool called with the row's argument and the old tool's other inputs answers, on the same recorded fixture transport, the members the old tool answered with the same values, and sends the same LMS requests. An old input whose name the new tool gives to its discriminating argument is taken under the name the table "The 15 tools after consolidation" gives it: `view` of `academy_dailyrecord_get` (`full`, `compact`) as `detail`, `view` of `academy_capabilities` as `capabilityView`, `view` of `academy_paper_definition_lookup` (`definition`, `header`) as `definitionView`, `prestudyKey` of `academy_prestudy_report_get` as `reportId`, and `displayName` of `academy_dailytest_history_with_headers` as `studentName` (`displayName` is still taken). Tests: `tool_surface_r4_parity`, `tool_surface_r4_bridge_rows`.
+- R5: A value of a discriminating argument that the tool's row of the table "The 15 tools after consolidation" does not list is refused as an invalid input before any LMS request. R5 checks only the discriminating arguments that the row lists for that tool: the object-valued `scope` that `academy_dailyrecord_get` takes in the views `intake` and `status` is the DailyRecord scope, not a discriminating argument, and is checked by that view's own input. Tests: `tool_surface_r5_selector_refused`, `tool_surface_r5_bridge_refuses`.
 
 Clean surface
 
-- R6: No dead stub: no tool of `surface.json` answers every call with an unavailable status, and no description says that the tool is not available. (no test yet; observed by the unit that consolidates the tool surface)
-- R7: No duplicate: the names in `tools[]` are distinct, and no two tools, for valid inputs, send the same LMS requests and answer the same members; no description says that a tool is the same as, or returns the same rows as, another. (no test yet; observed by the unit that consolidates the tool surface)
-- R8: Every tool name matches `^academy_[a-z0-9_]+$`; no name has the prefix `class2_`. (no test yet; observed by the unit that consolidates the tool surface)
-- R9: `tools[]` of `surface.json` equals, member for member, the tools that the server built from the same commit lists, so the file is regenerated and never edited by hand. (no test yet; observed by the unit that consolidates the tool surface)
+- R6: No dead stub: no tool of `surface.json` answers every call with an unavailable status, and no description says that the tool is not available. Tests: `tool_surface_r6_r7_r14_descriptions`.
+- R7: No duplicate: the names in `tools[]` are distinct, and no two tools, for valid inputs, send the same LMS requests and answer the same members; no description says that a tool is the same as, or returns the same rows as, another. Tests: `tool_surface_r6_r7_r14_descriptions`.
+- R8: Every tool name matches `^academy_[a-z0-9_]+$`; no name has the prefix `class2_`. Tests: `tool_surface_r1_r8_fifteen_tools`.
+- R9: `tools[]` of `surface.json` equals, member for member, the tools that the server built from the same commit lists, so the file is regenerated and never edited by hand. Tests: `tool_surface_r9_built_surface`, `tool_surface_r9_pinned_list`.
 
 Skills
 
-- R10: Skill sync: every match of `(?:class2_)?academy_[a-z0-9_]+` in the four files `content/skills/academy-*/SKILL.md`, other than the server name `academy_operations`, is the name of a tool in `surface.json` (100% of the matches). (no test yet; observed by the unit that consolidates the tool surface)
-- R11: A skill that names a consolidated tool for a read names the `view`, `scope` or `include` value of the read it means. (no test yet; observed by the unit that consolidates the tool surface)
+- R10: Skill sync: every match of `(?:class2_)?academy_[a-z0-9_]+` in the four files `content/skills/academy-*/SKILL.md`, other than the server name `academy_operations`, is the name of a tool in `surface.json` (100% of the matches). Tests: `tool_surface_r10_skill_sync`.
+- R11: A skill that names a consolidated tool for a read names the `view`, `scope` or `include` value of the read it means. Tests: `tool_surface_r11_skill_selectors`.
 
 Writes
 
 - R12: Write-tool separation: every LMS request is classed read or write by its named route and operation (Interface, "Request classes"), never by its HTTP method alone. A `*_save` call sends only login requests, optionally one initial before-state read request, and, for each reviewed change or step, at most one pre-write before-state or `wireSha256` read request, one write request and one readback read request; it sends no browse query and answers no standalone read view such as `intake`, `status` or `reconcile`. (no test yet; observed by the unit that consolidates the tool surface)
-- R13: No tool other than a `*_save` tool sends a request classed write; a `*_review` tool sends only requests classed read. (no test yet; observed by the unit that consolidates the tool surface)
-- R14: The consolidation trims repeated prose of the descriptions but keeps, in the description of each consolidated tool, every Korean trigger keyword of the descriptions of the old tools it replaces (each Hangul term of those descriptions at commit 76d04632) and their step and parameter contracts (the numbered steps, the parameters and their allowed values). (no test yet; observed by the unit that consolidates the tool surface)
+- R13: No tool other than a `*_save` tool sends a request classed write; a `*_review` tool sends only requests classed read. Tests: `tool_surface_r13_no_write_route`, `tool_surface_i1_request_classes`, `tool_surface_i1_resolution_write_forbidden`.
+- R14: The consolidation trims repeated prose of the descriptions but keeps, in the description of each consolidated tool, every Korean trigger keyword of the descriptions of the old tools it replaces (each Hangul term of those descriptions at commit 76d04632) and their step and parameter contracts (the numbered steps, the parameters and their allowed values). Tests: `tool_surface_r6_r7_r14_descriptions`.
 
 ## Interface
 
@@ -54,8 +54,9 @@ The bytes of `JSON.stringify(surface.tools)` (no whitespace between tokens, UTF-
 
 | Stage | Tools | Compact `tools[]` |
 | --- | --- | --- |
-| After consolidation (R1) | at most 15 | at most 18 KiB (18,432 B), at least 6 KiB below the R2 limit |
-| After the 7 new tools (R2) | at most 24, 22 planned | at most 24 KiB (24,576 B) |
+| After consolidation (R1) | at most 15 | at most 18 KiB (18,432 B), at least 5,568 B below the R2 limit |
+| While `n` of the 7 new tools remain to be added (R2) | at most 24 − `n` | at most 24,000 B − 795 B × `n` |
+| After the 7 new tools (R2) | at most 24, 22 planned | at most 24,000 B |
 
 ### Request classes
 
@@ -116,18 +117,18 @@ CISM 4 to 3).
 
 | Tool | Discriminating arguments |
 | --- | --- |
-| `academy_runtime_inspect` | `view`: `identity`, `capabilities`, `source_contracts`, `paper_contracts` |
-| `academy_dailyrecord_get` | `view`: `record`, `intake`, `status`, `reconcile` |
+| `academy_runtime_inspect` | `view`: `identity`, `capabilities`, `source_contracts`, `paper_contracts`; the old `view` of `academy_capabilities` (`hierarchy`, `operations`, `source_contract`, `workflow_rules`) is `capabilityView` |
+| `academy_dailyrecord_get` | `view` (default `record`): `record`, `intake`, `status`, `reconcile`; the old `view` of `academy_dailyrecord_get` (`full`, `compact`) is `detail` |
 | `academy_dailyrecord_review` | none |
 | `academy_dailyrecord_save` | none |
 | `academy_student_resolve` | none |
-| `academy_dailytest_history` | `includeHeaders` (boolean, default `true`), `studentName` (optional) |
-| `academy_paper_inspect` | `view`: `headers`, `definition`, `attempt` |
+| `academy_dailytest_history` | `includeHeaders` (boolean, default `true`); `studentName` (or `displayName`) and `studentId`: with `includeHeaders: true` a name is required; with `includeHeaders: false`, `studentId`, or a name that the call resolves to the `studentId` |
+| `academy_paper_inspect` | `view`: `headers`, `definition`, `attempt`; the old `view` of `academy_paper_definition_lookup` (`definition`, `header`) is `definitionView` |
 | `academy_textbook_section_results_get` | none |
 | `academy_clinic_paper_status_get` | none |
 | `academy_item_lookup` | `include`: a non-empty subset of `section`, `answer` |
 | `academy_textbook_catalog_get` | `view`: `catalog`, `toc`, `pdf` |
-| `academy_prestudy_get` | `view` (optional): `videos`, `incomplete`, `teacher_summary`; `includeReports` (optional boolean); `reportId` (optional) |
+| `academy_prestudy_get` | `view` (optional, default `videos`): `videos`, `incomplete`, `teacher_summary`; `includeReports` (optional boolean); `reportId` (optional; together with `includeReports: true` only, as [lms-reads.md](lms-reads.md) states) |
 | `academy_cism_get` | `scope`: `week`, `month` |
 | `academy_cism_weekly_review` | none |
 | `academy_cism_weekly_save` | none |
@@ -158,7 +159,10 @@ name, not a tool.
 
 `modules/academy-workbench/tools/academy-mcp/tests/tool-surface.test.ts`, run by the step
 `bun test (academy-mcp)` of `./check`; it reads `surface.json` and the four skills and drives
-the tools over recorded synthetic fixture transports.
+the tools through the bridge over recorded synthetic fixture endpoints
+(`tests/tool-surface-fixture.ts`). Its I1 tests class each LMS request by its named route and
+operation with the `write_forbidden` helper of `tests/network-deny.ts`. `surface.json` is
+built by `bun scripts/build-surface.ts` from `src/consolidated-tools.ts`.
 
 ## Not included
 
