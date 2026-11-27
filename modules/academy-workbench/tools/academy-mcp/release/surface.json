@@ -536,92 +536,6 @@
    }
   },
   {
-   "name": "academy_student_metadata_get",
-   "title": "DT·시험 메타데이터(이름·날짜)",
-   "description": "Returns raw DailyTest and test-result rows without paper titles for a student name and lesson date: results[].observation. queries: one or more of {kind:'daily_inventory'}, {kind:'daily_history', periods} ('11' last month … '16' 5-6 months ago), {kind:'student_papers', period:{from, through}} (dates in the forms of lessonDate), {kind:'printed_paper_metadata', paperCode, period}. Prefer academy_dailytest_history_with_headers when titles matter. lessonDate (YYYY-MM-DD, 오늘, 어제, 11월 16일 or 11/16, resolved in Asia/Seoul) must be a date the student had a lesson; native_dailyrecord_occurrence_unverified means it was not: use academy_student_resolve then academy_daily_test_inventory. purpose and currentRequestRef are optional; the answer returns the ones it used. Read only.",
-   "inputSchema": {
-    "type": "object",
-    "properties": {
-     "displayName": {
-      "type": "string"
-     },
-     "lessonDate": {
-      "default": "today",
-      "type": "string"
-     },
-     "purpose": {
-      "type": "string"
-     },
-     "currentRequestRef": {
-      "type": "string"
-     },
-     "queries": {
-      "type": "array",
-      "items": {
-       "type": "object",
-       "properties": {
-        "kind": {
-         "type": "string",
-         "enum": [
-          "student_papers",
-          "daily_metadata",
-          "daily_inventory",
-          "daily_history",
-          "printed_paper_metadata"
-         ]
-        },
-        "periods": {
-         "type": "array",
-         "items": {
-          "type": "string",
-          "enum": [
-           "11",
-           "12",
-           "13",
-           "14",
-           "15",
-           "16"
-          ]
-         }
-        },
-        "period": {
-         "type": "object",
-         "properties": {
-          "from": {
-           "type": "string",
-           "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-          },
-          "through": {
-           "type": "string",
-           "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-          }
-         },
-         "required": [
-          "from",
-          "through"
-         ],
-         "additionalProperties": false
-        },
-        "paperCode": {
-         "type": "string",
-         "pattern": "^#[3456789ABCDEFGHJKLMNPQRSTUVWXYZ][23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{0,10}$"
-        }
-       },
-       "required": [
-        "kind"
-       ],
-       "additionalProperties": false
-      }
-     }
-    },
-    "required": [
-     "displayName",
-     "queries"
-    ],
-    "additionalProperties": false
-   }
-  },
-  {
    "name": "academy_daily_test_inventory",
    "title": "DT 결과 목록(학생 키)",
    "description": "Returns a student's DailyTest (DT) result rows: paper key, attempt and score, per relative period (observations[].label and rows[]). studentId: studentKey of academy_student_resolve. Use it for DT 결과 목록, and when the name and date tools report no lesson on the date. periods: '11' last month, '12' 1-2 months ago … '16' 5-6 months ago; without periods only the page's current filter is read (often empty). Paper titles: academy_paper_headers or academy_dailytest_history_with_headers. Read only.",
@@ -649,55 +563,6 @@
     },
     "required": [
      "studentId"
-    ],
-    "additionalProperties": false
-   }
-  },
-  {
-   "name": "academy_student_metadata",
-   "title": "DT·시험 메타데이터(키 지정)",
-   "description": "Returns the same rows as academy_student_metadata_get, keyed by a metadata scope {sourceNamespace:'academy.lms.metadata', teacherId, studentId, lessonDate} that an earlier result returned in full. Never build the scope yourself; with only a name, use academy_student_metadata_get. queries: as for that tool. Dates take the forms of that tool. When the scope came from academy_student_resolve, pass the currentRequestRef that answer returned; purpose is optional. Read only.",
-   "inputSchema": {
-    "type": "object",
-    "properties": {
-     "purpose": {
-      "type": "string"
-     },
-     "currentRequestRef": {
-      "type": "string"
-     },
-     "scope": {
-      "type": "object",
-      "properties": {
-       "sourceNamespace": {
-        "type": "string",
-        "const": "academy.lms.metadata"
-       },
-       "teacherId": {
-        "type": "string"
-       },
-       "studentId": {
-        "type": "string"
-       },
-       "lessonDate": {
-        "default": "today",
-        "type": "string"
-       }
-      },
-      "required": [
-       "sourceNamespace",
-       "teacherId",
-       "studentId"
-      ],
-      "additionalProperties": false
-     },
-     "queries": {
-      "type": "array"
-     }
-    },
-    "required": [
-     "scope",
-     "queries"
     ],
     "additionalProperties": false
    }
@@ -737,46 +602,6 @@
     },
     "required": [
      "displayName"
-    ],
-    "additionalProperties": false
-   }
-  },
-  {
-   "name": "academy_textbook_section_results",
-   "title": "교재 소단원 채점 결과(키 지정)",
-   "description": "Returns the same section results as step 3 of academy_textbook_section_results_get, keyed by courseKey and bookNo copied from a step-2 result of that tool. Use it only when you hold those keys; otherwise use academy_textbook_section_results_get. sourceTitles: exact titles from its index. purpose and currentRequestRef are optional; the answer returns the ones it used. Read only.",
-   "inputSchema": {
-    "type": "object",
-    "properties": {
-     "displayName": {
-      "type": "string"
-     },
-     "purpose": {
-      "type": "string"
-     },
-     "currentRequestRef": {
-      "type": "string"
-     },
-     "courseKey": {
-      "type": "string",
-      "pattern": "^[1-9][0-9]{0,15}$"
-     },
-     "bookNo": {
-      "type": "string",
-      "pattern": "^[1-9][0-9]{0,15}$"
-     },
-     "sourceTitles": {
-      "type": "array",
-      "items": {
-       "type": "string"
-      }
-     }
-    },
-    "required": [
-     "displayName",
-     "courseKey",
-     "bookNo",
-     "sourceTitles"
     ],
     "additionalProperties": false
    }
@@ -887,27 +712,6 @@
     ],
     "additionalProperties": false
    }
-  },
-  {
-   "name": "academy_item_label_scope",
-   "inputSchema": {
-    "type": "object"
-   },
-   "description": "Type-label hierarchy: hierarchy IDs and the labels under one (유형 위계, 유형 라벨 목록). Not available in this generation: the call always answers unavailable. When the user asks for this, say that the function is unavailable; do not use another tool in its place (catalogs, textbook units, item numbers and student names are not type labels)."
-  },
-  {
-   "name": "academy_find_item_labels",
-   "inputSchema": {
-    "type": "object"
-   },
-   "description": "Type labels similar to a described type, under given hierarchy IDs (비슷한 유형 라벨 찾기). Not available in this generation: the call always answers unavailable. When the user asks for this, say that the function is unavailable; do not use another tool in its place (catalogs, textbook units, item numbers and student names are not type labels)."
-  },
-  {
-   "name": "academy_review_type_questions",
-   "inputSchema": {
-    "type": "object"
-   },
-   "description": "Questions, metadata and answers under one type label (유형 문제, 유형 문항 보기). Not available in this generation: the call always answers unavailable. When the user asks for this, say that the function is unavailable; do not use another tool in its place (catalogs, textbook units, item numbers and student names are not type labels)."
   },
   {
    "name": "academy_prestudy_get",
@@ -1059,40 +863,6 @@
        "type": "string",
        "pattern": "^#[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{1,11}$"
       }
-     }
-    },
-    "required": [
-     "studentId",
-     "paperCodes"
-    ],
-    "additionalProperties": false
-   }
-  },
-  {
-   "name": "class2_academy_paper_headers",
-   "title": "시험지 정의 묶음(두 번째 시험지 범위 전용)",
-   "description": "Same as academy_paper_headers, plus view 'definition' to read the definitions of up to 32 codes in one call. Works only for students in the second paper scope; for other students it fails with paper_scope_unresolved. Use academy_paper_headers or academy_paper_definition_lookup first; use this only for many definitions of such a student. studentId: studentKey of academy_student_resolve. Read only.",
-   "inputSchema": {
-    "type": "object",
-    "properties": {
-     "studentId": {
-      "type": "string",
-      "pattern": "^[1-9][0-9]{0,15}$"
-     },
-     "paperCodes": {
-      "type": "array",
-      "items": {
-       "type": "string",
-       "pattern": "^#[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{1,11}$"
-      }
-     },
-     "view": {
-      "default": "header",
-      "type": "string",
-      "enum": [
-       "header",
-       "definition"
-      ]
      }
     },
     "required": [
@@ -1404,14 +1174,6 @@
    }
   },
   {
-   "name": "academy_cism_section",
-   "inputSchema": {
-    "type": "object",
-    "properties": {}
-   },
-   "description": "One section of a CISM report (CISM 항목 하나, e.g. 부진아 지도 내용). Not available in this generation: the call always answers unavailable (exact_cism_read_backend_not_configured). Say so; the month's CISM records are in academy_cism_month if the user wants those."
-  },
-  {
    "name": "academy_runtime_identity",
    "title": "연결된 MCP release 확인",
    "description": "Returns the connected server's release generation, pointer and bridge hashes (release 세대, 브리지 해시) and surfaceSha256. No arguments. No LMS request."
@@ -1476,101 +1238,6 @@
       "type": "integer"
      }
     },
-    "additionalProperties": false
-   }
-  },
-  {
-   "name": "academy_query",
-   "title": "저장본 조회(과거 스냅샷)",
-   "description": "Returns preserved evidence from an older snapshot, never live data: roster, student_summary, student_history (facets such as books, daily_tests), student_records or lesson_context. Use it only when the user asks for 저장본 or 보존 자료. Call {kind:'roster'} first: studentId is the roster's opaque id, not a name or a native key. For live records keep to the live tools, even when they answer unavailable. No LMS request.",
-   "inputSchema": {
-    "type": "object",
-    "properties": {
-     "sourceMode": {
-      "type": "string",
-      "const": "saved_context"
-     },
-     "query": {
-      "type": "object",
-      "properties": {
-       "kind": {
-        "type": "string",
-        "enum": [
-         "roster",
-         "student_summary",
-         "student_history",
-         "student_records",
-         "lesson_context"
-        ]
-       },
-       "studentId": {
-        "type": "string"
-       },
-       "facets": {
-        "type": "array",
-        "items": {
-         "type": "string",
-         "enum": [
-          "books",
-          "sections",
-          "attempts",
-          "assignments",
-          "videos",
-          "daily_tests",
-          "daily_records",
-          "teacher_events",
-          "daily_record_drafts"
-         ]
-        }
-       },
-       "facet": {
-        "type": "string",
-        "enum": [
-         "books",
-         "sections",
-         "attempts",
-         "assignments",
-         "videos",
-         "daily_tests",
-         "daily_records",
-         "teacher_events",
-         "daily_record_drafts"
-        ]
-       },
-       "bookEditionId": {
-        "type": "string"
-       },
-       "date": {
-        "type": "string",
-        "format": "date"
-       }
-      },
-      "required": [
-       "kind"
-      ],
-      "additionalProperties": false
-     },
-     "cursor": {
-      "type": "string"
-     },
-     "limit": {
-      "type": "integer",
-      "default": 10
-     }
-    },
-    "required": [
-     "query"
-    ],
-    "additionalProperties": false
-   }
-  },
-  {
-   "name": "academy_source_status",
-   "title": "저장본 수집 범위",
-   "description": "Returns the coverage of the saved snapshot: when it was collected (collectedThrough) and what is missing. Use it for 저장본 언제까지. It says nothing about live LMS availability. No arguments. No LMS request.",
-   "inputSchema": {
-    "type": "object",
-    "properties": {},
     "additionalProperties": false
    }
   }

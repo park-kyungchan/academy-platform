@@ -14,7 +14,7 @@ const hash=(bytes:string|Buffer)=>createHash('sha256').update(bytes).digest('hex
 type Pin={path:string;sha256:string};
 
 const fictionalRegistry=[
- {endpoint:'dailyrecord',upstreamName:'academy_source_status',tool:{name:'academy_source_status',description:'Fictional status.',
+ {endpoint:'dailyrecord',upstreamName:'academy_fixture_status',tool:{name:'academy_fixture_status',description:'Fictional status.',
   inputSchema:{type:'object',properties:{},additionalProperties:false}}},
 ];
 
@@ -42,7 +42,7 @@ async function fixtureBase(){
 }
 
 const surfaceDoc=(extra:Record<string,unknown>={})=>({schemaVersion:'academy.mcp-surface/1',
- tools:[{name:'academy_source_status',description:'Status.'}],...extra});
+ tools:[{name:'academy_fixture_status',description:'Status.'}],...extra});
 
 /** A bridge process driven by raw JSON-RPC lines, so an answer can be compared byte for byte. */
 function rawBridge(env:Record<string,string>){
@@ -73,7 +73,7 @@ test('initialize carries the surface instructions with {{admittedDates}} rendere
   const first=JSON.parse(await bridge.initialize(1)).result;
   expect(first.instructions).toBe(filled);
   // A pointer change under the running bridge changes tools/list, not the instructions it answers with.
-  await f.publish({surface:await f.pin('surface.json',surfaceDoc({instructions:'Other text.',tools:[{name:'academy_source_status',description:'Changed.'}]}))});
+  await f.publish({surface:await f.pin('surface.json',surfaceDoc({instructions:'Other text.',tools:[{name:'academy_fixture_status',description:'Changed.'}]}))});
   const listed=JSON.parse(await bridge.request(2,'tools/list',{})).result;
   expect(listed.tools.map((t:any)=>t.description)).toEqual(['Changed.']);
   const again=JSON.parse(await bridge.initialize(3)).result;

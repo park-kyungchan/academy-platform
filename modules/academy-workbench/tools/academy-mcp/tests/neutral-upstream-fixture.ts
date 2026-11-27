@@ -57,7 +57,7 @@ server.registerTool('academy_cism_weekly_save',{inputSchema:z.object({attributio
   const data={status:'persisted',academyWrites:2,parentSends:0};
   return {content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
 });
-server.registerTool('academy_source_status',{inputSchema:z.object({}).strict()},input=>{
+server.registerTool('academy_fixture_status',{inputSchema:z.object({}).strict()},input=>{
   if(existsSync(resolve(base,'inject-source-status-error')))throw Error(readFileSync(resolve(base,'inject-source-status-error'),'utf8'));
   appendFileSync(events,'source_status:'+JSON.stringify(input)+'\n');
   const data={sourceMode:'saved_context',synthetic:true,receivedArguments:input};

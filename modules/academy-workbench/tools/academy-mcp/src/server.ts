@@ -4,13 +4,10 @@ import {runtimeIdentityConfiguration,registerRuntimeIdentity} from './runtime-id
 import {installStdioDiagnostics,createAcademyStdioTransport} from './stdio-diagnostics.ts';
 import {withoutRetiredLearningArguments} from './dailyrecord-learning.ts';
 import { McpServer } from '@modelcontextprotocol/server';
-import { capabilitiesInputSchema, loadService, sourceStatusInputSchema } from './service.ts';
+import { capabilitiesInputSchema, loadService } from './service.ts';
 import { readOnlyAnnotations } from './contracts.ts';
 import {toolResult as result} from './tool-result.ts';
-import {registerSavedQuery} from './query-tool.ts';
 import { repoRoot } from './paths.ts';
-import {loadItemLabelIndex} from './item-label-store.ts';
-import {registerItemLabelTools} from './item-label-tools.ts';
 import {dailyRecordToolConfiguration,registerDailyRecordTools} from './dailyrecord-tools.ts';
 import {DailyRecordService} from './dailyrecord.ts';
 import {nativeDailyRecordConfiguration} from './native-dailyrecord-backend.ts';
@@ -24,13 +21,11 @@ const configuration=await dailyRecordToolConfiguration(learning.remainingArgs);
 // P3: read backend is injected once by the owner launch configuration, the
 // same path as dailyrecord-server.ts. Without owner args the backend stays
 // null and read tools return unavailable; runtimes only connect.
-// Partition arguments per backend before invoking either loader: the
-// native triple belongs to the DailyRecord backend only; the label loader
-// accepts only its own four arguments.
+// The native triple belongs to the DailyRecord backend only. The item-label,
+// saved-query and source-status tools of earlier releases are retired: a label
+// argument that an installed launch still passes is accepted and ignored.
 const hasNativeTriple=configuration.remainingArgs[0]==='--dailyrecord-native';
 const native=await nativeDailyRecordConfiguration(hasNativeTriple?configuration.remainingArgs.slice(0,3):[],configuration.saveAdmission,configuration.saveStoreDir,configuration.saveRequestPath);
-const labelArgs=hasNativeTriple?configuration.remainingArgs.slice(3):configuration.remainingArgs;
-registerItemLabelTools(server,await loadItemLabelIndex(labelArgs));
 registerRuntimeIdentity(server,runtimeIdentity.identity);
 registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,configuration.parentSafeguard,Date.now,null,native?.backend??null));
 if(native)process.once('exit',native.close);
@@ -40,12 +35,5 @@ server.registerTool('academy_capabilities', {
   inputSchema: capabilitiesInputSchema,
   annotations: readOnlyAnnotations,
 }, input => result(service.capabilities(input)));
-registerSavedQuery(server,input=>service.query(input));
-server.registerTool('academy_source_status', {
-  title: 'Historical saved-context coverage and preservation limits',
-  description: academyRoutingDescription('academy_source_status','Saved-context coverage ONLY. Historical user-reported website/access limits do not describe the configured live DailyRecord backend. For today/current DailyRecord use academy_dailyrecord_get or academy_student_resolve then academy_dailyrecord_intake; only that call establishes live availability. This tool performs no live probe, refresh or authentication.'),
-  inputSchema: sourceStatusInputSchema,
-  annotations: readOnlyAnnotations,
-}, input => result(service.sourceStatus(input)));
 installStdioDiagnostics(server.server);
 await server.connect(createAcademyStdioTransport());
