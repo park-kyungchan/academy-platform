@@ -1,0 +1,427 @@
+#!/usr/bin/env python3
+"""Replay recorded academy_dailyrecord_get calls against `edu lesson record`.
+
+Usage: replay --edu <path> [--json] <record.jsonl>...
+
+Output holds only integers, field names from FIELD_NAMES, edu refusal codes
+(words of a-z, 0-9, _) and fixed literals. No student name, record text or
+field value is ever printed. The only process it runs is the given edu.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+
+TOOL_SUFFIX = "academy_dailyrecord_get"
+EDU_TIMEOUT_SECONDS = 180
+CODE_RE = re.compile(r"^[a-z0-9_]{1,64}$")
+STUDENT_ID_RE = re.compile(r"^[0-9]{1,12}$")
+DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+
+# Fixed list of the field names that may appear in a `differs` line, in the
+# order they are printed. Each is a member name of edu's answer.
+FIELD_NAMES = (
+    "student_id",
+    "student_name",
+    "course_id",
+    "membership_key",
+    "record_key",
+    "attendance",
+    "progress",
+    "homework",
+    "lesson_memo",
+    "daily_test_assessment",
+    "previous_homework_assessment",
+)
+
+# Fields of academy_dailyrecord_get's `fields[]` and the member of the edu row
+# that carries each (specs/edu/lesson.md, "Fields against academy_dailyrecord_get").
+TS_FIELD_TO_ROW = {
+    "progress": "progress",
+    "homework": "homework",
+    "lessonMemo": "lesson_memo",
+    "attendance": "attendance",
+    "dailyTestAssessment": "daily_test_assessment",
+    "previousHomeworkAssessment": "previous_homework_assessment",
+}
+# `target` members of a field and the row member that carries each.
+TS_TARGET_TO_ROW = (
+    ("courseId", "course_id"),
+    ("membershipId", "membership_key"),
+    ("recordId", "record_key"),
+)
+# Column headers of the view `daily_record` and the member each shows.
+HEADER_TO_ROW = {
+    "Student id": "student_id",
+    "Student": "student_name",
+    "Course id": "course_id",
+    "Membership": "membership_key",
+    "Record key": "record_key",
+    "Attendance value": "attendance",
+    "Progress": "progress",
+    "Homework": "homework",
+    "Lesson memo": "lesson_memo",
+    "Daily test": "daily_test_assessment",
+    "Previous homework rate": "previous_homework_assessment",
+}
+MISSING = "(missing)"
+OUTCOMES = ("equal", "differs", "not_covered", "refused", "ts_unavailable")
+
+
+class Usage(Exception):
+    pass
+
+
+def norm(text):
+    """edu's table folds line breaks to spaces; compare with runs of white space as one."""
+    return " ".join(text.split())
+
+
+def parse_args(argv):
+    edu = None
+    as_json = False
+    records = []
+    i = 0
+    while i < len(argv):
+        word = argv[i]
+        if word == "--edu":
+            if edu is not None or i + 1 >= len(argv):
+                raise Usage()
+            edu = argv[i + 1]
+            i += 2
+        elif word == "--json":
+            if as_json:
+                raise Usage()
+            as_json = True
+            i += 1
+        elif word.startswith("--"):
+            raise Usage()
+        else:
+            records.append(word)
+            i += 1
+    if edu is None or not records:
+        raise Usage()
+    if not (os.path.isfile(edu) and os.access(edu, os.X_OK)):
+        raise Usage()
+    for path in records:
+        if not os.path.isfile(path) or not os.access(path, os.R_OK):
+            raise Usage()
+    return edu, as_json, records
+
+
+def result_text(content):
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict) and isinstance(block.get("text"), str):
+                parts.append(block["text"])
+        return "".join(parts)
+    return None
+
+
+def ts_answer(text):
+    """The tool's answer object from a tool_result's text, or None."""
+    if text is None:
+        return None
+    try:
+        value = json.loads(text)
+    except ValueError:
+        return None
+    if isinstance(value, dict) and "status" not in value:
+        inner = value.get("structuredContent")
+        if isinstance(inner, dict):
+            value = inner
+    return value if isinstance(value, dict) else None
+
+
+def collect_calls(paths):
+    """Return (calls, unparsed): calls are dicts with `input` and `answer` (or None)."""
+    calls = []
+    unparsed = 0
+    for path in paths:
+        pending = {}
+        order = []
+        with open(path, "rb") as handle:
+            for raw in handle:
+                if not raw.strip():
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except ValueError:
+                    unparsed += 1
+                    continue
+                message = obj.get("message") if isinstance(obj, dict) else None
+                content = message.get("content") if isinstance(message, dict) else None
+                if not isinstance(content, list):
+                    continue
+                for block in content:
+                    if not isinstance(block, dict):
+                        continue
+                    kind = block.get("type")
+                    if kind == "tool_use":
+                        name = block.get("name")
+                        ident = block.get("id")
+                        if (
+                            isinstance(name, str)
+                            and name.endswith(TOOL_SUFFIX)
+                            and isinstance(ident, str)
+                            and ident not in pending
+                        ):
+                            pending[ident] = {
+                                "input": block.get("input")
+                                if isinstance(block.get("input"), dict)
+                                else {},
+                                "answer": None,
+                            }
+                            order.append(ident)
+                    elif kind == "tool_result":
+                        ident = block.get("tool_use_id")
+                        slot = pending.get(ident) if isinstance(ident, str) else None
+                        if slot is None or slot["answer"] is not None:
+                            continue
+                        if block.get("is_error") is True:
+                            continue
+                        slot["answer"] = ts_answer(result_text(block.get("content")))
+        calls.extend(pending[ident] for ident in order)
+    return calls, unparsed
+
+
+def ts_view(call):
+    """(student, date, answer) of a call when its answer is observed, else None."""
+    answer = call["answer"]
+    if not isinstance(answer, dict) or answer.get("status") != "observed":
+        return None
+    given = call["input"]
+    student = given.get("displayName")
+    if not isinstance(student, str):
+        student = answer.get("displayName")
+    date = given.get("lessonDate")
+    if not (isinstance(date, str) and DATE_RE.match(date)):
+        date = answer.get("lessonDate")
+    if not (isinstance(student, str) and student.strip()):
+        return None
+    if not (isinstance(date, str) and DATE_RE.match(date)):
+        return None
+    if not isinstance(answer.get("fields"), list):
+        return None
+    return student, date, answer
+
+
+def split_cells(line):
+    """Cells of one table line; `\\|` is a pipe inside a cell, `\\\\` a backslash."""
+    cells = []
+    cell = []
+    i = 0
+    body = line.strip()
+    if body.startswith("|"):
+        body = body[1:]
+    while i < len(body):
+        c = body[i]
+        if c == "\\" and i + 1 < len(body) and body[i + 1] in "|\\":
+            cell.append(body[i + 1])
+            i += 2
+            continue
+        if c == "|":
+            cells.append("".join(cell).strip())
+            cell = []
+        else:
+            cell.append(c)
+        i += 1
+    if "".join(cell).strip():
+        cells.append("".join(cell).strip())
+    return cells
+
+
+def parse_edu_answer(stdout):
+    """(code, student_id, rows): code is a refusal code or None; rows are dicts of members."""
+    lines = stdout.split("\n")
+    try:
+        first = json.loads(lines[0])
+    except ValueError:
+        return "edu_answer_invalid", None, []
+    if not isinstance(first, dict) or not isinstance(first.get("status"), str):
+        return "edu_answer_invalid", None, []
+    status = first["status"]
+    if status != "ok":
+        return (status if CODE_RE.match(status) else "edu_answer_invalid"), None, []
+    student_id = first.get("student_id")
+    if not isinstance(student_id, str):
+        return "edu_answer_invalid", None, []
+    columns = None
+    rows = []
+    for line in lines[1:]:
+        if not line.startswith("|"):
+            continue
+        cells = split_cells(line)
+        if columns is None:
+            columns = [HEADER_TO_ROW.get(h) for h in cells]
+            continue
+        if cells and all(re.fullmatch(r":?-{3,}:?", c) for c in cells):
+            continue
+        row = {}
+        for index, member in enumerate(columns):
+            if member is not None and index < len(cells):
+                row[member] = cells[index]
+        rows.append(row)
+    return None, student_id, rows
+
+
+def run_edu(edu, student, date):
+    """Run edu once; (code, student_id, rows) as parse_edu_answer, never raises."""
+    try:
+        done = subprocess.run(
+            [edu, "lesson", "record", date, student],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=EDU_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "edu_not_runnable", None, []
+    try:
+        text = done.stdout.decode("utf-8")
+    except UnicodeDecodeError:
+        return "edu_answer_invalid", None, []
+    code, student_id, rows = parse_edu_answer(text)
+    if code is None and done.returncode != 0:
+        return "edu_answer_invalid", None, []
+    return code, student_id, rows
+
+
+def known_fields(answer):
+    """Known `fields[]` of the tool's answer: list of (row member, value, target)."""
+    out = []
+    for item in answer["fields"]:
+        if not isinstance(item, dict):
+            continue
+        member = TS_FIELD_TO_ROW.get(item.get("field"))
+        before = item.get("before")
+        if (
+            member is None
+            or not isinstance(before, dict)
+            or before.get("state") != "known"
+            or not isinstance(before.get("value"), str)
+        ):
+            continue
+        target = item.get("target") if isinstance(item.get("target"), dict) else {}
+        out.append((member, before["value"], target))
+    return out
+
+
+def compare(student, answer, edu_result):
+    """(outcome, detail) of one call against edu's answer for its (student, date)."""
+    code, edu_student_id, rows = edu_result
+    if code is not None:
+        return "refused", [code]
+    fields = known_fields(answer)
+    scope = answer.get("scope") if isinstance(answer.get("scope"), dict) else {}
+    ts_record_id = next(
+        (t.get("recordId") for _, _, t in fields if isinstance(t.get("recordId"), str)),
+        None,
+    )
+    if not rows:
+        return "not_covered", []
+    if len(rows) == 1:
+        row = rows[0]
+    else:
+        matching = [r for r in rows if ts_record_id is not None and r.get("record_key") == ts_record_id]
+        if matching:
+            row = matching[0]
+        elif ts_record_id is None:
+            return "not_covered", []
+        else:
+            return "differs", ["record_key"]
+    pairs = {}
+    if isinstance(scope.get("studentId"), str):
+        pairs["student_id"] = (scope["studentId"], edu_student_id)
+    if not STUDENT_ID_RE.match(student):
+        pairs["student_name"] = (student, row.get("student_name"))
+    for _, _, target in fields[:1]:
+        for ts_key, member in TS_TARGET_TO_ROW:
+            if isinstance(target.get(ts_key), str):
+                pairs[member] = (target[ts_key], row.get(member))
+    for member, value, _ in fields:
+        pairs[member] = (value, row.get(member))
+    compared = 0
+    differing = set()
+    for member, (ts_value, edu_value) in pairs.items():
+        if edu_value is None or edu_value == MISSING:
+            continue
+        compared += 1
+        if norm(ts_value) != norm(edu_value):
+            differing.add(member)
+    if compared == 0:
+        return "not_covered", []
+    if differing:
+        return "differs", [name for name in FIELD_NAMES if name in differing]
+    return "equal", []
+
+
+def replay(edu, paths):
+    calls, unparsed = collect_calls(paths)
+    cache = {}
+    results = []
+    for call in calls:
+        view = ts_view(call)
+        if view is None:
+            results.append(("ts_unavailable", []))
+            continue
+        student, date, answer = view
+        key = (student, date)
+        if key not in cache:
+            cache[key] = run_edu(edu, student, date)
+        results.append(compare(student, answer, cache[key]))
+    return results, unparsed
+
+
+def render(results, unparsed, as_json):
+    totals = {name: 0 for name in OUTCOMES}
+    for outcome, _ in results:
+        totals[outcome] += 1
+    if as_json:
+        doc = {
+            "calls": [
+                {"call": n, "outcome": outcome, "detail": detail}
+                for n, (outcome, detail) in enumerate(results, 1)
+            ],
+            "unparsed_lines": unparsed,
+            "total": {"calls": len(results), **totals},
+        }
+        return json.dumps(doc, sort_keys=True) + "\n"
+    out = []
+    for n, (outcome, detail) in enumerate(results, 1):
+        line = "call %d %s" % (n, outcome)
+        if detail:
+            line += " " + ",".join(detail)
+        out.append(line)
+    out.append("unparsed lines %d" % unparsed)
+    out.append(
+        "total calls %d equal %d differs %d not_covered %d refused %d ts_unavailable %d"
+        % (
+            len(results),
+            totals["equal"],
+            totals["differs"],
+            totals["not_covered"],
+            totals["refused"],
+            totals["ts_unavailable"],
+        )
+    )
+    return "\n".join(out) + "\n"
+
+
+def main(argv):
+    try:
+        edu, as_json, records = parse_args(argv)
+    except Usage:
+        sys.stderr.write("usage: replay --edu <path> [--json] <record.jsonl>...\n")
+        return 2
+    results, unparsed = replay(edu, records)
+    sys.stdout.write(render(results, unparsed, as_json))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
