@@ -167,6 +167,7 @@ print(hashlib.sha256(json.dumps(r, separators=(',', ':')).encode()).hexdigest())
 PY
 }
 
+# specs/academy-mcp/paper-admit.md#R2
 paper_admit_r2_form() {
   local bad
   for bad in 'paper1' '=90010' 'paper1=' 'paper1=90010,,90011' 'paper1=90010,' 'paper1= 90010' 'Paper1=90010' '1paper=90010'; do
@@ -175,34 +176,41 @@ paper_admit_r2_form() {
   padmit_preview 1 --paper-admit paper1
   [ "$(tail -n 1 pv.err)" = paper_admit_form ] || fail "r2 preview: $(cat pv.err)"
 }
+# specs/academy-mcp/paper-admit.md#R3
 paper_admit_r3_endpoint_twice() {
   padmit_refused paper_admit_form --paper-admit paper1=90010 --paper-admit paper1=90011
 }
+# specs/academy-mcp/paper-admit.md#R4
 paper_admit_r4_id_twice() {
   padmit_refused paper_admit_form --paper-admit paper1=90010,90010
   padmit_refused paper_admit_form --paper-admit paper1=90010 --paper-admit paper2=90010
 }
+# specs/academy-mcp/paper-admit.md#R5
 paper_admit_r5_restore() {
   run 1 po python3 -I "$inst/loop_install.py" --restore "$pbase/release.json" --base "$pbase" --paper-admit paper1=90010
   [ "$(tail -n 1 po.err)" = paper_admit_form ] || fail "r5: $(cat po.err)"
   psnap >pafter; cmp -s pbefore pafter || fail "a refused restore with the option changed the base"
 }
+# specs/academy-mcp/paper-admit.md#R6
 paper_admit_r6_id_invalid() {
   padmit_refused paper_admit_id_invalid@1 --paper-admit paper1=0123
   padmit_refused paper_admit_id_invalid@2 --paper-admit paper1=90010,12345678901234567
   padmit_refused paper_admit_id_invalid@3 --paper-admit paper1=90010,90011,9001x
 }
+# specs/academy-mcp/paper-admit.md#R7
 paper_admit_r7_position_not_id() {
   padmit_refused paper_admit_id_invalid@2 --paper-admit paper1=90010,-5 --paper-admit paper2=90011
   padmit_refused paper_admit_id_invalid@1 --paper-admit paper1=90010 --paper-admit paper2=00007
   padmit_refused paper_admit_id_present@2 --paper-admit paper1=90010,90003
 }
+# specs/academy-mcp/paper-admit.md#R8
 paper_admit_r8_no_id_printed() {
   padmit_preview 0 --paper-admit paper1=90010,90011 --paper-admit paper2=90012
   ! cat pv pv.err | sed 's/[0-9a-f]\{64\}//' | grep -q '9001' || fail "an id on standard output or error of a preview"
   padmit_preview 1 --paper-admit paper1=90001
   ! cat pv pv.err | sed 's/[0-9a-f]\{64\}//' | grep -q '9000' || fail "an id in a refused preview"
 }
+# specs/academy-mcp/paper-admit.md#R9
 paper_admit_r9_endpoint_unknown() {
   padmit_refused paper_admit_endpoint_unknown@paper3 --paper-admit paper3=90010
   padmit_refused paper_admit_endpoint_unknown@paper3 --paper-admit paper1=90010 --paper-admit paper3=90011
@@ -215,11 +223,13 @@ paper_admit_r9_endpoint_unknown() {
   [ "$(tail -n 1 po.err)" = paper_admit_endpoint_unknown@paper1 ] || fail "r9 no paperScopes: $(cat po.err)"
   [ -z "$(cd "$nb" && find . -newer release.json -type f)" ] || fail "r9 wrote in the base"
 }
+# specs/academy-mcp/paper-admit.md#R10
 paper_admit_r10_id_present() {
   padmit_refused paper_admit_id_present@1 --paper-admit paper1=90001
   padmit_refused paper_admit_id_present@2 --paper-admit paper1=90010,90003
   padmit_refused paper_admit_id_present@1 --paper-admit paper2=90002
 }
+# specs/academy-mcp/paper-admit.md#R11
 paper_admit_r11_limit() {
   local lb=$tmp/pbase-full ids
   mkdir -p "$lb/releases/g-l"
@@ -233,6 +243,7 @@ PY
   run 0 po python3 -I "$inst/loop_install.py" --paper-admit-preview --base "$lb" --paper-admit paper1=90010
   grep -q ' admitted 1$' po || fail "r11 at the limit: $(cat po)"
 }
+# specs/academy-mcp/paper-admit.md#R12 (order of the refusals)
 paper_admit_r12_order() {
   # form before an invalid id; an invalid id before an unknown endpoint; unknown endpoint before a present id; present id before the limit.
   padmit_refused paper_admit_form --paper-admit paper1=00001 --paper-admit paper1=90010
@@ -240,6 +251,7 @@ paper_admit_r12_order() {
   padmit_refused paper_admit_endpoint_unknown@paper3 --paper-admit paper1=90001 --paper-admit paper3=90010
   padmit_refused paper_admit_id_present@1 --paper-admit paper2=90001 --paper-admit paper1=90003
 }
+# specs/academy-mcp/paper-admit.md#R13
 paper_admit_r13_refusal_writes_nothing() {
   local kept=$tmp/pkept
   run 1 po python3 -I "$inst/loop_install.py" "$A" g-q none --base "$pbase" --kept "$kept" --paper-admit paper1=90001
@@ -248,17 +260,20 @@ paper_admit_r13_refusal_writes_nothing() {
   [ ! -e "$pbase/releases/g-q" ] && [ -z "$(ls -A "$pbase" | grep '^\.')" ] || fail "r13 left a directory in the base"
   psnap >pafter; cmp -s pbefore pafter || fail "r13 changed the base"
 }
+# specs/academy-mcp/paper-admit.md#R14 (and #R20, the preview)
 paper_admit_r14_ids_appended() {
   padmit_preview 0 --paper-admit paper1=90010,90011 --paper-admit paper2=90012
   [ "$(cat pv)" = "routing sha256 $(padmit_expect paper1=90010,90011 paper2=90012) admitted 3" ] || fail "r14: $(cat pv)"
   padmit_preview 0 --paper-admit paper2=90012
   [ "$(cat pv)" = "routing sha256 $(padmit_expect paper2=90012) admitted 1" ] || fail "r14 one endpoint: $(cat pv)"
 }
+# specs/academy-mcp/paper-admit.md#R15
 paper_admit_r15_other_members_kept() {
   # admissionSha256 is kept and no member is added: the expected file is the active one with only the ids added.
   padmit_preview 0 --paper-admit paper1=90010
   [ "$(cat pv)" = "routing sha256 $(padmit_expect paper1=90010) admitted 1" ] || fail "r15: $(cat pv)"
 }
+# specs/academy-mcp/paper-admit.md#R19
 paper_admit_r19_hash_checked() {
   printf ' ' >>"$pbase/releases/g-p/routing.json"
   padmit_preview 1 --paper-admit paper1=90010
@@ -270,6 +285,7 @@ b = open(sys.argv[1], 'rb').read(); open(sys.argv[1], 'wb').write(b[:-1])
 PY
   psnap >pafter; cmp -s pbefore pafter || fail "r19 restored file differs"
 }
+# specs/academy-mcp/paper-admit.md#R20
 paper_admit_r20_preview_writes_nothing() {
   padmit_preview 0 --paper-admit paper1=90010
   [ "$(wc -l <pv)" = 1 ] && grep -qE '^routing sha256 [0-9a-f]{64} admitted 1$' pv || fail "r20 line: $(cat pv)"
