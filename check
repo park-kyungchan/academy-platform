@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # The one check of this repository. An agent runs it before a push; the CI job
 # `rust` runs it unchanged. Call it from any directory, or as `bash <path>`.
-#   ./check       format, clippy, offline teacher harness, academy-mcp install scripts, build,
-#                 tests: the default members
+#   ./check       format, clippy, offline teacher harness, academy-mcp install scripts,
+#                 bun test (academy-mcp), build, tests: the default members
 #   ./check all   the same steps over the whole workspace, so the frozen crate
 #                 edu-academy-mcp is built and tested too
+# The step `bun test (academy-mcp)` needs bun (CI installs 1.4.3 before this file); it runs
+# `bun install --frozen-lockfile` (its postinstall also installs apps/academy/dc-gang-a) and
+# `bun test tests` in modules/academy-workbench/tools/academy-mcp.
 # Outside CI, on the host that has the build lock, it takes that lock (one Cargo
 # build at a time on the host) and refuses to build under 10,240 MiB free. It
 # makes its own fixture parent: a fresh mode-0700 directory under CHECK_FIXTURE_BASE
@@ -60,6 +63,13 @@ cargo fmt --all -- --check
 cargo clippy ${scope[@]+"${scope[@]}"} --all-targets --locked -- -D warnings
 python3 -B -m unittest discover -s crates/edu-academy-teacher/harness
 bash scripts/test-academy-mcp-install.sh
+echo "check: bun test (academy-mcp)"
+command -v bun >/dev/null || { echo "bun_missing@check:$LINENO: bun is not on PATH" >&2; exit 4; }
+(
+  cd modules/academy-workbench/tools/academy-mcp
+  bun install --frozen-lockfile
+  bun test tests
+)
 cargo build ${scope[@]+"${scope[@]}"} --bins --examples --locked
 # shellcheck source=scripts/rust-test-env.sh
 source scripts/rust-test-env.sh "$fixture_parent" ${mcp[@]+"${mcp[@]}"}
