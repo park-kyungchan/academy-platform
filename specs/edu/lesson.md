@@ -55,7 +55,7 @@ Capture and the account lock
 - R27: `login` is `new` when the run sent an LMS request, else `none`, and `requests` counts every LMS request of the run, the login exchanges included. Tests: `a3_day_twice_then_record_by_a_korean_name_then_history`, `i2_refresh_of_three_dates_logs_in_once_with_one_request_per_date`.
 - R28: A refused capture ends with the code of its first refused date, as the family, the session or the owner root gives it (for example `capture_day_date_conflict`, `native_owner_authentication_failed`), and the dates before it stay published. Tests: `i3_refusals_carry_no_cookie_password_name_or_text`.
 - R29: A capture holds the shared account lock of `docs/academy-account-lock.md` from its login to its end; while another holds it the run tries again every quarter of a second until `lockWaitSeconds` have passed, then refuses with `owner_account_busy` without an LMS request. Tests: `a_busy_account_lock_is_retried_for_the_configured_seconds`.
-- R30: A run that waited for the account lock reports the whole seconds it waited, at least 1, as `lock_wait_seconds` in line 1 and in the run log; a run that did not wait reports 0. Tests: `a_busy_account_lock_is_retried_for_the_configured_seconds`, `a3_day_twice_then_record_by_a_korean_name_then_history`.
+- R30: A run that waited for the account lock reports the whole seconds it waited, at least 1, as `lock_wait_seconds` in the run log, and also in line 1 when it answers `ok`; a refused run that waited (for example `owner_account_busy`) has them in the run log only, because its line 1 is the code alone (R2); a run that did not wait reports 0. Tests: `a_busy_account_lock_is_retried_for_the_configured_seconds`, `a3_day_twice_then_record_by_a_korean_name_then_history`.
 - R31: The password is the value of the configured secret file's line `<secretKey>=<value>` and the user name is the identity file's `sourceUsername`, both read when the session opens; neither is written to the spool, the store, the raw answers or the run log. Tests: `i3_refusals_carry_no_cookie_password_name_or_text`, `a3_day_twice_then_record_by_a_korean_name_then_history`.
 - R32: A captured date is written to the spool by the family `dailyrecord` as `docs/academy-capture.md` (section "The lesson record's lines") states: one `lesson_day` line per date with the members of that section, and, with `rawDir`, the raw answers under it. Tests: `i2_refresh_of_three_dates_logs_in_once_with_one_request_per_date`.
 - R33: An error of the capture whose code is not a word of 1 to 64 characters of `a-z`, `0-9` and `_` refuses with `lesson_capture_failed`. (no test yet)
@@ -194,8 +194,9 @@ An example with invented values:
 ### The run log
 
 `<directory of store>/lesson-runs.jsonl`, mode 0600, one JSON object per run: `time` (seconds
-since the epoch), `verb` (`day`, `record`, `history`, `refresh` or `unknown`), `dates` (how many
-dates the run was given, 0 for refused words), `login`, `requests`, `lock_wait_seconds`,
+since the epoch), `verb` (`day`, `record`, `history`, `refresh` or `unknown`), `dates` (the number of
+dates of `refresh`; 1 for every other verb whose words were accepted, `history` included,
+which is given no date; 0 when the words are refused), `login`, `requests`, `lock_wait_seconds`,
 `status` (`ok` or the code).
 
 ### The store it reads
