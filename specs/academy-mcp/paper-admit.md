@@ -14,25 +14,27 @@ server, which loads the result.
 
 ## Requirements
 
-- R1: Without `--paper-admit`, the new generation's `routing.json` is the active generation's `routing.json` byte for byte, and the new pointer's `routing.sha256` is the active pointer's. (no test yet)
-- R2: The option is `--paper-admit <endpoint>=<id>[,<id>...]` of the install form: `<endpoint>` matches `[a-z][a-z0-9_]{0,63}` and the list is one or more ids joined by single commas, without spaces; a value of any other shape (no `=`, an empty endpoint, an empty list, an empty id between commas) refuses with `paper_admit_form`. (no test yet)
-- R3: The option may be given more than once, one endpoint per occurrence; the same endpoint in two occurrences refuses with `paper_admit_form`. (no test yet)
-- R4: The same id twice in the option, in one list or in the lists of two occurrences, refuses with `paper_admit_form`. (no test yet)
-- R5: The option given with `--restore` refuses with `paper_admit_form`. (no test yet)
-- R6: An id that is not 1 to 16 ASCII digits with a first digit other than 0 refuses with `paper_admit_id_invalid@<n>`. (no test yet)
-- R7: `<n>` in a refusal is the 1-based position of the id in the list of its occurrence, never the id itself. (no test yet)
-- R8: No id given to the option appears on standard output or standard error, whether the call succeeds or is refused. (no test yet)
-- R9: An endpoint that has no `paperScopes` entry in the active `routing.json` (also when that file has no `paperScopes`) refuses with `paper_admit_endpoint_unknown@<endpoint>`, `<endpoint>` as given; no entry is ever created. (no test yet)
-- R10: An id that is already in any `paperScopes` entry of the active `routing.json`, of the same endpoint or of another, refuses with `paper_admit_id_present@<n>`. (no test yet)
-- R11: When an entry would hold more than 1000 ids after the admission, the call refuses with `paper_admit_limit`. (no test yet)
-- R12: The checks run in the order R2 to R5, R6, R9, R10, R11, the occurrences in the order given and the ids of a list in its order, and the first check that fails is the call's one refusal. (no test yet)
-- R13: A call refused with a code of this option ends with exit status 1 and the code as the last line of standard error, and writes nothing in the base: no file or directory under the base is created, changed or removed (`release.json`, `releases/`, the kept pointers, a build directory), so the active generation stays active. (no test yet)
-- R14: In the new generation's `routing.json`, the `studentIds` of each admitted endpoint's entry are the active entry's ids in their order, followed by the admitted ids in the order of the option's list. (no test yet)
-- R15: Admitting keeps every other member of `routing.json` byte for byte: `admissionPath` and `admissionSha256` are the same strings when present and stay absent when absent, no member is added, and every `paperScopes` entry of an endpoint not admitted to has the same endpoint and the same ids in the same order, the entries in their order. (no test yet)
-- R16: The new `routing.json` is valid under the strict routing schema of `src/runtime-release.ts` (the members `admissionPath`, `admissionSha256` and `paperScopes` only) and under `paperScopesSchema`, so the server loads the new generation. (no test yet)
-- R17: The new pointer's `routing` names `releases/<generation>/routing.json` of the new generation, and its `sha256` is the sha256 of that file's bytes. (no test yet)
-- R18: `registry.json` and `endpoints.json` of the new generation are those of the active generation byte for byte, with or without the option. (no test yet)
-- R19: The active `routing.json` is the file the base's `release.json` names under `routing`, and it is admitted to only after its bytes match that entry's `sha256`. (no test yet)
+- R1: Without `--paper-admit`, the new generation's `routing.json` is the active generation's `routing.json` byte for byte, and the new pointer's `routing.sha256` is the active pointer's. (no test yet; ars-ts-release observes it)
+- R2: The option is `--paper-admit <endpoint>=<id>[,<id>...]` of the install form: `<endpoint>` matches `[a-z][a-z0-9_]{0,63}` and the list is one or more ids joined by single commas, without spaces; a value of any other shape (no `=`, an empty endpoint, an empty list, an empty id between commas) refuses with `paper_admit_form`. Tests: `paper_admit_r2_form`.
+- R3: The option may be given more than once, one endpoint per occurrence; the same endpoint in two occurrences refuses with `paper_admit_form`. Tests: `paper_admit_r3_endpoint_twice`.
+- R4: The same id twice in the option, in one list or in the lists of two occurrences, refuses with `paper_admit_form`. Tests: `paper_admit_r4_id_twice`.
+- R5: The option given with `--restore` refuses with `paper_admit_form`. Tests: `paper_admit_r5_restore`.
+- R6: An id that is not 1 to 16 ASCII digits with a first digit other than 0 refuses with `paper_admit_id_invalid@<n>`. Tests: `paper_admit_r6_id_invalid`.
+- R7: `<n>` in a refusal is the 1-based position of the id in the list of its occurrence, never the id itself. Tests: `paper_admit_r7_position_not_id`.
+- R8: No id given to the option appears on standard output or standard error, whether the call succeeds or is refused. Tests: `paper_admit_r8_no_id_printed`.
+- R9: An endpoint that has no `paperScopes` entry in the active `routing.json` (also when that file has no `paperScopes`) refuses with `paper_admit_endpoint_unknown@<endpoint>`, `<endpoint>` as given; no entry is ever created. Tests: `paper_admit_r9_endpoint_unknown`.
+- R10: An id that is already in any `paperScopes` entry of the active `routing.json`, of the same endpoint or of another, refuses with `paper_admit_id_present@<n>`. Tests: `paper_admit_r10_id_present`.
+- R11: When an entry would hold more than 1000 ids after the admission, the call refuses with `paper_admit_limit`. Tests: `paper_admit_r11_limit`.
+- R12: The checks run in the order R2 to R5, R6, R9, R10, R11, the occurrences in the order given and the ids of a list in its order, and the first check that fails is the call's one refusal. Tests: `paper_admit_r12_order`.
+- R13: A call refused with a code of this option ends with exit status 1 and the code as the last line of standard error, and writes nothing in the base: no file or directory under the base is created, changed or removed (`release.json`, `releases/`, the kept pointers, a build directory), so the active generation stays active. Tests: `paper_admit_r13_refusal_writes_nothing`.
+- R14: In the new generation's `routing.json`, the `studentIds` of each admitted endpoint's entry are the active entry's ids in their order, followed by the admitted ids in the order of the option's list. Tests: `paper_admit_r14_ids_appended`.
+- R15: Admitting keeps every other member of `routing.json` byte for byte: `admissionPath` and `admissionSha256` are the same strings when present and stay absent when absent, no member is added, and every `paperScopes` entry of an endpoint not admitted to has the same endpoint and the same ids in the same order, the entries in their order. Tests: `paper_admit_r15_other_members_kept`.
+- R16: The new `routing.json` is valid under the strict routing schema of `src/runtime-release.ts` (the members `admissionPath`, `admissionSha256` and `paperScopes` only) and under `paperScopesSchema`, so the server loads the new generation. (no test yet; ars-ts-release observes it)
+- R17: The new pointer's `routing` names `releases/<generation>/routing.json` of the new generation, and its `sha256` is the sha256 of that file's bytes. (no test yet; ars-ts-release observes it)
+- R18: `registry.json` and `endpoints.json` of the new generation are those of the active generation byte for byte, with or without the option. (no test yet; ars-ts-release observes it)
+- R19: The active `routing.json` is the file the base's `release.json` names under `routing`, and it is admitted to only after its bytes match that entry's `sha256`. Tests: `paper_admit_r19_hash_checked`.
+- R20: `loop_install.py --paper-admit-preview --base <dir> --paper-admit <endpoint>=<id>[,<id>...]...` reads the active `routing.json` as an install does (R19), applies the checks and refusals of R2 to R12, and prints the one line `routing sha256 <hex> admitted <count>` on standard output with exit status 0, where `<hex>` is the sha256 of the `routing.json` an install with the same options would write and `<count>` is the number of admitted ids; it writes nothing in the base and builds nothing, and it takes no `<commit> <generation> <surface.json|none>`. Tests: `paper_admit_r20_preview_writes_nothing`, `paper_admit_r14_ids_appended`.
+- R21: An install that is not refused prints the same line `routing sha256 <hex> admitted <count>` once, before the line of its activation, where `<hex>` is the sha256 of the new `routing.json` as R17 pins it and equals the sha256 that the preview of the same options prints. (no test yet; ars-ts-release observes it)
 
 ## Interface
 
@@ -42,7 +44,8 @@ server, which loads the result.
 python3 -I loop_install.py <commit> <generation> <surface.json|none> --base <dir> [--kept <dir>] [--paper-admit <endpoint>=<id>[,<id>...]]...
 ```
 
-An example with invented ids: `--paper-admit paper1=90001,90002 --paper-admit paper2=90003`
+The same options with `--paper-admit-preview --base <dir>` in place of the positional words and `--base`
+(R20). An example with invented ids: `--paper-admit paper1=90001,90002 --paper-admit paper2=90003`
 admits two ids to the entry of `paper1` and one to the entry of `paper2`.
 
 ### Refusal codes
@@ -72,6 +75,16 @@ endpoint (it needs exactly one match), so the option refuses an id present in an
 (R10). Because no entry is created (R9), the entry limit cannot be passed by an admission;
 the server reads a `routing.json` of at most 4 MiB, which 32 full entries do not reach.
 
+### The preview
+
+```
+python3 -I loop_install.py --paper-admit-preview --base <dir> --paper-admit <endpoint>=<id>[,<id>...]...
+```
+
+Its one line of output is `routing sha256 <hex> admitted <count>` (R20). An active
+`routing.json` that is not JSON refuses with `routing_invalid`; the contract says no more
+about a routing that the server's strict schema refuses.
+
 ### The result
 
 `<base>/releases/<generation>/routing.json`, one JSON document, pinned by the new
@@ -85,7 +98,12 @@ members before and after an admission of the invented id `90002` to `paper1`:
 
 ### Tests
 
-None yet. The tests of this option are written with it, against a scratch base.
+`scripts/test-academy-mcp-install.sh`, section 5, on a scratch base with invented ids. Its
+refusals run through the install itself, which refuses before any build; a success is read
+through `--paper-admit-preview`, which builds and writes nothing. The test for R14 and R15
+compares the preview's hash with the hash of the expected `routing.json`, computed apart from
+the script. A build needs the module's dependencies and the `bun` of the host, so no test
+installs a generation; the rules that need one are observed by the install of ars-ts-release.
 
 ## Not included
 
