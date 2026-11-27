@@ -1,0 +1,18 @@
+# studyq-linux
+
+The Linux StudyQ PDF executor, `python3 -m studyq_linux`. Its contract is
+[`specs/studyq-linux/core.md`](../../specs/studyq-linux/core.md).
+
+```
+PYTHONPATH=modules/studyq-linux/src python3 -m studyq_linux render --type course_book --assets <dir> --out <pdf> < input.json
+PYTHONPATH=modules/studyq-linux/src python3 -m studyq_linux.parity --pdf <pdf> --assets <dir> < input.json
+```
+
+`render` needs PyMuPDF (`import pymupdf`) and an assets directory with a verified `manifest.json`
+(`image/...`, `fonts/NanumGothic-Regular.ttf`); it makes no network call. `render --type cism` and
+`assemble-print` answer `not_implemented` until their rules are built.
+
+Tests: `python3 -B -m unittest discover -s modules/studyq-linux/tests` (the rendering tests run when
+`CHECK_STUDYQ_PYMUPDF=1` is set or `pymupdf` imports; `STUDYQ_ASSETS_DIR=<dir>` adds the parity test
+against the official templates). The input is synthetic in every test; no template, archive or
+student data is committed here.

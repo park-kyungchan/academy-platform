@@ -5,6 +5,12 @@
 #                 bun test (academy-mcp), build, tests: the default members
 #   ./check all   the same steps over the whole workspace; the default members equal
 #                 the workspace members, so it does what ./check does
+# The steps `i6` and `python unittest (studyq-linux)` run everywhere: `i6` scans specs/ and
+# modules/studyq-linux/ for secret values (privacy check I6, specs/studyq-linux/core.md R28; with
+# CHECK_STUDYQ_ROSTER=<file of names, one per line> it also scans for those names and prints
+# file names only), and the unit tests run the rendering tests when CHECK_STUDYQ_PYMUPDF=1 is set
+# or `pymupdf` imports. CHECK_I6_ROOTS=<dir>[:<dir>...] makes `check` run only `i6` over those
+# directories (used by the tests of the scan).
 # The step `bun test (academy-mcp)` runs in CI (CI=true), and outside CI only when CHECK_BUN=1;
 # otherwise it prints one skip line and goes on, so CI stays the gate for the module's tests.
 # Where it runs it needs bun (CI installs 1.4.3 before this file; a missing bun fails with
@@ -25,6 +31,47 @@ case "$mode" in
   *) echo "usage: ./check [all]" >&2; exit 2 ;;
 esac
 [ "$#" -le 1 ] || { echo "usage: ./check [all]" >&2; exit 2; }
+
+# I6: secret values and, when a roster is given, student names, in the given directories.
+# It prints `file:line` only, never the text it matched.
+i6_scan() {
+  local found=0 out roster
+  local excl=(--exclude-dir=imported --exclude-dir=private --exclude-dir=private-students --exclude-dir=__pycache__ --exclude-dir=.git)
+  local patterns=(
+    '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+    'AKIA[0-9A-Z]{16}'
+    'gh[pousr]_[A-Za-z0-9]{36,}'
+    'github_pat_[A-Za-z0-9_]{20,}'
+    'sk-[A-Za-z0-9]{20,}'
+    'xox[abprs]-[A-Za-z0-9-]{10,}'
+    'Bearer [A-Za-z0-9._~+/=-]{20,}'
+    '(password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|archive[_-]?key)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'[:space:]]{8,}["'"'"']'
+  )
+  local pattern dir
+  for dir in "$@"; do
+    [ -d "$dir" ] || { echo "i6: not a directory: $dir" >&2; return 2; }
+    for pattern in "${patterns[@]}"; do
+      if out=$(grep -rIEin "${excl[@]}" -e "$pattern" -- "$dir" | cut -d: -f1,2); [ -n "$out" ]; then
+        printf 'i6: secret-value pattern at %s\n' $out >&2
+        found=1
+      fi
+    done
+    roster=${CHECK_STUDYQ_ROSTER:-}
+    if [ -n "$roster" ] && [ -r "$roster" ]; then
+      if out=$(grep -v '^[[:space:]]*$' "$roster" | grep -rIlF "${excl[@]}" -f - -- "$dir"); [ -n "$out" ]; then
+        printf 'i6: roster name in %s\n' $out >&2
+        found=1
+      fi
+    fi
+  done
+  return $found
+}
+if [ -n "${CHECK_I6_ROOTS:-}" ]; then
+  IFS=: read -r -a i6_roots <<<"$CHECK_I6_ROOTS"
+  i6_scan "${i6_roots[@]}" || { echo "i6: failed" >&2; exit 5; }
+  echo "i6: ok"
+  exit 0
+fi
 
 lock=${HOST_CARGO_LOCK:-/var/lib/agent-platform/build.lock}
 if [ "${CI:-}" != true ] && [ -z "${CHECK_LOCKED:-}" ] && [ -e "$lock" ]; then
@@ -63,6 +110,10 @@ fi
 cargo fmt --all -- --check
 cargo clippy ${scope[@]+"${scope[@]}"} --all-targets --locked -- -D warnings
 python3 -B -m unittest discover -s crates/edu-academy-teacher/harness
+echo "check: i6"
+i6_scan specs modules/studyq-linux || { echo "i6: failed" >&2; exit 5; }
+echo "check: python unittest (studyq-linux)"
+python3 -B -m unittest discover -s modules/studyq-linux/tests
 bash scripts/test-academy-mcp-install.sh
 if [ "${CI:-}" = true ] || [ "${CHECK_BUN:-}" = 1 ]; then
   echo "check: bun test (academy-mcp)"
