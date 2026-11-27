@@ -1,6 +1,6 @@
 [workspace]
-members = ["crates/edu-academy-core", "crates/edu-academy-sources", "crates/edu-academy-mcp", "crates/edu-academy-teacher", "crates/edu-academy-ontology", "crates/edu-academy-memory", "crates/edu"]
-# `edu-academy-mcp` is frozen (parity work stopped; retired at the first cutover): `./check` skips it, `./check all` covers it.
+members = ["crates/edu-academy-core", "crates/edu-academy-sources", "crates/edu-academy-teacher", "crates/edu-academy-ontology", "crates/edu-academy-memory", "crates/edu"]
+# `default-members` equals `members`: `./check` and `./check all` cover the same crates.
 default-members = ["crates/edu-academy-core", "crates/edu-academy-sources", "crates/edu-academy-teacher", "crates/edu-academy-ontology", "crates/edu-academy-memory", "crates/edu"]
 # `imported/` holds the histories of two former Academy repositories, byte for byte: nothing here builds it.
 exclude = ["imported"]
@@ -34,7 +34,6 @@ swc_ecma_regexp = "=0.16.0"
 swc_ecma_regexp_visit = "=0.16.0"
 url = "=2.5.8"
 ureq = { version = "=3.4.1", default-features = false, features = ["rustls"] }
-signal-hook = { version = "=0.4.4", default-features = false, features = ["iterator"] }
 
 [workspace.lints.cargo]
 unused_dependencies = "deny"

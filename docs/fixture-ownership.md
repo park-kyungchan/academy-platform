@@ -11,9 +11,6 @@ TypeScript paths are provenance only, not runtime oracle inputs. The original
 
 | Historical path | Current crate-owned path | SHA-256 |
 | --- | --- | --- |
-| `migration/mcp-runtime-reference-v1/frozen/inventory/registry.json` | `crates/edu-academy-mcp/tests/fixtures/mcp-runtime-reference-v1/frozen/inventory/registry.json` | `2b30fcdd18fce4e82e79e74406a58e580d594381a94164fc1e3631d2f4e2a5d5` |
-| `migration/mcp-runtime-reference-v1/frozen/protocol/commands/neutral/stdin.bin` | `crates/edu-academy-mcp/tests/fixtures/mcp-runtime-reference-v1/frozen/protocol/commands/neutral/stdin.bin` | `31969c2844a5b02118f6f60fdd9984202bcb587f2705629ecb2ec3817e8299d7` |
-| `migration/mcp-runtime-reference-v1/frozen/protocol/commands/neutral/stdout.bin` | `crates/edu-academy-mcp/tests/fixtures/mcp-runtime-reference-v1/frozen/protocol/commands/neutral/stdout.bin` | `8998846f023154baf767f5d88748e0f86cee17268b4da98f1ebe026bc69813ec` |
 | `migration/source-adapter-reference-v1/corpus/login.html` | `crates/edu-academy-sources/tests/fixtures/source-adapter-reference-v1/corpus/login.html` | `3ff129a91380d0b9c11238ccf7d76c76347ead0672579c1ad9c944c947e3a5fa` |
 | `migration/source-adapter-reference-v1/corpus/principal.html` | `crates/edu-academy-sources/tests/fixtures/source-adapter-reference-v1/corpus/principal.html` | `b43a4c7d9c70bcdacdfcf84e482b630fdaadb5fbde7d4c0c157dc15616bde943` |
 | `migration/source-adapter-review-fixes-v2/ASSESSMENT-EXPECTED.json` | `crates/edu-academy-sources/tests/fixtures/source-adapter-review-fixes-v2/ASSESSMENT-EXPECTED.json` | `8a841fc71e497fe685adea60ff20d1c223b2c2873401a9a7d9fc5d135677b866` |
@@ -32,6 +29,8 @@ TypeScript paths are provenance only, not runtime oracle inputs. The original
 | `migration/workflow-store-review-fixes-v2/CASES.json` | `crates/edu-academy-core/tests/fixtures/workflow-store-review-fixes-v2/CASES.json` | `bc6fb875677bfaeba6aec7fc212242b144c3c54de111a724dc77dde0de59eebf` |
 | `migration/workflow-store-review-fixes-v2/EXPECTED.json` | `crates/edu-academy-core/tests/fixtures/workflow-store-review-fixes-v2/EXPECTED.json` | `9692f743495050c7fd1190f3c4155b665fd6f074f3734db4d2c71fdc18a40381` |
 | `migration/workflow-store-rust-v1/participant.rs` | `crates/edu-academy-core/tests/fixtures/workflow-store-rust-v1/participant.rs` | `2714354c58cfff60bc877b6df0d9e7ee5698c899b7ca2e564ad53c295623f3be` |
+
+The crate `edu-academy-mcp` and its three crate-owned fixtures were removed in pull request #167.
 
 ## Historical reproduction and recovery
 
