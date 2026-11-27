@@ -59,11 +59,22 @@ class BoundedClient extends Client {
 // Each call starts its endpoint in a new process group and ends the whole
 // group when the call ends, whether it succeeded, failed or timed out
 // (src/upstream-process.ts): nothing the call started outlives it.
+/** Whether the endpoint command ended with flock's conflict exit: its exit status may land just after the failed connect. */
+async function endpointExited(transport:ProcessGroupStdioTransport){
+ for(let i=0;i<10&&transport.exitCode===null&&transport.pid!==null;i++)await new Promise(resolve=>setTimeout(resolve,10));
+ return transport.accountBusy;
+}
 async function upstream<T>(endpoint:string,fn:(client:Client)=>Promise<T>,endpointConfig:any=endpoints,expectedRegistry?:readonly {endpoint:string;upstreamName:string}[]):Promise<T>{
 
  const transport=new ProcessGroupStdioTransport(endpointConfig[endpoint]);
  const client=new BoundedClient({name:'muse-academy-bounded-adapter',version:'1.0.0'});
- try{await client.connect(transport);if(expectedRegistry)verifyEndpointInventory(endpoint,expectedRegistry,(await client.listTools()).tools);return await fn(client);}finally{await client.close();await transport.close();}
+ try{await client.connect(transport);if(expectedRegistry)verifyEndpointInventory(endpoint,expectedRegistry,(await client.listTools()).tools);return await fn(client);}
+ catch(error){
+  // R10 of specs/academy-mcp/direct-key-lookup.md: flock's conflict exit 75 is the account lock still held after its wait.
+  if(transport.accountBusy||await endpointExited(transport))throw Error('owner_account_busy');
+  throw error;
+ }
+ finally{await client.close();await transport.close();}
 }
 if(process.argv.includes('--discover')){
  const registry:any[]=[];

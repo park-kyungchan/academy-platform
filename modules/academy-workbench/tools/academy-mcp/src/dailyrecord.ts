@@ -88,7 +88,8 @@ export const textbookSectionResultsSchema=z.object({displayName:z.string().trim(
   sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required')}).strict();
 export type TextbookSectionResults=WithRequest<z.infer<typeof textbookSectionResultsSchema>>;
 export type TextbookSectionObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;
-  records:{sourceTitle:string;score:number;correctCount:number;itemCount:number;items:{ordinal:string;lectureKey:string|null;outerLectureKey:string|null;scoring:'O'|'X'}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string;bookSelection?:BookSelection};
+  records:{sourceTitle:string;score:number;correctCount:number;itemCount:number;items:{ordinal:string;lectureKey:string|null;outerLectureKey:string|null;scoring:'O'|'X'}[];sourceDate:{literal:string|null;precision:string;meaning:string}}[];observedAt:string;coverage:string;bookSelection?:BookSelection;
+  bindingSource?:'historical_key_registry'};
 /** Prestudy video read by exact student name. Upload (waiting list), completed
  * list membership, AI score/star literals and teacher review are four
  * distinct axes; teacherJudgment is never derived from a source OK/score. */
@@ -117,12 +118,25 @@ export type PrestudyReportObservation={student:{studentId:string;displayName:str
 /** Textbook section grading resolved by exact student name: the owner
  * backend discovers the registered course/book binding from the live
  * progress page. Without sourceTitles it returns the observed title index. */
-export const textbookSectionResultsGetSchema=z.object({displayName:z.string().trim().min(1).max(200),
+const textbookByNameShape={displayName:z.string().trim().min(1).max(200),
   ...requestIdentityShape,
   bookLabel:z.string().trim().min(1).max(200).optional(),
   sourceTitles:z.array(z.string().trim().min(1).max(200)).min(1).max(12).refine(v=>new Set(v).size===v.length,'unique_source_titles_required').optional(),
-  view:z.enum(['full','compact']).optional()}).strict();
+  view:z.enum(['full','compact']).optional()};
+/** A native key of the direct-key fallback (specs/academy-mcp/direct-key-lookup.md R6): 1 to 16
+ * digits, the first not 0, at most Number.MAX_SAFE_INTEGER, as readLiteralKey of the LMS client takes it. */
+export const directKeySchema=z.string().regex(/^[1-9][0-9]{0,15}$/).refine(k=>Number(k)<=Number.MAX_SAFE_INTEGER,'safe_integer_key_required');
+export const directKeyNames=['courseKey','bookNo','studentKey'] as const;
+/** The three keys come together or not at all, refused as an invalid input before any LMS request. */
+export const textbookSectionResultsGetSchema=z.object({...textbookByNameShape,
+  courseKey:directKeySchema.optional(),bookNo:directKeySchema.optional(),studentKey:directKeySchema.optional()}).strict()
+  .superRefine((v,c)=>{
+    const given=directKeyNames.filter(k=>v[k]!==undefined);
+    if(given.length>0&&given.length<3)c.addIssue({code:'custom',path:[directKeyNames.find(k=>v[k]===undefined)!],message:'direct_keys_together_required'});
+  });
 export type TextbookSectionResultsGet=WithRequest<z.infer<typeof textbookSectionResultsGetSchema>>;
+/** The backend's own input: the service sets allowHistoricalFallback for academy_textbook_section_results_get only. */
+export type TextbookSectionResultsByNameInput=Omit<TextbookSectionResultsGet,'courseKey'|'bookNo'|'studentKey'>&Partial<Pick<TextbookSectionResultsGet,'courseKey'|'bookNo'|'studentKey'>>&{allowHistoricalFallback?:boolean};
 /** Clinic (wrong-answer/similar) bundle read by exact student name. Clinic
  * papers have no server score-input support, so this read can only bundle
  * the original section attempt (wrong items make a section clinic-eligible)
@@ -130,7 +144,7 @@ export type TextbookSectionResultsGet=WithRequest<z.infer<typeof textbookSection
  * scoring and teacher review are never asserted from source rows: generation
  * stays 'unqualified' and the remaining axes are explicit teacher-judgment
  * slots. */
-export const clinicPaperStatusGetSchema=textbookSectionResultsGetSchema;
+export const clinicPaperStatusGetSchema=z.object(textbookByNameShape).strict();
 export type ClinicPaperStatusGet=WithRequest<z.infer<typeof clinicPaperStatusGetSchema>>;
 export type ClinicPaperStatusObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bookLabel:string;
   sections:{sourceTitle:string;originalAttempt:'observed_original_attempt'|'paper_row_observed'|'not_observed_in_scope';
@@ -155,8 +169,12 @@ export type ItemSectionTraceObservation=
     books:{bookLabel:string;sectionsScanned:number;sectionsFailed:number}[];
     items:{label:string;matches:{bookLabel:string;sourceTitle:string;ordinal:string;matchedBy:'lectureKey'|'outerLectureKey';originalScoring:'O'|'X'}[]}[];
     unmatchedLabels:string[];ambiguousLabels:string[];sectionsScanned:number;sectionsFailed:number;observedAt:string;coverage:string;bookSelection?:BookSelection};
+/** Where the keys of an answer came from: absent for the live list, `historical_key_registry` for the direct-key fallback. */
+export type HistoricalBindingSource={bindingSource?:'historical_key_registry'};
+export type HistoricalReportSummary={bookTitle:string;period:string;myAverage:number;allAverage:number;chapterCount:number};
 export type TextbookSectionIndexObservation={student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bookLabel:string;
-  index:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];observedAt:string;coverage:string;indexBasis?:string;bookSelection?:BookSelection};
+  index:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];observedAt:string;coverage:string;indexBasis?:string;bookSelection?:BookSelection;
+  reportSummary?:HistoricalReportSummary}&HistoricalBindingSource;
 export type TextbookSectionInterviewObservation={kind:'interview_required';student:{studentId:string;displayName:string};bindings:{bookLabel:string;bookNo:string;hint?:string}[];reason:'multiple_book_bindings_select_one';observedAt:string;bookSelection?:BookSelection};
 export type TextbookSectionResultsByNameObservation=TextbookSectionObservation|TextbookSectionIndexObservation|TextbookSectionInterviewObservation;
 /** Implemented by the native/source owner, never by MCP arguments. All methods are read-only. */
@@ -172,7 +190,7 @@ export interface DailyRecordReadBackend {
   readTextbookSections?(input:Readonly<TextbookSectionResults>):Promise<TextbookSectionObservation>;
   readPrestudyByName?(input:Readonly<PrestudyGet>):Promise<PrestudyObservation>;
   readPrestudyReportByName?(input:Readonly<PrestudyReportGet>):Promise<PrestudyReportObservation>;
-  readTextbookSectionsByName?(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionResultsByNameObservation>;
+  readTextbookSectionsByName?(input:Readonly<TextbookSectionResultsByNameInput>):Promise<TextbookSectionResultsByNameObservation>;
   readItemSectionTrace?(input:Readonly<ItemSectionTrace>):Promise<ItemSectionTraceObservation>;
 }
 /** Minimal form {reviewDigest, instruction}: context, handle and proposals come from the recorded prepared review. */
@@ -516,8 +534,10 @@ export class DailyRecordService {
     if(!this.backend?.readTextbookSectionsByName)return {...base,status:'unavailable' as const,reasonCode:'textbook_section_backend_not_configured'};
     try{
       const result=await this.#serial(async()=>{
-        const observation=await this.backend!.readTextbookSectionsByName!(freezeLabelData(structuredClone(input)));
+        // Only this tool may fall back to the direct-key historical read (specs/academy-mcp/direct-key-lookup.md R1, R2, R5).
+        const observation=await this.backend!.readTextbookSectionsByName!(freezeLabelData({...structuredClone(input),allowHistoricalFallback:true}));
         if(observation.student.displayName!==input.displayName)throw Error('textbook_section_scope_conflict');
+        if(input.courseKey!==undefined&&!('kind' in observation)&&(observation.courseKey!==input.courseKey||observation.bookNo!==input.bookNo))throw Error('textbook_section_scope_conflict');
         if('kind' in observation){
           if(observation.kind!=='interview_required'||!Array.isArray(observation.bindings)||observation.bindings.length<(input.bookLabel?1:2))throw Error('textbook_section_scope_conflict');
           return {...base,status:'interview_required' as const,...observation};

@@ -10,7 +10,9 @@ by editing an installed file by hand. The option `--paper-admit` of
 `modules/academy-workbench/tools/academy-mcp/install/loop_install.py` admits student ids to
 an existing entry while it installs a new generation, and leaves everything else of the
 routing as it was. It is relied on by the owner who installs a generation and by the
-server, which loads the result.
+server, which loads the result. Its option `--check-roster-students` refuses, before an install writes
+anything, a routing that leaves an active roster student in no entry or in two, so that no
+paper read of a roster student ends in `paper_scope_unresolved`.
 
 ## Requirements
 
@@ -35,6 +37,10 @@ server, which loads the result.
 - R19: The active `routing.json` is the file the base's `release.json` names under `routing`, and it is admitted to only after its bytes match that entry's `sha256`. Tests: `paper_admit_r19_hash_checked`.
 - R20: `loop_install.py --paper-admit-preview --base <dir> --paper-admit <endpoint>=<id>[,<id>...]...` reads the active `routing.json` as an install does (R19), applies the checks and refusals of R2 to R12, and prints the one line `routing sha256 <hex> admitted <count>` on standard output with exit status 0, where `<hex>` is the sha256 of the `routing.json` an install with the same options would write and `<count>` is the number of admitted ids; it writes nothing in the base and builds nothing, and it takes no `<commit> <generation> <surface.json|none>`. Tests: `paper_admit_r20_preview_writes_nothing`, `paper_admit_r14_ids_appended`.
 - R21: An install that is not refused prints the same line `routing sha256 <hex> admitted <count>` once, before the line of its activation, where `<hex>` is the sha256 of the new `routing.json` as R17 pins it and equals the sha256 that the preview of the same options prints. (no test yet; ars-ts-release observes it)
+- R22: A roster is covered when every one of its student ids is in exactly one `paperScopes` entry: an id in no entry, or in two, is a student whose paper reads the server refuses with `paper_scope_unresolved`. Tests: `paper_admit_r22_roster_covered`.
+- R23: The option `--check-roster-students <id>[,<id>...]`, given to the install form or to the preview of R20, checks that the `routing.json` the call would write (the active one, with the admissions of the same call) covers the roster that the option lists, before any file of the base is written: an id in no entry refuses with `roster_student_unrouted@<n>`, an id in more than one entry with `roster_student_duplicate@<n>`; a covered roster changes nothing else of the call. Tests: `paper_admit_r23_r25_check_roster_students_preflight`.
+- R24: The list of R23 is one or more ids joined by single commas, without spaces and without an id twice, or the call refuses with `roster_students_form`; an id that is not 1 to 16 ASCII digits with a first digit other than 0 refuses with `roster_student_id_invalid@<n>`. Tests: `paper_admit_r23_r25_check_roster_students_preflight`.
+- R25: `<n>` in a refusal of R23 and R24 is the 1-based position of the id in the option's list, never the id; such a refusal ends with exit status 1, its code as the last line of standard error, nothing on standard output, and writes nothing in the base. Tests: `paper_admit_r23_r25_check_roster_students_preflight`.
 
 ## Interface
 
@@ -57,6 +63,8 @@ admits two ids to the entry of `paper1` and one to the entry of `paper2`.
 | `paper_admit_endpoint_unknown@<endpoint>` | R9 |
 | `paper_admit_id_present@<n>` | R10 |
 | `paper_admit_limit` | R11 |
+| `roster_student_unrouted@<n>`, `roster_student_duplicate@<n>` | R23 |
+| `roster_students_form`, `roster_student_id_invalid@<n>` | R24 |
 
 `<n>` is a position (R7). Every other refusal of the install keeps its code and behaviour
 (for example `copy_hash_mismatch@routing`, `generation_exists@<path>`).
@@ -96,9 +104,23 @@ members before and after an admission of the invented id `90002` to `paper1`:
 {"admissionSha256":"<64 hex>","paperScopes":[{"endpoint":"paper1","studentIds":["90001","90002"]},{"endpoint":"paper2","studentIds":["90003"]}]}
 ```
 
+### The roster check
+
+```
+python3 -I loop_install.py <commit> <generation> <surface.json|none> --base <dir> [--paper-admit ...]... --check-roster-students <id>[,<id>...]
+python3 -I loop_install.py --paper-admit-preview --base <dir> [--paper-admit ...]... --check-roster-students <id>[,<id>...]
+```
+
+An example with invented ids: `--check-roster-students 90001,90003` before an install that
+routes `90001` to `paper1` and `90003` to `paper2`. The list is the active roster's student
+ids, as the owner reads them; the option reads no roster itself.
+
 ### Tests
 
-`scripts/test-academy-mcp-install.sh`, section 5, on a scratch base with invented ids. Its
+`scripts/test-academy-mcp-install.sh`, section 5, on a scratch base with invented ids. The
+rules R22 to R25 are tested by
+`modules/academy-workbench/tools/academy-mcp/tests/paper-scope-routing.test.ts`, which runs
+`python3 -I install/loop_install.py --paper-admit-preview` with the option on a scratch base. Its
 refusals run through the install itself, which refuses before any build; a success is read
 through `--paper-admit-preview`, which builds and writes nothing. The test for R14 and R15
 compares the preview's hash with the hash of the expected `routing.json`, computed apart from

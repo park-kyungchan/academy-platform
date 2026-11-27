@@ -18,7 +18,7 @@ and check the surface.
 
 Size
 
-- R1: After the consolidation of the existing tools, `tools[]` of `surface.json` holds at most 15 tools and its compact JSON is at most 18 KiB (18,432 B), which leaves at least 5,568 B below the 24,000 B limit of R2 for the 7 new tools. Tests: `tool_surface_r1_r8_fifteen_tools`.
+- R1: The 15 tools of the consolidation of the existing tools (the table "The 15 tools after consolidation") are in `tools[]` of `surface.json`, and their compact JSON, the 15 tools alone in their surface order, is at most 18 KiB (18,432 B), which leaves at least 5,568 B below the 24,000 B limit of R2 for the 7 new tools. R1 bounds these 15 tools only; R2 bounds the whole surface as the new tools are added. Tests: `tool_surface_r1_r8_fifteen_tools`.
 - R2: After the 7 new tools of the table "New tools" are added, `tools[]` holds at most 24 tools (22 planned) and its compact JSON is at most 24,000 B. Until then the running cap holds: while `n` of the 7 new tools are not yet in `surface.json`, the compact JSON is at most 24,000 B − 795 B × `n` and `tools[]` holds at most 24 − `n` tools. Tests: `tool_surface_r2_running_cap`.
 
 Accounting
@@ -54,7 +54,7 @@ The bytes of `JSON.stringify(surface.tools)` (no whitespace between tokens, UTF-
 
 | Stage | Tools | Compact `tools[]` |
 | --- | --- | --- |
-| After consolidation (R1) | at most 15 | at most 18 KiB (18,432 B), at least 5,568 B below the R2 limit |
+| The 15 tools of the consolidation (R1) | 15 | at most 18 KiB (18,432 B) for those 15 alone, at least 5,568 B below the R2 limit |
 | While `n` of the 7 new tools remain to be added (R2) | at most 24 − `n` | at most 24,000 B − 795 B × `n` |
 | After the 7 new tools (R2) | at most 24, 22 planned | at most 24,000 B |
 

@@ -23,15 +23,17 @@ export type TextbookPageRequest=z.infer<typeof textbookPageRequest>;
 export type TextbookPdfReading=z.infer<typeof resultSchema>;
 export interface TextbookPdfReader{read(path:string,sha256:string,request:TextbookPageRequest):Promise<TextbookPdfReading>}
 
-async function verifyInterpreter(path:string,expected:string){
-  if(!/^[a-f0-9]{64}$/.test(expected)||await realpath(path)!==path)throw Error('textbook_reader_interpreter_rejected');
+/** The interpreter at `path` is a regular file, not group or world writable, not reached through a
+ * symbolic link, whose bytes hash to `expected`; `code` is the refusal. */
+export async function verifyInterpreter(path:string,expected:string,code='textbook_reader_interpreter_rejected'){
+  if(!/^[a-f0-9]{64}$/.test(expected)||await realpath(path)!==path)throw Error(code);
   const file=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
   try{
     const before=await file.stat({bigint:true});
-    if(!before.isFile()||before.size>32n*1024n*1024n||(before.mode&0o022n)!==0n)throw Error('textbook_reader_interpreter_rejected');
+    if(!before.isFile()||before.size>32n*1024n*1024n||(before.mode&0o022n)!==0n)throw Error(code);
     const buffer=Buffer.alloc(Number(before.size)+1),{bytesRead}=await file.read(buffer,0,buffer.length,0),after=await file.stat({bigint:true});
     if(BigInt(bytesRead)!==before.size||before.mtimeNs!==after.mtimeNs||before.ctimeNs!==after.ctimeNs||before.size!==after.size
-      ||createHash('sha256').update(buffer.subarray(0,bytesRead)).digest('hex')!==expected)throw Error('textbook_reader_interpreter_rejected');
+      ||createHash('sha256').update(buffer.subarray(0,bytesRead)).digest('hex')!==expected)throw Error(code);
   }finally{await file.close();}
 }
 

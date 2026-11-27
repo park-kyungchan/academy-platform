@@ -49,7 +49,7 @@ const routeRoles:Readonly<Record<string,Readonly<Record<string,LmsRequestRole>>>
  [servlet+'login.LoginServlet']:{c_login:'login'},
  [servlet+'coursemanage.CourseManageServlet']:{StudyCourse:'read',StudySchedule:'read',GaStudyAnswer:'read',
   WebUnPreStudy:'read',WebCtPreStudy:'read',TeacherPrestudySummary:'read'},
- [servlet+'coursemanage.TextBookManageServlet']:{getTextBookProgress:'read'},
+ [servlet+'coursemanage.TextBookManageServlet']:{getTextBookProgress:'read',getCourseBookReport:'read'},
  [servlet+'dailyzerotest.DailyZeroTestServlet']:{DtResultSearch:'read'},
  // DailyRecord: the page read, and the field writes that are GET requests.
  [servlet+'cct.tutor.DayRecordServlet']:{Main:'read',udtPrg:'write',udtHw:'write',udtMemo:'write',udtAttn:'write'},
@@ -57,8 +57,9 @@ const routeRoles:Readonly<Record<string,Readonly<Record<string,LmsRequestRole>>>
  [servlet+'cct.common.CourseCommonServlet']:{SetCismContentData:'write',SetCismChartData:'write',SetDailyTest:'write',SetHomeWorkRate:'write'},
  [servlet+'tutor.base.TestPageListServlet']:{UserBySearchTestResult:'read',UserByMain:'read'},
  [servlet+'common.TestPageShowExServlet']:{GetLectureList:'read'},
- // lmsRouteRegistry.ts legacyRoutes class these two read; endpointCandidates.ts keeps them as write candidates.
- [servlet+'common.TestpageSelectExServlet']:{getStudyResultSingleTestingSingleUser:'read',getStudyResultSingleTestingMultiUser:'read'},
+ // lmsRouteRegistry.ts legacyRoutes class these read; that class supersedes the legacy write candidates of
+ // endpointCandidates.ts for getStudyResultSingleTestingSingleUser (specs/academy-mcp/direct-key-lookup.md R3).
+ [servlet+'common.TestpageSelectExServlet']:{getStudyResultSingleTestingSingleUser:'read',getStudyResultSingleTestingMultiUser:'read',getWrongAnswerNoteResult:'read'},
  [servlet+'tutor.fa.TestPageListServlet']:{PupilSearch:'read'},
  [servlet+'tutor.na.TestPageListServlet']:{PupilSearch:'read'},
  [servlet+'tutor.fa.TestPageListGrpServlet']:{Main:'read'},

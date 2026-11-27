@@ -5,7 +5,7 @@ import {dirname,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {z} from 'zod';
 import {readPinnedLocalBytes} from './item-label-store.ts';
-import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type PrestudyReportGet,type PrestudyReportObservation,type TextbookSectionResultsGet,type TextbookSectionIndexObservation,type TextbookSectionResultsByNameObservation,type ItemSectionTrace,type ItemSectionTraceObservation} from './dailyrecord.ts';
+import {dailyRecordObservationSchema,studentMetadataBatchSchema,type DailyRecordReadBackend,type DailyRecordWriteBackend,type DailyRecordObservation,type StudentMetadataBatch,type StudentMetadataObservation,studentMetadataGetSchema,type StudentMetadataGet,type DailyRecordSaveFieldStatus,type TextbookSectionResults,type TextbookSectionObservation,type PrestudyGet,type PrestudyObservation,type PrestudyReportGet,type PrestudyReportObservation,type TextbookSectionResultsGet,type TextbookSectionResultsByNameInput,type HistoricalReportSummary,type TextbookSectionIndexObservation,type TextbookSectionResultsByNameObservation,type ItemSectionTrace,type ItemSectionTraceObservation} from './dailyrecord.ts';
 import {createDailyRecordSaveAdmission,liveSaveRequestEvidence,type DailyRecordSaveAdmission,type DailyRecordSaveApproval} from './dailyrecord-save-admission.ts';
 import type {DailyRecordActionApproval} from './dailyrecord-workflow.ts';
 import type {DailyRecordField} from './dailyrecord-context.ts';
@@ -15,7 +15,10 @@ import {resolveStudentByName} from './student-resolver.ts';
 import type {TextbookCatalogObservation,TextbookPdfObservation,TextbookSchoolLevel} from '../../../../../apps/academy/dc-gang-a/src/lms/textbookCatalogRead';
 import {isTextbookBookLabel} from '../../../../../apps/academy/dc-gang-a/src/lms/prestudyRead';
 import {itemAnswerLookupSchema} from './item-answer-lookup.ts';
-import {bookSelectionOf,chooseBookBinding} from './read-input.ts';
+import {bookSelectionOf,chooseBookBinding,type BookSelection} from './read-input.ts';
+import type {HistoricalBindingReader} from './historical-binding-reader.ts';
+import type {CourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport';
+import {TEXTBOOK_SECTION_NOT_IN_EITHER} from '../../../../../apps/academy/dc-gang-a/src/lms/textbookSectionIndex';
 import type {DailyRecordTeacherScope} from './dailyrecord-read.ts';
 
 const home='/opt/data/profiles/dc-gang-a-dev';
@@ -63,6 +66,31 @@ interface SourcePort {
   readPrestudyReport?(input:{teacherLabel:string;studentName:string;studentKey:string;prestudyKey:string}):Promise<{sections:unknown[];scores:number[];prestudyKey:string;sourceRecord:{prestudyKey:string;unitLabel:string|null;dateLiteral:string|null};encodingResult:string|null;observedAt:string;coverage:string}>;
   readTextbookBindings?(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[]>;
   inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];indexBasis?:string;coverage?:string}>;
+  /** Direct-key historical reads (specs/academy-mcp/direct-key-lookup.md R3): the wrong-answer
+   * note, the course-book report and, for sourceTitles, the single-user result of a verified attempt. */
+  readHistoricalTextbookIndex?(input:HistoricalKeys):Promise<{rows:{sourceTitle:string;paperKey:string;attemptKey:string;sourceDate:{literal:string|null;meaning:string}}[];observedAt:string}>;
+  readCourseBookReport?(input:HistoricalKeys):Promise<CourseBookReport>;
+  readHistoricalTextbookSections?(input:HistoricalKeys&{attempts:{sourceTitle:string;paperKey:string;attemptKey:string;sourceDateLiteral:string|null}[]}):Promise<{family:string;status:string;records:SectionRecord[];observedAt:string;coverage:string}>;
+}
+type HistoricalKeys={teacherLabel:string;studentKey:string;studentName:string;courseKey:string;bookNo:string};
+type SectionRecord={sourceTitle:string;studentKey:string;studentName:string;courseKey:string;bookNo:string;
+  score:number;items:{originalOrdinal:string;lectureKey?:string|number|null;outerLectureKey?:string|number|null;scoring:string}[];sourceDate:{literal:string|null;precision:string;meaning:string}};
+type LiveBinding={courseKey:string;bookNo:string;studentKey:string;bookLabel:string};
+/** The positive-integer key rule of R6, as readLiteralKey of the LMS client takes it. */
+const directKey=(value:string)=>/^[1-9][0-9]{0,15}$/.test(value)&&Number(value)<=Number.MAX_SAFE_INTEGER;
+/** The book a call reads: a live binding (R1), historical keys (R2), or a question to the teacher. */
+type BookChoiceResult=
+  |{kind:'live';binding:LiveBinding;bookSelection:{bookSelection?:BookSelection}}
+  |{kind:'historical';courseKey:string;bookNo:string;label:string|null;bookSelection:{bookSelection?:BookSelection}}
+  |{kind:'interview';candidates:{bookLabel:string;bookNo:string;courseKey?:string}[];hints:boolean;bookSelection:{bookSelection?:BookSelection}};
+const normalizedTitle=(text:string)=>text.normalize('NFKC').toLowerCase().replace(/[\s\[\](){}<>「」『』【】·,._~-]+/g,'');
+/** The report's book title agrees with a known label: the same text when normalized, one inside
+ * the other, or the label's book words (brand, grade-term, volume) agreeing with the title alone. */
+export function bookTitleAgrees(title:string,label:string):boolean{
+  const a=normalizedTitle(title),b=normalizedTitle(label);
+  if(!a||!b)return false;
+  if(a===b||a.includes(b)||b.includes(a))return true;
+  return chooseBookBinding(label,[{bookLabel:title}]).kind==='selected';
 }
 type Admission={teacherId:string;teacherLabel:string;date?:string;students:{studentId:string;displayName:string}[];sourceBundleSha256:string};
 const fields=['progress','homework','lessonMemo','attendance','dailyTestAssessment','previousHomeworkAssessment'] as const;
@@ -154,7 +182,9 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
    * itself limits every read to the configured teacher's students. */
   constructor(readonly client:SourcePort,readonly admission:Admission,readonly credential:()=>{username:string;password:string},
     _legacyOwnerAdmission:unknown=null,_legacyStudentNames:unknown=null,_legacyMetadataAdmission:unknown=null,
-    readonly saveApproval:DailyRecordSaveApproval|null=null){}
+    readonly saveApproval:DailyRecordSaveApproval|null=null,
+    /** The read-only edu-academy-memory bindings of the direct-key fallback; null: explicit keys only. */
+    readonly historicalBindings:HistoricalBindingReader|null=null){}
   /** The student of a name-keyed read: the launch's own pair for that name, else the one
    * exact match of the source's name search, under the exact-name rules of the resolver. */
   async #studentByName(displayName:string):Promise<{studentId:string;displayName:string}>{
@@ -253,8 +283,8 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
   /** Backend half of the textbook-binding contract: a binding whose label
    * is not a qualified book title (percent/date/number/button cell) fails
    * closed here, so a parser drift never reaches the candidate list. */
-  #assertTextbookBindings(bindings:{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[],studentId:string):void{
-    if(!bindings.length)throw Error('textbook_binding_source_unqualified');
+  #assertTextbookBindings(bindings:{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[],studentId:string,allowEmpty=false):void{
+    if(!bindings.length&&!allowEmpty)throw Error('textbook_binding_source_unqualified');
     const identities=new Set<string>();
     for(const b of bindings){
       if(b.studentKey!==studentId)throw Error('textbook_binding_scope_conflict');
@@ -268,37 +298,24 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
    * live progress page. With several registered bindings and no exact
    * bookLabel the candidate labels are returned for caller selection; with
    * no titles the observed title index is returned for caller selection. */
-  async readTextbookSectionsByName(input:Readonly<TextbookSectionResultsGet>):Promise<TextbookSectionResultsByNameObservation>{
+  async readTextbookSectionsByName(input:Readonly<TextbookSectionResultsByNameInput>):Promise<TextbookSectionResultsByNameObservation>{
     if(!this.client.readTextbookBindings)throw Error('textbook_binding_source_port_unavailable');
     const student=await this.#studentByName(input.displayName);
+    const fallback=input.allowHistoricalFallback===true;
+    const explicit=fallback&&input.courseKey!==undefined&&input.bookNo!==undefined&&input.studentKey!==undefined
+      ?{courseKey:input.courseKey,bookNo:input.bookNo,studentKey:input.studentKey}:null;
+    // R4: an explicit student key is the resolved student's, before any fallback request.
+    if(explicit&&explicit.studentKey!==student.studentId)throw Error('historical_key_unverified');
     await this.#authenticate();
-    const bindings=await this.client.readTextbookBindings({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});
-    this.#assertTextbookBindings(bindings,student.studentId);
-    // The exact label wins, then a loose name (brand, grade-term, volume) that agrees with one binding.
-    const choice=input.bookLabel?chooseBookBinding(input.bookLabel,bindings):null;
-    const bookSelection=choice&&input.bookLabel?{bookSelection:bookSelectionOf(input.bookLabel,choice)}:{};
-    if(choice?.kind==='interview'||(!choice&&bindings.length>1)){
-      // Source bookLabel cells are not always titles (a progress row can
-      // yield a percent literal), so attach each binding's first observed
-      // section title as a selection hint. The hint never selects; the
-      // caller selects with a bookLabel on the second call.
-      const candidates:{bookLabel:string;bookNo:string;hint?:string}[]=[];
-      for(const b of choice?.kind==='interview'?choice.candidates:bindings){
-        let hint:string|undefined;
-        if(this.client.inspectTextbookIndex){
-          try{
-            const raw=await this.client.inspectTextbookIndex({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
-              studentName:student.displayName,courseKey:b.courseKey,bookNo:b.bookNo,sourceTitles:['index'],gradeViewAdmission:true});
-            const rows=z.array(z.object({sourceTitle:z.string().min(1).max(2000)}).passthrough()).max(1000).parse(raw.rows);
-            hint=rows[0]?.sourceTitle;
-          }catch{hint=undefined;}
-        }
-        candidates.push(hint?{bookLabel:b.bookLabel,bookNo:b.bookNo,hint}:{bookLabel:b.bookLabel,bookNo:b.bookNo});
-      }
-      return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
-        bindings:candidates,reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString(),...bookSelection};
-    }
-    const binding=choice?.kind==='selected'?choice.binding:bindings[0]!;
+    // Without a book label or explicit keys the live behaviour is unchanged, the fallback included.
+    const historical=fallback&&(explicit!==null||input.bookLabel!==undefined);
+    const bindings=await this.#liveBindings(student,historical);
+    const choice=historical
+      ?await this.#chooseBook(student,bindings,{bookLabel:input.bookLabel,explicit})
+      :this.#chooseLiveBook(student,bindings,input.bookLabel);
+    if(choice.kind==='interview')return this.#bookInterview(student,choice);
+    if(choice.kind==='historical')return this.#historicalTextbook(student,choice,input.sourceTitles);
+    const binding=choice.binding,bookSelection=choice.bookSelection;
     if(binding.studentKey!==student.studentId)throw Error('textbook_binding_scope_conflict');
     if(input.sourceTitles){
       return {...await this.#textbookSections(student,{displayName:input.displayName,purpose:input.purpose,currentRequestRef:input.currentRequestRef,
@@ -318,6 +335,158 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       coverage:indexBasis==='wrong_answer_note_plus_student_paper_search'
         ?'wrong_answer_note_index_plus_one_observed_student_paper_search_page_for_exact_student_course_book_not_section_grading_not_complete_history'
         :'wrong_answer_note_title_index_only_for_exact_student_course_book_not_section_grading_not_complete_history'};
+  }
+  /** The live getTextBookProgress list. The LMS client refuses a page with no book row as
+   * textbook_binding_source_unqualified, since such a page cannot prove that the student has no
+   * book; for the direct-key fallback that page is a live list without the requested book
+   * (R1, R5), and the historical keys are then verified by their own reads (R4). */
+  async #liveBindings(student:{studentId:string;displayName:string},emptyAllowed:boolean):Promise<LiveBinding[]>{
+    try{return await this.client.readTextbookBindings!({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId});}
+    catch(error){if(emptyAllowed&&error instanceof Error&&error.message==='textbook_binding_source_unqualified')return [];throw error;}
+  }
+  /** The live choice as before: the exact label wins, then a loose name (brand, grade-term,
+   * volume) that agrees with one binding; several or none ask with every candidate. */
+  #chooseLiveBook(student:{studentId:string},bindings:LiveBinding[],bookLabel:string|undefined):BookChoiceResult{
+    this.#assertTextbookBindings(bindings,student.studentId);
+    const choice=bookLabel?chooseBookBinding(bookLabel,bindings):null;
+    const bookSelection=choice&&bookLabel?{bookSelection:bookSelectionOf(bookLabel,choice)}:{};
+    if(choice?.kind==='interview'||(!choice&&bindings.length>1))
+      return {kind:'interview',candidates:choice?.kind==='interview'?choice.candidates:bindings,hints:true,bookSelection};
+    return {kind:'live',binding:choice?.kind==='selected'?choice.binding:bindings[0]!,bookSelection};
+  }
+  /** The direct-key fallback's choice (specs/academy-mcp/direct-key-lookup.md R1, R2, R5): the
+   * live list first, an empty list counting as no match; then explicit keys, or the active
+   * memory binding that the label selects. A label that matches neither keeps the live
+   * candidates' interview when the live list has books, else refuses historical_binding_missing. */
+  async #chooseBook(student:{studentId:string;displayName:string},bindings:LiveBinding[],request:{bookLabel?:string|undefined;explicit:{courseKey:string;bookNo:string}|null}):Promise<BookChoiceResult>{
+    this.#assertTextbookBindings(bindings,student.studentId,true);
+    const {bookLabel,explicit}=request;
+    if(explicit){
+      const live=bindings.find(b=>b.courseKey===explicit.courseKey&&b.bookNo===explicit.bookNo);
+      if(live)return {kind:'live',binding:live,bookSelection:{}};
+      return {kind:'historical',courseKey:explicit.courseKey,bookNo:explicit.bookNo,label:bookLabel??null,bookSelection:{}};
+    }
+    const label=bookLabel!;
+    const choice=bindings.length?chooseBookBinding(label,bindings):null;
+    if(choice?.kind==='selected')return {kind:'live',binding:choice.binding,bookSelection:{bookSelection:bookSelectionOf(label,choice)}};
+    if(choice?.kind==='interview'&&choice.match!=='none')return {kind:'interview',candidates:choice.candidates,hints:true,bookSelection:{bookSelection:bookSelectionOf(label,choice)}};
+    if(this.historicalBindings){
+      const memory=await this.historicalBindings.activeBindings(student.displayName,student.studentId);
+      const courseOf=new Map<string,string>();
+      for(const b of memory){
+        const seen=courseOf.get(b.bookNo);
+        if(seen!==undefined&&seen!==b.courseKey)throw Error('historical_binding_ambiguous');
+        courseOf.set(b.bookNo,b.courseKey);
+      }
+      const usable=memory.filter(b=>directKey(b.bookNo)&&directKey(b.courseKey)&&b.bookLabel);
+      const matched=chooseBookBinding(label,usable);
+      const found=matched.kind==='selected'?[matched.binding]:matched.match==='several'?matched.candidates:[];
+      const distinct=[...new Map(found.map(b=>[b.bookNo,b] as const)).values()];
+      if(distinct.length===1){
+        const b=distinct[0]!;
+        return {kind:'historical',courseKey:b.courseKey,bookNo:b.bookNo,label:b.bookLabel,
+          bookSelection:{bookSelection:{requested:label,boundLabel:b.bookLabel,match:matched.kind==='selected'?matched.match:'loose'}}};
+      }
+      if(distinct.length>1)return {kind:'interview',candidates:distinct.map(b=>({bookLabel:b.bookLabel,bookNo:b.bookNo})),hints:false,
+        bookSelection:{bookSelection:{requested:label,match:'several'}}};
+    }
+    if(bindings.length)return {kind:'interview',candidates:bindings,hints:true,bookSelection:{bookSelection:bookSelectionOf(label,choice!)}};
+    throw Error('historical_binding_missing');
+  }
+  async #bookInterview(student:{studentId:string;displayName:string},choice:Extract<BookChoiceResult,{kind:'interview'}>):Promise<TextbookSectionResultsByNameObservation>{
+    // Source bookLabel cells are not always titles (a progress row can
+    // yield a percent literal), so attach each live binding's first observed
+    // section title as a selection hint. The hint never selects; the
+    // caller selects with a bookLabel on the second call.
+    const candidates:{bookLabel:string;bookNo:string;hint?:string}[]=[];
+    for(const b of choice.candidates){
+      let hint:string|undefined;
+      if(choice.hints&&b.courseKey!==undefined&&this.client.inspectTextbookIndex){
+        try{
+          const raw=await this.client.inspectTextbookIndex({family:'textbook',teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,
+            studentName:student.displayName,courseKey:b.courseKey,bookNo:b.bookNo,sourceTitles:['index'],gradeViewAdmission:true});
+          const rows=z.array(z.object({sourceTitle:z.string().min(1).max(2000)}).passthrough()).max(1000).parse(raw.rows);
+          hint=rows[0]?.sourceTitle;
+        }catch{hint=undefined;}
+      }
+      candidates.push(hint?{bookLabel:b.bookLabel,bookNo:b.bookNo,hint}:{bookLabel:b.bookLabel,bookNo:b.bookNo});
+    }
+    return {kind:'interview_required',student:{studentId:student.studentId,displayName:student.displayName},
+      bindings:candidates,reason:'multiple_book_bindings_select_one',observedAt:new Date().toISOString(),...choice.bookSelection};
+  }
+  /** The keys of a historical book, verified by the course-book report (R4): SERVER_RET = OK,
+   * the student's name and the echoed keys (checked by the client), and a book title that
+   * agrees with the known label. */
+  async #verifiedCourseBookReport(student:{studentId:string;displayName:string},keys:{courseKey:string;bookNo:string},label:string|null):Promise<CourseBookReport>{
+    if(!this.client.readCourseBookReport)throw Error('historical_source_port_unavailable');
+    let report:CourseBookReport;
+    // A report that fails, of any kind, verifies nothing; a login or session page stays authentication_required (R11).
+    try{report=await this.client.readCourseBookReport({teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,studentName:student.displayName,
+      courseKey:keys.courseKey,bookNo:keys.bookNo});}
+    catch(error){if(error instanceof Error&&error.message==='authentication_required')throw error;throw Error('historical_key_unverified');}
+    if(!report?.metadata?.bookTitle||report.studyqInput?.student!==student.displayName||(label!==null&&!bookTitleAgrees(report.metadata.bookTitle,label)))
+      throw Error('historical_key_unverified');
+    return report;
+  }
+  /** R2-R4: the wrong-answer note and the course-book report of the historical keys, then, for
+   * sourceTitles, the single-user result of each verified wrong-note attempt. */
+  async #historicalTextbook(student:{studentId:string;displayName:string},choice:Extract<BookChoiceResult,{kind:'historical'}>,sourceTitles:readonly string[]|undefined):Promise<TextbookSectionResultsByNameObservation>{
+    if(!this.client.readHistoricalTextbookIndex||!this.client.readCourseBookReport)throw Error('historical_source_port_unavailable');
+    const keys={teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,studentName:student.displayName,courseKey:choice.courseKey,bookNo:choice.bookNo};
+    const note=await this.client.readHistoricalTextbookIndex(keys);
+    const report=await this.#verifiedCourseBookReport(student,choice,choice.label);
+    const rows=z.array(z.object({sourceTitle:z.string().min(1).max(2000),paperKey:key,attemptKey:key,
+      sourceDate:z.object({literal:z.string().nullable(),meaning:z.string().max(200)})})).max(1000).parse(note.rows);
+    const studentOut={studentId:student.studentId,displayName:student.displayName};
+    if(sourceTitles){
+      if(!this.client.readHistoricalTextbookSections)throw Error('historical_source_port_unavailable');
+      const attempts=sourceTitles.map(title=>{
+        const matches=rows.filter(r=>r.sourceTitle===title);
+        // A title absent from the wrong-note index is not observed; no score is invented.
+        if(matches.length!==1)throw Error(matches.length===0?TEXTBOOK_SECTION_NOT_IN_EITHER:'source_selection_missing_or_ambiguous');
+        const r=matches[0]!;
+        return {sourceTitle:r.sourceTitle,paperKey:r.paperKey,attemptKey:r.attemptKey,sourceDateLiteral:r.sourceDate.literal};
+      });
+      const raw=await this.client.readHistoricalTextbookSections({...keys,attempts});
+      if(raw.family!=='textbook'||raw.status!=='observed'||!Array.isArray(raw.records)||raw.records.length!==sourceTitles.length)throw Error('textbook_section_result_unqualified');
+      const records=raw.records.map(r=>{
+        if(r.studentKey!==student.studentId||r.studentName!==student.displayName||r.courseKey!==choice.courseKey||r.bookNo!==choice.bookNo
+          ||!sourceTitles.includes(r.sourceTitle)||typeof r.score!=='number'||!Array.isArray(r.items)
+          ||r.items.some(i=>i.scoring!=='O'&&i.scoring!=='X'))throw Error('textbook_section_result_unqualified');
+        const items=r.items.map(i=>({ordinal:String(i.originalOrdinal),lectureKey:i.lectureKey==null?null:String(i.lectureKey),outerLectureKey:i.outerLectureKey==null?null:String(i.outerLectureKey),scoring:i.scoring as 'O'|'X'}));
+        return {sourceTitle:r.sourceTitle,score:r.score,correctCount:items.filter(i=>i.scoring==='O').length,itemCount:items.length,items,
+          sourceDate:{literal:r.sourceDate?.literal??null,precision:String(r.sourceDate?.precision??'unknown'),meaning:String(r.sourceDate?.meaning??'source_apply_date_not_exact_grade_time')}};
+      });
+      return {student:studentOut,courseKey:choice.courseKey,bookNo:choice.bookNo,records,observedAt:raw.observedAt,
+        coverage:'exact_selected_existing_records_not_whole_book',bindingSource:'historical_key_registry',...choice.bookSelection};
+    }
+    const reportSummary:HistoricalReportSummary={bookTitle:report.metadata.bookTitle,period:report.studyqInput.period,
+      myAverage:report.studyqInput.my_average,allAverage:report.studyqInput.all_average,chapterCount:report.sourceChapterCount};
+    return {student:studentOut,courseKey:choice.courseKey,bookNo:choice.bookNo,bookLabel:choice.label??report.metadata.bookTitle,
+      index:rows.map(r=>({sourceTitle:r.sourceTitle,sourceDate:{literal:r.sourceDate.literal,meaning:r.sourceDate.meaning}})),
+      observedAt:note.observedAt,indexBasis:'wrong_answer_note_only',bindingSource:'historical_key_registry',reportSummary,...choice.bookSelection,
+      coverage:'historical_wrong_answer_note_and_course_book_report_only_all_correct_sections_omitted_from_wrong_note_index'};
+  }
+  /** The official course-book report of one student's book for academy_official_report_pdf_get:
+   * explicit keys (all three, the student key the resolved student's), else the book the label
+   * selects, live list first and active memory bindings after it, as the section read chooses. */
+  async readCourseBookReportByName(input:{displayName:string;bookLabel?:string;courseKey?:string;bookNo?:string;studentKey?:string}):Promise<
+    {kind:'report';student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bindingSource?:'historical_key_registry';report:CourseBookReport;bookSelection?:BookSelection}
+    |Extract<TextbookSectionResultsByNameObservation,{kind:'interview_required'}>>{
+    if(!this.client.readTextbookBindings)throw Error('textbook_binding_source_port_unavailable');
+    const student=await this.#studentByName(input.displayName);
+    const explicit=input.courseKey!==undefined&&input.bookNo!==undefined&&input.studentKey!==undefined
+      ?{courseKey:input.courseKey,bookNo:input.bookNo,studentKey:input.studentKey}:null;
+    if(explicit&&explicit.studentKey!==student.studentId)throw Error('historical_key_unverified');
+    await this.#authenticate();
+    const bindings=await this.#liveBindings(student,explicit!==null||input.bookLabel!==undefined);
+    const choice=explicit||input.bookLabel?await this.#chooseBook(student,bindings,{bookLabel:input.bookLabel,explicit}):this.#chooseLiveBook(student,bindings,undefined);
+    if(choice.kind==='interview')return await this.#bookInterview(student,{...choice,hints:false}) as Extract<TextbookSectionResultsByNameObservation,{kind:'interview_required'}>;
+    const keys=choice.kind==='live'?{courseKey:choice.binding.courseKey,bookNo:choice.binding.bookNo}:{courseKey:choice.courseKey,bookNo:choice.bookNo};
+    const label=choice.kind==='live'?choice.binding.bookLabel:choice.label;
+    const report=await this.#verifiedCourseBookReport(student,keys,label);
+    return {kind:'report',student:{studentId:student.studentId,displayName:student.displayName},...keys,
+      ...(choice.kind==='historical'?{bindingSource:'historical_key_registry' as const}:{}),report,...choice.bookSelection};
   }
   /** Reverse trace: scan one registered textbook's section index and match
    * item labels to original section items. With several bindings and no exact
@@ -611,7 +780,7 @@ export function durableSaveConsumeOnce(storeDir:string){
     return true;
   };
 }
-export async function nativeDailyRecordConfiguration(args:readonly string[],saveAdmission:DailyRecordSaveAdmission|null=null,saveStoreDir:string|null=null,saveRequestPath:string|null=null){
+export async function nativeDailyRecordConfiguration(args:readonly string[],saveAdmission:DailyRecordSaveAdmission|null=null,saveStoreDir:string|null=null,saveRequestPath:string|null=null,historicalBindings:HistoricalBindingReader|null=null){
   if(!args.length)return null;
   if(args.length!==3||args[0]!=='--dailyrecord-native')throw Error('dailyrecord_native_arguments_invalid');
   if(process.getuid?.()!==10000||process.env.HERMES_HOME!==home)throw Error('native_dailyrecord_owner_required');
@@ -645,6 +814,6 @@ export async function nativeDailyRecordConfiguration(args:readonly string[],save
     });
   }
   const backend=new NativeDailyRecordBackend(client,{teacherId:owner.teacherSourceKey,teacherLabel:owner.teacherLabel,
-    date:config.date,students:config.students,sourceBundleSha256:config.sourceBundleSha256},()=>({username:owner.sourceUsername,password}),null,null,null,saveApproval);
+    date:config.date,students:config.students,sourceBundleSha256:config.sourceBundleSha256},()=>({username:owner.sourceUsername,password}),null,null,null,saveApproval,historicalBindings);
   return {backend,close:()=>client.close()};
 }
