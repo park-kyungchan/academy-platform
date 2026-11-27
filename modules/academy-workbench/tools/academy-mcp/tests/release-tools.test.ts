@@ -53,15 +53,12 @@ const knownDifferences:Record<string,string[]>={
  academy_dailytest_history_with_headers:[...identity,'/properties/lessonDate','/required'],
  academy_student_resolve:['/properties/lessonDate','/required'],
  academy_student_metadata_get:[...identity,'/properties/lessonDate',period(0),period(4),'/required'],
- academy_student_metadata:[...identity,period(0),period(4),'/properties/scope/properties/lessonDate','/properties/scope/required','/required'],
  academy_textbook_section_results_get:[...identity,'/required'],
- academy_textbook_section_results:[...identity,'/required'],
  academy_clinic_paper_status_get:[...identity,'/required'],
  academy_item_section_trace:[...identity,'/required'],
  academy_item_answer_lookup:['/required'],
  academy_prestudy_get:[...identity,'/required'],
  academy_prestudy_report_get:[...identity,'/required'],
- academy_review_type_questions:['/properties/purpose','/required'],
  academy_cism_weekly_get:['/properties/date'],
 };
 /** Input schemas changed for v6 of tools that neither v5 nor these two endpoints route
@@ -70,11 +67,15 @@ const changedOutsideTheEndpoints:Record<string,{pointers:string[];schema:JsonSch
  academy_pool_question_content:{pointers:['/properties/purpose','/required'],schema:z.toJSONSchema(poolQuestionContentInputSchema,{io:'input'}) as JsonSchema,
   check:schema=>({purposeDefault:at(schema,'/properties/purpose/default'),purposeRequired:((schema.required??[]) as string[]).includes('purpose')})},
 };
-/** Registered by a program and deliberately absent from the surface. */
+/** Registered by a program and deliberately absent from the surface. `academy_student_metadata_get`
+ * is the hidden upstream of the bridge composition `academy_dailytest_history_with_headers`. */
 const hiddenTools:Record<Program,string[]>={
- saved:['academy_endpoint_identity'],
- dailyrecord:['academy_endpoint_identity','academy_textbook_units_get'],
+ saved:['academy_endpoint_identity','academy_student_metadata_get'],
+ dailyrecord:['academy_endpoint_identity','academy_student_metadata_get','academy_textbook_units_get'],
 };
+/** Fixture tools that the surface does not list: hidden upstream routes of the composition
+ * (`academy_student_metadata_get` on the dailyrecord endpoint, paper2's `class2_academy_paper_headers`). */
+const hiddenRouteTargets=['academy_student_metadata_get','class2_academy_paper_headers'];
 /** The paper endpoints' tools are not compared here: the change that adds the paper server compares them. */
 const comparedWithPaperServer=fixture.tools.filter(t=>t.endpoint==='paper1'||t.endpoint==='paper2').map(t=>t.name);
 
@@ -139,17 +140,19 @@ afterAll(async()=>{for(const {client,transport} of open){await client.close();aw
 const registered=(program:Program)=>listed[program]!;
 
 describe('release v5 tools against the endpoint programs',()=>{
- test('the fixture holds the 38 routed tools of v5 and the bridge-served runtime identity',()=>{
-  expect(fixture.tools.map(t=>t.name)).toEqual(surface.tools.map(t=>t.name));
-  expect(fixture.tools.filter(t=>t.servedBy!=='bridge')).toHaveLength(38);
+ test('the fixture holds the 30 routed tools of v5 that remain, the bridge-served runtime identity and no retired tool',()=>{
+  expect(fixture.tools.map(t=>t.name).filter(name=>!hiddenRouteTargets.includes(name))).toEqual(surface.tools.map(t=>t.name));
+  expect(surface.tools).toHaveLength(29);
+  expect(fixture.tools.map(t=>t.name)).toEqual(expect.arrayContaining(hiddenRouteTargets));
+  expect(fixture.tools.filter(t=>t.servedBy!=='bridge')).toHaveLength(30);
   expect(fixture.tools.filter(t=>t.servedBy==='bridge')).toEqual([{name:'academy_runtime_identity',servedBy:'bridge',compared:false}]);
   expect(comparedWithPaperServer.sort()).toEqual(['academy_daily_test_inventory','academy_paper_definition_lookup','academy_paper_headers',
    'academy_paper_read_contracts','academy_printed_paper_lookup','academy_source_read_contracts','class2_academy_paper_headers']);
  });
 
  test('saved and dailyrecord programs list the measured tool counts',()=>{
-  expect(registered('saved').size).toBe(24);
-  expect(registered('dailyrecord').size).toBe(26);
+  expect(registered('saved').size).toBe(16);
+  expect(registered('dailyrecord').size).toBe(23);
  });
 
  for(const tool of fixture.tools.filter(t=>t.servedBy!=='bridge'&&isProgram(t.endpoint))){
@@ -197,10 +200,9 @@ describe('release v5 tools against the endpoint programs',()=>{
    const restricted=((current.required??[]) as string[]).filter(name=>members.includes(name));
    expect({name:shown.name,required:[...(shown.inputSchema.required??[]) as string[]].sort()}).toEqual({name:shown.name,required:restricted.sort()});
   }
-  // Displayed without members, so without required: four compacted contracts and the
-  // status tool, which has no members.
-  expect(withoutMembers.sort()).toEqual(['academy_cism_section','academy_find_item_labels','academy_item_label_scope',
-   'academy_review_type_questions','academy_source_status']);
+  // Every displayed tool of the two programs has members: the compacted contracts and the
+  // status tool of earlier surfaces are retired.
+  expect(withoutMembers.sort()).toEqual([]);
  });
 
  test('each displayed date member lets 어제 and 11월 16일 through, as its registered schema does',()=>{
@@ -225,8 +227,7 @@ describe('release v5 tools against the endpoint programs',()=>{
   // The date members the surface displays; a date member inside a displayed
   // `queries: {type: 'array'}` is not displayed.
   expect(displayed.sort()).toEqual(['academy_cism_weekly_get /properties/date','academy_dailyrecord_get /properties/lessonDate',
-   'academy_dailytest_history_with_headers /properties/lessonDate','academy_student_metadata /properties/scope/properties/lessonDate',
-   'academy_student_metadata_get /properties/lessonDate','academy_student_resolve /properties/lessonDate']);
+   'academy_dailytest_history_with_headers /properties/lessonDate','academy_student_resolve /properties/lessonDate']);
  });
 
  test('build:endpoints refuses an out directory other than modules/academy-workbench/.local/<name>/src',()=>{
