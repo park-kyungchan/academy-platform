@@ -65,3 +65,12 @@ respective columns. Inert handler declarations use the crate's existing signatur
 `dailyrecord_tests.rs` derives adversarial pages by changing only these invented
 bytes, and constructs disposable owner documents, raw indexes and spool files.
 No private page, credential, student record or endpoint supplies fixture values.
+
+## Invented lesson-command page
+
+`crates/edu/tests/fixtures/day.html` is authored from scratch in the layout of the page above:
+two rows, the first of a student whose invented name has Korean letters, the second a student's
+first lesson (no previous-homework handler or control, empty previous cells), as the family
+stores it. Every text carries an invented marker, so `crates/edu/tests/lesson.rs` can show that
+no text reaches line 1, a refusal or the run log. Its secret file, identity, roster, cookie and
+password are invented in the test.

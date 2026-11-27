@@ -1,0 +1,24 @@
+[package]
+name = "edu"
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "edu"
+path = "src/main.rs"
+
+[dependencies]
+edu-academy-core = { path = "../edu-academy-core" }
+edu-academy-ontology = { path = "../edu-academy-ontology" }
+edu-academy-sources = { path = "../edu-academy-sources" }
+ont.workspace = true
+rustix.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+
+[lints]
+workspace = true

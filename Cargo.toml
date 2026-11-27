@@ -1,7 +1,7 @@
 [workspace]
-members = ["crates/edu-academy-core", "crates/edu-academy-sources", "crates/edu-academy-mcp", "crates/edu-academy-teacher", "crates/edu-academy-ontology", "crates/edu-academy-memory"]
+members = ["crates/edu-academy-core", "crates/edu-academy-sources", "crates/edu-academy-mcp", "crates/edu-academy-teacher", "crates/edu-academy-ontology", "crates/edu-academy-memory", "crates/edu"]
 # `edu-academy-mcp` is frozen (parity work stopped; retired at the first cutover): `./check` skips it, `./check all` covers it.
-default-members = ["crates/edu-academy-core", "crates/edu-academy-sources", "crates/edu-academy-teacher", "crates/edu-academy-ontology", "crates/edu-academy-memory"]
+default-members = ["crates/edu-academy-core", "crates/edu-academy-sources", "crates/edu-academy-teacher", "crates/edu-academy-ontology", "crates/edu-academy-memory", "crates/edu"]
 # `imported/` holds the histories of two former Academy repositories, byte for byte: nothing here builds it.
 exclude = ["imported"]
 resolver = "3"
