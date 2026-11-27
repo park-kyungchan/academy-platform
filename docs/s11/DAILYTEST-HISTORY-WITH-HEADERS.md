@@ -57,20 +57,7 @@ live/native Academy behavior.
 All tests and examples are UNEXECUTED by the source author. `rustfmt` and static
 Git/hash/readback checks are the only source-turn verification.
 
-The Lead must allocate a build slot and create a new canonical absolute
-`S11_HISTORY_TEST_ROOT` with mode 0700. No test uses a temp-directory fallback.
-After allocation, from this worktree, using Lead-owned paths:
-
-```bash
-source /home/palantirkc/work/ws-replan/preparation/final-review/execution-env.sh
-: "${CARGO_TARGET_DIR:?Lead must select the absolute build target}"
-: "${S11_HISTORY_TEST_ROOT:?Lead must create the canonical absolute evidence root}"
-cargo build --release --locked --offline -j1 -p edu-academy-mcp --example fictional_paper_endpoint
-export S11_HISTORY_CHILD_EXECUTABLE="$(realpath "$CARGO_TARGET_DIR/release/examples/fictional_paper_endpoint")"
-export S11_HISTORY_CHILD_SHA256="$(sha256sum "$S11_HISTORY_CHILD_EXECUTABLE" | cut -d ' ' -f1)"
-cargo test --locked -j1 -p edu-academy-mcp --test history_headers --no-run
-cargo test --locked -j1 -p edu-academy-mcp --test history_headers -- --test-threads=1
-```
+The crate `edu-academy-mcp` that held these tests and examples was removed in pull request #167; the commands that built and ran them no longer apply.
 
 The tests retain outputs, source call events, complete child RPC streams and
 supervisor cleanup receipts under the selected root. They cover strict input

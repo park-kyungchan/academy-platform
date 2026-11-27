@@ -8,7 +8,7 @@ Tooling for a teacher's Academy work. The route in use is the installed TypeScri
 
 ## The check
 
-`./check` at the root, until it prints `check: ok`; it is the file the CI job `rust` runs. It covers the default members. `./check all` also builds and tests the frozen crate. On the host it takes the build lock and makes its fixture directory by itself (do not wrap it in `flock`; do not point `CHECK_FIXTURE_BASE` under `/tmp` or inside a work tree). Builds go to `target/` in your worktree. Do not push before it passes.
+`./check` at the root, until it prints `check: ok`; it is the file the CI job `rust` runs. It covers the default members, which equal the workspace members: `./check all` does what `./check` does. On the host it takes the build lock and makes its fixture directory by itself (do not wrap it in `flock`; do not point `CHECK_FIXTURE_BASE` under `/tmp` or inside a work tree). Builds go to `target/` in your worktree. Do not push before it passes.
 
 ## Contracts you can break
 
@@ -26,7 +26,7 @@ A change of one of these says so in the pull request and comes with the test tha
 
 ## Frozen
 
-`crates/edu-academy-mcp` (not a default member): parity work stopped; retired at the first cutover. Retained TypeScript/Bun reference source (`modules/`, `apps/`, `migration/`) and every file with a current Rust, live runtime or host consumer stay until their retirement conditions are met. Do not restore the retired Bun integration harness, context gates, custom receipts or automated review workflow. Historical pins and records describe their original observations, not current acceptance.
+The Rust MCP port `crates/edu-academy-mcp` was removed in pull request #167. Retained TypeScript/Bun reference source (`modules/`, `apps/`, `migration/`) and every file with a current Rust, live runtime or host consumer stay until their retirement conditions are met. Do not restore the retired Bun integration harness, context gates, custom receipts or automated review workflow. Historical pins and records describe their original observations, not current acceptance.
 
 ## Imported
 
