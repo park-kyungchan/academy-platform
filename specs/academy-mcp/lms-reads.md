@@ -11,7 +11,7 @@ by the lesson-day and prestudy-review skills and by the units that build and che
 ## Requirements
 
 - R1: `academy_lms_schedule_get` takes `view` `attendance`, `study_schedule` or `course_study_manager` and sends only the GET of that view in the table "Routes"; `academy_prestudy_get` sends only the requests of its rows of that table: those of its `view` (`videos` when no `view` and no `reportId` is given), and, with `reportId`, those of the report row once for that key. (no test yet; observed by the unit that builds the LMS reads)
-- R2: The reads send no POST, other than the prestudy list search form that the table names, which changes no Academy data; no request leaves the table. (no test yet; observed by the unit that builds the LMS reads)
+- R2: The reads send no POST other than those the table names (the login exchange, the student name search and the prestudy list search forms), none of which changes Academy data; no request leaves the table. (no test yet; observed by the unit that builds the LMS reads)
 - R3: Before its first LMS request a call takes the shared account lock of `docs/academy-account-lock.md` with `/usr/bin/flock --nonblock` and holds it until its last; when the lock is busy the call ends with a tool error carrying `owner_account_busy`, and 0 HTTP requests are sent. (no test yet; observed by the unit that builds the LMS reads)
 - R4: A redirect to the login page, the login page itself, a session-error page (`normal_session_error.jsp`, `popup_session_error.jsp`), or a page with a password input refuses the call with `authentication_required`; no row of such a page is answered and no login is retried within the call (fail closed). (no test yet; observed by the unit that builds the LMS reads)
 - R5: A page whose scope fields (the teacher key and, where the page has them, the date or period) differ from those requested refuses with `scope_conflict`; a page without the form or table the read expects refuses with `source_drift`. (no test yet; observed by the unit that builds the LMS reads)
@@ -26,6 +26,8 @@ by the lesson-day and prestudy-review skills and by the units that build and che
 
 | Tool and view | Request |
 | --- | --- |
+| every call of both tools, before its other rows | the login exchange of the server's session, as the tools send it today |
+| every call of `academy_prestudy_get`, after the login | the student name search of the old `academy_prestudy_get`: `POST /servlet/controller.dailyzerotest.DailyZeroTestServlet?reqCmd=DtResultSearch` with body `sort_date` and `stu_name`, sent again for each period selector of the page while no student is found |
 | `academy_lms_schedule_get(view:'attendance')` | `GET /servlet/controller.cct.tutor.AttendanceServlet?p_process=Main` |
 | `academy_lms_schedule_get(view:'study_schedule')` | `GET /servlet/controller.coursemanage.CourseManageServlet?reqCmd=StudySchedule` |
 | `academy_lms_schedule_get(view:'course_study_manager')` | `GET /servlet/controller.coursemanage.CourseManageServlet?reqCmd=CourseStudyManager` |
