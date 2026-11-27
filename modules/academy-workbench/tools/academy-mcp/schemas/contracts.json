@@ -15,15 +15,20 @@
             "maxLength": 200
           },
           "lessonDate": {
+            "default": "today",
+            "description": "Omit for today. YYYY-MM-DD, today/오늘, yesterday/어제, M월 D일 (a weekday such as (목) may follow and is not checked), M/D or M-D. Resolved in Asia/Seoul: a month-day takes the year among last, this and next year that puts the date nearest to today (the earlier date on a tie). The answer states the resolved YYYY-MM-DD, also when the read then fails.",
             "type": "string",
-            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            "minLength": 1,
+            "maxLength": 40
           },
           "purpose": {
+            "description": "Optional. When omitted the server uses the tool name.",
             "type": "string",
             "minLength": 1,
             "maxLength": 256
           },
           "currentRequestRef": {
+            "description": "Optional. When omitted the server makes a new reference for this call and returns it.",
             "type": "string",
             "minLength": 1,
             "maxLength": 256
@@ -46,11 +51,15 @@
                       "properties": {
                         "from": {
                           "type": "string",
-                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                          "minLength": 1,
+                          "maxLength": 40,
+                          "description": "YYYY-MM-DD, today/오늘, yesterday/어제, M월 D일 (a weekday such as (목) may follow and is not checked), M/D or M-D. Resolved in Asia/Seoul: a month-day takes the year among last, this and next year that puts the date nearest to today (the earlier date on a tie). The answer states the resolved YYYY-MM-DD, also when the read then fails."
                         },
                         "through": {
                           "type": "string",
-                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                          "minLength": 1,
+                          "maxLength": 40,
+                          "description": "YYYY-MM-DD, today/오늘, yesterday/어제, M월 D일 (a weekday such as (목) may follow and is not checked), M/D or M-D. Resolved in Asia/Seoul: a month-day takes the year among last, this and next year that puts the date nearest to today (the earlier date on a tie). The answer states the resolved YYYY-MM-DD, also when the read then fails."
                         }
                       },
                       "required": [
@@ -138,11 +147,15 @@
                       "properties": {
                         "from": {
                           "type": "string",
-                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                          "minLength": 1,
+                          "maxLength": 40,
+                          "description": "YYYY-MM-DD, today/오늘, yesterday/어제, M월 D일 (a weekday such as (목) may follow and is not checked), M/D or M-D. Resolved in Asia/Seoul: a month-day takes the year among last, this and next year that puts the date nearest to today (the earlier date on a tie). The answer states the resolved YYYY-MM-DD, also when the read then fails."
                         },
                         "through": {
                           "type": "string",
-                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                          "minLength": 1,
+                          "maxLength": 40,
+                          "description": "YYYY-MM-DD, today/오늘, yesterday/어제, M월 D일 (a weekday such as (목) may follow and is not checked), M/D or M-D. Resolved in Asia/Seoul: a month-day takes the year among last, this and next year that puts the date nearest to today (the earlier date on a tie). The answer states the resolved YYYY-MM-DD, also when the read then fails."
                         }
                       },
                       "required": [
@@ -166,8 +179,6 @@
         "required": [
           "displayName",
           "lessonDate",
-          "purpose",
-          "currentRequestRef",
           "queries"
         ],
         "additionalProperties": false
@@ -186,36 +197,51 @@
             "description": "Exact student display name from the current user request; never guess a native key."
           },
           "purpose": {
+            "description": "Optional. When omitted the server uses the tool name.",
             "type": "string",
             "minLength": 1,
-            "maxLength": 256,
-            "description": "The current user request or its purpose. Reading does not authorize authoring or saving."
+            "maxLength": 256
           },
           "currentRequestRef": {
+            "description": "Optional. When omitted the server makes a new reference for this call and returns it.",
             "type": "string",
             "minLength": 1,
-            "maxLength": 256,
-            "description": "Reference to this current user request; not an approval or credential."
+            "maxLength": 256
           },
           "lessonDate": {
             "default": "today",
-            "description": "Omit for today in Asia/Seoul. An explicit date must fall inside the owner-admitted range.",
-            "anyOf": [
-              {
-                "type": "string",
-                "const": "today"
-              },
-              {
-                "type": "string",
-                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-              }
+            "description": "Omit for today. YYYY-MM-DD, today/오늘, yesterday/어제, M월 D일 (a weekday such as (목) may follow and is not checked), M/D or M-D. Resolved in Asia/Seoul: a month-day takes the year among last, this and next year that puts the date nearest to today (the earlier date on a tie). The answer states the resolved YYYY-MM-DD, also when the read then fails.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "view": {
+            "type": "string",
+            "enum": [
+              "full",
+              "compact"
             ]
+          },
+          "fields": {
+            "description": "Return only these fields[] entries (default all six).",
+            "minItems": 1,
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "progress",
+                "homework",
+                "lessonMemo",
+                "attendance",
+                "dailyTestAssessment",
+                "previousHomeworkAssessment"
+              ]
+            }
           }
         },
         "required": [
-          "displayName",
-          "purpose",
-          "currentRequestRef"
+          "displayName"
         ],
         "additionalProperties": false
       },
@@ -637,13 +663,9 @@
                 "type": "boolean"
               },
               "nextCursor": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "byteLimited": {
@@ -1668,6 +1690,7 @@
             "maxLength": 1024
           },
           "purpose": {
+            "default": "teacher_requested_review",
             "type": "string",
             "enum": [
               "teacher_requested_review",
@@ -1803,8 +1826,7 @@
                       }
                     },
                     "required": [
-                      "kind",
-                      "requestRef"
+                      "kind"
                     ],
                     "additionalProperties": false
                   },
@@ -1823,7 +1845,8 @@
                       "text": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 4096
+                        "maxLength": 4096,
+                        "description": "Lesson memo text: at most 400 units, where a non-ASCII character (Korean included) counts 2 and any other character 1."
                       }
                     },
                     "required": [
@@ -1875,6 +1898,7 @@
                       "maxLength": 8192
                     },
                     "requiredFragments": {
+                      "default": [],
                       "maxItems": 32,
                       "type": "array",
                       "items": {
@@ -1884,6 +1908,8 @@
                       }
                     },
                     "questionCounts": {
+                      "default": [],
+                      "description": "Cardinal question counts only, e.g. {count:8,rendering:\"8문항\"}. Type ordinals such as 유형 10 belong in requiredFragments, not questionCounts.",
                       "maxItems": 32,
                       "type": "array",
                       "items": {
@@ -1905,10 +1931,10 @@
                           "rendering"
                         ],
                         "additionalProperties": false
-                      },
-                      "description": "Cardinal question counts only, e.g. {count:8,rendering:\"8문항\"}. Type ordinals such as 유형 10 belong in requiredFragments, not questionCounts."
+                      }
                     },
                     "deadlines": {
+                      "default": [],
                       "maxItems": 16,
                       "type": "array",
                       "items": {
@@ -1932,6 +1958,7 @@
                       }
                     },
                     "stageClaims": {
+                      "default": [],
                       "maxItems": 32,
                       "type": "array",
                       "items": {
@@ -1991,16 +2018,335 @@
                 }
               }
             },
+            "additionalProperties": false
+          },
+          "schemaVersion": {
+            "description": "Flat form of the context member of the same name; give it here or inside context, not both.",
+            "type": "string",
+            "const": "academy.dailyrecord-user-context/1"
+          },
+          "purpose": {
+            "description": "Flat form of the context member of the same name; give it here or inside context, not both.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "currentRequestRef": {
+            "description": "Flat form of the context member of the same name; give it here or inside context, not both.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "scope": {
+            "description": "Flat form of the context member of the same name; give it here or inside context, not both.",
+            "type": "object",
+            "properties": {
+              "sourceNamespace": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "teacherId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "studentId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "lessonDate": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              }
+            },
             "required": [
-              "schemaVersion",
-              "purpose",
-              "currentRequestRef",
-              "scope",
-              "selectedFields",
-              "memoAnswer",
-              "facts"
+              "sourceNamespace",
+              "teacherId",
+              "studentId",
+              "lessonDate"
             ],
             "additionalProperties": false
+          },
+          "selectedFields": {
+            "description": "Flat form of the context member of the same name; give it here or inside context, not both.",
+            "minItems": 1,
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "progress",
+                "homework",
+                "lessonMemo",
+                "attendance",
+                "dailyTestAssessment",
+                "previousHomeworkAssessment"
+              ]
+            }
+          },
+          "memoAnswer": {
+            "description": "Flat form of the context member of the same name; give it here or inside context, not both.",
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "not_supplied"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "no_addition"
+                  },
+                  "requestRef": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "content"
+                  },
+                  "requestRef": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096,
+                    "description": "Lesson memo text: at most 400 units, where a non-ASCII character (Korean included) counts 2 and any other character 1."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "requestRef",
+                  "text"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "facts": {
+            "description": "Flat form of the context member of the same name; give it here or inside context, not both.",
+            "maxItems": 64,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "field": {
+                  "type": "string",
+                  "enum": [
+                    "progress",
+                    "homework",
+                    "lessonMemo",
+                    "attendance",
+                    "dailyTestAssessment",
+                    "previousHomeworkAssessment"
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "origin": {
+                  "default": "user_supplied",
+                  "type": "string",
+                  "enum": [
+                    "user_supplied",
+                    "cism_section"
+                  ]
+                },
+                "explicitValue": {
+                  "type": "string",
+                  "maxLength": 8192
+                },
+                "requiredFragments": {
+                  "default": [],
+                  "maxItems": 32,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  }
+                },
+                "questionCounts": {
+                  "default": [],
+                  "description": "Cardinal question counts only, e.g. {count:8,rendering:\"8문항\"}. Type ordinals such as 유형 10 belong in requiredFragments, not questionCounts.",
+                  "maxItems": 32,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "count": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000
+                      },
+                      "rendering": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      }
+                    },
+                    "required": [
+                      "count",
+                      "rendering"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "deadlines": {
+                  "default": [],
+                  "maxItems": 16,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "date": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      "rendering": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      }
+                    },
+                    "required": [
+                      "date",
+                      "rendering"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "stageClaims": {
+                  "default": [],
+                  "maxItems": 32,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "activity": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "stage": {
+                        "type": "string",
+                        "enum": [
+                          "solving",
+                          "grading",
+                          "correction",
+                          "teacher_review",
+                          "assigned_homework"
+                        ]
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "in_progress",
+                          "complete",
+                          "unconfirmed",
+                          "assigned"
+                        ]
+                      },
+                      "rendering": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      }
+                    },
+                    "required": [
+                      "activity",
+                      "stage",
+                      "status",
+                      "rendering"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "ref",
+                "field",
+                "text",
+                "origin",
+                "requiredFragments",
+                "questionCounts",
+                "deadlines",
+                "stageClaims"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "sourceNamespace": {
+            "description": "Flat form of context.scope: give all four of sourceNamespace, teacherId, studentId and lessonDate, and no scope.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "teacherId": {
+            "description": "Flat form of context.scope: give all four of sourceNamespace, teacherId, studentId and lessonDate, and no scope.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "studentId": {
+            "description": "Flat form of context.scope: give all four of sourceNamespace, teacherId, studentId and lessonDate, and no scope.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "lessonDate": {
+            "description": "Flat form of context.scope: give all four of sourceNamespace, teacherId, studentId and lessonDate, and no scope.",
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "fields": {
+            "description": "Return only these fields[] entries (default all six).",
+            "minItems": 1,
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "progress",
+                "homework",
+                "lessonMemo",
+                "attendance",
+                "dailyTestAssessment",
+                "previousHomeworkAssessment"
+              ]
+            }
           },
           "suppliedValues": {
             "default": [],
@@ -2022,10 +2368,10 @@
                 },
                 "value": {
                   "type": "string",
-                  "maxLength": 8192
+                  "maxLength": 8192,
+                  "description": "The new text of the field. For lessonMemo: at most 400 units, where a non-ASCII character (Korean included) counts 2 and any other character 1; a longer memo is held at review."
                 },
                 "factRefs": {
-                  "minItems": 1,
                   "maxItems": 32,
                   "type": "array",
                   "items": {
@@ -2052,8 +2398,7 @@
                     }
                   },
                   "required": [
-                    "kind",
-                    "requestRef"
+                    "kind"
                   ],
                   "additionalProperties": false
                 },
@@ -2163,9 +2508,7 @@
               },
               "required": [
                 "field",
-                "value",
-                "factRefs",
-                "decision"
+                "value"
               ],
               "additionalProperties": false
             }
@@ -2365,7 +2708,6 @@
           }
         },
         "required": [
-          "context",
           "suppliedValues"
         ],
         "additionalProperties": false
@@ -2470,8 +2812,7 @@
                       }
                     },
                     "required": [
-                      "kind",
-                      "requestRef"
+                      "kind"
                     ],
                     "additionalProperties": false
                   },
@@ -2490,7 +2831,8 @@
                       "text": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 4096
+                        "maxLength": 4096,
+                        "description": "Lesson memo text: at most 400 units, where a non-ASCII character (Korean included) counts 2 and any other character 1."
                       }
                     },
                     "required": [
@@ -2542,6 +2884,7 @@
                       "maxLength": 8192
                     },
                     "requiredFragments": {
+                      "default": [],
                       "maxItems": 32,
                       "type": "array",
                       "items": {
@@ -2551,6 +2894,8 @@
                       }
                     },
                     "questionCounts": {
+                      "default": [],
+                      "description": "Cardinal question counts only, e.g. {count:8,rendering:\"8문항\"}. Type ordinals such as 유형 10 belong in requiredFragments, not questionCounts.",
                       "maxItems": 32,
                       "type": "array",
                       "items": {
@@ -2572,10 +2917,10 @@
                           "rendering"
                         ],
                         "additionalProperties": false
-                      },
-                      "description": "Cardinal question counts only, e.g. {count:8,rendering:\"8문항\"}. Type ordinals such as 유형 10 belong in requiredFragments, not questionCounts."
+                      }
                     },
                     "deadlines": {
+                      "default": [],
                       "maxItems": 16,
                       "type": "array",
                       "items": {
@@ -2599,6 +2944,7 @@
                       }
                     },
                     "stageClaims": {
+                      "default": [],
                       "maxItems": 32,
                       "type": "array",
                       "items": {
@@ -2658,15 +3004,6 @@
                 }
               }
             },
-            "required": [
-              "schemaVersion",
-              "purpose",
-              "currentRequestRef",
-              "scope",
-              "selectedFields",
-              "memoAnswer",
-              "facts"
-            ],
             "additionalProperties": false
           },
           "observationHandle": {
@@ -2699,10 +3036,10 @@
                 },
                 "value": {
                   "type": "string",
-                  "maxLength": 8192
+                  "maxLength": 8192,
+                  "description": "The new text of the field. For lessonMemo: at most 400 units, where a non-ASCII character (Korean included) counts 2 and any other character 1; a longer memo is held at review."
                 },
                 "factRefs": {
-                  "minItems": 1,
                   "maxItems": 32,
                   "type": "array",
                   "items": {
@@ -2729,8 +3066,7 @@
                     }
                   },
                   "required": [
-                    "kind",
-                    "requestRef"
+                    "kind"
                   ],
                   "additionalProperties": false
                 },
@@ -2840,9 +3176,7 @@
               },
               "required": [
                 "field",
-                "value",
-                "factRefs",
-                "decision"
+                "value"
               ],
               "additionalProperties": false
             }
@@ -3042,7 +3376,6 @@
           }
         },
         "required": [
-          "context",
           "proposals"
         ],
         "additionalProperties": false
@@ -3219,6 +3552,7 @@
                       "maxLength": 8192
                     },
                     "requiredFragments": {
+                      "default": [],
                       "maxItems": 32,
                       "type": "array",
                       "items": {
@@ -3228,6 +3562,8 @@
                       }
                     },
                     "questionCounts": {
+                      "default": [],
+                      "description": "Cardinal question counts only, e.g. {count:8,rendering:\"8문항\"}. Type ordinals such as 유형 10 belong in requiredFragments, not questionCounts.",
                       "maxItems": 32,
                       "type": "array",
                       "items": {
@@ -3249,10 +3585,10 @@
                           "rendering"
                         ],
                         "additionalProperties": false
-                      },
-                      "description": "Cardinal question counts only, e.g. {count:8,rendering:\"8문항\"}. Type ordinals such as 유형 10 belong in requiredFragments, not questionCounts."
+                      }
                     },
                     "deadlines": {
+                      "default": [],
                       "maxItems": 16,
                       "type": "array",
                       "items": {
@@ -3276,6 +3612,7 @@
                       }
                     },
                     "stageClaims": {
+                      "default": [],
                       "maxItems": 32,
                       "type": "array",
                       "items": {

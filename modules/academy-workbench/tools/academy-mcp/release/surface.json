@@ -492,6 +492,7 @@
       "type": "string"
      },
      "lessonDate": {
+      "default": "today",
       "type": "string"
      },
      "purpose": {
@@ -529,7 +530,6 @@
     },
     "required": [
      "displayName",
-     "lessonDate",
      "periods"
     ],
     "additionalProperties": false
@@ -546,6 +546,7 @@
       "type": "string"
      },
      "lessonDate": {
+      "default": "today",
       "type": "string"
      },
      "purpose": {
@@ -615,7 +616,6 @@
     },
     "required": [
      "displayName",
-     "lessonDate",
      "queries"
     ],
     "additionalProperties": false
@@ -680,14 +680,14 @@
         "type": "string"
        },
        "lessonDate": {
+        "default": "today",
         "type": "string"
        }
       },
       "required": [
        "sourceNamespace",
        "teacherId",
-       "studentId",
-       "lessonDate"
+       "studentId"
       ],
       "additionalProperties": false
      },
