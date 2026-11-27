@@ -66,6 +66,29 @@ The kept pointer of the first line is the undo of the whole release (section 6).
 of a schema other than `academy.mcp-release/1` (`host_pointer_schema_unexpected`) and a base without `release.json`
 (`base_pointer_missing@<base>`).
 
+### Admitting students to the paper scopes
+
+`loop_install.py` copies the active `routing.json` as it is. To let a new generation route the paper reads of more
+students, give `--paper-admit <endpoint>=<id>[,<id>...]` (repeatable, one endpoint per occurrence) to the same call:
+each id is added after the ids of that endpoint's existing `paperScopes` entry, and nothing else of `routing.json`
+changes. The contract is `specs/academy-mcp/paper-admit.md`.
+
+```sh
+python3 -I "$M/install/loop_install.py" --paper-admit-preview --base "$B" --paper-admit paper1=<id>,<id> --paper-admit paper2=<id>
+python3 -I "$M/install/loop_install.py" <commit> "$G-bridge" none --base "$B" --paper-admit paper1=<id>,<id> --paper-admit paper2=<id>
+```
+
+```
+routing sha256 <64 hex> admitted <count>
+```
+
+The preview prints only that line and writes and builds nothing; the install prints the same line, with the hash of the
+`routing.json` it writes, before `restore with:`. An id is 1 to 16 digits, the first not 0, in no entry yet; an endpoint
+must already have an entry (none is created) and an entry holds at most 1000 ids. A refusal is one code on standard
+error with exit 1 and writes nothing in the base: `paper_admit_form`, `paper_admit_id_invalid@<n>`,
+`paper_admit_endpoint_unknown@<endpoint>`, `paper_admit_id_present@<n>`, `paper_admit_limit`. `<n>` is the 1-based
+position of the id in its list; an id is never printed. The option is refused with `--restore`.
+
 ## 2. The endpoints
 
 `endpoint_install.py` builds `src/dailyrecord-server.ts` at the commit, writes it under the artifacts root as
