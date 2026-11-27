@@ -13,16 +13,17 @@ import {ProcessGroupStdioTransport} from './upstream-process.ts';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {randomUUID,createHash} from 'node:crypto';
 import {z} from 'zod';
-import {dailyRecordGetSchema,dailyRecordGetDescription,readDailyRecordByName} from './dailyrecord-read.ts';
+import {dailyRecordGetSchema,readDailyRecordByName} from './dailyrecord-read.ts';
 import {readOnlyAnnotations} from './contracts.ts';
 import {dailyRecordScopeSchema,type DailyRecordScope} from './dailyrecord-context.ts';
-import {dailyTestHeaderRouteSchema,dailyTestHeaderRouteDescription,readDailyTestHeaders} from './dailytest-header-route.ts';
+import {dailyTestHeaderRouteSchema,readDailyTestHeaders} from './dailytest-header-route.ts';
 import {resolvedDateOf} from './read-input.ts';
 import {loadRuntimeRelease,withoutRetiredTools,type ToolSurface} from './runtime-release.ts';
 import {PaperScopeUnresolvedError,selectPaperRoute} from './paper-scope-routing.ts';
 import {observeAttribution} from './dailyrecord-workflow.ts';
-import {dailyRecordWorkflowToolSchemas} from './dailyrecord.ts';
+import {dailyRecordWorkflowToolSchemas,prestudyGetSchema} from './dailyrecord.ts';
 import {liftIntakeContext} from './dailyrecord-write-input.ts';
+import {compositionEntries,consolidatedTool,isCompositionEntry,planConsolidatedCall,projectPrestudy,ConsolidatedInputInvalid,type Plan,type PlannedStep} from './consolidated-tools.ts';
 const processStartedAt=new Date().toISOString();
 // Owner workflow attribution: what this bridge actually observes
 // about its caller (MCP client info, process, parent command, Herdr pane),
@@ -75,22 +76,22 @@ if(process.argv.includes('--discover')){
    registry.push({endpoint,upstreamName:tool.name,tool:{...tool,name:endpoint==='paper2'?'class2_'+tool.name:tool.name,description:tool.description+' '+(endpoint==='saved'?'Preserved evidence only; coverage/freshness is explicit.':['academy_dailyrecord_save','academy_cism_weekly_save'].includes(tool.name)?'One serialized native write batch; releases the account lock after completion. Requires a prior recorded review and the verbatim user instruction; the bridge records the observed caller attribution for audit. No printing, sending, automatic retry or credentials in arguments.':'One serialized native read batch; releases the account lock after completion. No saving, printing, sending, automatic retry or credentials in arguments.')}});
   }
  }
- registry.push({endpoint:'dailyrecord',upstreamName:'academy_dailyrecord_get',tool:{name:'academy_dailyrecord_get',
-  title:'Read live DailyRecord by student name (today by default)',description:dailyRecordGetDescription,
-  inputSchema:z.toJSONSchema(dailyRecordGetSchema,{io:'input'}),annotations:{...readOnlyAnnotations,openWorldHint:true,idempotentHint:false}}});
  // Preserve the native public route regardless of endpoint iteration order.
  // A saved snapshot remains explicitly callable under a source-qualified alias.
  const nativeNames=new Set(registry.filter(r=>r.endpoint!=='saved').map(r=>r.tool.name));
  for(const entry of registry)if(entry.endpoint==='saved'&&nativeNames.has(entry.tool.name)){
   entry.tool={...entry.tool,name:'saved_'+entry.tool.name,description:'Saved-source alias. '+entry.tool.description};
  }
- // This composition is available only when both independently admitted native
- // reads exist. It does not turn a saved snapshot into a live source.
- if(registry.some(r=>r.tool.name==='academy_student_metadata_get'&&r.endpoint==='dailyrecord')
-   &&registry.some(r=>r.upstreamName==='academy_paper_headers'&&['paper1','paper2'].includes(r.endpoint))){
-  registry.push({endpoint:'dailyrecord',upstreamName:'academy_dailytest_history_with_headers',tool:{name:'academy_dailytest_history_with_headers',
-    description:dailyTestHeaderRouteDescription,inputSchema:z.toJSONSchema(dailyTestHeaderRouteSchema,{io:'input'}),
-    annotations:{...readOnlyAnnotations,openWorldHint:true,idempotentHint:false}}});
+ // The consolidated tools (src/consolidated-tools.ts): each composition routes to the
+ // endpoint tools above, which stay registered as its hidden routes. A composition is
+ // written when its endpoint exists and one of its routes is served (academy_dailyrecord_get
+ // always, as before); one whose name an endpoint tool has takes that entry's place.
+ for(const entry of compositionEntries()){
+  const tool=consolidatedTool(entry.tool.name)!;
+  const served=Object.values(tool.routes).some(route=>route.bridge==='identity'||registry.some(r=>r.upstreamName===route.upstream&&route.endpoints.includes(r.endpoint)));
+  if(entry.tool.name!=='academy_dailyrecord_get'&&!(Object.hasOwn(endpoints,entry.endpoint)&&served))continue;
+  const at=registry.findIndex(r=>r.tool.name===entry.tool.name);
+  if(at<0)registry.push(entry);else registry[at]=entry;
  }
  const names=registry.map(r=>r.tool.name);
  if(names.length>256||new Set(names).size!==names.length||names.some(name=>!/^[a-z][a-z0-9_]{0,127}$/.test(name)))throw Error('discovery_tool_name_collision');
@@ -156,8 +157,34 @@ function sanitizeAjvInputIssues(schema:unknown,errorMessage:string|undefined):Sa
 
 const handles=new Map<string,{original:string;intake:any;scope:DailyRecordScope;request:string;at:number;releaseIdentity:string}>();
 const signature=(x:any)=>JSON.stringify({fields:x.fields?.map((f:any)=>({field:f.field,before:f.before?.state==='known'?{state:'known',value:f.before.value}:{state:'unknown',reasonCode:f.before?.reasonCode},target:f.target})),revision:x.source?.sourceRevision,wire:x.source?.wireDigest});
+/** The input schemas of the routes the bridge serves itself, or whose registry name a composition holds. */
+const bridgeRouteSchemas={record:z.toJSONSchema(dailyRecordGetSchema,{io:'input'}),headers:z.toJSONSchema(dailyTestHeaderRouteSchema,{io:'input'}),
+ prestudy:z.toJSONSchema(prestudyGetSchema,{io:'input'})};
+/** The registry entry of one step of a consolidated call and the schema its arguments must meet. */
+function routeOf(registry:any[],composition:any,step:PlannedStep):{entry:any;schema:unknown;rename:Record<string,string>}{
+ const rename=Object.fromEntries(Object.entries(consolidatedTool(composition.tool.name)!.routes[step.route]!.rename??{}).map(([k,v])=>[v,k]));
+ if(step.bridge==='dailyrecord_record')return {entry:composition,schema:bridgeRouteSchemas.record,rename};
+ if(step.bridge==='dailytest_headers')return {entry:{...composition,headersComposite:true},schema:bridgeRouteSchemas.headers,rename};
+ const candidates=registry.filter(r=>r.upstreamName===step.upstream&&!isCompositionEntry(r)&&!r.tool.name.startsWith('saved_'));
+ const hidden=step.endpoints.map(e=>candidates.find(r=>r.endpoint===e)).find(Boolean);
+ if(hidden)return {entry:hidden,schema:hidden.tool.inputSchema,rename};
+ // academy_prestudy_get: the composition holds the registry name of the endpoint tool it routes to.
+ if(composition.upstreamName===step.upstream)return {entry:{endpoint:composition.endpoint,upstreamName:step.upstream,tool:{name:step.upstream}},schema:bridgeRouteSchemas.prestudy,rename};
+ throw Error('consolidated_route_not_configured');
+}
+/** Validate one step's arguments with its route's schema; issues name the caller's arguments. */
+function checkStep(route:{schema:unknown;rename:Record<string,string>},args:Record<string,unknown>){
+ const validation=inputValidator.getValidator(route.schema as any)(args);
+ if(validation.valid)return;
+ const back=(name:string)=>route.rename[name]??name;
+ throw new ToolInputInvalidError(sanitizeAjvInputIssues(route.schema,validation.errorMessage).map(issue=>({...issue,
+  path:issue.path.map((p,i)=>i===0&&typeof p==='string'?back(p):p),...(issue.missingKey?{missingKey:back(issue.missingKey)}:{})})));
+}
+function identityData(active:Awaited<ReturnType<typeof activeRelease>>){
+ return {...active.identity,processStartedAt,loadedBridgeSha256,qualification:'release_artifacts_only_live_source_and_existing_clients_unverified'};
+}
 async function call(req:any){
- const args=structuredClone(req.arguments??{});
+ let args=structuredClone(req.arguments??{});
  const occurrence=randomUUID();
  let receiptTool=req.name==='academy_runtime_identity'?req.name:'unrecognized_tool';
  const startedAt=Date.now();let phase='release',endpoint:string|null=null,upstreamName:string|null=null;
@@ -172,21 +199,81 @@ async function call(req:any){
   else if(active.registry.some((entry:any)=>entry.tool.name===req.name))receiptTool=req.name;
   dispatch();
   if(!listed)throw Error('unknown_tool');
-  if(req.name==='academy_runtime_identity'){
-   z.object({}).strict().parse(args);
-   const data={...active.identity,processStartedAt,loadedBridgeSha256,qualification:'release_artifacts_only_live_source_and_existing_clients_unverified'};
+  const identityAnswer=()=>{
+   const data=identityData(active);
    writeFileSync(log+'/'+occurrence+'-result.json',JSON.stringify({occurrence,phase,endpoint,upstreamName,generation:active.generation,pointerSha256:'pointerSha256' in active.identity?active.identity.pointerSha256:null,elapsedMs:Date.now()-startedAt,upstreamOccurrence:null,completedAt:new Date().toISOString(),tool:receiptTool,status:'identity_observed',resultSha256:sha(data),automaticRetryAllowed:false})+'\n',{mode:0o600,flag:'wx'});
    return {content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
-  }
+  };
+  if(req.name==='academy_runtime_identity'){z.object({}).strict().parse(args);return identityAnswer();}
   const registered=active.registry.find((r:any)=>r.tool.name===req.name);if(!registered)throw Error('unknown_tool');
   phase='input_validation';
   // Always the registry's schema: a displayed surface schema never changes what is accepted.
   const validation=inputValidator.getValidator(registered.tool.inputSchema)(args);
   if(!validation.valid)throw new ToolInputInvalidError(sanitizeAjvInputIssues(registered.tool.inputSchema,validation.errorMessage));
   phase='routing';
-  const entry=selectPaperRoute('paperScopes' in active?active.paperScopes:undefined,active.registry,registered,args);
+  const scopes='paperScopes' in active?active.paperScopes:undefined;
+  // A consolidated tool: its selector picks the routes; each route's arguments meet that
+  // route's own schema before any upstream request (specs/academy-mcp/tool-surface.md R5).
+  let plan:Plan|null=null,routes:{entry:any;schema:unknown;rename:Record<string,string>}[]=[];
+  if(isCompositionEntry(registered)){
+   try{plan=planConsolidatedCall(registered.tool.name,args);}
+   catch(error){if(error instanceof ConsolidatedInputInvalid)throw new ToolInputInvalidError(error.issues);throw error;}
+   if(plan.steps[0]!.bridge==='identity')return identityAnswer();
+   routes=plan.steps.map(step=>routeOf(active.registry,registered,step));
+   plan.steps.forEach((step,i)=>checkStep(routes[i]!,plan!.mode==='resolve_inventory'&&step.route==='inventory'?{...step.args,studentId:'1'}:step.args));
+  }
+  const runSteps=async(items:{entry:any;args:Record<string,unknown>}[])=>{
+   const out:Record<string,unknown>[]=[];
+   for(let i=0;i<items.length;){
+    const group=items.slice(i).filter((item,k)=>items.slice(i,i+k+1).every(x=>x.entry.endpoint===items[i]!.entry.endpoint));
+    endpoint=group[0]!.entry.endpoint;
+    await upstream(group[0]!.entry.endpoint,async client=>{
+     const expectedIdentity=active.endpointIdentities[group[0]!.entry.endpoint];
+     if(expectedIdentity){const handshake=await client.callTool({name:'academy_endpoint_identity',arguments:{}});
+      if(handshake.isError||JSON.stringify(handshake.structuredContent)!==JSON.stringify(expectedIdentity))throw Error('release_endpoint_identity_mismatch');}
+     for(const item of group){
+      const response=await client.callTool({name:item.entry.upstreamName,arguments:withAttribution(item.entry.upstreamName,item.args)});
+      if(response.isError||!response.structuredContent)throw new UpstreamToolFailure(response);
+      out.push(response.structuredContent as Record<string,unknown>);
+     }
+    },active.endpoints,active.registry);
+    i+=group.length;
+   }
+   return out;
+  };
+  const answer=(data:Record<string,unknown>)=>({content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data});
+  if(plan&&plan.mode!=='single'){
+   // Several routes in one call: each endpoint is opened once, in order; the call answers once.
+   const steps=plan.steps;
+   const entry={endpoint:registered.endpoint,upstreamName:registered.upstreamName};
+   upstreamName=registered.upstreamName;phase='upstream';
+   let data:Record<string,unknown>;
+   if(plan.mode==='resolve_inventory'){
+    const [resolved]=await runSteps([{entry:routes[0]!.entry,args:steps[0]!.args}]);
+    if(resolved!.status!=='resolved'||typeof resolved!.studentKey!=='string')data=resolved!;
+    else{
+     const inventoryArgs={...steps[1]!.args,studentId:resolved!.studentKey};
+     const [inventory]=await runSteps([{entry:selectPaperRoute(scopes,active.registry,routes[1]!.entry,inventoryArgs),args:inventoryArgs}]);
+     data={...inventory!,studentResolution:{studentId:resolved!.studentKey,displayName:resolved!.displayName,
+      ...(resolved!.fixedSourceFilter?{fixedSourceFilter:resolved!.fixedSourceFilter}:{})}};
+    }
+   }else{
+    const results=await runSteps(steps.map((step,i)=>({entry:routes[i]!.entry,args:step.args})));
+    if(plan.mode==='nested')data={include:steps.map(s=>s.route),...Object.fromEntries(steps.map((s,i)=>[s.route,results[i]]))};
+    else{
+     data=projectPrestudy(results[0]!,plan.prestudyView!);
+     if(steps[1])data={...data,report:results[1]};
+    }
+   }
+   return await finish(answer(data),entry);
+  }
+  if(plan){
+   args=plan.steps[0]!.args;
+   routes[0]!.entry=selectPaperRoute(scopes,active.registry,routes[0]!.entry,args);
+  }
+  const entry=plan?routes[0]!.entry:selectPaperRoute(scopes,active.registry,registered,args);
   endpoint=entry.endpoint;upstreamName=entry.upstreamName;phase='upstream';
-  const result:any=entry.upstreamName==='academy_dailytest_history_with_headers'?await (async()=>{
+  const single:any=entry.headersComposite?await (async()=>{
    const metadataEntry=active.registry.find((r:any)=>r.tool.name==='academy_student_metadata_get'&&r.endpoint==='dailyrecord');
    const paperEntry=active.registry.find((r:any)=>r.upstreamName==='academy_paper_headers'&&r.endpoint==='paper1')
     ??active.registry.find((r:any)=>r.upstreamName==='academy_paper_headers'&&r.endpoint==='paper2');
@@ -217,7 +304,7 @@ async function call(req:any){
     const selected=selectPaperRoute('paperScopes' in active?active.paperScopes:undefined,active.registry,paperEntry,input);
     return invoke(selected,input,'paper');
    }});
-   return {content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data};
+   return answer(data);
   })():await upstream(entry.endpoint,async client=>{
    const expectedIdentity=active.endpointIdentities[entry.endpoint];
    if(expectedIdentity){
@@ -262,6 +349,9 @@ async function call(req:any){
    if(entry.upstreamName==='academy_cism_weekly_save')saveIssued=true;
    return client.callTool({name:entry.upstreamName,arguments:withAttribution(entry.upstreamName,args)});
   },active.endpoints,active.registry);
+  const result=plan?.prestudyView&&!single.isError&&single.structuredContent?answer(projectPrestudy(single.structuredContent,plan.prestudyView)):single;
+  return await finish(result,entry);
+  async function finish(result:any,entry:any){
   if(result.isError)throw new UpstreamToolFailure(result);
   phase='release_readback';
   const after=await activeRelease();
@@ -277,6 +367,7 @@ async function call(req:any){
   const resultFailure=result.structuredContent?.failure??result._meta?.['academy/audit']?.failure;
   writeFileSync(log+'/'+occurrence+'-result.json',JSON.stringify({occurrence,phase,endpoint,upstreamName,generation:active.generation,pointerSha256:'pointerSha256' in active.identity?active.identity.pointerSha256:null,elapsedMs:Date.now()-startedAt,upstreamOccurrence:(entry.upstreamName==='academy_dailyrecord_get'?result.structuredContent?.upstreamOccurrence:undefined)??result._meta?.['academy/audit']?.occurrence??null,completedAt:new Date().toISOString(),tool:receiptTool,isError:!!result.isError,status:result.structuredContent?.status??null,sourceAvailability:result.structuredContent?.sourceAvailability??null,steps,failure:resultFailure?publicFailureFromData(resultFailure):null,resultSha256:sha(result),academyWrites:['academy_dailyrecord_save','academy_cism_weekly_save'].includes(entry.upstreamName)?(typeof result.structuredContent?.academyWrites==='number'?result.structuredContent.academyWrites:null):0,parentSends:0,automaticRetryAllowed:false})+'\n',{mode:0o600,flag:'wx'});
   return withToolMeta(result,{'academy/bridgeAudit':{occurrence,endpoint,upstreamName,generation:active.generation,elapsedMs:Date.now()-startedAt}});
+  }
  }catch(error){
   const failure=error instanceof CompositeSourceUnavailable||error instanceof UpstreamToolFailure?error.failure:publicReadFailure(error,'upstream_failure_reconcile_dispatch'),code=failure.code;
   // Before a durable dispatch receipt, no upstream operation has started and

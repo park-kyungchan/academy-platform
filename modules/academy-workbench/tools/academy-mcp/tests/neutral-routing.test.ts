@@ -46,9 +46,9 @@ test('CISM bridge observes caller attribution and records actual or uncertain wr
 },20000);
 test('neutral discovers and composes admitted DailyTest history with exact shared paper headers',async()=>{
   await withNeutralClient(async({base,events,client})=>{
-    const discovered=(await client.listTools()).tools.filter(t=>t.name==='academy_dailytest_history_with_headers');expect(discovered).toHaveLength(1);
-    for(const term of ['소단원','미완료','기본','완료판정','오답클리닉','승인 거부'])expect(discovered[0]!.description).toContain(term);
-    const result:any=await client.callTool({name:'academy_dailytest_history_with_headers',arguments:{displayName:'Invented Student',lessonDate:'2040-01-16',
+    const discovered=(await client.listTools()).tools.filter(t=>t.name==='academy_dailytest_history');expect(discovered).toHaveLength(1);
+    for(const term of ['DT 이력','시험 기록','몇 개 쳤는지','전부','DT 결과 목록'])expect(discovered[0]!.description).toContain(term);
+    const result:any=await client.callTool({name:'academy_dailytest_history',arguments:{displayName:'Invented Student',lessonDate:'2040-01-16',
       purpose:'Synthetic read',currentRequestRef:'synthetic-request',periods:['11']}});
     expect(result.isError).not.toBe(true);
     expect(result.structuredContent).toMatchObject({status:'observed',teacherCompletion:'unqualified',periods:[{selector:'1',rows:[{
@@ -61,7 +61,7 @@ test('neutral discovers and composes admitted DailyTest history with exact share
 },20000);
 test('composite preserves safe upstream metadata failures without exposing unknown payloads or calling paper',async()=>{
  await withNeutralClient(async({base,events,client})=>{
-  const call=()=>client.callTool({name:'academy_dailytest_history_with_headers',arguments:{displayName:'Invented Student',lessonDate:'2040-01-16',purpose:'Synthetic read',currentRequestRef:'synthetic-request',periods:['11']}});
+  const call=()=>client.callTool({name:'academy_dailytest_history',arguments:{displayName:'Invented Student',lessonDate:'2040-01-16',purpose:'Synthetic read',currentRequestRef:'synthetic-request',periods:['11']}});
   for(const [reason,category] of [['source_authentication_failed','authentication'],['native_dated_name_ambiguous','identity_ambiguity'],['native_metadata_method_unavailable','endpoint_absence'],['student_metadata_backend_not_configured','endpoint_absence']]){
    await writeFile(resolve(base,'inject-metadata-error'),reason);const result=await call();expect(result.structuredContent).toMatchObject({status:'blocked',code:reason,reasonCode:reason,failedSource:'metadata',sourceRequests:null,failure:{category}});
   }
@@ -72,9 +72,9 @@ test('composite preserves safe upstream metadata failures without exposing unkno
 test('repair check 3: a composite DailyTest read that fails after its date was resolved states that date',async()=>{
  await withNeutralClient(async({base,client})=>{
   await writeFile(resolve(base,'inject-metadata-error'),'source_authentication_failed');
-  const result:any=await client.callTool({name:'academy_dailytest_history_with_headers',arguments:{displayName:'Invented Student',lessonDate:'2040-01-16',periods:['11']}});
+  const result:any=await client.callTool({name:'academy_dailytest_history',arguments:{displayName:'Invented Student',lessonDate:'2040-01-16',periods:['11']}});
   expect(result.structuredContent).toMatchObject({status:'blocked',code:'source_authentication_failed',failedSource:'metadata',lessonDate:'2040-01-16'});
-  const refused:any=await client.callTool({name:'academy_dailytest_history_with_headers',arguments:{displayName:'Invented Student',lessonDate:'next week',periods:['11']}});
+  const refused:any=await client.callTool({name:'academy_dailytest_history',arguments:{displayName:'Invented Student',lessonDate:'next week',periods:['11']}});
   expect(refused.structuredContent).toMatchObject({status:'blocked',code:'date_form_unsupported_use_yyyy_mm_dd_today_yesterday_or_month_day'});
   expect(refused.structuredContent.lessonDate).toBeUndefined();
  },false,false,false,true);

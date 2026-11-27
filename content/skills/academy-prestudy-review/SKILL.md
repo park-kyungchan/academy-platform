@@ -16,12 +16,12 @@ Before a Gauss minor unit, the student records a pre-study video (`예습영상`
 
 ## 2. Read
 
-1. `academy_prestudy_get` for the student, unless a reading of today is already in the day's `STATE.md`.
-2. `academy_prestudy_report_get` only for the upload under review: the one waiting for the teacher's check, or the one the teacher names.
+1. `academy_prestudy_get` (view `'videos'`) for the student, unless a reading of today is already in the day's `STATE.md`.
+2. `academy_prestudy_get` with `includeReports: true` and `reportId` = the upload's `prestudyKey`, only for the upload under review: the one waiting for the teacher's check, or the one the teacher names.
 
 Read one tool call at a time. Use the tool descriptions for the arguments.
 
-After a review that the teacher accepted, run `edu-academy-memory observed <slug> prestudy_report <lesson_date> --at <observedAt of the report, UTC to the second> --summary <the teacher's judgment and the points it rests on> --tool academy_prestudy_report_get`, as the skill `academy-lesson-day` says.
+After a review that the teacher accepted, run `edu-academy-memory observed <slug> prestudy_report <lesson_date> --at <observedAt of the report, UTC to the second> --summary <the teacher's judgment and the points it rests on> --tool academy_prestudy_get`, as the skill `academy-lesson-day` says.
 
 ## 3. Keep the evidence channels apart
 

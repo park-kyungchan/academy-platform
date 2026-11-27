@@ -3,8 +3,9 @@
 # Usage: python3 -I registry_surface_install.py <generation> <surface.json> <endpoint> <tool>[,<tool>...]|- --base <dir> --commit <40 hex>
 #        [--kept <dir>] [--refresh] [--compositions <entries.json>] [--activate]
 # --refresh: every registry entry of <endpoint> takes the endpoint's listed definition (input schema, description), keeping its registry name;
-# an entry the endpoint does not list (a bridge composition) is kept unchanged and printed.
-# --compositions <entries.json>: replace the registry entries of those names (from install/composition_entries.ts).
+# an entry the endpoint does not list (a bridge composition) and a consolidated composition are kept unchanged and printed.
+# --compositions <entries.json>: replace the registry entry of each entry's name, which must have the entry's endpoint and
+# upstreamName, or add the entry when the registry has no entry of that name (from install/composition_entries.ts).
 # --commit: the release's source commit, written as sourceCommit of the generation's provenance.json.
 # Stage (new paths only): copy routing, endpoints, server.mjs and bridge-pin of the active generation (checked by sha256);
 # start <endpoint> exactly as endpoints.json does and take each named tool's listed definition into a registry entry
@@ -52,6 +53,9 @@ def tools_list(cmd):
     p.stdin.close(); p.terminate(); err = p.stderr.read().decode()[-200:]; p.wait(timeout=30)
     if tools is None: sys.exit('tools_list_failed: ' + err.replace('\n', ' '))
     return tools
+# The consolidated compositions of src/consolidated-tools.ts (tests/tool-surface.test.ts checks this list against it).
+CONSOLIDATED = {'academy_runtime_inspect', 'academy_dailyrecord_get', 'academy_dailytest_history', 'academy_paper_inspect',
+                'academy_item_lookup', 'academy_textbook_catalog_get', 'academy_prestudy_get', 'academy_cism_get'}
 pointer_path = os.path.join(base, 'release.json')
 old_bytes = open(pointer_path, 'rb').read(); old = json.loads(old_bytes); old_gen = old['generation']
 rel = os.path.join(base, 'releases'); src = os.path.join(rel, old_gen); final = os.path.join(rel, gen)
@@ -73,6 +77,7 @@ if o.refresh:
     for r in registry:
         if r['endpoint'] != endpoint: continue
         if r['upstreamName'] in ('academy_dailyrecord_get', 'academy_endpoint_identity', 'academy_runtime_identity'): continue  # bridge-composed, as --discover skips them
+        if r['tool']['name'] in CONSOLIDATED and r['upstreamName'] == r['tool']['name']: print('kept_composition', r['tool']['name']); continue
         if r['upstreamName'] not in listed: print('kept_not_listed', r['tool']['name']); continue
         t = dict(listed[r['upstreamName']]); t['name'] = r['tool']['name']
         if t != r['tool']: r['tool'] = t; refreshed.append(t['name'])
@@ -80,7 +85,9 @@ if o.compositions is not None:
     comp = json.load(open(o.compositions, encoding='utf-8'))
     for e in comp:
         i = next((i for i, r in enumerate(registry) if r['tool']['name'] == e['tool']['name']), None)
-        if i is None or registry[i]['endpoint'] != e['endpoint'] or registry[i]['upstreamName'] != e['upstreamName']: sys.exit('composition_entry_unmatched@' + e['tool']['name'])
+        if e['endpoint'] not in json.loads(copies['endpoints']): sys.exit('composition_endpoint_unknown@' + e['tool']['name'])
+        if i is None: registry.append(e); refreshed.append(e['tool']['name']); continue
+        if registry[i]['endpoint'] != e['endpoint'] or registry[i]['upstreamName'] != e['upstreamName']: sys.exit('composition_entry_unmatched@' + e['tool']['name'])
         if registry[i] != e: registry[i] = e; refreshed.append(e['tool']['name'])
 for n in names:
     if n in have: sys.exit('tool_already_registered@' + n)

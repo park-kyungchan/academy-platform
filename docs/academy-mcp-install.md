@@ -113,21 +113,26 @@ pointer <G>-endpoint tools <N> names_sha <12 hex>
 
 ## 3. The composition entries
 
-The bridge composes `academy_dailyrecord_get` and `academy_dailytest_history_with_headers`; their registry entries come
-from the checkout's source, without starting an endpoint.
+The bridge composes the eight consolidated tools of `specs/academy-mcp/tool-surface.md` (`academy_runtime_inspect`,
+`academy_dailyrecord_get`, `academy_dailytest_history`, `academy_paper_inspect`, `academy_item_lookup`,
+`academy_textbook_catalog_get`, `academy_prestudy_get`, `academy_cism_get`); each routes its `view`, `scope`, `include`
+or `includeHeaders` to endpoint tools that stay in the registry as hidden routes. Their registry entries come from the
+checkout's source (`src/consolidated-tools.ts`), without starting an endpoint.
 
 ```sh
 E=$(mktemp -d)
 bun "$M/install/composition_entries.ts" > "$E/entries.json"
 ```
 
-It prints nothing on the terminal; `entries.json` holds a JSON array of two entries.
+It prints nothing on the terminal; `entries.json` holds a JSON array of eight entries.
 
 ## 4. The registry and the release's surface
 
 `registry_surface_install.py` refreshes every registry entry of the dailyrecord endpoint from the tools the new
-endpoint lists (`--refresh`), replaces the two composition entries (`--compositions`), pins the release's surface
-`release/surface.json`, writes `--commit` as `sourceCommit` of the generation's `provenance.json`, and activates it.
+endpoint lists (`--refresh`; it keeps the consolidated compositions), replaces the composition entries the registry
+holds and adds the others (`--compositions`; an entry whose endpoint is not in `endpoints.json` is refused with
+`composition_endpoint_unknown@<name>`), pins the release's surface `release/surface.json` (the 15 tools, built by
+`bun scripts/build-surface.ts`), writes `--commit` as `sourceCommit` of the generation's `provenance.json`, and activates it.
 `-` adds no tool.
 
 ```sh
@@ -187,8 +192,8 @@ The errors the lesson days logged from 2026-11-13 to 2026-11-24, one row per gro
 
 | Code | Tool | Input member | After this release |
 | --- | --- | --- | --- |
-| `tool_input_invalid` | `academy_dailyrecord_intake` | without `context` (the flat form) | Removed by pull request 148: the context members may be given at the top level. |
+| `tool_input_invalid` | `academy_dailyrecord_get` view `'intake'` | without `context` (the flat form) | Removed by pull request 148: the context members may be given at the top level. |
 | `tool_input_invalid` | `academy_dailyrecord_review` | `memoAnswer` `no_addition` and no `requestRef` | Removed by pull request 148. |
-| `tool_input_invalid` | `academy_dailyrecord_intake` | `context` as a string | The caller passes an object. |
-| `tool_input_invalid` | `academy_dailytest_history_with_headers` | without `lessonDate` | The caller passes `lessonDate`; `today` is taken. |
+| `tool_input_invalid` | `academy_dailyrecord_get` view `'intake'` | `context` as a string | The caller passes an object. |
+| `tool_input_invalid` | `academy_dailytest_history` | without `lessonDate` | The caller passes `lessonDate`; `today` is taken. |
 | `textbook_binding_missing_or_ambiguous` | `academy_textbook_section_results_get` | an inexact `bookLabel` | Removed by pull requests 144 and 147: one binding is picked, else the answer is `interview_required`. |

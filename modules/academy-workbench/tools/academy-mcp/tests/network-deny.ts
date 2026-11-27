@@ -35,3 +35,58 @@ net.createConnection = guardUnixOnly(net.createConnection);
 net.Socket.prototype.connect = guardUnixOnly(net.Socket.prototype.connect);
 tls.connect = deny as typeof tls.connect;
 syncBuiltinESMExports();
+
+/** I1 `write_forbidden`: every LMS request is classed by its named route and operation, as
+ * apps/academy/dc-gang-a/src/lms/lmsRouteRegistry.ts and endpointCandidates.ts class them
+ * (specs/academy-mcp/tool-surface.md "Request classes"), never by its HTTP method: the
+ * DailyRecord field writes are GETs and the reads below include POST search forms. The
+ * operation is the `p_process` or `reqCmd` of the query, else of a form body. A route or an
+ * operation that this table does not class is write. */
+export type LmsRequestRole='login'|'read'|'write';
+const servlet='/servlet/controller.';
+const routeRoles:Readonly<Record<string,Readonly<Record<string,LmsRequestRole>>>>={
+ '/c_login.jsp':{'':'login'},
+ [servlet+'login.LoginServlet']:{c_login:'login'},
+ [servlet+'coursemanage.CourseManageServlet']:{StudyCourse:'read',StudySchedule:'read',GaStudyAnswer:'read',
+  WebUnPreStudy:'read',WebCtPreStudy:'read',TeacherPrestudySummary:'read'},
+ [servlet+'coursemanage.TextBookManageServlet']:{getTextBookProgress:'read'},
+ [servlet+'dailyzerotest.DailyZeroTestServlet']:{DtResultSearch:'read'},
+ // DailyRecord: the page read, and the field writes that are GET requests.
+ [servlet+'cct.tutor.DayRecordServlet']:{Main:'read',udtPrg:'write',udtHw:'write',udtMemo:'write',udtAttn:'write'},
+ [servlet+'cct.tutor.AttendanceServlet']:{Main:'read'},
+ [servlet+'cct.common.CourseCommonServlet']:{SetCismContentData:'write',SetCismChartData:'write',SetDailyTest:'write',SetHomeWorkRate:'write'},
+ [servlet+'tutor.base.TestPageListServlet']:{UserBySearchTestResult:'read',UserByMain:'read'},
+ [servlet+'common.TestPageShowExServlet']:{GetLectureList:'read'},
+ // lmsRouteRegistry.ts legacyRoutes class these two read; endpointCandidates.ts keeps them as write candidates.
+ [servlet+'common.TestpageSelectExServlet']:{getStudyResultSingleTestingSingleUser:'read',getStudyResultSingleTestingMultiUser:'read'},
+ [servlet+'tutor.fa.TestPageListServlet']:{PupilSearch:'read'},
+ [servlet+'tutor.na.TestPageListServlet']:{PupilSearch:'read'},
+ [servlet+'tutor.fa.TestPageListGrpServlet']:{Main:'read'},
+ [servlet+'tutor.diag.DiagnostManageServlet']:{TestPaperList:'read',TestResultList:'read'},
+ [servlet+'tutor.etest.TestPoolServlet']:{SaveTestPool:'write',SaveLectureUseLog:'write'},
+ [servlet+'tutor.na.TestPageRegServlet']:{NonePaper:'write'},
+ '/common/etest_pool.jsp':{'':'write'},
+};
+/** The named route of one request: its path and operation. */
+export function lmsRoute(url:string|URL,body?:unknown):{path:string;operation:string}{
+ const parsed=new URL(String(url),'https://lms.invalid');
+ const form=typeof body==='string'?new URLSearchParams(body):body instanceof URLSearchParams?body:new URLSearchParams();
+ const operation=parsed.searchParams.get('p_process')??parsed.searchParams.get('reqCmd')??form.get('p_process')??form.get('reqCmd')??'';
+ return {path:parsed.pathname,operation};
+}
+export function lmsRequestRole(url:string|URL,body?:unknown):LmsRequestRole{
+ const {path,operation}=lmsRoute(url,body);
+ return routeRoles[path]?.[operation]??'write';
+}
+/** A fixture transport that answers `write_forbidden` (HTTP 403) to every request classed
+ * write and passes the others to `answer`; `requests` records each request's route and class. */
+export function writeForbiddenTransport(answer:(url:string,init?:RequestInit)=>Response|Promise<Response>){
+ const requests:{route:string;role:LmsRequestRole}[]=[];
+ const transport=async(url:string|URL,init?:RequestInit)=>{
+  const {path,operation}=lmsRoute(url,init?.body),role=lmsRequestRole(url,init?.body);
+  requests.push({route:operation?path+' '+operation:path,role});
+  if(role==='write')return new Response('write_forbidden',{status:403});
+  return answer(String(url),init);
+ };
+ return {transport,requests,forbidden:()=>requests.filter(r=>r.role==='write')};
+}
