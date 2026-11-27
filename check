@@ -3,9 +3,12 @@
 # `rust` runs it unchanged. Call it from any directory, or as `bash <path>`.
 #   ./check       format, clippy, offline teacher harness, academy-mcp install scripts,
 #                 bun test (academy-mcp), build, tests: the default members
-#   ./check all   the same steps over the whole workspace, so the frozen crate
-#                 edu-academy-mcp is built and tested too
-# The step `bun test (academy-mcp)` needs bun (CI installs 1.4.3 before this file); it runs
+#   ./check all   the same steps over the whole workspace; the default members equal
+#                 the workspace members, so it does what ./check does
+# The step `bun test (academy-mcp)` runs in CI (CI=true), and outside CI only when CHECK_BUN=1;
+# otherwise it prints one skip line and goes on, so CI stays the gate for the module's tests.
+# Where it runs it needs bun (CI installs 1.4.3 before this file; a missing bun fails with
+# bun_missing); it runs
 # `bun install --frozen-lockfile` (its postinstall also installs apps/academy/dc-gang-a) and
 # `bun test tests` in modules/academy-workbench/tools/academy-mcp.
 # Outside CI, on the host that has the build lock, it takes that lock (one Cargo
@@ -53,25 +56,27 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 scope=()
-mcp=()
 if [ "$mode" = all ]; then
   scope=(--workspace)
-  mcp=(with-mcp)
 fi
 
 cargo fmt --all -- --check
 cargo clippy ${scope[@]+"${scope[@]}"} --all-targets --locked -- -D warnings
 python3 -B -m unittest discover -s crates/edu-academy-teacher/harness
 bash scripts/test-academy-mcp-install.sh
-echo "check: bun test (academy-mcp)"
-command -v bun >/dev/null || { echo "bun_missing@check:$LINENO: bun is not on PATH" >&2; exit 4; }
-(
-  cd modules/academy-workbench/tools/academy-mcp
-  bun install --frozen-lockfile
-  bun test tests
-)
+if [ "${CI:-}" = true ] || [ "${CHECK_BUN:-}" = 1 ]; then
+  echo "check: bun test (academy-mcp)"
+  command -v bun >/dev/null || { echo "bun_missing@check:$LINENO: bun is not on PATH" >&2; exit 4; }
+  (
+    cd modules/academy-workbench/tools/academy-mcp
+    bun install --frozen-lockfile
+    bun test tests
+  )
+else
+  echo "check: bun test (academy-mcp) skipped outside CI (CHECK_BUN=1 runs it)"
+fi
 cargo build ${scope[@]+"${scope[@]}"} --bins --examples --locked
 # shellcheck source=scripts/rust-test-env.sh
-source scripts/rust-test-env.sh "$fixture_parent" ${mcp[@]+"${mcp[@]}"}
+source scripts/rust-test-env.sh "$fixture_parent"
 cargo test ${scope[@]+"${scope[@]}"} --locked
 echo "check: ok"
