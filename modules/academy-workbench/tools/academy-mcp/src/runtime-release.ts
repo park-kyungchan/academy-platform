@@ -27,8 +27,16 @@ const surfaceSchema=z.object({schemaVersion:z.literal('academy.mcp-surface/1'),t
   instructions:z.string().refine(text=>Buffer.byteLength(text,'utf8')<=16384).optional()}).strict();
 export type ToolSurface=z.infer<typeof surfaceSchema>['tools'];
 /** Tools that no endpoint serves any more. An earlier registry or surface may still
- * name them; they are dropped so that nothing lists, calls or expects them. */
-const retiredTools=new Set(['academy_runtime_read_admission']);
+ * name them; they are dropped so that nothing lists, calls or expects them.
+ * Deliberately absent: `academy_student_metadata_get` (the dailyrecord endpoint's hidden
+ * upstream of `academy_dailytest_history_with_headers`) and the paper endpoints'
+ * `academy_paper_headers`, whose paper2 registry alias is `class2_academy_paper_headers`
+ * (the other hidden upstream and the route of `selectPaperRoute`): both stay registered. */
+const retiredTools=new Set([
+  'academy_runtime_read_admission',
+  'academy_item_label_scope','academy_find_item_labels','academy_review_type_questions','academy_cism_section',
+  'academy_student_metadata','academy_textbook_section_results','academy_query','academy_source_status',
+]);
 export function withoutRetiredTools<T extends {upstreamName?:string;tool?:{name:string};name?:string}>(entries:readonly T[]):T[]{
   return entries.filter(entry=>!retiredTools.has(entry.upstreamName??'')&&!retiredTools.has(entry.tool?.name??entry.name??''));
 }

@@ -221,14 +221,15 @@ test('neutral MCP exposes exact item-answer reads and does not write answer lite
 test('neutral discovery retains available read tools and suppresses duplicate native routes',async()=>{
   await withNeutralClient(async({client})=>{
     const names=(await client.listTools()).tools.map(t=>t.name);
-    for(const name of ['academy_item_label_scope','academy_find_item_labels','academy_review_type_questions','academy_cism_section',
-      'academy_item_answer_lookup','academy_dailyrecord_get'])expect(names.filter(v=>v===name)).toHaveLength(1);
-    expect(names).not.toContain('academy_runtime_read_admission');
+    for(const name of ['academy_item_answer_lookup','academy_dailyrecord_get'])expect(names.filter(v=>v===name)).toHaveLength(1);
+    // Retired tools are dropped from a registry that still names them: none is listed, none is callable.
+    for(const name of ['academy_runtime_read_admission','academy_item_label_scope','academy_find_item_labels','academy_review_type_questions','academy_cism_section',
+      'academy_student_metadata','academy_textbook_section_results','academy_query','academy_source_status'])expect(names).not.toContain(name);
     const result=await client.callTool({name:'academy_item_label_scope',arguments:{}});
-    expect(result.structuredContent).toMatchObject({status:'unavailable'});
+    expect(result.isError).toBe(true);expect(result.structuredContent).toMatchObject({status:'blocked',code:'unknown_tool'});
   },true);
 },20000);
-test('saved/native label discovery preserves both sources under unique names in a pinned release',async()=>{
+test('saved/native label discovery keeps both sources under unique names, and a pinned release lists and calls neither (retired)',async()=>{
  await withNeutralClient(async({base,client})=>{
   const registry=JSON.parse(await readFile(resolve(base,'registry.json'),'utf8'));
   for(const name of ['academy_item_label_scope','academy_find_item_labels','academy_review_type_questions']){
@@ -238,9 +239,11 @@ test('saved/native label discovery preserves both sources under unique names in 
   const pin=async(path:string)=>({path,sha256:createHash('sha256').update(await readFile(path)).digest('hex')});
   await writeFile(resolve(base,'release.json'),JSON.stringify({schemaVersion:'academy.mcp-release/1',generation:'native-saved-labels',routing:await pin(resolve(base,'routing.json')),endpoints:await pin(resolve(base,'endpoints.json')),registry:await pin(resolve(base,'registry.json'))}),{mode:0o600,flag:'wx'});
   const names=(await client.listTools()).tools.map(tool=>tool.name);expect(new Set(names).size).toBe(names.length);
-  for(const name of ['academy_item_label_scope','saved_academy_item_label_scope']){
-   const result=await client.callTool({name,arguments:{}});expect(result.isError).not.toBe(true);expect(result.structuredContent).toMatchObject({status:'unavailable'});
-  }
+  for(const name of ['academy_item_label_scope','academy_find_item_labels','academy_review_type_questions'])
+   for(const alias of [name,'saved_'+name]){
+    expect(names).not.toContain(alias);
+    const result=await client.callTool({name:alias,arguments:{}});expect(result.isError).toBe(true);expect(result.structuredContent).toMatchObject({status:'blocked',code:'unknown_tool'});
+   }
  },true,true);
 },30000);
 test('an existing session atomically switches pinned release generations and never falls back after removal',async()=>{
@@ -324,7 +327,7 @@ test('neutral review accepts an identical scope in a different key order and sti
 },20000);
 test('neutral no-argument calls normalize omitted arguments before dispatch hashing and forward the empty object',async()=>{
   await withNeutralClient(async({base,events,client})=>{
-    const result=await client.callTool({name:'academy_source_status'});
+    const result=await client.callTool({name:'academy_fixture_status'});
     expect(result.isError).not.toBe(true);
     expect(result.structuredContent).toMatchObject({sourceMode:'saved_context',synthetic:true,receivedArguments:{}});
     expect((await readFile(events,'utf8')).trim().split('\n')).toEqual(['start','start','source_status:{}']);
@@ -337,7 +340,7 @@ test('neutral no-argument calls normalize omitted arguments before dispatch hash
 test('bridge validates before upstream launch and preserves safe SDK failure causes with trace receipts',async()=>{
  await withNeutralClient(async({base,events,client})=>{
   const before=await readFile(events,'utf8');
-  const invalid=await client.callTool({name:'academy_source_status',arguments:{PRIVATE_FIELD_CANARY:'PRIVATE_VALUE_CANARY'}});
+  const invalid=await client.callTool({name:'academy_fixture_status',arguments:{PRIVATE_FIELD_CANARY:'PRIVATE_VALUE_CANARY'}});
   expect(invalid.structuredContent).toMatchObject({status:'blocked',code:'tool_input_invalid',phase:'input_validation',academyWrites:0,failure:{category:'input_validation'},issues:[{kind:'additional_properties',path:[]}]});
   expect(JSON.stringify(invalid)).not.toContain('PRIVATE_FIELD_CANARY');
   expect(JSON.stringify(invalid)).not.toContain('PRIVATE_VALUE_CANARY');
@@ -350,8 +353,8 @@ test('bridge validates before upstream launch and preserves safe SDK failure cau
   expect(await readFile(events,'utf8')).toBe(before);
   for(const code of ['prestudy_search_form_drift','PRIVATE_SECRET_CANARY']){
    await writeFile(resolve(base,'inject-source-status-error'),code);
-   const failed=await client.callTool({name:'academy_source_status',arguments:{}});
-   expect(failed.structuredContent).toMatchObject({status:'blocked',code:code==='prestudy_search_form_drift'?code:'upstream_tool_error',phase:'upstream',endpoint:'dailyrecord',upstreamName:'academy_source_status',academyWrites:0});
+   const failed=await client.callTool({name:'academy_fixture_status',arguments:{}});
+   expect(failed.structuredContent).toMatchObject({status:'blocked',code:code==='prestudy_search_form_drift'?code:'upstream_tool_error',phase:'upstream',endpoint:'dailyrecord',upstreamName:'academy_fixture_status',academyWrites:0});
    expect(JSON.stringify(failed)).not.toContain('PRIVATE_SECRET_CANARY');
   }
   const receipts=await Promise.all((await readdir(resolve(base,'receipts'))).map(n=>readFile(resolve(base,'receipts',n),'utf8')));

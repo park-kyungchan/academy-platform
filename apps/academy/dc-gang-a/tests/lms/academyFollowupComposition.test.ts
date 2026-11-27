@@ -125,14 +125,18 @@ const metadataInput=(queries:unknown[]=[{kind:'daily_metadata'},{kind:'daily_inv
 });
 const backendFor=(client:AcademyHttpClient)=>new NativeDailyRecordBackend(client as any,admission,()=>credential);
 type Connection=Awaited<ReturnType<typeof dailyRecordMemory>>;
-const callMetadata=(connection:Connection,input:unknown=metadataInput())=>connection.client.callTool({name:'academy_student_metadata',arguments:input as Record<string,unknown>});
+// The batch tool `academy_student_metadata` is no longer registered (retired from the public surface); the same
+// service/backend path is exercised through DailyRecordService.metadata, with the tool result's shape: an invalid input is `isError`.
+const callMetadata=async(connection:Connection,input:unknown=metadataInput())=>{
+  try{return {isError:false as boolean,structuredContent:JSON.parse(JSON.stringify(await connection.service.metadata(input))) as unknown};}
+  catch{return {isError:true as boolean,structuredContent:undefined as unknown};}
+};
 
 test('MCP C0/C1: actual registered tool/service/backend executes a DT-family batch with one login; fresh caller per read fails',async()=>{
   const f=sourceFixture(),connection=await dailyRecordMemory(backendFor(f.client));
   try{
-    const listed=(await connection.client.listTools()).tools.find(t=>t.name==='academy_student_metadata')!;
-    expect(listed.annotations?.readOnlyHint).toBe(true);expect(listed.annotations?.destructiveHint).toBe(false);
-    expect(listed.inputSchema.required).toEqual(['purpose','currentRequestRef','scope','queries']);
+    const listedNames=(await connection.client.listTools()).tools.map(t=>t.name);
+    expect(listedNames).not.toContain('academy_student_metadata');expect(listedNames).not.toContain('academy_cism_section');
     const result=await callMetadata(connection);expect(result.isError).not.toBe(true);
     expect(result.structuredContent).toMatchObject({status:'observed',scope:metadataScope,academyWrites:0,parentSends:0,automaticRetryAllowed:false});
     const data=result.structuredContent as any;
@@ -338,8 +342,8 @@ test('MCP M2: resolved invalid/unavailable DailyRecord and CISM results close pe
     }});
     const connection=await dailyRecordMemory(backend);
     try{
-      const request=family==='dailyrecord'?{name:'academy_dailyrecord_intake',arguments:{context}}:{name:'academy_cism_section',arguments:{context,selection}};
-      const [first,second]=await Promise.all([connection.client.callTool(request),callMetadata(connection)]);
+      const first_=family==='dailyrecord'?connection.client.callTool({name:'academy_dailyrecord_intake',arguments:{context}}):connection.service.cism({context,selection});
+      const [first,second]=await Promise.all([first_,callMetadata(connection)]);
       expect(reads).toBe(1);expect(metadataCalls).toBe(1);expect(second.structuredContent).toMatchObject({status:'observed'});
       expect(f.authCounts()).toEqual({documents:1,submissions:1,principalChecks:1});
       expect(JSON.stringify([first,second])).not.toContain('INVENTED_ERROR');

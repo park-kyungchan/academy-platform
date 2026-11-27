@@ -22,9 +22,9 @@ const fictionalRegistry=[
   description:'Fictional resolver. One serialized native read batch. DailyRecord owner-admitted dates: 2000-01-01 through 2000-01-02.',
   inputSchema:{type:'object',properties:{displayName:{type:'string'}},required:['displayName'],additionalProperties:false},
   outputSchema:{type:'object',properties:{status:{type:'string'}}},annotations:{readOnlyHint:true,openWorldHint:true}}},
- {endpoint:'dailyrecord',upstreamName:'academy_source_status',tool:{name:'academy_source_status',description:'Fictional status.',
+ {endpoint:'dailyrecord',upstreamName:'academy_fixture_status',tool:{name:'academy_fixture_status',description:'Fictional status.',
   inputSchema:{type:'object',properties:{},additionalProperties:false}}},
- {endpoint:'saved',upstreamName:'academy_query',tool:{name:'academy_query',description:'Fictional saved query. Preserved evidence only.',
+ {endpoint:'saved',upstreamName:'academy_capabilities',tool:{name:'academy_capabilities',description:'Fictional saved capabilities. Preserved evidence only.',
   inputSchema:{type:'object',properties:{q:{type:'string'}}}}},
  {endpoint:'paper2',upstreamName:'academy_paper_headers',tool:{name:'class2_academy_paper_headers',description:'Fictional paper headers.',
   inputSchema:{type:'object',properties:{keys:{type:'array',items:{type:'string'}}}}}},
@@ -122,7 +122,7 @@ test('surface tools/list: surface names in order, verbatim descriptions, placeho
 
 test('surface tools/call: a registry tool the surface omits fails as unknown_tool before any endpoint starts',async()=>{
  const f=await discoveredBase();
- await f.publish({surface:await f.pin('surface.json',surfaceDoc([{name:'academy_source_status',description:'Saved coverage.'}]))});
+ await f.publish({surface:await f.pin('surface.json',surfaceDoc([{name:'academy_fixture_status',description:'Saved coverage.'}]))});
  const {client,close}=await connect(f.env);
  try{
   const before=await readFile(f.events,'utf8');
@@ -133,7 +133,7 @@ test('surface tools/call: a registry tool the surface omits fails as unknown_too
   }
   expect(await readFile(f.events,'utf8')).toBe(before);
   // Control: the listed tool still reaches its endpoint.
-  expect((await client.callTool({name:'academy_source_status',arguments:{}})).structuredContent).toMatchObject({sourceMode:'saved_context'});
+  expect((await client.callTool({name:'academy_fixture_status',arguments:{}})).structuredContent).toMatchObject({sourceMode:'saved_context'});
   expect((await readFile(f.events,'utf8')).slice(before.length)).toBe('start\nsource_status:{}\n');
  }finally{await close();await rm(f.base,{recursive:true,force:true});}
 },30000);
@@ -141,11 +141,11 @@ test('surface tools/call: a registry tool the surface omits fails as unknown_too
 test('an unqualified surface makes the release fail to load with release_surface_unqualified',async()=>{
  const f=await fixtureBase();
  try{
-  const ok={name:'academy_source_status',description:'Status.'};
+  const ok={name:'academy_fixture_status',description:'Status.'};
   const cases:[string,unknown][]=[
    ['absent registry tool',surfaceDoc([ok,{name:'academy_not_in_registry',description:'x'}])],
    ['duplicate name',surfaceDoc([ok,{...ok,description:'again'}])],
-   ['missing description',surfaceDoc([{name:'academy_source_status'}])],
+   ['missing description',surfaceDoc([{name:'academy_fixture_status'}])],
    ['unknown tool member',surfaceDoc([{...ok,annotations:{readOnlyHint:true}}])],
    ['unknown top-level member',surfaceDoc([ok],{note:'x'})],
    ['inputSchema type array',surfaceDoc([{...ok,inputSchema:{type:'array'}}])],
@@ -168,7 +168,7 @@ test('an unqualified surface makes the release fail to load with release_surface
   try{
    await f.publish({surface:unqualified});
    const before=await readFile(f.events,'utf8').catch(()=>'');
-   const called=await client.callTool({name:'academy_source_status',arguments:{}});
+   const called=await client.callTool({name:'academy_fixture_status',arguments:{}});
    expect(called.structuredContent).toMatchObject({status:'blocked',code:'release_surface_unqualified',failure:{category:'contract_drift'}});
    let listError:unknown;try{await client.listTools();}catch(error){listError=error;}
    expect((listError as Error).message).toContain('release_surface_unqualified');
@@ -187,7 +187,7 @@ test('a surface whose bytes do not match its pin fails as a registry with a wron
   await f.publish({registry:{...f.registry,sha256:'0'.repeat(64)}});
   const registryFailure=await loadFailure(f.base);
   expect(registryFailure.message).toBe('label_snapshot_hash_mismatch');
-  const surface=await f.pin('surface.json',surfaceDoc([{name:'academy_source_status',description:'Status.'}]));
+  const surface=await f.pin('surface.json',surfaceDoc([{name:'academy_fixture_status',description:'Status.'}]));
   await f.publish({surface:{...surface,sha256:'0'.repeat(64)}});
   expect(await loadFailure(f.base)).toEqual(registryFailure);
   await f.publish({surface:{...surface,sha256:hash('other bytes')}});
@@ -223,12 +223,12 @@ test('tool_input_invalid carries at most 5 issues without argument values, with 
 test('a listed tool is validated against the registry schema, not the narrower displayed one, and reaches its endpoint',async()=>{
  const f=await discoveredBase();
  const displayed={type:'object' as const,properties:{mode:{type:'string'}},required:['mode'],additionalProperties:false};
- await f.publish({surface:await f.pin('surface.json',surfaceDoc([{name:'academy_source_status',description:'Coverage of saved evidence.',inputSchema:displayed}]))});
+ await f.publish({surface:await f.pin('surface.json',surfaceDoc([{name:'academy_fixture_status',description:'Coverage of saved evidence.',inputSchema:displayed}]))});
  const {client,close}=await connect(f.env);
  try{
-  expect((await client.listTools()).tools).toEqual([{name:'academy_source_status',description:'Coverage of saved evidence.',inputSchema:displayed}]);
+  expect((await client.listTools()).tools).toEqual([{name:'academy_fixture_status',description:'Coverage of saved evidence.',inputSchema:displayed}]);
   const before=await readFile(f.events,'utf8');
-  const result=await client.callTool({name:'academy_source_status',arguments:{}});
+  const result=await client.callTool({name:'academy_fixture_status',arguments:{}});
   expect(result.isError).not.toBe(true);
   expect(result.structuredContent).toMatchObject({sourceMode:'saved_context',receivedArguments:{}});
   expect((await readFile(f.events,'utf8')).slice(before.length)).toBe('start\nsource_status:{}\n');

@@ -87,7 +87,7 @@ test('paper2-only V2 discovery and composite dispatch honor scope and never fall
   expect(entries.filter((r:any)=>r.upstreamName==='academy_paper_headers').map((r:any)=>[r.endpoint,r.tool.name])).toEqual([['paper2','class2_academy_paper_headers']]);
   expect(entries.filter((r:any)=>r.tool.name==='academy_dailytest_history_with_headers')).toHaveLength(1);
   const registry=await f.pin('paper-only-registry.json',entries),routingBase=JSON.parse(await readFile(f.release.routing.path,'utf8'));
-  let n=0;const publish=async(paperScopes:any)=>{const routing=await f.pin(`paper-only-routing-${++n}.json`,{...routingBase,paperScopes});const release=await f.pin(`paper-only-release-${n}.json`,{...f.release,generation:`paper-only-${n}`,routing,endpoints:endpointPin,registry,endpointIdentities:{dailyrecord:f.manifest,paper2:manifest}});await rename(release.path,resolve(f.base,'release.json'));};
+  let n=0;const publish=async(paperScopes:any,surface?:{path:string;sha256:string})=>{const routing=await f.pin(`paper-only-routing-${++n}.json`,{...routingBase,paperScopes});const release=await f.pin(`paper-only-release-${n}.json`,{...f.release,generation:`paper-only-${n}`,routing,endpoints:endpointPin,registry,endpointIdentities:{dailyrecord:f.manifest,paper2:manifest},...(surface?{surface}:{})});await rename(release.path,resolve(f.base,'release.json'));};
   const call=()=>f.client.callTool({name:'academy_dailytest_history_with_headers',arguments:{displayName:'Fictional Two',lessonDate:'2026-10-21',purpose:'Fictional request',currentRequestRef:'fictional-ref',periods:['11']}});
   await publish([{endpoint:'paper2',studentIds:['77002']}]);
   expect((await f.client.listTools()).tools.map(t=>t.name)).toContain('academy_dailytest_history_with_headers');
@@ -97,5 +97,13 @@ test('paper2-only V2 discovery and composite dispatch honor scope and never fall
   await publish([{endpoint:'paper2',studentIds:['77001']}]);expect((await call()).isError).toBe(true);
   await publish([{endpoint:'paper1',studentIds:['77002']}]);expect((await call()).isError).toBe(true);
   expect((await readFile(events,'utf8')).trim().split('\n')).toEqual(['paper2']);
+  // The paper2 alias is a hidden route target, not a public tool: a surface that omits it makes the name unknown, and the composite still reads through that registry route.
+  const surface=await f.pin('paper-only-surface.json',{schemaVersion:'academy.mcp-surface/1',tools:[{name:'academy_dailytest_history_with_headers',description:'DailyTest history with paper headers.'}]});
+  await publish([{endpoint:'paper2',studentIds:['77002']}],surface);
+  expect((await f.client.listTools()).tools.map(t=>t.name)).toEqual(['academy_dailytest_history_with_headers']);
+  const hidden=await f.client.callTool({name:'class2_academy_paper_headers',arguments:{studentId:'77002',paperCodes:['#ABC']}});
+  expect(hidden.structuredContent).toMatchObject({status:'blocked',code:'unknown_tool'});
+  expect((await call()).structuredContent).toMatchObject({status:'observed',headersRead:1});
+  expect((await readFile(events,'utf8')).trim().split('\n')).toEqual(['paper2','paper2']);
  }finally{await f.client.close();await f.transport.close();}
 },60000);
