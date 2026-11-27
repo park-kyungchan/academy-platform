@@ -39,18 +39,21 @@ const bridgeSchemas:Record<string,JsonSchema>={
 const identity=['/properties/currentRequestRef','/properties/purpose'];
 const period=(kind:number)=>`/properties/queries/items/oneOf/${kind}/properties/period`;
 const memoAnswerNoAddition='/properties/context/properties/memoAnswer/oneOf/1/required';
+/** The memo bound stated in the write tools' input: the content text of `memoAnswer` and the proposed value. */
+const memoAnswerContentBound='/properties/context/properties/memoAnswer/oneOf/2/properties/text/description';
+const proposalValueBound=(member:string)=>`/properties/${member}/items/properties/value/description`;
 /** Intake's flat form: the context members, and the scope written out, at the top level. */
 const intakeFlat=['/properties/schemaVersion','/properties/purpose','/properties/currentRequestRef','/properties/scope','/properties/selectedFields',
  '/properties/memoAnswer','/properties/facts','/properties/sourceNamespace','/properties/teacherId','/properties/studentId','/properties/lessonDate'];
 const knownDifferences:Record<string,string[]>={
  academy_dailyrecord_get:[...identity,'/properties/lessonDate','/properties/view','/properties/fields','/required'],
- academy_dailyrecord_intake:[...intakeFlat,'/properties/fields','/properties/context/required',memoAnswerNoAddition,'/required'],
- academy_dailyrecord_review:[memoAnswerNoAddition],
- academy_dailyrecord_save:[memoAnswerNoAddition],
+ academy_dailyrecord_intake:[...intakeFlat,'/properties/fields','/properties/context/required',memoAnswerNoAddition,memoAnswerContentBound,proposalValueBound('suppliedValues'),'/required'],
+ academy_dailyrecord_review:[memoAnswerNoAddition,memoAnswerContentBound,proposalValueBound('proposals')],
+ academy_dailyrecord_save:[memoAnswerNoAddition,memoAnswerContentBound,proposalValueBound('proposals')],
  academy_dailytest_history_with_headers:[...identity,'/properties/lessonDate','/required'],
  academy_student_resolve:['/properties/lessonDate','/required'],
  academy_student_metadata_get:[...identity,'/properties/lessonDate',period(0),period(4),'/required'],
- academy_student_metadata:[...identity,period(0),period(4),'/properties/scope/properties/lessonDate','/required'],
+ academy_student_metadata:[...identity,period(0),period(4),'/properties/scope/properties/lessonDate','/properties/scope/required','/required'],
  academy_textbook_section_results_get:[...identity,'/required'],
  academy_textbook_section_results:[...identity,'/required'],
  academy_clinic_paper_status_get:[...identity,'/required'],

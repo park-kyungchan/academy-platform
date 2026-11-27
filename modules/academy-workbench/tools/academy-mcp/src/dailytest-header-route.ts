@@ -9,7 +9,7 @@ const selector=z.enum(['11','12','13','14','15','16']);
 const key=z.string().regex(/^[1-9][0-9]{0,15}$/);
 const instant=z.iso.datetime({offset:true});
 export const dailyTestHeaderRouteSchema=z.object({
-  displayName:z.string().trim().min(1).max(200),lessonDate:academyDateInputSchema,
+  displayName:z.string().trim().min(1).max(200),lessonDate:academyDateInputSchema.default('today').describe('Omit for today. '+academyDateInputSchema.description),
   ...requestIdentityShape,
   periods:z.array(selector).min(1).max(6).refine(x=>new Set(x).size===x.length,'unique_metadata_selectors_required'),
   maxHeaders:z.number().int().min(1).max(32).default(32),

@@ -10,10 +10,13 @@ import {userRequestSchema,type DailyRecordUserRequest} from './dailyrecord-workf
  * keeps its meaning.
  */
 /** `no_addition` needs no requestRef here: the write path binds it to the request's own ref. */
+const memoBoundNote='Lesson memo text: at most 400 units, where a non-ASCII character (Korean included) counts 2 and any other character 1.';
+const memoContentText=dailyRecordContextSchema.shape.memoAnswer.options[2].shape.text;
 const flexibleMemoAnswerSchema=z.discriminatedUnion('kind',[
   dailyRecordContextSchema.shape.memoAnswer.options[0],
   z.object({kind:z.literal('no_addition'),requestRef:dailyRecordIdSchema.optional()}).strict(),
-  dailyRecordContextSchema.shape.memoAnswer.options[2],
+  // The bound of the memo is the review's (400 units, a non-ASCII character 2); the caller is told in the schema.
+  dailyRecordContextSchema.shape.memoAnswer.options[2].extend({text:memoContentText.describe(memoBoundNote)}),
 ]);
 export const flexibleContextSchema=z.object({...dailyRecordContextSchema.shape,memoAnswer:flexibleMemoAnswerSchema}).partial().strict();
 export type FlexibleContext=z.infer<typeof flexibleContextSchema>;
@@ -24,7 +27,7 @@ export type FlexibleProposal={field:DailyRecordField;value:string;factRefs?:stri
 export type ResolvedProposal<P extends FlexibleProposal=FlexibleProposal>=Omit<P,'factRefs'|'decision'>&{factRefs:string[];decision:Decision};
 type Before={state:'known';value:string}|{state:'unknown'}|undefined;
 
-const memoText=dailyRecordContextSchema.shape.memoAnswer.options[2].shape.text;
+const memoText=memoContentText;
 /** The full context: the caller's members, else the handle's scope and request, else the defaults. */
 export function resolveWriteContext(context:FlexibleContext|undefined,proposals:readonly FlexibleProposal[],bound?:{scope:DailyRecordScope;requestRef:string}):DailyRecordContext{
   const scope=context?.scope??bound?.scope;
