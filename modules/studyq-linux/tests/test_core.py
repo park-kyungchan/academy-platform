@@ -539,6 +539,18 @@ class Layout(unittest.TestCase):
         self.assertEqual(lines, ["aaa bbb", "ccc"])
         self.assertEqual(geometry.hpdf_to_fitz_y(745.89), geometry.PAGE_H - 745.89)
 
+    def test_r26_image_dimensions_are_read_from_headers(self):
+        import struct
+
+        from studyq_linux.imageinfo import image_dimensions
+
+        png = b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR" + struct.pack(">II", 44, 36) + b"\x08\x06\x00\x00\x00"
+        self.assertEqual(image_dimensions(png), (44, 36))
+        jpeg = b"\xff\xd8\xff\xe0" + struct.pack(">H", 4) + b"JF" + b"\xff\xc2" + struct.pack(">HBHH", 11, 8, 1017, 2198) + b"\x00" * 6
+        self.assertEqual(image_dimensions(jpeg), (2198, 1017))
+        self.assertIsNone(image_dimensions(b"GIF89a"))
+        self.assertIsNone(image_dimensions(b"\xff\xd8\xff"))
+
     def test_r26_difficulty_page_shares_and_bars(self):
         page = planned().pages[-2]
         shares = {f.id: f.text for f in page.fields if f.id.endswith(".share")}
