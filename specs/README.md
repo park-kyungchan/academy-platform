@@ -10,6 +10,11 @@ type or module is a rule.
 | --- | --- |
 | [edu/lesson.md](edu/lesson.md) | The lesson command `edu lesson` (crate `crates/edu`) |
 | [academy-mcp/paper-admit.md](academy-mcp/paper-admit.md) | The option `--paper-admit` of `modules/academy-workbench/tools/academy-mcp/install/loop_install.py` |
+| [academy-mcp/tool-surface.md](academy-mcp/tool-surface.md) | The tool surface of `academy_operations`: `release/surface.json` and `content/skills/academy-*/SKILL.md` |
+| [academy-mcp/direct-key-lookup.md](academy-mcp/direct-key-lookup.md) | The direct-key historical fallback of `academy_textbook_section_results_get` and the read-only `ReportViewServlet` views |
+| [academy-mcp/lms-reads.md](academy-mcp/lms-reads.md) | The read-only LMS reads of `academy_lms_schedule_get` and `academy_prestudy_get` |
+| [academy-mcp/gated-writes.md](academy-mcp/gated-writes.md) | The two-phase writes `academy_clinic_paper_{review,save}` and `academy_exam_paper_{review,save}` |
+| [studyq-linux/core.md](studyq-linux/core.md) | The Linux StudyQ executor `python3 -m studyq_linux` (`render`, `assemble-print`) |
 
 ## The form of a specification
 
