@@ -191,12 +191,12 @@ def _areas(ctx, style, data):
     return page
 
 
-def question_pages(ctx, template, data, first_number, group="area"):
-    """The question table: 25 rows a page from `QUESTION_TOP_PX`, every page on `template`."""
+def question_pages(ctx, data, template_of, number_of, group="area"):
+    """The question table: 25 rows a page from `QUESTION_TOP_PX`; chunk `n` is drawn on `template_of(n)` as page `number_of(n)`."""
     pages = []
     for n, chunk in enumerate(common.question_chunks(data["questions"])):
-        page = PagePlan(template)
-        prefix = "p%d" % (first_number + n)
+        page = PagePlan(template_of(n))
+        prefix = "p%d" % number_of(n)
         for i, q in enumerate(chunk):
             index = n * common.QUESTIONS_PER_PAGE + i
             y0 = QUESTION_TOP_PX + QUESTION_STEP_PX * i
@@ -224,12 +224,12 @@ def fixed_pages(ctx, style, data):
 
 
 def plan_diag(data, ctx):
-    return Plan(fixed_pages(ctx, DIAG, data) + question_pages(ctx, DIAG.template(9), data, 9))
+    return Plan(fixed_pages(ctx, DIAG, data) + question_pages(ctx, data, lambda n: DIAG.template(9), lambda n: 9 + n))
 
 
-def template_sequence(question_count, style=DIAG, tail=()):
+def template_sequence(question_count):
     pages = -(-question_count // common.QUESTIONS_PER_PAGE)
-    return [style.template(n) for n in range(1, 9)] + [style.template(9)] * pages + list(tail)
+    return [DIAG.template(n) for n in range(1, 9)] + [DIAG.template(9)] * pages
 
 
 def required_style_assets(style, data):

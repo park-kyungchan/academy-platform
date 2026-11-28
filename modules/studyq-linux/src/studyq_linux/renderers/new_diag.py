@@ -2,14 +2,16 @@
 
 The layout of `diag` on the templates `image/new_diag/diag_1.jpg` to `diag_10.jpg`, with the
 overlays of `image/diag/`: pages 1 to 8 as `diag` (no signal light and no difficulty chart, which
-the new-student templates do not use; the graph is `4p/03_graph.jpg`), the question table on
-`diag_9.jpg` (one page for each 25 questions), then the learning-style page `diag_10.jpg` with the
-picture `9p/<mbti>.jpg`. `apply_code` is validated and not printed: it is the key of the LMS read.
+the new-student templates do not use; the graph is `4p/03_graph.jpg`), questions 1 to 25 on
+`diag_9.jpg`, the learning-style page `diag_10.jpg` with the picture `9p/<mbti>.jpg`, then one page
+on `diag_10.jpg` for each further 25 questions, its rows placed as on the question table (the
+sequence the unit's page fixes). `apply_code` is validated and not printed: it is the key of the
+LMS read.
 """
 
 from ..course_book import PagePlan, Plan
 from . import common
-from .diag import OVERLAY_DIR, Style, fixed_pages, question_pages, required_style_assets, template_sequence
+from .diag import OVERLAY_DIR, Style, fixed_pages, question_pages, required_style_assets
 
 REPORT_TYPE = "new_diag"
 NEW_DIAG = Style(
@@ -31,14 +33,15 @@ def mbti_rel(code):
 
 
 def plan_new_diag(data, ctx):
-    pages = fixed_pages(ctx, NEW_DIAG, data) + question_pages(ctx, NEW_DIAG.template(9), data, 9)
-    last = PagePlan(STYLE_PAGE)
-    last.images.append(common.fit_image(ctx, mbti_rel(data["mbti"]), MBTI_BOX))
-    return Plan(pages + [last])
+    questions = question_pages(ctx, data, lambda n: NEW_DIAG.template(9) if n == 0 else STYLE_PAGE, lambda n: 9 if n == 0 else 10 + n)
+    style = PagePlan(STYLE_PAGE)
+    style.images.append(common.fit_image(ctx, mbti_rel(data["mbti"]), MBTI_BOX))
+    return Plan(fixed_pages(ctx, NEW_DIAG, data) + questions[:1] + [style] + questions[1:])
 
 
 def new_diag_template_sequence(question_count):
-    return template_sequence(question_count, NEW_DIAG, (STYLE_PAGE,))
+    pages = -(-question_count // common.QUESTIONS_PER_PAGE)
+    return [NEW_DIAG.template(n) for n in range(1, 11)] + [STYLE_PAGE] * (pages - 1)
 
 
 def required_new_diag_assets(data):

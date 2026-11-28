@@ -262,7 +262,7 @@ class Layout(unittest.TestCase):
             self.assertEqual(seq, [d % k for k in range(1, 10)] + [d % 9] * extra, count)
             self.assertEqual(seq, diag.template_sequence(count))
             seq = [p.template for p in plan_of("new_diag", synthetic_new_diag(count=count)).pages]
-            self.assertEqual(seq, [n % k for k in range(1, 10)] + [n % 9] * extra + [n % 10], count)
+            self.assertEqual(seq, [n % k for k in range(1, 11)] + [n % 10] * extra, count)
             self.assertEqual(seq, new_diag.new_diag_template_sequence(count))
             seq = [p.template for p in plan_of("formative", synthetic_formative(count=count)).pages]
             self.assertEqual(seq, [f % k for k in range(1, 7)] + [f % 6] * extra, count)
@@ -270,6 +270,38 @@ class Layout(unittest.TestCase):
         self.assertEqual(len(plan_of("diag", synthetic_diag()).pages), 9)
         self.assertEqual(len(plan_of("new_diag", synthetic_new_diag()).pages), 10)
         self.assertEqual(len(plan_of("formative", synthetic_formative()).pages), 6)
+
+    def test_r1_new_diag_questions_continue_on_template_10_after_the_learning_style_page(self):
+        plan = plan_of("new_diag", synthetic_new_diag(count=60))
+        templates = [p.template for p in plan.pages]
+        self.assertEqual(templates[8:], ["image/new_diag/diag_9.jpg", "image/new_diag/diag_10.jpg", "image/new_diag/diag_10.jpg", "image/new_diag/diag_10.jpg"])
+        questions = plan.pages[8]
+        self.assertEqual(sorted(int(f.id.split(".q")[1].split(".")[0]) for f in questions.fields if f.id.endswith(".no")), list(range(25)))
+        style = plan.pages[9]
+        self.assertEqual([i.rel for i in style.images], ["image/diag/9p/INTP.jpg"])
+        self.assertEqual(style.fields, [])
+        for n, page in enumerate(plan.pages[10:]):
+            ids = sorted(int(f.id.split(".q")[1].split(".")[0]) for f in page.fields if f.id.endswith(".no"))
+            self.assertEqual(ids, list(range(25 * (n + 1), min(60, 25 * (n + 2)))))
+            self.assertTrue(all(f.id.startswith("p%d." % (11 + n)) for f in page.fields))
+            self.assertNotIn("image/diag/9p/INTP.jpg", [i.rel for i in page.images])
+        # The rows of a continuation page sit where they sit on the question table.
+        self.assertEqual(plan.pages[10].fields[0].box[1], questions.fields[0].box[1])
+
+    def test_source_tree_holds_no_tracked_bytecode(self):
+        # The hash-pinned runner refuses a source tree that holds `__pycache__` or a `.pyc` file.
+        try:
+            proc = subprocess.run(["git", "-C", core.MODULE, "ls-files", "--", "."], capture_output=True, text=True, check=False)
+        except OSError:
+            self.skipTest("git not available")
+        if proc.returncode != 0:
+            self.skipTest("not a git checkout")
+        tracked = [p for p in proc.stdout.splitlines() if "__pycache__" in p.split("/") or p.endswith((".pyc", ".pyo"))]
+        self.assertEqual(tracked, [])
+        with open(os.path.join(core.MODULE, ".gitignore")) as handle:
+            ignored = handle.read().split()
+        self.assertIn("__pycache__/", ignored)
+        self.assertIn("*.pyc", ignored)
 
     def test_r2_required_assets_are_the_official_overlays(self):
         data = validate_diag(synthetic_diag())
@@ -402,7 +434,7 @@ class Layout(unittest.TestCase):
         self.assertEqual(sorted(f.id for f in graph.fields), ["p5.a%d.questions" % i for i in range(4)])
         new = new_diag.plan_new_diag(validate_new_diag(synthetic_new_diag(areas=6)), FAKE_CTX)
         self.assertFalse([i for p in new.pages for i in p.images if "/5p/" in i.rel or "/8p/" in i.rel])
-        self.assertEqual(new.pages[-1].images[0].rel, "image/diag/9p/INTP.jpg")
+        self.assertEqual(new.pages[9].images[0].rel, "image/diag/9p/INTP.jpg")
         self.assertFalse([f for f in all_fields(new) if "Invented-Code" in f.text])
         data = validate_formative(synthetic_formative(units=6, count=20))
         self.assertEqual(formative.unit_counts(data), [5, 5, 5, 5, 0, 0])
