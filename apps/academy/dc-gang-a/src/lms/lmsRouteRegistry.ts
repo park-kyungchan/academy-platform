@@ -1097,3 +1097,57 @@ export function clinicRequestEffect(method: string | undefined, path: string, op
   if (path === TESTPAGE_SELECT_EX_PATH) return testpageSelectExRequestEffect(operation, body);
   return verb === 'GET' && CLINIC_READ_ROUTES.some(r => r.path === path && r.operation === operation) ? 'read' : 'write';
 }
+
+/**
+ * The routes of the gated FA and unit-exam write (specs/academy-mcp/gated-writes.md "Request classes", `academy_exam_paper_review` and
+ * `_save`), in two standalone lists like `CLINIC_READ_ROUTES`: nothing here loads the canonical route registry file, and
+ * `endpointCandidates.ts`, the catalog and the function-relation map are not edited. A route is classed by its path, operation and
+ * HTTP method, never by the method alone: a GET can write (the allocating `p_process=Auto` page, `SaveMunhang`, the assignment save).
+ * `<family>` is `fa` or `da` (the servlet package `controller.tutor.<family>`).
+ */
+export type ExamFamily = 'fa' | 'da';
+export const EXAM_FAMILIES: readonly ExamFamily[] = ['fa', 'da'];
+export const examRegPath = (family: ExamFamily): string => `/servlet/controller.tutor.${family}.TestPageRegServlet`;
+export const examHangPath = (family: ExamFamily): string => `/servlet/controller.tutor.${family}.TestHangServlet`;
+export const TESTPAGE_SELECT_PATH = '/servlet/controller.common.TestpageSelectServlet';
+export const OBJECT_SELECT_PATH = '/servlet/controller.common.ObjectSelectServlet';
+export const DIAGNOST_MANAGE_PATH = '/servlet/controller.tutor.diag.DiagnostManageServlet';
+export const TEST_PAGE_LIST_PATH = '/servlet/controller.tutor.base.TestPageListServlet';
+export interface ExamRoute {id: string; path: string; param: 'p_process' | 'reqCmd'; operation: string; method: 'GET' | 'POST' | 'ANY'}
+const perFamily = (id: string, path: (f: ExamFamily) => string, param: 'p_process' | 'reqCmd', operation: string, method: 'GET' | 'POST'): ExamRoute[] =>
+  EXAM_FAMILIES.map(f => ({id: `${id}_${f.toUpperCase()}`, path: path(f), param, operation, method}));
+/** Read: no data changes. The existing `getTestExamList` and the `TestPageListServlet` routes of `searchStudentPaperMetadata` are already read. */
+export const EXAM_READ_ROUTES: readonly ExamRoute[] = [
+  {id: 'EXAM_TEST_EXAM_LIST', path: TESTPAGE_SELECT_EX_PATH, param: 'p_process', operation: 'getTestExamList', method: 'POST'},
+  {id: 'EXAM_PAPER_NO', path: DIAGNOST_MANAGE_PATH, param: 'reqCmd', operation: 'GetPaperNo', method: 'POST'},
+  {id: 'EXAM_STUDENT_LIST', path: OBJECT_SELECT_PATH, param: 'reqCmd', operation: 'getStudentList', method: 'POST'},
+  {id: 'EXAM_USER_BY_MAIN', path: TEST_PAGE_LIST_PATH, param: 'p_process', operation: 'UserByMain', method: 'ANY'},
+  {id: 'EXAM_USER_BY_SEARCH_TEST_RESULT', path: TEST_PAGE_LIST_PATH, param: 'p_process', operation: 'UserBySearchTestResult', method: 'ANY'},
+  ...perFamily('EXAM_CHECK_MUNHANG', examRegPath, 'reqCmd', 'CheckMunhang', 'GET'),
+  ...perFamily('EXAM_AUTO_MODIFY', examRegPath, 'p_process', 'AutoModify', 'GET'),
+  ...perFamily('EXAM_HANG_MAIN', examHangPath, 'p_process', 'Main', 'GET'),
+  ...perFamily('EXAM_HANG_VALIDATE', examHangPath, 'reqCmd', 'Validate', 'GET'),
+];
+/** Write: only inside the save, under the ledger lock. */
+export const EXAM_WRITE_ROUTES: readonly ExamRoute[] = [
+  ...perFamily('EXAM_AUTO_ALLOCATE', examRegPath, 'p_process', 'Auto', 'GET'),
+  {id: 'EXAM_SAVE_MUNHANG', path: TESTPAGE_SELECT_PATH, param: 'reqCmd', operation: 'SaveMunhang', method: 'GET'},
+  ...perFamily('EXAM_PAPER_SAVE', examRegPath, 'reqCmd', 'Save', 'POST'),
+  ...perFamily('EXAM_HANG_SAVE', examHangPath, 'reqCmd', 'Save', 'GET'),
+];
+const examMatches = (list: readonly ExamRoute[], method: string, path: string, operation: string): boolean =>
+  list.some(r => r.path === path && r.operation === operation && (r.method === 'ANY' || r.method === method.toUpperCase()));
+/** The listed class of one request of the exam pair, or null when neither list names it. */
+export function examRouteClass(method: string | undefined, path: string, operation: string): 'read' | 'write' | null {
+  const verb = (method ?? 'GET').toUpperCase();
+  if (examMatches(EXAM_WRITE_ROUTES, verb, path, operation)) return 'write';
+  if (path === TESTPAGE_SELECT_EX_PATH) return operation === 'getTestExamList' ? 'read' : null;
+  return examMatches(EXAM_READ_ROUTES, verb, path, operation) ? 'read' : null;
+}
+/** The class of one request of the exam pair: a route neither list names is write (specs/academy-mcp/gated-writes.md "Request classes"). */
+export const examRequestEffect = (method: string | undefined, path: string, operation: string): 'read' | 'write' => examRouteClass(method, path, operation) ?? 'write';
+/** The path (without query) and operation (`p_process`, else `reqCmd`, of the query) of a request path. */
+export function examRouteOf(pathWithQuery: string): {path: string; operation: string} {
+  const parsed = new URL(pathWithQuery, 'https://lms.invalid');
+  return {path: parsed.pathname, operation: parsed.searchParams.get('p_process') ?? parsed.searchParams.get('reqCmd') ?? ''};
+}

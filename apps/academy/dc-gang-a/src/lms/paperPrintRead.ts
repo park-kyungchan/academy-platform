@@ -20,7 +20,8 @@ export const MAX_EXAMTEXT_KEY=999_999;
 export const PRINT_SEL_TYPES=['obj','sbj','des'] as const;
 export type PrintSelType=typeof PRINT_SEL_TYPES[number];
 export type PrintArchiveKind='exam'|'examtext';
-export interface PaperExamRow {lectureKey:number;selType:PrintSelType;examtextKey:number;patName:string;difficulty:string;unitName:string}
+/** `outerLectureKey` is the `outer_lecture_key` member of the row (the key the exam creation page stages), null when the member is absent. */
+export interface PaperExamRow {lectureKey:number;outerLectureKey:number|null;selType:PrintSelType;examtextKey:number;patName:string;difficulty:string;unitName:string}
 
 /** A paper number is a decimal key, 1 to 999999999. */
 export function paperNoQualified(value:unknown):value is string{
@@ -58,7 +59,7 @@ export function parsePaperExamList(text:string):PaperExamRow[]{
     try{row=readInputRecord(raw);}catch{throw Error('paper_exam_list_unverified');}
     const selType=row.sel_type;
     if(typeof selType!=='string'||!(PRINT_SEL_TYPES as readonly string[]).includes(selType))throw Error('paper_exam_sel_type_unqualified');
-    return {lectureKey:keyOf(row.lecture_key,MAX_EXAM_KEY),selType:selType as PrintSelType,
+    return {lectureKey:keyOf(row.lecture_key,MAX_EXAM_KEY),outerLectureKey:row.outer_lecture_key===undefined||row.outer_lecture_key===null?null:keyOf(row.outer_lecture_key,MAX_EXAM_KEY),selType:selType as PrintSelType,
       examtextKey:row.examtext_key===undefined||row.examtext_key===null||row.examtext_key===''?0:keyOf(row.examtext_key,MAX_EXAMTEXT_KEY),
       patName:textOf(row.pat_name),difficulty:textOf(row.difficulty),unitName:textOf(row.unit_name)};
   });

@@ -10,6 +10,7 @@ import {textbookPdfReaderConfiguration} from './textbook-pdf-reader.ts';
 import {dailyRecordToolConfiguration,registerDailyRecordTools,registerOfficialReportPdfTool,registerPaperPrintPdfTool} from './dailyrecord-tools.ts';
 import {LmsScheduleService,registerLmsScheduleTool} from './lms-schedule-tools.ts';
 import {ClinicPaperService,registerClinicPaperTools} from './clinic-write-tools.ts';
+import {ExamPaperService,registerExamPaperTools} from './exam-write-tools.ts';
 import {gatedWriteLedgerConfiguration} from '../../../../../apps/academy/dc-gang-a/src/lms/gatedWriteLedger';
 import {historicalBindingReaderConfiguration} from './historical-binding-reader.ts';
 import {studyqRunnerConfiguration} from './studyq-runner.ts';
@@ -46,6 +47,7 @@ registerOfficialReportPdfTool(server,new OfficialReportPdfService(native?.backen
 registerPaperPrintPdfTool(server,new PaperPrintPdfService(native?.backend??null,studyq.runner,join(nativeOwnerArtifactsRoot,'print-pdfs')));
 registerLmsScheduleTool(server,new LmsScheduleService(native?.backend??null));
 registerClinicPaperTools(server,new ClinicPaperService(native?.backend??null,gatedLedger.path));
+registerExamPaperTools(server,new ExamPaperService(native?.backend??null,gatedLedger.path));
 if(native)process.once('exit',native.close);
 installStdioDiagnostics(server.server);
 await server.connect(createAcademyStdioTransport());

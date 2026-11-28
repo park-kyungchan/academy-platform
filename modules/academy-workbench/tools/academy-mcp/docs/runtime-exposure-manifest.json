@@ -206,6 +206,16 @@
       "name": "academy_clinic_paper_save",
       "class": "write",
       "exposure": "gated_save_admission"
+    },
+    {
+      "name": "academy_exam_paper_review",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_exam_paper_save",
+      "class": "write",
+      "exposure": "gated_save_admission"
     }
   ],
   "closedUntilAttribution": [],
