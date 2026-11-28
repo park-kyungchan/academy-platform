@@ -9,6 +9,7 @@ import type {StudyqRunner} from '../src/studyq-runner.ts';
 import {projectCourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport.ts';
 import {CISM_NARRATIVES,cismMonthDates,cismWeek,type CismField,type CismReport} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol.ts';
 import {cismMonthToStudyqInput,cismWeekNumber,cismWeekToStudyqInput} from '../../../../../apps/academy/dc-gang-a/src/lms/cismReportAdapter.ts';
+import {projectDiagReport,projectFormativeReport,projectNewDiagReport} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient.ts';
 import {writeForbiddenTransport} from './network-deny.ts';
 
 // academy_official_report_pdf_get (src/official-report-pdf.ts) with an injected backend and runner:
@@ -29,7 +30,7 @@ function fixture(name:string,over:Partial<{answer:Awaited<ReturnType<CourseBookR
     return over.answer??{kind:'report',student:{studentId:KEY,displayName:STUDENT},courseKey:COURSE,bookNo:BOOK,bindingSource:'historical_key_registry',report};}};
   const runner:StudyqRunner={async renderCourseBook(input,path){calls.runner.push({input,path});
     return over.rendered??{status:'rendered',pages:8,sha256:'a'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};},
-    async assemblePrint(){throw Error('not_called');},async renderCism(){throw Error('not_called_for_course_book');}};
+    async assemblePrint(){throw Error('not_called');},async renderCism(){throw Error('not_called_for_course_book');},async renderReport(){throw Error('not_called_for_course_book');}};
   const root=resolve(base,name,'official-reports');
   return {calls,root,service:new OfficialReportPdfService(backend,runner,root,now)};
 }
@@ -112,7 +113,7 @@ function cismFixture(name:string,reports:(date:string)=>CismReport,rendered?:Awa
   const calls={dates:[] as string[],runner:[] as {input:any;path:string}[]};
   const backend:CourseBookReportBackend={async readCourseBookReportByName(){throw Error('not_called_for_cism');},async readCismReport(date){calls.dates.push(date);return reports(date);}};
   const runner:StudyqRunner={async renderCourseBook(){throw Error('not_called_for_cism');},
-    async assemblePrint(){throw Error('not_called');},async renderCism(input,path){calls.runner.push({input,path});return rendered??{status:'rendered',pages:3,sha256:'b'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};}};
+    async assemblePrint(){throw Error('not_called');},async renderReport(){throw Error('not_called_for_cism');},async renderCism(input,path){calls.runner.push({input,path});return rendered??{status:'rendered',pages:3,sha256:'b'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};}};
   const root=resolve(base,name,'official-reports');
   return {calls,root,service:new OfficialReportPdfService(backend,runner,root,now)};
 }
@@ -243,7 +244,7 @@ describe('academy_official_report_pdf_get reportType cism',()=>{
     const admission={teacherId:'90001',teacherLabel:'Fictional Teacher',date:'2040-01-04',students:[{studentId:'9101',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};
     const client=new AcademyHttpClient({teacherLabel:'Fictional Teacher',teacherKey:'90001',collegeKey:'88001'},guard.transport as never);
     const backend=new NativeDailyRecordBackend(client as never,admission,()=>({username:'fictional',password:'fictional'}));
-    const runner:StudyqRunner={async renderCourseBook(){throw Error('x');},async assemblePrint(){throw Error('not_called');},async renderCism(input,path){seen.push(input);return {status:'rendered',pages:2,sha256:'c'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};}};
+    const runner:StudyqRunner={async renderCourseBook(){throw Error('x');},async assemblePrint(){throw Error('not_called');},async renderReport(){throw Error('x');},async renderCism(input,path){seen.push(input);return {status:'rendered',pages:2,sha256:'c'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};}};
     const seen:any[]=[];
     const service=new OfficialReportPdfService(backend as never,runner,resolve(base,'cism-i1','official-reports'),now);
     const week=await service.get({reportType:'cism',params:{scope:'week',date:'2040-10-15'}}) as any;
@@ -255,5 +256,178 @@ describe('academy_official_report_pdf_get reportType cism',()=>{
     expect(seen[0].chart_data).toEqual([{group:'Fictional Group',student:'Fictional Student',class_mode:'',think_note:'',week_test:''}]);
     expect(seen[0].report_list[0].text).toBe('Invented narrative');
     expect(python(VALIDATE,seen[0]).status).toBe(0);
+  });
+});
+
+// reportType 'diag', 'new_diag', 'formative': one read-only POST of ReportViewServlet (specs/academy-mcp/direct-key-lookup.md R8),
+// projected to the strict input of specs/studyq-linux/reports-batch1.md. Invented names, keys and values only.
+const TESTING='901',CLASS='560077',PAPER='4401',APPLICANT='Invented Applicant';
+const diagBlocks=(student=STUDENT)=>({block1:[{'1':'Invented diagnostic','2':'2040-01-10','3':student,'4':'4','5':72.5,'6':61,'7':'Line one.\\r\\nLine two.'}],
+  block2:[{'1':'Invented area A','2':80,'3':60,'4':'green','5':'nice'},{'1':'Invented area B','2':'55','3':60,'4':'yellow','5':'base'}],
+  block3:[{'1':2,'2':40},{'1':3,'2':55.5},{'1':4,'2':70},{'1':1,'2':90}],
+  block4:[{'1':1,'2':'Invented area A','3':'상','4':66,'5':'O'},{'1':2,'2':'Invented area B','3':'중','4':'50.5','5':'X'},{'1':3,'2':'Invented area A','3':'하','4':90,'5':'O'}]});
+const newDiagBlocks=()=>{const raw=diagBlocks(APPLICANT);raw.block1[0]={...raw.block1[0]!,'8':'APP-7','9':'INTP'} as never;return raw;};
+const formativeNamed=(student=STUDENT)=>({title:'Invented formative',student,test_date:'2040-01-12',my_score:80,avg_score:'66.5',rank_signal:3,comment:'',
+  units:[{name:'Invented unit 1',my_score:70,average:60},{name:'Invented unit 2',my_score:90,average:65}],
+  difficulty:{top:{questions:1,score:50},high:{questions:2,score:60},mid:{questions:3,score:70},low:{questions:4,score:80}},
+  questions:[{no:1,unit:'Invented unit 1',difficulty:'상',correct_rate:40,correct:'O'},{no:2,unit:'Invented unit 2',difficulty:'하',correct_rate:77,correct:false}]});
+const VALIDATE_REPORT=(type:string)=>`import sys,json; sys.path.insert(0,sys.argv[1]); from studyq_linux.schema import validate_${type} as v; from studyq_linux.render import REPORTS
+from studyq_linux.course_book import PlanContext
+d=v(json.load(sys.stdin)); plan=REPORTS["${type}"][1](d,PlanContext(lambda t,s:len(t)*s*0.6,lambda r:(2080,415) if "/9p/" in r else (37,37) if r.endswith(".png") else (100,80)))
+print(json.dumps({"pages":len(plan.pages),"questions":len(d["questions"])}))`;
+function viewFixture(name:string,raw:()=>Record<string,unknown>,rendered?:Awaited<ReturnType<StudyqRunner['renderReport']>>){
+  const calls={student:[] as unknown[],applicant:[] as unknown[],runner:[] as {type:string;input:any;path:string}[]};
+  const backend:CourseBookReportBackend={async readCourseBookReportByName(){throw Error('not_called');},
+    async readStudentReportView(input){calls.student.push(input);
+      if(input.studentKey!==undefined&&input.studentKey!==KEY)throw Error('official_report_scope_conflict');
+      return {student:{studentId:KEY,displayName:STUDENT},raw:raw()};},
+    async readNewStudentReportView(input){calls.applicant.push(input);return {raw:raw()};}};
+  const runner:StudyqRunner={async renderCourseBook(){throw Error('not_called');},async renderCism(){throw Error('not_called');},async assemblePrint(){throw Error('not_called');},
+    async renderReport(type,input,path){calls.runner.push({type,input,path});return rendered??{status:'rendered',pages:9,sha256:'d'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};}};
+  const root=resolve(base,name,'official-reports');
+  return {calls,root,service:new OfficialReportPdfService(backend,runner,root,now)};
+}
+
+describe('academy_official_report_pdf_get reportType diag, new_diag, formative',()=>{
+  test('official_report_diag_renders_the_projected_view_under_the_owner_root',async()=>{
+    const f=viewFixture('diag',()=>diagBlocks());
+    const answer=await f.service.get({reportType:'diag',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS,limitDate:'2040-01-31'}}) as any;
+    const path=resolve(f.root,'diag-'+TESTING+'-20400116T090000Z.pdf');
+    expect(answer).toMatchObject({status:'rendered',reportType:'diag',outputPath:path,pages:9,parityOk:true,parityMismatches:0,parityRawRn:0,academyWrites:0,
+      student:{studentId:KEY,displayName:STUDENT},testingNo:TESTING,classNo:CLASS,reportSummary:{title:'Invented diagnostic',testDate:'2040-01-10',questions:3}});
+    expect(f.calls.student).toEqual([{view:'DiagReportView',displayName:STUDENT,testingNo:TESTING,classNo:CLASS,limitDate:'2040-01-31'}]);
+    const {type,input}=f.calls.runner[0]!;
+    expect(type).toBe('diag');
+    expect(input).toEqual({title:'Invented diagnostic',student:STUDENT,test_date:'2040-01-10',grade:4,total_score:72.5,avg_score:61,comment:'Line one.\\r\\nLine two.',
+      areas:[{name:'Invented area A',score:80,average:60,signal:'green',rating:'nice'},{name:'Invented area B',score:55,average:60,signal:'yellow',rating:'base'}],
+      difficulty:{top:{questions:2,score:40},high:{questions:3,score:55.5},mid:{questions:4,score:70},low:{questions:1,score:90}},
+      questions:[{no:1,area:'Invented area A',difficulty:'상',correct_rate:66,correct:true},{no:2,area:'Invented area B',difficulty:'중',correct_rate:50.5,correct:false},
+        {no:3,area:'Invented area A',difficulty:'하',correct_rate:90,correct:true}]});
+    // formative: FaView, studentName, an explicit studentKey that is the student's.
+    const g=viewFixture('formative',()=>formativeNamed());
+    const fa=await g.service.get({reportType:'formative',studentName:STUDENT,studentKey:KEY,params:{testingNo:TESTING,classNo:CLASS},outputPath:'fa.pdf'}) as any;
+    expect(fa).toMatchObject({status:'rendered',reportType:'formative',outputPath:resolve(g.root,'fa.pdf')});
+    expect(g.calls.student).toEqual([{view:'FaView',displayName:STUDENT,studentKey:KEY,testingNo:TESTING,classNo:CLASS}]);
+    expect(g.calls.runner[0]!.input).toMatchObject({avg_score:66.5,units:[{name:'Invented unit 1'},{name:'Invented unit 2'}],questions:[{correct:true},{correct:false}]});
+    // new_diag: NewStudentReportView by paper and apply code, no student lookup.
+    const h=viewFixture('new-diag',newDiagBlocks);
+    const nd=await h.service.get({reportType:'new_diag',params:{paperNo:PAPER,applyCode:'APP-7'}}) as any;
+    expect(nd).toMatchObject({status:'rendered',reportType:'new_diag',paperNo:PAPER,outputPath:resolve(h.root,'new_diag-'+PAPER+'-20400116T090000Z.pdf')});
+    expect(nd.student).toBeUndefined();
+    expect(h.calls.applicant).toEqual([{paperNo:PAPER,applyCode:'APP-7'}]);
+    expect(h.calls.runner[0]!.input).toMatchObject({student:APPLICANT,apply_code:'APP-7',mbti:'INTP'});
+    await h.service.get({reportType:'new_diag',displayName:APPLICANT,params:{paperNo:PAPER,applyCode:'APP-7',collegeKey:'88002'},outputPath:'nd2.pdf'});
+    expect(h.calls.applicant.at(-1)).toEqual({paperNo:PAPER,applyCode:'APP-7',collegeKey:'88002'});
+  });
+
+  test('official_report_report_view_params_are_validated_before_any_request',async()=>{
+    for(const bad of [{reportType:'diag',params:{testingNo:TESTING,classNo:CLASS}},{reportType:'diag',displayName:STUDENT,params:{testingNo:TESTING}},
+      {reportType:'diag',displayName:STUDENT,params:{classNo:CLASS}},{reportType:'diag',displayName:STUDENT,courseKey:COURSE,params:{testingNo:TESTING,classNo:CLASS}},
+      {reportType:'formative',displayName:STUDENT,bookNo:BOOK,params:{testingNo:TESTING,classNo:CLASS}},{reportType:'diag',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS,bookLabel:'x'}},
+      {reportType:'diag',displayName:STUDENT,params:{testingNo:'0',classNo:CLASS}},{reportType:'formative',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS,limitDate:'2040-1-31'}},
+      {reportType:'diag',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS,paperNo:PAPER}},{reportType:'diag',displayName:STUDENT,studentName:'Other Invented',params:{testingNo:TESTING,classNo:CLASS}},
+      {reportType:'new_diag',params:{paperNo:PAPER}},{reportType:'new_diag',params:{applyCode:'APP-7'}},{reportType:'new_diag',params:{paperNo:PAPER,applyCode:''}},
+      {reportType:'new_diag',params:{paperNo:PAPER,applyCode:'a'.repeat(65)}},{reportType:'new_diag',params:{paperNo:PAPER,applyCode:' APP'}},
+      {reportType:'new_diag',studentKey:KEY,params:{paperNo:PAPER,applyCode:'APP-7'}},{reportType:'new_diag',courseKey:COURSE,params:{paperNo:PAPER,applyCode:'APP-7'}},
+      {reportType:'new_diag',bookNo:BOOK,params:{paperNo:PAPER,applyCode:'APP-7'}},{reportType:'new_diag',params:{paperNo:PAPER,applyCode:'APP-7',testingNo:TESTING}},
+      {reportType:'course_book',displayName:STUDENT,params:{testingNo:TESTING}},{reportType:'cism',params:{scope:'week',paperNo:PAPER}},{reportType:'smart_book',displayName:STUDENT}])
+      expect({bad,ok:officialReportPdfGetSchema.safeParse(bad).success}).toEqual({bad,ok:false});
+    for(const ok of [{reportType:'diag',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}},{reportType:'formative',studentName:STUDENT,studentKey:KEY,params:{testingNo:TESTING,classNo:CLASS,limitDate:'2040-01-31'}},
+      {reportType:'new_diag',params:{paperNo:PAPER,applyCode:'APP-7'}},{reportType:'new_diag',displayName:APPLICANT,params:{paperNo:PAPER,applyCode:'APP-7',collegeKey:'88001'}}])
+      expect({ok,parsed:officialReportPdfGetSchema.safeParse(ok).success}).toEqual({ok,parsed:true});
+    const f=viewFixture('view-bad',()=>diagBlocks());
+    expect(await f.service.get({reportType:'diag',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS},outputPath:'../x.pdf'})).toMatchObject({status:'unavailable',reasonCode:'output_path_invalid'});
+    expect(f.calls.student).toEqual([]);
+    // A student key that is not the named student's refuses with no runner call.
+    expect(await f.service.get({reportType:'diag',displayName:STUDENT,studentKey:'770099',params:{testingNo:TESTING,classNo:CLASS}})).toMatchObject({status:'unavailable',reasonCode:'official_report_scope_conflict'});
+    expect(f.calls.runner).toEqual([]);
+  });
+
+  test('official_report_report_view_refuses_another_student_and_unqualified_payloads',async()=>{
+    const other=viewFixture('view-other',()=>diagBlocks('Another Invented'));
+    expect(await other.service.get({reportType:'diag',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}})).toMatchObject({status:'unavailable',reasonCode:'official_report_scope_conflict'});
+    const applicant=viewFixture('view-applicant',newDiagBlocks);
+    expect(await applicant.service.get({reportType:'new_diag',displayName:'Another Invented',params:{paperNo:PAPER,applyCode:'APP-7'}})).toMatchObject({status:'unavailable',reasonCode:'official_report_scope_conflict'});
+    for(const raw of [()=>({block1:[]}),()=>({...diagBlocks(),block3:[{'1':1,'2':1}]}),()=>({...diagBlocks(),block2:{}}),()=>({...diagBlocks(),block1:'x'})]){
+      const f=viewFixture('view-unq',raw);
+      expect(await f.service.get({reportType:'diag',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}})).toMatchObject({status:'unavailable',reasonCode:'report_view_unqualified'});
+      expect(f.calls.runner).toEqual([]);
+      await rm(f.root,{recursive:true,force:true});
+    }
+    // Zero invented rows: an empty area block stays empty and the strict validator refuses it.
+    const empty=viewFixture('view-empty',()=>({...diagBlocks(),block2:[]}));
+    await empty.service.get({reportType:'diag',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}});
+    expect(empty.calls.runner[0]!.input.areas).toEqual([]);
+    expect(python(VALIDATE_REPORT('diag'),empty.calls.runner[0]!.input).status).not.toBe(0);
+    const refused=viewFixture('view-refused',()=>diagBlocks(),{status:'refused',code:'input_invalid',detail:'range:areas'});
+    expect(await refused.service.get({reportType:'diag',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}})).toMatchObject({status:'refused',reasonCode:'studyq_input_invalid',studyqDetail:'range:areas'});
+    const noPort=new OfficialReportPdfService({async readCourseBookReportByName(){throw Error('x');}},refused.service.runner,resolve(base,'view-noport'),now);
+    expect(await noPort.get({reportType:'formative',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}})).toMatchObject({status:'unavailable',reasonCode:'report_view_source_port_unavailable'});
+    expect(await new OfficialReportPdfService(null,null,resolve(base,'none')).get({reportType:'new_diag',params:{paperNo:PAPER,applyCode:'APP-7'}})).toMatchObject({status:'unavailable',reasonCode:'official_report_backend_not_configured'});
+  });
+
+  test('official_report_report_view_inputs_are_accepted_by_the_real_studyq_validators',()=>{
+    for(const [type,input] of [['diag',projectDiagReport(diagBlocks())],['diag',projectDiagReport(projectDiagReport(diagBlocks()) as never)],
+      ['new_diag',projectNewDiagReport(newDiagBlocks())],['formative',projectFormativeReport(formativeNamed())],
+      ['formative',projectFormativeReport({block1:[{'1':'Invented formative','2':'2040-01-12','3':STUDENT,'4':80,'5':66.5,'6':'3','7':''}],block2:[{'1':'Invented unit 1','2':70,'3':60}],
+        block3:[{'1':1,'2':50},{'1':0,'2':0},{'1':3,'2':70},{'1':4,'2':80}],block4:[{'1':1,'2':'Invented unit 1','3':'상','4':40,'5':'X'}]})]] as const){
+      const checked=python(VALIDATE_REPORT(type),input);
+      expect({type,status:checked.status,stderr:checked.stderr}).toEqual({type,status:0,stderr:''});
+      expect(JSON.parse(checked.stdout).questions).toBe((input as any).questions.length);
+    }
+    // A projection copies values: a signal or a mark the renderer does not take reaches its validator and is refused there.
+    const bad=projectDiagReport({...diagBlocks(),block2:[{'1':'Invented area A','2':80,'3':60,'4':'blue','5':'nice'}]});
+    expect(bad.areas[0]!.signal).toBe('blue');
+    expect(python(VALIDATE_REPORT('diag'),bad).status).not.toBe(0);
+    expect(projectDiagReport({...diagBlocks(),block4:[{'1':1,'2':'a','3':'b','4':1,'5':'?'}]}).questions[0]!.correct).toBe('?');
+  });
+
+  test('official_report_report_views_read_only_read_class_routes_i1_write_forbidden',async()=>{
+    const {AcademyHttpClient}=await import('../../../../../apps/academy/dc-gang-a/src/lms/academyHttpClient.ts');
+    const {NativeDailyRecordBackend}=await import('../src/native-dailyrecord-backend.ts');
+    const {REPORT_VIEW_PATH}=await import('../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient.ts');
+    const login='<form id="loginForm" name="loginForm" method="post"><input name="p_process"><input name="p_prino"><input name="p_groupno"><input name="userpwd"><input name="userid"><input name="cf_pc"><input name="cf_user"><input name="autoLoginCheck"><input name="autoLoginKey"></form><script>document.loginForm.action = "/servlet/controller.login.LoginServlet"; document.loginForm.p_process.value = "c_login";</script>';
+    const principal='<a href="/logout">Fictional Teacher- [로그아웃]</a><form name="userForm"><input name="pri_no" value="90001"></form><form name="form1"><input name="g_pri_no" value="90001"><input name="g_clg_no" value="88001"><input name="g_mem_type" value="teacher"></form>';
+    const envelope=(raw:unknown)=>new Response('<body>SERVER_RET = OK<BR>'+JSON.stringify(raw)+'<END_DATA></body>',{headers:{'content-type':'text/html; charset=utf-8'}});
+    const run=async(name:string,request:Record<string,unknown>,raw:unknown,page?:string)=>{
+      let calls=0;const bodies:string[]=[];
+      const guard=writeForbiddenTransport((url,init)=>{calls++;
+        if(calls===1)return new Response(login);if(calls<=3)return new Response(principal);
+        bodies.push(String(init?.body));return page!==undefined?new Response(page):envelope(raw);});
+      const admission={teacherId:'90001',teacherLabel:'Fictional Teacher',date:'2040-01-04',students:[{studentId:KEY,displayName:STUDENT}],sourceBundleSha256:'b'.repeat(64)};
+      const client=new AcademyHttpClient({teacherLabel:'Fictional Teacher',teacherKey:'90001',collegeKey:'88001'},guard.transport as never);
+      const backend=new NativeDailyRecordBackend(client as never,admission,()=>({username:'fictional',password:'fictional'}));
+      const seen:any[]=[];
+      const runner:StudyqRunner={async renderCourseBook(){throw Error('x');},async renderCism(){throw Error('x');},async assemblePrint(){throw Error('x');},
+        async renderReport(type,input,path){seen.push({type,input});return {status:'rendered',pages:9,sha256:'e'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};}};
+      const service=new OfficialReportPdfService(backend as never,runner,resolve(base,name,'official-reports'),now);
+      return {answer:await service.get(request) as any,guard,bodies,seen,calls:()=>calls};
+    };
+    const diag=await run('i1-diag',{reportType:'diag',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}},diagBlocks());
+    expect(diag.answer).toMatchObject({status:'rendered',academyWrites:0});
+    expect(diag.guard.forbidden()).toEqual([]);
+    expect(diag.guard.requests.map(r=>r.role)).toEqual(['login','login','read','read']);
+    expect(diag.guard.requests.at(-1)).toEqual({route:REPORT_VIEW_PATH+' DiagReportView',role:'read'});
+    expect(diag.bodies).toEqual(['p_process=DiagReportView&p_testing_no='+TESTING+'&p_pri_no='+KEY+'&p_cls_no='+CLASS+'&p_limit_date=']);
+    expect(python(VALIDATE_REPORT('diag'),diag.seen[0].input).status).toBe(0);
+    const fa=await run('i1-fa',{reportType:'formative',displayName:STUDENT,studentKey:KEY,params:{testingNo:TESTING,classNo:CLASS,limitDate:'2040-01-31'}},formativeNamed());
+    expect(fa.answer).toMatchObject({status:'rendered'});
+    expect(fa.guard.forbidden()).toEqual([]);
+    expect(fa.bodies).toEqual(['p_process=FaView&p_testing_no='+TESTING+'&p_pri_no='+KEY+'&p_cls_no='+CLASS+'&p_limit_date=2040-01-31']);
+    expect(python(VALIDATE_REPORT('formative'),fa.seen[0].input).status).toBe(0);
+    const nd=await run('i1-nd',{reportType:'new_diag',params:{paperNo:PAPER,applyCode:'APP-7'}},newDiagBlocks());
+    expect(nd.answer).toMatchObject({status:'rendered'});
+    expect(nd.guard.forbidden()).toEqual([]);
+    expect(nd.bodies).toEqual(['p_process=NewStudentReportView&p_p_no='+PAPER+'&p_apply_code=APP-7&clg_no=88001']);
+    expect(python(VALIDATE_REPORT('new_diag'),nd.seen[0].input).status).toBe(0);
+    // A student key that is not the named student's: refused before any report-view request.
+    const wrong=await run('i1-wrong',{reportType:'diag',displayName:STUDENT,studentKey:'770099',params:{testingNo:TESTING,classNo:CLASS}},diagBlocks());
+    expect(wrong.answer).toMatchObject({status:'unavailable',reasonCode:'official_report_scope_conflict'});
+    expect(wrong.calls()).toBe(0);
+    // A login page in place of the view fails closed: no PDF.
+    const loggedOut=await run('i1-login',{reportType:'formative',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}},null,login.replace('name="userpwd"','name="userpwd" type="password"'));
+    expect(loggedOut.answer).toMatchObject({status:'unavailable',reasonCode:'authentication_required'});
+    expect(loggedOut.seen).toEqual([]);
+    expect(loggedOut.guard.forbidden()).toEqual([]);
   });
 });

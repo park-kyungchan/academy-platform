@@ -4,7 +4,9 @@ import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
 import {Client} from '@modelcontextprotocol/client';
 import {StdioClientTransport} from '@modelcontextprotocol/client/stdio';
-import {writeForbiddenTransport} from './network-deny.ts';
+import {lmsRequestRole,writeForbiddenTransport} from './network-deny.ts';
+import {REPORT_VIEW_PATH,readReportViewEnvelope,reportViewForm} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient.ts';
+import {reportViewRequestEffect,reportViewRoutes} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsRouteRegistry.ts';
 import {AcademyHttpClient} from '../../../../../apps/academy/dc-gang-a/src/lms/academyHttpClient.ts';
 import {projectCourseBookReport,readCourseBookReportEnvelope} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport.ts';
 import {REPORT_VIEW_NAMES,validateReportViewName} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewRead.ts';
@@ -262,6 +264,69 @@ describe('direct-key historical lookup (specs/academy-mcp/direct-key-lookup.md)'
   expect([...REPORT_VIEW_NAMES]).toEqual(['SmartBookReportView','DiagReportView','NewStudentReportView','FaView','GaReportView','NaScoreResultView']);
   for(const view of REPORT_VIEW_NAMES)expect(validateReportViewName(view)).toBe(view);
   for(const view of ['StudentInfoView','faview','FaView ','',null,1,'../FaView'])expect(()=>validateReportViewName(view)).toThrow('report_view_name_invalid');
+ });
+
+ test('direct_key_r8_report_views_are_read_by_post_only',()=>{
+  const url='https://dc.gang-a.kr'+REPORT_VIEW_PATH;
+  for(const view of REPORT_VIEW_NAMES){
+   expect(lmsRequestRole(url,'p_process='+view+'&p_testing_no=1','POST')).toBe('read');
+   expect(reportViewRequestEffect('POST',view)).toBe('read');
+   // The same view by GET, or with its name in the query, is not a read.
+   expect(lmsRequestRole(url+'?p_process='+view,undefined,'GET')).toBe('write');
+   expect(lmsRequestRole(url+'?p_process='+view,'p_process='+view,'POST')).toBe('write');
+   expect(lmsRequestRole(url,'p_process='+view,'GET')).toBe('write');
+   expect(reportViewRequestEffect('GET',view)).toBe('write');
+  }
+  for(const view of ['StudentInfoView','faview','SaveReportView','']){
+   expect(lmsRequestRole(url,'p_process='+view,'POST')).toBe('write');
+   expect(reportViewRequestEffect('POST',view)).toBe('write');
+  }
+  const routes=reportViewRoutes();
+  expect(routes.map(r=>r.operation)).toEqual([...REPORT_VIEW_NAMES]);
+  for(const r of routes)expect({path:r.servletPath,method:r.httpMethod,effect:r.semanticEffect,safe:r.safeToProbe})
+   .toEqual({path:REPORT_VIEW_PATH,method:'POST',effect:'read',safe:true});
+ });
+
+ test('direct_key_r8_report_views_post_their_exact_forms',async()=>{
+  expect(reportViewForm('DiagReportView',{testingNo:'901',studentKey:KEY,classNo:COURSE,limitDate:'2040-01-31'}).toString())
+   .toBe('p_process=DiagReportView&p_testing_no=901&p_pri_no=770011&p_cls_no=560013&p_limit_date=2040-01-31');
+  expect(reportViewForm('FaView',{testingNo:'902',studentKey:KEY,classNo:COURSE}).toString())
+   .toBe('p_process=FaView&p_testing_no=902&p_pri_no=770011&p_cls_no=560013&p_limit_date=');
+  expect(reportViewForm('NewStudentReportView',{paperNo:'4401',applyCode:'APP-7',collegeKey:'88001'}).toString())
+   .toBe('p_process=NewStudentReportView&p_p_no=4401&p_apply_code=APP-7&clg_no=88001');
+  for(const [view,params,code] of [['StudentInfoView',{},'report_view_name_invalid'],['GaReportView',{},'report_view_form_unavailable'],
+   ['DiagReportView',{testingNo:'0',studentKey:KEY,classNo:COURSE},'report_view_params_invalid'],['FaView',{testingNo:'1',studentKey:KEY},'report_view_params_invalid'],
+   ['FaView',{testingNo:'1',studentKey:KEY,classNo:COURSE,limitDate:'31/01/2040'},'report_view_params_invalid'],
+   ['FaView',{testingNo:'1',studentKey:KEY,classNo:COURSE,extra:'x'},'report_view_params_invalid'],
+   ['NewStudentReportView',{paperNo:'1',applyCode:'',collegeKey:'2'},'report_view_params_invalid'],['NewStudentReportView',null,'report_view_params_invalid']] as const)
+   expect(()=>reportViewForm(view,params)).toThrow(code);
+  // The envelope: JSON after SERVER_RET = OK, with or without <BR> and <END_DATA>; a login page fails closed.
+  expect(readReportViewEnvelope('<body>SERVER_RET = OK<BR>{"block1":[{"1":"t"}]}<END_DATA></body>')).toEqual({block1:[{'1':'t'}]});
+  expect(readReportViewEnvelope('SERVER_RET = OK {"title":"t"}')).toEqual({title:'t'});
+  expect(()=>readReportViewEnvelope(loginPage)).toThrow('authentication_required');
+  for(const page of ['<body>SERVER_RET = FAIL<BR>{}<END_DATA></body>','<body>SERVER_RET = OK<BR>not json<END_DATA></body>','<body>SERVER_RET = OK<BR>[1]<END_DATA></body>','<html></html>'])
+   expect(()=>readReportViewEnvelope(page)).toThrow('report_view_unqualified');
+  // Through the client: the view name first, then one POST of the exact form, classed read.
+  let calls=0;const bodies:string[]=[];let answer='<body>SERVER_RET = OK<BR>{"block1":[{"1":"t"}]}<END_DATA></body>';
+  const guard=writeForbiddenTransport((_url,init)=>{calls++;
+   if(calls===1)return new Response(loginPage);if(calls<=3)return new Response(principal);
+   bodies.push(String(init?.body));return new Response(answer);});
+  const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},guard.transport as never);
+  await expect(client.readReportView('StudentInfoView',{})).rejects.toThrow('report_view_name_invalid');
+  await expect(client.readReportView('FaView',{testingNo:'1',studentKey:KEY,classNo:COURSE})).rejects.toThrow('authentication_required');
+  expect(calls).toBe(0);
+  await client.authenticate(credential());
+  expect(await client.readReportView('DiagReportView',{testingNo:'901',studentKey:KEY,classNo:COURSE})).toEqual({block1:[{'1':'t'}]});
+  await client.readReportView('NewStudentReportView',{paperNo:'4401',applyCode:'APP-7'});
+  await expect(client.readReportView('SmartBookReportView',{})).rejects.toThrow('report_view_form_unavailable');
+  expect(bodies).toEqual(['p_process=DiagReportView&p_testing_no=901&p_pri_no=770011&p_cls_no=560013&p_limit_date=',
+   'p_process=NewStudentReportView&p_p_no=4401&p_apply_code=APP-7&clg_no=88001']);
+  expect(guard.forbidden()).toEqual([]);
+  expect(guard.requests.slice(-2)).toEqual([{route:REPORT_VIEW_PATH+' DiagReportView',role:'read'},{route:REPORT_VIEW_PATH+' NewStudentReportView',role:'read'}]);
+  // A login page in place of the view fails closed and ends the session.
+  answer=loginPage;
+  await expect(client.readReportView('FaView',{testingNo:'1',studentKey:KEY,classNo:COURSE})).rejects.toThrow('authentication_required');
+  expect(client.authenticated).toBe(false);
  });
 
  test('direct_key_r9_write_forbidden',async()=>{

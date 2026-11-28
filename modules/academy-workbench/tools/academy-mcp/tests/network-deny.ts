@@ -75,6 +75,11 @@ export function lmsRoute(url:string|URL,body?:unknown):{path:string;operation:st
  const operation=parsed.searchParams.get('p_process')??parsed.searchParams.get('reqCmd')??form.get('p_process')??form.get('reqCmd')??'';
  return {path:parsed.pathname,operation};
 }
+/** ReportViewServlet (specs/academy-mcp/direct-key-lookup.md R8; lmsRouteRegistry.ts reportViewRequestEffect): a
+ * POST with no query whose form `p_process` is one of the six report views is a read; any other view name, a
+ * query, or any other method is write. */
+const reportViewPath=servlet+'common.ReportViewServlet';
+const reportViews=new Set(['SmartBookReportView','DiagReportView','NewStudentReportView','FaView','GaReportView','NaScoreResultView']);
 /** The static print archives of the StudyQ storage (specs/studyq-linux/core.md R20): `GET` of exactly
  * `https://storage.studyq.net/data/contents/{exam|examtext}/...-print.zip` is a read; the same path on
  * another host, or any other method, is not classed and so is write. */
@@ -84,6 +89,7 @@ export function lmsRequestRole(url:string|URL,body?:unknown,method?:string):LmsR
  const parsed=new URL(String(url),'https://lms.invalid');
  if(parsed.origin===printStorageOrigin&&!parsed.username&&!parsed.password&&!parsed.search&&!parsed.hash&&printArchivePath.test(parsed.pathname)&&(method??'GET').toUpperCase()==='GET')return 'read';
  const {path,operation}=lmsRoute(url,body);
+ if(parsed.pathname===reportViewPath)return (method??'GET').toUpperCase()==='POST'&&!parsed.search&&reportViews.has(operation)?'read':'write';
  return routeRoles[path]?.[operation]??'write';
 }
 /** A fixture transport that answers `write_forbidden` (HTTP 403) to every request classed

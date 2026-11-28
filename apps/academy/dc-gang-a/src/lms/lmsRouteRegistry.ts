@@ -18,6 +18,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { REPORT_VIEW_NAMES } from './reportViewRead';
 
 export class UnsafeMutatingOperationError extends Error {
   constructor(message: string) {
@@ -147,6 +148,34 @@ export const ROUTE_REGISTRY_PATH = resolve(
   resolveModuleDir(),
   '../../research/backend-map/route-registry.json'
 );
+
+/**
+ * The six read-only report views of ReportViewServlet (specs/academy-mcp/direct-key-lookup.md R8):
+ * each is a read only as `POST /servlet/controller.common.ReportViewServlet` with `p_process=<View>`
+ * in the form body (StudyLink.exe 0x4692e0); any other view name, or another method, is not classed
+ * read. Their form bodies are pinned in reportViewClient.ts.
+ */
+function reportViewLegacyRoute(view: string): [string, LmsRouteDefinition] {
+  const id = `REPORT_VIEW_${view.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase()}`;
+  const path = '/servlet/controller.common.ReportViewServlet';
+  const reason = `Official report view ${view} of one exact record (POST form p_process=${view}; read; changes no data)`;
+  const keys = view === 'NewStudentReportView' ? ['p_p_no', 'p_apply_code', 'clg_no']
+    : view === 'DiagReportView' || view === 'FaView' ? ['p_testing_no', 'p_pri_no', 'p_cls_no', 'p_limit_date'] : [];
+  return [id, {
+    id, routeId: id, category: 'ReportView', servletPath: path, processName: view,
+    httpMethod: 'POST', http_method: 'POST',
+    routeTemplate: `${path}?p_process=${view}`, route_template: `${path}?p_process=${view}`,
+    operation: view, semanticEffect: 'read', semantic_effect: 'read', effect: 'READ_ONLY',
+    description: reason, reason,
+    evidenceGrade: 'decompiled-client', evidence_grade: 'decompiled-client',
+    evidenceDate: '2026-11-28', evidence_date: '2026-11-28',
+    joinKeyNames: Object.freeze([...keys]), join_key_names: Object.freeze([...keys]),
+    sourceRefs: Object.freeze(['specs/academy-mcp/direct-key-lookup.md#R8']), source_refs: Object.freeze(['specs/academy-mcp/direct-key-lookup.md#R8']),
+    safeToProbe: true, safe_to_probe: true,
+    requiredParams: ['p_process', ...keys.filter(k => k !== 'p_limit_date')], optionalParams: keys.includes('p_limit_date') ? ['p_limit_date'] : [],
+    responseFormat: 'HTML',
+  }];
+}
 
 export class LmsRouteRegistry {
   private static _initialized = false;
@@ -683,7 +712,8 @@ export class LmsRouteRegistry {
         optionalParams: [],
         responseFormat: 'HTML'
       }
-    ]
+    ],
+    ...REPORT_VIEW_NAMES.map(reportViewLegacyRoute)
   ]);
 
   /**
@@ -954,4 +984,16 @@ export function isSafeRead(routeIdOrOperation: string): boolean {
 
 export function assertSafeRead(routeIdOrOperation: string): void {
   LmsRouteRegistry.assertSafeRead(routeIdOrOperation);
+}
+
+/** The class of one ReportViewServlet request (specs/academy-mcp/direct-key-lookup.md R8): `read` only for
+ * a POST whose `p_process` is one of the six report views; any other view name or method is `write`. */
+export function reportViewRequestEffect(method: string | undefined, view: unknown): 'read' | 'write' {
+  return (method ?? 'GET').toUpperCase() === 'POST' && typeof view === 'string'
+    && (REPORT_VIEW_NAMES as readonly string[]).includes(view) ? 'read' : 'write';
+}
+
+/** The six report-view routes, as classed above (POST only). */
+export function reportViewRoutes(): LmsRouteDefinition[] {
+  return REPORT_VIEW_NAMES.map(view => ({ ...reportViewLegacyRoute(view)[1] }));
 }

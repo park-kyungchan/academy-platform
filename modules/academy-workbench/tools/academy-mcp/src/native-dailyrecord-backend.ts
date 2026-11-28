@@ -73,6 +73,9 @@ interface SourcePort {
    * note, the course-book report and, for sourceTitles, the single-user result of a verified attempt. */
   readHistoricalTextbookIndex?(input:HistoricalKeys):Promise<{rows:{sourceTitle:string;paperKey:string;attemptKey:string;sourceDate:{literal:string|null;meaning:string}}[];observedAt:string}>;
   readCourseBookReport?(input:HistoricalKeys):Promise<CourseBookReport>;
+  /** One read-only report view of ReportViewServlet (specs/academy-mcp/direct-key-lookup.md R8): its POST form is
+   * made and the view name validated by the client (reportViewClient.ts); the answer is the view's JSON. */
+  readReportView?(view:string,params:Record<string,unknown>):Promise<Record<string,unknown>>;
   readHistoricalTextbookSections?(input:HistoricalKeys&{attempts:{sourceTitle:string;paperKey:string;attemptKey:string;sourceDateLiteral:string|null}[]}):Promise<{family:string;status:string;records:SectionRecord[];observedAt:string;coverage:string}>;
 }
 type HistoricalKeys={teacherLabel:string;studentKey:string;studentName:string;courseKey:string;bookNo:string};
@@ -197,6 +200,24 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     const result=await resolveStudentByName(displayName,{searchByName:async()=>rows});
     if(result.status!=='resolved')throw Error(result.reasonCode);
     return {studentId:result.studentKey,displayName:result.displayName};
+  }
+  /** `DiagReportView` or `FaView` of one student for academy_official_report_pdf_get: the student is found by
+   * name, and an explicit studentKey must be that student's (official_report_scope_conflict) before the view
+   * is requested with the resolved key. */
+  async readStudentReportView(input:{view:'DiagReportView'|'FaView';displayName:string;studentKey?:string;testingNo:string;classNo:string;limitDate?:string}):Promise<{student:{studentId:string;displayName:string};raw:Record<string,unknown>}>{
+    if(!this.client.readReportView)throw Error('report_view_source_port_unavailable');
+    const student=await this.#studentByName(input.displayName);
+    if(input.studentKey!==undefined&&input.studentKey!==student.studentId)throw Error('official_report_scope_conflict');
+    await this.#authenticate();
+    const raw=await this.client.readReportView(input.view,{testingNo:input.testingNo,studentKey:student.studentId,classNo:input.classNo,...(input.limitDate!==undefined?{limitDate:input.limitDate}:{})});
+    return {student,raw};
+  }
+  /** `NewStudentReportView` of one application (paper number and apply code); with no college key the client
+   * sends the owner's. No student is looked up: a new student has no key yet. */
+  async readNewStudentReportView(input:{paperNo:string;applyCode:string;collegeKey?:string}):Promise<{raw:Record<string,unknown>}>{
+    if(!this.client.readReportView)throw Error('report_view_source_port_unavailable');
+    await this.#authenticate();
+    return {raw:await this.client.readReportView('NewStudentReportView',{paperNo:input.paperNo,applyCode:input.applyCode,...(input.collegeKey!==undefined?{collegeKey:input.collegeKey}:{})})};
   }
   async readCismReport(date:string):Promise<CismReport>{
     if(!this.client.readCismReport)throw Error('cism_source_port_unavailable');await this.#authenticate();

@@ -104,6 +104,26 @@ describe('the hash-pinned studyq runner',()=>{
     await expect(runner.renderCism({},'relative.pdf')).rejects.toThrow('output_path_invalid');
   });
 
+  test('studyq_runner_render_report_passes_its_type_to_render_and_parity',async()=>{
+    const {src,sourceSha256}=await tree('report-types');
+    const runner=pinnedStudyqRunner({interpreter,interpreterSha256,srcDir:src,sourceSha256,assetsDir:assets()});
+    for(const type of ['diag','new_diag','formative','cism'] as const){
+      const out=resolve(root,type+'.pdf');
+      expect(await runner.renderReport(type,{student:'Invented Student',comment:''},out)).toMatchObject({status:'rendered',outputPath:out,parityOk:true});
+      expect(JSON.parse(await readFile(out+'.env.json','utf8')).argv).toEqual(['render','--type',type,'--assets',assets(),'--out',out]);
+      expect(JSON.parse(await readFile(out+'.parity-argv.json','utf8'))).toEqual(['--pdf',out,'--assets',assets(),'--type',type]);
+    }
+    const book=resolve(root,'report-book.pdf');
+    await runner.renderReport('course_book',{student:'Invented Student',comment:''},book);
+    expect(JSON.parse(await readFile(book+'.parity-argv.json','utf8'))).toEqual(['--pdf',book,'--assets',assets()]);
+    expect(await runner.renderReport('formative',{student:'Invented Student',comment:'mismatch'},resolve(root,'formative-mismatch.pdf'))).toMatchObject({status:'rendered',parityOk:false,parityMismatches:2,parityRawRn:1});
+    expect(await runner.renderReport('diag',{student:'refuse'},resolve(root,'diag-refused.pdf'))).toMatchObject({status:'refused',code:'input_invalid'});
+    // A type outside the five refuses before any spawn; renderCourseBook and renderCism stay for their callers.
+    await expect(runner.renderReport('smart_book' as never,{},resolve(root,'x.pdf'))).rejects.toThrow('studyq_report_type_invalid');
+    expect(existsSync(resolve(root,'x.pdf.env.json'))).toBe(false);
+    expect(typeof runner.renderCourseBook).toBe('function');expect(typeof runner.renderCism).toBe('function');
+  });
+
   test('studyq_runner_refuses_a_changed_or_unsafe_tree_before_any_spawn',async()=>{
     const cases:[string,(src:string)=>Promise<void>][]=[
       ['a changed file',async src=>writeFile(resolve(src,'studyq_linux','cli.py'),cli+'# changed\n')],
