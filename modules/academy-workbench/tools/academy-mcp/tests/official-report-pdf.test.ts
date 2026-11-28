@@ -211,9 +211,10 @@ describe('academy_official_report_pdf_get reportType cism',()=>{
   });
 
   test('official_report_cism_block_data_is_read_as_the_page_function_builds_it',async()=>{
-    const {JSDOM}=await import('jsdom');
+    // jsdom resolves from the dc-gang-a module through its own DOM parser, as the HTTP client uses it.
+    const {sourceDomParser}=await import('../../../../../apps/academy/dc-gang-a/src/lms/academyHttpClient.ts');
     const {parseCismReport}=await import('../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol.ts');
-    const parse=(html:string)=>parseCismReport(html,(s,m)=>new JSDOM(s,{contentType:m}).window.document as any,'2040-10-15',{teacherKey:'90001',teacherLabel:'Fictional Teacher'});
+    const parse=(html:string)=>parseCismReport(html,sourceDomParser.parseFromString as any,'2040-10-15',{teacherKey:'90001',teacherLabel:'Fictional Teacher'});
     const report=parse(fictionalCismHtml('2040-10-15','Line one.\r\nLine two.'));
     expect(report.blockData).toEqual(fictionalBlockData('2040-10-15','Line one.\nLine two.'));
     expect(Object.keys(report.blockData!)).toEqual(['block1','block2','block3','block4','block5','block6']);
