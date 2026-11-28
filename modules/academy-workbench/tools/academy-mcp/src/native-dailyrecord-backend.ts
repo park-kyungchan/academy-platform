@@ -20,6 +20,8 @@ import type {HistoricalBindingReader} from './historical-binding-reader.ts';
 import type {CourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport';
 import {TEXTBOOK_SECTION_NOT_IN_EITHER} from '../../../../../apps/academy/dc-gang-a/src/lms/textbookSectionIndex';
 import type {DailyRecordTeacherScope} from './dailyrecord-read.ts';
+import type {PrestudyView} from '../../../../../apps/academy/dc-gang-a/src/lms/prestudyRead';
+import type {LmsScheduleInput,LmsScheduleRead} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsScheduleRead';
 import type {PaperExamRow,PrintArchiveKind} from '../../../../../apps/academy/dc-gang-a/src/lms/paperPrintRead';
 
 const home='/opt/data/profiles/dc-gang-a-dev';
@@ -65,7 +67,8 @@ interface SourcePort {
    * send a student key. Key/name equality is verified by the projection layer, never as
    * request input. No sequential key probing, before or after. */
   searchStudentsByName?(input:{teacherLabel:string;studentName:string}):Promise<unknown>;
-  readPrestudy?(input:{teacherLabel:string;studentName:string}):Promise<{waiting:unknown[];completed:unknown[];summary:unknown[];observedAt:string;coverage:string}>;
+  readPrestudy?(input:{teacherLabel:string;studentName:string;view?:PrestudyView}):Promise<{view?:PrestudyView;waiting?:unknown[];completed?:unknown[];summary?:unknown[];observedAt:string;coverage:string}>;
+  readLmsSchedule?(input:{teacherLabel:string}&LmsScheduleInput):Promise<LmsScheduleRead&{observedAt:string;coverage:string}>;
   readPrestudyReport?(input:{teacherLabel:string;studentName:string;studentKey:string;prestudyKey:string}):Promise<{sections:unknown[];scores:number[];prestudyKey:string;sourceRecord:{prestudyKey:string;unitLabel:string|null;dateLiteral:string|null};encodingResult:string|null;observedAt:string;coverage:string}>;
   readTextbookBindings?(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[]>;
   inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];indexBasis?:string;coverage?:string}>;
@@ -180,6 +183,14 @@ function projectStudentMetadata(query:StudentMetadataBatch['queries'][number],va
 
 /** Consumer transport glue. The existing Education client owns authentication, parsing,
  * source/wire qualification and independent occurrence binding. This port never writes. */
+/** specs/academy-mcp/lms-reads.md R4 and R8 at the MCP boundary: a source port that still raises the prestudy parsers' own
+ * codes (an older client) answers the public codes `authentication_required` and `source_rejected`. */
+function publicPrestudyRefusal(error:unknown):never{
+  const message=error instanceof Error?error.message:'';
+  if(message==='prestudy_authentication_required')throw Error('authentication_required');
+  if(message==='prestudy_source_rejected')throw Error('source_rejected');
+  throw error;
+}
 export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRecordWriteBackend {
   #ready:Promise<unknown>|undefined;
   #sourceResolved=new Map<string,{studentId:string;displayName:string;lessonDate?:string;at:number}>();
@@ -296,14 +307,28 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     if(!this.client.readPrestudy)throw Error('prestudy_source_port_unavailable');
     const student=await this.#studentByName(input.displayName);
     await this.#authenticate();
-    const raw=await this.client.readPrestudy({teacherLabel:this.admission.teacherLabel,studentName:student.displayName});
+    const view=input.view??'videos';
+    const raw=await this.client.readPrestudy({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,view}).catch(publicPrestudyRefusal);
     const row=z.object({unitLabel:z.string().max(2000),dateLiteral:z.string().max(200),statusLiteral:z.string().max(2000),prestudyKey:key});
     const summaryRow=z.object({unitLabel:z.string().max(2000),dateLiteral:z.string().max(200),aiScoreLiteral:z.string().max(200),ratingLiteral:z.string().max(200),
       reportAvailable:z.boolean(),videoAvailable:z.boolean()});
-    const waiting=z.array(row).max(1000).parse(raw.waiting),completed=z.array(row).max(1000).parse(raw.completed),
-      summary=z.array(summaryRow).max(1000).parse(raw.summary);
-    return {student:{studentId:student.studentId,displayName:student.displayName},waiting,completed,summary,
+    // lms-reads.md R1: a view answers the lists of its own requests only; a list it did not request is absent, never empty.
+    const wanted={waiting:view!=='teacher_summary',completed:view==='videos',summary:view!=='incomplete'};
+    const pick=<T>(name:'waiting'|'completed'|'summary',schema:z.ZodType<T>):T[]|undefined=>{
+      const value=raw[name];
+      if(!wanted[name]){if(value!==undefined)throw Error('prestudy_scope_conflict');return undefined;}
+      return z.array(schema).max(1000).parse(value);
+    };
+    const waiting=pick('waiting',row),completed=pick('completed',row),summary=pick('summary',summaryRow);
+    return {student:{studentId:student.studentId,displayName:student.displayName},view,...(waiting?{waiting}:{}),...(completed?{completed}:{}),...(summary?{summary}:{}),
       teacherJudgment:null,observedAt:raw.observedAt,coverage:raw.coverage};
+  }
+  /** One page of attendance, the study schedule or the course study manager (specs/academy-mcp/lms-reads.md). The
+   * pages are the teacher's own: no student name or key is looked up. */
+  async readLmsSchedule(input:Readonly<LmsScheduleInput>):Promise<LmsScheduleRead&{observedAt:string;coverage:string}>{
+    if(!this.client.readLmsSchedule)throw Error('lms_schedule_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.readLmsSchedule({...structuredClone(input) as LmsScheduleInput,teacherLabel:this.admission.teacherLabel});
   }
   /** AI prestudy report for one exact record of one student. The
    * client binds the detail record to the student key before following
@@ -312,7 +337,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     if(!this.client.readPrestudyReport)throw Error('prestudy_report_source_port_unavailable');
     const student=await this.#studentByName(input.displayName);
     await this.#authenticate();
-    const raw=await this.client.readPrestudyReport({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId,prestudyKey:input.prestudyKey});
+    const raw=await this.client.readPrestudyReport({teacherLabel:this.admission.teacherLabel,studentName:student.displayName,studentKey:student.studentId,prestudyKey:input.prestudyKey}).catch(publicPrestudyRefusal);
     if(raw.prestudyKey!==input.prestudyKey)throw Error('prestudy_report_result_unqualified');
     const sourceRecord=z.object({prestudyKey:z.string().regex(/^[1-9][0-9]{0,15}$/),unitLabel:z.string().min(1).max(500).nullable(),dateLiteral:z.string().min(1).max(200).nullable()}).strict().parse(raw.sourceRecord);
     if(sourceRecord.prestudyKey!==input.prestudyKey)throw Error('prestudy_report_scope_conflict');

@@ -830,6 +830,54 @@
      "mode"
     ]
    }
+  },
+  {
+   "name": "academy_lms_schedule_get",
+   "title": "출결·학습일정·과정관리",
+   "description": "Read-only LMS page. view: attendance (date or period, YYYY-MM-DD, ≤31 days, same month), study_schedule (gradeNo, groupKey, studentKey, courseKey), course_study_manager (gradeNo, semesterNo, levelNo, status).",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "view": {
+      "type": "string",
+      "enum": [
+       "attendance",
+       "study_schedule",
+       "course_study_manager"
+      ]
+     },
+     "date": {
+      "type": "string"
+     },
+     "period": {
+      "type": "object"
+     },
+     "groupKey": {
+      "type": "string"
+     },
+     "studentKey": {
+      "type": "string"
+     },
+     "gradeNo": {
+      "type": "string"
+     },
+     "semesterNo": {
+      "type": "string"
+     },
+     "levelNo": {
+      "type": "string"
+     },
+     "courseKey": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "view"
+    ]
+   }
   }
  ]
 }

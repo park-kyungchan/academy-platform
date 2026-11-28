@@ -191,6 +191,11 @@
       "name": "academy_paper_print_pdf_get",
       "class": "read",
       "exposure": "open"
+    },
+    {
+      "name": "academy_lms_schedule_get",
+      "class": "read",
+      "exposure": "open"
     }
   ],
   "closedUntilAttribution": [],

@@ -47,8 +47,10 @@ const servlet='/servlet/controller.';
 const routeRoles:Readonly<Record<string,Readonly<Record<string,LmsRequestRole>>>>={
  '/c_login.jsp':{'':'login'},
  [servlet+'login.LoginServlet']:{c_login:'login'},
- [servlet+'coursemanage.CourseManageServlet']:{StudyCourse:'read',StudySchedule:'read',GaStudyAnswer:'read',
-  WebUnPreStudy:'read',WebCtPreStudy:'read',TeacherPrestudySummary:'read'},
+ [servlet+'coursemanage.CourseManageServlet']:{StudyCourse:'read',StudySchedule:'read',CourseStudyManager:'read',GaStudyAnswer:'read',
+  WebUnPreStudy:'read',WebCtPreStudy:'read',WebPreStudy:'read',TeacherPrestudySummary:'read'},
+ // The server-rendered AI report of one prestudy video (specs/academy-mcp/lms-reads.md: no operation, one GET path).
+ '/app-ui/solution_common/prestudy/prestudy_ai_report.jsp':{'':'read'},
  [servlet+'coursemanage.TextBookManageServlet']:{getTextBookProgress:'read',getCourseBookReport:'read'},
  [servlet+'dailyzerotest.DailyZeroTestServlet']:{DtResultSearch:'read'},
  // DailyRecord: the page read, and the field writes that are GET requests.

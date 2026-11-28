@@ -113,7 +113,7 @@ export const consolidatedTools:readonly ConsolidatedTool[]=[
   inputSchema:schema({displayName:str,view:oneOf('videos','incomplete','teacher_summary'),includeReports:bool,reportId:str,sectionTitles:strs,maxOutputBytes:int,
    purpose:str,currentRequestRef:str},['displayName']),
   routes:{
-   videos:{upstream:'academy_prestudy_get',endpoints:dr,keys:['displayName','purpose','currentRequestRef']},
+   videos:{upstream:'academy_prestudy_get',endpoints:dr,keys:['displayName','view','purpose','currentRequestRef']},
    report:{upstream:'academy_prestudy_report_get',endpoints:dr,keys:['displayName','reportId','sectionTitles','maxOutputBytes','purpose','currentRequestRef'],rename:{reportId:'prestudyKey'}},
   }},
  {name:'academy_cism_get',title:'주간·월별 CISM',endpoint:'dailyrecord',selectors:['scope'],
@@ -164,6 +164,10 @@ export const keptTools:readonly {name:string;title:string;description:string;inp
  {name:'academy_paper_print_pdf_get',title:'시험지·클리닉지 인쇄 PDF',
   description:"Printable PDF (시험지·클리닉지) of an existing paper. mode 'exam': paperNo (its exam list) or paperKeys (selType default obj); 'examtext': passage paperKeys; 'clinic': clinic print of either. includeAnswers, includeExplain add pages. Saved under owner root (outputPath optional); answers outputPath, sha256. Read only.",
   inputSchema:schema({mode:oneOf('exam','examtext','clinic'),paperNo:str,paperKeys:strs,selType:oneOf('obj','sbj','des'),includeAnswers:bool,includeExplain:bool,outputPath:str},['mode'])},
+ // The third new tool: the read-only attendance, study schedule and course study manager pages (specs/academy-mcp/lms-reads.md).
+ {name:'academy_lms_schedule_get',title:'출결·학습일정·과정관리',
+  description:"Read-only LMS page. view: attendance (date or period, YYYY-MM-DD, ≤31 days, same month), study_schedule (gradeNo, groupKey, studentKey, courseKey), course_study_manager (gradeNo, semesterNo, levelNo, status).",
+  inputSchema:schema({view:oneOf('attendance','study_schedule','course_study_manager'),date:str,period:obj,groupKey:str,studentKey:str,gradeNo:str,semesterNo:str,levelNo:str,courseKey:str,status:str},['view'])},
 ];
 
 /** Surface order: runtime, DailyRecord, student, DailyTest and paper, textbook, items and clinic, prestudy, CISM; then the new tools. */
@@ -171,7 +175,7 @@ export const baselineSurfaceOrder=['academy_runtime_inspect','academy_dailyrecor
  'academy_dailytest_history','academy_paper_inspect','academy_textbook_section_results_get','academy_clinic_paper_status_get','academy_item_lookup',
  'academy_textbook_catalog_get','academy_prestudy_get','academy_cism_get','academy_cism_weekly_review','academy_cism_weekly_save'] as const;
 /** The new tools of Waves 3 to 5 already built (specs/academy-mcp/tool-surface.md R2). */
-export const newSurfaceTools=['academy_official_report_pdf_get','academy_paper_print_pdf_get'] as const;
+export const newSurfaceTools=['academy_official_report_pdf_get','academy_paper_print_pdf_get','academy_lms_schedule_get'] as const;
 export const surfaceOrder=[...baselineSurfaceOrder,...newSurfaceTools] as const;
 
 /** `release/surface.json` as built from this module. */
@@ -294,7 +298,8 @@ export function planConsolidatedCall(name:string,raw:Record<string,unknown>):Pla
     if(report!==has(args,'reportId'))fail([invalid(report?'reportId':'includeReports','reports_pairing')]);
     const routes=[...(view!==undefined||!report?['videos']:[]),...(report?['report']:[])];
     const issues=unused(tool,routes,args);if(issues.length)fail(issues);
-    const steps=routes.map(r=>step(tool,r,args));
+    // `videos` is the endpoint's own default, so it is forwarded only when it differs: the old tool's request stays byte for byte.
+    const steps=routes.map(r=>{const planned=step(tool,r,args);if(r==='videos'&&planned.args.view==='videos'){const {view:_view,...rest}=planned.args;return {...planned,args:rest};}return planned;});
     return routes.length===1&&routes[0]==='report'?{tool:name,mode:'single',steps}
       :{tool:name,mode:'prestudy',steps,prestudyView:(view as Plan['prestudyView'])??'videos'};
    }

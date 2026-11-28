@@ -149,6 +149,13 @@ const catalog={
   cism_uncertain_dispatch:['upstream_unavailable','academy-mcp:execution-boundary'],
   cism_source_failed:['upstream_unavailable','academy-mcp:execution-boundary'],
   authentication_required:['authentication','source-owner:authentication-boundary'],
+  source_rejected:['malformed_response','apps/academy/dc-gang-a/src/lms/lmsScheduleRead.ts:assertLmsPageSize'],
+  source_drift:['contract_drift','apps/academy/dc-gang-a/src/lms/lmsScheduleRead.ts:parseLmsSchedule'],
+  scope_conflict:['contract_drift','apps/academy/dc-gang-a/src/lms/lmsScheduleRead.ts:parseLmsSchedule'],
+  lms_schedule_principal_rejected:['policy_denial','src/native-dailyrecord-backend.ts:scope'],
+  lms_schedule_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  lms_schedule_backend_not_configured:['endpoint_absence','src/lms-schedule-tools.ts:LmsScheduleService'],
+  lms_schedule_result_too_large:['partial_coverage','src/lms-schedule-tools.ts:LmsScheduleService'],
   daily_history_selector_drift:['contract_drift','source-owner:daily-history-selectors'],
   student_paper_search_wire_drift:['contract_drift','source-owner:student-paper-search'],
   student_paper_owner_drift:['policy_denial','source-owner:student-paper-principal'],
@@ -258,7 +265,7 @@ export function publicReadFailure(error:unknown,fallback='source_read_unavailabl
   const diagnostics={...(origin?{origin}:{}),...(error instanceof Error?{errorKind: error instanceof TypeError?'TypeError':error instanceof RangeError?'RangeError':error instanceof SyntaxError?'SyntaxError':'Error',errorSha256:createHash('sha256').update(error.name+'\0'+error.message).digest('hex')}:{})};
   const detail=error as {httpStatus?:unknown;sourceOperation?:unknown}|null;
   const http=typeof detail?.httpStatus==='number'&&Number.isInteger(detail.httpStatus)&&detail.httpStatus>=400&&detail.httpStatus<=599?{sourceHttpStatus:detail.httpStatus}:{};
-  const operations=new Set(['login_document','login_submission','owned_source_request','cism_weekly_read','cism_field_save','textbook_answer_catalog','getTextBookProgress','day_record_group_selector']);
+  const operations=new Set(['lms_schedule_read','login_document','login_submission','owned_source_request','cism_weekly_read','cism_field_save','textbook_answer_catalog','getTextBookProgress','day_record_group_selector']);
   const operation=typeof detail?.sourceOperation==='string'&&operations.has(detail.sourceOperation)?{sourceOperation:detail.sourceOperation}:{};
   if(error instanceof ReleaseBaseUnqualified)
     return {category:'policy_denial' as const,code:'release_base_unqualified' as const,evidenceLocator:catalog.release_base_unqualified[1],automaticRetryAllowed:false as const,...diagnostics,reason:error.reason};

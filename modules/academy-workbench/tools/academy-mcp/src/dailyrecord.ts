@@ -94,12 +94,15 @@ export type TextbookSectionObservation={student:{studentId:string;displayName:st
  * list membership, AI score/star literals and teacher review are four
  * distinct axes; teacherJudgment is never derived from a source OK/score. */
 export const prestudyGetSchema=z.object({displayName:z.string().trim().min(1).max(200),
+  /** specs/academy-mcp/lms-reads.md R1: the view sends only the requests of its own rows; `videos` when absent. */
+  view:z.enum(['videos','incomplete','teacher_summary']).optional(),
   ...requestIdentityShape}).strict();
 export type PrestudyGet=WithRequest<z.infer<typeof prestudyGetSchema>>;
-export type PrestudyObservation={student:{studentId:string;displayName:string};
-  waiting:{unitLabel:string;dateLiteral:string;statusLiteral:string;prestudyKey:string}[];
-  completed:{unitLabel:string;dateLiteral:string;statusLiteral:string;prestudyKey:string}[];
-  summary:{unitLabel:string;dateLiteral:string;aiScoreLiteral:string;ratingLiteral:string;reportAvailable:boolean;videoAvailable:boolean}[];
+export type PrestudyObservation={student:{studentId:string;displayName:string};view?:'videos'|'incomplete'|'teacher_summary';
+  /** A list that the view did not request is absent: `incomplete` answers waiting only, `teacher_summary` summary only. */
+  waiting?:{unitLabel:string;dateLiteral:string;statusLiteral:string;prestudyKey:string}[];
+  completed?:{unitLabel:string;dateLiteral:string;statusLiteral:string;prestudyKey:string}[];
+  summary?:{unitLabel:string;dateLiteral:string;aiScoreLiteral:string;ratingLiteral:string;reportAvailable:boolean;videoAvailable:boolean}[];
   teacherJudgment:null;observedAt:string;coverage:string};
 /** AI prestudy report read by exact student name and prestudy key. The
  * report text is student content for the teacher only: it is returned to

@@ -10,16 +10,29 @@
  * another. Fictional fixtures only in tests. */
 
 export const PRESTUDY_PATH = '/servlet/controller.coursemanage.CourseManageServlet';
+export const PRESTUDY_VIEWS = ['videos', 'incomplete', 'teacher_summary'] as const;
+export type PrestudyView = typeof PRESTUDY_VIEWS[number];
 export const PRESTUDY_REPORT_PATH = '/app-ui/solution_common/prestudy/prestudy_ai_report.jsp';
 export const PRESTUDY_SUMMARY_PATH = '/servlet/controller.coursemanage.CourseManageServlet?reqCmd=TeacherPrestudySummary';
 export const TEXTBOOK_PROGRESS_PATH = '/servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookProgress';
 
 const clean = (value: string | null | undefined) => (value ?? '').replace(/\s+/g, ' ').trim();
+/** A list or summary cell: a label, never a URL (R9 of specs/academy-mcp/lms-reads.md: a video URL embeds a student key). */
+const cleanCell = (value: string | null | undefined) => clean((value ?? '').replace(/\bhttps?:\/\/[^\s"'<>]+/gi, ' ').replace(/(^|\s)\/\/[^\s"'<>]+/g, '$1 '));
+/** R8 of specs/academy-mcp/lms-reads.md: one page is at most 2 MiB of UTF-8 and yields at most 1000 rows. */
+export const PRESTUDY_MAX_PAGE_BYTES = 2 * 1024 * 1024;
+export const PRESTUDY_MAX_ROWS = 1000;
 
 function rejectExpired(html: string): void {
+  if (Buffer.byteLength(html, 'utf8') > PRESTUDY_MAX_PAGE_BYTES) throw Error('prestudy_source_rejected');
   if (/normal_session_error\.jsp|popup_session_error\.jsp|세션이 만료|<input\b[^>]*type\s*=\s*["']?password/i.test(html))
     throw Error('prestudy_authentication_required');
-  if (html.length > 2_000_000) throw Error('prestudy_source_rejected');
+}
+
+/** The search form drifted from the contract. `scopeConflict` marks the teacher key that differs from the
+ * principal's (a `scope_conflict` of lms-reads.md R5); any other difference is `source_drift`. */
+export class PrestudyFormDrift extends Error {
+  constructor(readonly scopeConflict: boolean) { super('prestudy_search_form_drift'); this.name = 'PrestudyFormDrift'; }
 }
 
 export interface PrestudySearchForm {
@@ -35,9 +48,9 @@ export function parsePrestudySearchForm(html: string, parse: (html: string, mime
   if (!form) throw Error('prestudy_search_form_missing');
   const field = (name: string) => form.querySelector<HTMLInputElement>(`[name="${name}"]`)?.value;
   const reqCmd = field('reqCmd'), collegeKey = field('g_clg_no'), memberType = field('g_mem_type'), formTeacherKey = field('g_pri_no');
-  if (reqCmd !== expectedCmd || !collegeKey || memberType === undefined || formTeacherKey !== teacherKey)
-    throw Error('prestudy_search_form_drift');
-  if (!form.querySelector('[name="student_name"]')) throw Error('prestudy_search_form_drift');
+  if (reqCmd !== expectedCmd || !collegeKey || memberType === undefined) throw new PrestudyFormDrift(false);
+  if (formTeacherKey !== teacherKey) throw new PrestudyFormDrift(true);
+  if (!form.querySelector('[name="student_name"]')) throw new PrestudyFormDrift(false);
   return { reqCmd, collegeKey, memberType, teacherKey: formTeacherKey };
 }
 
@@ -55,11 +68,11 @@ export function parsePrestudyList(html: string, parse: (html: string, mime: DOMP
     const handler = [...row.querySelectorAll('[onclick]')].map(n => n.getAttribute('onclick') ?? '').join(' ');
     const key = /prestudy_main\(\s*([0-9]+)\s*\)/.exec(handler)?.[1];
     if (!key) continue;
-    const cells = [...row.querySelectorAll(':scope > td')].map(n => clean(n.textContent));
+    const cells = [...row.querySelectorAll(':scope > td')].map(n => cleanCell(n.textContent));
     if (cells.length < 4 || !cells[0] || !cells[1]) throw Error('prestudy_row_unqualified');
     rows.push({ studentLabel: cells[0], unitLabel: cells[1], dateLiteral: cells[2] ?? '', statusLiteral: cells[3] ?? '', prestudyKey: key });
+    if (rows.length > PRESTUDY_MAX_ROWS) throw Error('prestudy_source_rejected');
   }
-  if (rows.length > 1000) throw Error('prestudy_row_unqualified');
   return rows;
 }
 
@@ -77,14 +90,14 @@ export function parsePrestudySummary(html: string, parse: (html: string, mime: D
     const videoAvailable = handlers.some(h => /playVideo\(/.test(h));
     const reportAvailable = handlers.some(h => /openReport\(/.test(h));
     if (!videoAvailable && !reportAvailable) continue;
-    const cells = [...row.querySelectorAll(':scope > td')].map(n => clean(n.textContent));
+    const cells = [...row.querySelectorAll(':scope > td')].map(n => cleanCell(n.textContent));
     if (cells.length < 5 || !cells[0] || !cells[1]) throw Error('prestudy_summary_row_unqualified');
     rows.push({
       studentLabel: cells[0], unitLabel: cells[1], dateLiteral: cells[2] ?? '',
       aiScoreLiteral: cells[3] ?? '', ratingLiteral: cells[4] ?? '', reportAvailable, videoAvailable,
     });
+    if (rows.length > PRESTUDY_MAX_ROWS) throw Error('prestudy_source_rejected');
   }
-  if (rows.length > 1000) throw Error('prestudy_summary_row_unqualified');
   return rows;
 }
 

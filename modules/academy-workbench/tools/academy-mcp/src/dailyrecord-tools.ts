@@ -46,7 +46,7 @@ export function registerDailyRecordTools(server:McpServer,service=new DailyRecor
   },async input=>result(await service.review(input)));
   server.registerTool('academy_prestudy_get',{
     title:'Read prestudy video upload and review lists by student name',
-    description:academyRoutingDescription('academy_prestudy_get','Read live prestudy video state for one exact student name: waiting (uploaded, awaiting teacher review) rows, completed rows and one observed summary page with AI score/star literals. Upload, list membership, AI score and teacher review are distinct; teacherJudgment is always null here and video URLs are never returned. Missing rows do not prove nonperformance. No writes, printing, sending or automatic retry.'),
+    description:academyRoutingDescription('academy_prestudy_get','Read live prestudy video state for one exact student name: waiting (uploaded, awaiting teacher review) rows, completed rows and one observed summary page with AI score/star literals. view (default videos) sends only the requests of its own lists: videos = waiting, completed and summary; incomplete = waiting only; teacher_summary = summary only. Upload, list membership, AI score and teacher review are distinct; teacherJudgment is always null here and video URLs are never returned. Missing rows do not prove nonperformance. No writes, printing, sending or automatic retry.'),
     inputSchema:prestudyGetSchema,annotations,
   },async input=>result(await service.prestudyGet(input)));
   server.registerTool('academy_prestudy_report_get',{
