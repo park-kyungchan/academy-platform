@@ -7,6 +7,8 @@ description: "Use when writing, aligning or saving an Academy DailyRecord (수�
 
 A DailyRecord (`수업일지`, `일지`) is the record of one student's lesson that the parent reads. This skill says what to write in each field and what the author does between the tool calls. The tool descriptions of `academy_dailyrecord_get` (its views `'record'` and `'intake'`), `academy_dailyrecord_review` and `academy_dailyrecord_save` give the arguments and the call order: follow them, do not copy them here.
 
+This skill keeps calling `academy_dailyrecord_get` directly, never `edu lesson`, which only the skill `academy-lesson-day` uses for a lesson's DailyRecord read: its read before `academy_dailyrecord_review` (view `'record'` or `'intake'`, for the `observationHandle`), its readback after a save and the views `'status'` and `'reconcile'` stay on `academy_dailyrecord_get`.
+
 Two kinds of work use the same rules:
 - **Writing** a new record from the teacher's statements for one lesson.
 - **Aligning** an old record: a rewrite that changes wording, form, order and field mapping only. The facts stay.
@@ -53,13 +55,13 @@ If a rule cannot be met without changing a fact, do not save that record: list i
 
 ## 4. Order of the work
 
-1. **Read.** `academy_dailyrecord_get` (view `'record'`) for the student and lesson date. Keep the old text of every field: it is the original that must be restorable.
+1. **Read.** `academy_dailyrecord_get` (view `'record'`) for the student and lesson date. Keep the old text of every field: it is the original that must be restorable. The old text comes from this read, never from the memory's brief or an `edu lesson` answer, which may be older.
 2. **Draft.** Write the new text of the fields that change, by the rules. Check the facts of section 3 yourself.
 3. **Show the teacher.** Show old and new text per field, and every record you skipped with its reason. Drafting, review, saving and sending to a parent are separate steps.
 4. **Review.** `academy_dailyrecord_review`, directly after a fresh `academy_dailyrecord_get` (view `'record'` or `'intake'`); otherwise the review holds `stale_source`. The review takes only `context`, `observationHandle`, `cismObservationHandle` and `proposals`. Never get past a blocker by changing a fact or by moving text to a field the rules do not allow.
 5. **Save** only when the teacher asks to save in this session and no hold in the day's `STATE.md` forbids it: `academy_dailyrecord_save`, one student and date at a time. The save holds `request_instruction_conflict` unless the instruction it is given, in either form the tool takes (a string or `{text}`), is the text recorded for that `requestRef`.
 6. **Read back.** `academy_dailyrecord_get` again. Compare each saved field with the reviewed text and the code fields with step 1. Report the result per field. A code's label is the answer's `assessmentCodeLabels` entry, not a label from memory.
-7. **Write the memory.** After a save that the readback confirms, run `edu-academy-memory observed <slug> dailyrecord <lesson_date> --at <observedAt of the readback, UTC to the second> --summary <what the saved record says> --tool academy_dailyrecord_get`, as the skill `academy-lesson-day` says.
+7. **Write the memory.** After a save that the readback confirms, run `edu-academy-memory observed <slug> dailyrecord <lesson_date> --at <observedAt of the readback, UTC to the second> --summary <what the saved record says> --tool academy_dailyrecord_get`, as the skill `academy-lesson-day` says. This observation is newer than the date's `edu lesson` capture: the next `edu lesson` read of that date carries `--refresh`, as `academy-lesson-day` says.
 
 An uncertain save (connection lost, unknown whether it landed) is never repeated blindly: `academy_dailyrecord_get` with view `'status'` and then view `'reconcile'` settle it, and the teacher hears the outcome.
 
