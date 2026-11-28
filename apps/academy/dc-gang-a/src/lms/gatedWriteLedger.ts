@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {closeSync,constants,fstatSync,fsyncSync,lstatSync,openSync,readFileSync,statSync,unlinkSync,writeSync} from 'node:fs';
+import {closeSync,constants,existsSync,fstatSync,fsyncSync,lstatSync,openSync,readFileSync,statSync,unlinkSync,writeSync} from 'node:fs';
 import {dirname,isAbsolute,resolve,sep} from 'node:path';
 
 /**
@@ -142,7 +142,19 @@ function fsyncDirectory(path: string): void {
   const fd = openSync(path, constants.O_RDONLY);
   try { fsyncSync(fd); } finally { closeSync(fd); }
 }
-const repositoryRoot = resolve(import.meta.dir, '../../../../..');
+
+/**
+ * R10 rule 1: the root a ledger may not lie in. It is the nearest ancestor of `moduleDirectory` (the running module's
+ * directory, this one) that holds a `.git` entry, file or directory; when there is none (an installed bundle) it is
+ * `moduleDirectory` itself.
+ */
+export function ledgerRefusedRoot(moduleDirectory: string): string {
+  const start = resolve(moduleDirectory);
+  for (let directory = start; ; directory = dirname(directory)) {
+    if (existsSync(resolve(directory, '.git'))) return directory;
+    if (dirname(directory) === directory) return start;
+  }
+}
 
 /** The lock held while one call works on the ledger: `<ledger>.lock`, created exclusively (R11). */
 export interface LedgerLock {release(): void; staleRunId: string | null | undefined}
@@ -150,22 +162,23 @@ export interface LedgerLock {release(): void; staleRunId: string | null | undefi
 export class GatedWriteLedger {
   readonly path: string;
   readonly lockPath: string;
-  /** `path` is the configured private ledger file; undefined, empty or relative is refused on first use (`ledger_unavailable`). */
-  constructor(path: string | null | undefined, private readonly pidAlive: (pid: number) => boolean = defaultPidAlive) {
+  /** `path` is the configured private ledger file; undefined, empty or relative is refused on first use (`ledger_unavailable`). `moduleDirectory` is the running module's directory (tests only replace it). */
+  constructor(path: string | null | undefined, private readonly pidAlive: (pid: number) => boolean = defaultPidAlive, private readonly moduleDirectory: string = import.meta.dir) {
     this.path = typeof path === 'string' ? path : '';
     this.lockPath = this.path + '.lock';
   }
 
   /**
    * R10: refuse with `ledger_unavailable`, before any HTTP request, unless the path is set, absolute and
-   * normalized, outside the repository, not a symlink, a regular file only its owner can read or write
+   * normalized, outside the refused root (the repository when run from source, else the module's own directory: `ledgerRefusedRoot`), not a symlink, a regular file only its owner can read or write
    * (created with mode 0600 when absent) and writable, in a directory no other user can write.
    */
   assertAvailable(): void {
     const fail = (): never => { throw new GatedWriteRefusal('ledger_unavailable'); };
     const path = this.path;
     if (!path || !isAbsolute(path) || resolve(path) !== path || path.includes('\0')) fail();
-    if (path === repositoryRoot || path.startsWith(repositoryRoot + sep)) fail();
+    const refusedRoot = ledgerRefusedRoot(this.moduleDirectory);
+    if (path === refusedRoot || path.startsWith(refusedRoot + sep)) fail();
     try {
       const directory = lstatSync(dirname(path));
       if (!directory.isDirectory() || directory.isSymbolicLink() || (directory.mode & 0o022) !== 0 || directory.uid !== process.getuid?.()) fail();

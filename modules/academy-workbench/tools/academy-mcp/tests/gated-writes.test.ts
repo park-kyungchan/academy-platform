@@ -11,7 +11,7 @@ import {keptTools,newSurfaceTools,surfaceOrder} from '../src/consolidated-tools.
 import {
   BOOK_INCORRECT_WIRE_SHA256,CLINIC_TOOL_FAMILY,CLINIC_WIRE_SHA256,expectedWireHash,wireSha256OfPage,qualifyClinicRequest,writeFields,
 } from '../../../../../apps/academy/dc-gang-a/src/lms/clinicPaperWrite.ts';
-import {GatedWriteLedger,changeSha256Of,gatedWriteLedgerConfiguration,reviewTokenOf,type AttemptRecord} from '../../../../../apps/academy/dc-gang-a/src/lms/gatedWriteLedger.ts';
+import {GatedWriteLedger,changeSha256Of,ledgerRefusedRoot,gatedWriteLedgerConfiguration,reviewTokenOf,type AttemptRecord} from '../../../../../apps/academy/dc-gang-a/src/lms/gatedWriteLedger.ts';
 import {clinicRequestEffect,testpageSelectExRequestEffect} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsRouteRegistry.ts';
 import {
   BOOK,COOKIE_CANARY,COURSE,NAME_CANARY,STUDENT,TESTING,TESTING2,bookPage,clinicPage,fixtureLms,fixturePort,pageHashes,scoreAnswer,type FixtureLms,
@@ -487,6 +487,49 @@ describe('gated writes R10: the private attempt ledger',()=>{
       expect(gatedWriteLedgerConfiguration([],{ACADEMY_GATED_WRITE_LEDGER_PATH:join(s.dir,'y.jsonl')}).path).toBe(join(s.dir,'y.jsonl'));
       expect(gatedWriteLedgerConfiguration([],{ACADEMY_GATED_WRITE_LEDGER_PATH:''}).path).toBeNull();
       expect(()=>gatedWriteLedgerConfiguration(['--gated-write-ledger'],{})).toThrow('gated_write_ledger_argument_invalid');
+    }finally{await s.cleanup();}
+  });
+  test('gated_writes_r10_a_ledger_inside_the_repository_is_refused_when_run_from_source',async()=>{
+    const s=await scratch();
+    try{
+      // Run from source: the module's directory sits in a tree with a .git entry (a directory, or a file in a worktree).
+      expect(ledgerRefusedRoot(resolve(repo,'apps/academy/dc-gang-a/src/lms'))).toBe(repo);
+      for(const path of [join(repo,'academy-gated-write-ledger.jsonl'),join(repo,'apps','x','ledger.jsonl'),join(root,'tests','ledger.jsonl')])
+        expect(()=>new GatedWriteLedger(path).assertAvailable()).toThrow('ledger_unavailable');
+      expect(()=>new GatedWriteLedger(s.ledger).assertAvailable()).not.toThrow();
+      // A .git file (a worktree) marks the root as well as a .git directory.
+      const tree=join(s.dir,'tree'),lms=join(tree,'a','b');await mkdir(lms,{recursive:true});await writeFile(join(tree,'.git'),'gitdir: elsewhere\n');
+      expect(ledgerRefusedRoot(lms)).toBe(tree);
+    }finally{await s.cleanup();}
+  });
+  test('gated_writes_r10_an_installed_bundle_accepts_a_ledger_outside_its_own_directory',async()=>{
+    const s=await scratch();
+    try{
+      // A temporary tree without .git: the bundle's directory, and a sibling private directory under the same parent.
+      const bundle=join(s.dir,'profiles','artifacts','release'),data=join(s.dir,'data');
+      await mkdir(bundle,{recursive:true});await mkdir(data,{mode:0o700});await chmod(data,0o700);
+      expect(ledgerRefusedRoot(bundle)).toBe(bundle);
+      const ledger=join(data,'ledger.jsonl');
+      new GatedWriteLedger(ledger,undefined,bundle).assertAvailable();
+      expect(statSync(ledger).mode&0o777).toBe(0o600);
+      // The parent of the bundle is not refused (the old rule took a directory five levels above the file).
+      await mkdir(join(s.dir,'profiles','private'),{mode:0o700});await chmod(join(s.dir,'profiles','private'),0o700);
+      new GatedWriteLedger(join(s.dir,'profiles','private','ledger.jsonl'),undefined,bundle).assertAvailable();
+      // The other R10 refusals still hold for a bundle.
+      await chmod(data,0o777);
+      expect(()=>new GatedWriteLedger(join(data,'other.jsonl'),undefined,bundle).assertAvailable()).toThrow('ledger_unavailable');
+      expect(()=>new GatedWriteLedger('relative.jsonl',undefined,bundle).assertAvailable()).toThrow('ledger_unavailable');
+    }finally{await s.cleanup();}
+  });
+  test('gated_writes_r10_an_installed_bundle_refuses_a_ledger_in_its_own_directory',async()=>{
+    const s=await scratch();
+    try{
+      const bundle=join(s.dir,'profiles','artifacts','release');
+      await mkdir(join(bundle,'inner'),{recursive:true,mode:0o700});await chmod(bundle,0o700);await chmod(join(bundle,'inner'),0o700);
+      for(const path of [join(bundle,'ledger.jsonl'),join(bundle,'inner','ledger.jsonl')]){
+        expect(()=>new GatedWriteLedger(path,undefined,bundle).assertAvailable()).toThrow('ledger_unavailable');
+        expect(existsSync(path)).toBe(false);
+      }
     }finally{await s.cleanup();}
   });
   test('gated_writes_r10_the_ledger_is_created_0600_and_each_record_is_durable_before_the_request_it_guards',async()=>{
