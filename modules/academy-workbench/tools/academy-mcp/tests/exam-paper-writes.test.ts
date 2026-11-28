@@ -502,6 +502,38 @@ describe('exam writes R8, R14: the save of a paper and its assignment',()=>{
       expect(()=>parseCreationPage(moved,'fa',{testgubunNo:1180})).toThrow('wire_hash_mismatch');
     }finally{await s.cleanup();}
   });
+  test('exam_creation_page_with_unchecked_private_chk_and_empty_subject_select_parses',async()=>{
+    const s=await scratch();
+    try{
+      // The live form1 shape: private_chk an unchecked checkbox and subject a select with no option. Both are form1 members, neither is submitted by a browser.
+      const html=creationPage('fa',FIRST_TESTNO,'',{unsubmitted:true});
+      expect(html).toContain('<input type="checkbox" name="private_chk" value="1">');expect(html).toContain('<select name="subject"></select>');
+      const page=parseCreationPage(html,'fa',{testgubunNo:1180});
+      expect(page.testno).toBe(String(FIRST_TESTNO));
+      const submitted=page.members.map(([n])=>n);
+      expect(submitted).toHaveLength(33);
+      for(const n of ['private_chk','subject'])expect(submitted).not.toContain(n);
+      // members stays what a browser posts: identical to the full page's members without the two unsubmitted controls.
+      expect(page.members).toEqual(parseCreationPage(creationPage('fa',FIRST_TESTNO),'fa',{testgubunNo:1180}).members.filter(([n])=>n!=='private_chk'&&n!=='subject'));
+      expect(parseCreationPage(creationPage('da',FIRST_TESTNO,'',{unsubmitted:true}),'da',{testgubunNo:1180,courseNo:COURSE_NO}).members).toHaveLength(35);
+      // A save on this page passes step A and step B posts the page's submitted members, then private_chk and subject from the change.
+      const h=harness(s.ledger);
+      h.lms.state.pages.fa.creation=t=>creationPage('fa',t,'',{unsubmitted:true});
+      const review=await h.reviewed(faInput());
+      expect(await h.service.save(h.approve(review))).toMatchObject({status:'saved',family:'fa',effectStatus:'persisted',academyWrites:4});
+      expect(steps(h)).toEqual(FULL_STEPS);
+      const save=h.lms.requests.find(r=>r.method==='POST'&&r.route.endsWith(' Save'))!;
+      expect(save.multipart!.map(([n])=>n)).toEqual([...submitted,'private_chk','subject']);
+      expect(Object.fromEntries(save.multipart!)).toMatchObject({private_chk:'1',subject:'22'});
+      // A form1 that truly lacks either control still refuses.
+      for(const missing of ['private_chk','subject']){
+        expect(()=>parseCreationPage(creationPage('fa',FIRST_TESTNO,'',{omit:[missing],unsubmitted:true}),'fa',{testgubunNo:1180})).toThrow('wire_hash_mismatch');
+      }
+      // A paper number that is not submitted (a disabled input) is no number.
+      const disabled=html.replace(`name="p_original_testno" value="${FIRST_TESTNO}"`,`name="p_original_testno" value="${FIRST_TESTNO}" disabled`);
+      expect(()=>parseCreationPage(disabled,'fa',{testgubunNo:1180})).toThrow('wire_hash_mismatch');
+    }finally{await s.cleanup();}
+  });
   test('exam_writes_step_b_posts_no_user_form_member',async()=>{
     const s=await scratch();
     try{

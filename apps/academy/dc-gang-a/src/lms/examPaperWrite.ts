@@ -376,17 +376,19 @@ export function autoPageTestno(html: string): string | null {
   return value !== undefined && KEY.test(value) ? value : null;
 }
 /**
- * The form1 of the Auto page and its options. Refuses `wire_hash_mismatch` for a page without form1, without the number, or lacking a member of
- * `FA_FORM_MEMBERS`; `option_not_on_page` when `testgubunNo` (and for da `courseNo`) is not an option of its select; `make_college_missing` when
+ * The form1 of the Auto page and its options. Refuses `wire_hash_mismatch` for a page without form1, without the number, or whose form1 has no control
+ * named by a member of `FA_FORM_MEMBERS` (a control counts whether or not a browser would submit it); `option_not_on_page` when `testgubunNo` (and for da `courseNo`) is not an option of its select; `make_college_missing` when
  * `makecollege` has no usable option (its selected option, else its first option other than -1 and empty).
  */
 export function parseCreationPage(html: string, family: ExamFamily, wanted: {testgubunNo: number; courseNo?: number}): CreationPage {
   const {form, documentSelects} = readForm(html, 'form1');
   if (!form) throw new GatedWriteRefusal('wire_hash_mismatch');
-  const members = form.controls.flatMap(submittedMembers);
-  const names = new Set(members.map(([n]) => n));
+  // Presence counts every form1 control by name (an unchecked checkbox and a select without an option are members of the form); `members` stays what a
+  // browser posts, so step B posts neither of those two from the page.
+  const names = new Set(form.controls.map(c => c.name));
   if (FA_FORM_MEMBERS.some(n => !names.has(n))) throw new GatedWriteRefusal('wire_hash_mismatch');
-  const testno = members.find(([n]) => n === 'p_original_testno')![1].trim();
+  const members = form.controls.flatMap(submittedMembers);
+  const testno = members.find(([n]) => n === 'p_original_testno')?.[1].trim() ?? '';
   if (!KEY.test(testno)) throw new GatedWriteRefusal('wire_hash_mismatch');
   const optionsOf = (name: string): string[] | null => {
     const select = documentSelects.find(c => c.name === name);

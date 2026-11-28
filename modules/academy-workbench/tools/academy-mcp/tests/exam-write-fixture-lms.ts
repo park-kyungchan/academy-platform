@@ -21,11 +21,15 @@ const LIVE_FORM1=['p_process','p_original_testno','p_prepare_testno','p_bookno',
   'paper_type','evalgubun','exam_test','testgubun','testname','private_chk','total','object','objectviews','subjectquestion','descriptquestion','grade','bunit1','munit1','bunit2','munit2',
   'title_option','keyword_title','makecollege','maker','makedate','subject','book'];
 export const USER_FORM_MEMBERS=['p_process','p_prino','p_groupno','p_url','fran_no','pri_no','mem_type'];
-export const creationPage=(family:'fa'|'da',testno:number|string,body='',members:{omit?:string[]}={}):string=>{
+// `unsubmitted` gives form1 the two controls of the live page of 2026-11-28T18:09Z that a browser does not submit: `private_chk` an unchecked checkbox and
+// `subject` a select without an option.
+export const creationPage=(family:'fa'|'da',testno:number|string,body='',members:{omit?:string[];unsubmitted?:boolean}={}):string=>{
   const omit=members.omit??[];
   const select=(n:string,options:string)=>`<select name="${n}">${options}</select>`;
   const field=(n:string):string=>{
     if(omit.includes(n))return '';
+    if(members.unsubmitted&&n==='private_chk')return '<input type="checkbox" name="private_chk" value="1">';
+    if(members.unsubmitted&&n==='subject')return select(n,'');
     if(n==='testgubun')return select(n,'<option value="-1">-</option><option value="1180">a</option><option value="1161">b</option><option value="1320">c</option>');
     if(n==='makecollege')return select(n,'<option value="-1">-</option><option value="">none</option><option value="501">Invented college</option>');
     if(['grade','bunit1','munit1','bunit2','munit2','subject','book'].includes(n))return select(n,`<option value="x-${n}" selected>x</option>`);
