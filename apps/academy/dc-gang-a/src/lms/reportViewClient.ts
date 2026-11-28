@@ -31,6 +31,8 @@ const directKey=(value:unknown):string=>{
   if(typeof value!=='string'||!key.test(value)||Number(value)>Number.MAX_SAFE_INTEGER)throw Error('report_view_params_invalid');
   return value;
 };
+/** `p_cls_no`: 0 (a result of a diagnostic, formative or NA test carries class 0) or a positive key; the key rule otherwise. */
+const classKey=(value:unknown):string=>value==='0'?'0':directKey(value);
 const limitDate=/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 /** The book code of `SmartBookReportView` (and the `book_code` of `validate_smart_book`). */
 export const SMART_BOOK_CODE=/^[A-Za-z0-9._-]{1,64}$/;
@@ -53,7 +55,7 @@ export function reportViewForm(view:unknown,params:unknown):URLSearchParams{
     const date=data.limitDate===undefined?'':data.limitDate;
     if(typeof date!=='string'||(date!==''&&!limitDate.test(date)))throw Error('report_view_params_invalid');
     return new URLSearchParams([['p_process',name],['p_testing_no',directKey(data.testingNo)],['p_pri_no',directKey(data.studentKey)],
-      ['p_cls_no',directKey(data.classNo)],['p_limit_date',date]]);
+      ['p_cls_no',classKey(data.classNo)],['p_limit_date',date]]);
   }
   if(name==='NewStudentReportView'){
     exact(['paperNo','applyCode','collegeKey']);

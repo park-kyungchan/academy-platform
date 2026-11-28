@@ -146,18 +146,25 @@ export class AcademyHttpClient {
     }catch(error){throw this.#lmsReadFailure(error);}
   }
   /** One LMS schedule page of the teacher: attendance, the study schedule or the course study manager
-   * (specs/academy-mcp/lms-reads.md). One request (a GET, or the study schedule's own search POST); the page is read bounded and parsed fail closed. */
-  async readLmsSchedule(input:{teacherLabel:string}&LmsScheduleInput):Promise<LmsScheduleRead&{observedAt:string;coverage:string}>{
+   * (specs/academy-mcp/lms-reads.md), and the test results of one student's DA, FA or NA attempts or of the new-student diagnosis. One request (a GET, or the
+   * own search POST of the study schedule or of the test results); the page is read bounded and parsed fail closed. */
+  async readLmsSchedule(input:{teacherLabel:string;resolvedStudent?:{studentId:string;displayName:string}}&LmsScheduleInput):Promise<LmsScheduleRead&{observedAt:string;coverage:string}>{
     if(!input||input.teacherLabel!==this.#principal.teacherLabel)throw Error('lms_schedule_principal_rejected');
-    const {teacherLabel:_label,...rest}=input;
+    const {teacherLabel:_label,resolvedStudent,...rest}=input;
     const qualified=qualifyLmsScheduleInput(rest);
+    // View test_results with family da, fa or na answers the rows of one resolved student (resolved by the backend from the name, before this request).
+    let student:{studentId:string;displayName:string}|undefined;
+    if(qualified.view==='test_results'&&qualified.family!=='new_diag'){
+      if(!resolvedStudent)throw Error('tool_input_invalid');
+      student={studentId:readLiteralKey(resolvedStudent.studentId),displayName:readLiteralName(resolvedStudent.displayName)};
+    }
     if(!this.#authenticated)throw Error('authentication_required');
     try{
-      const wire=lmsScheduleRequest(qualified);
+      const wire=lmsScheduleRequest(qualified,{collegeKey:this.#principal.collegeKey});
       const init:RequestInit=wire.method==='POST'?{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:wire.body}:{method:'GET'};
       const html=await readBoundedLmsPage(await this.#request(wire.path,init,false,'lms_schedule_read'));
-      const page=parseLmsSchedule(qualified,html,sourceDomParser.parseFromString,this.#principal.teacherKey);
-      return {...page,observedAt:new Date().toISOString(),coverage:'one_observed_page_of_the_view_not_all_history'};
+      const page=parseLmsSchedule(qualified,html,sourceDomParser.parseFromString,this.#principal.teacherKey,student);
+      return {...page,observedAt:new Date().toISOString(),coverage:qualified.view==='test_results'?'first_page_of_the_search_only_not_all_history':'one_observed_page_of_the_view_not_all_history'};
     }catch(error){throw this.#lmsReadFailure(error);}
   }
   /** The public refusal of a failed LMS read (lms-reads.md R4, R5, R8): a redirect, an HTTP 401 or 403, a login or

@@ -14,11 +14,26 @@ import {isLoginOrSessionPage} from './courseBookReport';
 
 export const ATTENDANCE_PATH = '/servlet/controller.cct.tutor.AttendanceServlet';
 export const COURSE_MANAGE_PATH = '/servlet/controller.coursemanage.CourseManageServlet';
-export const LMS_SCHEDULE_VIEWS = ['attendance', 'study_schedule', 'course_study_manager'] as const;
+export const TEST_PAGE_LIST_PATH = '/servlet/controller.tutor.base.TestPageListServlet';
+export const DIAGNOST_MANAGE_PATH = '/servlet/controller.tutor.diag.DiagnostManageServlet';
+export const LMS_SCHEDULE_VIEWS = ['attendance', 'study_schedule', 'course_study_manager', 'test_results'] as const;
 export type LmsScheduleView = typeof LMS_SCHEDULE_VIEWS[number];
 export const MAX_LMS_PAGE_BYTES = 2 * 1024 * 1024;
 export const MAX_LMS_ROWS = 1000;
 export const MAX_LMS_PERIOD_DAYS = 31;
+/** The period of view `test_results` only (the other views keep 31 days). */
+export const MAX_LMS_TEST_RESULTS_PERIOD_DAYS = 92;
+/** The families of view `test_results`: the student's DA, FA and NA attempts, and the new-student diagnosis results. */
+export const TEST_RESULT_FAMILIES = ['da', 'fa', 'na', 'new_diag'] as const;
+export type TestResultFamily = typeof TEST_RESULT_FAMILIES[number];
+/** The `ass_no` of the search URL and the check box of the form for each student family (live page TestPageListServlet). */
+const STUDENT_TEST_FAMILIES = {
+  da: {assNo: '1000', flag: 'check_da_test'},
+  fa: {assNo: '1001', flag: 'check_fa_test'},
+  na: {assNo: '1002', flag: 'check_na_test'},
+} as const;
+/** The values of the `sortDate` select of DiagnostManageServlet `TestResultList`. */
+export const NEW_DIAG_SORT_DATES = ['1', '2', '3', '11', '12', '13', '14', '15', '16'] as const;
 const MAX_CELL_CHARS = 500;
 
 export type LmsReadRefusalCode = 'authentication_required' | 'source_rejected' | 'source_drift' | 'scope_conflict';
@@ -67,14 +82,17 @@ export interface LmsScheduleInput {
   date?: string;
   period?: {from: string; through: string};
   groupKey?: string; studentKey?: string; gradeNo?: string; semesterNo?: string; levelNo?: string; courseKey?: string; status?: string;
+  /** View `test_results` only: the family, the student's name (da, fa, na: resolved by the backend; new_diag: a literal filter) and, for new_diag, the page's `sortDate`. */
+  family?: TestResultFamily; displayName?: string; sortDate?: string;
 }
 /** The members each view takes besides `view`; any other member refuses before a request. */
 export const LMS_SCHEDULE_ALLOWED: Readonly<Record<LmsScheduleView, readonly string[]>> = {
   attendance: ['date', 'period', 'groupKey', 'studentKey'],
   study_schedule: ['gradeNo', 'groupKey', 'studentKey', 'courseKey'],
   course_study_manager: ['gradeNo', 'semesterNo', 'levelNo', 'status'],
+  test_results: ['family', 'period', 'displayName', 'sortDate'],
 };
-const MEMBERS = ['date', 'period', 'groupKey', 'studentKey', 'gradeNo', 'semesterNo', 'levelNo', 'courseKey', 'status'] as const;
+const MEMBERS = ['date', 'period', 'groupKey', 'studentKey', 'gradeNo', 'semesterNo', 'levelNo', 'courseKey', 'status', 'family', 'displayName', 'sortDate'] as const;
 export const LMS_DIRECT_KEY = /^[1-9][0-9]{0,15}$/;
 export const LMS_STATUS = /^[A-Za-z0-9_가-힣-]{1,32}$/;
 const KEY_MEMBERS = ['groupKey', 'studentKey', 'gradeNo', 'semesterNo', 'levelNo', 'courseKey'] as const;
@@ -104,24 +122,49 @@ export function lmsScheduleInputIssues(input: Record<string, unknown>): LmsInput
     if (value !== undefined && allowed.includes(member) && !(typeof value === 'string' && LMS_DIRECT_KEY.test(value))) issues.push({path: [member], message: 'direct_key_invalid'});
   }
   if (input.status !== undefined && allowed.includes('status') && !(typeof input.status === 'string' && LMS_STATUS.test(input.status))) issues.push({path: ['status'], message: 'status_invalid'});
+  if (input.displayName !== undefined && allowed.includes('displayName')
+    && !(typeof input.displayName === 'string' && input.displayName.trim() !== '' && input.displayName.length <= 200 && !/[\u0000-\u001f\u007f]/.test(input.displayName))) issues.push({path: ['displayName'], message: 'display_name_invalid'});
+  if (view === 'test_results') { issues.push(...testResultsIssues(input)); return issues; }
   if (view !== 'attendance') return issues;
   if (input.date !== undefined && input.period !== undefined) issues.push({path: ['period'], message: 'date_or_period_not_both'});
   if (input.date !== undefined && !isCalendarDate(input.date)) issues.push({path: ['date'], message: 'date_not_a_calendar_date'});
-  if (input.period !== undefined) {
-    const p = input.period as {from?: unknown; through?: unknown} | null;
-    const keys = p && typeof p === 'object' ? Object.keys(p).sort().join(',') : '';
-    if (keys !== 'from,through') issues.push({path: ['period'], message: 'period_from_through_required'});
-    else if (!isCalendarDate(p!.from) || !isCalendarDate(p!.through)) {
-      if (!isCalendarDate(p!.from)) issues.push({path: ['period', 'from'], message: 'date_not_a_calendar_date'});
-      if (!isCalendarDate(p!.through)) issues.push({path: ['period', 'through'], message: 'date_not_a_calendar_date'});
-    } else {
-      const span = dayNumber(p!.through as string) - dayNumber(p!.from as string) + 1;
-      if (span < 1) issues.push({path: ['period'], message: 'period_from_after_through'});
-      else if (span > MAX_LMS_PERIOD_DAYS) issues.push({path: ['period'], message: 'period_over_31_days'});
-      // One GET of AttendanceServlet returns one month; a longer span would silently omit rows.
-      else if ((p!.from as string).slice(0, 7) !== (p!.through as string).slice(0, 7)) issues.push({path: ['period'], message: 'attendance_period_crosses_month'});
-    }
+  // One GET of AttendanceServlet returns one month; a longer span would silently omit rows.
+  if (input.period !== undefined) issues.push(...periodIssues(input.period, MAX_LMS_PERIOD_DAYS, 'period_over_31_days', true));
+  return issues;
+}
+/** The issues of one `period` {from, through}: both members real dates, from not after through, at most `maxDays` days, and within one month when asked. */
+function periodIssues(period: unknown, maxDays: number, overMessage: string, oneMonth: boolean): LmsInputIssue[] {
+  const p = period as {from?: unknown; through?: unknown} | null;
+  const keys = p && typeof p === 'object' ? Object.keys(p).sort().join(',') : '';
+  if (keys !== 'from,through') return [{path: ['period'], message: 'period_from_through_required'}];
+  if (!isCalendarDate(p!.from) || !isCalendarDate(p!.through)) {
+    const out: LmsInputIssue[] = [];
+    if (!isCalendarDate(p!.from)) out.push({path: ['period', 'from'], message: 'date_not_a_calendar_date'});
+    if (!isCalendarDate(p!.through)) out.push({path: ['period', 'through'], message: 'date_not_a_calendar_date'});
+    return out;
   }
+  const span = dayNumber(p!.through as string) - dayNumber(p!.from as string) + 1;
+  if (span < 1) return [{path: ['period'], message: 'period_from_after_through'}];
+  if (span > maxDays) return [{path: ['period'], message: overMessage}];
+  if (oneMonth && (p!.from as string).slice(0, 7) !== (p!.through as string).slice(0, 7)) return [{path: ['period'], message: 'attendance_period_crosses_month'}];
+  return [];
+}
+/** View `test_results`: the family is required; da, fa and na need the student's name and a period of at most 92 days (the search is by period) and take no
+ * `sortDate`; new_diag takes no period, and `sortDate` (one of the page's values) or none. */
+function testResultsIssues(input: Record<string, unknown>): LmsInputIssue[] {
+  const family = input.family;
+  if (family === undefined) return [{path: ['family'], message: 'family_required'}];
+  if (!(TEST_RESULT_FAMILIES as readonly unknown[]).includes(family)) return [{path: ['family'], message: 'family_invalid'}];
+  const issues: LmsInputIssue[] = [];
+  if (family === 'new_diag') {
+    if (input.period !== undefined) issues.push({path: ['period'], message: 'period_not_for_new_diag'});
+    if (input.sortDate !== undefined && !(NEW_DIAG_SORT_DATES as readonly unknown[]).includes(input.sortDate)) issues.push({path: ['sortDate'], message: 'sort_date_invalid'});
+    return issues;
+  }
+  if (input.displayName === undefined) issues.push({path: ['displayName'], message: 'display_name_required'});
+  if (input.sortDate !== undefined) issues.push({path: ['sortDate'], message: 'sort_date_new_diag_only'});
+  if (input.period === undefined) issues.push({path: ['period'], message: 'period_required'});
+  else issues.push(...periodIssues(input.period, MAX_LMS_TEST_RESULTS_PERIOD_DAYS, 'period_over_92_days', false));
   return issues;
 }
 export function qualifyLmsScheduleInput(input: unknown): LmsScheduleInput {
@@ -146,9 +189,24 @@ export interface LmsScheduleRequest {path: string; method: 'GET' | 'POST'; body?
  * - study_schedule with all four filters: the POST of the page's search, `reqCmd=UserSearch` with `grade_no`,
  *   `cls_no`, `student_no` and `course` in the form body; with any of them missing: the start page GET with the
  *   given filters in its query;
- * - course_study_manager: always the `search=1` GET; a filter not given is the page's own "all" value. */
-export function lmsScheduleRequest(input: LmsScheduleInput): LmsScheduleRequest {
+ * - course_study_manager: always the `search=1` GET; a filter not given is the page's own "all" value;
+ * - test_results with family da, fa or na: the POST of the page's own search (`TestPageListServlet`
+ *   `UserBySearchTestResult&ass_no=1000|1001|1002`) with the owner's college key (`context.collegeKey`), the student's name, the period and page 1;
+ *   with family new_diag: the GET of `DiagnostManageServlet` `TestResultList`, with `sortDate` when given. */
+export function lmsScheduleRequest(input: LmsScheduleInput, context: {collegeKey?: string} = {}): LmsScheduleRequest {
   const q = new URLSearchParams();
+  if (input.view === 'test_results') {
+    if (input.family === 'new_diag') {
+      q.set('reqCmd', 'TestResultList');
+      if (input.sortDate !== undefined) q.set('sortDate', input.sortDate);
+      return {method: 'GET', path: DIAGNOST_MANAGE_PATH + '?' + q};
+    }
+    const spec = input.family !== undefined ? STUDENT_TEST_FAMILIES[input.family] : undefined;
+    if (!spec || input.displayName === undefined || !input.period || !context.collegeKey) throw Error('tool_input_invalid');
+    const form = new URLSearchParams([['clg_no', context.collegeKey], ['cls_no', '0'], ['p_pageno', '1'], [spec.flag, spec.assNo], ['stu_name', input.displayName],
+      ['chioce_cls', '0'], ['sort_date1', input.period.from], ['sort_date2', input.period.through]]);
+    return {method: 'POST', path: `${TEST_PAGE_LIST_PATH}?p_process=UserBySearchTestResult&ass_no=${spec.assNo}`, body: form.toString()};
+  }
   const add = (name: string, value: string | undefined) => { if (value !== undefined) q.set(name, value); };
   if (input.view === 'attendance') {
     q.set('p_process', 'Main');
@@ -401,9 +459,139 @@ export function parseCourseStudyManager(html: string, parse: Parse, teacherKey: 
   return {view: 'course_study_manager', columns, rows, grades: options('grade_no'), semesters: options('semester_no'), levels: options('level_no'), statuses: options('status')};
 }
 
-export type LmsScheduleRead = AttendanceRead | StudyScheduleRead | CourseStudyManagerRead;
-/** One page of the view, parsed fail closed for the principal's teacher key and the caller's scope. */
-export function parseLmsSchedule(input: LmsScheduleInput, html: string, parse: Parse, teacherKey: string): LmsScheduleRead {
+// test results: the inline `testResultList` of TestPageListServlet and DiagnostManageServlet
+
+/** One attempt of a student's DA, FA or NA test (row of `TestPageListServlet` `UserBySearchTestResult`). `classNo` is 0 on every live row. */
+export interface TestAttemptRow {paperNo: string; testingNo: string; studentKey: string; classNo: string; title: string; applyDate: string; score: number | null}
+/** One new-student diagnosis result (row of `DiagnostManageServlet` `TestResultList`); `applyCode` and `paperNo` are the keys of `new_diag`. */
+export interface DiagnosisResultRow {paperNo: string; applyCode: string; studentName: string; applyDate: string; title: string; score: number | null}
+export interface TestResultsRead {
+  view: 'test_results'; family: TestResultFamily; page: 1; pageRowCount: number;
+  student?: {studentId: string; displayName: string}; period?: {from: string; through: string}; sortDate?: string;
+  /** Rows of another student on the page (the page's name search also matches longer names): left out and counted, never returned. */
+  otherStudentRowsOmitted?: number;
+  rows: (TestAttemptRow | DiagnosisResultRow)[];
+}
+
+/** The text between the quotes of a JavaScript single-quoted string literal, decoded the way the language reads it (`\'`, `\"`, `\\`, `\n`, `\uXXXX` and
+ * the other escapes turned back into characters). Nothing is evaluated; an escape this does not know (an octal one, a short `\x` or `\u`) refuses with `source_drift`. */
+export function decodeJsSingleQuotedString(body: string): string {
+  let out = '';
+  const hex = (from: number, length: number): number => {
+    const digits = body.slice(from, from + length);
+    if (digits.length !== length || !/^[0-9a-fA-F]+$/.test(digits)) refuse('source_drift');
+    return Number.parseInt(digits, 16);
+  };
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i]!;
+    if (c !== '\\') { out += c; continue; }
+    const next = body[++i];
+    if (next === undefined) refuse('source_drift');
+    switch (next) {
+      case 'n': out += '\n'; break;
+      case 'r': out += '\r'; break;
+      case 't': out += '\t'; break;
+      case 'b': out += '\b'; break;
+      case 'f': out += '\f'; break;
+      case 'v': out += '\v'; break;
+      case '0':
+        if (/[0-9]/.test(body[i + 1] ?? '')) refuse('source_drift');
+        out += '\0'; break;
+      case 'x': out += String.fromCharCode(hex(i + 1, 2)); i += 2; break;
+      case 'u':
+        if (body[i + 1] === '{') {
+          const end = body.indexOf('}', i + 2);
+          if (end < 0 || end - (i + 2) < 1 || end - (i + 2) > 6) refuse('source_drift');
+          const point = hex(i + 2, end - (i + 2));
+          if (point > 0x10ffff) refuse('source_drift');
+          out += String.fromCodePoint(point); i = end;
+        } else { out += String.fromCharCode(hex(i + 1, 4)); i += 4; }
+        break;
+      case '\r': if (body[i + 1] === '\n') i++; break; // a line continuation
+      case '\n': case '\u2028': case '\u2029': break;
+      default:
+        if (/[1-9]/.test(next)) refuse('source_drift');
+        out += next; // \' \" \\ \/ and any other escaped character stands for itself
+    }
+  }
+  return out;
+}
+/** The rows of `EXTERN_DIALOG = { testResultList: JSON.parse('...') }`: the literal is decoded (never evaluated), then parsed as JSON. A missing or malformed
+ * literal, JSON that is not an array of objects, refuses with `source_drift`; more than 1000 rows with `source_rejected`. */
+export function readInlineTestResultList(html: string): Record<string, unknown>[] {
+  const dialog = /\bEXTERN_DIALOG\s*=\s*\{/.exec(html);
+  if (!dialog) refuse('source_drift');
+  const rest = html.slice(dialog!.index + dialog![0].length);
+  const start = /\btestResultList\s*:\s*JSON\.parse\(\s*'/.exec(rest);
+  if (!start) refuse('source_drift');
+  const from = start!.index + start![0].length;
+  let end = from;
+  for (; end < rest.length; end++) {
+    const c = rest[end]!;
+    if (c === '\\') { end++; continue; }
+    if (c === "'") break;
+    if (c === '\n' || c === '\r') refuse('source_drift');
+  }
+  if (end >= rest.length || !/^\s*\)/.test(rest.slice(end + 1, end + 40))) refuse('source_drift');
+  let parsed: unknown;
+  try { parsed = JSON.parse(decodeJsSingleQuotedString(rest.slice(from, end))); } catch (error) {
+    if (error instanceof LmsReadRefusal) throw error;
+    refuse('source_drift');
+  }
+  if (!Array.isArray(parsed)) refuse('source_drift');
+  const list = parsed as unknown[];
+  if (list.length > MAX_LMS_ROWS) refuse('source_rejected');
+  return list.map(row => {
+    if (row === null || typeof row !== 'object' || Array.isArray(row)) refuse('source_drift');
+    return row as Record<string, unknown>;
+  });
+}
+const rowKey = (value: unknown, zeroAllowed = false): string => {
+  const text = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+  if (!(zeroAllowed ? /^(?:0|[1-9][0-9]{0,15})$/ : LMS_DIRECT_KEY).test(text) || Number(text) > Number.MAX_SAFE_INTEGER) refuse('source_drift');
+  return text;
+};
+const rowText = (value: unknown): string => lmsCellText(typeof value === 'string' || typeof value === 'number' ? String(value) : '');
+const rowScore = (value: unknown): number | null => {
+  const n = typeof value === 'number' ? value : typeof value === 'string' && /^-?\d+(?:\.\d+)?$/.test(value.trim()) ? Number(value) : NaN;
+  return Number.isFinite(n) ? n : null;
+};
+const isApplyCode = (value: unknown): value is string => typeof value === 'string' && value.length >= 1 && value.length <= 64 && value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value);
+
+/** The test results page of the family, parsed fail closed: the teacher key of its `userForm` (R5), the inline list, and the rows of the resolved student
+ * (da, fa, na) or of the literal `displayName` (new_diag). The page holds the first page of the search only. */
+export function parseTestResults(input: LmsScheduleInput, html: string, parse: Parse, teacherKey: string, student?: {studentId: string; displayName: string}): TestResultsRead {
+  assertLmsPageSize(html);
+  assertNotLoginPage(html);
+  const doc = parse(html, 'text/html');
+  checkTeacher(doc, teacherKey, [{form: 'form[name="userForm"]', field: 'pri_no'}]);
+  const list = readInlineTestResultList(html);
+  const family = input.family!;
+  if (family === 'new_diag') {
+    const kept = input.displayName === undefined ? list : list.filter(row => row.studentName === input.displayName);
+    const rows: DiagnosisResultRow[] = kept.map(row => {
+      if (!isApplyCode(row.applyCode)) refuse('source_drift');
+      return {paperNo: rowKey(row.pNo), applyCode: row.applyCode as string, studentName: rowText(row.studentName), applyDate: rowText(row.applyDate), title: rowText(row.testName), score: rowScore(row.score)};
+    });
+    return {view: 'test_results', family, page: 1, ...(input.sortDate !== undefined ? {sortDate: input.sortDate} : {}), pageRowCount: list.length, rows};
+  }
+  if (!student) throw Error('tool_input_invalid');
+  const rows: TestAttemptRow[] = [];
+  let omitted = 0;
+  for (const row of list) {
+    if (rowKey(row.priNo, true) !== student.studentId) { omitted++; continue; }
+    rows.push({paperNo: rowKey(row.pNo), testingNo: rowKey(row.testingNo), studentKey: student.studentId, classNo: rowKey(row.clsNo, true),
+      title: rowText(row.testingName), applyDate: rowText(row.applyDate), score: rowScore(row.score)});
+  }
+  return {view: 'test_results', family, page: 1, student: {studentId: student.studentId, displayName: student.displayName}, period: {...input.period!}, pageRowCount: list.length,
+    otherStudentRowsOmitted: omitted, rows};
+}
+
+export type LmsScheduleRead = AttendanceRead | StudyScheduleRead | CourseStudyManagerRead | TestResultsRead;
+/** One page of the view, parsed fail closed for the principal's teacher key and the caller's scope. For view `test_results` with family da, fa or na, `student` is the
+ * resolved student whose attempts the page may answer. */
+export function parseLmsSchedule(input: LmsScheduleInput, html: string, parse: Parse, teacherKey: string, student?: {studentId: string; displayName: string}): LmsScheduleRead {
+  if (input.view === 'test_results') return parseTestResults(input, html, parse, teacherKey, student);
   if (input.view === 'attendance') return parseAttendance(html, parse, teacherKey, {month: requestedMonth(input), ...(input.date || input.period ? {range: input.period ?? {from: input.date!, through: input.date!}} : {})});
   return input.view === 'study_schedule' ? parseStudySchedule(html, parse, teacherKey, !hasAllStudyScheduleFilters(input)) : parseCourseStudyManager(html, parse, teacherKey);
 }

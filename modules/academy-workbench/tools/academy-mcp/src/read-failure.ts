@@ -221,6 +221,7 @@ const catalog={
   report_view_name_invalid:['input_validation','source-owner:report-view'],
   owner_account_busy:['upstream_unavailable','src/upstream-process.ts:accountBusy'],
   official_report_scope_conflict:['contract_drift','src/official-report-pdf.ts:get'],
+  course_book_no_tests:['partial_coverage','src/official-report-pdf.ts:get'],
   report_view_params_invalid:['input_validation','apps/academy/dc-gang-a/src/lms/reportViewClient.ts:reportViewForm'],
   report_view_form_unavailable:['endpoint_absence','apps/academy/dc-gang-a/src/lms/reportViewClient.ts:reportViewForm'],
   report_view_unqualified:['malformed_response','apps/academy/dc-gang-a/src/lms/reportViewClient.ts:readReportViewEnvelope'],
