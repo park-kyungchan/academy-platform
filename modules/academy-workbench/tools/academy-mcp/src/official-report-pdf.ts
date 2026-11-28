@@ -139,7 +139,7 @@ export async function absentOutputPath(target:string):Promise<string>{
 /** A failure of the call: its read-failure code and, once `report.info` was sent, the state of the PC (`pcCleanup`). */
 const failureOf=(error:unknown)=>({...readFailureResult(error,'official_report_unqualified_no_automatic_retry'),
   ...(error instanceof PcExecutorError&&error.pcCleanup?{pcCleanup:error.pcCleanup}:{})});
-const renderedOf=(rendered:PcRendered)=>({status:'rendered' as const,outputPath:rendered.outputPath,sha256:rendered.sha256,pages:rendered.pages,pcCleanup:rendered.pcCleanup});
+const renderedOf=(rendered:PcRendered)=>({status:'rendered' as const,outputPath:rendered.outputPath,sha256:rendered.sha256,pages:rendered.pages,pcCleanup:rendered.pcCleanup,escapedCharacters:rendered.escapedCharacters});
 
 export class OfficialReportPdfService {
   constructor(readonly backend:CourseBookReportBackend|null,readonly executor:PcExecutor|null,readonly outputRoot:string,readonly now:()=>Date=()=>new Date()){}
