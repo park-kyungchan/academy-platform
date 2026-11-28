@@ -49,6 +49,7 @@ The memory writes of this section are the lesson day's record in the store: they
 | none | A book's units, pages or catalog entry | `academy_textbook_catalog_get` with view `'toc'` first, then view `'catalog'` |
 | none | Weekly or monthly CISM | `academy_cism_get` with scope `'week'` or `'month'` |
 | none | The official course-book report PDF (`교재 리포트`, 8 pages) of a book | `academy_official_report_pdf_get` with reportType `'course_book'`, the student's name and the binding's keys (`courseKey`, `bookNo`, `studentKey`) or `params.bookLabel`; it answers the PDF's `outputPath` and `parityOk`. Only when the teacher asks for the report |
+| none | The printable PDF (`인쇄용 시험지`, `클리닉지`) of an existing exam or clinic paper | `academy_paper_print_pdf_get` with mode `'exam'` and `paperNo` (or exam `paperKeys`), `'examtext'` with passage `paperKeys`, or `'clinic'`; it answers the PDF's `outputPath`, `sha256` and `pages`, and makes no Academy write. Only when the teacher asks to print a paper |
 
 ## 3. Reading the results
 

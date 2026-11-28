@@ -186,6 +186,11 @@
       "name": "academy_official_report_pdf_get",
       "class": "read",
       "exposure": "open"
+    },
+    {
+      "name": "academy_paper_print_pdf_get",
+      "class": "read",
+      "exposure": "open"
     }
   ],
   "closedUntilAttribution": [],

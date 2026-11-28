@@ -73,6 +73,7 @@ const hangul:Record<string,string[]>={
  academy_textbook_section_results_get:['교재','소단원','필수예제','유형다지기','가우스','다빈치','권','초'],
  academy_clinic_paper_status_get:['오답클리닉','유사클리닉','틀린','문항','오답'],
  academy_official_report_pdf_get:['공식','리포트','교재'],
+ academy_paper_print_pdf_get:['시험지','클리닉지','인쇄'],
 };
 const skillPaths=readdirSync(resolve(repo,'content/skills')).filter(d=>d.startsWith('academy-')).map(d=>resolve(repo,'content/skills',d,'SKILL.md')).sort();
 const toolPattern=/\b(?:class2_)?academy_[a-z0-9_]+\b/g;

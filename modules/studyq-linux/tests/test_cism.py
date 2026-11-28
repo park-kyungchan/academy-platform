@@ -414,8 +414,10 @@ class Rendering(core.TempDirCase):
         self.assertEqual(status, 0, doc)
         self.assertEqual(list(doc), ["status", "reportType", "pages", "sha256", "outputPath"])
         self.assertEqual((doc["reportType"], doc["pages"]), ("cism", 2))
-        status, doc, _ = self.render(synthetic_cism(rows=40, text="\n".join("line %d" % i for i in range(60))), self.path("big.pdf"))
-        self.assertEqual((status, doc["pages"]), (0, 1 + 1 + 3))
+        # One section of 60 lines: page 1, one overflow page (40 rows), then 38 + 22 lines on 2 narrative pages.
+        big = synthetic_cism(rows=40, sections=[(4, 1)], text="\n".join("line %d" % i for i in range(60)))
+        status, doc, _ = self.render(big, self.path("big.pdf"))
+        self.assertEqual((status, doc["pages"]), (0, 1 + 1 + 2))
 
     def test_r18_cism_pages_use_the_verified_template_sequence(self):
         for rows, pages in ((0, 2), (31, 2), (32, 3), (70, 4)):

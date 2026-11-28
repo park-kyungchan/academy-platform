@@ -14,7 +14,13 @@ import {verifyInterpreter} from './textbook-pdf-reader.ts';
 export interface StudyqRenderOk {status:'rendered';pages:number;sha256:string;outputPath:string;parityOk:boolean;parityMismatches:number;parityRawRn:number}
 export interface StudyqRefusal {status:'refused';code:string;detail:string}
 export type StudyqRenderResult=StudyqRenderOk|StudyqRefusal;
+export interface StudyqPrintOk {status:'rendered';reportType:string;pages:number;sha256:string;outputPath:string}
+export type StudyqPrintResult=StudyqPrintOk|StudyqRefusal;
 export interface StudyqRunner {
+  /** Assemble the print archives under the `archive_root` of `input` (`assemble-print`, specs/studyq-linux/core.md R20-R25)
+   * into `outputPath`. The archive key is read by the executor from the file named by the launch's `STUDYQ_PRINT_KEY_FILE`;
+   * the runner takes no key from a caller. The executor opens no network connection. */
+  assemblePrint(input:unknown,outputPath:string):Promise<StudyqPrintResult>;
   /** Render `input` (the eleven `course_book` members) to `outputPath`, then check its parity. */
   renderCourseBook(input:unknown,outputPath:string):Promise<StudyqRenderResult>;
   /** Render `input` (the six `cism` members) to `outputPath`, then check its parity (`parity --type cism`). */
@@ -94,7 +100,18 @@ export function pinnedStudyqRunner(pin:Pinned):StudyqRunner{
     return {status:'rendered',pages:line.pages,sha256:line.sha256,outputPath,
       parityOk:parity.status==='ok'&&parity.mismatches===0&&parity.rawRn===0,parityMismatches:parity.mismatches,parityRawRn:parity.rawRn};
   }
-  return {renderCourseBook:(input,outputPath)=>render('course_book',input,outputPath),renderCism:(input,outputPath)=>render('cism',input,outputPath)};
+  async function assemblePrint(input:unknown,outputPath:string):Promise<StudyqPrintResult>{
+    if(!isAbsolute(outputPath))throw Error('output_path_invalid');
+    const run=await runPinned(pin,'cli',['assemble-print','--out',outputPath],Buffer.from(JSON.stringify(input),'utf8'));
+    const line=lastJsonLine(run.stdout);
+    if(!line)throw Error('studyq_runner_failed');
+    if(line.status==='error'&&typeof line.code==='string'&&/^[a-z_]{1,64}$/.test(line.code))return {status:'refused',code:line.code,detail:safeDetail(line.detail)};
+    if(run.exitCode!==0||line.status!=='ok'||line.outputPath!==outputPath||typeof line.sha256!=='string'||!/^[a-f0-9]{64}$/.test(line.sha256)
+      ||typeof line.pages!=='number'||!Number.isInteger(line.pages)||line.pages<1||typeof line.reportType!=='string'||!/^print_(exam|examtext|clinic)$/.test(line.reportType))throw Error('studyq_runner_failed');
+    if(createHash('sha256').update(await readFile(outputPath)).digest('hex')!==line.sha256)throw Error('studyq_runner_failed');
+    return {status:'rendered',reportType:line.reportType,pages:line.pages,sha256:line.sha256,outputPath};
+  }
+  return {renderCourseBook:(input,outputPath)=>render('course_book',input,outputPath),renderCism:(input,outputPath)=>render('cism',input,outputPath),assemblePrint};
 }
 
 /** `--studyq-runner <interpreter> <interpreterSha256> <studyqSrcDir> <studyqSourceSha256> <assetsDir>`:

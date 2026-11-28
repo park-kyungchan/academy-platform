@@ -59,7 +59,7 @@ const routeRoles:Readonly<Record<string,Readonly<Record<string,LmsRequestRole>>>
  [servlet+'common.TestPageShowExServlet']:{GetLectureList:'read'},
  // lmsRouteRegistry.ts legacyRoutes class these read; that class supersedes the legacy write candidates of
  // endpointCandidates.ts for getStudyResultSingleTestingSingleUser (specs/academy-mcp/direct-key-lookup.md R3).
- [servlet+'common.TestpageSelectExServlet']:{getStudyResultSingleTestingSingleUser:'read',getStudyResultSingleTestingMultiUser:'read',getWrongAnswerNoteResult:'read'},
+ [servlet+'common.TestpageSelectExServlet']:{getStudyResultSingleTestingSingleUser:'read',getStudyResultSingleTestingMultiUser:'read',getWrongAnswerNoteResult:'read',getTestExamList:'read'},
  [servlet+'tutor.fa.TestPageListServlet']:{PupilSearch:'read'},
  [servlet+'tutor.na.TestPageListServlet']:{PupilSearch:'read'},
  [servlet+'tutor.fa.TestPageListGrpServlet']:{Main:'read'},
@@ -75,7 +75,14 @@ export function lmsRoute(url:string|URL,body?:unknown):{path:string;operation:st
  const operation=parsed.searchParams.get('p_process')??parsed.searchParams.get('reqCmd')??form.get('p_process')??form.get('reqCmd')??'';
  return {path:parsed.pathname,operation};
 }
-export function lmsRequestRole(url:string|URL,body?:unknown):LmsRequestRole{
+/** The static print archives of the StudyQ storage (specs/studyq-linux/core.md R20): `GET` of exactly
+ * `https://storage.studyq.net/data/contents/{exam|examtext}/...-print.zip` is a read; the same path on
+ * another host, or any other method, is not classed and so is write. */
+const printStorageOrigin='https://storage.studyq.net';
+const printArchivePath=/^\/data\/contents\/(?:exam\/d6-\d{3}\/d4-\d{2}\/d2-\d{2}\/ek-\d+\/\d+-print\.zip|examtext\/d4-\d{2}\/d2-\d{2}\/etk-\d+\/\d+-print\.zip)$/;
+export function lmsRequestRole(url:string|URL,body?:unknown,method?:string):LmsRequestRole{
+ const parsed=new URL(String(url),'https://lms.invalid');
+ if(parsed.origin===printStorageOrigin&&!parsed.username&&!parsed.password&&!parsed.search&&!parsed.hash&&printArchivePath.test(parsed.pathname)&&(method??'GET').toUpperCase()==='GET')return 'read';
  const {path,operation}=lmsRoute(url,body);
  return routeRoles[path]?.[operation]??'write';
 }
@@ -84,7 +91,7 @@ export function lmsRequestRole(url:string|URL,body?:unknown):LmsRequestRole{
 export function writeForbiddenTransport(answer:(url:string,init?:RequestInit)=>Response|Promise<Response>){
  const requests:{route:string;role:LmsRequestRole}[]=[];
  const transport=async(url:string|URL,init?:RequestInit)=>{
-  const {path,operation}=lmsRoute(url,init?.body),role=lmsRequestRole(url,init?.body);
+  const {path,operation}=lmsRoute(url,init?.body),role=lmsRequestRole(url,init?.body,init?.method);
   requests.push({route:operation?path+' '+operation:path,role});
   if(role==='write')return new Response('write_forbidden',{status:403});
   return answer(String(url),init);

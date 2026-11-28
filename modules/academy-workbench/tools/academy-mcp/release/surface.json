@@ -777,6 +777,53 @@
      "reportType"
     ]
    }
+  },
+  {
+   "name": "academy_paper_print_pdf_get",
+   "title": "시험지·클리닉지 인쇄 PDF",
+   "description": "Printable PDF (시험지·클리닉지) of an existing paper. mode 'exam': paperNo (its exam list) or paperKeys (selType default obj); 'examtext': passage paperKeys; 'clinic': clinic print of either. includeAnswers, includeExplain add pages. Saved under owner root (outputPath optional); answers outputPath, sha256. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "mode": {
+      "type": "string",
+      "enum": [
+       "exam",
+       "examtext",
+       "clinic"
+      ]
+     },
+     "paperNo": {
+      "type": "string"
+     },
+     "paperKeys": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "selType": {
+      "type": "string",
+      "enum": [
+       "obj",
+       "sbj",
+       "des"
+      ]
+     },
+     "includeAnswers": {
+      "type": "boolean"
+     },
+     "includeExplain": {
+      "type": "boolean"
+     },
+     "outputPath": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "mode"
+    ]
+   }
   }
  ]
 }
