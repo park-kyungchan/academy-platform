@@ -9,7 +9,7 @@ import type {StudyqRunner} from '../src/studyq-runner.ts';
 import {projectCourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport.ts';
 import {CISM_NARRATIVES,cismMonthDates,cismWeek,type CismField,type CismReport} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol.ts';
 import {cismMonthToStudyqInput,cismWeekNumber,cismWeekToStudyqInput} from '../../../../../apps/academy/dc-gang-a/src/lms/cismReportAdapter.ts';
-import {projectDiagReport,projectFormativeReport,projectNewDiagReport} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient.ts';
+import {projectDiagReport,projectFormativeReport,projectGangaReport,projectNaScoreReport,projectNewDiagReport,projectSmartBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient.ts';
 import {writeForbiddenTransport} from './network-deny.ts';
 
 // academy_official_report_pdf_get (src/official-report-pdf.ts) with an injected backend and runner:
@@ -274,7 +274,7 @@ const formativeNamed=(student=STUDENT)=>({title:'Invented formative',student,tes
 const VALIDATE_REPORT=(type:string)=>`import sys,json; sys.path.insert(0,sys.argv[1]); from studyq_linux.schema import validate_${type} as v; from studyq_linux.render import REPORTS
 from studyq_linux.course_book import PlanContext
 d=v(json.load(sys.stdin)); plan=REPORTS["${type}"][1](d,PlanContext(lambda t,s:len(t)*s*0.6,lambda r:(2080,415) if "/9p/" in r else (37,37) if r.endswith(".png") else (100,80)))
-print(json.dumps({"pages":len(plan.pages),"questions":len(d["questions"])}))`;
+print(json.dumps({"pages":len(plan.pages),"questions":len(d.get("questions",[]))}))`;
 function viewFixture(name:string,raw:()=>Record<string,unknown>,rendered?:Awaited<ReturnType<StudyqRunner['renderReport']>>){
   const calls={student:[] as unknown[],applicant:[] as unknown[],runner:[] as {type:string;input:any;path:string}[]};
   const backend:CourseBookReportBackend={async readCourseBookReportByName(){throw Error('not_called');},
@@ -429,5 +429,210 @@ describe('academy_official_report_pdf_get reportType diag, new_diag, formative',
     expect(loggedOut.answer).toMatchObject({status:'unavailable',reasonCode:'authentication_required'});
     expect(loggedOut.seen).toEqual([]);
     expect(loggedOut.guard.forbidden()).toEqual([]);
+  });
+});
+
+// reportType 'ganga', 'na_score', 'smart_book': one read-only POST of ReportViewServlet (GaReportView, NaScoreResultView,
+// SmartBookReportView; specs/academy-mcp/direct-key-lookup.md R8), projected to the strict input of
+// specs/studyq-linux/reports-batch2.md. Invented names, keys and values only.
+const BOOK_CODE='SB-2040.inv_01';
+const gangaBlocks=(student=STUDENT)=>({block1:[{'1':'Invented Gang-A','2':'2040-01-11','3':student,'4':78,'5':'64.5','6':'4','7':'Line one.\\r\\nLine two.','8':'2'}],
+  block2:[{'1':'Invented unit 1','2':70,'3':60},{'1':'Invented unit 2','2':'90','3':65}],
+  block3:[{'1':1,'2':50},{'1':2,'2':60},{'1':3,'2':70},{'1':4,'2':80}],
+  block4:[{'1':1,'2':'Invented unit 1','3':'상','4':40,'5':'O'},{'1':2,'2':'Invented unit 2','3':'하','4':'77.5','5':'X'}]});
+const naScoreNamed=(student=STUDENT)=>({title:'Invented NA score',student,test_date:'2040-01-13',my_score:88,avg_score:70,rank_band:'2',comment:'',
+  units:[{name:'Invented unit 1',my_score:80,average:61}],
+  questions:[{no:1,unit:'Invented unit 1',difficulty:'중',correct_rate:55,correct:'O'},{no:2,unit:'Invented unit 1',difficulty:'상',correct_rate:35,correct:'x'}]});
+const naScoreBlocks=(student=STUDENT)=>({block1:[{'1':'Invented NA score','2':'2040-01-13','3':student,'4':88,'5':70,'6':2,'7':''}],
+  block2:[{'1':'Invented unit 1','2':80,'3':61}],block3:[{'1':1,'2':'Invented unit 1','3':'중','4':55,'5':'O'}]});
+const smartBookBlocks=(student=STUDENT)=>({block1:[{'1':'Invented SmartBook','2':'2040-01-01','3':'2040-03-01','4':student}],block2:[{'1':5,'3':82.5,'4':75,'5':'c'}],
+  block5:Array.from({length:3},(_,i)=>({'1':i+1,'2':'t'+i,'3':10,'4':70,'5':80,'6':'03-01'})),
+  bunit_list:[{'1':'Invented chapter','3':80,'4':70,exam_result:[{'1':1,'2':'Invented type','3':2,'4':1,'5':66,'6':'O'},{'1':2,'2':'Invented type 2','3':'3','4':'2','5':40,'6':'X'}]}],
+  block9:[{'2':1,'3':2,'4':3,'5':4}],block10:[{'1':90},{'1':80},{'1':70},{'1':60}],block11:[{'2':71}],block12:[{'2':'u','3':3,'4':4,'5':70}]});
+function batch2Fixture(name:string,raw:()=>Record<string,unknown>,rendered?:Awaited<ReturnType<StudyqRunner['renderReport']>>){
+  const calls={student:[] as unknown[],book:[] as unknown[],runner:[] as {type:string;input:any;path:string}[]};
+  const backend:CourseBookReportBackend={async readCourseBookReportByName(){throw Error('not_called');},
+    async readStudentReportView(input){calls.student.push(input);
+      if(input.studentKey!==undefined&&input.studentKey!==KEY)throw Error('official_report_scope_conflict');
+      return {student:{studentId:KEY,displayName:STUDENT},raw:raw()};},
+    async readSmartBookReportView(input){calls.book.push(input);
+      if(input.studentKey!==undefined&&input.studentKey!==KEY)throw Error('official_report_scope_conflict');
+      return {student:{studentId:KEY,displayName:STUDENT},raw:raw()};}};
+  const runner:StudyqRunner={async renderCourseBook(){throw Error('not_called');},async renderCism(){throw Error('not_called');},async assemblePrint(){throw Error('not_called');},
+    async renderReport(type,input,path){calls.runner.push({type,input,path});return rendered??{status:'rendered',pages:6,sha256:'f'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};}};
+  const root=resolve(base,name,'official-reports');
+  return {calls,root,service:new OfficialReportPdfService(backend,runner,root,now)};
+}
+
+describe('academy_official_report_pdf_get reportType ganga, na_score, smart_book',()=>{
+  test('official_report_ganga_na_score_smart_book_render_the_projected_views_under_the_owner_root',async()=>{
+    const f=batch2Fixture('ganga',()=>gangaBlocks());
+    const answer=await f.service.get({reportType:'ganga',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS,limitDate:'2040-01-31'}}) as any;
+    const path=resolve(f.root,'ganga-'+TESTING+'-20400116T090000Z.pdf');
+    expect(answer).toMatchObject({status:'rendered',reportType:'ganga',outputPath:path,pages:6,parityOk:true,parityMismatches:0,parityRawRn:0,academyWrites:0,
+      student:{studentId:KEY,displayName:STUDENT},testingNo:TESTING,classNo:CLASS,reportSummary:{title:'Invented Gang-A',testDate:'2040-01-11',questions:2}});
+    expect(f.calls.student).toEqual([{view:'GaReportView',displayName:STUDENT,testingNo:TESTING,classNo:CLASS,limitDate:'2040-01-31'}]);
+    expect(f.calls.runner[0]!.type).toBe('ganga');
+    expect(f.calls.runner[0]!.input).toEqual({title:'Invented Gang-A',student:STUDENT,test_date:'2040-01-11',my_score:78,avg_score:64.5,rank_signal:4,comment:'Line one.\\r\\nLine two.',
+      units:[{name:'Invented unit 1',my_score:70,average:60},{name:'Invented unit 2',my_score:90,average:65}],
+      difficulty:{top:{questions:1,score:50},high:{questions:2,score:60},mid:{questions:3,score:70},low:{questions:4,score:80}},
+      questions:[{no:1,unit:'Invented unit 1',difficulty:'상',correct_rate:40,correct:true},{no:2,unit:'Invented unit 2',difficulty:'하',correct_rate:77.5,correct:false}],pyramid_tier:2});
+    expect(path).not.toContain('Invented');
+    // na_score: NaScoreResultView, studentName and an explicit studentKey that is the student's.
+    const g=batch2Fixture('na-score',()=>naScoreNamed());
+    const na=await g.service.get({reportType:'na_score',studentName:STUDENT,studentKey:KEY,params:{testingNo:TESTING,classNo:CLASS}}) as any;
+    expect(na).toMatchObject({status:'rendered',reportType:'na_score',outputPath:resolve(g.root,'na_score-'+TESTING+'-20400116T090000Z.pdf'),reportSummary:{questions:2}});
+    expect(g.calls.student).toEqual([{view:'NaScoreResultView',displayName:STUDENT,studentKey:KEY,testingNo:TESTING,classNo:CLASS}]);
+    expect(g.calls.runner[0]!.input).toEqual({title:'Invented NA score',student:STUDENT,test_date:'2040-01-13',my_score:88,avg_score:70,rank_band:2,comment:'',
+      units:[{name:'Invented unit 1',my_score:80,average:61}],
+      questions:[{no:1,unit:'Invented unit 1',difficulty:'중',correct_rate:55,correct:true},{no:2,unit:'Invented unit 1',difficulty:'상',correct_rate:35,correct:false}]});
+    // smart_book: SmartBookReportView by book code, the course-book blocks projected to the eleven members and book_code.
+    const h=batch2Fixture('smart-book',()=>smartBookBlocks());
+    const sb=await h.service.get({reportType:'smart_book',displayName:STUDENT,params:{bookCode:BOOK_CODE}}) as any;
+    expect(sb).toMatchObject({status:'rendered',reportType:'smart_book',bookCode:BOOK_CODE,student:{studentId:KEY,displayName:STUDENT},
+      outputPath:resolve(h.root,'smart_book-'+BOOK_CODE+'-20400116T090000Z.pdf'),
+      reportSummary:{period:'2040-01-01 ~ 2040-03-01',myAverage:82.5,allAverage:75,chapterCount:1,questions:2}});
+    expect(h.calls.book).toEqual([{displayName:STUDENT,bookCode:BOOK_CODE}]);
+    const input=h.calls.runner[0]!.input;
+    expect(h.calls.runner[0]!.type).toBe('smart_book');
+    const {book_code,...eleven}=input;
+    expect(book_code).toBe(BOOK_CODE);
+    // The blocks are those of the course-book report: the same eleven members as its projection.
+    expect(eleven).toEqual(projectCourseBookReport(smartBookBlocks() as never,{studentName:STUDENT,studentKey:KEY,courseKey:COURSE,bookNo:BOOK}).studyqInput);
+    expect(input.bunit_list[0].questions).toEqual([{no:1,type:'Invented type',question_type:'객관식',difficulty:'중',correct_rate:66,correct:true},
+      {no:2,type:'Invented type 2',question_type:'단답형',difficulty:'상',correct_rate:40,correct:false}]);
+    await h.service.get({reportType:'smart_book',studentName:STUDENT,studentKey:KEY,params:{bookCode:BOOK_CODE},outputPath:'sb.pdf'});
+    expect(h.calls.book.at(-1)).toEqual({displayName:STUDENT,studentKey:KEY,bookCode:BOOK_CODE});
+    expect(h.calls.runner.at(-1)!.path).toBe(resolve(h.root,'sb.pdf'));
+  });
+
+  test('official_report_ganga_na_score_smart_book_params_are_validated_before_any_request',async()=>{
+    for(const bad of [{reportType:'ganga',params:{testingNo:TESTING,classNo:CLASS}},{reportType:'ganga',displayName:STUDENT,params:{testingNo:TESTING}},
+      {reportType:'na_score',displayName:STUDENT,params:{classNo:CLASS}},{reportType:'ganga',displayName:STUDENT,courseKey:COURSE,params:{testingNo:TESTING,classNo:CLASS}},
+      {reportType:'na_score',displayName:STUDENT,bookNo:BOOK,params:{testingNo:TESTING,classNo:CLASS}},{reportType:'ganga',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS,bookCode:BOOK_CODE}},
+      {reportType:'na_score',displayName:STUDENT,params:{testingNo:'0',classNo:CLASS}},{reportType:'ganga',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS,limitDate:'2040-1-31'}},
+      {reportType:'na_score',displayName:STUDENT,studentName:'Other Invented',params:{testingNo:TESTING,classNo:CLASS}},
+      {reportType:'smart_book',params:{bookCode:BOOK_CODE}},{reportType:'smart_book',displayName:STUDENT},{reportType:'smart_book',displayName:STUDENT,params:{}},
+      {reportType:'smart_book',displayName:STUDENT,params:{bookCode:''}},{reportType:'smart_book',displayName:STUDENT,params:{bookCode:'a'.repeat(65)}},
+      {reportType:'smart_book',displayName:STUDENT,params:{bookCode:'SB 1'}},{reportType:'smart_book',displayName:STUDENT,params:{bookCode:'../SB'}},
+      {reportType:'smart_book',displayName:STUDENT,params:{bookCode:'책'}},{reportType:'smart_book',displayName:STUDENT,params:{bookCode:7}},
+      {reportType:'smart_book',displayName:STUDENT,courseKey:COURSE,params:{bookCode:BOOK_CODE}},{reportType:'smart_book',displayName:STUDENT,bookNo:BOOK,params:{bookCode:BOOK_CODE}},
+      {reportType:'smart_book',displayName:STUDENT,params:{bookCode:BOOK_CODE,testingNo:TESTING}},{reportType:'smart_book',displayName:STUDENT,params:{bookCode:BOOK_CODE,bookLabel:'x'}},
+      {reportType:'diag',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS,bookCode:BOOK_CODE}},{reportType:'course_book',displayName:STUDENT,params:{bookCode:BOOK_CODE}},
+      {reportType:'gang_a',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}}])
+      expect({bad,ok:officialReportPdfGetSchema.safeParse(bad).success}).toEqual({bad,ok:false});
+    for(const ok of [{reportType:'ganga',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}},{reportType:'na_score',studentName:STUDENT,studentKey:KEY,params:{testingNo:TESTING,classNo:CLASS,limitDate:'2040-01-31'}},
+      {reportType:'smart_book',displayName:STUDENT,params:{bookCode:BOOK_CODE}},{reportType:'smart_book',studentName:STUDENT,studentKey:KEY,params:{bookCode:'0.9_-x'},outputPath:'a.pdf'}])
+      expect({ok,parsed:officialReportPdfGetSchema.safeParse(ok).success}).toEqual({ok,parsed:true});
+    const f=batch2Fixture('batch2-bad',()=>gangaBlocks());
+    expect(await f.service.get({reportType:'ganga',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS},outputPath:'../x.pdf'})).toMatchObject({status:'unavailable',reasonCode:'output_path_invalid'});
+    expect(await f.service.get({reportType:'smart_book',displayName:STUDENT,params:{bookCode:BOOK_CODE},outputPath:'x.txt'})).toMatchObject({status:'unavailable',reasonCode:'output_path_invalid'});
+    expect(f.calls.student).toEqual([]);expect(f.calls.book).toEqual([]);
+    // A student key that is not the named student's refuses with no runner call.
+    expect(await f.service.get({reportType:'na_score',displayName:STUDENT,studentKey:'770099',params:{testingNo:TESTING,classNo:CLASS}})).toMatchObject({status:'unavailable',reasonCode:'official_report_scope_conflict'});
+    expect(await f.service.get({reportType:'smart_book',displayName:STUDENT,studentKey:'770099',params:{bookCode:BOOK_CODE}})).toMatchObject({status:'unavailable',reasonCode:'official_report_scope_conflict'});
+    expect(f.calls.runner).toEqual([]);
+  });
+
+  test('official_report_ganga_na_score_smart_book_refuse_another_student_and_unqualified_payloads',async()=>{
+    for(const [type,raw,params] of [['ganga',()=>gangaBlocks('Another Invented'),{testingNo:TESTING,classNo:CLASS}],['na_score',()=>naScoreBlocks('Another Invented'),{testingNo:TESTING,classNo:CLASS}],
+      ['smart_book',()=>smartBookBlocks('Another Invented'),{bookCode:BOOK_CODE}],['smart_book',()=>({...smartBookBlocks(),book_code:'SB-other'}),{bookCode:BOOK_CODE}]] as const){
+      const f=batch2Fixture('batch2-other-'+type,raw);
+      expect(await f.service.get({reportType:type,displayName:STUDENT,params})).toMatchObject({status:'unavailable',reasonCode:'official_report_scope_conflict'});
+      expect(f.calls.runner).toEqual([]);
+      await rm(f.root,{recursive:true,force:true});
+    }
+    for(const [type,raw,params] of [['ganga',()=>({block1:[]}),{testingNo:TESTING,classNo:CLASS}],['ganga',()=>({...gangaBlocks(),block3:[{'1':1,'2':1}]}),{testingNo:TESTING,classNo:CLASS}],
+      ['na_score',()=>({...naScoreBlocks(),block2:{}}),{testingNo:TESTING,classNo:CLASS}],['na_score',()=>({...naScoreBlocks(),block1:'x'}),{testingNo:TESTING,classNo:CLASS}],
+      ['smart_book',()=>({block1:[]}),{bookCode:BOOK_CODE}],['smart_book',()=>({...smartBookBlocks(),block10:[{'1':1}]}),{bookCode:BOOK_CODE}],
+      ['smart_book',()=>({...smartBookBlocks(),bunit_list:[{'1':'c',exam_result:'x'}]}),{bookCode:BOOK_CODE}],['smart_book',()=>({period:'p',student:STUDENT,score_range:'x'}),{bookCode:BOOK_CODE}]] as const){
+      const f=batch2Fixture('batch2-unq-'+type,raw);
+      expect({type,answer:await f.service.get({reportType:type,displayName:STUDENT,params})}).toMatchObject({type,answer:{status:'unavailable',reasonCode:'report_view_unqualified'}});
+      expect(f.calls.runner).toEqual([]);
+      await rm(f.root,{recursive:true,force:true});
+    }
+    // Zero invented rows: an empty unit block stays empty and the strict validator refuses it.
+    const empty=batch2Fixture('batch2-empty',()=>({...naScoreBlocks(),block2:[]}));
+    await empty.service.get({reportType:'na_score',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}});
+    expect(empty.calls.runner[0]!.input.units).toEqual([]);
+    expect(python(VALIDATE_REPORT('na_score'),empty.calls.runner[0]!.input).status).not.toBe(0);
+    // Nothing is cut: nine tests reach the validator, which refuses them (its limit is 8).
+    const nine=batch2Fixture('batch2-nine',()=>({...smartBookBlocks(),block5:Array.from({length:9},(_,i)=>({'1':i+1,'2':'t'+i,'3':10,'4':70,'5':80,'6':'03-01'}))}));
+    await nine.service.get({reportType:'smart_book',displayName:STUDENT,params:{bookCode:BOOK_CODE}});
+    expect(nine.calls.runner[0]!.input.test_list).toHaveLength(9);
+    expect(python(VALIDATE_REPORT('smart_book'),nine.calls.runner[0]!.input).status).not.toBe(0);
+    const refused=batch2Fixture('batch2-refused',()=>gangaBlocks(),{status:'refused',code:'input_invalid',detail:'range:pyramid_tier'});
+    expect(await refused.service.get({reportType:'ganga',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}})).toMatchObject({status:'refused',reasonCode:'studyq_input_invalid',studyqDetail:'range:pyramid_tier'});
+    const noPort=new OfficialReportPdfService({async readCourseBookReportByName(){throw Error('x');}},refused.service.runner,resolve(base,'batch2-noport'),now);
+    expect(await noPort.get({reportType:'smart_book',displayName:STUDENT,params:{bookCode:BOOK_CODE}})).toMatchObject({status:'unavailable',reasonCode:'report_view_source_port_unavailable'});
+    expect(await noPort.get({reportType:'na_score',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}})).toMatchObject({status:'unavailable',reasonCode:'report_view_source_port_unavailable'});
+    expect(await new OfficialReportPdfService(null,null,resolve(base,'none')).get({reportType:'smart_book',displayName:STUDENT,params:{bookCode:BOOK_CODE}})).toMatchObject({status:'unavailable',reasonCode:'official_report_backend_not_configured'});
+    expect(await new OfficialReportPdfService(noPort.backend,null,resolve(base,'none')).get({reportType:'ganga',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}})).toMatchObject({status:'unavailable',reasonCode:'studyq_runner_not_configured'});
+  });
+
+  test('official_report_ganga_na_score_smart_book_inputs_are_accepted_by_the_real_studyq_validators',()=>{
+    for(const [type,input] of [['ganga',projectGangaReport(gangaBlocks())],['ganga',projectGangaReport(projectGangaReport(gangaBlocks()) as never)],
+      ['na_score',projectNaScoreReport(naScoreBlocks())],['na_score',projectNaScoreReport(naScoreNamed())],
+      ['smart_book',projectSmartBookReport(smartBookBlocks(),BOOK_CODE)],['smart_book',projectSmartBookReport(projectSmartBookReport(smartBookBlocks(),BOOK_CODE) as never,BOOK_CODE)]] as const){
+      const checked=python(VALIDATE_REPORT(type),input);
+      expect({type,status:checked.status,stderr:checked.stderr}).toEqual({type,status:0,stderr:''});
+      if(type==='smart_book')expect(JSON.parse(checked.stdout).pages).toBe(8-2);
+      else expect(JSON.parse(checked.stdout).questions).toBe((input as any).questions.length);
+    }
+    // A projection copies values: a tier or a mark the renderer does not take reaches its validator and is refused there.
+    const bad=projectGangaReport({...gangaBlocks(),block1:[{...gangaBlocks().block1[0]!,'8':'7'}]});
+    expect(bad.pyramid_tier).toBe(7);
+    expect(python(VALIDATE_REPORT('ganga'),bad).status).not.toBe(0);
+    expect(projectNaScoreReport({...naScoreBlocks(),block3:[{'1':1,'2':'a','3':'b','4':1,'5':'?'}]}).questions[0]!.correct).toBe('?');
+    expect(python(VALIDATE_REPORT('smart_book'),{...projectSmartBookReport(smartBookBlocks(),BOOK_CODE),book_code:'bad code'}).status).not.toBe(0);
+  });
+
+  test('official_report_ganga_na_score_smart_book_read_only_read_class_routes_i1_write_forbidden',async()=>{
+    const {AcademyHttpClient}=await import('../../../../../apps/academy/dc-gang-a/src/lms/academyHttpClient.ts');
+    const {NativeDailyRecordBackend}=await import('../src/native-dailyrecord-backend.ts');
+    const {REPORT_VIEW_PATH}=await import('../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient.ts');
+    const login='<form id="loginForm" name="loginForm" method="post"><input name="p_process"><input name="p_prino"><input name="p_groupno"><input name="userpwd"><input name="userid"><input name="cf_pc"><input name="cf_user"><input name="autoLoginCheck"><input name="autoLoginKey"></form><script>document.loginForm.action = "/servlet/controller.login.LoginServlet"; document.loginForm.p_process.value = "c_login";</script>';
+    const principal='<a href="/logout">Fictional Teacher- [로그아웃]</a><form name="userForm"><input name="pri_no" value="90001"></form><form name="form1"><input name="g_pri_no" value="90001"><input name="g_clg_no" value="88001"><input name="g_mem_type" value="teacher"></form>';
+    const envelope=(raw:unknown)=>new Response('<body>SERVER_RET = OK<BR>'+JSON.stringify(raw)+'<END_DATA></body>',{headers:{'content-type':'text/html; charset=utf-8'}});
+    const run=async(name:string,request:Record<string,unknown>,raw:unknown,page?:string)=>{
+      let calls=0;const bodies:string[]=[];
+      const guard=writeForbiddenTransport((url,init)=>{calls++;
+        if(calls===1)return new Response(login);if(calls<=3)return new Response(principal);
+        bodies.push(String(init?.body));return page!==undefined?new Response(page):envelope(raw);});
+      const admission={teacherId:'90001',teacherLabel:'Fictional Teacher',date:'2040-01-04',students:[{studentId:KEY,displayName:STUDENT}],sourceBundleSha256:'b'.repeat(64)};
+      const client=new AcademyHttpClient({teacherLabel:'Fictional Teacher',teacherKey:'90001',collegeKey:'88001'},guard.transport as never);
+      const backend=new NativeDailyRecordBackend(client as never,admission,()=>({username:'fictional',password:'fictional'}));
+      const seen:any[]=[];
+      const runner:StudyqRunner={async renderCourseBook(){throw Error('x');},async renderCism(){throw Error('x');},async assemblePrint(){throw Error('x');},
+        async renderReport(type,input,path){seen.push({type,input});return {status:'rendered',pages:6,sha256:'e'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};}};
+      const service=new OfficialReportPdfService(backend as never,runner,resolve(base,name,'official-reports'),now);
+      return {answer:await service.get(request) as any,guard,bodies,seen,calls:()=>calls};
+    };
+    const cases=[
+      ['ganga',{reportType:'ganga',displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS}},gangaBlocks(),'GaReportView',
+        'p_process=GaReportView&p_testing_no='+TESTING+'&p_pri_no='+KEY+'&p_cls_no='+CLASS+'&p_limit_date='],
+      ['na_score',{reportType:'na_score',displayName:STUDENT,studentKey:KEY,params:{testingNo:TESTING,classNo:CLASS,limitDate:'2040-01-31'}},naScoreBlocks(),'NaScoreResultView',
+        'p_process=NaScoreResultView&p_testing_no='+TESTING+'&p_pri_no='+KEY+'&p_cls_no='+CLASS+'&p_limit_date=2040-01-31'],
+      ['smart_book',{reportType:'smart_book',displayName:STUDENT,params:{bookCode:BOOK_CODE}},smartBookBlocks(),'SmartBookReportView',
+        'p_process=SmartBookReportView&book_code='+BOOK_CODE+'&pri_no='+KEY]] as const;
+    for(const [type,request,raw,view,body] of cases){
+      const r=await run('i1-'+type,request,raw);
+      expect({type,answer:r.answer}).toMatchObject({type,answer:{status:'rendered',reportType:type,academyWrites:0}});
+      expect(r.guard.forbidden()).toEqual([]);
+      expect(r.guard.requests.map(q=>q.role)).toEqual(['login','login','read','read']);
+      expect(r.guard.requests.at(-1)).toEqual({route:REPORT_VIEW_PATH+' '+view,role:'read'});
+      expect(r.bodies).toEqual([body]);
+      expect(r.seen[0].type).toBe(type);
+      expect(python(VALIDATE_REPORT(type),r.seen[0].input).status).toBe(0);
+      // A login page in place of the view fails closed: no PDF.
+      const loggedOut=await run('i1-login-'+type,request,null,login.replace('name="userpwd"','name="userpwd" type="password"'));
+      expect(loggedOut.answer).toMatchObject({status:'unavailable',reasonCode:'authentication_required'});
+      expect(loggedOut.seen).toEqual([]);
+      expect(loggedOut.guard.forbidden()).toEqual([]);
+      // A student key that is not the named student's: refused before any request.
+      const wrong=await run('i1-wrong-'+type,{...request,studentKey:'770099'},raw);
+      expect(wrong.answer).toMatchObject({status:'unavailable',reasonCode:'official_report_scope_conflict'});
+      expect(wrong.calls()).toBe(0);
+    }
   });
 });

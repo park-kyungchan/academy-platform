@@ -1,6 +1,9 @@
-"""The parity check of a report PDF against its input (specs/studyq-linux/core.md R17, reports-batch1.md R7).
+"""The parity check of a report PDF against its input (specs/studyq-linux/core.md R17, reports-batch1.md R10, reports-batch2.md R10).
 
-    python3 -m studyq_linux.parity --pdf <pdf> --assets <dir> [--type course_book|cism|diag|new_diag|formative]   < input.json
+    python3 -m studyq_linux.parity --pdf <pdf> --assets <dir> [--type <type>]   < input.json
+
+`<type>` is one of the eight report types of `render --type` (course_book, cism, diag, new_diag,
+formative, ganga, na_score, smart_book).
 
 `--type` defaults to `course_book`.
 
@@ -77,11 +80,11 @@ def main(argv=None):
     try:
         names = args[0::2]
         if len(args) % 2 or len(set(names)) != len(names) or not {"--assets", "--pdf"} <= set(names) <= {"--assets", "--pdf", "--type"}:
-            raise StudyqError("usage_invalid", "usage: --pdf <pdf> --assets <dir> [--type course_book|cism|diag|new_diag|formative]")
+            raise StudyqError("usage_invalid", "usage: --pdf <pdf> --assets <dir> [--type <report type>]")
         flags = dict(zip(names, args[1::2]))
         report_type = flags.get("--type", "course_book")
         if report_type not in REPORTS:
-            raise StudyqError("usage_invalid", "type is not course_book, cism, diag, new_diag or formative")
+            raise StudyqError("usage_invalid", "type is not one of the eight report types")
         validate, planner, _required = REPORTS[report_type]
         data = validate(read_input(sys.stdin.buffer))
         bundle = verify_assets_dir(flags["--assets"])

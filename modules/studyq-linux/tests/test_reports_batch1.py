@@ -494,7 +494,7 @@ class Command(core.TempDirCase):
         try:
             for report_type in TYPES:
                 self.assertEqual(parity.main(["--pdf", self.path("absent.pdf"), "--assets", self.tmp, "--type", report_type]), 1)
-            self.assertEqual(parity.main(["--pdf", "p", "--assets", "a", "--type", "smart_book"]), 2)
+            self.assertEqual(parity.main(["--pdf", "p", "--assets", "a", "--type", "smartbook"]), 2)
         finally:
             sys.stdout = saved
         codes = [json.loads(line)["code"] for line in out.getvalue().splitlines()]

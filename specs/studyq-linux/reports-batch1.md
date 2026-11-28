@@ -123,7 +123,7 @@ official templates only with `STUDYQ_ASSETS_DIR`.
 
 ## Not included
 
-- The report types `ganga`, `na_score` and `smart_book`; they are a later revision.
+- The report types `ganga`, `na_score` and `smart_book`; they are [reports-batch2.md](reports-batch2.md).
 - How the TypeScript server reads the input from the LMS; that is
   [direct-key-lookup.md](../academy-mcp/direct-key-lookup.md) R8 and the tool's own contract.
 - Areas or units beyond the first four on the graphs: the graphs of the templates have four

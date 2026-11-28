@@ -13,16 +13,28 @@ import tempfile
 
 from .errors import StudyqError, clip_detail
 from .manifest import verify_assets_dir
-from .schema import validate_cism, validate_course_book, validate_diag, validate_formative, validate_new_diag
+from .schema import (
+    validate_cism,
+    validate_course_book,
+    validate_diag,
+    validate_formative,
+    validate_ganga,
+    validate_na_score,
+    validate_new_diag,
+    validate_smart_book,
+)
 
 MAX_STDIN_BYTES = 4 * 1024 * 1024
-KNOWN_TYPES = ("course_book", "cism", "diag", "new_diag", "formative")
+KNOWN_TYPES = ("course_book", "cism", "diag", "new_diag", "formative", "ganga", "na_score", "smart_book")
 VALIDATORS = {
     "course_book": validate_course_book,
     "cism": validate_cism,
     "diag": validate_diag,
     "new_diag": validate_new_diag,
     "formative": validate_formative,
+    "ganga": validate_ganga,
+    "na_score": validate_na_score,
+    "smart_book": validate_smart_book,
 }
 FLAGS = {"render": ("--type", "--assets", "--out"), "assemble-print": ("--out",)}
 
@@ -147,7 +159,7 @@ def _execute(argv, stdin):
         return _assemble_print(flags, stdin)
     report_type = flags["type"]
     if report_type not in KNOWN_TYPES:
-        raise StudyqError("type_unknown", "type is not course_book, cism, diag, new_diag or formative")
+        raise StudyqError("type_unknown", "type is not one of the eight report types")
     out_path = os.path.abspath(flags["out"])
     if os.path.lexists(out_path):
         raise StudyqError("output_exists", "output exists")

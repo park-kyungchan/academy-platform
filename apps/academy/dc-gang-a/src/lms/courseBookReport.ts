@@ -53,8 +53,10 @@ const rows=(raw:Record<string,unknown>,name:string):Record<string,unknown>[]=>{
   if(!Array.isArray(value))throw Error('historical_key_unverified');
   return value.map(row=>{try{return readInputRecord(row);}catch{throw Error('historical_key_unverified');}});
 };
-const questionTypes:Record<number,string>={1:'객관식',2:'단답형',3:'서술형'};
-const difficulties:Record<number,string>={1:'하',2:'중',3:'상',4:'최상'};
+/** The labels of the coded question type and difficulty of the course-book blocks (also those of `SmartBookReportView`). */
+export const COURSE_BOOK_QUESTION_TYPES:Readonly<Record<number,string>>={1:'객관식',2:'단답형',3:'서술형'};
+export const COURSE_BOOK_DIFFICULTIES:Readonly<Record<number,string>>={1:'하',2:'중',3:'상',4:'최상'};
+const questionTypes=COURSE_BOOK_QUESTION_TYPES,difficulties=COURSE_BOOK_DIFFICULTIES;
 
 /** Verify the report against the request (R4) and project it. `expected.studentName` must be
  * `block1[0]['4']`; `course_key`, `book_no` and `student_pri_no`, wherever the payload echoes

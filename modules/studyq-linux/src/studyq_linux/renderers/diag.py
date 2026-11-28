@@ -192,7 +192,10 @@ def _areas(ctx, style, data):
 
 
 def question_pages(ctx, data, template_of, number_of, group="area"):
-    """The question table: 25 rows a page from `QUESTION_TOP_PX`; chunk `n` is drawn on `template_of(n)` as page `number_of(n)`."""
+    """The question table: 25 rows a page from `QUESTION_TOP_PX`; chunk `n` is drawn on `template_of(n)` as page `number_of(n)`.
+
+    `group` is the member printed in the area column: `area` (diag, new_diag) or `unit` (na_score).
+    """
     pages = []
     for n, chunk in enumerate(common.question_chunks(data["questions"])):
         page = PagePlan(template_of(n))
@@ -200,10 +203,10 @@ def question_pages(ctx, data, template_of, number_of, group="area"):
         for i, q in enumerate(chunk):
             index = n * common.QUESTIONS_PER_PAGE + i
             y0 = QUESTION_TOP_PX + QUESTION_STEP_PX * i
-            values = {"no": str(q["no"]), "area": q[group], "difficulty": q["difficulty"], "correct_rate": common.number(q["correct_rate"])}
+            values = {"no": str(q["no"]), group: q[group], "difficulty": q["difficulty"], "correct_rate": common.number(q["correct_rate"])}
             for name, value in values.items():
-                c0, c1 = QUESTION_COLUMNS[name]
-                add(page, text(ctx, "%s.q%d.%s" % (prefix, index, name), value, (c0, y0, c1, y0 + QUESTION_STEP_PX), "l" if name == "area" else "c", QUESTION_SIZE))
+                c0, c1 = QUESTION_COLUMNS["area" if name == group else name]
+                add(page, text(ctx, "%s.q%d.%s" % (prefix, index, name), value, (c0, y0, c1, y0 + QUESTION_STEP_PX), "l" if name == group else "c", QUESTION_SIZE))
             page.images.append(common.mark_image(ctx, q["correct"], QUESTION_MARK, y0, QUESTION_STEP_PX))
         pages.append(page)
     return pages

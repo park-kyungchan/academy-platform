@@ -5,6 +5,7 @@ never a value or an unknown key of the input (R7).
 """
 
 import math
+import re
 
 from .errors import StudyqError
 from .textutil import single_line, split_lines
@@ -363,4 +364,83 @@ def validate_formative(data):
     out["units"] = units
     out["difficulty"] = _report_difficulty(top["difficulty"])
     out["questions"] = _report_questions(top["questions"], "unit")
+    return out
+
+
+# The official Gang-A, NA score and SmartBook reports (specs/studyq-linux/reports-batch2.md R4-R7).
+BOOK_CODE = re.compile(r"[A-Za-z0-9._-]{1,64}")
+
+
+def _units(value):
+    units = []
+    for i, item in enumerate(_list(value, "units", 1, MAX_FORMATIVE_UNITS)):
+        path = "units[%d]" % i
+        u = _obj(item, ("name", "my_score", "average"), path)
+        units.append(
+            {
+                "name": _str(u["name"], path + ".name", 80),
+                "my_score": _num(u["my_score"], path + ".my_score"),
+                "average": _num(u["average"], path + ".average"),
+            }
+        )
+    return units
+
+
+GANGA_MEMBERS = (
+    "title", "student", "test_date", "pyramid_tier", "my_score", "avg_score", "rank_signal", "comment", "units", "difficulty", "questions",
+)  # fmt: skip
+NA_SCORE_MEMBERS = ("title", "student", "test_date", "my_score", "avg_score", "rank_band", "comment", "units", "questions")
+
+
+def validate_ganga(data):
+    """Return a normalised copy of the `ganga` input, or raise `input_invalid` (reports-batch2.md R4)."""
+    top = _obj(data, GANGA_MEMBERS, "")
+    return {
+        "title": _str(top["title"], "title", 120),
+        "student": _str(top["student"], "student", 64),
+        "test_date": _str(top["test_date"], "test_date", 32),
+        "pyramid_tier": _int(top["pyramid_tier"], "pyramid_tier", 1, 3),
+        "my_score": _num(top["my_score"], "my_score"),
+        "avg_score": _num(top["avg_score"], "avg_score"),
+        "rank_signal": _int(top["rank_signal"], "rank_signal", 1, 5),
+        "comment": _str(top["comment"], "comment", 3000, multiline=True, required=False),
+        "units": _units(top["units"]),
+        "difficulty": _report_difficulty(top["difficulty"]),
+        "questions": _report_questions(top["questions"], "unit"),
+    }
+
+
+def validate_na_score(data):
+    """Return a normalised copy of the `na_score` input, or raise `input_invalid` (reports-batch2.md R5)."""
+    top = _obj(data, NA_SCORE_MEMBERS, "")
+    return {
+        "title": _str(top["title"], "title", 120),
+        "student": _str(top["student"], "student", 64),
+        "test_date": _str(top["test_date"], "test_date", 32),
+        "my_score": _num(top["my_score"], "my_score"),
+        "avg_score": _num(top["avg_score"], "avg_score"),
+        "rank_band": _int(top["rank_band"], "rank_band", 1, 4),
+        "comment": _str(top["comment"], "comment", 3000, multiline=True, required=False),
+        "units": _units(top["units"]),
+        "questions": _report_questions(top["questions"], "unit"),
+    }
+
+
+def validate_smart_book(data):
+    """Return a normalised copy of the `smart_book` input, or raise `input_invalid` (reports-batch2.md R6).
+
+    The eleven members of `course_book` under its rules, and `book_code`, the key of the LMS read
+    (validated, not printed).
+    """
+    if not isinstance(data, dict):
+        _bad("type", "")
+    if "book_code" not in data:
+        _bad("missing", "book_code")
+    code = data["book_code"]
+    if not isinstance(code, str):
+        _bad("type", "book_code")
+    if not BOOK_CODE.fullmatch(code):
+        _bad("range", "book_code")
+    out = validate_course_book({k: v for k, v in data.items() if k != "book_code"})
+    out["book_code"] = code
     return out
