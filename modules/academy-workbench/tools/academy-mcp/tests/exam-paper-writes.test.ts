@@ -534,6 +534,21 @@ describe('exam writes R8, R14: the save of a paper and its assignment',()=>{
       expect(()=>parseCreationPage(disabled,'fa',{testgubunNo:1180})).toThrow('wire_hash_mismatch');
     }finally{await s.cleanup();}
   });
+  test('exam_creation_page_with_an_unsubmitted_objectviews_refuses_at_step_a_before_staging',async()=>{
+    const s=await scratch();
+    try{
+      // objectviews is read from the submitted members by step B's CheckMunhang: present in form1 but not submitted (disabled) is a drifted page.
+      const drifted=(t:number|string)=>creationPage('fa',t,'',{unsubmitted:true}).replace('name="objectviews" value="invented-views"','name="objectviews" value="invented-views" disabled');
+      expect(drifted(FIRST_TESTNO)).toContain('value="invented-views" disabled');
+      expect(()=>parseCreationPage(drifted(FIRST_TESTNO),'fa',{testgubunNo:1180})).toThrow('wire_hash_mismatch');
+      const h=harness(s.ledger);
+      h.lms.state.pages.fa.creation=drifted;
+      const review=await h.reviewed(faInput());
+      expect(await h.service.save(h.approve(review))).toMatchObject({status:'refused',code:'wire_hash_mismatch',academyWrites:1,effectStatus:'absent'});
+      expect(h.lms.routes().filter(r=>r.includes('SaveMunhang'))).toEqual([]);
+      expect(steps(h).at(-1)).toBe('A:reconciled:absent');
+    }finally{await s.cleanup();}
+  });
   test('exam_writes_step_b_posts_no_user_form_member',async()=>{
     const s=await scratch();
     try{
