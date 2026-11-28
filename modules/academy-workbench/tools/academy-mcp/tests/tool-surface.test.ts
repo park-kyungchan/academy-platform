@@ -320,7 +320,7 @@ describe('I1 write_forbidden: request classes by named route and operation',()=>
   expect(lmsRequestRole('/servlet/controller.cct.common.CourseCommonServlet','reqCmd=SetCismContentData&field_name=x')).toBe('write');
   expect(lmsRequestRole('/servlet/controller.cct.common.CourseCommonServlet?reqCmd=CismChartMain&tutor_pri_no=1&the_date=2040-01-16')).toBe('read');
   // Operations that neither lmsRouteRegistry.ts nor endpointCandidates.ts classes read fail closed.
-  // The eight read routes of specs/academy-mcp/lms-reads.md are classed read by the unit that builds those reads.
+  // The nine read routes of specs/academy-mcp/lms-reads.md are classed read by the unit that builds those reads.
   for(const classed of ['/servlet/controller.coursemanage.CourseManageServlet?reqCmd=CourseStudyManager',
    '/servlet/controller.coursemanage.CourseManageServlet?reqCmd=WebPreStudy&prestudy_key=1','/app-ui/solution_common/prestudy/prestudy_ai_report.jsp?analysis_key=1'])
    expect({classed,role:lmsRequestRole(classed)}).toEqual({classed,role:'read'});
