@@ -93,7 +93,7 @@ class ImageOp:
 
 @dataclass(frozen=True)
 class ShapeOp:
-    kind: str  # "rect" or "poly"
+    kind: str  # "rect" or "poly" (filled), "frame" (a stroked rectangle; `fill` is its line colour)
     geometry: tuple
     fill: tuple
 

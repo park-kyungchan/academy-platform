@@ -20,7 +20,7 @@ Form and answer
 - R2: A run that fails ends with a non-zero exit status and prints exactly one line on standard output, `{"status":"error","code":<code>,"detail":<text>}`, `<code>` one of the table "Error codes"; no file is left at `<pdf>`, and a file that was there before the run is unchanged. Tests: test_r2_error_line_is_one_line_with_a_known_code, test_r2_failed_run_leaves_no_file_and_keeps_an_existing_one.
 - R3: The words are one of the two forms of the Interface: an unknown verb, a missing, repeated or unknown flag, or a positional word refuses with `usage_invalid`, before standard input is read. Tests: test_r3_usage_invalid_before_stdin_is_read, test_entry_point_is_python_dash_m.
 - R4: Standard input that is not valid UTF-8, larger than 4 MiB, not exactly one JSON object, or that lacks a member the type requires, holds a member the type does not take, or holds a member of another JSON type, refuses with `input_invalid`. Tests: test_r4_input_invalid.
-- R5: `<type>` of `render` is `course_book` or `cism`; any other value refuses with `type_unknown`. Tests: test_r5_type_unknown, test_interim_unbuilt_targets_refuse_not_implemented.
+- R5: `<type>` of `render` is `course_book` or `cism`; any other value refuses with `type_unknown`. Tests: test_r5_type_unknown, test_interim_unbuilt_targets_refuse_not_implemented (`assemble-print` only), test_interim_cism_is_no_longer_not_implemented.
 - R6: An existing `<pdf>` refuses with `output_exists`; the PDF is written beside `<pdf>` under another name and renamed to `<pdf>` only when complete, so `<pdf>` is never seen partly written. Tests: test_r6_written_beside_and_renamed_never_partial, test_r6_temp_file_removed_when_the_rename_loses_a_race.
 - R7: `detail` and standard error hold no value of the input (no student name, record text, student id or key) and no archive key; `detail` is at most 256 bytes. Tests: test_r7_details_hold_no_input_value, test_r7_unexpected_failure_reports_class_only.
 - R8: The same input with the same assets gives the same PDF bytes, so the same `sha256`: the PDF holds no creation or modification time and no random identifier. Tests: test_r8_same_input_same_bytes_and_no_time_or_random_id, test_seam_renders_from_an_already_verified_bundle_without_a_directory.
@@ -42,8 +42,8 @@ Assets
 
 `cism`
 
-- R18: A `cism` PDF draws on the templates of the table "cism templates" only: pages 1 to 3 on `cism_1.jpg` to `cism_3.jpg`, then one page for each of the groups 4, 5 and 6 in that order, on the variant `<group>_<k>.jpg` whose `k` is the number of filled `block%d` fields of that group; a `k` that the table does not hold refuses with `input_invalid`. (no test yet; observed by the unit that builds studyq-linux)
-- R19: The `cism` input takes the block-indexed fields `block%d` (`%d` from 1), `week_no` (an integer from 1 to 53), `chart_data` (an array) and `report_list` (an array); each value is printed in the box of its field on its page, and the parity check reports 0 mismatches on the synthetic `cism` fixture. (no test yet; observed by the unit that builds studyq-linux)
+- R18: A `cism` PDF draws on the templates of the table "cism templates" only. Page 1 is on `image/cism/cism_1.jpg` and holds the header fields and the first 31 chart rows. When `chart_data` has more than 31 rows, one page on `cism_2.jpg` follows for each further 38 rows (none when it has 31 or fewer). Then the narrative pages on `cism_3.jpg` follow, always beginning on a fresh `cism_3.jpg` page after the last chart page. The sections of `report_list` are drawn in the order of their `(group, slot)`, each as its banner strip `image/cism/<group>_<slot>.jpg` (a strip is never a page template), then the section's text wrapped inside a framed box; a section whose banner, gap and one framed line do not fit above the bottom of the page starts on a fresh `cism_3.jpg` page, and a text that does not fit on the page continues on further `cism_3.jpg` pages in a framed box without repeating its banner, until every line is drawn: no text is cut, whatever the length. A section with no text is drawn as its banner and an empty framed box with no text field. A line-break token breaks a line and is not printed (R16). Tests: test_r18_template_sequence_follows_the_row_count, test_r18_required_assets, test_r18_overflow_pages_hold_38_rows_from_360_px, test_r18_every_student_row_is_planned_once, test_r18_narrative_sections_follow_group_and_slot_order_with_their_banners, test_r18_text_lines_sit_inside_their_frame_in_the_text_area, test_r18_an_empty_section_is_an_empty_frame_with_no_field, test_r18_long_text_continues_on_new_pages_without_a_repeated_banner_or_a_lost_line, test_r18_a_section_that_cannot_start_above_the_bottom_starts_a_fresh_page, test_r18_the_largest_valid_input_terminates_with_no_truncation, test_r16_line_break_tokens_break_and_are_not_printed_in_a_section, test_r18_cism_pages_use_the_verified_template_sequence, test_r18_missing_banner_template_refuses_with_asset_missing.
+- R19: The `cism` input is one JSON object with exactly the members of the table "`cism` input" and the limits of that table; an unknown or missing member, a member of another JSON type, a value out of its limit, a `(group, slot)` that the table does not allow or a repeated `(group, slot)` refuses with `input_invalid`, the detail naming the member path only (R7). Each header and chart value is printed in the box of its field on its page, and an empty chart cell has no field. The parity check (`--type cism`), run on the synthetic `cism` fixture, reports 0 mismatches and 0 raw `rn` tokens. Tests: test_r19_good_input_is_accepted_and_normalised, test_r19_members_are_strict, test_r19_report_list_slots_and_duplicates, test_r7_cism_details_hold_no_input_value, test_r19_cism_refuses_the_course_book_members_and_the_reverse, test_r19_header_fields_sit_in_their_boxes_without_overlap, test_r19_long_header_values_shrink_then_are_cut, test_r19_chart_rows_columns_and_no_field_for_empty_cells, test_r19_parity_reports_zero_mismatches_and_zero_raw_rn, test_r19_parity_counts_a_displaced_field_and_a_raw_rn, test_r19_cism_parity_against_the_official_templates, test_parity_module_usage_words.
 
 `print.zip`
 
@@ -153,20 +153,57 @@ by more than 2 pt, and for each text on a page that no field explains. It also c
 `rn` tokens (R16). It is run as
 
 ```
-python3 -m studyq_linux.parity --pdf <pdf> --assets <dir>   < input.json
+python3 -m studyq_linux.parity --pdf <pdf> --assets <dir> [--type course_book|cism]   < input.json
 ```
 
-which prints one line of counts and field ids, never a value of the input, and ends with exit
+(`--type` defaults to `course_book`), which prints one line of counts and field ids, never a value of the input, and ends with exit
 status 0 only when both counts are 0. It is not a verb of the command (R3).
 
 ### cism templates
 
-| Group | Templates | `k` (filled `block%d` fields of the group) |
+Full-page A4 templates (2481 x 3508 px, 0.24 pt a pixel), and section-title banner strips (47 px
+tall) that are drawn inside the `cism_3.jpg` narrative pages and are never a page of their own:
+
+| Asset | Size (px) | Use |
 | --- | --- | --- |
-| 1 to 3 | `cism_1.jpg`, `cism_2.jpg`, `cism_3.jpg` | none |
-| 4 | `4_1.jpg`, `4_2.jpg` | 1 or 2 |
-| 5 | `5_1.jpg` to `5_4.jpg` | 1 to 4 |
-| 6 | `6_1.jpg`, `6_2.jpg` | 1 or 2 |
+| `image/cism/cism_1.jpg` | 2481 x 3508 | page 1: header fields and chart rows 1 to 31 |
+| `image/cism/cism_2.jpg` | 2481 x 3509 | chart overflow, 38 rows a page; only when `chart_data` has more than 31 rows |
+| `image/cism/cism_3.jpg` | 2481 x 3508 | narrative pages: banners and framed texts, as many pages as the texts need |
+| `image/cism/4_1.jpg`, `4_2.jpg` | 330 x 47, 396 x 47 | banner of section `(group 4, slot 1 or 2)` |
+| `image/cism/5_1.jpg` to `5_4.jpg` | 319, 352, 318, 431 x 47 | banner of section `(group 5, slot 1 to 4)` |
+| `image/cism/6_1.jpg`, `6_2.jpg` | 405 x 47, 386 x 47 | banner of section `(group 6, slot 1 or 2)` |
+
+Coordinates are PyMuPDF points on A4 `595.2756 x 841.8898 pt` (`y_fitz = 841.8898 - y_hpdf`);
+chart columns and rows are given in template pixels.
+
+| Element | Geometry |
+| --- | --- |
+| `p1.week_label` | box `(46.79, 146.4, 335.0, 165.6)`, left, 11 pt |
+| `p1.teacher` | box `(343.1, 146.4, 467.9, 165.6)`, left, 11 pt |
+| `p1.period` | box `(467.9, 146.4, 545.9, 165.6)`, right, 11 pt |
+| chart columns | `group` 195 to 657, `student` 657 to 1063, `class_mode` 1063 to 1469, `think_note` 1469 to 1876, `week_test` 1876 to 2283 px; 10.5 pt; a row is 75 px high |
+| chart rows, page 1 | row `i` (0 to 30) from `y = 920 + 75 i` px, the last ending at 3245 px |
+| chart rows, `cism_2.jpg` | row `i` (0 to 37) from `y = 360 + 75 i` px, the last ending at 3210 px |
+| narrative text area | `left = 46.79`, `right = 547.77`, `top = 120.2`, `bottom = 792.0` pt |
+| section | banner at `(46.79, y)`; `banner_gap` 6 pt; framed box with `box_pad` 6 pt and text lines of `line_h` 16.8 pt at 10.5 pt; `section_gap` 12 pt |
+
+A header value is a single line: shrunk down to 6 pt, then cut with `...`; a chart value likewise
+in its cell. The text of a section is wrapped to `500.98 - 2 * box_pad - 2 * 1.0` pt after the
+line-break tokens are resolved. `week_no` is validated and is not printed: the week is named by
+`week_label`.
+
+### `cism` input
+
+One JSON object with exactly these members:
+
+| Member | Value |
+| --- | --- |
+| `week_no` | an integer from 1 to 53 |
+| `week_label` | a string of 1 to 120 characters |
+| `teacher` | a string of 1 to 64 characters |
+| `period` | a string of 1 to 64 characters (the period printed on page 1; not the week label) |
+| `chart_data` | 0 to 1200 objects `{group, student, class_mode, think_note, week_test}`: `group` 1 to 120, `student` 1 to 64, `class_mode` 0 to 16, `think_note` 0 to 32, `week_test` 0 to 32 characters (a monthly report holds up to 6 weeks of 200 rows) |
+| `report_list` | 1 to 8 objects `{group, slot, title, text}`: `group` 4, 5 or 6; `slot` 1 or 2 for group 4, 1 to 4 for group 5, 1 or 2 for group 6; `title` 1 to 120 characters; `text` 0 to 40000 characters with line-break tokens (6 weeks of 6000 characters); every `(group, slot)` at most once; `title` is validated and is not printed, the banner strip names the section |
 
 ### Print archive path templates
 
@@ -185,14 +222,14 @@ no key, and no file that holds one, is in this repository.
 | Code | When |
 | --- | --- |
 | `usage_invalid` | R3 |
-| `input_invalid` | R4, R18, R21, R22; the detail names a member path of the input, never a value |
+| `input_invalid` | R4, R19, R21, R22; the detail names a member path of the input, never a value |
 | `type_unknown` | R5 |
 | `output_exists` | R6 |
 | `asset_manifest_invalid`, `asset_missing`, `asset_hash_mismatch` | R9 |
 | `archive_key_missing` | R23 |
 | `archive_missing` | an archive of R20 that does not exist |
 | `archive_refused` | R24, R25 |
-| `not_implemented` | `render --type cism` and `assemble-print`, until R18 to R25 are built; no file is written |
+| `not_implemented` | `assemble-print`, until R20 to R25 are built; no file is written |
 | `render_failed` | any other failure, after which R2 holds |
 
 ### Limits

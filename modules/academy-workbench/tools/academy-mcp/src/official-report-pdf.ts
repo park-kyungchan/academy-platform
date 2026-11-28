@@ -4,23 +4,41 @@ import {z} from 'zod';
 import {readFailureResult} from './read-failure.ts';
 import {directKeySchema,directKeyNames} from './dailyrecord.ts';
 import type {StudyqRunner} from './studyq-runner.ts';
-import type {BookSelection} from './read-input.ts';
+import {academyDateInputSchema,resolveAcademyDate,resolvedDateOf,withResolvedDate,type BookSelection} from './read-input.ts';
 import {courseBookTruncated,type CourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport';
+import {cismMonthDates,type CismReport} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol';
+import {cismMonthToStudyqInput,cismWeekToStudyqInput} from '../../../../../apps/academy/dc-gang-a/src/lms/cismReportAdapter';
 
-/** `academy_official_report_pdf_get`: one official StudyQ report PDF of one student, rendered on
- * this host by modules/studyq-linux from read-only LMS data. `reportType` names the report;
- * `params` holds the options of that type, so a later report type extends `reportType` and its
- * own `params` without new top-level members. `course_book` takes `params.bookLabel`. */
-export const officialReportTypes=['course_book'] as const;
+/** `academy_official_report_pdf_get`: one official StudyQ report PDF, rendered on this host by
+ * modules/studyq-linux from read-only LMS data. `reportType` names the report; `params` holds the
+ * options of that type, so a later report type extends `reportType` and its own `params` without new
+ * top-level members. `course_book` (one student and book) takes `params.bookLabel`; `cism` (the
+ * owner's weekly or monthly CISM, no student) takes `params.scope` `week` (with `date`, default today)
+ * or `month` (with `month`, `YYYY-MM`). */
+export const officialReportTypes=['course_book','cism'] as const;
 const name=z.string().trim().min(1).max(200);
-const courseBookParams=z.object({bookLabel:z.string().trim().min(1).max(200).optional()}).strict();
+const reportParams=z.object({bookLabel:z.string().trim().min(1).max(200).optional(),
+  scope:z.enum(['week','month']).optional(),date:academyDateInputSchema.optional(),month:z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/).optional()}).strict();
 export const officialReportPdfGetSchema=z.object({
   reportType:z.enum(officialReportTypes),
   displayName:name.optional(),studentName:name.optional(),
   courseKey:directKeySchema.optional(),bookNo:directKeySchema.optional(),studentKey:directKeySchema.optional(),
-  params:courseBookParams.optional(),
+  params:reportParams.optional(),
   outputPath:z.string().min(5).max(512).optional(),
 }).strict().superRefine((v,c)=>{
+  const params=v.params??{};
+  if(v.reportType==='cism'){
+    for(const k of ['displayName','studentName','courseKey','bookNo','studentKey'] as const)if(v[k]!==undefined)c.addIssue({code:'custom',path:[k],message:'cism_takes_no_student_or_book'});
+    if(params.bookLabel!==undefined)c.addIssue({code:'custom',path:['params','bookLabel'],message:'cism_takes_no_student_or_book'});
+    if(params.scope===undefined)c.addIssue({code:'custom',path:['params','scope'],message:'cism_scope_required'});
+    if(params.scope==='week'&&params.month!==undefined)c.addIssue({code:'custom',path:['params','month'],message:'cism_week_takes_date'});
+    if(params.scope==='month'){
+      if(params.month===undefined)c.addIssue({code:'custom',path:['params','month'],message:'cism_month_required'});
+      if(params.date!==undefined)c.addIssue({code:'custom',path:['params','date'],message:'cism_month_takes_month'});
+    }
+    return;
+  }
+  for(const k of ['scope','date','month'] as const)if(params[k]!==undefined)c.addIssue({code:'custom',path:['params',k],message:'course_book_params_bookLabel_only'});
   if(v.displayName===undefined&&v.studentName===undefined)c.addIssue({code:'custom',path:['displayName'],message:'student_name_required'});
   if(v.displayName!==undefined&&v.studentName!==undefined&&v.displayName!==v.studentName)c.addIssue({code:'custom',path:['studentName'],message:'name_conflict'});
   const given=directKeyNames.filter(k=>v[k]!==undefined);
@@ -29,6 +47,8 @@ export const officialReportPdfGetSchema=z.object({
 export type OfficialReportPdfGet=z.infer<typeof officialReportPdfGetSchema>;
 
 export interface CourseBookReportBackend {
+  /** The read-only CISM week of `date` (`CismChartMain`), for `reportType` `cism`. */
+  readCismReport?(date:string):Promise<CismReport>;
   readCourseBookReportByName(input:{displayName:string;bookLabel?:string;courseKey?:string;bookNo?:string;studentKey?:string}):Promise<
     {kind:'report';student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bindingSource?:'historical_key_registry';report:CourseBookReport;bookSelection?:BookSelection}
     |{kind:'interview_required';student:{studentId:string;displayName:string};bindings:{bookLabel:string;bookNo:string;hint?:string}[];reason:string;observedAt:string;bookSelection?:BookSelection}>;
@@ -68,6 +88,7 @@ export class OfficialReportPdfService {
   constructor(readonly backend:CourseBookReportBackend|null,readonly runner:StudyqRunner|null,readonly outputRoot:string,readonly now:()=>Date=()=>new Date()){}
   async get(value:unknown){
     const input=officialReportPdfGetSchema.parse(value);
+    if(input.reportType==='cism')return this.getCism(input);
     const displayName=(input.displayName??input.studentName)!;
     const base={reportType:input.reportType,displayName,academyWrites:0,parentSends:0,automaticRetryAllowed:false,
       execution:'read_only_lms_local_pdf' as const,sourceContentIsUntrustedData:true};
@@ -93,5 +114,34 @@ export class OfficialReportPdfService {
       return {...base,...summary,status:'rendered' as const,outputPath:rendered.outputPath,sha256:rendered.sha256,pages:rendered.pages,
         parityOk:rendered.parityOk,parityMismatches:rendered.parityMismatches,parityRawRn:rendered.parityRawRn};
     }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'official_report_unqualified_no_automatic_retry')};}
+  }
+  /** `reportType` `cism`: the owner's CISM week or month, read-only, rendered and parity-checked. */
+  private async getCism(input:OfficialReportPdfGet){
+    const scope=input.params!.scope!;
+    const base={reportType:'cism' as const,scope,academyWrites:0,parentSends:0,automaticRetryAllowed:false,
+      execution:'read_only_lms_local_pdf' as const,sourceContentIsUntrustedData:true};
+    if(!this.backend)return {...base,status:'unavailable' as const,reasonCode:'official_report_backend_not_configured'};
+    if(!this.runner)return {...base,status:'unavailable' as const,reasonCode:'studyq_runner_not_configured'};
+    try{
+      const root=await qualifiedOutputRoot(this.outputRoot);
+      if(input.outputPath!==undefined)await officialReportPath(root,input.outputPath,'cism',null,this.now());
+      // The date or month is settled before any LMS request, and a failure after it still states it.
+      const target=scope==='week'?resolveAcademyDate(input.params!.date??'today',this.now().getTime()):input.params!.month!;
+      return await withResolvedDate(target,async()=>{
+        const read=this.backend!.readCismReport?.bind(this.backend);
+        if(!read)throw Error('cism_source_port_unavailable');
+        let studyqInput,reports:CismReport[];
+        if(scope==='week'){reports=[await read(target)];studyqInput=cismWeekToStudyqInput(reports[0]!);}
+        else{reports=[];for(const date of cismMonthDates(target))reports.push(await read(date));studyqInput=cismMonthToStudyqInput(target,reports);}
+        const path=await officialReportPath(root,input.outputPath,'cism-'+scope,target,this.now());
+        const summary={...(scope==='week'?{date:target}:{month:target}),weeks:reports.length,
+          reportSummary:{weekLabel:studyqInput.week_label,period:studyqInput.period,studentRows:studyqInput.chart_data.length,
+            filledSections:studyqInput.report_list.filter(s=>s.text.trim()).length}};
+        const rendered=await this.runner!.renderCism(studyqInput,path);
+        if(rendered.status==='refused')return {...base,...summary,status:'refused' as const,reasonCode:'studyq_'+rendered.code,studyqDetail:rendered.detail};
+        return {...base,...summary,status:'rendered' as const,outputPath:rendered.outputPath,sha256:rendered.sha256,pages:rendered.pages,
+          parityOk:rendered.parityOk,parityMismatches:rendered.parityMismatches,parityRawRn:rendered.parityRawRn};
+      });
+    }catch(error){const resolved=resolvedDateOf(error);return {...base,...(resolved?(scope==='week'?{date:resolved}:{month:resolved}):{}),status:'unavailable' as const,...readFailureResult(error,'official_report_unqualified_no_automatic_retry')};}
   }
 }

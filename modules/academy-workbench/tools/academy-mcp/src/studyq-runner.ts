@@ -17,6 +17,8 @@ export type StudyqRenderResult=StudyqRenderOk|StudyqRefusal;
 export interface StudyqRunner {
   /** Render `input` (the eleven `course_book` members) to `outputPath`, then check its parity. */
   renderCourseBook(input:unknown,outputPath:string):Promise<StudyqRenderResult>;
+  /** Render `input` (the six `cism` members) to `outputPath`, then check its parity (`parity --type cism`). */
+  renderCism(input:unknown,outputPath:string):Promise<StudyqRenderResult>;
 }
 
 const PACKAGE='studyq_linux';
@@ -75,23 +77,24 @@ const lastJsonLine=(stdout:string):Record<string,unknown>|null=>{
 const safeDetail=(value:unknown)=>typeof value==='string'?value.slice(0,256):'';
 
 export function pinnedStudyqRunner(pin:Pinned):StudyqRunner{
-  return {async renderCourseBook(input,outputPath){
+  async function render(type:'course_book'|'cism',input:unknown,outputPath:string):Promise<StudyqRenderResult>{
     if(!isAbsolute(outputPath))throw Error('output_path_invalid');
     const json=Buffer.from(JSON.stringify(input),'utf8');
-    const render=await runPinned(pin,'cli',['render','--type','course_book','--assets',pin.assetsDir,'--out',outputPath],json);
-    const line=lastJsonLine(render.stdout);
+    const run=await runPinned(pin,'cli',['render','--type',type,'--assets',pin.assetsDir,'--out',outputPath],json);
+    const line=lastJsonLine(run.stdout);
     if(!line)throw Error('studyq_runner_failed');
     // A refusal of the executor (input_invalid, output_exists …) is its own answer; its detail holds no input value (R7 of core.md).
     if(line.status==='error'&&typeof line.code==='string'&&/^[a-z_]{1,64}$/.test(line.code))return {status:'refused',code:line.code,detail:safeDetail(line.detail)};
-    if(render.exitCode!==0||line.status!=='ok'||line.outputPath!==outputPath||typeof line.sha256!=='string'||!/^[a-f0-9]{64}$/.test(line.sha256)
+    if(run.exitCode!==0||line.status!=='ok'||line.outputPath!==outputPath||typeof line.sha256!=='string'||!/^[a-f0-9]{64}$/.test(line.sha256)
       ||typeof line.pages!=='number'||!Number.isInteger(line.pages))throw Error('studyq_runner_failed');
     if(createHash('sha256').update(await readFile(outputPath)).digest('hex')!==line.sha256)throw Error('studyq_runner_failed');
     // parity.main exits 1 on a mismatch while printing its JSON: read stdout whatever the exit status.
-    const parity=lastJsonLine((await runPinned(pin,'parity',['--pdf',outputPath,'--assets',pin.assetsDir],json)).stdout);
+    const parity=lastJsonLine((await runPinned(pin,'parity',['--pdf',outputPath,'--assets',pin.assetsDir,...(type==='cism'?['--type','cism']:[])],json)).stdout);
     if(!parity||(parity.status!=='ok'&&parity.status!=='mismatch')||typeof parity.mismatches!=='number'||typeof parity.rawRn!=='number')throw Error('studyq_runner_failed');
     return {status:'rendered',pages:line.pages,sha256:line.sha256,outputPath,
       parityOk:parity.status==='ok'&&parity.mismatches===0&&parity.rawRn===0,parityMismatches:parity.mismatches,parityRawRn:parity.rawRn};
-  }};
+  }
+  return {renderCourseBook:(input,outputPath)=>render('course_book',input,outputPath),renderCism:(input,outputPath)=>render('cism',input,outputPath)};
 }
 
 /** `--studyq-runner <interpreter> <interpreterSha256> <studyqSrcDir> <studyqSourceSha256> <assetsDir>`:

@@ -9,7 +9,8 @@ from .errors import StudyqError
 from .geometry import PAGE_H, PAGE_W
 from .imageinfo import image_dimensions
 from .manifest import FONT_REL
-from .schema import validate_course_book
+from .renderers.cism import plan_cism, required_cism_assets
+from .schema import validate_cism, validate_course_book
 
 FONT_NAME = "nanum"
 ASCENT = 0.856  # NanumGothic: top of the text box above the baseline, in em (the box is 1 em tall)
@@ -50,7 +51,9 @@ def draw_plan(pymupdf, plan, bundle):
         for image in pp.images:
             page.insert_image(pymupdf.Rect(*image.rect), stream=bundle.read(image.rel), keep_proportion=False)
         for shape in pp.shapes:
-            if shape.kind == "rect":
+            if shape.kind == "frame":
+                page.draw_rect(pymupdf.Rect(*shape.geometry), color=shape.fill, fill=None, width=0.75)
+            elif shape.kind == "rect":
                 page.draw_rect(pymupdf.Rect(*shape.geometry), color=None, fill=shape.fill)
             else:
                 page.draw_polyline([pymupdf.Point(*p) for p in shape.geometry], color=None, fill=shape.fill, closePath=True)
@@ -82,4 +85,15 @@ def render_course_book(data, bundle):
         if not bundle.has(rel):
             raise StudyqError("asset_missing", "a template of the report is not in the manifest")
     plan = plan_course_book(data, make_context(pymupdf, bundle))
+    return draw_plan(pymupdf, plan, bundle)
+
+
+def render_cism(data, bundle):
+    """PDF bytes of the `cism` report for an input and an already-verified bundle."""
+    pymupdf = load_pymupdf()
+    data = validate_cism(data)
+    for rel in required_cism_assets(data):
+        if not bundle.has(rel):
+            raise StudyqError("asset_missing", "a template of the report is not in the manifest")
+    plan = plan_cism(data, make_context(pymupdf, bundle))
     return draw_plan(pymupdf, plan, bundle)

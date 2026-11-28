@@ -33,6 +33,8 @@ const parity=`import json, sys
 def main(argv):
     data = json.loads(sys.stdin.buffer.read())
     open(argv[argv.index('--pdf') + 1], 'rb').read()
+    with open(argv[argv.index('--pdf') + 1] + '.parity-argv.json', 'w') as handle:
+        json.dump(argv, handle)
     bad = data.get('comment') == 'mismatch'
     if data.get('comment') == 'crash':
         print('not json')
@@ -82,6 +84,24 @@ describe('the hash-pinned studyq runner',()=>{
     await keyed.renderCourseBook({student:'x',comment:''},resolve(root,'keyed.pdf'));
     expect(JSON.parse(await readFile(resolve(root,'keyed.pdf.env.json'),'utf8')).env).toContain('STUDYQ_PRINT_KEY_FILE');
     await expect(runner.renderCourseBook({},'relative.pdf')).rejects.toThrow('output_path_invalid');
+  });
+
+  test('studyq_runner_renders_cism_with_the_cism_type_for_render_and_parity',async()=>{
+    const {src,sourceSha256}=await tree('cism');
+    const runner=pinnedStudyqRunner({interpreter,interpreterSha256,srcDir:src,sourceSha256,assetsDir:assets()});
+    const out=resolve(root,'cism.pdf');
+    const rendered=await runner.renderCism({student:'Invented Student',comment:''},out);
+    expect(rendered).toEqual({status:'rendered',pages:8,sha256:sha(await readFile(out)),outputPath:out,parityOk:true,parityMismatches:0,parityRawRn:0});
+    expect(JSON.parse(await readFile(out+'.env.json','utf8')).argv).toEqual(['render','--type','cism','--assets',assets(),'--out',out]);
+    expect(JSON.parse(await readFile(out+'.parity-argv.json','utf8'))).toEqual(['--pdf',out,'--assets',assets(),'--type','cism']);
+    // The course_book parity words are unchanged.
+    const book=resolve(root,'book-words.pdf');
+    await runner.renderCourseBook({student:'Invented Student',comment:''},book);
+    expect(JSON.parse(await readFile(book+'.parity-argv.json','utf8'))).toEqual(['--pdf',book,'--assets',assets()]);
+    // parity.main exits 1 on a mismatch and still prints its JSON: parityOk is the real result.
+    expect(await runner.renderCism({student:'Invented Student',comment:'mismatch'},resolve(root,'cism-mismatch.pdf'))).toMatchObject({status:'rendered',parityOk:false,parityMismatches:2,parityRawRn:1});
+    expect(await runner.renderCism({student:'refuse'},resolve(root,'cism-refused.pdf'))).toMatchObject({status:'refused',code:'input_invalid'});
+    await expect(runner.renderCism({},'relative.pdf')).rejects.toThrow('output_path_invalid');
   });
 
   test('studyq_runner_refuses_a_changed_or_unsafe_tree_before_any_spawn',async()=>{

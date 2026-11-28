@@ -178,3 +178,52 @@ def validate_course_book(data):
         )
     out["munit_list"] = munits
     return out
+
+
+MAX_CISM_ROWS = 1200
+MAX_CISM_SECTIONS = 8
+CISM_SLOTS = {4: (1, 2), 5: (1, 2, 3, 4), 6: (1, 2)}
+
+
+def validate_cism(data):
+    """Return a normalised copy of the `cism` input, or raise `input_invalid` (R19)."""
+    top = _obj(data, ("week_no", "week_label", "teacher", "period", "chart_data", "report_list"), "")
+    out = {
+        "week_no": _int(top["week_no"], "week_no", 1, 53),
+        "week_label": _str(top["week_label"], "week_label", 120),
+        "teacher": _str(top["teacher"], "teacher", 64),
+        "period": _str(top["period"], "period", 64),
+    }
+    rows = []
+    for i, item in enumerate(_list(top["chart_data"], "chart_data", 0, MAX_CISM_ROWS)):
+        path = "chart_data[%d]" % i
+        r = _obj(item, ("group", "student", "class_mode", "think_note", "week_test"), path)
+        rows.append(
+            {
+                "group": _str(r["group"], path + ".group", 120),
+                "student": _str(r["student"], path + ".student", 64),
+                "class_mode": _str(r["class_mode"], path + ".class_mode", 16, required=False),
+                "think_note": _str(r["think_note"], path + ".think_note", 32, required=False),
+                "week_test": _str(r["week_test"], path + ".week_test", 32, required=False),
+            }
+        )
+    out["chart_data"] = rows
+    sections, seen = [], set()
+    for i, item in enumerate(_list(top["report_list"], "report_list", 1, MAX_CISM_SECTIONS)):
+        path = "report_list[%d]" % i
+        s = _obj(item, ("group", "slot", "title", "text"), path)
+        group = _int(s["group"], path + ".group", 4, 6)
+        slot = _int(s["slot"], path + ".slot", 1, max(CISM_SLOTS[group]))
+        if (group, slot) in seen:
+            _bad("duplicate", path + ".slot")
+        seen.add((group, slot))
+        sections.append(
+            {
+                "group": group,
+                "slot": slot,
+                "title": _str(s["title"], path + ".title", 120),
+                "text": _str(s["text"], path + ".text", 40000, multiline=True, required=False),
+            }
+        )
+    out["report_list"] = sections
+    return out

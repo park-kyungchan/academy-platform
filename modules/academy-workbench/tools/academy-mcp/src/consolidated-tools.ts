@@ -158,8 +158,8 @@ export const keptTools:readonly {name:string;title:string;description:string;inp
  // The first new tool of specs/academy-mcp/tool-surface.md "New tools". `params` holds the options of a report type,
  // so a later report type adds a reportType value and its own params, not new members.
  {name:'academy_official_report_pdf_get',title:'공식 리포트 PDF',
-  description:"Official StudyQ report PDF (공식 리포트, 교재 리포트) of one student from read-only LMS data. reportType 'course_book': one book's course-book report. displayName or studentName. Book: courseKey, bookNo, studentKey together, or params.bookLabel (live list, then memory binding). Written under the owner output root (outputPath: optional .pdf name there, never overwritten); answers outputPath, sha256, pages, parityOk. No LMS write.",
-  inputSchema:schema({reportType:oneOf('course_book'),displayName:str,studentName:str,courseKey:str,bookNo:str,studentKey:str,params:obj,outputPath:str},['reportType'])},
+  description:"Official StudyQ report PDF (공식 리포트) from read-only LMS data. reportType 'course_book': one student's book report. displayName or studentName. Book: courseKey, bookNo, studentKey together, or params.bookLabel (live list, then memory binding). 'cism': CISM, no student; params.scope week (date) or month (month). Written under the owner output root (outputPath: optional .pdf name there, never overwritten); answers outputPath, sha256, pages, parityOk. No LMS write.",
+  inputSchema:schema({reportType:oneOf('course_book','cism'),displayName:str,studentName:str,courseKey:str,bookNo:str,studentKey:str,params:obj,outputPath:str},['reportType'])},
 ];
 
 /** Surface order: runtime, DailyRecord, student, DailyTest and paper, textbook, items and clinic, prestudy, CISM; then the new tools. */
