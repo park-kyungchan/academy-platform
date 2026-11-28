@@ -274,7 +274,7 @@ const formativeNamed=(student=STUDENT)=>({title:'Invented formative',student,tes
 const VALIDATE_REPORT=(type:string)=>`import sys,json; sys.path.insert(0,sys.argv[1]); from studyq_linux.schema import validate_${type} as v; from studyq_linux.render import REPORTS
 from studyq_linux.course_book import PlanContext
 d=v(json.load(sys.stdin)); plan=REPORTS["${type}"][1](d,PlanContext(lambda t,s:len(t)*s*0.6,lambda r:(2080,415) if "/9p/" in r else (37,37) if r.endswith(".png") else (100,80)))
-print(json.dumps({"pages":len(plan.pages),"questions":len(d["questions"])}))`;
+print(json.dumps({"pages":len(plan.pages),"questions":len(d.get("questions",[]))}))`;
 function viewFixture(name:string,raw:()=>Record<string,unknown>,rendered?:Awaited<ReturnType<StudyqRunner['renderReport']>>){
   const calls={student:[] as unknown[],applicant:[] as unknown[],runner:[] as {type:string;input:any;path:string}[]};
   const backend:CourseBookReportBackend={async readCourseBookReportByName(){throw Error('not_called');},
