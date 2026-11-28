@@ -241,19 +241,34 @@ function parseJson(text: string): Record<string, unknown> {
   try { value = JSON.parse(text); } catch { throw Error('clinic_response_unverified'); }
   return asRecord(value) ?? (() => { throw Error('clinic_response_unverified'); })();
 }
+/** A non-empty `exam_list` of at most 5000 items, each an object with an `exam_no` key. */
+function validExamList(value: unknown): boolean {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 5000) return false;
+  return value.every(raw => { const exam = asRecord(raw); return exam !== null && keyOf(exam.exam_no) !== null; });
+}
+/**
+ * The answer paper that ends the print list of a multi-testing write (measured): `paper_type` `'answer'`, no `exam_list`, and a
+ * `user_list` of 1 to 200 entries, each holding its own valid `exam_list`. It carries no `pri_no`.
+ */
+function isAnswerItem(paper: Record<string, unknown>): boolean {
+  if (paper.paper_type !== 'answer' || paper.exam_list !== undefined) return false;
+  const users = paper.user_list;
+  if (!Array.isArray(users) || users.length < 1 || users.length > 200) return false;
+  return users.every(raw => { const user = asRecord(raw); return user !== null && validExamList(user.exam_list); });
+}
 function validPrintList(value: unknown, studentKey: string | null): Record<string, unknown>[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > 200) throw Error('clinic_response_unverified');
   return value.map(item => {
     const paper = asRecord(item);
-    if (!paper || !Array.isArray(paper.exam_list) || paper.exam_list.length < 1 || paper.exam_list.length > 5000) throw Error('clinic_response_unverified');
-    for (const raw of paper.exam_list) { const exam = asRecord(raw); if (!exam || keyOf(exam.exam_no) === null) throw Error('clinic_response_unverified'); }
+    if (!paper || !(validExamList(paper.exam_list) || isAnswerItem(paper))) throw Error('clinic_response_unverified');
     if (studentKey !== null && paper.pri_no !== undefined && keyOf(paper.pri_no) !== studentKey) throw Error('clinic_response_unverified');
     return paper;
   });
 }
 
 /**
- * The answer of the write: `{result: 'OK', print_list}` with a non-empty list whose papers each hold exam items. Gives the hash of
+ * The answer of the write: `{result: 'OK', print_list}` with a non-empty list whose papers each hold exam items (the answer paper
+ * of a multi-testing write holds them per entry of its `user_list`). Gives the hash of
  * the whole body, the hash of the print list and the sorted paper keys (`p_no` or `paper_no`, when the papers carry one). Anything
  * else throws `clinic_response_unverified`: the write is then neither confirmed nor denied.
  */

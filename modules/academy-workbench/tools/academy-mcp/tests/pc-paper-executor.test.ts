@@ -11,7 +11,7 @@ import {PaperPrintPdfService,paperPrintPdfGetSchema,withoutRetiredStudyqRunnerAr
 import {ClinicPaperService} from '../src/clinic-write-tools.ts';
 import {keptTools} from '../src/consolidated-tools.ts';
 import {writeForbiddenTransport} from './network-deny.ts';
-import {STUDENT,TESTING,PAPER,fixtureLms,fixturePort,pageHashes} from './gated-write-fixture-lms.ts';
+import {STUDENT,TESTING,PAPER,answerItemPrintList,answerPaper,fixtureLms,fixturePort,pageHashes} from './gated-write-fixture-lms.ts';
 import {paperPrintItem,paperPrintSourceForm,resultPrintListForm} from '../../../../../apps/academy/dc-gang-a/src/lms/paperPrintRead.ts';
 
 // specs/academy-mcp/pc-paper-executor.md: src/pc-paper-executor.ts against fake ssh and scp programs that keep an invented "PC"
@@ -496,6 +496,47 @@ describe('printPdf of academy_clinic_paper_save',()=>{
         expect(plain.status).toBe('saved');expect('pdf' in plain).toBe(false);expect(again.seen).toEqual([]);
       }finally{await again.cleanup();}
     }finally{await h.cleanup();}
+  });
+
+  test('pc_paper_answer_item_with_user_list_is_printable',async()=>{
+    const SIZES=[{answer_height:40,exam_height:100,exam_type:'obj',explain_height:50,obj_height:30}];
+    // The answer paper of a book write: user_list in place of exam_list, every exam_size_list string parsed into its array.
+    const item=printItemForPc(answerPaper(2),{fromExamList:false});
+    expect('exam_list' in item).toBe(false);
+    expect((item.user_list as any[]).map(u=>u.exam_list.map((e:any)=>e.exam_size_list))).toEqual([[SIZES],[SIZES]]);
+    expect({...item,user_list:null}).toEqual({...answerPaper(2),user_list:null});
+    // The executor sends it alone, as the server gave it, and answers its paper type.
+    const f=await fixture();
+    const out=await print(f,'answer.pdf',{item:answerPaper(2)});
+    expect(out).toMatchObject({status:'rendered',paperType:'answer',pcCleanup:'done'});
+    const info=JSON.parse(decodeCp949(await f.seen()));
+    expect(info.print_list).toHaveLength(1);
+    expect(info.print_list[0].paper_type).toBe('answer');
+    expect(info.print_list[0].user_list[1].exam_list[0].exam_size_list).toEqual(SIZES);
+    // The save hands the whole write answer to the printer, which prints one PDF per item in print_list order.
+    const h=await clinicHarness(async(list,keyNo)=>{
+      const service=(await serviceFixture('answer-item')).service;
+      return service.printClinicList(list,keyNo);
+    });
+    try{
+      h.lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:answerItemPrintList(2)});
+      const saved:any=await h.service.save(h.approve({printPdf:true}));
+      expect(saved).toMatchObject({status:'saved',paperCount:3,pdf:{status:'rendered',pcCleanup:'done'}});
+      expect(saved.pdf.pdfs.map((p:any)=>[p.paperType,p.outputPath.match(/-(\d)\.pdf$/)?.[1]])).toEqual([['incorrect','1'],['incorrect','2'],['answer','3']]);
+      expect(h.seen).toEqual([{list:answerItemPrintList(2),keyNo:TESTING}]);
+    }finally{await h.cleanup();}
+    // An answer paper with an empty user_list, an entry without exam_list or with an empty one, a row without exam_no, a broken
+    // exam_size_list or a missing member refuses before any remote step; so does any other item without exam_list.
+    const refused=[answerPaper(0),answerPaper(1,{user_list:[{testing_name:'Invented testing 0'}]}),answerPaper(1,{user_list:[{exam_list:[]}]}),
+      answerPaper(1,{user_list:[{exam_list:[{exam_size_list:'[]'}]}]}),answerPaper(1,{user_list:[{exam_list:[{exam_no:1,exam_size_list:'[{'}]}]}),
+      answerPaper(1,{user_list:['x']}),answerPaper(1,{add_pat:undefined}),answerPaper(1,{paper_type:'incorrect'}),answerPaper(1,{exam_list:[]})];
+    for(const bad of refused){
+      expect(()=>printItemForPc(bad,{fromExamList:false})).toThrow('paper_print_item_incomplete');
+      expect(await code(print(f,'refused.pdf',{item:bad}))).toEqual({code:'paper_print_item_incomplete',pcCleanup:undefined});
+    }
+    const clinic=await serviceFixture('answer-item-refused');
+    expect(await clinic.service.printClinicList([...answerItemPrintList(1).slice(0,1),answerPaper(0)],PAPER)).toMatchObject({status:'unavailable',reasonCode:'paper_print_item_incomplete',pdfs:[]});
+    expect(clinic.pc.calls).toEqual([]);
   });
 
   test('clinic_save_print_pdf_error_only_adds_a_pdf_member',async()=>{

@@ -37,24 +37,42 @@ export function studyqInstallRoot(exeDir:string):string|null{
  * (measured). An item built from `getTestExamList` also needs `add_incorrect_comment` (from its `add_comment`). */
 export const PRINT_ITEM_MEMBERS=['add_answer','add_code','add_difficulty','add_explain','add_pat','exam_dispose_type','exam_spacer'] as const;
 const isRecord=(value:unknown):value is Record<string,unknown>=>value!==null&&typeof value==='object'&&!Array.isArray(value);
+/** One exam row with its `exam_size_list` as a JSON array (a string is parsed); anything else refuses. */
+function examForPc(exam:unknown):Record<string,unknown>{
+  if(!isRecord(exam))throw Error('paper_print_item_incomplete');
+  if(exam.exam_size_list===undefined)return exam;
+  let sizes=exam.exam_size_list;
+  if(typeof sizes==='string'){try{sizes=JSON.parse(sizes);}catch{throw Error('paper_print_item_incomplete');}}
+  if(!Array.isArray(sizes))throw Error('paper_print_item_incomplete');
+  return {...exam,exam_size_list:sizes};
+}
+/** The answer paper of a multi-testing clinic write (measured): `paper_type` `'answer'`, no `exam_list`, and a `user_list` array. */
+const isAnswerForm=(raw:Record<string,unknown>)=>raw.paper_type==='answer'&&raw.exam_list===undefined&&Array.isArray(raw.user_list);
 /** One print item as the PC takes it: an object holding the members of `PRINT_ITEM_MEMBERS` (and `add_incorrect_comment` when
  * `fromExamList`) and a non-empty `exam_list`, each `exam_size_list` a JSON array (the server sends it as a string, which
- * `StudyQPdfManager.exe` would copy into a broken `examset.info`). Anything else refuses with `paper_print_item_incomplete`.
+ * `StudyQPdfManager.exe` would copy into a broken `examset.info`). In place of `exam_list` the answer paper of a clinic write
+ * holds `user_list`: 1 to 200 entries, each with a non-empty `exam_list` (at most 5000 rows, each with an `exam_no`), whose
+ * `exam_size_list` strings are parsed the same way. Anything else refuses with `paper_print_item_incomplete`.
  * The input is not changed. */
 export function printItemForPc(raw:unknown,options:{fromExamList:boolean}):Record<string,unknown>{
   if(!isRecord(raw))throw Error('paper_print_item_incomplete');
   const required=options.fromExamList?[...PRINT_ITEM_MEMBERS,'add_incorrect_comment']:PRINT_ITEM_MEMBERS;
   if(required.some(member=>raw[member]===undefined||raw[member]===null))throw Error('paper_print_item_incomplete');
+  if(isAnswerForm(raw)){
+    const users=raw.user_list as unknown[];
+    if(users.length===0||users.length>200)throw Error('paper_print_item_incomplete');
+    const userList=users.map(user=>{
+      if(!isRecord(user)||!Array.isArray(user.exam_list)||user.exam_list.length===0||user.exam_list.length>5000)throw Error('paper_print_item_incomplete');
+      return {...user,exam_list:user.exam_list.map(exam=>{
+        const row=examForPc(exam);
+        if(row.exam_no===undefined||row.exam_no===null)throw Error('paper_print_item_incomplete');
+        return row;
+      })};
+    });
+    return {...raw,user_list:userList};
+  }
   if(!Array.isArray(raw.exam_list)||raw.exam_list.length===0)throw Error('paper_print_item_incomplete');
-  const examList=raw.exam_list.map(exam=>{
-    if(!isRecord(exam))throw Error('paper_print_item_incomplete');
-    if(exam.exam_size_list===undefined)return exam;
-    let sizes=exam.exam_size_list;
-    if(typeof sizes==='string'){try{sizes=JSON.parse(sizes);}catch{throw Error('paper_print_item_incomplete');}}
-    if(!Array.isArray(sizes))throw Error('paper_print_item_incomplete');
-    return {...exam,exam_size_list:sizes};
-  });
-  return {...raw,exam_list:examList};
+  return {...raw,exam_list:raw.exam_list.map(examForPc)};
 }
 
 const KEY=/^[1-9][0-9]{0,15}$/;

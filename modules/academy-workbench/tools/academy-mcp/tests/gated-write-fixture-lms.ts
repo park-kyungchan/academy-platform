@@ -18,6 +18,20 @@ export const pageHashes=():Required<ExpectedWireHashes>=>({bookIncorrect:wireSha
 export interface FixtureRequest{method:string;route:string;role:LmsRequestRole;process:string;condition:Record<string,any>|null;body:string}
 export const printList=(studentKey=STUDENT,papers=1)=>Array.from({length:papers},(_,i)=>({p_no:Number(PAPER)+i,pri_no:Number(studentKey),student_name:NAME_CANARY,sub_title:'Invented clinic paper '+i,
   exam_list:[{exam_no:1,lecture_key:5001,scoring_result:'X'},{exam_no:2,lecture_key:5002,scoring_result:'O'}]}));
+/** The measured shape of a multi-testing book write answer (invented values): one `incorrect` paper per testing, each with
+ * `pri_no` and `exam_list` (`exam_size_list` a JSON string, as the server sends it), then one `answer` paper with no `pri_no` and no
+ * `exam_list`, whose `user_list` holds one entry per testing with its own `exam_list`. No paper carries `p_no` or `paper_no`. */
+const SIZE='[{"answer_height":40,"exam_height":100,"exam_type":"obj","explain_height":50,"obj_height":30}]';
+const PAPER_MEMBERS={add_answer:1,add_code:0,add_difficulty:1,add_explain:0,add_pat:1,exam_dispose_type:'d2',exam_spacer:5,examset_title:'Invented title',
+  examset_type:'Invented type',grade_name:'Invented grade',logo:'https://storage.invalid/logo.png',print_type:'each',stage_id:'elem',student_name:NAME_CANARY,
+  sub_title:'Invented sub title',theme_color:'1',theme_type:'invented/theme'};
+export const incorrectPaper=(i:number,studentKey=STUDENT)=>({...PAPER_MEMBERS,paper_type:'incorrect',pri_no:Number(studentKey),testing_no:Number(TESTING)+i,
+  add_incorrect_comment:0,apply_date:'2040-01-1'+i,score:50,exam_list:[{exam_no:7001+i,lecture_key:5001+i,exam_size_list:SIZE}]});
+export const answerPaper=(testings=2,over:Record<string,unknown>={})=>({...PAPER_MEMBERS,paper_type:'answer',
+  user_list:Array.from({length:testings},(_,i)=>({apply_date:'2040-01-1'+i,testing_name:'Invented testing '+i,grade_name:'Invented grade',
+    exam_list:[{exam_no:7001+i,exam_size_list:SIZE}]})),...over});
+export const answerItemPrintList=(testings=2,answerOver:Record<string,unknown>={})=>[
+  ...Array.from({length:testings},(_,i)=>incorrectPaper(i)),answerPaper(testings,answerOver)];
 export const createdAnswer=()=>JSON.stringify({result:'OK',print_list:printList()});
 export const scoreAnswer=()=>JSON.stringify({result:'OK',print_list:printList()});
 

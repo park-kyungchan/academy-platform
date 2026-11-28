@@ -14,7 +14,7 @@ import {
 import {GatedWriteLedger,changeSha256Of,ledgerRefusedRoot,gatedWriteLedgerConfiguration,reviewTokenOf,type AttemptRecord} from '../../../../../apps/academy/dc-gang-a/src/lms/gatedWriteLedger.ts';
 import {clinicRequestEffect,testpageSelectExRequestEffect} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsRouteRegistry.ts';
 import {
-  BOOK,COOKIE_CANARY,COURSE,NAME_CANARY,PAPER,STUDENT,TESTING,TESTING2,bookPage,clinicPage,fixtureLms,fixturePort,pageHashes,scoreAnswer,type FixtureLms,
+  BOOK,COOKIE_CANARY,COURSE,NAME_CANARY,PAPER,STUDENT,TESTING,TESTING2,answerItemPrintList,answerPaper,bookPage,clinicPage,fixtureLms,fixturePort,pageHashes,scoreAnswer,type FixtureLms,
 } from './gated-write-fixture-lms.ts';
 
 // specs/academy-mcp/gated-writes.md R1-R16 for academy_clinic_paper_review and academy_clinic_paper_save. Invented numeric keys, synthetic
@@ -474,6 +474,43 @@ describe('gated writes R8, R14: the save and its readback',()=>{
       const book=harness(s.ledger);book.lms.state.noteTestingNos=[TESTING,TESTING2];
       const review=await book.reviewed(bookInput());book.lms.state.noteTestingNos=[TESTING];
       expect(await book.service.save(book.approve(review))).toMatchObject({status:'unverified',code:'clinic_readback_unverified'});
+    }finally{await s.cleanup();}
+  });
+  test('clinic_write_answer_with_answer_item_user_list_is_saved',async()=>{
+    const s=await scratch();
+    try{
+      // The measured answer of a book write: incorrect papers, then one answer paper that carries user_list instead of exam_list.
+      const book=harness(s.ledger);book.lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:answerItemPrintList(2)});
+      const b=await book.saved(bookInput());
+      expect(b.out).toMatchObject({status:'saved',kind:'book_incorrect',academyWrites:1,paperCount:3,paperKeys:[]});
+      expect(b.out.printListSha256).toMatch(/^[a-f0-9]{64}$/);
+      expect(stepsOf(book)).toEqual(['before_write:open','write_dispatched:open','response_received:open','reconciled:persisted']);
+      expect(JSON.stringify(b.out)).not.toContain(NAME_CANARY);
+      expect(readFileSync(s.ledger,'utf8')).not.toContain(NAME_CANARY);
+      // The clinic readback takes the same rule.
+      const clinic=harness(join(s.dir,'clinic.jsonl'));
+      clinic.lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:answerItemPrintList(1)});
+      clinic.lms.state.scoreAnswer=()=>JSON.stringify({result:'OK',print_list:answerItemPrintList(1)});
+      expect((await clinic.saved(clinicInput())).out).toMatchObject({status:'saved',kind:'clinic',paperCount:2});
+      // An answer paper with an empty user_list, an entry without exam_list or with an empty one, an exam row without exam_no,
+      // or an exam_list besides user_list (judged as before), is unverified and keeps the attempt open.
+      const bad:[string,Record<string,unknown>][]=[
+        ['empty user_list',answerPaper(0)],
+        ['entry without exam_list',answerPaper(1,{user_list:[{apply_date:'2040-01-10',testing_name:'Invented testing 0'}]})],
+        ['entry with an empty exam_list',answerPaper(1,{user_list:[{testing_name:'Invented testing 0',exam_list:[]}]})],
+        ['exam row without exam_no',answerPaper(1,{user_list:[{testing_name:'Invented testing 0',exam_list:[{lecture_key:5001}]}]})],
+        ['user_list not an array',answerPaper(1,{user_list:{}})],
+        ['answer paper with an empty exam_list',answerPaper(1,{exam_list:[]})],
+        ['not an answer paper',answerPaper(1,{paper_type:'incorrect'})],
+      ];
+      for(const [label,paper] of bad){
+        const h=harness(join(s.dir,'bad.jsonl'));
+        h.lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:[...answerItemPrintList(1).slice(0,1),paper]});
+        const {out}=await h.saved(bookInput());
+        expect({label,status:out.status,code:out.code}).toEqual({label,status:'unverified',code:'clinic_response_unverified'});
+        expect(h.attempts().at(-1)).toMatchObject({step:'response_unparsed',state:'open'});
+        await rm(join(s.dir,'bad.jsonl'),{force:true});
+      }
     }finally{await s.cleanup();}
   });
   test('gated_writes_r14_a_failed_write_request_leaves_the_attempt_open_at_write_dispatched_and_rejects',async()=>{
