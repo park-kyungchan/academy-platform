@@ -35,6 +35,8 @@ export const ACADEMY_ORIGIN='https://dc.gang-a.kr' as const;
 export interface AcademyPrincipal {teacherLabel:string;teacherKey:string;collegeKey:string}
 export interface AcademyCredential {username:string;password:string}
 export type SourceTransport=(url:string,init:RequestInit)=>Promise<Response>;
+/** The raw answer of one request, as the server sent it: the Content-Type header, the body bytes and their SHA-256. */
+export interface RawLmsAnswer {contentType:string;raw:Uint8Array;sha256:string}
 /** The DT/ZT result search's month selectors after the default `sort_date` '1', in their listed order. */
 export const DAILY_TEST_HISTORY_SELECTORS=['11','12','13','14','15','16'] as const;
 export type DailyTestHistorySelector=typeof DAILY_TEST_HISTORY_SELECTORS[number];
@@ -892,7 +894,7 @@ export class AcademyHttpClient {
   }
   /** One read request of the historical fallback. A login page, a session-error page or a
    * redirect fails closed with authentication_required (R11); no error holds a request value. */
-  async #historicalPost(path:string,fields:Record<string,string>,operation:string):Promise<string>{
+  async #historicalPost(path:string,fields:Record<string,string>,operation:string,onRawAnswer?:(value:RawLmsAnswer)=>void|Promise<void>):Promise<string>{
     if(!this.#authenticated)throw Error('authentication_required');
     let response:Response;
     try{response=await this.#request(path,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams(fields).toString()},false,operation);}
@@ -901,9 +903,16 @@ export class AcademyHttpClient {
         ||error instanceof Error&&['source_redirect_rejected','foreign_source_redirect_rejected','source_redirect_contract_rejected'].includes(error.message)){this.close();throw Error('authentication_required');}
       throw error;
     }
+    // The raw bytes are read from a copy of the body, so the text the caller parses is decoded exactly as before.
+    let copy:Response|null=null;
+    if(onRawAnswer)try{copy=response.clone();}catch{copy=null;}
     const text=await response.text();
     if(text.length>2000000)throw Error('source_response_too_large');
     if(isLoginOrSessionPage(text)){this.close();throw Error('authentication_required');}
+    if(copy&&onRawAnswer){
+      // Evidence only: a failure to hand over the raw answer never changes the text answered.
+      try{const raw=new Uint8Array(await copy.arrayBuffer());await onRawAnswer({contentType:response.headers.get('content-type')??'',raw,sha256:createHash('sha256').update(raw).digest('hex')});}catch{}
+    }
     return text;
   }
   /** One GET of a page whose inline handler the gated clinic write pins (specs/academy-mcp/gated-writes.md "Wire hash"): the
@@ -922,9 +931,10 @@ export class AcademyHttpClient {
   }
   /** One POST form of `TestpageSelectExServlet` (the wrong-note read, a score view, or the paper creation of a reviewed clinic
    * change): the raw answer text. Whether it is a read or a write is the class of its `p_process` and `condition`
-   * (lmsRouteRegistry.ts testpageSelectExRequestEffect); the caller owns that decision and its ledger. */
-  async postTestpageSelectEx(fields:{p_process:string}&Record<string,string>):Promise<string>{
-    return this.#historicalPost('/servlet/controller.common.TestpageSelectExServlet',fields,fields.p_process);
+   * (lmsRouteRegistry.ts testpageSelectExRequestEffect); the caller owns that decision and its ledger. `onRawAnswer`, when given,
+   * receives the raw bytes and content type of the same answer (the clinic save keeps an answer it cannot parse as evidence). */
+  async postTestpageSelectEx(fields:{p_process:string}&Record<string,string>,onRawAnswer?:(value:RawLmsAnswer)=>void|Promise<void>):Promise<string>{
+    return this.#historicalPost('/servlet/controller.common.TestpageSelectExServlet',fields,fields.p_process,onRawAnswer);
   }
   /**
    * One request of the gated FA and unit-exam pair (specs/academy-mcp/gated-writes.md R8, item 7 of the unit): the answer text under the 2 MiB bound.

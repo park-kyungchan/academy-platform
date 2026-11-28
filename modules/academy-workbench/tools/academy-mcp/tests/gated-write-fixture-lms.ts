@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import {lmsRequestRole,lmsRoute,type LmsRequestRole} from './network-deny.ts';
 import {wireSha256OfPage,type ClinicKind,type ExpectedWireHashes} from '../../../../../apps/academy/dc-gang-a/src/lms/clinicPaperWrite';
 import type {ClinicPaperBackend} from '../src/clinic-write-tools.ts';
@@ -61,9 +62,15 @@ export function fixtureLms(){
 export type FixtureLms=ReturnType<typeof fixtureLms>;
 
 const text=async(response:Response)=>{if(!response.ok)throw Error('academy_transport_failed');return response.text();};
-/** The port of the service over the recorded LMS: what AcademyHttpClient's two methods send, without the login exchange. */
+/** The port of the service over the recorded LMS: what AcademyHttpClient's two methods send, without the login exchange; the raw answer
+ * goes to `onRawAnswer` (its bytes and Content-Type) when the caller passes one, as AcademyHttpClient.postTestpageSelectEx does. */
 export const fixturePort=(lms:FixtureLms):ClinicPaperBackend=>({
   readClinicWirePage:async path=>text(await lms.transport(ORIGIN+path,{method:'GET'})),
-  postTestpageSelectEx:async fields=>text(await lms.transport(ORIGIN+'/servlet/controller.common.TestpageSelectExServlet',
-    {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams(fields).toString()})),
+  postTestpageSelectEx:async(fields,onRawAnswer)=>{
+    const response=await lms.transport(ORIGIN+'/servlet/controller.common.TestpageSelectExServlet',
+      {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams(fields).toString()});
+    const copy=onRawAnswer?response.clone():null,answer=await text(response);
+    if(copy&&onRawAnswer){const raw=new Uint8Array(await copy.arrayBuffer());await onRawAnswer({contentType:response.headers.get('content-type')??'',raw,sha256:createHash('sha256').update(raw).digest('hex')});}
+    return answer;
+  },
 });

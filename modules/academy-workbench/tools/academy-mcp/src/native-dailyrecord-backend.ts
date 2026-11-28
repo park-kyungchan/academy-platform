@@ -73,7 +73,7 @@ interface SourcePort {
   readLmsSchedule?(input:{teacherLabel:string;resolvedStudent?:{studentId:string;displayName:string}}&LmsScheduleInput):Promise<LmsScheduleRead&{observedAt:string;coverage:string}>;
   /** The gated clinic write (specs/academy-mcp/gated-writes.md): one page GET and one `TestpageSelectExServlet` POST form. */
   readClinicWirePage?(path:'/servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookMain'|'/servlet/controller.tutor.fa.TestPageListGrpServlet?p_process=Main'):Promise<string>;
-  postTestpageSelectEx?(fields:{p_process:string}&Record<string,string>):Promise<string>;
+  postTestpageSelectEx?(fields:{p_process:string}&Record<string,string>,onRawAnswer?:(value:{contentType:string;raw:Uint8Array;sha256:string})=>void|Promise<void>):Promise<string>;
   /** The gated FA and unit-exam write (specs/academy-mcp/gated-writes.md): reads of routes classed read, and the mutating requests of the save under the ledger lock. */
   readExamRoute?(path:string):Promise<string>;
   postExamRead?(path:string,fields:Record<string,string>):Promise<string>;
@@ -379,11 +379,12 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     await this.#authenticate();
     return this.client.readClinicWirePage(path);
   }
-  /** One `TestpageSelectExServlet` POST form of the gated clinic write: a read, or the one reviewed write. */
-  async postTestpageSelectEx(fields:{p_process:string}&Record<string,string>):Promise<string>{
+  /** One `TestpageSelectExServlet` POST form of the gated clinic write: a read, or the one reviewed write. `onRawAnswer` receives the
+   * raw bytes and content type of the answer besides the text (the save keeps an answer it cannot parse, as the CISM write keeps its HTTP answer). */
+  async postTestpageSelectEx(fields:{p_process:string}&Record<string,string>,onRawAnswer?:(value:{contentType:string;raw:Uint8Array;sha256:string})=>void|Promise<void>):Promise<string>{
     if(!this.client.postTestpageSelectEx)throw Error('clinic_source_port_unavailable');
     await this.#authenticate();
-    return this.client.postTestpageSelectEx({...fields});
+    return onRawAnswer?this.client.postTestpageSelectEx({...fields},onRawAnswer):this.client.postTestpageSelectEx({...fields});
   }
   /** One GET of a route classed read of the gated exam write (AutoModify, CheckMunhang, TestHangServlet Main and Validate). */
   async readExamRoute(path:string):Promise<string>{

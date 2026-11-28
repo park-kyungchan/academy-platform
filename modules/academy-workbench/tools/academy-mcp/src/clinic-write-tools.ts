@@ -1,10 +1,12 @@
 import {randomUUID} from 'node:crypto';
+import {closeSync,constants,fstatSync,fsyncSync,lstatSync,mkdirSync,openSync,realpathSync,unlinkSync,writeFileSync} from 'node:fs';
+import {isAbsolute,resolve} from 'node:path';
 import {z} from 'zod';
 import type {McpServer} from '@modelcontextprotocol/server';
 import {publicReadFailure,readFailureResult} from './read-failure.ts';
 import {academyRoutingDescription} from './routing-context.ts';
 import {
-  GatedWriteLedger,GatedWriteRefusal,REVIEW_TOKEN_TTL_MS,changeSha256Of,openAttempts,reviewTokenOf,stepsOf,verifyReviewToken,
+  GatedWriteLedger,GatedWriteRefusal,REVIEW_TOKEN_TTL_MS,changeSha256Of,openAttempts,reviewTokenOf,sha256Hex,stepsOf,verifyReviewToken,
   type AttemptRecord,type LedgerRecord,type LedgerLock,
 } from '../../../../../apps/academy/dc-gang-a/src/lms/gatedWriteLedger';
 import {
@@ -13,6 +15,8 @@ import {
   type ClinicChange,type ClinicKind,type ExpectedWireHashes,type WireFields,
 } from '../../../../../apps/academy/dc-gang-a/src/lms/clinicPaperWrite';
 
+/** The raw answer of the write as the port received it: the Content-Type header, the body bytes and their SHA-256. */
+export interface ClinicRawAnswer {contentType:string;raw:Uint8Array;sha256:string}
 /**
  * `academy_clinic_paper_review` and `academy_clinic_paper_save` (specs/academy-mcp/gated-writes.md): the wrong-note paper of a
  * book and the similar or advance clinic paper of one attempt, made in two phases. The review reads the live page, checks its
@@ -20,11 +24,13 @@ import {
  * writes only that change, only with `userApproved: true`, records each step in the private attempt ledger before the request
  * it guards, and reads the scope back. Every refusal before the write sends 0 write requests (R15). With `printPdf: true` a saved
  * call hands the `print_list` of its own write answer to the paper printer (specs/academy-mcp/pc-paper-executor.md), after the
- * attempt is recorded persisted and outside the serialized section and the ledger lock; the list is never stored.
+ * attempt is recorded persisted and outside the serialized section and the ledger lock; the list is never stored. A write answer
+ * that `parseWriteResponse` cannot read is kept, raw, as one private evidence file (`keepClinicWriteEvidence`).
  */
 export interface ClinicPaperBackend {
   readClinicWirePage(path:typeof BOOK_INCORRECT_PAGE|typeof CLINIC_PAGE):Promise<string>;
-  postTestpageSelectEx(fields:WireFields):Promise<string>;
+  /** `onRawAnswer`, when given, receives the raw answer besides the text answered; only the save's one write passes it. */
+  postTestpageSelectEx(fields:WireFields,onRawAnswer?:(value:ClinicRawAnswer)=>void|Promise<void>):Promise<string>;
 }
 export interface ClinicPaperOptions {
   now?:()=>number;newId?:()=>string;
@@ -33,6 +39,38 @@ export interface ClinicPaperOptions {
   pidAlive?:(pid:number)=>boolean;
   /** The paper printer of `printPdf` (src/paper-print-pdf.ts printClinicList); absent: the PDF part answers pc_executor_not_configured. */
   printer?:ClinicPaperPrinter|null;
+  /**
+   * The directory of the private evidence of unparsed write answers (production: `<owner artifacts>/clinic-write/http-ack`, made 0700;
+   * tests: a mkdtemp directory of mode 0700). None: no file is written and an unparsed answer answers `evidence: 'unavailable'`.
+   */
+  evidenceRoot?:string|null;
+}
+
+const EVIDENCE_NAME=/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
+/**
+ * Keeps the raw answer of a clinic write that `parseWriteResponse` could not read as `<root>/<attemptId>.json`, holding
+ * `{attemptId, scopeKey, contentType, sha256, rawBodyBase64}`: the root is made 0700 when absent and must be a directory of the
+ * server's uid, mode 0700, not a symlink, equal to its realpath; the file is created exclusively with mode 0600 (no symlink followed),
+ * written whole and synced, then the directory is synced. Throws `clinic_evidence_unavailable` when any of that cannot hold.
+ */
+export function keepClinicWriteEvidence(root:string,value:{attemptId:string;scopeKey:string;contentType:string;sha256:string;raw:Uint8Array}):void{
+  const fail=():never=>{throw Error('clinic_evidence_unavailable');};
+  if(!root||!isAbsolute(root)||resolve(root)!==root||root.includes('\0')||!EVIDENCE_NAME.test(value.attemptId))fail();
+  mkdirSync(root,{recursive:true,mode:0o700});
+  const st=lstatSync(root);
+  if(!st.isDirectory()||st.isSymbolicLink()||(st.mode&0o777)!==0o700||st.uid!==process.getuid?.()||realpathSync(root)!==root)fail();
+  const path=resolve(root,value.attemptId+'.json');
+  const fd=openSync(path,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
+  try{
+    const file=fstatSync(fd);
+    if(!file.isFile()||file.nlink!==1||(file.mode&0o077)!==0||file.uid!==process.getuid?.())fail();
+    writeFileSync(fd,JSON.stringify({attemptId:value.attemptId,scopeKey:value.scopeKey,contentType:value.contentType,sha256:value.sha256,
+      rawBodyBase64:Buffer.from(value.raw).toString('base64')})+'\n');
+    fsyncSync(fd);
+  }catch(error){closeSync(fd);try{unlinkSync(path);}catch{/* nothing more can be done */}throw error;}
+  closeSync(fd);
+  const directory=openSync(root,constants.O_RDONLY);
+  try{fsyncSync(directory);}finally{closeSync(directory);}
 }
 export interface ClinicPaperPrinter {printClinicList(printList:readonly unknown[],keyNo:string):Promise<{status:string;pdfs:unknown[]}&Record<string,unknown>>}
 
@@ -112,7 +150,7 @@ export class ClinicPaperService {
         let records=this.ledger.read(),scoped:string[]|null=null;
         const open=openAttempts(records,{tool:CLINIC_TOOL_FAMILY,studentKey,scopeKey});
         if(open.length){
-          // R12: a read-only readback decides; a write_dispatched attempt cannot be decided (the LMS lists no created clinic papers).
+          // R12: a read-only readback decides; a write_dispatched or response_unparsed attempt cannot be decided (the LMS lists no created clinic papers).
           let readable=true;
           try{scoped=await this.#readScope(request.kind==='book_incorrect'?request:{kind:'clinic',studentKey,testingNo:request.testingNo});}catch{readable=false;}
           const outcomes=open.map(a=>{
@@ -186,12 +224,15 @@ export class ClinicPaperService {
       // From here a failure leaves the attempt open at write_dispatched: the LMS may or may not have made the paper.
       const fields=writeFields(change);
       dispatched=true;
-      const answer=await this.backend.postTestpageSelectEx(fields);
+      // The raw answer is held in memory for this call and kept on disk only when its text cannot be parsed.
+      const received:{raw?:ClinicRawAnswer}={};
+      const answer=await this.backend.postTestpageSelectEx(fields,value=>{received.raw=value;});
       const unverified=(code:string,extra:Record<string,unknown>={})=>({status:'unverified' as const,code,reasonCode:code,failure:publicReadFailure(Error(code),'clinic_source_failed'),
         kind:change.kind,studentKey,scopeKey,attemptId,academyWrites:null,effectStatus:'unknown' as const,...CLEAN,
         nextStep:'The attempt stays open. Call academy_clinic_paper_review for the same target: it reconciles by a read-only readback, or answers reconcile_blocks_retry when the LMS cannot show the result.',...extra});
       let parsed:ReturnType<typeof parseWriteResponse>;
-      try{parsed=parseWriteResponse(answer,studentKey);}catch{return unverified('clinic_response_unverified');}
+      try{parsed=parseWriteResponse(answer,studentKey);}
+      catch{return unverified('clinic_response_unverified',this.#keepUnparsed(answer,received.raw,{attemptId,scopeKey,record}));}
       try{this.ledger.append(record('response_received','open',{responseSha256:parsed.responseSha256,paperKeys:parsed.paperKeys}));}
       catch{return unverified('ledger_unavailable',{printListSha256:parsed.printListSha256,paperKeys:parsed.paperKeys});}
       try{                                                                                         // R14: the read-only scope readback
@@ -215,6 +256,23 @@ export class ClinicPaperService {
       if(dispatched)throw error;
       return refused(error instanceof z.ZodError?Error('tool_input_invalid'):error);
     }finally{lock?.release();}
+  }
+
+  /**
+   * An answer `parseWriteResponse` could not read: its raw bytes go to the private evidence file, then the ledger records the step
+   * `response_unparsed` with their hash (keys and hashes only, R16). Neither may change the answer's status or the attempt's state
+   * (open, indeterminate under R12); a failure of either only shows in the answer as `evidence: 'unavailable'` or a ledger left at
+   * `write_dispatched`. No request is sent here.
+   */
+  #keepUnparsed(text:string,raw:ClinicRawAnswer|undefined,at:{attemptId:string;scopeKey:string;record:(step:AttemptRecord['step'],state:AttemptRecord['state'],extra?:Partial<AttemptRecord>)=>AttemptRecord}){
+    const responseSha256=raw?sha256Hex(raw.raw):sha256Hex(text);
+    let evidence:'kept'|'unavailable'='unavailable';
+    if(raw&&this.options.evidenceRoot){
+      try{keepClinicWriteEvidence(this.options.evidenceRoot,{attemptId:at.attemptId,scopeKey:at.scopeKey,contentType:raw.contentType,sha256:responseSha256,raw:raw.raw});evidence='kept';}
+      catch{/* evidence: 'unavailable' */}
+    }
+    try{this.ledger.append(at.record('response_unparsed','open',{responseSha256}));}catch{/* the attempt stays open at write_dispatched, also indeterminate */}
+    return {responseSha256,evidence};
   }
 }
 
