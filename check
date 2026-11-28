@@ -5,12 +5,12 @@
 #                 bun test (academy-mcp), build, tests: the default members
 #   ./check all   the same steps over the whole workspace; the default members equal
 #                 the workspace members, so it does what ./check does
-# The steps `i6` and `python unittest (studyq-linux)` run everywhere: `i6` scans specs/ and
-# modules/studyq-linux/ for secret values (privacy check I6, specs/studyq-linux/core.md R28; with
-# CHECK_STUDYQ_ROSTER=<file of names, one per line> it also scans for those names and prints
-# file names only), and the unit tests run the rendering tests when CHECK_STUDYQ_PYMUPDF=1 is set
-# or `pymupdf` imports. CHECK_I6_ROOTS=<dir>[:<dir>...] makes `check` run only `i6` over those
-# directories (used by the tests of the scan).
+# The step `i6` runs everywhere: it scans specs/ and the sources of the Academy server
+# (modules/academy-workbench/tools/academy-mcp/src, apps/academy/dc-gang-a/src) for secret values
+# (privacy check I6, specs/academy-mcp/pc-paper-executor.md R18; with CHECK_STUDYQ_ROSTER=<file of
+# names, one per line> it also scans for those names and prints file names only).
+# CHECK_I6_ROOTS=<dir>[:<dir>...] makes `check` run only `i6` over those directories (used by the
+# tests of the scan).
 # The step `bun test (academy-mcp)` runs in CI (CI=true), and outside CI only when CHECK_BUN=1;
 # otherwise it prints one skip line and goes on, so CI stays the gate for the module's tests.
 # Where it runs it needs bun (CI installs 1.4.3 before this file; a missing bun fails with
@@ -111,9 +111,7 @@ cargo fmt --all -- --check
 cargo clippy ${scope[@]+"${scope[@]}"} --all-targets --locked -- -D warnings
 python3 -B -m unittest discover -s crates/edu-academy-teacher/harness
 echo "check: i6"
-i6_scan specs modules/studyq-linux || { echo "i6: failed" >&2; exit 5; }
-echo "check: python unittest (studyq-linux)"
-python3 -B -m unittest discover -s modules/studyq-linux/tests
+i6_scan specs modules/academy-workbench/tools/academy-mcp/src apps/academy/dc-gang-a/src || { echo "i6: failed" >&2; exit 5; }
 bash scripts/test-academy-mcp-install.sh
 if [ "${CI:-}" = true ] || [ "${CHECK_BUN:-}" = 1 ]; then
   echo "check: bun test (academy-mcp)"

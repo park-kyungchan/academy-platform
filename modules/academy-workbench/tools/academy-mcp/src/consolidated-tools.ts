@@ -160,10 +160,10 @@ export const keptTools:readonly {name:string;title:string;description:string;inp
  {name:'academy_official_report_pdf_get',title:'공식 리포트 PDF',
   description:"Official StudyQ PDF (공식·교재 리포트) by StudyQReport.exe on PC, read-only LMS. reportType course_book: displayName; courseKey+bookNo+studentKey or params.bookLabel. cism: params.scope week+date. diag/formative/ganga/na_score: displayName+params.testingNo+classNo. smart_book: displayName+params.bookCode. new_diag: params.paperNo+applyCode. Saved in owner root (no overwrite): outputPath, sha256, pages.",
   inputSchema:schema({reportType:oneOf('course_book','cism','diag','new_diag','formative','ganga','na_score','smart_book'),displayName:str,studentName:str,courseKey:str,bookNo:str,studentKey:str,params:obj,outputPath:str},['reportType'])},
- // The second new tool: the printable PDF of an existing paper (CreateTotalPrint, CreateClinic), read-only.
+ // The second new tool: the native PDFs of an existing paper or of one attempt's score paper, made on the user PC (specs/academy-mcp/pc-paper-executor.md).
  {name:'academy_paper_print_pdf_get',title:'시험지·클리닉지 인쇄 PDF',
-  description:"Printable PDF (시험지·클리닉지) of an existing paper. mode 'exam': paperNo (its exam list) or paperKeys (selType default obj); 'examtext': passage paperKeys; 'clinic': clinic print of either. includeAnswers, includeExplain add pages. Saved under owner root (outputPath optional); answers outputPath, sha256. Read only.",
-  inputSchema:schema({mode:oneOf('exam','examtext','clinic'),paperNo:str,paperKeys:strs,selType:oneOf('obj','sbj','des'),includeAnswers:bool,includeExplain:bool,outputPath:str},['mode'])},
+  description:"Native print PDF (시험지·정답지·채점지) by StudyQPdfManager+ETestMaker on PC, read-only LMS. source paper: paperNo, printCase (default teacher_paper). result: testingNo+studentKey (score paper). Clinic papers: academy_clinic_paper_save printPdf. Saved in owner root (outputPath, -n per item): pdfs[] outputPath, sha256. pc_busy: retry later.",
+  inputSchema:schema({source:oneOf('paper','result'),paperNo:str,printCase:oneOf('teacher_paper','student_paper','answer_paper'),testingNo:str,studentKey:str,outputPath:str},['source'])},
  // The third new tool: the read-only attendance, study schedule and course study manager pages (specs/academy-mcp/lms-reads.md).
  {name:'academy_lms_schedule_get',title:'출결·학습일정·과정관리',
   description:"Read-only LMS page. view: attendance (date or period, YYYY-MM-DD, ≤31 days, same month), study_schedule (gradeNo, groupKey, studentKey, courseKey), course_study_manager (gradeNo, semesterNo, levelNo, status), test_results (family da|fa|na: displayName, period ≤92 days; new_diag: sortDate): paperNo, testingNo, classNo, applyCode.",
@@ -173,8 +173,8 @@ export const keptTools:readonly {name:string;title:string;description:string;inp
   description:"Read-only review of a wrong-note (book_incorrect) or clinic paper; clinic modes multiply/divide/custom. Answers change, reviewToken.",
   inputSchema:schema({kind:oneOf('book_incorrect','clinic'),studentKey:str,courseKey:str,bookNo:str,testingNo:str,testingNos:strs,clinicMode:oneOf('multiply','divide','custom'),createSimilar:bool,similarCount:num,createAdvance:bool,advanceCount:num,patList:arr},['kind','studentKey'])},
  {name:'academy_clinic_paper_save',title:'오답·클리닉지 저장(LMS 쓰기)',
-  description:"Creates the reviewed paper once, only after the teacher approves: reviewToken, userApproved true, the reviewed change. saved after readback, else unverified: no retry.",
-  inputSchema:schema({reviewToken:sha,userApproved:bool,change:obj},['reviewToken','userApproved','change'])},
+  description:"Creates the reviewed paper once, only after the teacher approves: reviewToken, userApproved true, the reviewed change. saved after readback, else unverified: no retry. printPdf true: also its PDFs on PC (pdf).",
+  inputSchema:schema({reviewToken:sha,userApproved:bool,change:obj,printPdf:bool},['reviewToken','userApproved','change'])},
  // The sixth and seventh new tools: the two phases of the gated FA and unit-exam creation and assignment (specs/academy-mcp/gated-writes.md).
  {name:'academy_exam_paper_review',title:'시험지 출제·배정 검토',
   description:"Read-only review of an FA (fa: sourcePaperNo or items {key,type obj|sbj|des}) or unit-exam (da: courseNo) paper for named students (targets {studentName,studentKey}, start/end YYYY-MM-DDTHH:MM). Answers change, preview, reviewToken.",

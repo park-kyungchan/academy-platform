@@ -15,7 +15,7 @@ import {applyJournalHttpAction,validateJournalHttpAction,assertJournalWireQualif
 import {parseItemMetadata} from './itemMetadataRead';
 import {selectSourceFunction} from './sourceFunctionText';
 import {inspectAssessmentSearchMetadata,inspectStudentNameSearch,parseScoreView} from './assessmentReadProtocol';
-import {PAPER_EXAM_LIST_PATH,paperExamListForm,parsePaperExamList,printArchiveUrl,boundedPrintArchiveBody,type PaperExamRow,type PrintArchiveKind} from './paperPrintRead';
+import {PAPER_EXAM_LIST_PATH,paperExamListForm,parsePaperExamList,paperPrintSourceForm,parsePaperPrintSource,resultPrintListForm,parseResultPrintList,type PaperExamRow,type PaperPrintCase} from './paperPrintRead';
 import {COURSE_BOOK_REPORT_PATH,isLoginOrSessionPage,readCourseBookReportEnvelope,verifyCourseBookReport,type CourseBookReport} from './courseBookReport';
 import {REPORT_VIEW_PATH,readReportViewEnvelope,reportViewForm} from './reportViewClient';
 import {validateReportViewName} from './reportViewRead';
@@ -1009,22 +1009,29 @@ export class AcademyHttpClient {
     const form=reportViewForm(name,name==='NewStudentReportView'&&params?.collegeKey===undefined?{...params,collegeKey:this.#principal.collegeKey}:params);
     return readReportViewEnvelope(await this.#historicalPost(REPORT_VIEW_PATH,Object.fromEntries(form),name));
   }
-  /** `getTestExamList` of one paper (specs/studyq-linux/core.md R20; a read, lmsRouteRegistry.ts): the rows
-   * of its exam list. A login page refuses with authentication_required; a row whose `sel_type` is not
-   * obj, sbj or des refuses the whole list with paper_exam_sel_type_unqualified, before any download. */
+  /** `getTestExamList` of one paper with `p_option_type` 2 (a read, lmsRouteRegistry.ts): the rows of its exam list, for the
+   * gated exam write. A login page refuses with authentication_required; a row whose `sel_type` is not obj, sbj or des
+   * refuses the whole list with paper_exam_sel_type_unqualified. */
   async readPaperExamList(paperNo:string):Promise<PaperExamRow[]>{
     const form=paperExamListForm(paperNo);
     return parsePaperExamList(await this.#historicalPost(PAPER_EXAM_LIST_PATH,form,'getTestExamList'));
   }
-  /** One `print.zip` of the static storage: a read-only GET of the pinned URL made from the integer key,
-   * with no Academy cookie or credential (`credentials: 'omit'`, no redirect), HTTP 200 only and at most
-   * 16 MiB. The bytes are only data for modules/studyq-linux; nothing here opens an archive. */
-  async downloadPrintArchive(kind:PrintArchiveKind,key:number):Promise<Uint8Array>{
-    const url=printArchiveUrl(kind,key);let response:Response;
-    try{response=await this.#transport(url.href,{method:'GET',headers:{Accept:'application/zip, application/octet-stream'},credentials:'omit',redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(30000)});}
-    catch{throw Error('paper_print_transport_failed');}
-    if(response.url&&response.url!==url.href)throw Error('paper_print_archive_rejected');
-    return boundedPrintArchiveBody(response);
+  /** `getTestExamList` of one paper with a print case as `p_option_type` (a read; specs/academy-mcp/pc-paper-executor.md):
+   * the answer as the server sent it, from which the print item is built as the page builds it. */
+  async readPaperPrintSource(paperNo:string,printCase:PaperPrintCase):Promise<Record<string,unknown>>{
+    const form=paperPrintSourceForm(paperNo,printCase);
+    return parsePaperPrintSource(await this.#historicalPost(PAPER_EXAM_LIST_PATH,form,'getTestExamList'));
+  }
+  /** The `print_list` of the score view of one attempt (`getStudyResultSingleTestingSingleUser`, `score.create` 1 and
+   * nothing created: a read; specs/academy-mcp/pc-paper-executor.md), as the server answered it. */
+  async readResultPrintList(testingNo:string,studentKey:string):Promise<Record<string,unknown>[]>{
+    const form=resultPrintListForm(testingNo,studentKey);
+    return parseResultPrintList(await this.#historicalPost(PAPER_EXAM_LIST_PATH,form,form.p_process),studentKey);
+  }
+  /** The school key (`sk`) and teacher key (`uk`) of the signed-in principal, which the page passes with a print command. */
+  paperPrintPrincipal():{schoolKey:string;teacherKey:string}{
+    if(!this.#authenticated)throw Error('authentication_required');
+    return {schoolKey:this.#principal.collegeKey,teacherKey:this.#principal.teacherKey};
   }
   /** Section detail of the historical fallback: the single-user result of each attempt that
    * readHistoricalTextbookIndex verified for this exact scope, never another attempt. */

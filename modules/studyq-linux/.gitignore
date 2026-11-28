@@ -1,3 +1,0 @@
-# Bytecode: the hash-pinned runner (academy-mcp src/studyq-runner.ts) refuses a source tree that holds it.
-__pycache__/
-*.pyc

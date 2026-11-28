@@ -926,7 +926,8 @@ describe('gated writes: the tool surface, the exposure manifest and the lesson-d
     for(const word of ['book_incorrect','clinic','multiply','divide','custom','Read-only'])expect(review.description).toContain(word);
     expect(Object.keys(review.inputSchema.properties)).toEqual(['kind','studentKey','courseKey','bookNo','testingNo','testingNos','clinicMode','createSimilar','similarCount','createAdvance','advanceCount','patList']);
     expect(review.inputSchema.required).toEqual(['kind','studentKey']);
-    expect(Object.keys(save.inputSchema.properties)).toEqual(['reviewToken','userApproved','change']);
+    // printPdf (specs/academy-mcp/pc-paper-executor.md R16) is optional.
+    expect(Object.keys(save.inputSchema.properties)).toEqual(['reviewToken','userApproved','change','printPdf']);
     expect(save.inputSchema.required).toEqual(['reviewToken','userApproved','change']);
     expect(surface.tools).toHaveLength(22);
     expect(bytes(surface.tools.slice(0,15))).toBe(18317);
