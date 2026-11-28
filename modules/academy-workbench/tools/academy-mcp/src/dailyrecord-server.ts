@@ -9,6 +9,8 @@ import {registerTextbookSourceTools} from './textbook-source-tools.ts';
 import {textbookPdfReaderConfiguration} from './textbook-pdf-reader.ts';
 import {dailyRecordToolConfiguration,registerDailyRecordTools,registerOfficialReportPdfTool,registerPaperPrintPdfTool} from './dailyrecord-tools.ts';
 import {LmsScheduleService,registerLmsScheduleTool} from './lms-schedule-tools.ts';
+import {ClinicPaperService,registerClinicPaperTools} from './clinic-write-tools.ts';
+import {gatedWriteLedgerConfiguration} from '../../../../../apps/academy/dc-gang-a/src/lms/gatedWriteLedger';
 import {historicalBindingReaderConfiguration} from './historical-binding-reader.ts';
 import {studyqRunnerConfiguration} from './studyq-runner.ts';
 import {OfficialReportPdfService} from './official-report-pdf.ts';
@@ -18,7 +20,9 @@ import {nativeDailyRecordConfiguration,nativeOwnerArtifactsRoot} from './native-
 import {createDailyRecordWorkflow,dailyRecordWorkflowConfiguration} from './dailyrecord-workflow.ts';
 
 const runtimeIdentity=await runtimeIdentityConfiguration(process.argv.slice(2));
-const textbookReader=await textbookPdfReaderConfiguration(runtimeIdentity.remainingArgs);
+// --gated-write-ledger <absPath> (or ACADEMY_GATED_WRITE_LEDGER_PATH): the private attempt ledger of the gated writes; with neither, the gated saves refuse ledger_unavailable.
+const gatedLedger=gatedWriteLedgerConfiguration(runtimeIdentity.remainingArgs);
+const textbookReader=await textbookPdfReaderConfiguration(gatedLedger.remainingArgs);
 // --memory-bindings <memoryBin> <storePath> and --studyq-runner <interpreter> <sha256> <srcDir> <sha256> <assetsDir>.
 const memoryBindings=historicalBindingReaderConfiguration(textbookReader.remainingArgs);
 const studyq=await studyqRunnerConfiguration(memoryBindings.remainingArgs);
@@ -41,6 +45,7 @@ registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,con
 registerOfficialReportPdfTool(server,new OfficialReportPdfService(native?.backend??null,studyq.runner,join(nativeOwnerArtifactsRoot,'official-reports')));
 registerPaperPrintPdfTool(server,new PaperPrintPdfService(native?.backend??null,studyq.runner,join(nativeOwnerArtifactsRoot,'print-pdfs')));
 registerLmsScheduleTool(server,new LmsScheduleService(native?.backend??null));
+registerClinicPaperTools(server,new ClinicPaperService(native?.backend??null,gatedLedger.path));
 if(native)process.once('exit',native.close);
 installStdioDiagnostics(server.server);
 await server.connect(createAcademyStdioTransport());

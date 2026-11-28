@@ -69,6 +69,9 @@ interface SourcePort {
   searchStudentsByName?(input:{teacherLabel:string;studentName:string}):Promise<unknown>;
   readPrestudy?(input:{teacherLabel:string;studentName:string;view?:PrestudyView}):Promise<{view?:PrestudyView;waiting?:unknown[];completed?:unknown[];summary?:unknown[];observedAt:string;coverage:string}>;
   readLmsSchedule?(input:{teacherLabel:string}&LmsScheduleInput):Promise<LmsScheduleRead&{observedAt:string;coverage:string}>;
+  /** The gated clinic write (specs/academy-mcp/gated-writes.md): one page GET and one `TestpageSelectExServlet` POST form. */
+  readClinicWirePage?(path:'/servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookMain'|'/servlet/controller.tutor.fa.TestPageListGrpServlet?p_process=Main'):Promise<string>;
+  postTestpageSelectEx?(fields:{p_process:string}&Record<string,string>):Promise<string>;
   readPrestudyReport?(input:{teacherLabel:string;studentName:string;studentKey:string;prestudyKey:string}):Promise<{sections:unknown[];scores:number[];prestudyKey:string;sourceRecord:{prestudyKey:string;unitLabel:string|null;dateLiteral:string|null};encodingResult:string|null;observedAt:string;coverage:string}>;
   readTextbookBindings?(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[]>;
   inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];indexBasis?:string;coverage?:string}>;
@@ -329,6 +332,18 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     if(!this.client.readLmsSchedule)throw Error('lms_schedule_source_port_unavailable');
     await this.#authenticate();
     return this.client.readLmsSchedule({...structuredClone(input) as LmsScheduleInput,teacherLabel:this.admission.teacherLabel});
+  }
+  /** One GET of a pinned wire page of the gated clinic write. */
+  async readClinicWirePage(path:'/servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookMain'|'/servlet/controller.tutor.fa.TestPageListGrpServlet?p_process=Main'):Promise<string>{
+    if(!this.client.readClinicWirePage)throw Error('clinic_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.readClinicWirePage(path);
+  }
+  /** One `TestpageSelectExServlet` POST form of the gated clinic write: a read, or the one reviewed write. */
+  async postTestpageSelectEx(fields:{p_process:string}&Record<string,string>):Promise<string>{
+    if(!this.client.postTestpageSelectEx)throw Error('clinic_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.postTestpageSelectEx({...fields});
   }
   /** AI prestudy report for one exact record of one student. The
    * client binds the detail record to the student key before following

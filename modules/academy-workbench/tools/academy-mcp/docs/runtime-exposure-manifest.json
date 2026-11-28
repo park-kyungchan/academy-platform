@@ -196,6 +196,16 @@
       "name": "academy_lms_schedule_get",
       "class": "read",
       "exposure": "open"
+    },
+    {
+      "name": "academy_clinic_paper_review",
+      "class": "read",
+      "exposure": "open"
+    },
+    {
+      "name": "academy_clinic_paper_save",
+      "class": "write",
+      "exposure": "gated_save_admission"
     }
   ],
   "closedUntilAttribution": [],
