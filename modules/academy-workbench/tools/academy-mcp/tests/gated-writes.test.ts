@@ -14,7 +14,7 @@ import {
 import {GatedWriteLedger,changeSha256Of,ledgerRefusedRoot,gatedWriteLedgerConfiguration,reviewTokenOf,type AttemptRecord} from '../../../../../apps/academy/dc-gang-a/src/lms/gatedWriteLedger.ts';
 import {clinicRequestEffect,testpageSelectExRequestEffect} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsRouteRegistry.ts';
 import {
-  BOOK,COOKIE_CANARY,COURSE,NAME_CANARY,STUDENT,TESTING,TESTING2,bookPage,clinicPage,fixtureLms,fixturePort,pageHashes,scoreAnswer,type FixtureLms,
+  BOOK,COOKIE_CANARY,COURSE,NAME_CANARY,PAPER,STUDENT,TESTING,TESTING2,bookPage,clinicPage,fixtureLms,fixturePort,pageHashes,scoreAnswer,type FixtureLms,
 } from './gated-write-fixture-lms.ts';
 
 // specs/academy-mcp/gated-writes.md R1-R16 for academy_clinic_paper_review and academy_clinic_paper_save. Invented numeric keys, synthetic
