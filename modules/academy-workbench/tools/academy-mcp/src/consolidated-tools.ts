@@ -158,8 +158,8 @@ export const keptTools:readonly {name:string;title:string;description:string;inp
  // The first new tool of specs/academy-mcp/tool-surface.md "New tools". `params` holds the options of a report type,
  // so a later report type adds a reportType value and its own params, not new members.
  {name:'academy_official_report_pdf_get',title:'공식 리포트 PDF',
-  description:"Official StudyQ PDF (공식·교재 리포트), read-only LMS. reportType course_book: displayName; courseKey+bookNo+studentKey or params.bookLabel. cism: params.scope week+date or month. diag, formative: displayName, params.testingNo+classNo. new_diag: params.paperNo+applyCode. Saved under owner root (outputPath: optional .pdf, no overwrite); answers outputPath, sha256, pages, parityOk.",
-  inputSchema:schema({reportType:oneOf('course_book','cism','diag','new_diag','formative'),displayName:str,studentName:str,courseKey:str,bookNo:str,studentKey:str,params:obj,outputPath:str},['reportType'])},
+  description:"Official StudyQ PDF (공식·교재 리포트), read-only LMS. reportType course_book: displayName; courseKey+bookNo+studentKey or params.bookLabel. cism: params.scope week+date|month. diag/formative/ganga/na_score: displayName+params.testingNo+classNo. smart_book: displayName+params.bookCode. new_diag: params.paperNo+applyCode. Saved under owner root (no overwrite); answers outputPath, sha256, pages, parityOk.",
+  inputSchema:schema({reportType:oneOf('course_book','cism','diag','new_diag','formative','ganga','na_score','smart_book'),displayName:str,studentName:str,courseKey:str,bookNo:str,studentKey:str,params:obj,outputPath:str},['reportType'])},
  // The second new tool: the printable PDF of an existing paper (CreateTotalPrint, CreateClinic), read-only.
  {name:'academy_paper_print_pdf_get',title:'시험지·클리닉지 인쇄 PDF',
   description:"Printable PDF (시험지·클리닉지) of an existing paper. mode 'exam': paperNo (its exam list) or paperKeys (selType default obj); 'examtext': passage paperKeys; 'clinic': clinic print of either. includeAnswers, includeExplain add pages. Saved under owner root (outputPath optional); answers outputPath, sha256. Read only.",

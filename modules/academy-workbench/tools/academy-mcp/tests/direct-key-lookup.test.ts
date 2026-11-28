@@ -294,7 +294,7 @@ describe('direct-key historical lookup (specs/academy-mcp/direct-key-lookup.md)'
    .toBe('p_process=FaView&p_testing_no=902&p_pri_no=770011&p_cls_no=560013&p_limit_date=');
   expect(reportViewForm('NewStudentReportView',{paperNo:'4401',applyCode:'APP-7',collegeKey:'88001'}).toString())
    .toBe('p_process=NewStudentReportView&p_p_no=4401&p_apply_code=APP-7&clg_no=88001');
-  for(const [view,params,code] of [['StudentInfoView',{},'report_view_name_invalid'],['GaReportView',{},'report_view_form_unavailable'],
+  for(const [view,params,code] of [['StudentInfoView',{},'report_view_name_invalid'],['GaReportView',{},'report_view_params_invalid'],
    ['DiagReportView',{testingNo:'0',studentKey:KEY,classNo:COURSE},'report_view_params_invalid'],['FaView',{testingNo:'1',studentKey:KEY},'report_view_params_invalid'],
    ['FaView',{testingNo:'1',studentKey:KEY,classNo:COURSE,limitDate:'31/01/2040'},'report_view_params_invalid'],
    ['FaView',{testingNo:'1',studentKey:KEY,classNo:COURSE,extra:'x'},'report_view_params_invalid'],
@@ -318,7 +318,7 @@ describe('direct-key historical lookup (specs/academy-mcp/direct-key-lookup.md)'
   await client.authenticate(credential());
   expect(await client.readReportView('DiagReportView',{testingNo:'901',studentKey:KEY,classNo:COURSE})).toEqual({block1:[{'1':'t'}]});
   await client.readReportView('NewStudentReportView',{paperNo:'4401',applyCode:'APP-7'});
-  await expect(client.readReportView('SmartBookReportView',{})).rejects.toThrow('report_view_form_unavailable');
+  await expect(client.readReportView('SmartBookReportView',{})).rejects.toThrow('report_view_params_invalid');
   expect(bodies).toEqual(['p_process=DiagReportView&p_testing_no=901&p_pri_no=770011&p_cls_no=560013&p_limit_date=',
    'p_process=NewStudentReportView&p_p_no=4401&p_apply_code=APP-7&clg_no=88001']);
   expect(guard.forbidden()).toEqual([]);
@@ -327,6 +327,41 @@ describe('direct-key historical lookup (specs/academy-mcp/direct-key-lookup.md)'
   answer=loginPage;
   await expect(client.readReportView('FaView',{testingNo:'1',studentKey:KEY,classNo:COURSE})).rejects.toThrow('authentication_required');
   expect(client.authenticated).toBe(false);
+ });
+
+ test('direct_key_r8_batch2_report_views_post_their_exact_forms',async()=>{
+  // GaReportView and NaScoreResultView take the form of DiagReportView; SmartBookReportView the book code and the student key.
+  for(const view of ['GaReportView','NaScoreResultView'] as const){
+   expect(reportViewForm(view,{testingNo:'903',studentKey:KEY,classNo:COURSE,limitDate:'2040-02-29'}).toString())
+    .toBe('p_process='+view+'&p_testing_no=903&p_pri_no=770011&p_cls_no=560013&p_limit_date=2040-02-29');
+   expect(reportViewForm(view,{testingNo:'903',studentKey:KEY,classNo:COURSE}).toString())
+    .toBe('p_process='+view+'&p_testing_no=903&p_pri_no=770011&p_cls_no=560013&p_limit_date=');
+   for(const bad of [{testingNo:'903',studentKey:KEY},{testingNo:'0903',studentKey:KEY,classNo:COURSE},{testingNo:'903',studentKey:KEY,classNo:COURSE,bookCode:'SB-1'}])
+    expect(()=>reportViewForm(view,bad)).toThrow('report_view_params_invalid');
+  }
+  expect(reportViewForm('SmartBookReportView',{bookCode:'SB-2040.inv_01',studentKey:KEY}).toString())
+   .toBe('p_process=SmartBookReportView&book_code=SB-2040.inv_01&pri_no=770011');
+  for(const bad of [{bookCode:'',studentKey:KEY},{bookCode:'a'.repeat(65),studentKey:KEY},{bookCode:'SB 1',studentKey:KEY},{bookCode:'SB&p_process=x',studentKey:KEY},
+   {bookCode:'책',studentKey:KEY},{bookCode:7,studentKey:KEY},{bookCode:'SB-1'},{bookCode:'SB-1',studentKey:'0'},{bookCode:'SB-1',studentKey:KEY,testingNo:'1'}])
+   expect(()=>reportViewForm('SmartBookReportView',bad)).toThrow('report_view_params_invalid');
+  // Through the client: a bad book code refuses before any request; each view is one POST classed read.
+  let calls=0;const bodies:string[]=[];
+  const guard=writeForbiddenTransport((_url,init)=>{calls++;
+   if(calls===1)return new Response(loginPage);if(calls<=3)return new Response(principal);
+   bodies.push(String(init?.body));return new Response('<body>SERVER_RET = OK<BR>{"block1":[{"1":"t"}]}<END_DATA></body>');});
+  const client=new AcademyHttpClient({teacherLabel:'Invented Teacher',teacherKey:'99001',collegeKey:'88001'},guard.transport as never);
+  await client.authenticate(credential());
+  const before=calls;
+  await expect(client.readReportView('SmartBookReportView',{bookCode:'../x',studentKey:KEY})).rejects.toThrow('report_view_params_invalid');
+  expect(calls).toBe(before);
+  await client.readReportView('GaReportView',{testingNo:'903',studentKey:KEY,classNo:COURSE});
+  await client.readReportView('NaScoreResultView',{testingNo:'904',studentKey:KEY,classNo:COURSE,limitDate:'2040-01-31'});
+  await client.readReportView('SmartBookReportView',{bookCode:'SB-1',studentKey:KEY});
+  expect(bodies).toEqual(['p_process=GaReportView&p_testing_no=903&p_pri_no=770011&p_cls_no=560013&p_limit_date=',
+   'p_process=NaScoreResultView&p_testing_no=904&p_pri_no=770011&p_cls_no=560013&p_limit_date=2040-01-31',
+   'p_process=SmartBookReportView&book_code=SB-1&pri_no=770011']);
+  expect(guard.forbidden()).toEqual([]);
+  expect(guard.requests.slice(-3)).toEqual(['GaReportView','NaScoreResultView','SmartBookReportView'].map(v=>({route:REPORT_VIEW_PATH+' '+v,role:'read'})));
  });
 
  test('direct_key_r9_write_forbidden',async()=>{

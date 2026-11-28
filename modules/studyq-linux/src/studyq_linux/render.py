@@ -12,8 +12,20 @@ from .manifest import FONT_REL
 from .renderers.cism import plan_cism, required_cism_assets
 from .renderers.diag import plan_diag, required_diag_assets
 from .renderers.formative import plan_formative, required_formative_assets
+from .renderers.ganga import plan_ganga, required_ganga_assets
+from .renderers.na_score import plan_na_score, required_na_score_assets
 from .renderers.new_diag import plan_new_diag, required_new_diag_assets
-from .schema import validate_cism, validate_course_book, validate_diag, validate_formative, validate_new_diag
+from .renderers.smart_book import plan_smart_book, required_smart_book_assets
+from .schema import (
+    validate_cism,
+    validate_course_book,
+    validate_diag,
+    validate_formative,
+    validate_ganga,
+    validate_na_score,
+    validate_new_diag,
+    validate_smart_book,
+)
 
 # Every report type of `render --type`: its validator, its planner and the assets a plan reads.
 REPORTS = {
@@ -22,6 +34,9 @@ REPORTS = {
     "diag": (validate_diag, plan_diag, required_diag_assets),
     "new_diag": (validate_new_diag, plan_new_diag, required_new_diag_assets),
     "formative": (validate_formative, plan_formative, required_formative_assets),
+    "ganga": (validate_ganga, plan_ganga, required_ganga_assets),
+    "na_score": (validate_na_score, plan_na_score, required_na_score_assets),
+    "smart_book": (validate_smart_book, plan_smart_book, required_smart_book_assets),
 }
 
 FONT_NAME = "nanum"

@@ -201,16 +201,25 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     if(result.status!=='resolved')throw Error(result.reasonCode);
     return {studentId:result.studentKey,displayName:result.displayName};
   }
-  /** `DiagReportView` or `FaView` of one student for academy_official_report_pdf_get: the student is found by
-   * name, and an explicit studentKey must be that student's (official_report_scope_conflict) before the view
-   * is requested with the resolved key. */
-  async readStudentReportView(input:{view:'DiagReportView'|'FaView';displayName:string;studentKey?:string;testingNo:string;classNo:string;limitDate?:string}):Promise<{student:{studentId:string;displayName:string};raw:Record<string,unknown>}>{
+  /** `DiagReportView`, `FaView`, `GaReportView` or `NaScoreResultView` of one student for academy_official_report_pdf_get:
+   * the student is found by name, and an explicit studentKey must be that student's (official_report_scope_conflict)
+   * before the view is requested with the resolved key. */
+  async readStudentReportView(input:{view:'DiagReportView'|'FaView'|'GaReportView'|'NaScoreResultView';displayName:string;studentKey?:string;testingNo:string;classNo:string;limitDate?:string}):Promise<{student:{studentId:string;displayName:string};raw:Record<string,unknown>}>{
     if(!this.client.readReportView)throw Error('report_view_source_port_unavailable');
     const student=await this.#studentByName(input.displayName);
     if(input.studentKey!==undefined&&input.studentKey!==student.studentId)throw Error('official_report_scope_conflict');
     await this.#authenticate();
     const raw=await this.client.readReportView(input.view,{testingNo:input.testingNo,studentKey:student.studentId,classNo:input.classNo,...(input.limitDate!==undefined?{limitDate:input.limitDate}:{})});
     return {student,raw};
+  }
+  /** `SmartBookReportView` of one student and book for academy_official_report_pdf_get, under the student rule of
+   * readStudentReportView. */
+  async readSmartBookReportView(input:{displayName:string;studentKey?:string;bookCode:string}):Promise<{student:{studentId:string;displayName:string};raw:Record<string,unknown>}>{
+    if(!this.client.readReportView)throw Error('report_view_source_port_unavailable');
+    const student=await this.#studentByName(input.displayName);
+    if(input.studentKey!==undefined&&input.studentKey!==student.studentId)throw Error('official_report_scope_conflict');
+    await this.#authenticate();
+    return {student,raw:await this.client.readReportView('SmartBookReportView',{bookCode:input.bookCode,studentKey:student.studentId})};
   }
   /** `NewStudentReportView` of one application (paper number and apply code); with no college key the client
    * sends the owner's. No student is looked up: a new student has no key yet. */

@@ -29,7 +29,7 @@ export interface StudyqRunner {
    * then check its parity (`parity --type <reportType>`). */
   renderReport(reportType:StudyqReportType,input:unknown,outputPath:string):Promise<StudyqRenderResult>;
 }
-export const studyqReportTypes=['course_book','cism','diag','new_diag','formative'] as const;
+export const studyqReportTypes=['course_book','cism','diag','new_diag','formative','ganga','na_score','smart_book'] as const;
 export type StudyqReportType=typeof studyqReportTypes[number];
 
 const PACKAGE='studyq_linux';

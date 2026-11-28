@@ -8,6 +8,8 @@ four levels, question counts of the first four units), the achievement page (uni
 per-session page that carries no field of the input, then the question table on `formative_6.jpg`,
 one page for each 25 questions (15 rows in the left table, 10 in the right one), the first with the
 signal picture `6p/signal_<rank_signal>.jpg`. Every box is in template pixels (1 px = 0.24 pt).
+The cover, the test information, the achievement and the question pages are shared with `ganga`
+(reports-batch2.md), which passes its own templates and overlays.
 """
 
 from ..course_book import PagePlan, Plan
@@ -72,8 +74,8 @@ def signal_rel(rank_signal):
     return TEMPLATE_DIR + "6p/signal_%d.jpg" % rank_signal
 
 
-def _cover(ctx, data):
-    page = PagePlan(template(1))
+def cover(ctx, data, tpl=template):
+    page = PagePlan(tpl(1))
     add(page, text(ctx, "p1.title", data["title"], COVER_TITLE, "l", 18))
     add(page, text(ctx, "p1.test_date", data["test_date"], COVER_DATE, "l", 14))
     add(page, text(ctx, "p1.student", data["student"], COVER_STUDENT, "l", 14))
@@ -97,8 +99,8 @@ def unit_counts(data):
     return [sum(1 for q in data["questions"] if q["unit"] == u["name"]) for u in data["units"]]
 
 
-def _information(ctx, data):
-    page = PagePlan(template(3))
+def information(ctx, data, tpl=template):
+    page = PagePlan(tpl(3))
     diff = data["difficulty"]
     total = sum(diff[lv]["questions"] for lv in common.LEVELS)
     add(page, text(ctx, "p3.questions", str(total), TOTAL_BOX, "r", 20))
@@ -112,13 +114,13 @@ def _information(ctx, data):
     return page
 
 
-def _achievement(ctx, data):
-    page = PagePlan(template(4))
+def achievement(ctx, data, tpl=template, graph=GRAPH, average_point=AVERAGE_POINT, oneself_point=ONESELF_POINT):
+    page = PagePlan(tpl(4))
     gx, gy = GRAPH_AT
-    page.images.append(common.image_at(ctx, GRAPH, gx, gy))
+    page.images.append(common.image_at(ctx, graph, gx, gy))
     for i, unit in enumerate(data["units"][: len(GRAPH_AXES)]):
         dx, dy = GRAPH_AXES[i]
-        for rel, score in ((AVERAGE_POINT, unit["average"]), (ONESELF_POINT, unit["my_score"])):
+        for rel, score in ((average_point, unit["average"]), (oneself_point, unit["my_score"])):
             r = GRAPH_RADIUS * score / 100.0
             page.images.append(common.marker(ctx, rel, gx + GRAPH_CENTER[0] + dx * r, gy + GRAPH_CENTER[1] + dy * r))
     x0, top, x1, bottom = UNIT_LIST
@@ -140,12 +142,12 @@ def _achievement(ctx, data):
     return page
 
 
-def _question_pages(ctx, data):
+def question_pages(ctx, data, tpl=template, signal=signal_rel):
     pages = []
     for n, chunk in enumerate(common.question_chunks(data["questions"])):
-        page = PagePlan(template(6))
+        page = PagePlan(tpl(6))
         if n == 0:
-            page.images.append(common.image_at(ctx, signal_rel(data["rank_signal"]), *SIGNAL_AT))
+            page.images.append(common.image_at(ctx, signal(data["rank_signal"]), *SIGNAL_AT))
         prefix = "p%d" % (6 + n)
         for i, q in enumerate(chunk):
             index = n * common.QUESTIONS_PER_PAGE + i
@@ -162,8 +164,8 @@ def _question_pages(ctx, data):
 
 
 def plan_formative(data, ctx):
-    pages = [_cover(ctx, data), _results(ctx, data), _information(ctx, data), _achievement(ctx, data), PagePlan(template(5))]
-    return Plan(pages + _question_pages(ctx, data))
+    pages = [cover(ctx, data), _results(ctx, data), information(ctx, data), achievement(ctx, data), PagePlan(template(5))]
+    return Plan(pages + question_pages(ctx, data))
 
 
 def template_sequence(question_count):
