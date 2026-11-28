@@ -1,6 +1,6 @@
-"""The parity check of a `course_book` or `cism` PDF against its input (specs/studyq-linux/core.md R17).
+"""The parity check of a report PDF against its input (specs/studyq-linux/core.md R17, reports-batch1.md R7).
 
-    python3 -m studyq_linux.parity --pdf <pdf> --assets <dir> [--type course_book|cism]   < input.json
+    python3 -m studyq_linux.parity --pdf <pdf> --assets <dir> [--type course_book|cism|diag|new_diag|formative]   < input.json
 
 `--type` defaults to `course_book`.
 
@@ -14,12 +14,9 @@ import json
 import sys
 
 from .cli import read_input
-from .course_book import plan_course_book
 from .errors import StudyqError, clip_detail
 from .manifest import verify_assets_dir
-from .render import load_pymupdf, make_context
-from .renderers.cism import plan_cism
-from .schema import validate_cism, validate_course_book
+from .render import REPORTS, load_pymupdf, make_context
 
 TOLERANCE_PT = 2.0
 
@@ -80,12 +77,12 @@ def main(argv=None):
     try:
         names = args[0::2]
         if len(args) % 2 or len(set(names)) != len(names) or not {"--assets", "--pdf"} <= set(names) <= {"--assets", "--pdf", "--type"}:
-            raise StudyqError("usage_invalid", "usage: --pdf <pdf> --assets <dir> [--type course_book|cism]")
+            raise StudyqError("usage_invalid", "usage: --pdf <pdf> --assets <dir> [--type course_book|cism|diag|new_diag|formative]")
         flags = dict(zip(names, args[1::2]))
         report_type = flags.get("--type", "course_book")
-        if report_type not in ("course_book", "cism"):
-            raise StudyqError("usage_invalid", "type is not course_book or cism")
-        validate, planner = (validate_cism, plan_cism) if report_type == "cism" else (validate_course_book, plan_course_book)
+        if report_type not in REPORTS:
+            raise StudyqError("usage_invalid", "type is not course_book, cism, diag, new_diag or formative")
+        validate, planner, _required = REPORTS[report_type]
         data = validate(read_input(sys.stdin.buffer))
         bundle = verify_assets_dir(flags["--assets"])
         pymupdf = load_pymupdf()

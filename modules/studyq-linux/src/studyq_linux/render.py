@@ -10,7 +10,19 @@ from .geometry import PAGE_H, PAGE_W
 from .imageinfo import image_dimensions
 from .manifest import FONT_REL
 from .renderers.cism import plan_cism, required_cism_assets
-from .schema import validate_cism, validate_course_book
+from .renderers.diag import plan_diag, required_diag_assets
+from .renderers.formative import plan_formative, required_formative_assets
+from .renderers.new_diag import plan_new_diag, required_new_diag_assets
+from .schema import validate_cism, validate_course_book, validate_diag, validate_formative, validate_new_diag
+
+# Every report type of `render --type`: its validator, its planner and the assets a plan reads.
+REPORTS = {
+    "course_book": (validate_course_book, plan_course_book, required_assets),
+    "cism": (validate_cism, plan_cism, required_cism_assets),
+    "diag": (validate_diag, plan_diag, required_diag_assets),
+    "new_diag": (validate_new_diag, plan_new_diag, required_new_diag_assets),
+    "formative": (validate_formative, plan_formative, required_formative_assets),
+}
 
 FONT_NAME = "nanum"
 ASCENT = 0.856  # NanumGothic: top of the text box above the baseline, in em (the box is 1 em tall)
@@ -48,9 +60,14 @@ def draw_plan(pymupdf, plan, bundle):
     for pp in plan.pages:
         page = doc.new_page(width=PAGE_W, height=PAGE_H)
         page.insert_image(page.rect, stream=bundle.read(pp.template), keep_proportion=False)
+        for shape in pp.shapes:
+            if shape.kind == "mask":  # a white rectangle over the template, under every picture
+                page.draw_rect(pymupdf.Rect(*shape.geometry), color=None, fill=shape.fill)
         for image in pp.images:
             page.insert_image(pymupdf.Rect(*image.rect), stream=bundle.read(image.rel), keep_proportion=False)
         for shape in pp.shapes:
+            if shape.kind == "mask":
+                continue
             if shape.kind == "frame":
                 page.draw_rect(pymupdf.Rect(*shape.geometry), color=shape.fill, fill=None, width=0.75)
             elif shape.kind == "rect":
@@ -96,4 +113,16 @@ def render_cism(data, bundle):
         if not bundle.has(rel):
             raise StudyqError("asset_missing", "a template of the report is not in the manifest")
     plan = plan_cism(data, make_context(pymupdf, bundle))
+    return draw_plan(pymupdf, plan, bundle)
+
+
+def render_report(report_type, data, bundle):
+    """PDF bytes of a report of `REPORTS` for an input and an already-verified bundle."""
+    validate, planner, required = REPORTS[report_type]
+    pymupdf = load_pymupdf()
+    data = validate(data)
+    for rel in required(data):
+        if not bundle.has(rel):
+            raise StudyqError("asset_missing", "a template of the report is not in the manifest")
+    plan = planner(data, make_context(pymupdf, bundle))
     return draw_plan(pymupdf, plan, bundle)

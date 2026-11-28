@@ -15,6 +15,7 @@ type or module is a rule.
 | [academy-mcp/lms-reads.md](academy-mcp/lms-reads.md) | The read-only LMS reads of `academy_lms_schedule_get` and `academy_prestudy_get` |
 | [academy-mcp/gated-writes.md](academy-mcp/gated-writes.md) | The two-phase writes `academy_clinic_paper_{review,save}` and `academy_exam_paper_{review,save}` |
 | [studyq-linux/core.md](studyq-linux/core.md) | The Linux StudyQ executor `python3 -m studyq_linux` (`render`, `assemble-print`) |
+| [studyq-linux/reports-batch1.md](studyq-linux/reports-batch1.md) | The report types `diag`, `new_diag` and `formative` of `python3 -m studyq_linux render` |
 
 ## The form of a specification
 

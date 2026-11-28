@@ -227,3 +227,140 @@ def validate_cism(data):
         )
     out["report_list"] = sections
     return out
+
+
+# The official diagnostic, new-student diagnostic and formative reports (specs/studyq-linux/reports-batch1.md R4-R6).
+MAX_REPORT_QUESTIONS = 100
+MAX_DIAG_AREAS = 8
+MAX_FORMATIVE_UNITS = 12
+SIGNALS = ("green", "yellow", "red")
+RATINGS = ("nice", "normal", "base", "fail")
+MBTI_CODES = (
+    "ENFJ", "ENFP", "ENTJ", "ENTP", "ESFJ", "ESFP", "ESTJ", "ESTP",
+    "INFJ", "INFP", "INTJ", "INTP", "ISFJ", "ISFP", "ISTJ", "ISTP",
+    "other",
+)  # fmt: skip
+
+
+def _enum(value, path, allowed):
+    if not isinstance(value, str):
+        _bad("type", path)
+    if value not in allowed:
+        _bad("range", path)
+    return value
+
+
+def _bool(value, path):
+    if type(value) is not bool:
+        _bad("type", path)
+    return value
+
+
+def _report_difficulty(value):
+    diff = _obj(value, LEVELS, "difficulty")
+    levels = {}
+    for level in LEVELS:
+        path = "difficulty." + level
+        d = _obj(diff[level], ("questions", "score"), path)
+        levels[level] = {
+            "questions": _int(d["questions"], path + ".questions", 0, 500),
+            "score": _num(d["score"], path + ".score"),
+        }
+    return levels
+
+
+def _report_questions(value, group):
+    """The question rows of a report; `group` is `area` (diag, new_diag) or `unit` (formative)."""
+    rows = []
+    for i, item in enumerate(_list(value, "questions", 1, MAX_REPORT_QUESTIONS)):
+        path = "questions[%d]" % i
+        q = _obj(item, ("no", group, "difficulty", "correct_rate", "correct"), path)
+        rows.append(
+            {
+                "no": _int(q["no"], path + ".no", 1, 500),
+                group: _str(q[group], path + "." + group, 80),
+                "difficulty": _str(q["difficulty"], path + ".difficulty", 32),
+                "correct_rate": _num(q["correct_rate"], path + ".correct_rate"),
+                "correct": _bool(q["correct"], path + ".correct"),
+            }
+        )
+    return rows
+
+
+DIAG_MEMBERS = ("title", "student", "test_date", "grade", "total_score", "avg_score", "comment", "areas", "difficulty", "questions")
+
+
+def _diag_common(top):
+    out = {
+        "title": _str(top["title"], "title", 120),
+        "student": _str(top["student"], "student", 64),
+        "test_date": _str(top["test_date"], "test_date", 32),
+        "grade": _int(top["grade"], "grade", 1, 9),
+        "total_score": _num(top["total_score"], "total_score"),
+        "avg_score": _num(top["avg_score"], "avg_score"),
+        "comment": _str(top["comment"], "comment", 3000, multiline=True, required=False),
+    }
+    areas = []
+    for i, item in enumerate(_list(top["areas"], "areas", 1, MAX_DIAG_AREAS)):
+        path = "areas[%d]" % i
+        a = _obj(item, ("name", "score", "average", "signal", "rating"), path)
+        areas.append(
+            {
+                "name": _str(a["name"], path + ".name", 80),
+                "score": _num(a["score"], path + ".score"),
+                "average": _num(a["average"], path + ".average"),
+                "signal": _enum(a["signal"], path + ".signal", SIGNALS),
+                "rating": _enum(a["rating"], path + ".rating", RATINGS),
+            }
+        )
+    out["areas"] = areas
+    out["difficulty"] = _report_difficulty(top["difficulty"])
+    out["questions"] = _report_questions(top["questions"], "area")
+    return out
+
+
+def validate_diag(data):
+    """Return a normalised copy of the `diag` input, or raise `input_invalid` (reports-batch1.md R4)."""
+    return _diag_common(_obj(data, DIAG_MEMBERS, ""))
+
+
+def validate_new_diag(data):
+    """Return a normalised copy of the `new_diag` input, or raise `input_invalid` (reports-batch1.md R5)."""
+    top = _obj(data, DIAG_MEMBERS + ("apply_code", "mbti"), "")
+    out = _diag_common(top)
+    out["apply_code"] = _str(top["apply_code"], "apply_code", 64)
+    out["mbti"] = _enum(top["mbti"], "mbti", MBTI_CODES)
+    return out
+
+
+def validate_formative(data):
+    """Return a normalised copy of the `formative` input, or raise `input_invalid` (reports-batch1.md R6)."""
+    top = _obj(
+        data,
+        ("title", "student", "test_date", "my_score", "avg_score", "rank_signal", "comment", "units", "difficulty", "questions"),
+        "",
+    )
+    out = {
+        "title": _str(top["title"], "title", 120),
+        "student": _str(top["student"], "student", 64),
+        "test_date": _str(top["test_date"], "test_date", 32),
+        "my_score": _num(top["my_score"], "my_score"),
+        "avg_score": _num(top["avg_score"], "avg_score"),
+        "rank_signal": _int(top["rank_signal"], "rank_signal", 1, 5),
+        "comment": _str(top["comment"], "comment", 3000, multiline=True, required=False),
+    }
+    units = []
+    for i, item in enumerate(_list(top["units"], "units", 1, MAX_FORMATIVE_UNITS)):
+        path = "units[%d]" % i
+        u = _obj(item, ("name", "my_score", "average"), path)
+        units.append(
+            {
+                "name": _str(u["name"], path + ".name", 80),
+                "my_score": _num(u["my_score"], path + ".my_score"),
+                "average": _num(u["average"], path + ".average"),
+            }
+        )
+    out["units"] = units
+    out["difficulty"] = _report_difficulty(top["difficulty"])
+    out["questions"] = _report_questions(top["questions"], "unit")
+    return out

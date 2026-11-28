@@ -209,8 +209,14 @@ class WordsAndInput(TempDirCase):
             self.assertEqual(set(doc), {"status", "code", "detail"})
 
     def test_r5_type_unknown(self):
-        status, line = run_cli(["render", "--type", "other", "--assets", self.tmp, "--out", self.path("o.pdf")], b"{}")
-        self.assertEqual((status, json.loads(line)["code"]), (1, "type_unknown"))
+        for other in ("other", "smart_book", "ganga", "na_score", "DIAG", "new-diag"):
+            status, line = run_cli(["render", "--type", other, "--assets", self.tmp, "--out", self.path("o.pdf")], b"{}")
+            self.assertEqual((status, json.loads(line)["code"]), (1, "type_unknown"), other)
+        # The five types of R5 are known: an empty object is refused as their input, not as a type.
+        for known in ("course_book", "cism", "diag", "new_diag", "formative"):
+            status, line = run_cli(["render", "--type", known, "--assets", self.tmp, "--out", self.path("o.pdf")], b"{}")
+            self.assertEqual((status, json.loads(line)["code"]), (1, "input_invalid"), known)
+        self.assertEqual(os.listdir(self.tmp), [])
 
     def refuse(self, stdin):
         status, line = run_cli(["render", "--type", "course_book", "--assets", self.tmp, "--out", self.path("o.pdf")], stdin)

@@ -20,7 +20,7 @@ Form and answer
 - R2: A run that fails ends with a non-zero exit status and prints exactly one line on standard output, `{"status":"error","code":<code>,"detail":<text>}`, `<code>` one of the table "Error codes"; no file is left at `<pdf>`, and a file that was there before the run is unchanged. Tests: test_r2_error_line_is_one_line_with_a_known_code, test_r2_failed_run_leaves_no_file_and_keeps_an_existing_one.
 - R3: The words are one of the two forms of the Interface: an unknown verb, a missing, repeated or unknown flag, or a positional word refuses with `usage_invalid`, before standard input is read. Tests: test_r3_usage_invalid_before_stdin_is_read, test_entry_point_is_python_dash_m.
 - R4: Standard input that is not valid UTF-8, larger than 4 MiB, not exactly one JSON object, or that lacks a member the type requires, holds a member the type does not take, or holds a member of another JSON type, refuses with `input_invalid`. Tests: test_r4_input_invalid.
-- R5: `<type>` of `render` is `course_book` or `cism`; any other value refuses with `type_unknown`. Tests: test_r5_type_unknown, test_interim_cism_is_no_longer_not_implemented.
+- R5: `<type>` of `render` is `course_book`, `cism`, `diag`, `new_diag` or `formative` (the last three are [reports-batch1.md](reports-batch1.md)); any other value refuses with `type_unknown`. Tests: test_r5_type_unknown, test_interim_cism_is_no_longer_not_implemented, test_r1_types_are_known_and_refuse_the_other_types_inputs.
 - R6: An existing `<pdf>` refuses with `output_exists`; the PDF is written beside `<pdf>` under another name and renamed to `<pdf>` only when complete, so `<pdf>` is never seen partly written. Tests: test_r6_written_beside_and_renamed_never_partial, test_r6_temp_file_removed_when_the_rename_loses_a_race.
 - R7: `detail` and standard error hold no value of the input (no student name, record text, student id or key) and no archive key; `detail` is at most 256 bytes. Tests: test_r7_details_hold_no_input_value, test_r7_unexpected_failure_reports_class_only.
 - R8: The same input with the same assets gives the same PDF bytes, so the same `sha256`: the PDF holds no creation or modification time and no random identifier. Tests: test_r8_same_input_same_bytes_and_no_time_or_random_id, test_seam_renders_from_an_already_verified_bundle_without_a_directory.
@@ -153,7 +153,7 @@ by more than 2 pt, and for each text on a page that no field explains. It also c
 `rn` tokens (R16). It is run as
 
 ```
-python3 -m studyq_linux.parity --pdf <pdf> --assets <dir> [--type course_book|cism]   < input.json
+python3 -m studyq_linux.parity --pdf <pdf> --assets <dir> [--type course_book|cism|diag|new_diag|formative]   < input.json
 ```
 
 (`--type` defaults to `course_book`), which prints one line of counts and field ids, never a value of the input, and ends with exit
@@ -244,7 +244,7 @@ and no file that holds one, is in this repository, and a test makes its own at r
 | Code | When |
 | --- | --- |
 | `usage_invalid` | R3 |
-| `input_invalid` | R4, R19, R20, R21, R22; the detail names a member path of the input, never a value |
+| `input_invalid` | R4, R19, R20, R21, R22, reports-batch1.md R4-R6; the detail names a member path of the input, never a value |
 | `type_unknown` | R5 |
 | `output_exists` | R6 |
 | `asset_manifest_invalid`, `asset_missing`, `asset_hash_mismatch` | R9 |
@@ -266,7 +266,7 @@ and no file that holds one, is in this repository, and a test makes its own at r
 
 ### Tests
 
-`modules/studyq-linux/tests/test_core.py`, `test_cism.py` and `test_print_zip.py`, with synthetic
+`modules/studyq-linux/tests/test_core.py`, `test_cism.py`, `test_print_zip.py` and `test_reports_batch1.py`, with synthetic
 fixtures of invented values only. The tests that render need PyMuPDF (R27); the parity tests
 against the official templates need the assets directory, which CI does not have. Python's
 `zipfile` cannot write encrypted archives and no `zip` or `7z` program is assumed, so
@@ -275,8 +275,9 @@ scratch file of mode 0600.
 
 ## Not included
 
-- The six other official report types of `StudyQReport.exe`; each is added by a later
-  revision of this specification with its own rules.
+- The official report types of `StudyQReport.exe` other than `course_book` and `cism`: `diag`,
+  `new_diag` and `formative` are [reports-batch1.md](reports-batch1.md); each further type is
+  added by a later revision with its own rules.
 - How the TypeScript server fetches the input from the LMS and where it keeps the PDF; that
   is [tool-surface.md](../academy-mcp/tool-surface.md) and the tools' own contracts.
 - Pixel equality with the PDFs of the Windows programs: only the field placement of the
