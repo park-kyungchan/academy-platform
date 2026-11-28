@@ -108,7 +108,7 @@ describe('the hash-pinned studyq runner',()=>{
     const {src,sourceSha256}=await tree('report-types');
     const runner=pinnedStudyqRunner({interpreter,interpreterSha256,srcDir:src,sourceSha256,assetsDir:assets()});
     for(const type of ['diag','new_diag','formative','cism'] as const){
-      const out=resolve(root,type+'.pdf');
+      const out=resolve(root,'report-'+type+'.pdf');
       expect(await runner.renderReport(type,{student:'Invented Student',comment:''},out)).toMatchObject({status:'rendered',outputPath:out,parityOk:true});
       expect(JSON.parse(await readFile(out+'.env.json','utf8')).argv).toEqual(['render','--type',type,'--assets',assets(),'--out',out]);
       expect(JSON.parse(await readFile(out+'.parity-argv.json','utf8'))).toEqual(['--pdf',out,'--assets',assets(),'--type',type]);
