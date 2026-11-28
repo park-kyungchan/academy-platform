@@ -239,7 +239,7 @@ describe('academy_official_report_pdf_get reportType cism',()=>{
     const guard=writeForbiddenTransport(url=>{calls++;
       if(calls===1)return new Response(login);if(calls<=3)return new Response(principal);
       const date=new URL(url,'https://lms.invalid').searchParams.get('the_date')!;
-      return new Response(fictionalCismHtml(date,'Invented narrative'));});
+      return new Response(fictionalCismHtml(date,'Invented narrative'),{headers:{'content-type':'text/html; charset=utf-8'}});});
     const admission={teacherId:'90001',teacherLabel:'Fictional Teacher',date:'2040-01-04',students:[{studentId:'9101',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};
     const client=new AcademyHttpClient({teacherLabel:'Fictional Teacher',teacherKey:'90001',collegeKey:'88001'},guard.transport as never);
     const backend=new NativeDailyRecordBackend(client as never,admission,()=>({username:'fictional',password:'fictional'}));
