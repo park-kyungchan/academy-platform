@@ -68,7 +68,7 @@ interface SourcePort {
    * request input. No sequential key probing, before or after. */
   searchStudentsByName?(input:{teacherLabel:string;studentName:string}):Promise<unknown>;
   readPrestudy?(input:{teacherLabel:string;studentName:string;view?:PrestudyView}):Promise<{view?:PrestudyView;waiting?:unknown[];completed?:unknown[];summary?:unknown[];observedAt:string;coverage:string}>;
-  readLmsSchedule?(input:{teacherLabel:string}&LmsScheduleInput):Promise<LmsScheduleRead&{observedAt:string;coverage:string}>;
+  readLmsSchedule?(input:{teacherLabel:string;resolvedStudent?:{studentId:string;displayName:string}}&LmsScheduleInput):Promise<LmsScheduleRead&{observedAt:string;coverage:string}>;
   /** The gated clinic write (specs/academy-mcp/gated-writes.md): one page GET and one `TestpageSelectExServlet` POST form. */
   readClinicWirePage?(path:'/servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookMain'|'/servlet/controller.tutor.fa.TestPageListGrpServlet?p_process=Main'):Promise<string>;
   postTestpageSelectEx?(fields:{p_process:string}&Record<string,string>):Promise<string>;
@@ -331,12 +331,19 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     return {student:{studentId:student.studentId,displayName:student.displayName},view,...(waiting?{waiting}:{}),...(completed?{completed}:{}),...(summary?{summary}:{}),
       teacherJudgment:null,observedAt:raw.observedAt,coverage:raw.coverage};
   }
-  /** One page of attendance, the study schedule or the course study manager (specs/academy-mcp/lms-reads.md). The
-   * pages are the teacher's own: no student name or key is looked up. */
+  /** One page of attendance, the study schedule, the course study manager or the test results (specs/academy-mcp/lms-reads.md). The
+   * pages are the teacher's own: no student name or key is looked up, except for the test results of a student (family da, fa, na): the
+   * student is found by name first, as for the official report views (the launch's own pair, else the name search), and the page's
+   * rows are kept for that student's key. New-student diagnosis results (family new_diag) look no one up. */
   async readLmsSchedule(input:Readonly<LmsScheduleInput>):Promise<LmsScheduleRead&{observedAt:string;coverage:string}>{
     if(!this.client.readLmsSchedule)throw Error('lms_schedule_source_port_unavailable');
+    let resolvedStudent:{studentId:string;displayName:string}|undefined;
+    if(input.view==='test_results'&&input.family!=='new_diag'){
+      if(typeof input.displayName!=='string')throw Error('tool_input_invalid');
+      resolvedStudent=await this.#studentByName(input.displayName);
+    }
     await this.#authenticate();
-    return this.client.readLmsSchedule({...structuredClone(input) as LmsScheduleInput,teacherLabel:this.admission.teacherLabel});
+    return this.client.readLmsSchedule({...structuredClone(input) as LmsScheduleInput,teacherLabel:this.admission.teacherLabel,...(resolvedStudent?{resolvedStudent}:{})});
   }
   /** One GET of a pinned wire page of the gated clinic write. */
   async readClinicWirePage(path:'/servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookMain'|'/servlet/controller.tutor.fa.TestPageListGrpServlet?p_process=Main'):Promise<string>{

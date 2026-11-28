@@ -2,14 +2,17 @@ import {z} from 'zod';
 import type {McpServer} from '@modelcontextprotocol/server';
 import {readFailureResult} from './read-failure.ts';
 import {academyRoutingDescription} from './routing-context.ts';
-import {LMS_SCHEDULE_VIEWS,lmsScheduleInputIssues,type LmsScheduleInput,type LmsScheduleRead} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsScheduleRead';
+import {LMS_SCHEDULE_VIEWS,TEST_RESULT_FAMILIES,lmsScheduleInputIssues,type LmsScheduleInput,type LmsScheduleRead} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsScheduleRead';
 
-/** `academy_lms_schedule_get`: the three read-only LMS pages that had no tool (specs/academy-mcp/lms-reads.md): the
+/** `academy_lms_schedule_get`: the read-only LMS pages that had no tool (specs/academy-mcp/lms-reads.md): the
  * teacher's attendance (`AttendanceServlet` Main), the study schedule and the course study manager
- * (`CourseManageServlet` `StudySchedule`, `CourseStudyManager`). One GET of one page per call, under the shared
+ * (`CourseManageServlet` `StudySchedule`, `CourseStudyManager`), and the test results (`TestPageListServlet`
+ * `UserBySearchTestResult`, `DiagnostManageServlet` `TestResultList`) whose rows carry the keys of the batch reports.
+ * One request of one page per call, under the shared
  * account lock that the endpoint launch takes. Input is qualified here, before any LMS request: each `view` takes
  * only its own members (R1), a date is a real `YYYY-MM-DD` (R7), a period is at most 31 days and, for attendance,
- * within one month (one GET of the servlet answers one month, so a longer period would silently omit rows). */
+ * within one month (one GET of the servlet answers one month, so a longer period would silently omit rows); the
+ * period of `test_results` is at most 92 days. */
 const text=z.string();
 export const lmsScheduleGetSchema=z.object({
   view:z.enum(LMS_SCHEDULE_VIEWS),
@@ -17,6 +20,7 @@ export const lmsScheduleGetSchema=z.object({
   period:z.object({from:text,through:text}).strict().optional(),
   groupKey:text.optional(),studentKey:text.optional(),gradeNo:text.optional(),semesterNo:text.optional(),levelNo:text.optional(),courseKey:text.optional(),
   status:text.optional(),
+  family:z.enum(TEST_RESULT_FAMILIES).optional(),displayName:text.optional(),sortDate:text.optional(),
 }).strict().superRefine((value,context)=>{
   for(const issue of lmsScheduleInputIssues(value as Record<string,unknown>))context.addIssue({code:'custom',path:issue.path,message:issue.message});
 });
@@ -60,7 +64,7 @@ export function registerLmsScheduleTool(server:McpServer,service:LmsScheduleServ
     return {content:[{type:'text' as const,text:JSON.stringify(structuredContent)}],structuredContent};};
   server.registerTool('academy_lms_schedule_get',{
     title:'Read the attendance, study schedule or course study manager page',
-    description:academyRoutingDescription('academy_lms_schedule_get','view attendance: the lesson rows of one month (lessonDate, courseName, lessonType, attendanceStatus, memo), filtered to date or period, with the group and student filters; study_schedule: the study schedule rows with the grade, group, student and course filters; course_study_manager: the course study manager rows with the grade, semester, level and status filters. Each view takes only its own members; date and period are YYYY-MM-DD, a period is at most 31 days and, for attendance, within one month. One GET of one page; no write, mark, schedule change or automatic retry.'),
+    description:academyRoutingDescription('academy_lms_schedule_get','view attendance: the lesson rows of one month (lessonDate, courseName, lessonType, attendanceStatus, memo), filtered to date or period, with the group and student filters; study_schedule: the study schedule rows with the grade, group, student and course filters; course_study_manager: the course study manager rows with the grade, semester, level and status filters; test_results: the DA, FA or NA attempts of one student (family da|fa|na, displayName, period of at most 92 days; rows paperNo, testingNo, classNo) or the new-student diagnosis results (family new_diag, optional sortDate and a displayName filter; rows paperNo, applyCode), the first page only. Each view takes only its own members; date and period are YYYY-MM-DD, a period is at most 31 days and, for attendance, within one month. One request of one page; no write, mark, schedule change or automatic retry.'),
     inputSchema:lmsScheduleGetSchema,annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:false,openWorldHint:service.backend!==null},
   },async input=>result(await service.get(input)));
 }

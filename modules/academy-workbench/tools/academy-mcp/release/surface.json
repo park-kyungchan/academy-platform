@@ -834,7 +834,7 @@
   {
    "name": "academy_lms_schedule_get",
    "title": "출결·학습일정·과정관리",
-   "description": "Read-only LMS page. view: attendance (date or period, YYYY-MM-DD, ≤31 days, same month), study_schedule (gradeNo, groupKey, studentKey, courseKey), course_study_manager (gradeNo, semesterNo, levelNo, status).",
+   "description": "Read-only LMS page. view: attendance (date or period, YYYY-MM-DD, ≤31 days, same month), study_schedule (gradeNo, groupKey, studentKey, courseKey), course_study_manager (gradeNo, semesterNo, levelNo, status), test_results (family da|fa|na: displayName, period ≤92 days; new_diag: sortDate): paperNo, testingNo, classNo, applyCode.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -843,7 +843,8 @@
       "enum": [
        "attendance",
        "study_schedule",
-       "course_study_manager"
+       "course_study_manager",
+       "test_results"
       ]
      },
      "date": {
@@ -871,6 +872,21 @@
       "type": "string"
      },
      "status": {
+      "type": "string"
+     },
+     "family": {
+      "type": "string",
+      "enum": [
+       "da",
+       "fa",
+       "na",
+       "new_diag"
+      ]
+     },
+     "displayName": {
+      "type": "string"
+     },
+     "sortDate": {
       "type": "string"
      }
     },

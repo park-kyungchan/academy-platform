@@ -122,6 +122,8 @@ official templates only with `STUDYQ_ASSETS_DIR`.
 
 - How the TypeScript server reads the input from the LMS; that is
   [direct-key-lookup.md](../academy-mcp/direct-key-lookup.md) R8 and the tool's own contract.
+- Which keys the server accepts for these reports (a class number of 0 included): [direct-key-lookup.md](../academy-mcp/direct-key-lookup.md) R6, R8. The test lists of the
+  renderers stay as this contract and the Python schema fix them.
 - Units beyond the first four on the `ganga` graph: the graph has four axes; every unit is in its
   list.
 - The page `ganga_5.jpg`: the input holds no data for it, and nothing is invented.

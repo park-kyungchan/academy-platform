@@ -126,6 +126,9 @@ official templates only with `STUDYQ_ASSETS_DIR`.
 - The report types `ganga`, `na_score` and `smart_book`; they are [reports-batch2.md](reports-batch2.md).
 - How the TypeScript server reads the input from the LMS; that is
   [direct-key-lookup.md](../academy-mcp/direct-key-lookup.md) R8 and the tool's own contract.
+- Which keys the server accepts for these reports (a class number of 0 included, and the answer `course_book_no_tests` for a book with no test, which the server gives before
+  the renderer is called): [direct-key-lookup.md](../academy-mcp/direct-key-lookup.md) R6, R8 and "Codes". The test lists of the renderers (at least 1 test for `course_book`) stay as this
+  contract and the Python schema fix them.
 - Areas or units beyond the first four on the graphs: the graphs of the templates have four
   axes; every area and unit is in its table.
 - The unit tables of `formative_6.jpg`, the per-session page `formative_5.jpg` and the unit pages

@@ -9,7 +9,7 @@ import type {StudyqRunner} from '../src/studyq-runner.ts';
 import {projectCourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport.ts';
 import {CISM_NARRATIVES,cismMonthDates,cismWeek,type CismField,type CismReport} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol.ts';
 import {cismMonthToStudyqInput,cismWeekNumber,cismWeekToStudyqInput} from '../../../../../apps/academy/dc-gang-a/src/lms/cismReportAdapter.ts';
-import {projectDiagReport,projectFormativeReport,projectGangaReport,projectNaScoreReport,projectNewDiagReport,projectSmartBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient.ts';
+import {projectDiagReport,projectFormativeReport,projectGangaReport,projectNaScoreReport,projectNewDiagReport,projectSmartBookReport,reportViewForm} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient.ts';
 import {writeForbiddenTransport} from './network-deny.ts';
 
 // academy_official_report_pdf_get (src/official-report-pdf.ts) with an injected backend and runner:
@@ -634,5 +634,54 @@ describe('academy_official_report_pdf_get reportType ganga, na_score, smart_book
       expect(wrong.answer).toMatchObject({status:'unavailable',reasonCode:'official_report_scope_conflict'});
       expect(wrong.calls()).toBe(0);
     }
+  });
+});
+
+// Unit ama-fix-report-keys: the keys of the batch reports as the LMS lists them (specs/academy-mcp/direct-key-lookup.md R6, R8).
+describe('academy_official_report_pdf_get: the live keys of the batch reports',()=>{
+  test('official_report_class_no_zero_is_accepted',async()=>{
+    // The test results of a student list classNo 0 on every live row: classNo is 0 or a positive key, the testingNo rule is unchanged.
+    for(const reportType of ['diag','formative','ganga','na_score'] as const){
+      for(const classNo of ['0',CLASS,'1'])expect({reportType,classNo,ok:officialReportPdfGetSchema.safeParse({reportType,displayName:STUDENT,params:{testingNo:TESTING,classNo}}).success}).toEqual({reportType,classNo,ok:true});
+      for(const classNo of ['00','01','-1','0.5',' 0','','a','1'.repeat(17),'9007199254740992'])
+        expect({reportType,classNo,ok:officialReportPdfGetSchema.safeParse({reportType,displayName:STUDENT,params:{testingNo:TESTING,classNo}}).success}).toEqual({reportType,classNo,ok:false});
+      expect(officialReportPdfGetSchema.safeParse({reportType,displayName:STUDENT,params:{testingNo:'0',classNo:'0'}}).success).toBe(false);
+      expect(officialReportPdfGetSchema.safeParse({reportType,displayName:STUDENT,params:{testingNo:TESTING}}).success).toBe(false);
+    }
+    // The form of the view carries p_cls_no=0, and the key rule of the other keys stays.
+    expect(reportViewForm('FaView',{testingNo:'902',studentKey:KEY,classNo:'0'}).toString()).toBe('p_process=FaView&p_testing_no=902&p_pri_no='+KEY+'&p_cls_no=0&p_limit_date=');
+    for(const view of ['DiagReportView','GaReportView','NaScoreResultView'] as const)expect(reportViewForm(view,{testingNo:'903',studentKey:KEY,classNo:'0'}).get('p_cls_no')).toBe('0');
+    for(const bad of [{testingNo:'0',studentKey:KEY,classNo:'0'},{testingNo:'903',studentKey:'0',classNo:'0'},{testingNo:'903',studentKey:KEY,classNo:'00'},{testingNo:'903',studentKey:KEY,classNo:0}])
+      expect(()=>reportViewForm('FaView',bad)).toThrow('report_view_params_invalid');
+    // A call with classNo 0 renders: the backend is asked with the class 0 and the answer states it.
+    const f=viewFixture('class-zero',()=>formativeNamed());
+    const answer=await f.service.get({reportType:'formative',displayName:STUDENT,params:{testingNo:TESTING,classNo:'0'}}) as any;
+    expect(answer).toMatchObject({status:'rendered',reportType:'formative',testingNo:TESTING,classNo:'0',parityOk:true,academyWrites:0});
+    expect(f.calls.student).toEqual([{view:'FaView',displayName:STUDENT,testingNo:TESTING,classNo:'0'}]);
+    expect(f.calls.runner).toHaveLength(1);
+  });
+  test('official_report_course_book_without_tests_is_course_book_no_tests',async()=>{
+    // An active book has an empty test list (block5), which the renderer refuses (at least 1 test): the call answers its own code, with the summary,
+    // before the runner is called.
+    const noTests=projectCourseBookReport({block1:[{'1':'가우스 초등 1-1 Invented','2':'2040-01-01','3':'2040-03-01','4':STUDENT}],block2:[{'1':5,'3':82.5,'4':75,'5':'c'}],
+      block5:[],bunit_list:[{'1':'Invented chapter','3':80,'4':70,exam_result:[{'1':1,'2':'Invented type','3':2,'4':1,'5':66,'6':'O'}]}],
+      block9:[{'2':1,'3':2,'4':3,'5':4}],block10:[{'1':90},{'1':80},{'1':70},{'1':60}],block11:[{'2':71}],block12:[{'2':'u','3':3,'4':4,'5':70}]},
+      {studentName:STUDENT,studentKey:KEY,courseKey:COURSE,bookNo:BOOK});
+    expect(noTests.studyqInput.test_list).toEqual([]);
+    const f=fixture('no-tests',{answer:{kind:'report',student:{studentId:KEY,displayName:STUDENT},courseKey:COURSE,bookNo:BOOK,report:noTests}});
+    const answer=await f.service.get({reportType:'course_book',displayName:STUDENT,courseKey:COURSE,bookNo:BOOK,studentKey:KEY}) as any;
+    expect(answer).toMatchObject({status:'unavailable',reasonCode:'course_book_no_tests',reportType:'course_book',academyWrites:0,parentSends:0,
+      student:{studentId:KEY,displayName:STUDENT},courseKey:COURSE,bookNo:BOOK,
+      reportSummary:{bookTitle:'가우스 초등 1-1 Invented',period:'2040-01-01 ~ 2040-03-01',myAverage:82.5,allAverage:75,chapterCount:1}});
+    expect(answer.reasonCode).not.toBe('studyq_input_invalid');
+    expect(answer.outputPath).toBeUndefined();
+    expect(f.calls.backend).toHaveLength(1);
+    expect(f.calls.runner).toEqual([]);
+    // No file is made: the output root holds no pdf.
+    await expect(lstat(resolve(f.root,'course_book-'+BOOK+'-20400116T090000Z.pdf'))).rejects.toThrow();
+    // A book with one test still renders as before.
+    const withTest=fixture('with-test');
+    expect(await withTest.service.get({reportType:'course_book',displayName:STUDENT})).toMatchObject({status:'rendered'});
+    expect(withTest.calls.runner).toHaveLength(1);
   });
 });

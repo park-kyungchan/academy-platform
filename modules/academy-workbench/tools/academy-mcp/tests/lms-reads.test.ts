@@ -9,7 +9,7 @@ import {lmsRequestRole,writeForbiddenTransport} from './network-deny.ts';
 import {AcademyHttpClient,sourceDomParser} from '../../../../../apps/academy/dc-gang-a/src/lms/academyHttpClient.ts';
 import {lmsReadServletRoutes} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsRouteRegistry.ts';
 import {parsePrestudySearchForm} from '../../../../../apps/academy/dc-gang-a/src/lms/prestudyRead.ts';
-import {lmsScheduleRequest,lmsScheduleRequestPath} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsScheduleRead.ts';
+import {decodeJsSingleQuotedString,lmsScheduleRequest,lmsScheduleRequestPath} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsScheduleRead.ts';
 import {DailyRecordService} from '../src/dailyrecord.ts';
 import {NativeDailyRecordBackend} from '../src/native-dailyrecord-backend.ts';
 import {LmsScheduleService,lmsScheduleGetSchema} from '../src/lms-schedule-tools.ts';
@@ -100,6 +100,22 @@ function summaryPage(o:{student?:string;extraRows?:number;pad?:string}={}){
 const detailPage=`<form name="form1"><input name="student_pri_no" value="${KEY}"><input name="prestudy_key" value="12346"><input name="sunit_name" value="9-1 Invented Unit"><input name="create_datetime" value="2040-01-02 03:04:05"><input name="encoding_result" value="success"></form><button onclick="viewAiReport('55501')">report</button><video src="${VIDEO_URL}"></video>`;
 const reportPage='<div class="max-w-5xl rounded-2xl"><h1>개념 이해</h1><h3>reason</h3><div class="text-sm">Invented narrative</div></div>';
 
+// The live structure of the test result pages (finding ama-live-report-keys-undiscoverable): the rows are inline, as
+// `var EXTERN_DIALOG = { testResultList: JSON.parse('<JSON array>') };`, inside a JavaScript single-quoted string literal.
+const TP='/servlet/controller.tutor.base.TestPageListServlet',DM='/servlet/controller.tutor.diag.DiagnostManageServlet';
+/** The JSON text as the page writes it into the literal: the backslash, the single and the double quote escaped, every non-ASCII character as \uXXXX. */
+const jsLiteral=(json:string)=>json.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/[^\x00-\x7f]/g,c=>'\\u'+c.charCodeAt(0).toString(16).padStart(4,'0'));
+const attempt=(over:Record<string,unknown>)=>({pNo:'5510001',testingNo:'3300101',priNo:KEY,clsNo:'0',assNo:'1001',testingName:'Invented Test',applyDate:'01-10 15:30',score:85.5,gradeNo:'5',oQuestions:10,sQuestions:2,dQuestions:1,userName:STUDENT,...over});
+const TITLE_WITH_QUOTES=`Invented "Quoted" Test's 단원평가`;
+const ATTEMPTS=[attempt({}),attempt({pNo:'5510002',testingNo:'3300102',clsNo:0,testingName:TITLE_WITH_QUOTES,applyDate:'01-12 09:05',score:'70'}),
+  attempt({pNo:'5510003',testingNo:'3300103',priNo:'77002',testingName:'Other Student Test',userName:STUDENT+' Longer'})];
+const diagnosis=(over:Record<string,unknown>)=>({pNo:'6600001',applyCode:'9001001',testingNo:'1',priNo:'0',applyDate:'2040.01.05',testName:'Invented Diagnosis',pName:'Invented Parent',studentName:'Invented Applicant',score:71.0,gradeName:'초3',scoreFlg:'1',_id:'6600001:9001001',...over});
+const DIAGNOSES=[diagnosis({}),diagnosis({pNo:'6600002',applyCode:'9001002',studentName:'Invented Other Applicant',_id:'6600002:9001002'})];
+const testResultsPage=(rows:unknown[],o:{teacher?:string;literal?:string;noUserForm?:boolean;after?:string}={})=>
+  `<html><body>${o.noUserForm?'':userForm(o.teacher)}<script>var EXTERN_DIALOG = { testResultList: JSON.parse('${o.literal??jsLiteral(JSON.stringify(rows))}')${o.after??''} };</script></body></html>`;
+const FA_INPUT={view:'test_results',family:'fa',displayName:STUDENT,period:{from:'2040-01-01',through:'2040-03-31'}} as const;
+const NEW_DIAG_INPUT={view:'test_results',family:'new_diag'} as const;
+
 type Answer=string|Response|((body:URLSearchParams,u:URL)=>string|Response);
 type Pages=Record<string,Answer>;
 const opOf=(u:URL,body:URLSearchParams)=>u.pathname===REPORT_JSP?'prestudy_ai_report':u.searchParams.get('p_process')??u.searchParams.get('reqCmd')??body.get('reqCmd')??body.get('p_process')??'';
@@ -108,6 +124,7 @@ const defaults=(name=STUDENT):Pages=>({
   UserSearch:listPage('study_schedule'),
   WebUnPreStudy:prestudyList('WebUnPreStudy',{student:name}),WebCtPreStudy:prestudyList('WebCtPreStudy',{student:name}),TeacherPrestudySummary:summaryPage({student:name}),
   WebPreStudy:detailPage,prestudy_ai_report:reportPage,DtResultSearch:'<html>invented search result</html>',
+  UserBySearchTestResult:testResultsPage(ATTEMPTS),TestResultList:testResultsPage(DIAGNOSES),
 });
 /** The real LMS client over a recorded synthetic LMS: the login exchange, then the pages given by operation. */
 function wire(over:Pages={},name=STUDENT){
@@ -245,7 +262,7 @@ describe('lms-reads R2: no write request',()=>{
     expect(new Set(w.seen.filter(s=>s.method==='POST').map(s=>s.op))).toEqual(SEARCH_POSTS);
   });
   test('lms_reads_r2_the_nine_read_routes_are_classed_read_and_a_neighbouring_route_is_write',()=>{
-    const routes=lmsReadServletRoutes();
+    const routes=lmsReadServletRoutes().slice(0,9);
     expect(routes.map(r=>r.operation+'|'+r.servletPath)).toEqual([
       `Main|${ATT}`,`StudySchedule|${CM}`,`UserSearch|${CM}`,`CourseStudyManager|${CM}`,`WebUnPreStudy|${CM}`,`WebCtPreStudy|${CM}`,`TeacherPrestudySummary|${CM}`,`WebPreStudy|${CM}`,
       `prestudy_ai_report|${REPORT_JSP}`]);
@@ -254,6 +271,21 @@ describe('lms-reads R2: no write request',()=>{
       expect({id:route.id,role:lmsRequestRole('https://dc.gang-a.kr'+route.routeTemplate)}).toEqual({id:route.id,role:'read'});
     }
     for(const url of [`${ATT}?p_process=Insert`,`${ATT}?p_process=Update`,`${CM}?reqCmd=StudyScheduleSave`,`${CM}?reqCmd=UserSearchSave`,`${CM}?reqCmd=CourseStudyManagerDelete`,`${CM}?reqCmd=WebPreStudyDelete`,'/app-ui/solution_common/prestudy/prestudy_ai_report_save.jsp'])
+      expect({url,role:lmsRequestRole('https://dc.gang-a.kr'+url)}).toEqual({url,role:'write'});
+  });
+});
+
+describe('lms-reads R2: the four read routes of view test_results',()=>{
+  test('lms_reads_test_results_routes_are_classed_read_and_a_neighbouring_route_is_write',()=>{
+    const routes=lmsReadServletRoutes().slice(9);
+    expect(routes.map(r=>r.id+'|'+r.httpMethod+'|'+r.routeTemplate)).toEqual([
+      `LMS_TEST_RESULTS_DA|POST|${TP}?p_process=UserBySearchTestResult&ass_no=1000`,`LMS_TEST_RESULTS_FA|POST|${TP}?p_process=UserBySearchTestResult&ass_no=1001`,
+      `LMS_TEST_RESULTS_NA|POST|${TP}?p_process=UserBySearchTestResult&ass_no=1002`,`LMS_TEST_RESULTS_NEW_DIAG|GET|${DM}?reqCmd=TestResultList`]);
+    for(const route of routes){
+      expect({id:route.id,effect:route.semanticEffect,safe:route.safeToProbe}).toEqual({id:route.id,effect:'read',safe:true});
+      expect({id:route.id,role:lmsRequestRole('https://dc.gang-a.kr'+route.routeTemplate)}).toEqual({id:route.id,role:'read'});
+    }
+    for(const url of [`${TP}?p_process=UserBySearchTestResultSave`,`${TP}?p_process=DeleteTestResult&ass_no=1001`,`${DM}?reqCmd=TestResultDelete`,`${DM}?reqCmd=TestResultSave`])
       expect({url,role:lmsRequestRole('https://dc.gang-a.kr'+url)}).toEqual({url,role:'write'});
   });
 });
@@ -438,7 +470,9 @@ describe('lms-reads R6: I1 write_forbidden',()=>{
   test('lms_reads_r6_every_view_of_both_tools_completes_with_0_forbidden_requests',async()=>{
     const w=wire({},WIRE_STUDENT);
     const outs:any[]=[];
-    for(const input of [{view:'attendance'},{view:'attendance',date:'2040-01-15',groupKey:'301',studentKey:KEY},SCHEDULE_FOUR,{view:'study_schedule',gradeNo:'2'},{view:'course_study_manager',status:'ING'}])
+    // The test results views too: the POST search of a student whose name is looked up first (WIRE_STUDENT), and the GET of the diagnosis results.
+    for(const input of [{view:'attendance'},{view:'attendance',date:'2040-01-15',groupKey:'301',studentKey:KEY},SCHEDULE_FOUR,{view:'study_schedule',gradeNo:'2'},{view:'course_study_manager',status:'ING'},
+      {...FA_INPUT,displayName:WIRE_STUDENT},{...FA_INPUT,family:'da',displayName:WIRE_STUDENT},{...FA_INPUT,family:'na',displayName:WIRE_STUDENT},NEW_DIAG_INPUT])
       outs.push(await w.schedule.get(input));
     for(const extra of [{},{view:'videos'},{view:'incomplete'},{view:'teacher_summary'}])outs.push(await w.prestudy.prestudyGet(ask(WIRE_STUDENT,extra)));
     outs.push(await w.prestudy.prestudyReportGet({...ask(WIRE_STUDENT),prestudyKey:'12346'}));
@@ -725,22 +759,162 @@ describe('lms-reads: the study schedule and course study manager answer the resu
   });
 });
 
+// ---- view test_results ------------------------------------------------------------------------
+describe('lms-reads: view test_results lists the keys of the batch reports',()=>{
+  const capture=(rows:unknown[])=>{
+    const sent:{url:string;body:string}[]=[];
+    return {sent,pages:{UserBySearchTestResult:(body:URLSearchParams,u:URL)=>{sent.push({url:u.pathname+u.search,body:body.toString()});return testResultsPage(rows);},
+      TestResultList:(body:URLSearchParams,u:URL)=>{sent.push({url:u.pathname+u.search,body:body.toString()});return testResultsPage(rows);}} as Pages};
+  };
+  test('lms_reads_test_results_fa_posts_the_pages_search_and_reads_inline_rows',async()=>{
+    const c=capture(ATTEMPTS);
+    const w=wire(c.pages);
+    const out:any=await w.schedule.get(FA_INPUT);
+    // One request: the POST of the page's own search form, with the owner's college key, the name, page 1 and the period.
+    expect(w.ops()).toEqual(['POST UserBySearchTestResult']);
+    expect(c.sent).toEqual([{url:`${TP}?p_process=UserBySearchTestResult&ass_no=1001`,
+      body:'clg_no=88001&cls_no=0&p_pageno=1&check_fa_test=1001&stu_name=Invented+Student&chioce_cls=0&sort_date1=2040-01-01&sort_date2=2040-03-31'}]);
+    expect(out).toMatchObject({status:'observed',view:'test_results',family:'fa',page:1,academyWrites:0,parentSends:0,execution:'read_only',
+      student:{studentId:KEY,displayName:STUDENT},period:{from:'2040-01-01',through:'2040-03-31'},pageRowCount:3,otherStudentRowsOmitted:1});
+    expect(out.coverage).toContain('first_page');
+    expect(out.rows).toEqual([
+      {paperNo:'5510001',testingNo:'3300101',studentKey:KEY,classNo:'0',title:'Invented Test',applyDate:'01-10 15:30',score:85.5},
+      {paperNo:'5510002',testingNo:'3300102',studentKey:KEY,classNo:'0',title:TITLE_WITH_QUOTES,applyDate:'01-12 09:05',score:70}]);
+    // The da and na families send their own ass_no and check box.
+    for(const [family,assNo,flag] of [['da','1000','check_da_test'],['na','1002','check_na_test']] as const){
+      const d=capture(ATTEMPTS),x=wire(d.pages);
+      expect((await x.schedule.get({...FA_INPUT,family}) as any).status).toBe('observed');
+      expect(d.sent[0]!.url).toBe(`${TP}?p_process=UserBySearchTestResult&ass_no=${assNo}`);
+      expect(new URLSearchParams(d.sent[0]!.body).get(flag)).toBe(assNo);
+      expect(new URLSearchParams(d.sent[0]!.body).get('check_fa_test')).toBe(flag==='check_fa_test'?assNo:null);
+    }
+    // A name that is not the launch's own pair is resolved by the name search first, before the search of the page.
+    const g=wire(capture(ATTEMPTS).pages,WIRE_STUDENT);
+    expect((await g.schedule.get({...FA_INPUT,displayName:WIRE_STUDENT}) as any).student).toEqual({studentId:KEY,displayName:WIRE_STUDENT});
+    expect(g.ops()).toEqual(['POST DtResultSearch','POST UserBySearchTestResult']);
+    expect(g.guard.forbidden()).toEqual([]);
+    // The name is required and the period at most 92 days, refused before any request; so are the other views' members.
+    const refused=wire();
+    for(const bad of [{view:'test_results',family:'fa',period:FA_INPUT.period},{view:'test_results',family:'fa',displayName:STUDENT},
+      {...FA_INPUT,period:{from:'2040-01-01',through:'2040-04-02'}},{...FA_INPUT,period:{from:'2040-01-01',through:'2039-12-31'}},{...FA_INPUT,sortDate:'1'},
+      {view:'test_results',displayName:STUDENT,period:FA_INPUT.period},{...FA_INPUT,family:'ga'},{...FA_INPUT,studentKey:KEY},{...FA_INPUT,date:'2040-01-01'},
+      {...NEW_DIAG_INPUT,period:FA_INPUT.period},{...NEW_DIAG_INPUT,sortDate:'4'},{view:'attendance',family:'fa'},{view:'study_schedule',displayName:STUDENT}]){
+      expect({bad,parsed:lmsScheduleGetSchema.safeParse(bad).success}).toEqual({bad,parsed:false});
+      await expect(refused.schedule.get(bad)).rejects.toBeDefined();
+    }
+    expect(refused.guard.requests).toEqual([]);
+    // 92 days (2040 is a leap year: 01-01 to 03-31 is 91 days; 01-01 to 04-01 is 92) are accepted, across months.
+    expect(lmsScheduleGetSchema.safeParse({...FA_INPUT,period:{from:'2040-01-01',through:'2040-04-01'}}).success).toBe(true);
+    expect(lmsScheduleGetSchema.safeParse({...FA_INPUT,period:{from:'2040-01-01',through:'2040-04-02'}}).success).toBe(false);
+    // The 31 days of the other views stay.
+    expect(lmsScheduleGetSchema.safeParse({view:'attendance',period:{from:'2040-01-01',through:'2040-02-01'}}).success).toBe(false);
+    expect(lmsScheduleRequest(FA_INPUT as never,{collegeKey:COLLEGE}).method).toBe('POST');
+  });
+  test('lms_reads_test_results_decodes_the_js_string_literal_before_json',async()=>{
+    // The page's literal escapes \' \" \\ and every non-ASCII character as \uXXXX; it is decoded as a JavaScript literal, then parsed as JSON.
+    const html=testResultsPage(ATTEMPTS);
+    expect(html).toContain("Test\\'s");
+    expect(html).toContain('\\"testingName\\"');
+    expect(html).toContain('\\\\\\"Quoted');
+    expect(html).toContain('\\u');
+    expect(html).not.toContain('단원평가');
+    const w=wire();
+    const out:any=await w.schedule.get(FA_INPUT);
+    expect(out.rows[1].title).toBe(TITLE_WITH_QUOTES);
+    expect(out.rows[1].title).toContain("'");expect(out.rows[1].title).toContain('"');
+    expect(decodeJsSingleQuotedString("a\\'b\\\"c\\\\d\\ne\\u0041\\x42\\u{1F600}\\/")).toBe("a'b\"c\\d\neAB\u{1F600}/");
+    for(const bad of ["a\\","\\u12","\\x4","\\u{110000}","\\1","\\00"])expect(()=>decodeJsSingleQuotedString(bad)).toThrow('source_drift');
+    // A missing or malformed literal refuses with source_drift, never a guess; code in the page is not run.
+    delete (globalThis as any).__lmsEvaluated;
+    const cases:[string,string][]=[
+      ['no dialog','<html>'+userForm()+'</html>'],
+      ['no list','<html>'+userForm()+"<script>var EXTERN_DIALOG = { other: 1 };</script></html>"],
+      ['an unterminated literal','<html>'+userForm()+"<script>var EXTERN_DIALOG = { testResultList: JSON.parse('[] };</script></html>"],
+      ['json that does not parse',testResultsPage([],{literal:'[{bad'})],
+      ['a literal that is not an array',testResultsPage([],{literal:'{}'})],
+      ['a row that is not an object',testResultsPage([],{literal:'[1]'})],
+      ['an escape that is unknown',testResultsPage([],{literal:'[\\1]'})],
+      ['code after the literal',testResultsPage([],{literal:"[]'+(globalThis.__lmsEvaluated=1)+'"})],
+      ['a row without its key',testResultsPage([attempt({priNo:undefined})])],
+      ['a row with a key that is not a key',testResultsPage([attempt({testingNo:'12; DROP'})])],
+    ];
+    for(const [label,page] of cases){
+      const v=wire({UserBySearchTestResult:page});
+      expect({label,out:await v.schedule.get(FA_INPUT)}).toMatchObject({label,out:{status:'unavailable',reasonCode:'source_drift'}});
+    }
+    expect((globalThis as any).__lmsEvaluated).toBeUndefined();
+    // An empty list is an empty answer, and a list over 1000 rows is source_rejected.
+    const empty=wire({UserBySearchTestResult:testResultsPage([])});
+    expect(await empty.schedule.get(FA_INPUT)).toMatchObject({status:'observed',rows:[],pageRowCount:0,otherStudentRowsOmitted:0});
+    const many=wire({UserBySearchTestResult:testResultsPage(Array.from({length:1001},(_,i)=>attempt({pNo:String(i+1)})))});
+    expect(await many.schedule.get(FA_INPUT)).toMatchObject({status:'unavailable',reasonCode:'source_rejected'});
+    // The teacher key of the page's userForm is checked like the other schedule pages.
+    expect(await wire({UserBySearchTestResult:testResultsPage(ATTEMPTS,{teacher:'99002'})}).schedule.get(FA_INPUT)).toMatchObject({status:'unavailable',reasonCode:'scope_conflict'});
+    expect(await wire({UserBySearchTestResult:testResultsPage(ATTEMPTS,{noUserForm:true})}).schedule.get(FA_INPUT)).toMatchObject({status:'unavailable',reasonCode:'source_drift'});
+    expect(await wire({UserBySearchTestResult:loginPage}).schedule.get(FA_INPUT)).toMatchObject({status:'unavailable',reasonCode:'authentication_required'});
+  });
+  test('lms_reads_test_results_omits_rows_of_another_student',async()=>{
+    const w=wire();
+    const out:any=await w.schedule.get(FA_INPUT);
+    // stu_name is a name search: the page also lists a student whose name is longer. That row is counted and never answered.
+    expect(out.otherStudentRowsOmitted).toBe(1);
+    expect(out.rows.map((r:any)=>r.testingNo)).toEqual(['3300101','3300102']);
+    expect(out.rows.every((r:any)=>r.studentKey===KEY)).toBe(true);
+    const text=JSON.stringify(out);
+    for(const leaked of ['3300103','5510003','Other Student Test','77002','Longer'])expect({leaked,found:text.includes(leaked)}).toEqual({leaked,found:false});
+    // No row of the student at all: an empty answer that still counts the others.
+    const none=wire({UserBySearchTestResult:testResultsPage(ATTEMPTS.slice(2))});
+    expect(await none.schedule.get(FA_INPUT)).toMatchObject({status:'observed',rows:[],pageRowCount:1,otherStudentRowsOmitted:1});
+  });
+  test('lms_reads_test_results_new_diag_reads_paper_and_apply_code',async()=>{
+    const c=capture(DIAGNOSES);
+    const w=wire(c.pages);
+    const all:any=await w.schedule.get(NEW_DIAG_INPUT);
+    // One GET of the diagnosis result list; an applicant has no roster key, so no name search and no student key.
+    expect(w.ops()).toEqual(['GET TestResultList']);
+    expect(c.sent[0]!.url).toBe(`${DM}?reqCmd=TestResultList`);
+    expect(all).toMatchObject({status:'observed',view:'test_results',family:'new_diag',page:1,pageRowCount:2,academyWrites:0});
+    expect(all.coverage).toContain('first_page');
+    expect(all.student).toBeUndefined();expect(all.rows.every((r:any)=>r.studentKey===undefined)).toBe(true);
+    expect(all.rows).toEqual([
+      {paperNo:'6600001',applyCode:'9001001',studentName:'Invented Applicant',applyDate:'2040.01.05',title:'Invented Diagnosis',score:71},
+      {paperNo:'6600002',applyCode:'9001002',studentName:'Invented Other Applicant',applyDate:'2040.01.05',title:'Invented Diagnosis',score:71}]);
+    // sortDate is the page's own select value; a displayName is a literal filter on studentName.
+    const filtered=await w.schedule.get({...NEW_DIAG_INPUT,sortDate:'12',displayName:'Invented Applicant'}) as any;
+    expect(c.sent[1]!.url).toBe(`${DM}?reqCmd=TestResultList&sortDate=12`);
+    expect(filtered.sortDate).toBe('12');
+    expect(filtered.rows.map((r:any)=>r.applyCode)).toEqual(['9001001']);
+    expect((await w.schedule.get({...NEW_DIAG_INPUT,displayName:'Invented Nobody'}) as any).rows).toEqual([]);
+    expect(w.ops()).toEqual(['GET TestResultList','GET TestResultList','GET TestResultList']);
+    expect(w.guard.forbidden()).toEqual([]);
+    // The keys are what academy_official_report_pdf_get takes for reportType new_diag.
+    expect(filtered.rows[0]).toMatchObject({paperNo:'6600001',applyCode:'9001001'});
+    for(const sortDate of ['1','2','3','11','12','13','14','15','16'])expect(lmsScheduleGetSchema.safeParse({...NEW_DIAG_INPUT,sortDate}).success).toBe(true);
+    expect(await wire({TestResultList:testResultsPage(DIAGNOSES,{teacher:'99002'})}).schedule.get(NEW_DIAG_INPUT)).toMatchObject({status:'unavailable',reasonCode:'scope_conflict'});
+    expect(await wire({TestResultList:testResultsPage([diagnosis({applyCode:''})])}).schedule.get(NEW_DIAG_INPUT)).toMatchObject({status:'unavailable',reasonCode:'source_drift'});
+  });
+});
+
 // ---- the surface and the skill ----------------------------------------------------------------
 describe('lms-reads: the tool surface and the lesson-day skill',()=>{
   const root=resolve(import.meta.dir,'..'),repo=resolve(root,'../../../..');
   const surface=JSON.parse(readFileSync(resolve(root,'release/surface.json'),'utf8')) as {tools:{name:string;title:string;description:string;inputSchema:any}[]};
   const bytes=(value:unknown)=>Buffer.byteLength(JSON.stringify(value),'utf8');
-  test('lms_reads_surface_entry_is_within_795_bytes_and_names_the_views_and_bounds',()=>{
+  test('lms_reads_surface_entry_names_the_views_and_bounds_and_stays_within_the_surface_budget',()=>{
     const entry=surface.tools.find(t=>t.name==='academy_lms_schedule_get')!;
     expect(entry).toBeDefined();
-    expect(bytes(entry)).toBeLessThanOrEqual(795);
-    expect(bytes(entry.title)+bytes(entry.description)).toBeLessThanOrEqual(254);
+    // The entry grew by the view test_results (its family, displayName and sortDate members and its sentence): 262 bytes of compact JSON, at most 400 (unit ama-fix-report-keys).
+    expect(bytes(entry)).toBeLessThanOrEqual(985);
+    expect(bytes(entry.title)+bytes(entry.description)).toBeLessThanOrEqual(380);
     // The 15 baseline tools stay untouched and the 22 tools stay within 24,000 bytes (specs/academy-mcp/tool-surface.md R2; the gated clinic and exam tools are the 19th to 22nd).
     expect(surface.tools).toHaveLength(22);
     expect(bytes(surface.tools.slice(0,15))).toBe(18317);
     expect(bytes(surface.tools)).toBeLessThanOrEqual(24000);
+    expect(bytes(surface.tools)).toBeLessThanOrEqual(23278+400);
     for(const text of ['attendance','study_schedule','course_study_manager','YYYY-MM-DD','31','same month','Read-only'])expect({text,found:entry.description.includes(text)}).toEqual({text,found:true});
-    expect(entry.inputSchema.properties.view.enum).toEqual(['attendance','study_schedule','course_study_manager']);
+    expect(entry.inputSchema.properties.view.enum).toEqual(['attendance','study_schedule','course_study_manager','test_results']);
+    expect(entry.inputSchema.properties.family.enum).toEqual(['da','fa','na','new_diag']);
+    for(const text of ['test_results','da|fa|na','displayName','92','new_diag','sortDate','paperNo','testingNo','classNo','applyCode'])expect({text,found:entry.description.includes(text)}).toEqual({text,found:true});
     expect(entry.inputSchema.required).toEqual(['view']);
     // The displayed members are exactly the members of the schema the tool validates with.
     expect(Object.keys(lmsScheduleGetSchema.shape)).toEqual(Object.keys(entry.inputSchema.properties));

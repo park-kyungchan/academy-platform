@@ -178,11 +178,13 @@ function reportViewLegacyRoute(view: string): [string, LmsRouteDefinition] {
 }
 
 /**
- * The nine read routes of specs/academy-mcp/lms-reads.md: the schedule pages of `academy_lms_schedule_get`
+ * The thirteen read routes of specs/academy-mcp/lms-reads.md: the schedule pages of `academy_lms_schedule_get`
  * (AttendanceServlet Main, CourseManageServlet StudySchedule, its UserSearch search POST and the CourseStudyManager
- * search GET) and the prestudy pages
+ * search GET), the prestudy pages
  * of `academy_prestudy_get` (WebUnPreStudy, WebCtPreStudy, TeacherPrestudySummary, WebPreStudy and the AI
- * report page). Each is strictly read: a GET, or the POST of the list's own search form, which changes no
+ * report page) and the four test-result pages of view `test_results` (the search POST of TestPageListServlet
+ * `UserBySearchTestResult` for ass_no 1000, 1001 and 1002, and the DiagnostManageServlet `TestResultList` GET).
+ * Each is strictly read: a GET, or the POST of the list's own search form, which changes no
  * Academy data. The class is by the named route and operation, never by the HTTP method.
  */
 const LMS_READ_ROUTES: readonly {id: string; path: string; param: 'p_process' | 'reqCmd' | null; operation: string; method: 'GET' | 'POST'; query?: string; reason: string; keys: readonly string[]}[] = [
@@ -204,6 +206,14 @@ const LMS_READ_ROUTES: readonly {id: string; path: string; param: 'p_process' | 
     reason: 'One uploaded prestudy video record (read; changes no data)', keys: ['prestudy_key']},
   {id: 'LMS_PRESTUDY_AI_REPORT', path: '/app-ui/solution_common/prestudy/prestudy_ai_report.jsp', param: null, operation: 'prestudy_ai_report', method: 'GET',
     reason: 'Server-rendered AI report of one prestudy video (read; changes no data)', keys: ['analysis_key']},
+  {id: 'LMS_TEST_RESULTS_DA', path: '/servlet/controller.tutor.base.TestPageListServlet', param: 'p_process', operation: 'UserBySearchTestResult', method: 'POST', query: 'ass_no=1000',
+    reason: 'Unit-test (DA) results of one student: the POST of the page\'s own search form; it changes no data (read)', keys: ['clg_no', 'cls_no', 'p_pageno', 'check_da_test', 'stu_name', 'chioce_cls', 'sort_date1', 'sort_date2']},
+  {id: 'LMS_TEST_RESULTS_FA', path: '/servlet/controller.tutor.base.TestPageListServlet', param: 'p_process', operation: 'UserBySearchTestResult', method: 'POST', query: 'ass_no=1001',
+    reason: 'Formative (FA) results of one student: the POST of the page\'s own search form; it changes no data (read)', keys: ['clg_no', 'cls_no', 'p_pageno', 'check_fa_test', 'stu_name', 'chioce_cls', 'sort_date1', 'sort_date2']},
+  {id: 'LMS_TEST_RESULTS_NA', path: '/servlet/controller.tutor.base.TestPageListServlet', param: 'p_process', operation: 'UserBySearchTestResult', method: 'POST', query: 'ass_no=1002',
+    reason: 'NA results of one student: the POST of the page\'s own search form; it changes no data (read)', keys: ['clg_no', 'cls_no', 'p_pageno', 'check_na_test', 'stu_name', 'chioce_cls', 'sort_date1', 'sort_date2']},
+  {id: 'LMS_TEST_RESULTS_NEW_DIAG', path: '/servlet/controller.tutor.diag.DiagnostManageServlet', param: 'reqCmd', operation: 'TestResultList', method: 'GET',
+    reason: 'New-student diagnosis results list (read; changes no data); its sortDate select is the list filter', keys: ['sortDate']},
 ];
 function lmsReadLegacyRoute(def: typeof LMS_READ_ROUTES[number]): [string, LmsRouteDefinition] {
   const template = def.param ? `${def.path}?${def.param}=${def.operation}${def.query ? '&' + def.query : ''}` : def.path;

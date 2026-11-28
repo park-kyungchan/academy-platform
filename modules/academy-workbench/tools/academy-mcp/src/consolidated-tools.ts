@@ -166,8 +166,8 @@ export const keptTools:readonly {name:string;title:string;description:string;inp
   inputSchema:schema({mode:oneOf('exam','examtext','clinic'),paperNo:str,paperKeys:strs,selType:oneOf('obj','sbj','des'),includeAnswers:bool,includeExplain:bool,outputPath:str},['mode'])},
  // The third new tool: the read-only attendance, study schedule and course study manager pages (specs/academy-mcp/lms-reads.md).
  {name:'academy_lms_schedule_get',title:'출결·학습일정·과정관리',
-  description:"Read-only LMS page. view: attendance (date or period, YYYY-MM-DD, ≤31 days, same month), study_schedule (gradeNo, groupKey, studentKey, courseKey), course_study_manager (gradeNo, semesterNo, levelNo, status).",
-  inputSchema:schema({view:oneOf('attendance','study_schedule','course_study_manager'),date:str,period:obj,groupKey:str,studentKey:str,gradeNo:str,semesterNo:str,levelNo:str,courseKey:str,status:str},['view'])},
+  description:"Read-only LMS page. view: attendance (date or period, YYYY-MM-DD, ≤31 days, same month), study_schedule (gradeNo, groupKey, studentKey, courseKey), course_study_manager (gradeNo, semesterNo, levelNo, status), test_results (family da|fa|na: displayName, period ≤92 days; new_diag: sortDate): paperNo, testingNo, classNo, applyCode.",
+  inputSchema:schema({view:oneOf('attendance','study_schedule','course_study_manager','test_results'),date:str,period:obj,groupKey:str,studentKey:str,gradeNo:str,semesterNo:str,levelNo:str,courseKey:str,status:str,family:oneOf('da','fa','na','new_diag'),displayName:str,sortDate:str},['view'])},
  // The fourth and fifth new tools: the two phases of the gated wrong-note and clinic paper creation (specs/academy-mcp/gated-writes.md).
  {name:'academy_clinic_paper_review',title:'오답·클리닉지 검토',
   description:"Read-only review of a wrong-note (book_incorrect) or clinic paper; clinic modes multiply/divide/custom. Answers change, reviewToken.",

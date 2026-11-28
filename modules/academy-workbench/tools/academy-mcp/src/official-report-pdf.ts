@@ -16,7 +16,7 @@ import {SMART_BOOK_CODE,projectDiagReport,projectFormativeReport,projectGangaRep
  * top-level members. `course_book` (one student and book) takes `params.bookLabel`; `cism` (the
  * owner's weekly or monthly CISM, no student) takes `params.scope` `week` (with `date`, default today)
  * or `month` (with `month`, `YYYY-MM`); `diag` and `formative` (one student's diagnostic or formative
- * test, `DiagReportView` or `FaView`) take `params.testingNo`, `params.classNo` and optionally
+ * test, `DiagReportView` or `FaView`) take `params.testingNo`, `params.classNo` (0 or a positive key) and optionally
  * `params.limitDate`; `new_diag` (one new-student application, `NewStudentReportView`) takes
  * `params.paperNo`, `params.applyCode` and optionally `params.collegeKey` (default the owner's); `ganga` and
  * `na_score` (one student's Gang-A or NA score test, `GaReportView` or `NaScoreResultView`) take what `diag`
@@ -27,9 +27,11 @@ const testingViews={diag:'DiagReportView',formative:'FaView',ganga:'GaReportView
 type TestingReportType=keyof typeof testingViews;
 const isTestingType=(type:string):type is TestingReportType=>Object.hasOwn(testingViews,type);
 const name=z.string().trim().min(1).max(200);
+/** `params.classNo`: 0 (the class of the test results the LMS lists for a student) or a positive key. */
+const classNoSchema=z.union([z.literal('0'),directKeySchema]);
 const reportParams=z.object({bookLabel:z.string().trim().min(1).max(200).optional(),
   scope:z.enum(['week','month']).optional(),date:academyDateInputSchema.optional(),month:z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/).optional(),
-  testingNo:directKeySchema.optional(),classNo:directKeySchema.optional(),limitDate:z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/).optional(),
+  testingNo:directKeySchema.optional(),classNo:classNoSchema.optional(),limitDate:z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/).optional(),
   paperNo:directKeySchema.optional(),applyCode:z.string().min(1).max(64).regex(/^[^\u0000-\u001f\u007f]+$/).refine(v=>v.trim()===v).optional(),
   collegeKey:directKeySchema.optional(),bookCode:z.string().regex(SMART_BOOK_CODE).optional()}).strict();
 /** The `params` members each report type takes; any other member refuses. */
@@ -154,6 +156,8 @@ export class OfficialReportPdfService {
         ...(read.bookSelection?{bookSelection:read.bookSelection}:{}),
         reportSummary:{bookTitle:report.metadata.bookTitle,period:input11.period,myAverage:input11.my_average,allAverage:input11.all_average,chapterCount:report.sourceChapterCount},
         ...(courseBookTruncated(report.truncation)?{truncation:report.truncation}:{})};
+      // A book with no unit test yet has an empty test list, which the renderer refuses (it needs at least 1): answered here, before the runner is called.
+      if(input11.test_list.length<1)return {...base,...summary,status:'unavailable' as const,...readFailureResult(Error('course_book_no_tests'),'official_report_unqualified_no_automatic_retry')};
       const rendered=await this.runner.renderCourseBook(input11,path);
       if(rendered.status==='refused')return {...base,...summary,status:'refused' as const,reasonCode:'studyq_'+rendered.code,studyqDetail:rendered.detail};
       return {...base,...summary,status:'rendered' as const,outputPath:rendered.outputPath,sha256:rendered.sha256,pages:rendered.pages,
