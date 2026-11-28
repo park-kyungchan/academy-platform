@@ -2,7 +2,7 @@ import {CISM_PATH,parseCismReport,cismWriteParameters,cismWeek,type CismReport} 
 import {JSDOM} from 'jsdom';
 import {TEXTBOOK_CATALOG_PATH,MAX_TEXTBOOK_CATALOG_BYTES,MAX_TEXTBOOK_SAMPLE_BYTES,MAX_TEXTBOOK_REFERENCE_BYTES,parseTextbookCatalog,boundedTextbookBody,qualifiedTextbookPdfUrl,textbookPdfDigest,type TextbookCatalogObservation,type TextbookPdfObservation,type TextbookSchoolLevel} from './textbookCatalogRead';
 import {PRESTUDY_PATH,PRESTUDY_SUMMARY_PATH,PRESTUDY_REPORT_PATH,TEXTBOOK_PROGRESS_PATH,PRESTUDY_VIEWS,PrestudyFormDrift,type PrestudyView,parsePrestudySearchForm,parsePrestudyList,parsePrestudySummary,prestudyRowsForStudent,parseTextbookBindings,parsePrestudyDetail,parsePrestudyReport,type PrestudyListRow,type PrestudySummaryRow,type TextbookBinding,type PrestudyReport} from './prestudyRead';
-import {LmsReadRefusal,readBoundedLmsPage,qualifyLmsScheduleInput,lmsScheduleRequestPath,parseLmsSchedule,type LmsScheduleInput,type LmsScheduleRead} from './lmsScheduleRead';
+import {LmsReadRefusal,readBoundedLmsPage,qualifyLmsScheduleInput,lmsScheduleRequest,parseLmsSchedule,type LmsScheduleInput,type LmsScheduleRead} from './lmsScheduleRead';
 import {randomInt,createHash} from 'node:crypto';
 import {examRouteClass,examRouteOf} from './lmsRouteRegistry';
 import {createAcademyReadPlan,executeAcademyRead,readLiteralKey,readLiteralName,sourceResponseKey,parseTextbookScopeBinding,type AcademyReadResult,type ScopedAcademyReadPlan} from './academyReadProtocol';
@@ -146,14 +146,16 @@ export class AcademyHttpClient {
     }catch(error){throw this.#lmsReadFailure(error);}
   }
   /** One LMS schedule page of the teacher: attendance, the study schedule or the course study manager
-   * (specs/academy-mcp/lms-reads.md). One GET; the page is read bounded and parsed fail closed. */
+   * (specs/academy-mcp/lms-reads.md). One request (a GET, or the study schedule's own search POST); the page is read bounded and parsed fail closed. */
   async readLmsSchedule(input:{teacherLabel:string}&LmsScheduleInput):Promise<LmsScheduleRead&{observedAt:string;coverage:string}>{
     if(!input||input.teacherLabel!==this.#principal.teacherLabel)throw Error('lms_schedule_principal_rejected');
     const {teacherLabel:_label,...rest}=input;
     const qualified=qualifyLmsScheduleInput(rest);
     if(!this.#authenticated)throw Error('authentication_required');
     try{
-      const html=await readBoundedLmsPage(await this.#request(lmsScheduleRequestPath(qualified),{method:'GET'},false,'lms_schedule_read'));
+      const wire=lmsScheduleRequest(qualified);
+      const init:RequestInit=wire.method==='POST'?{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:wire.body}:{method:'GET'};
+      const html=await readBoundedLmsPage(await this.#request(wire.path,init,false,'lms_schedule_read'));
       const page=parseLmsSchedule(qualified,html,sourceDomParser.parseFromString,this.#principal.teacherKey);
       return {...page,observedAt:new Date().toISOString(),coverage:'one_observed_page_of_the_view_not_all_history'};
     }catch(error){throw this.#lmsReadFailure(error);}

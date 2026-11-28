@@ -9,7 +9,7 @@ import {lmsRequestRole,writeForbiddenTransport} from './network-deny.ts';
 import {AcademyHttpClient,sourceDomParser} from '../../../../../apps/academy/dc-gang-a/src/lms/academyHttpClient.ts';
 import {lmsReadServletRoutes} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsRouteRegistry.ts';
 import {parsePrestudySearchForm} from '../../../../../apps/academy/dc-gang-a/src/lms/prestudyRead.ts';
-import {lmsScheduleRequestPath} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsScheduleRead.ts';
+import {lmsScheduleRequest,lmsScheduleRequestPath} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsScheduleRead.ts';
 import {DailyRecordService} from '../src/dailyrecord.ts';
 import {NativeDailyRecordBackend} from '../src/native-dailyrecord-backend.ts';
 import {LmsScheduleService,lmsScheduleGetSchema} from '../src/lms-schedule-tools.ts';
@@ -54,13 +54,36 @@ const LISTS:Record<string,ListSpec>={
   study_schedule:{command:'StudySchedule',selects:['grade_no','cls_no','student_no','course']},
   course_study_manager:{command:'CourseStudyManager',selects:['grade_no','semester_no','level_no','status']},
 };
-function listPage(view:'study_schedule'|'course_study_manager',o:{teacher?:string;dropSelect?:string;list?:boolean;table?:boolean;command?:string;rows?:string[][];userForm?:boolean}={}){
+function listPage(view:'study_schedule'|'course_study_manager',o:{teacher?:string;dropSelect?:string;list?:boolean;table?:boolean;noCommand?:boolean;rows?:string[][];userForm?:boolean}={}){
   const spec=LISTS[view]!;
   const rows=(o.rows??[['Invented Course A','월 17:00','Invented Class 1'],['Invented Course B','수 18:00','Invented Class 2']]).map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('');
-  return '<html><body>'+(o.userForm===false?'':userForm(o.teacher))+`<form id="form1" name="form1"><input type="hidden" name="reqCmd" value="${o.command??spec.command}">`
+  return '<html><body>'+(o.userForm===false?'':userForm(o.teacher))+`<form id="form1" name="form1">${o.noCommand?'':'<input type="hidden" name="reqCmd" id="reqCmd" />'}`
     +spec.selects.filter(s=>s!==o.dropSelect).map(s=>`<select name="${s}">${options([['1',`Invented ${s} one`],['2',`Invented ${s} two`]],'2')}</select>`).join('')+'</form>'
     +(o.list===false?'':`<div class="content-list">`+(o.table===false?'':`<table class="content-table"><thead><tr><th>과정</th><th>시간</th><th>반</th></tr></thead><tbody>${rows}</tbody></table>`)+'</div>')+'</body></html>';
 }
+// The live structure of the two result pages (finding ama-live-schedule-views-drift): reqCmd without a value, the start and
+// no-result images, the study schedule table of 13 columns with rowspan cells, and the course list with testListView handlers.
+const FIRST_PAGE_IMG='<img src="/renwal/common/img/firstpage.png"/>',NO_RESULT_IMG='<img src="/renwal/common/img/no_result.png"/>';
+function livePage(view:'study_schedule'|'course_study_manager',content:string,o:{teacher?:string}={}){
+  const spec=LISTS[view]!;
+  return '<html><body>'+userForm(o.teacher)+'<form id="form1" name="form1" method="post"><input type="hidden" name="reqCmd" id="reqCmd" />'
+    +spec.selects.map(s=>`<select name="${s}" id="${s}">${options([['1',`Invented ${s} one`],['2',`Invented ${s} two`]],'2')}</select>`).join('')+'</form>'
+    +`<div class="content-list">${content}</div></body></html>`;
+}
+const SCHEDULE_FOUR={view:'study_schedule',gradeNo:'5',groupKey:'301',studentKey:KEY,courseKey:'672'} as const;
+const SCHEDULE_COLUMNS=['단원 분류','단원 분류#2','개념정복','필수예제','실력다지기','평가클리닉','실력올리기','만점도전','대단원총괄평가','평가클리닉#10','읽기와 쓰기','개념복습','오답재학습'];
+const SCHEDULE_HEADER='<thead><tr><th colspan="2">단원 분류</th>'+['개념정복','필수예제','실력다지기','평가클리닉','실력올리기','만점도전','대단원총괄평가','평가클리닉','읽기와 쓰기','개념복습','오답재학습'].map(h=>`<th>${h}</th>`).join('')+'</tr></thead>';
+/** Eleven step cells with the page's own handlers; the read never calls them. */
+const stepCells=(tag:string)=>Array.from({length:11},(_,i)=>`<td onclick="${i%3===0?'editDate':i%3===1?'updateScore':'editState'}('${tag}',${i})">${tag}-${i+1}</td>`).join('');
+const scheduleTable=(rows:string)=>`<table class="content-table thin txt-s-size">${SCHEDULE_HEADER}<tbody>${rows}</tbody></table>`;
+const SCHEDULE_ROWS=`<tr><td rowspan="2">Invented Unit 1</td><td>Invented Section 1.1</td>${stepCells('a')}</tr><tr><td>Invented Section 1.2</td>${stepCells('b')}</tr>`
+  +`<tr><td>Invented Unit 2</td><td>Invented Section 2.1</td>${stepCells('c')}</tr>`;
+const MANAGER_COLUMNS=['학년-학기','레벨','북코드(버전)','과정명','상태','시험지'];
+const managerRow=(sem:string,level:string,code:string,version:string,name:string,state:string)=>
+  `<tr><td>${sem}</td><td>${level}</td><td>${code}(${version})</td><td>${name}</td><td>${state}</td><td><a href="#" onclick="testListView('${code}','${version}','${name}')">보기</a></td></tr>`;
+const managerTable=`<table class="content-table thin"><thead><tr>${MANAGER_COLUMNS.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>`
+  +managerRow('5-1','3','BK001','1','Invented Course A','ING')+managerRow('5-2','4','BK002','2','Invented Course B','END')+'</tbody></table>';
+
 const prestudyForm=(cmd:string,teacher=TEACHER)=>`<form name="form1"><input type="hidden" name="reqCmd" value="${cmd}"><input type="hidden" name="g_clg_no" value="${COLLEGE}"><input type="hidden" name="g_mem_type" value="1"><input type="hidden" name="g_pri_no" value="${teacher}"><input type="text" name="student_name" value=""></form>`;
 function prestudyList(cmd:'WebUnPreStudy'|'WebCtPreStudy',o:{student?:string;teacher?:string;extraRows?:number;pad?:string}={}){
   const student=o.student??STUDENT;
@@ -82,6 +105,7 @@ type Pages=Record<string,Answer>;
 const opOf=(u:URL,body:URLSearchParams)=>u.pathname===REPORT_JSP?'prestudy_ai_report':u.searchParams.get('p_process')??u.searchParams.get('reqCmd')??body.get('reqCmd')??body.get('p_process')??'';
 const defaults=(name=STUDENT):Pages=>({
   Main:attendancePage(),StudySchedule:listPage('study_schedule'),CourseStudyManager:listPage('course_study_manager'),
+  UserSearch:listPage('study_schedule'),
   WebUnPreStudy:prestudyList('WebUnPreStudy',{student:name}),WebCtPreStudy:prestudyList('WebCtPreStudy',{student:name}),TeacherPrestudySummary:summaryPage({student:name}),
   WebPreStudy:detailPage,prestudy_ai_report:reportPage,DtResultSearch:'<html>invented search result</html>',
 });
@@ -118,15 +142,17 @@ const json=(value:unknown)=>JSON.stringify(value);
 // ---- R1 ---------------------------------------------------------------------------------------
 describe('lms-reads R1: each view sends only the requests of its own rows',()=>{
   test('lms_reads_r1_schedule_views_send_one_get_of_their_own_page',async()=>{
-    const cases:[Record<string,unknown>,string,Record<string,unknown>?][]=[
-      [{view:'attendance'},'GET Main'],
-      [{view:'study_schedule'},'GET StudySchedule'],
-      [{view:'course_study_manager'},'GET CourseStudyManager'],
+    // One request of the view's own row: a GET, or the POST of the study schedule's search with its four filters.
+    const cases:[Record<string,unknown>,string,string][]=[
+      [{view:'attendance'},'GET Main','observed'],
+      [{view:'study_schedule'},'GET StudySchedule','filters_required'],
+      [SCHEDULE_FOUR,'POST UserSearch','observed'],
+      [{view:'course_study_manager'},'GET CourseStudyManager','observed'],
     ];
-    for(const [input,op] of cases){
+    for(const [input,op,status] of cases){
       const w=wire();
       const out:any=await w.schedule.get(input);
-      expect({view:input.view,status:out.status,ops:w.ops()}).toEqual({view:input.view,status:'observed',ops:[op]});
+      expect({view:input.view,status:out.status,ops:w.ops()}).toEqual({view:input.view,status,ops:[op]});
       expect(out).toMatchObject({view:input.view,academyWrites:0,parentSends:0,execution:'read_only'});
       expect(w.logins()).toBe(1);
     }
@@ -136,11 +162,14 @@ describe('lms-reads R1: each view sends only the requests of its own rows',()=>{
       [{view:'attendance'},ATT+'?p_process=Main'],
       [{view:'attendance',date:'2040-01-15',groupKey:'301',studentKey:KEY},`${ATT}?p_process=Main&ym=204001&sdate=2040-01&grp_seq=301&stu_obj=${KEY}`],
       [{view:'attendance',period:{from:'2040-01-10',through:'2040-01-20'}},`${ATT}?p_process=Main&ym=204001&sdate=2040-01`],
-      [{view:'study_schedule',gradeNo:'5',groupKey:'301',studentKey:KEY,courseKey:'672'},`${CM}?reqCmd=StudySchedule&grade_no=5&cls_no=301&student_no=${KEY}&course=672`],
-      [{view:'course_study_manager'},`${CM}?reqCmd=CourseStudyManager`],
+      [{view:'study_schedule'},`${CM}?reqCmd=StudySchedule`],
+      [{view:'study_schedule',gradeNo:'5',courseKey:'672'},`${CM}?reqCmd=StudySchedule&grade_no=5&course=672`],
+      [SCHEDULE_FOUR,CM],
+      [{view:'course_study_manager'},`${CM}?reqCmd=CourseStudyManager&grade_no=0&semester_no=0&level_no=0&status=-1&search=1`],
       [{view:'course_study_manager',gradeNo:'5',semesterNo:'1',levelNo:'3',status:'ING'},`${CM}?reqCmd=CourseStudyManager&grade_no=5&semester_no=1&level_no=3&status=ING&search=1`],
     ] as const;
     for(const [input,path] of paths)expect(lmsScheduleRequestPath(input as never)).toBe(path);
+    expect(lmsScheduleRequest(SCHEDULE_FOUR)).toEqual({method:'POST',path:CM,body:`reqCmd=UserSearch&grade_no=5&cls_no=301&student_no=${KEY}&course=672`});
     const w=wire();
     await w.schedule.get({view:'attendance',date:'2040-01-15',groupKey:'301',studentKey:KEY});
     expect(w.seen.map(s=>s.url)).toEqual([paths[1]![1]]);
@@ -158,7 +187,7 @@ describe('lms-reads R1: each view sends only the requests of its own rows',()=>{
     expect((await w.schedule.get({view:'attendance',date:'2040-01-15'}) as any).rows.map((r:any)=>r.lessonDate)).toEqual(['2040-01-15']);
     expect((await w.schedule.get({view:'attendance',period:{from:'2040-01-15',through:'2040-01-16'}}) as any).rows.map((r:any)=>r.lessonDate)).toEqual(['2040-01-15','2040-01-16']);
     expect((await w.schedule.get({view:'attendance',period:{from:'2040-01-17',through:'2040-01-20'}}) as any).rows).toEqual([]);
-    const schedule:any=await w.schedule.get({view:'study_schedule'});
+    const schedule:any=await w.schedule.get(SCHEDULE_FOUR);
     expect(schedule).toMatchObject({status:'observed',columns:['과정','시간','반'],rows:[{과정:'Invented Course A',시간:'월 17:00',반:'Invented Class 1'},{과정:'Invented Course B'}]});
     expect(schedule.grades).toEqual([{key:'1',label:'Invented grade_no one',selected:false},{key:'2',label:'Invented grade_no two',selected:true}]);
     expect(Object.keys(schedule).filter(k=>['grades','classes','students','courses'].includes(k))).toEqual(['grades','classes','students','courses']);
@@ -202,10 +231,11 @@ describe('lms-reads R1: each view sends only the requests of its own rows',()=>{
 
 // ---- R2 ---------------------------------------------------------------------------------------
 describe('lms-reads R2: no write request',()=>{
-  const SEARCH_POSTS=new Set(['WebUnPreStudy','WebCtPreStudy','DtResultSearch']);
+  const SEARCH_POSTS=new Set(['WebUnPreStudy','WebCtPreStudy','DtResultSearch','UserSearch']);
   test('lms_reads_r2_all_views_send_only_gets_and_the_named_search_posts_of_read_routes',async()=>{
     const w=wire({},WIRE_STUDENT);
-    for(const input of [{view:'attendance'},{view:'study_schedule'},{view:'course_study_manager'}])expect((await w.schedule.get(input) as any).status).toBe('observed');
+    for(const input of [{view:'attendance'},SCHEDULE_FOUR,{view:'course_study_manager'}])expect((await w.schedule.get(input) as any).status).toBe('observed');
+    expect((await w.schedule.get({view:'study_schedule'}) as any).status).toBe('filters_required');
     for(const extra of [{},{view:'incomplete'},{view:'teacher_summary'}])expect((await w.prestudy.prestudyGet(ask(WIRE_STUDENT,extra)) as any).status).toBe('observed');
     expect((await w.prestudy.prestudyReportGet({...ask(WIRE_STUDENT),prestudyKey:'12346'}) as any).status).toBe('observed');
     expect(w.guard.requests.every(r=>r.role==='login'||r.role==='read')).toBe(true);
@@ -214,16 +244,16 @@ describe('lms-reads R2: no write request',()=>{
     // The only POSTs besides the login exchange are the named search forms; every other request is a GET.
     expect(new Set(w.seen.filter(s=>s.method==='POST').map(s=>s.op))).toEqual(SEARCH_POSTS);
   });
-  test('lms_reads_r2_the_eight_read_routes_are_classed_read_and_a_neighbouring_route_is_write',()=>{
+  test('lms_reads_r2_the_nine_read_routes_are_classed_read_and_a_neighbouring_route_is_write',()=>{
     const routes=lmsReadServletRoutes();
     expect(routes.map(r=>r.operation+'|'+r.servletPath)).toEqual([
-      `Main|${ATT}`,`StudySchedule|${CM}`,`CourseStudyManager|${CM}`,`WebUnPreStudy|${CM}`,`WebCtPreStudy|${CM}`,`TeacherPrestudySummary|${CM}`,`WebPreStudy|${CM}`,
+      `Main|${ATT}`,`StudySchedule|${CM}`,`UserSearch|${CM}`,`CourseStudyManager|${CM}`,`WebUnPreStudy|${CM}`,`WebCtPreStudy|${CM}`,`TeacherPrestudySummary|${CM}`,`WebPreStudy|${CM}`,
       `prestudy_ai_report|${REPORT_JSP}`]);
     for(const route of routes){
       expect({id:route.id,effect:route.semanticEffect,safe:route.safeToProbe}).toEqual({id:route.id,effect:'read',safe:true});
       expect({id:route.id,role:lmsRequestRole('https://dc.gang-a.kr'+route.routeTemplate)}).toEqual({id:route.id,role:'read'});
     }
-    for(const url of [`${ATT}?p_process=Insert`,`${ATT}?p_process=Update`,`${CM}?reqCmd=StudyScheduleSave`,`${CM}?reqCmd=CourseStudyManagerDelete`,`${CM}?reqCmd=WebPreStudyDelete`,'/app-ui/solution_common/prestudy/prestudy_ai_report_save.jsp'])
+    for(const url of [`${ATT}?p_process=Insert`,`${ATT}?p_process=Update`,`${CM}?reqCmd=StudyScheduleSave`,`${CM}?reqCmd=UserSearchSave`,`${CM}?reqCmd=CourseStudyManagerDelete`,`${CM}?reqCmd=WebPreStudyDelete`,'/app-ui/solution_common/prestudy/prestudy_ai_report_save.jsp'])
       expect({url,role:lmsRequestRole('https://dc.gang-a.kr'+url)}).toEqual({url,role:'write'});
   });
 });
@@ -281,7 +311,7 @@ describe('lms-reads R4: a login or session page refuses and no login is retried'
     ['HTTP 401',()=>new Response('denied',{status:401})],
     ['HTTP 403',()=>new Response('denied',{status:403})],
   ];
-  const scheduleOps:[Record<string,unknown>,string][]=[[{view:'attendance'},'Main'],[{view:'study_schedule'},'StudySchedule'],[{view:'course_study_manager'},'CourseStudyManager']];
+  const scheduleOps:[Record<string,unknown>,string][]=[[{view:'attendance'},'Main'],[{view:'study_schedule'},'StudySchedule'],[SCHEDULE_FOUR,'UserSearch'],[{view:'course_study_manager'},'CourseStudyManager']];
   test('lms_reads_r4_schedule_views_refuse_with_authentication_required_and_0_login_retries',async()=>{
     for(const [label,page] of refusals)for(const [input,op] of scheduleOps){
       const w=wire({[op]:()=>page()});
@@ -358,13 +388,15 @@ describe('lms-reads R5: scope_conflict and source_drift',()=>{
       const cases:[string,string,string][]=[
         ['another teacher',listPage(view,{teacher:'99002'}),'scope_conflict'],
         ['no user form',listPage(view,{userForm:false}),'source_drift'],
-        ['no reqCmd of that command',listPage(view,{command:'Other'}),'source_drift'],
+        ['no reqCmd input',listPage(view,{noCommand:true}),'source_drift'],
+        ['a list of neither table nor image',livePage(view,'<p>Invented notice</p><img src="/renwal/common/img/other.png"/>'),'source_drift'],
         ['no content-list',listPage(view,{list:false}),'source_drift'],
         ['no content table',listPage(view,{table:false}),'source_drift'],
         ...LISTS[view]!.selects.map(select=>[`no select ${select}`,listPage(view,{dropSelect:select}),'source_drift'] as [string,string,string]),
       ];
       for(const [label,html,reasonCode] of cases){
-        const out:any=await wire({[op]:html}).schedule.get({view});
+        const input=view==='study_schedule'?SCHEDULE_FOUR:{view};
+        const out:any=await wire({[view==='study_schedule'?'UserSearch':op]:html}).schedule.get(input);
         expect({view,label,...code(out)}).toEqual({view,label,...refused(reasonCode)});
       }
     }
@@ -406,11 +438,11 @@ describe('lms-reads R6: I1 write_forbidden',()=>{
   test('lms_reads_r6_every_view_of_both_tools_completes_with_0_forbidden_requests',async()=>{
     const w=wire({},WIRE_STUDENT);
     const outs:any[]=[];
-    for(const input of [{view:'attendance'},{view:'attendance',date:'2040-01-15',groupKey:'301',studentKey:KEY},{view:'study_schedule',gradeNo:'2'},{view:'course_study_manager',status:'ING'}])
+    for(const input of [{view:'attendance'},{view:'attendance',date:'2040-01-15',groupKey:'301',studentKey:KEY},SCHEDULE_FOUR,{view:'study_schedule',gradeNo:'2'},{view:'course_study_manager',status:'ING'}])
       outs.push(await w.schedule.get(input));
     for(const extra of [{},{view:'videos'},{view:'incomplete'},{view:'teacher_summary'}])outs.push(await w.prestudy.prestudyGet(ask(WIRE_STUDENT,extra)));
     outs.push(await w.prestudy.prestudyReportGet({...ask(WIRE_STUDENT),prestudyKey:'12346'}));
-    expect(outs.map(o=>o.status)).toEqual(Array(outs.length).fill('observed'));
+    expect(outs.map(o=>o.status)).toEqual(['observed','observed','observed','filters_required','observed',...Array(outs.length-5).fill('observed')]);
     expect(w.guard.forbidden()).toEqual([]);
     expect(w.guard.requests.filter(r=>r.role==='write')).toHaveLength(0);
     expect(w.guard.requests.length).toBeGreaterThan(10);
@@ -532,10 +564,10 @@ describe('lms-reads R8: a page over 2 MiB or over 1000 rows is source_rejected',
     // The row limit is on the parsed rows, not on the rows of the requested date.
     expect(await wire({Main:attendancePage({rows:many(1001)})}).schedule.get({view:'attendance',date:'2040-01-02'})).toMatchObject({reasonCode:'source_rejected'});
     for(const view of ['study_schedule','course_study_manager'] as const){
-      const op=view==='study_schedule'?'StudySchedule':'CourseStudyManager';
+      const op=view==='study_schedule'?'UserSearch':'CourseStudyManager',input=view==='study_schedule'?SCHEDULE_FOUR:{view};
       const rows=(n:number)=>Array.from({length:n},(_,i)=>[`Invented Course ${i}`,'월','c']);
-      expect((await wire({[op]:listPage(view,{rows:rows(1000)})}).schedule.get({view}) as any).rows).toHaveLength(1000);
-      expect(await wire({[op]:listPage(view,{rows:rows(1001)})}).schedule.get({view})).toMatchObject({status:'unavailable',reasonCode:'source_rejected'});
+      expect((await wire({[op]:listPage(view,{rows:rows(1000)})}).schedule.get(input) as any).rows).toHaveLength(1000);
+      expect(await wire({[op]:listPage(view,{rows:rows(1001)})}).schedule.get(input)).toMatchObject({status:'unavailable',reasonCode:'source_rejected'});
     }
   });
   test('lms_reads_r8_prestudy_pages_over_2_MiB_or_1000_rows_are_source_rejected',async()=>{
@@ -575,9 +607,9 @@ describe('lms-reads R9: no video URL and no cookie is answered or logged',()=>{
     const answers:unknown[]=[];
     try{
       const withUrls=(html:string)=>html.replace('Invented memo two',`Invented memo two ${VIDEO_URL}`).replace('Invented Course B',`<a href="${VIDEO_URL}" onclick="playVideo('${VIDEO_URL}')">Invented Course B</a>`);
-      const w=wire({Main:withUrls(attendancePage()),StudySchedule:listPage('study_schedule',{rows:[[`Invented Course ${VIDEO_URL}`,'월','//cdn.example.invalid/a.mp4']]}),
+      const w=wire({Main:withUrls(attendancePage()),UserSearch:listPage('study_schedule',{rows:[[`Invented Course ${VIDEO_URL}`,'월','//cdn.example.invalid/a.mp4']]}),
         CourseStudyManager:listPage('course_study_manager',{rows:[[`<a href="${VIDEO_URL}">Invented Course</a>`,'월','x']]})});
-      for(const input of [{view:'attendance'},{view:'study_schedule'},{view:'course_study_manager'}])answers.push(await w.schedule.get(input));
+      for(const input of [{view:'attendance'},SCHEDULE_FOUR,{view:'course_study_manager'}])answers.push(await w.schedule.get(input));
       for(const extra of [{},{view:'incomplete'},{view:'teacher_summary'}])answers.push(await w.prestudy.prestudyGet(ask(STUDENT,extra)));
       answers.push(await w.prestudy.prestudyReportGet({...ask(),prestudyKey:'12346'}));
       // The cookie of the login is sent to the LMS, and only there.
@@ -594,6 +626,102 @@ describe('lms-reads R9: no video URL and no cookie is answered or logged',()=>{
     for(const forbidden of ['cdn.example','.mp4','playVideo','JSESSIONID',SESSION,'Set-Cookie','prestudy/1_77001'])expect({forbidden,found:all.includes(forbidden)}).toEqual({forbidden,found:false});
     expect((answers[0] as any).rows[1].memo).toBe('Invented memo two');
     expect((answers[3] as any).summary).toEqual([{unitLabel:'9-1 Invented Unit',dateLiteral:'40.01.02 03:04',aiScoreLiteral:'77점 보고서',ratingLiteral:'-',reportAvailable:true,videoAvailable:true}]);
+  });
+});
+
+// ---- the live search of the two list views (finding ama-live-schedule-views-drift) -----------------
+describe('lms-reads: the study schedule and course study manager answer the result table of the live search',()=>{
+  const optionKeys=(out:any,name:string)=>out[name].map((o:any)=>o.key);
+  // The requests of the call itself: the login exchange and the session's principal page (StudyCourse) are not its own.
+  const own=(w:ReturnType<typeof wire>)=>w.guard.requests.filter(r=>r.role!=='login'&&!r.route.endsWith(' StudyCourse'));
+  test('lms_reads_study_schedule_search_posts_user_search_with_the_four_filters',async()=>{
+    const bodies:string[]=[];
+    const w=wire({UserSearch:(body)=>{bodies.push(body.toString());return livePage('study_schedule',scheduleTable(SCHEDULE_ROWS));}});
+    const out:any=await w.schedule.get(SCHEDULE_FOUR);
+    // Exactly the page's own onSearch POST: one request, the four filters in the form body, nothing in the query.
+    expect(bodies).toEqual([`reqCmd=UserSearch&grade_no=5&cls_no=301&student_no=${KEY}&course=672`]);
+    expect(w.seen).toEqual([{method:'POST',op:'UserSearch',url:CM}]);
+    expect(own(w).map(r=>r.route+' '+r.role)).toEqual([`${CM} UserSearch read`]);
+    expect(w.guard.forbidden()).toEqual([]);
+    expect(out).toMatchObject({status:'observed',view:'study_schedule',academyWrites:0});
+    expect(out.rows).toHaveLength(3);
+    expect(optionKeys(out,'grades')).toEqual(['1','2']);
+    expect(Object.keys(out).filter(k=>['grades','classes','students','courses'].includes(k))).toEqual(['grades','classes','students','courses']);
+    // Another teacher's page is still refused.
+    expect(await wire({UserSearch:livePage('study_schedule',scheduleTable(SCHEDULE_ROWS),{teacher:'99002'})}).schedule.get(SCHEDULE_FOUR)).toMatchObject({status:'unavailable',reasonCode:'scope_conflict'});
+  });
+  test('lms_reads_study_schedule_without_all_filters_answers_filters_required_with_options',async()=>{
+    const filters={gradeNo:'5',groupKey:'301',studentKey:KEY,courseKey:'672'};
+    const query={gradeNo:'grade_no',groupKey:'cls_no',studentKey:'student_no',courseKey:'course'} as const;
+    const subsets:(keyof typeof filters)[][]=[[],['gradeNo'],['gradeNo','groupKey','studentKey'],['groupKey','studentKey','courseKey'],['gradeNo','groupKey','courseKey'],['gradeNo','studentKey','courseKey']];
+    for(const keys of subsets){
+      const given=Object.fromEntries(keys.map(k=>[k,filters[k]]));
+      const w=wire({StudySchedule:livePage('study_schedule',FIRST_PAGE_IMG)});
+      const out:any=await w.schedule.get({view:'study_schedule',...given});
+      const q=keys.map(k=>`&${query[k]}=${filters[k]}`).join('');
+      expect({keys,ops:w.ops(),urls:w.seen.map(x=>x.url)}).toEqual({keys,ops:['GET StudySchedule'],urls:[`${CM}?reqCmd=StudySchedule${q}`]});
+      expect({keys,status:out.status,rows:out.rows,columns:out.columns}).toEqual({keys,status:'filters_required',rows:[],columns:[]});
+      // The options of the four selects of the start page are answered.
+      for(const name of ['grades','classes','students','courses'])expect({keys,name,options:optionKeys(out,name)}).toEqual({keys,name,options:['1','2']});
+      expect(w.guard.forbidden()).toEqual([]);
+    }
+  });
+  test('lms_reads_schedule_start_and_no_result_pages_answer_zero_rows',async()=>{
+    const searched=[['start page',FIRST_PAGE_IMG],['no-result page',NO_RESULT_IMG]] as const;
+    for(const [label,image] of searched){
+      const study:any=await wire({UserSearch:livePage('study_schedule',image)}).schedule.get(SCHEDULE_FOUR);
+      expect({label,view:'study_schedule',status:study.status,rows:study.rows,columns:study.columns}).toEqual({label,view:'study_schedule',status:'observed',rows:[],columns:[]});
+      expect(optionKeys(study,'courses')).toEqual(['1','2']);
+      const manager:any=await wire({CourseStudyManager:livePage('course_study_manager',image)}).schedule.get({view:'course_study_manager'});
+      expect({label,view:'course_study_manager',status:manager.status,rows:manager.rows,columns:manager.columns}).toEqual({label,view:'course_study_manager',status:'observed',rows:[],columns:[]});
+      for(const name of ['grades','semesters','levels','statuses'])expect({label,name,options:optionKeys(manager,name)}).toEqual({label,name,options:['1','2']});
+    }
+    // The reqCmd input exists without a value; its value is not compared. A list with neither image nor table is still source_drift.
+    expect(livePage('study_schedule',FIRST_PAGE_IMG)).toContain('<input type="hidden" name="reqCmd" id="reqCmd" />');
+    for(const content of ['','<p>Invented notice</p>','<img src="/renwal/common/img/other.png"/>']){
+      expect(await wire({CourseStudyManager:livePage('course_study_manager',content)}).schedule.get({view:'course_study_manager'})).toMatchObject({status:'unavailable',reasonCode:'source_drift'});
+      expect(await wire({UserSearch:livePage('study_schedule',content)}).schedule.get(SCHEDULE_FOUR)).toMatchObject({status:'unavailable',reasonCode:'source_drift'});
+    }
+  });
+  test('lms_reads_study_schedule_rowspan_cells_fill_every_column',async()=>{
+    const w=wire({UserSearch:livePage('study_schedule',scheduleTable(SCHEDULE_ROWS))});
+    const out:any=await w.schedule.get(SCHEDULE_FOUR);
+    // colspan is expanded in the header: the two 단원 분류 columns keep the unique naming; a full row has 13 columns.
+    expect(out.columns).toEqual(SCHEDULE_COLUMNS);
+    expect(out.columns).toHaveLength(13);
+    expect(out.rows).toHaveLength(3);
+    for(const row of out.rows)expect(Object.keys(row)).toEqual(SCHEDULE_COLUMNS);
+    // The rowspan cell of the first row is carried into the second; the cells keep their labels only.
+    expect(out.rows[0]).toMatchObject({'단원 분류':'Invented Unit 1','단원 분류#2':'Invented Section 1.1',개념정복:'a-1','평가클리닉':'a-4','평가클리닉#10':'a-8',오답재학습:'a-11'});
+    expect(out.rows[1]).toMatchObject({'단원 분류':'Invented Unit 1','단원 분류#2':'Invented Section 1.2',개념정복:'b-1',오답재학습:'b-11'});
+    expect(out.rows[2]).toMatchObject({'단원 분류':'Invented Unit 2','단원 분류#2':'Invented Section 2.1',개념정복:'c-1'});
+    // No onclick handler (editDate, updateScore, editState) of the page is requested: one POST, nothing else.
+    expect(w.seen).toEqual([{method:'POST',op:'UserSearch',url:CM}]);
+    expect(JSON.stringify(out)).not.toMatch(/editDate|updateScore|editState/);
+    // A colspan body cell and a row that ends early are filled to every column too.
+    const spanned=scheduleTable(`<tr><td colspan="2">Invented Unit 3</td>${stepCells('d')}</tr><tr><td>Invented Unit 4</td><td>Invented Section 4.1</td><td>e-1</td></tr>`);
+    const short:any=await wire({UserSearch:livePage('study_schedule',spanned)}).schedule.get(SCHEDULE_FOUR);
+    expect(short.rows[0]).toMatchObject({'단원 분류':'Invented Unit 3','단원 분류#2':'Invented Unit 3',개념정복:'d-1'});
+    for(const row of short.rows)expect(Object.keys(row)).toEqual(SCHEDULE_COLUMNS);
+    expect(short.rows[1]).toMatchObject({개념정복:'e-1',필수예제:'',오답재학습:''});
+  });
+  test('lms_reads_course_study_manager_search_get_parses_course_rows',async()=>{
+    const w=wire({CourseStudyManager:livePage('course_study_manager',managerTable)});
+    const out:any=await w.schedule.get({view:'course_study_manager',gradeNo:'5',status:'-1'});
+    // Always the search=1 GET; a filter not given is the page's own "all" value.
+    expect(w.seen).toEqual([{method:'GET',op:'CourseStudyManager',url:`${CM}?reqCmd=CourseStudyManager&grade_no=5&semester_no=0&level_no=0&status=-1&search=1`}]);
+    expect(out).toMatchObject({status:'observed',view:'course_study_manager',columns:MANAGER_COLUMNS});
+    expect(out.rows).toEqual([
+      {'학년-학기':'5-1','레벨':'3','북코드(버전)':'BK001(1)','과정명':'Invented Course A','상태':'ING','시험지':'보기'},
+      {'학년-학기':'5-2','레벨':'4','북코드(버전)':'BK002(2)','과정명':'Invented Course B','상태':'END','시험지':'보기'}]);
+    expect(Object.keys(out).filter(k=>['grades','semesters','levels','statuses'].includes(k))).toEqual(['grades','semesters','levels','statuses']);
+    // testListView is not read: no request beyond the search.
+    expect(own(w)).toHaveLength(1);
+    expect(w.guard.forbidden()).toEqual([]);
+    // With no filter the same GET carries every "all" value.
+    const all=wire({CourseStudyManager:livePage('course_study_manager',managerTable)});
+    await all.schedule.get({view:'course_study_manager'});
+    expect(all.seen.map(x=>x.url)).toEqual([`${CM}?reqCmd=CourseStudyManager&grade_no=0&semester_no=0&level_no=0&status=-1&search=1`]);
   });
 });
 

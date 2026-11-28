@@ -178,19 +178,22 @@ function reportViewLegacyRoute(view: string): [string, LmsRouteDefinition] {
 }
 
 /**
- * The eight read routes of specs/academy-mcp/lms-reads.md: the schedule pages of `academy_lms_schedule_get`
- * (AttendanceServlet Main, CourseManageServlet StudySchedule and CourseStudyManager) and the prestudy pages
+ * The nine read routes of specs/academy-mcp/lms-reads.md: the schedule pages of `academy_lms_schedule_get`
+ * (AttendanceServlet Main, CourseManageServlet StudySchedule, its UserSearch search POST and the CourseStudyManager
+ * search GET) and the prestudy pages
  * of `academy_prestudy_get` (WebUnPreStudy, WebCtPreStudy, TeacherPrestudySummary, WebPreStudy and the AI
  * report page). Each is strictly read: a GET, or the POST of the list's own search form, which changes no
  * Academy data. The class is by the named route and operation, never by the HTTP method.
  */
-const LMS_READ_ROUTES: readonly {id: string; path: string; param: 'p_process' | 'reqCmd' | null; operation: string; method: 'GET' | 'POST'; reason: string; keys: readonly string[]}[] = [
+const LMS_READ_ROUTES: readonly {id: string; path: string; param: 'p_process' | 'reqCmd' | null; operation: string; method: 'GET' | 'POST'; query?: string; reason: string; keys: readonly string[]}[] = [
   {id: 'LMS_ATTENDANCE_MAIN', path: '/servlet/controller.cct.tutor.AttendanceServlet', param: 'p_process', operation: 'Main', method: 'GET',
     reason: 'Attendance page of the teacher, one month per GET (read; changes no data)', keys: ['ym', 'sdate', 'grp_seq', 'stu_obj']},
   {id: 'LMS_STUDY_SCHEDULE', path: '/servlet/controller.coursemanage.CourseManageServlet', param: 'reqCmd', operation: 'StudySchedule', method: 'GET',
     reason: 'Study schedule page (read; changes no data)', keys: ['grade_no', 'cls_no', 'student_no', 'course']},
-  {id: 'LMS_COURSE_STUDY_MANAGER', path: '/servlet/controller.coursemanage.CourseManageServlet', param: 'reqCmd', operation: 'CourseStudyManager', method: 'GET',
-    reason: 'Course study manager page (read; changes no data)', keys: ['grade_no', 'semester_no', 'level_no', 'status', 'search']},
+  {id: 'LMS_STUDY_SCHEDULE_SEARCH', path: '/servlet/controller.coursemanage.CourseManageServlet', param: 'reqCmd', operation: 'UserSearch', method: 'POST',
+    reason: 'Study schedule search: the POST of the page\'s own onSearch form; it changes no data (read)', keys: ['grade_no', 'cls_no', 'student_no', 'course']},
+  {id: 'LMS_COURSE_STUDY_MANAGER', path: '/servlet/controller.coursemanage.CourseManageServlet', param: 'reqCmd', operation: 'CourseStudyManager', method: 'GET', query: 'search=1',
+    reason: 'Course study manager search: the GET of the page\'s own search=1 (read; changes no data)', keys: ['grade_no', 'semester_no', 'level_no', 'status', 'search']},
   {id: 'LMS_PRESTUDY_WAITING', path: '/servlet/controller.coursemanage.CourseManageServlet', param: 'reqCmd', operation: 'WebUnPreStudy', method: 'GET',
     reason: 'Prestudy waiting list; its form1 POST is the list search and changes no data (read)', keys: ['g_clg_no', 'g_mem_type', 'g_pri_no', 'student_name']},
   {id: 'LMS_PRESTUDY_COMPLETED', path: '/servlet/controller.coursemanage.CourseManageServlet', param: 'reqCmd', operation: 'WebCtPreStudy', method: 'GET',
@@ -203,7 +206,7 @@ const LMS_READ_ROUTES: readonly {id: string; path: string; param: 'p_process' | 
     reason: 'Server-rendered AI report of one prestudy video (read; changes no data)', keys: ['analysis_key']},
 ];
 function lmsReadLegacyRoute(def: typeof LMS_READ_ROUTES[number]): [string, LmsRouteDefinition] {
-  const template = def.param ? `${def.path}?${def.param}=${def.operation}` : def.path;
+  const template = def.param ? `${def.path}?${def.param}=${def.operation}${def.query ? '&' + def.query : ''}` : def.path;
   return [def.id, {
     id: def.id, routeId: def.id, category: def.path.includes('coursemanage') || def.path.includes('prestudy') ? 'CourseManageIndex' : 'BaseManageIndex',
     servletPath: def.path, processName: def.operation,
@@ -1043,7 +1046,7 @@ export function reportViewRoutes(): LmsRouteDefinition[] {
   return REPORT_VIEW_NAMES.map(view => ({ ...reportViewLegacyRoute(view)[1] }));
 }
 
-/** The eight read routes of specs/academy-mcp/lms-reads.md, each `semanticEffect: 'read'` and `safeToProbe: true`. */
+/** The nine read routes of specs/academy-mcp/lms-reads.md, each `semanticEffect: 'read'` and `safeToProbe: true`. */
 export function lmsReadServletRoutes(): LmsRouteDefinition[] {
   return LMS_READ_ROUTES.map(def => ({ ...lmsReadLegacyRoute(def)[1] }));
 }

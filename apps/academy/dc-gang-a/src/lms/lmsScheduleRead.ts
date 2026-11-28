@@ -1,8 +1,10 @@
 /** Read-only LMS schedule pages (specs/academy-mcp/lms-reads.md): attendance, the study schedule and the
- * course study manager. Each view is one GET of one servlet page; this module qualifies the caller's input
- * before any request, builds the request path, and parses the page fail closed:
+ * course study manager. Each view is one request of one servlet page (a GET, or the study schedule's own
+ * UserSearch POST); this module qualifies the caller's input before any request, builds the request, and parses
+ * the page fail closed:
  * - R4: a login page, a session-error page or a password input refuses with `authentication_required`;
- * - R5: a missing form, table or container refuses with `source_drift`, a page of another teacher or
+ * - R5: a missing form, a list with neither table nor its start or no-result image, or a missing container refuses
+ *   with `source_drift`, a page of another teacher or
  *   another month with `scope_conflict`;
  * - R8: a page over 2 MiB, or over 1000 rows, refuses with `source_rejected`;
  * - R9: a cell keeps its label only: no URL (so no video URL) and no cookie is ever returned.
@@ -134,8 +136,18 @@ export function requestedMonth(input: LmsScheduleInput): string | null {
   return day ? day.slice(0, 7) : null;
 }
 
-/** The request path of one view: the servlet command and, in the page's own parameter names, the filters. */
-export function lmsScheduleRequestPath(input: LmsScheduleInput): string {
+/** The four filters of the study schedule search (the page's own onSearch): all four are required. */
+export const hasAllStudyScheduleFilters = (input: LmsScheduleInput): boolean =>
+  input.view === 'study_schedule' && [input.gradeNo, input.groupKey, input.studentKey, input.courseKey].every(v => v !== undefined);
+
+export interface LmsScheduleRequest {path: string; method: 'GET' | 'POST'; body?: string}
+/** The request of one view, in the page's own parameter names (specs/academy-mcp/lms-reads.md "Routes"):
+ * - attendance: GET AttendanceServlet Main with the month and filters;
+ * - study_schedule with all four filters: the POST of the page's search, `reqCmd=UserSearch` with `grade_no`,
+ *   `cls_no`, `student_no` and `course` in the form body; with any of them missing: the start page GET with the
+ *   given filters in its query;
+ * - course_study_manager: always the `search=1` GET; a filter not given is the page's own "all" value. */
+export function lmsScheduleRequest(input: LmsScheduleInput): LmsScheduleRequest {
   const q = new URLSearchParams();
   const add = (name: string, value: string | undefined) => { if (value !== undefined) q.set(name, value); };
   if (input.view === 'attendance') {
@@ -143,18 +155,24 @@ export function lmsScheduleRequestPath(input: LmsScheduleInput): string {
     const month = requestedMonth(input);
     if (month) { q.set('ym', month.replace('-', '')); q.set('sdate', month); }
     add('grp_seq', input.groupKey); add('stu_obj', input.studentKey);
-    return ATTENDANCE_PATH + '?' + q;
+    return {method: 'GET', path: ATTENDANCE_PATH + '?' + q};
   }
   if (input.view === 'study_schedule') {
+    if (hasAllStudyScheduleFilters(input)) {
+      const form = new URLSearchParams({reqCmd: 'UserSearch', grade_no: input.gradeNo!, cls_no: input.groupKey!, student_no: input.studentKey!, course: input.courseKey!});
+      return {method: 'POST', path: COURSE_MANAGE_PATH, body: form.toString()};
+    }
     q.set('reqCmd', 'StudySchedule');
     add('grade_no', input.gradeNo); add('cls_no', input.groupKey); add('student_no', input.studentKey); add('course', input.courseKey);
-    return COURSE_MANAGE_PATH + '?' + q;
+    return {method: 'GET', path: COURSE_MANAGE_PATH + '?' + q};
   }
   q.set('reqCmd', 'CourseStudyManager');
-  add('grade_no', input.gradeNo); add('semester_no', input.semesterNo); add('level_no', input.levelNo); add('status', input.status);
-  if ([input.gradeNo, input.semesterNo, input.levelNo, input.status].some(v => v !== undefined)) q.set('search', '1');
-  return COURSE_MANAGE_PATH + '?' + q;
+  q.set('grade_no', input.gradeNo ?? '0'); q.set('semester_no', input.semesterNo ?? '0'); q.set('level_no', input.levelNo ?? '0'); q.set('status', input.status ?? '-1');
+  q.set('search', '1');
+  return {method: 'GET', path: COURSE_MANAGE_PATH + '?' + q};
 }
+/** The path (with its query, for a GET) of the request of one view. */
+export const lmsScheduleRequestPath = (input: LmsScheduleInput): string => lmsScheduleRequest(input).path;
 
 // ---- page parsing ------------------------------------------------------------------------------
 
@@ -275,13 +293,61 @@ export function parseAttendance(html: string, parse: Parse, teacherKey: string, 
 // study schedule and course study manager
 
 export interface LmsTableRow {[column: string]: string}
-export interface StudyScheduleRead {view: 'study_schedule'; columns: string[]; rows: LmsTableRow[]; grades: LmsOption[]; classes: LmsOption[]; students: LmsOption[]; courses: LmsOption[]}
+/** `status` is only set when the study schedule was read without its four filters: the page is then the start page. */
+export interface StudyScheduleRead {view: 'study_schedule'; status?: 'filters_required'; columns: string[]; rows: LmsTableRow[]; grades: LmsOption[]; classes: LmsOption[]; students: LmsOption[]; courses: LmsOption[]}
 export interface CourseStudyManagerRead {view: 'course_study_manager'; columns: string[]; rows: LmsTableRow[]; grades: LmsOption[]; semesters: LmsOption[]; levels: LmsOption[]; statuses: LmsOption[]}
 
 const SCHEDULE_CONTROLS = {
-  study_schedule: {command: 'StudySchedule', selects: ['grade_no', 'cls_no', 'student_no', 'course']},
-  course_study_manager: {command: 'CourseStudyManager', selects: ['grade_no', 'semester_no', 'level_no', 'status']},
+  study_schedule: {selects: ['grade_no', 'cls_no', 'student_no', 'course']},
+  course_study_manager: {selects: ['grade_no', 'semester_no', 'level_no', 'status']},
 } as const;
+/** The image that the page's own list shows instead of a table: the start page (`firstpage.png`) and a search without a result (`no_result.png`). */
+const EMPTY_LIST_IMAGE = /(?:^|\/)(?:firstpage|no_result)\.png(?:[?#].*)?$/i;
+const MAX_SPAN = 64;
+const spanOf = (cell: Element, name: 'colspan' | 'rowspan', max: number) => {
+  const n = Number.parseInt(cell.getAttribute(name) ?? '1', 10);
+  return Number.isFinite(n) && n > 1 ? Math.min(n, max) : 1;
+};
+
+/** The columns of a header row, a header cell of colspan n counted n times. */
+function headerColumns(headerRow: Element | undefined): string[] {
+  const out: string[] = [];
+  for (const th of headerRow ? headerRow.querySelectorAll(':scope > th') : []) {
+    const text = lmsCellText(th.textContent);
+    for (let k = spanOf(th, 'colspan', MAX_SPAN); k > 0; k--) out.push(text);
+  }
+  return out.map((h, i) => h || `column${i + 1}`);
+}
+/** The data rows of a table as grids of cell labels: a cell of colspan n fills n columns, a cell of rowspan n fills its column of the next n-1 rows too. */
+function expandedRows(table: Element, headerRow: Element | undefined): string[][] {
+  const carry = new Map<number, {text: string; left: number}>();
+  const out: string[][] = [];
+  for (const row of directRows(table)) {
+    if (row === headerRow || !row.querySelector(':scope > td')) continue;
+    if (carry.size === 0 && isEmptyStateRow(row)) continue;
+    const cells: string[] = [];
+    let col = 0;
+    const takeCarried = () => {
+      for (let held = carry.get(col); held; held = carry.get(col)) {
+        cells[col] = held.text;
+        if (--held.left <= 0) carry.delete(col);
+        col++;
+      }
+    };
+    for (const td of row.querySelectorAll(':scope > td')) {
+      takeCarried();
+      const text = lmsCellText(td.textContent), rows = spanOf(td, 'rowspan', MAX_LMS_ROWS + 1);
+      for (let k = spanOf(td, 'colspan', MAX_SPAN); k > 0; k--, col++) {
+        cells[col] = text;
+        if (rows > 1) carry.set(col, {text, left: rows - 1});
+      }
+    }
+    takeCarried();
+    out.push(Array.from(cells, c => c ?? ''));
+    if (out.length > MAX_LMS_ROWS) refuse('source_rejected');
+  }
+  return out;
+}
 
 function parseContentList(view: 'study_schedule' | 'course_study_manager', html: string, parse: Parse, teacherKey: string) {
   assertLmsPageSize(html);
@@ -290,8 +356,8 @@ function parseContentList(view: 'study_schedule' | 'course_study_manager', html:
   const spec = SCHEDULE_CONTROLS[view];
   const form = doc.querySelector('form#form1');
   if (!form) refuse('source_drift');
-  const command = form!.querySelector('input[name="reqCmd"]');
-  if (!command || command.getAttribute('value') !== spec.command) refuse('source_drift');
+  // The start page holds `reqCmd` without a value: the input must exist, its value is not compared.
+  if (!form!.querySelector('input[name="reqCmd"]')) refuse('source_drift');
   const selects = new Map<string, Element>();
   for (const name of spec.selects) {
     const node = form!.querySelector(`select[name="${name}"]`);
@@ -303,21 +369,19 @@ function parseContentList(view: 'study_schedule' | 'course_study_manager', html:
   if (!doc.querySelector('form[name="userForm"] input[name="pri_no"]')) refuse('source_drift');
   checkTeacher(doc, teacherKey, [{form: 'form[name="userForm"]', field: 'pri_no'}]);
   const tables = [...list!.querySelectorAll('table')].filter(t => hasClasses(t, 'content-table'));
-  if (tables.length === 0) refuse('source_drift');
+  const imageOnly = [...list!.querySelectorAll('img')].some(img => EMPTY_LIST_IMAGE.test(img.getAttribute('src') ?? ''));
+  // A list is a table, or the image of the start page or of a search without a result; anything else is drift.
+  if (tables.length === 0 && !imageOnly) refuse('source_drift');
   const columns: string[] = [];
   const rows: LmsTableRow[] = [];
   for (const table of tables) {
-    const all = directRows(table);
-    const headerRow = all.find(r => r.querySelector(':scope > th'));
-    const headers = headerRow ? [...headerRow.querySelectorAll(':scope > th')].map((th, i) => lmsCellText(th.textContent) || `column${i + 1}`) : [];
+    const headerRow = directRows(table).find(r => r.querySelector(':scope > th'));
+    const headers = headerColumns(headerRow);
     const unique = headers.map((h, i) => headers.indexOf(h) === i ? h : `${h}#${i + 1}`);
     if (columns.length === 0) columns.push(...unique);
-    for (const row of all) {
-      if (row === headerRow || !row.querySelector(':scope > td')) continue;
-      if (isEmptyStateRow(row)) continue;
-      const cells = cellsOf(row);
+    for (const cells of expandedRows(table, headerRow)) {
       const out: LmsTableRow = {};
-      cells.forEach((text, i) => { out[unique[i] ?? `column${i + 1}`] = text; });
+      for (let i = 0; i < Math.max(cells.length, unique.length); i++) out[unique[i] ?? `column${i + 1}`] = cells[i] ?? '';
       rows.push(out);
       if (rows.length > MAX_LMS_ROWS) refuse('source_rejected');
     }
@@ -326,9 +390,11 @@ function parseContentList(view: 'study_schedule' | 'course_study_manager', html:
   return {columns, rows, options};
 }
 
-export function parseStudySchedule(html: string, parse: Parse, teacherKey: string): StudyScheduleRead {
+export function parseStudySchedule(html: string, parse: Parse, teacherKey: string, filtersRequired = false): StudyScheduleRead {
   const {columns, rows, options} = parseContentList('study_schedule', html, parse, teacherKey);
-  return {view: 'study_schedule', columns, rows, grades: options('grade_no'), classes: options('cls_no'), students: options('student_no'), courses: options('course')};
+  const lists = {grades: options('grade_no'), classes: options('cls_no'), students: options('student_no'), courses: options('course')};
+  // Without its four filters the page is the start page: no rows, the options only.
+  return filtersRequired ? {view: 'study_schedule', status: 'filters_required', columns: [], rows: [], ...lists} : {view: 'study_schedule', columns, rows, ...lists};
 }
 export function parseCourseStudyManager(html: string, parse: Parse, teacherKey: string): CourseStudyManagerRead {
   const {columns, rows, options} = parseContentList('course_study_manager', html, parse, teacherKey);
@@ -339,5 +405,5 @@ export type LmsScheduleRead = AttendanceRead | StudyScheduleRead | CourseStudyMa
 /** One page of the view, parsed fail closed for the principal's teacher key and the caller's scope. */
 export function parseLmsSchedule(input: LmsScheduleInput, html: string, parse: Parse, teacherKey: string): LmsScheduleRead {
   if (input.view === 'attendance') return parseAttendance(html, parse, teacherKey, {month: requestedMonth(input), ...(input.date || input.period ? {range: input.period ?? {from: input.date!, through: input.date!}} : {})});
-  return input.view === 'study_schedule' ? parseStudySchedule(html, parse, teacherKey) : parseCourseStudyManager(html, parse, teacherKey);
+  return input.view === 'study_schedule' ? parseStudySchedule(html, parse, teacherKey, !hasAllStudyScheduleFilters(input)) : parseCourseStudyManager(html, parse, teacherKey);
 }
