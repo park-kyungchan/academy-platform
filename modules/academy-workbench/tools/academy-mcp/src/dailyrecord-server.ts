@@ -8,6 +8,7 @@ import {DailyRecordService} from './dailyrecord.ts';
 import {registerTextbookSourceTools} from './textbook-source-tools.ts';
 import {textbookPdfReaderConfiguration} from './textbook-pdf-reader.ts';
 import {dailyRecordToolConfiguration,registerDailyRecordTools,registerOfficialReportPdfTool,registerPaperPrintPdfTool} from './dailyrecord-tools.ts';
+import {LmsScheduleService,registerLmsScheduleTool} from './lms-schedule-tools.ts';
 import {historicalBindingReaderConfiguration} from './historical-binding-reader.ts';
 import {studyqRunnerConfiguration} from './studyq-runner.ts';
 import {OfficialReportPdfService} from './official-report-pdf.ts';
@@ -39,6 +40,7 @@ registerTextbookSourceTools(server,native?.backend??null,nativeOwnerArtifactsRoo
 registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,config.parentSafeguard,Date.now,null,native?.backend??null,workflow));
 registerOfficialReportPdfTool(server,new OfficialReportPdfService(native?.backend??null,studyq.runner,join(nativeOwnerArtifactsRoot,'official-reports')));
 registerPaperPrintPdfTool(server,new PaperPrintPdfService(native?.backend??null,studyq.runner,join(nativeOwnerArtifactsRoot,'print-pdfs')));
+registerLmsScheduleTool(server,new LmsScheduleService(native?.backend??null));
 if(native)process.once('exit',native.close);
 installStdioDiagnostics(server.server);
 await server.connect(createAcademyStdioTransport());

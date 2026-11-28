@@ -1,7 +1,8 @@
 import {CISM_PATH,parseCismReport,cismWriteParameters,cismWeek,type CismReport} from './cismWeeklyProtocol';
 import {JSDOM} from 'jsdom';
 import {TEXTBOOK_CATALOG_PATH,MAX_TEXTBOOK_CATALOG_BYTES,MAX_TEXTBOOK_SAMPLE_BYTES,MAX_TEXTBOOK_REFERENCE_BYTES,parseTextbookCatalog,boundedTextbookBody,qualifiedTextbookPdfUrl,textbookPdfDigest,type TextbookCatalogObservation,type TextbookPdfObservation,type TextbookSchoolLevel} from './textbookCatalogRead';
-import {PRESTUDY_PATH,PRESTUDY_SUMMARY_PATH,PRESTUDY_REPORT_PATH,TEXTBOOK_PROGRESS_PATH,parsePrestudySearchForm,parsePrestudyList,parsePrestudySummary,prestudyRowsForStudent,parseTextbookBindings,parsePrestudyDetail,parsePrestudyReport,type PrestudyListRow,type PrestudySummaryRow,type TextbookBinding,type PrestudyReport} from './prestudyRead';
+import {PRESTUDY_PATH,PRESTUDY_SUMMARY_PATH,PRESTUDY_REPORT_PATH,TEXTBOOK_PROGRESS_PATH,PRESTUDY_VIEWS,PrestudyFormDrift,type PrestudyView,parsePrestudySearchForm,parsePrestudyList,parsePrestudySummary,prestudyRowsForStudent,parseTextbookBindings,parsePrestudyDetail,parsePrestudyReport,type PrestudyListRow,type PrestudySummaryRow,type TextbookBinding,type PrestudyReport} from './prestudyRead';
+import {LmsReadRefusal,readBoundedLmsPage,qualifyLmsScheduleInput,lmsScheduleRequestPath,parseLmsSchedule,type LmsScheduleInput,type LmsScheduleRead} from './lmsScheduleRead';
 import {randomInt,createHash} from 'node:crypto';
 import {createAcademyReadPlan,executeAcademyRead,readLiteralKey,readLiteralName,sourceResponseKey,parseTextbookScopeBinding,type AcademyReadResult,type ScopedAcademyReadPlan} from './academyReadProtocol';
 import {readInputRecord} from '../contracts/readInputRecord';
@@ -119,14 +120,13 @@ export class AcademyHttpClient {
    * upload awaiting teacher review; the completed list and the summary page
    * are separate source surfaces. AI score/star literals are reported as
    * literals only; teacher review remains a separate, unobserved state. */
-  async readPrestudy(input:{teacherLabel:string;studentName:string}):Promise<{waiting:PrestudyListRow[];completed:PrestudyListRow[];summary:PrestudySummaryRow[];observedAt:string;coverage:string}>{
-    if(!input||Object.keys(input).sort().join(',')!=='studentName,teacherLabel'||input.teacherLabel!==this.#principal.teacherLabel)throw Error('prestudy_principal_rejected');
+  async readPrestudy(input:{teacherLabel:string;studentName:string;view?:PrestudyView}):Promise<{view:PrestudyView;waiting?:PrestudyListRow[];completed?:PrestudyListRow[];summary?:PrestudySummaryRow[];observedAt:string;coverage:string}>{
+    if(!input||Object.keys(input).some(k=>!['studentName','teacherLabel','view'].includes(k))||!('studentName' in input)||!('teacherLabel' in input)||input.teacherLabel!==this.#principal.teacherLabel)throw Error('prestudy_principal_rejected');
+    const view=input.view??'videos';
+    if(!PRESTUDY_VIEWS.includes(view))throw Error('prestudy_principal_rejected');
     readLiteralName(input.studentName);
     if(!this.#authenticated)throw Error('authentication_required');
-    const pageText=async(path:string,init:RequestInit,operation:string)=>{
-      const response=await this.#request(path,init,false,operation);
-      const text=await response.text();if(text.length>2000000)throw Error('prestudy_source_rejected');return text;
-    };
+    const pageText=async(path:string,init:RequestInit,operation:string)=>readBoundedLmsPage(await this.#request(path,init,false,operation));
     const search=async(cmd:'WebUnPreStudy'|'WebCtPreStudy')=>{
       const shell=await pageText(PRESTUDY_PATH+'?reqCmd='+cmd,{method:'GET'},cmd);
       const form=parsePrestudySearchForm(shell,sourceDomParser.parseFromString,cmd,this.#principal.teacherKey);
@@ -134,11 +134,41 @@ export class AcademyHttpClient {
       const result=await pageText(PRESTUDY_PATH,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:body.toString()},cmd);
       return prestudyRowsForStudent(parsePrestudyList(result,sourceDomParser.parseFromString,cmd,this.#principal.teacherKey),input.studentName);
     };
-    const waiting=await search('WebUnPreStudy');
-    const completed=await search('WebCtPreStudy');
-    const summaryHtml=await pageText(PRESTUDY_SUMMARY_PATH,{method:'GET'},'TeacherPrestudySummary');
-    const summary=prestudyRowsForStudent(parsePrestudySummary(summaryHtml,sourceDomParser.parseFromString),input.studentName);
-    return {waiting,completed,summary,observedAt:new Date().toISOString(),coverage:'exact_student_rows_on_waiting_completed_and_one_observed_summary_page_not_all_history'};
+    try{
+      // lms-reads.md R1: each view sends only the requests of its own rows, in the old tool's order.
+      const waiting=view==='teacher_summary'?undefined:await search('WebUnPreStudy');
+      const completed=view==='videos'?await search('WebCtPreStudy'):undefined;
+      const summary=view==='incomplete'?undefined:prestudyRowsForStudent(parsePrestudySummary(await pageText(PRESTUDY_SUMMARY_PATH,{method:'GET'},'TeacherPrestudySummary'),sourceDomParser.parseFromString),input.studentName);
+      return {view,...(waiting?{waiting}:{}),...(completed?{completed}:{}),...(summary?{summary}:{}),observedAt:new Date().toISOString(),
+        coverage:view==='videos'?'exact_student_rows_on_waiting_completed_and_one_observed_summary_page_not_all_history'
+          :view==='incomplete'?'exact_student_rows_on_the_waiting_list_only_not_all_history':'exact_student_rows_on_one_observed_summary_page_only'};
+    }catch(error){throw this.#lmsReadFailure(error);}
+  }
+  /** One LMS schedule page of the teacher: attendance, the study schedule or the course study manager
+   * (specs/academy-mcp/lms-reads.md). One GET; the page is read bounded and parsed fail closed. */
+  async readLmsSchedule(input:{teacherLabel:string}&LmsScheduleInput):Promise<LmsScheduleRead&{observedAt:string;coverage:string}>{
+    if(!input||input.teacherLabel!==this.#principal.teacherLabel)throw Error('lms_schedule_principal_rejected');
+    const {teacherLabel:_label,...rest}=input;
+    const qualified=qualifyLmsScheduleInput(rest);
+    if(!this.#authenticated)throw Error('authentication_required');
+    try{
+      const html=await readBoundedLmsPage(await this.#request(lmsScheduleRequestPath(qualified),{method:'GET'},false,'lms_schedule_read'));
+      const page=parseLmsSchedule(qualified,html,sourceDomParser.parseFromString,this.#principal.teacherKey);
+      return {...page,observedAt:new Date().toISOString(),coverage:'one_observed_page_of_the_view_not_all_history'};
+    }catch(error){throw this.#lmsReadFailure(error);}
+  }
+  /** The public refusal of a failed LMS read (lms-reads.md R4, R5, R8): a redirect, an HTTP 401 or 403, a login or
+   * session page closes the session and is `authentication_required` (no login is retried: `authenticate` runs once);
+   * the prestudy parsers' own codes become `source_rejected`, `source_drift` and `scope_conflict`. Never carries page text. */
+  #lmsReadFailure(error:unknown):Error{
+    const message=error instanceof Error?error.message:'';
+    if(error instanceof AcademyHttpFailure&&[401,403].includes(error.httpStatus)||['source_redirect_rejected','source_redirect_contract_rejected','foreign_source_redirect_rejected','prestudy_authentication_required','authentication_required'].includes(message)||error instanceof LmsReadRefusal&&error.code==='authentication_required'){
+      this.close();return Error('authentication_required');
+    }
+    if(error instanceof PrestudyFormDrift)return Error(error.scopeConflict?'scope_conflict':'source_drift');
+    if(message==='prestudy_source_rejected')return Error('source_rejected');
+    if(['prestudy_search_form_missing','prestudy_summary_table_missing','prestudy_row_unqualified','prestudy_summary_row_unqualified'].includes(message))return Error('source_drift');
+    return error instanceof Error?error:Error('source_cause_unclassified');
   }
   /** AI prestudy report for one exact uploaded-video record. The detail
    * record must belong to the exact student; its rendered analysis key is
@@ -149,15 +179,15 @@ export class AcademyHttpClient {
     if(!input||Object.keys(input).sort().join(',')!=='prestudyKey,studentKey,studentName,teacherLabel'||input.teacherLabel!==this.#principal.teacherLabel)throw Error('prestudy_report_principal_rejected');
     readLiteralName(input.studentName);readLiteralKey(input.studentKey);readLiteralKey(input.prestudyKey);
     if(!this.#authenticated)throw Error('authentication_required');
-    const pageText=async(path:string,operation:string)=>{
-      const response=await this.#request(path,{method:'GET'},false,operation);
-      const text=await response.text();if(text.length>2000000)throw Error('prestudy_source_rejected');return text;
-    };
-    const detailHtml=await pageText(PRESTUDY_PATH+'?reqCmd=WebPreStudy&prestudy_key='+encodeURIComponent(input.prestudyKey),'WebPreStudy');
-    const detail=parsePrestudyDetail(detailHtml,sourceDomParser.parseFromString,input.studentKey,input.prestudyKey);
-    if(!detail.analysisKey)throw Error('prestudy_report_not_ready');
-    const reportHtml=await pageText(PRESTUDY_REPORT_PATH+'?analysis_key='+encodeURIComponent(detail.analysisKey),'prestudy_ai_report');
-    const report=parsePrestudyReport(reportHtml,sourceDomParser.parseFromString);
+    const pageText=async(path:string,operation:string)=>readBoundedLmsPage(await this.#request(path,{method:'GET'},false,operation));
+    let detail:ReturnType<typeof parsePrestudyDetail>,report:PrestudyReport;
+    try{
+      const detailHtml=await pageText(PRESTUDY_PATH+'?reqCmd=WebPreStudy&prestudy_key='+encodeURIComponent(input.prestudyKey),'WebPreStudy');
+      detail=parsePrestudyDetail(detailHtml,sourceDomParser.parseFromString,input.studentKey,input.prestudyKey);
+      if(!detail.analysisKey)throw Error('prestudy_report_not_ready');
+      const reportHtml=await pageText(PRESTUDY_REPORT_PATH+'?analysis_key='+encodeURIComponent(detail.analysisKey),'prestudy_ai_report');
+      report=parsePrestudyReport(reportHtml,sourceDomParser.parseFromString);
+    }catch(error){throw this.#lmsReadFailure(error);}
     return {...report,prestudyKey:detail.prestudyKey,sourceRecord:{prestudyKey:detail.prestudyKey,unitLabel:detail.unitLabel,dateLiteral:detail.dateLiteral},encodingResult:detail.encodingResult,observedAt:new Date().toISOString(),
       coverage:'exact_prestudy_detail_and_server_rendered_ai_report_sections_not_transcript'};
   }

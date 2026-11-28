@@ -58,7 +58,7 @@ const knownDifferences:Record<string,string[]>={
  academy_clinic_paper_status_get:[...identity,'/required'],
  academy_item_section_trace:[...identity,'/required'],
  academy_item_answer_lookup:['/required'],
- academy_prestudy_get:[...identity,'/required'],
+ academy_prestudy_get:[...identity,'/properties/view','/required'],
  academy_prestudy_report_get:[...identity,'/required'],
  academy_cism_weekly_get:['/properties/date'],
 };
@@ -146,7 +146,7 @@ describe('release v5 tools against the endpoint programs',()=>{
  test('each of the 30 routed v5 tools that remain is a surface tool or a route of a consolidated surface tool',()=>{
   const onSurface=new Set(surface.tools.map(t=>t.name));
   expect(fixture.tools.map(t=>t.name).filter(name=>!hiddenRouteTargets.includes(name)&&!onSurface.has(name)&&!routeUpstreams.has(name))).toEqual([]);
-  expect(surface.tools).toHaveLength(17);
+  expect(surface.tools).toHaveLength(18);
   expect(fixture.tools.map(t=>t.name)).toEqual(expect.arrayContaining(hiddenRouteTargets));
   expect(fixture.tools.filter(t=>t.servedBy!=='bridge')).toHaveLength(30);
   expect(fixture.tools.filter(t=>t.servedBy==='bridge')).toEqual([{name:'academy_runtime_identity',servedBy:'bridge',compared:false}]);
@@ -156,7 +156,7 @@ describe('release v5 tools against the endpoint programs',()=>{
 
  test('saved and dailyrecord programs list the measured tool counts',()=>{
   expect(registered('saved').size).toBe(16);
-  expect(registered('dailyrecord').size).toBe(25);
+  expect(registered('dailyrecord').size).toBe(26);
  });
 
  for(const tool of fixture.tools.filter(t=>t.servedBy!=='bridge'&&isProgram(t.endpoint))){

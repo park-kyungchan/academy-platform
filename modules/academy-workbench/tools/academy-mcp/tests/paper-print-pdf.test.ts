@@ -424,14 +424,15 @@ describe('the surface of academy_paper_print_pdf_get',()=>{
     const entry=surface.tools.find(t=>t.name==='academy_paper_print_pdf_get')!;
     expect(entry).toBeDefined();
     expect(bytes(entry)).toBeLessThanOrEqual(795);
-    expect(surface.tools).toHaveLength(17);
-    // The 15 baseline tools are untouched at 18,317 bytes; the 17 tools stay within the running cap of 5 planned tools.
+    expect(surface.tools).toHaveLength(18);
+    // The 15 baseline tools are untouched at 18,317 bytes; the 18 tools stay within the running cap of 4 planned tools.
     expect(bytes(surface.tools.slice(0,15))).toBe(18317);
     // The diag, new_diag and formative report types of academy_official_report_pdf_get (+47 bytes), then ganga,
-    // na_score and smart_book (+56 bytes, with a shorter description), stay within 20,025 bytes.
-    expect(bytes(surface.tools)).toBeLessThanOrEqual(20025);
-    expect(bytes(surface.tools)).toBeLessThanOrEqual(24000-795*5);
-    expect(surface.tools.length).toBeLessThanOrEqual(24-5);
+    // na_score and smart_book (+56 bytes, with a shorter description), then academy_lms_schedule_get (<= 795 bytes),
+    // stay within 20,820 bytes (specs/academy-mcp/lms-reads.md).
+    expect(bytes(surface.tools)).toBeLessThanOrEqual(20820);
+    expect(bytes(surface.tools)).toBeLessThanOrEqual(24000-795*4);
+    expect(surface.tools.length).toBeLessThanOrEqual(24-4);
     expect(Object.keys(entry.inputSchema.properties)).toEqual(['mode','paperNo','paperKeys','selType','includeAnswers','includeExplain','outputPath']);
     expect(entry.inputSchema.required).toEqual(['mode']);
     expect(entry.inputSchema.properties.mode.enum).toEqual(['exam','examtext','clinic']);

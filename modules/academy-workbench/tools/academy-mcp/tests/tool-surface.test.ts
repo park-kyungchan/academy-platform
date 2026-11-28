@@ -74,6 +74,7 @@ const hangul:Record<string,string[]>={
  academy_clinic_paper_status_get:['오답클리닉','유사클리닉','틀린','문항','오답'],
  academy_official_report_pdf_get:['공식','리포트','교재'],
  academy_paper_print_pdf_get:['시험지','클리닉지','인쇄'],
+ academy_lms_schedule_get:['출결','학습일정','과정관리'],
 };
 const skillPaths=readdirSync(resolve(repo,'content/skills')).filter(d=>d.startsWith('academy-')).map(d=>resolve(repo,'content/skills',d,'SKILL.md')).sort();
 const toolPattern=/\b(?:class2_)?academy_[a-z0-9_]+\b/g;
@@ -315,8 +316,11 @@ describe('I1 write_forbidden: request classes by named route and operation',()=>
   expect(lmsRequestRole('/servlet/controller.cct.common.CourseCommonServlet','reqCmd=SetCismContentData&field_name=x')).toBe('write');
   expect(lmsRequestRole('/servlet/controller.cct.common.CourseCommonServlet?reqCmd=CismChartMain&tutor_pri_no=1&the_date=2040-01-16')).toBe('read');
   // Operations that neither lmsRouteRegistry.ts nor endpointCandidates.ts classes read fail closed.
-  for(const unclassed of ['/servlet/controller.coursemanage.CourseManageServlet?reqCmd=CourseStudyManager',
-   '/servlet/controller.coursemanage.CourseManageServlet?reqCmd=WebPreStudy&prestudy_key=1','/app-ui/solution_common/prestudy/prestudy_ai_report.jsp?analysis_key=1',
+  // The eight read routes of specs/academy-mcp/lms-reads.md are classed read by the unit that builds those reads.
+  for(const classed of ['/servlet/controller.coursemanage.CourseManageServlet?reqCmd=CourseStudyManager',
+   '/servlet/controller.coursemanage.CourseManageServlet?reqCmd=WebPreStudy&prestudy_key=1','/app-ui/solution_common/prestudy/prestudy_ai_report.jsp?analysis_key=1'])
+   expect({classed,role:lmsRequestRole(classed)}).toEqual({classed,role:'read'});
+  for(const unclassed of [
    '/servlet/controller.cct.tutor.DayRecordServlet?p_process=DaysMain',
    '/servlet/controller.tutor.base.TestPageListServlet?p_process=getWrongAnswerNoteResult','/servlet/controller.common.TestPageShowExServlet?p_process=GetTypeTotal',
    '/servlet/controller.common.TestPageShowExServlet?p_process=GetExamList','/servlet/controller.tutor.etest.TestPoolServlet?reqCmd=LogViewList'])

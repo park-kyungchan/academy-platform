@@ -11,6 +11,7 @@ import {textbookCatalogInput,textbookPdfInput} from '../src/textbook-source-tool
 import {textbookTocInput} from '../src/textbook-toc.ts';
 import {officialReportPdfGetSchema} from '../src/official-report-pdf.ts';
 import {paperPrintPdfGetSchema} from '../src/paper-print-pdf.ts';
+import {lmsScheduleGetSchema} from '../src/lms-schedule-tools.ts';
 
 // A recorded synthetic endpoint for tests/tool-surface.test.ts: it registers, with the
 // endpoint programs' own input schemas where they export them, every endpoint tool that
@@ -25,9 +26,11 @@ const answers:Record<string,(input:any)=>Record<string,unknown>>={
  academy_student_resolve:input=>input.displayName==='Invented Student'?{status:'resolved',studentKey:'77001',displayName:input.displayName,teacherId:'99001'}
   :{status:'unavailable',reasonCode:'student_name_not_found'},
  academy_prestudy_get:input=>({status:'observed',displayName:input.displayName,student:{studentId:'77001',displayName:input.displayName},
-  waiting:[{unitLabel:'Invented unit 1',dateLiteral:'2040-01-15',statusLiteral:'invented waiting',prestudyKey:'5001'}],
-  completed:[{unitLabel:'Invented unit 2',dateLiteral:'2040-01-14',statusLiteral:'invented done',prestudyKey:'5002'}],
-  summary:[{unitLabel:'Invented unit 2',dateLiteral:'2040-01-14',aiScoreLiteral:'80',ratingLiteral:'3',reportAvailable:true,videoAvailable:true}],teacherJudgment:null}),
+  // specs/academy-mcp/lms-reads.md R1: a view answers the lists of its own requests only.
+  ...(input.view==='teacher_summary'?{}:{waiting:[{unitLabel:'Invented unit 1',dateLiteral:'2040-01-15',statusLiteral:'invented waiting',prestudyKey:'5001'}]}),
+  ...(input.view==='videos'||input.view===undefined?{completed:[{unitLabel:'Invented unit 2',dateLiteral:'2040-01-14',statusLiteral:'invented done',prestudyKey:'5002'}]}:{}),
+  ...(input.view==='incomplete'?{}:{summary:[{unitLabel:'Invented unit 2',dateLiteral:'2040-01-14',aiScoreLiteral:'80',ratingLiteral:'3',reportAvailable:true,videoAvailable:true}]}),teacherJudgment:null}),
+ academy_lms_schedule_get:input=>({view:input.view,rows:[],observedAt:'2040-01-16T09:00:00.000Z',coverage:'invented_fixture_page'}),
 };
 const tools:Record<string,Record<string,z.ZodType>>={
  dailyrecord:{
@@ -40,6 +43,7 @@ const tools:Record<string,Record<string,z.ZodType>>={
   academy_prestudy_get:prestudyGetSchema,academy_prestudy_report_get:prestudyReportGetSchema,
   academy_cism_weekly_get:cismGetInput,academy_cism_month:cismMonthInput,academy_cism_weekly_review:cismReviewInput,academy_cism_weekly_save:cismSaveInput,
   academy_official_report_pdf_get:officialReportPdfGetSchema,academy_paper_print_pdf_get:paperPrintPdfGetSchema,
+  academy_lms_schedule_get:lmsScheduleGetSchema,
  },
  paper1:{
   academy_daily_test_inventory:z.object({studentId:key,periods:selectors.optional()}).strict(),

@@ -40,7 +40,7 @@ The memory writes of this section are the lesson day's record in the store: they
 | Kind of `due` | Step of the day | Tool that answers it |
 | --- | --- | --- |
 | `dailyrecord` | Today's or a past DailyRecord (`수업일지`) | `academy_dailyrecord_get` (view `'record'`, the default) |
-| `prestudy` | Pre-study uploads and AI scores | `academy_prestudy_get` (view `'videos'`), then for one upload `academy_prestudy_get` with `includeReports: true` and its `reportId` (`prestudy_report`) |
+| `prestudy` | Pre-study uploads and AI scores | `academy_prestudy_get` (view `'videos'`; `'incomplete'` for the waiting list only, `'teacher_summary'` for the AI scores only), then for one upload `academy_prestudy_get` with `includeReports: true` and its `reportId` (`prestudy_report`) |
 | `section_results` | Section results (O/X, score) of a book | `academy_textbook_section_results_get` with the binding's `book_label` |
 | `clinic` | Wrong items and clinic candidates | `academy_clinic_paper_status_get` |
 | `dailytest` | DailyTest history with paper titles | `academy_dailytest_history` with `studentName` (`includeHeaders: true`, the default); without titles, as its fallback: `academy_dailytest_history` with `includeHeaders: false` and `studentName` or a `studentId` |
@@ -50,6 +50,7 @@ The memory writes of this section are the lesson day's record in the store: they
 | none | Weekly or monthly CISM | `academy_cism_get` with scope `'week'` or `'month'` |
 | none | The official course-book report PDF (`교재 리포트`, 8 pages) of a book | `academy_official_report_pdf_get` with reportType `'course_book'`, the student's name and the binding's keys (`courseKey`, `bookNo`, `studentKey`) or `params.bookLabel`; it answers the PDF's `outputPath` and `parityOk`. Only when the teacher asks for the report |
 | none | The printable PDF (`인쇄용 시험지`, `클리닉지`) of an existing exam or clinic paper | `academy_paper_print_pdf_get` with mode `'exam'` and `paperNo` (or exam `paperKeys`), `'examtext'` with passage `paperKeys`, or `'clinic'`; it answers the PDF's `outputPath`, `sha256` and `pages`, and makes no Academy write. Only when the teacher asks to print a paper |
+| none | The teacher's attendance (`출결`), study schedule (`학습 일정`) or course study manager (`과정 학습관리`) page | `academy_lms_schedule_get` with view `'attendance'` (with `date`, or a `period` of at most 31 days within one month), `'study_schedule'` or `'course_study_manager'`; it answers the page's rows and filter options, reads one page per call and marks or changes nothing. Only when the teacher asks |
 
 ## 3. Reading the results
 

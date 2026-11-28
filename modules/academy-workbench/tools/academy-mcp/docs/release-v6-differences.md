@@ -41,7 +41,7 @@ Tools and the members that differ:
 | `academy_clinic_paper_status_get` | `/properties/currentRequestRef`, `/properties/purpose`, `/required` | identity; `bookLabel` as above |
 | `academy_item_section_trace` | `/properties/currentRequestRef`, `/properties/purpose`, `/required` | identity; `bookLabel` as above |
 | `academy_item_answer_lookup` | `/required` | identity |
-| `academy_prestudy_get` | `/properties/currentRequestRef`, `/properties/purpose`, `/required` | identity |
+| `academy_prestudy_get` | `/properties/currentRequestRef`, `/properties/purpose`, `/properties/view`, `/required` | identity; `view` (`videos`, `incomplete`, `teacher_summary`; default `videos`) limits the call to the requests of its own lists (specs/academy-mcp/lms-reads.md R1) |
 | `academy_prestudy_report_get` | `/properties/currentRequestRef`, `/properties/purpose`, `/required` | identity |
 | `academy_cism_weekly_get` | `/properties/date` | date |
 | `academy_pool_question_content` | `/properties/purpose`, `/required` | `purpose` default `teacher_requested_review`. A tool of the pool server, which neither v5 nor these two endpoints route; the test checks its v6 form. |
