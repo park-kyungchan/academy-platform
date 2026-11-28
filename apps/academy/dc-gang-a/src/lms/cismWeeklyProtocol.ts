@@ -5,7 +5,32 @@ export const CISM_WIRE_SHA256='401beb7c9957d4b688e00655f6f5ece6831e1b857961b131d
 export const cismHash=(v:unknown)=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
 export const CISM_NARRATIVES=['i_1','i_2','s_1','s_2','s_3','s_4','m_1','m_2'] as const;
 export type CismField={fieldRef:string;kind:'narrative'|'class_mode'|'think_note'|'week_test';label:string;value:string;studentName:string|null;groupName:string|null;source:{fieldName:string;studentKey?:string;membershipKey?:string;groupKey?:string}};
-export type CismReport={date:string;periodStart:string;periodEnd:string;weekLabel:string;teacherLabel:string;teacherKey:string;wireSha256:string;reportSha256:string;observedAt:string;fields:CismField[];sourceMode:'live_source';pdfGenerated:false};
+/** One row of the block data: column numbers `"1"`… to text, as `makeCISMJSonData` of the CismChartMain page writes them. */
+export type CismBlockRow=Record<string,string>;
+/** The object `makeCISMJSonData` of the CismChartMain page builds and hands to the StudyQ executor (specs/academy-mcp/pc-executor.md). */
+export type CismBlockData={block1:CismBlockRow[];block2:CismBlockRow[];block3:CismBlockRow[];block4:CismBlockRow[];block5:CismBlockRow[];block6:CismBlockRow[]};
+export type CismBlockRead={date:string;periodStart:string;periodEnd:string;weekLabel:string;blockData:CismBlockData};
+export type CismReport={date:string;periodStart:string;periodEnd:string;weekLabel:string;teacherLabel:string;teacherKey:string;wireSha256:string;reportSha256:string;observedAt:string;fields:CismField[];sourceMode:'live_source';pdfGenerated:false;blockData?:CismBlockData};
+/** The block data of a parsed page, read as `makeCISMJSonData` reads it (jQuery `.text()`, `.val()` without `\r`):
+ * block1 `"1"` is `"1"` when the numbers of `label[name=label_think_note]` sum to other than 0, else `"0"`; block2 the date,
+ * the teacher and the week `<M>월<D>일~<M>월<D>일`; block3 one row per `div[id^=root]` `i`: `grp_name_i`, the level of the
+ * `class_mode_tag_i` select (1 하, 2 중, 3 상, else empty), `submit_sum_i`, `homework_rate_i`, the labels of `think_note_i`
+ * with `%` and of `week_test_i` with `점`; block4 to block6 the narratives Ｉ-1, Ｉ-2, Ｓ-1 to Ｓ-4, Ｍ-1, Ｍ-2. */
+function cismBlockData(d:Document,week:string):CismBlockData{
+ const text=(id:string)=>d.getElementById(id)?.textContent??'';
+ const val=(node:Element|null|undefined)=>{const v=(node as HTMLInputElement|null|undefined)?.value;return typeof v==='string'?v.replace(/\r/g,''):undefined;};
+ const labels=(id:string)=>[...d.querySelectorAll('[id="'+id+'"] label')].map(n=>n.textContent??'').join('');
+ let sum=0;for(const n of d.querySelectorAll('label[name="label_think_note"]')){const v=Number((n.textContent??'').trim());if(v)sum+=v;}
+ const block3=[...Array(d.querySelectorAll('div[id^="root"]').length).keys()].map(i=>{
+  const mode=val(d.querySelector('[id="class_mode_tag_'+i+'"] select'));
+  return {'1':text('grp_name_'+i),'2':({1:'하',2:'중',3:'상'} as Record<number,string>)[mode===undefined?NaN:Number(mode)]??'','3':text('submit_sum_'+i),
+   '4':text('homework_rate_'+i),'5':labels('think_note_'+i)+'%','6':labels('week_test_'+i)+'점'};
+ });
+ const narrative=(title:string,id:string)=>({'1':title,'2':val(d.getElementById(id))??''});
+ return {block1:[{'1':sum===0?'0':'1'}],block2:[{'1':val(d.getElementById('the_date'))??'','2':val(d.getElementById('teacher_name'))??'','3':week}],block3,
+  block4:[narrative('Ｉ-1','i_1'),narrative('Ｉ-2','i_2')],block5:[narrative('Ｓ-1','s_1'),narrative('Ｓ-2','s_2'),narrative('Ｓ-3','s_3'),narrative('Ｓ-4','s_4')],
+  block6:[narrative('Ｍ-1','m_1'),narrative('Ｍ-2','m_2')]};
+}
 export function cismDate(date:string){const d=new Date(date+'T00:00:00Z');if(!/^20\d{2}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(+d)||d.toISOString().slice(0,10)!==date)throw Error('cism_date_rejected');return d;}
 export function cismWeek(date:string){const d=cismDate(date);d.setUTCDate(d.getUTCDate()-d.getUTCDay());const periodStart=d.toISOString().slice(0,10);d.setUTCDate(d.getUTCDate()+6);return {periodStart,periodEnd:d.toISOString().slice(0,10)};}
 export function cismMonthDates(month:string){if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month))throw Error('cism_month_rejected');const first=month+'-01',dates=[first],d=cismDate(first);d.setUTCDate(d.getUTCDate()+(7-d.getUTCDay()));while(d.toISOString().slice(0,7)===month){dates.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+7);}return dates;}
@@ -33,7 +58,8 @@ export function parseCismReport(html:string,parse:(s:string,m:DOMParserSupported
   fields.push({fieldRef:cismHash([kind,source]),kind,label:kind==='class_mode'?'이번주 반 수업 분위기':kind==='think_note'?'풀이노트작성':'주간테스트',value:(node as HTMLInputElement).value,studentName:kind==='class_mode'?null:node.closest('tr')?.cells[0]?.textContent?.trim()??null,groupName,source});
  }
  if(fields.length<8||fields.length>200||new Set(fields.map(f=>f.fieldRef)).size!==fields.length)throw Error('cism_fields_unqualified');
- return {date,...period,weekLabel,teacherLabel:teacher.teacherLabel,teacherKey:teacher.teacherKey,wireSha256:CISM_WIRE_SHA256,reportSha256:cismHash([period,teacher.teacherKey,CISM_WIRE_SHA256,fields]),observedAt:new Date().toISOString(),fields,sourceMode:'live_source',pdfGenerated:false};
+ return {date,...period,weekLabel,teacherLabel:teacher.teacherLabel,teacherKey:teacher.teacherKey,wireSha256:CISM_WIRE_SHA256,reportSha256:cismHash([period,teacher.teacherKey,CISM_WIRE_SHA256,fields]),observedAt:new Date().toISOString(),fields,sourceMode:'live_source',pdfGenerated:false,
+  blockData:cismBlockData(d,label[3]+'월'+label[4]+'일~'+label[5]+'월'+label[6]+'일')};
 }
 export function cismWriteParameters(report:CismReport,field:CismField,after:string){
  if(!report.fields.some(f=>f.fieldRef===field.fieldRef&&f.kind===field.kind&&JSON.stringify(f.source)===JSON.stringify(field.source)))throw Error('cism_fields_unqualified');

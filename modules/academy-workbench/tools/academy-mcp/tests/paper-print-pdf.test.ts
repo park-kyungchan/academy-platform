@@ -30,7 +30,6 @@ function fixture(name:string,rows:PaperExamRow[]=[row(),row({lectureKey:7,selTyp
     async downloadPrintArchive(kind,key){calls.downloads.push(kind+':'+key);if(over.downloadFails)throw Error('paper_print_archive_rejected');return archiveBytes(key);},
   };
   const runner:StudyqRunner={
-    async renderCourseBook(){throw Error('not_called');},async renderCism(){throw Error('not_called');},
     async assemblePrint(input:any,path){
       if(over.runnerThrows)throw Error('studyq_runner_failed');
       // The archives are on disk in the private scratch directory while the executor runs.
@@ -145,7 +144,7 @@ describe('academy_paper_print_pdf_get answer',()=>{
     const f=fixture('sel-type');await f.ready;
     const refusing=new PaperPrintPdfService({
       async readPaperExamList(){return parsePaperExamList(JSON.stringify({result:'OK',exam_list:[{lecture_key:1,sel_type:'obj'},{lecture_key:2,sel_type:'1'}]}));},
-      async downloadPrintArchive(){throw Error('must_not_download');}},{async assemblePrint(){throw Error('must_not_run');},async renderCourseBook(){throw Error('x');},async renderCism(){throw Error('x');}},f.root,now,f.temp);
+      async downloadPrintArchive(){throw Error('must_not_download');}},{async assemblePrint(){throw Error('must_not_run');}},f.root,now,f.temp);
     expect(await refusing.get({mode:'exam',paperNo:'5'})).toMatchObject({status:'unavailable',reasonCode:'paper_exam_sel_type_unqualified',academyWrites:0});
     expect(await readdir(f.temp)).toEqual([]);
   });
@@ -382,7 +381,7 @@ def main(argv):
   beforeAll(async()=>{
     src=resolve(base,'runner-src');const pkg=resolve(src,'studyq_linux');
     await mkdir(pkg,{recursive:true});await chmod(src,0o755);await chmod(pkg,0o755);
-    for(const [file,text] of Object.entries({'__init__.py':'','cli.py':cli,'parity.py':'def main(argv):\n    return 0\n'})){await writeFile(resolve(pkg,file),text);await chmod(resolve(pkg,file),0o644);}
+    for(const [file,text] of Object.entries({'__init__.py':'','cli.py':cli,'errors.py':''})){await writeFile(resolve(pkg,file),text);await chmod(resolve(pkg,file),0o644);}
     sourceSha256=await studyqSourceTreeSha256(src);
     interpreter=await realpath('/usr/bin/python3');interpreterSha256=sha(await readFile(interpreter));
   });

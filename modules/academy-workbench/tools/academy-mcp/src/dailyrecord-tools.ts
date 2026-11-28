@@ -87,13 +87,13 @@ export function registerDailyRecordTools(server:McpServer,service=new DailyRecor
 }
 
 /** academy_official_report_pdf_get on the dailyrecord endpoint (src/dailyrecord-server.ts): one
- * official StudyQ report PDF from read-only LMS data, written under the owner output root. */
+ * official StudyQ report PDF from read-only LMS data, made on the user's PC, written under the owner output root. */
 export function registerOfficialReportPdfTool(server:McpServer,service:OfficialReportPdfService){
   const result=(value:unknown)=>{const structuredContent=JSON.parse(JSON.stringify(value)) as Record<string,unknown>;
     return {content:[{type:'text' as const,text:JSON.stringify(structuredContent)}],structuredContent};};
   server.registerTool('academy_official_report_pdf_get',{
-    title:'Render one official StudyQ report PDF from read-only LMS data',
-    description:academyRoutingDescription('academy_official_report_pdf_get','reportType course_book: the official course-book report of one student and book, read by getCourseBookReport and rendered on this host by the pinned studyq-linux executor, then checked by its parity run (parityOk, parityMismatches, parityRawRn). The book: courseKey, bookNo and studentKey together, or params.bookLabel (live book list first, then the active edu-academy-memory binding, as academy_textbook_section_results_get chooses it). reportType cism: the owner CISM report of one week (params.scope week, params.date) or one month (params.scope month, params.month YYYY-MM), read by CismChartMain; no student or book member. The PDF is written under the owner output root (outputPath optional, .pdf, inside that root; never overwritten). No Academy write, printing or sending.'),
+    title:'Make one official StudyQ report PDF on the user PC from read-only LMS data',
+    description:academyRoutingDescription('academy_official_report_pdf_get','One official StudyQ report PDF, made by the original StudyQReport.exe on the user PC over SSH from the Academy server answer passed verbatim (pc-executor). reportType course_book: one student and book, read by getCourseBookReport; the book: courseKey, bookNo and studentKey together, or params.bookLabel (live book list first, then the active edu-academy-memory binding, as academy_textbook_section_results_get chooses it). reportType cism: the owner CISM week (params.scope week, params.date), read by CismChartMain; scope month answers cism_month_unavailable. diag, formative, ganga, na_score, new_diag, smart_book: one ReportViewServlet view. The PDF is written under the owner output root (outputPath optional, .pdf, inside that root; never overwritten); the answer holds outputPath, sha256 and pages. With the PC off: unavailable pc_unreachable. No Academy write, printing, upload or sending.'),
     inputSchema:officialReportPdfGetSchema,annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:service.backend!==null},
   },async input=>result(await service.get(input)));
 }

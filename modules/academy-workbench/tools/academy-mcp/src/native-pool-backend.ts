@@ -1,5 +1,6 @@
 import {publicReadFailure} from './read-failure.ts';
 import {spawn} from 'node:child_process';
+import {sshOptionArgv} from './ssh-argv.ts';
 import {z} from 'zod';
 import {readPinnedLocalBytes} from './item-label-store.ts';
 import {ItemLabelIndex,findItemLabelsInputSchema,itemLabelScopeInputSchema,type LabelSnapshot} from './item-labels.ts';
@@ -152,6 +153,8 @@ export class NativePoolLabelBackend {
 // The fixed native Python API keeps the password and fresh cookies inside the existing owner container.
 export const nativePoolDriver=`import os,sys,json,subprocess\nfrom hermes_cli.config import get_env_value_prefer_dotenv\ndef refuse(code):\n print(json.dumps({'status':'blocked','code':code,'academyWrites':0,'passwordExported':False,'cookiesExported':False}),flush=True)\n raise SystemExit(1)\nif os.environ.get('HERMES_HOME')!='/opt/data/profiles/dc-gang-a-dev': refuse('active_profile_required')\nenvelope=json.load(sys.stdin)\nsecret=get_env_value_prefer_dotenv('DC_ACADEMY_HTTP_PASSWORD')\nif not secret: refuse('native_http_secret_required')\nenv={k:os.environ[k] for k in ('HOME','PATH','HERMES_HOME','TMPDIR') if k in os.environ}\nenv['DC_ACADEMY_HTTP_PASSWORD']=secret\nenv['ACADEMY_POOL_READ_REQUEST']=json.dumps(envelope['request'])\nr=subprocess.run(['bun','--no-env-file','-'],input=envelope['source'],text=True,env=env,cwd='/opt/data/workspace/dc-gang-a',stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=105)\ntry: print(json.dumps(json.loads(r.stdout.strip().splitlines()[-1])))\nexcept Exception: print(json.dumps({'status':'blocked','code':'native_child_no_valid_result'}))\nsys.exit(r.returncode)\n`;
 function shellQuote(value:string){return "'"+value.replaceAll("'","'\\''")+"'";}
+/** The argv of the bridge's ssh: the shared option words (src/ssh-argv.ts) with a connect timeout of 8 s, then the target and the remote command. */
+export const nativePoolSshArgv=(sshTarget:string,remote:string)=>[...sshOptionArgv({connectTimeoutSeconds:8}),sshTarget,remote];
 
 export async function loadNativePoolBackend(args:readonly string[]){
   if(args.length!==4||args[0]!=='--native-bridge'||args[2]!=='--native-bridge-sha256')throw Error('native_bridge_arguments_invalid');
@@ -159,7 +162,7 @@ export async function loadNativePoolBackend(args:readonly string[]){
   const source=(await readPinnedLocalBytes(config.readerPath,config.readerSha256)).bytes.toString('utf8');
   const remote=['docker','exec','-i','--user','10000:10000','--env','HOME=/opt/data','--env','HERMES_HOME=/opt/data/profiles/dc-gang-a-dev',config.containerId,'/opt/hermes/.venv/bin/python','-B','-c',nativePoolDriver].map(shellQuote).join(' ');
   const run:PoolReadRunner=request=>new Promise((resolve,reject)=>{
-    const child=spawn('ssh',['-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=8',config.sshTarget,remote],{stdio:['pipe','pipe','pipe']});
+    const child=spawn('ssh',nativePoolSshArgv(config.sshTarget,remote),{stdio:['pipe','pipe','pipe']});
     let output='',bytes=0,reason:string|undefined;const deadline=setTimeout(()=>{reason='native_pool_read_timeout';child.kill();},115000);
     child.stdout.on('data',chunk=>{bytes+=chunk.length;if(bytes>2*1024*1024){reason='native_pool_result_size_limit';child.kill();}else output+=chunk.toString('utf8');});
     child.stderr.on('data',()=>{});child.on('error',()=>{clearTimeout(deadline);reject(Error('native_pool_read_start_failed'));});

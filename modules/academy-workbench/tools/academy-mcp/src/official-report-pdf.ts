@@ -3,24 +3,24 @@ import {basename,dirname,join,resolve,sep} from 'node:path';
 import {z} from 'zod';
 import {readFailureResult} from './read-failure.ts';
 import {directKeySchema,directKeyNames} from './dailyrecord.ts';
-import type {StudyqRunner} from './studyq-runner.ts';
+import {PcExecutorError,type PcExecutor,type PcRendered,type ReportInfoKeys} from './pc-executor.ts';
 import {academyDateInputSchema,resolveAcademyDate,resolvedDateOf,withResolvedDate,type BookSelection} from './read-input.ts';
-import {courseBookTruncated,type CourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport';
-import {cismMonthDates,type CismReport} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol';
-import {cismMonthToStudyqInput,cismWeekToStudyqInput} from '../../../../../apps/academy/dc-gang-a/src/lms/cismReportAdapter';
-import {SMART_BOOK_CODE,projectDiagReport,projectFormativeReport,projectGangaReport,projectNaScoreReport,projectNewDiagReport,projectSmartBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient';
+import {courseBookSummary,type CourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport';
+import type {CismBlockRead} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol';
+import {SMART_BOOK_CODE} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient';
 
-/** `academy_official_report_pdf_get`: one official StudyQ report PDF, rendered on this host by
- * modules/studyq-linux from read-only LMS data. `reportType` names the report; `params` holds the
- * options of that type, so a later report type extends `reportType` and its own `params` without new
- * top-level members. `course_book` (one student and book) takes `params.bookLabel`; `cism` (the
- * owner's weekly or monthly CISM, no student) takes `params.scope` `week` (with `date`, default today)
- * or `month` (with `month`, `YYYY-MM`); `diag` and `formative` (one student's diagnostic or formative
- * test, `DiagReportView` or `FaView`) take `params.testingNo`, `params.classNo` (0 or a positive key) and optionally
- * `params.limitDate`; `new_diag` (one new-student application, `NewStudentReportView`) takes
- * `params.paperNo`, `params.applyCode` and optionally `params.collegeKey` (default the owner's); `ganga` and
- * `na_score` (one student's Gang-A or NA score test, `GaReportView` or `NaScoreResultView`) take what `diag`
- * takes; `smart_book` (one student's SmartBook, `SmartBookReportView`) takes `params.bookCode`. */
+/** `academy_official_report_pdf_get`: one official StudyQ report PDF, made by the original `StudyQReport.exe` on the
+ * user's Windows PC (src/pc-executor.ts, specs/academy-mcp/pc-executor.md) from the Academy server's answer, passed
+ * verbatim. `reportType` names the report; `params` holds the options of that type, so a later report type extends
+ * `reportType` and its own `params` without new top-level members. `course_book` (one student and book) takes
+ * `params.bookLabel`; `cism` (the owner's weekly CISM, no student) takes `params.scope` `week` (with `date`, default
+ * today); `month` is accepted and refuses with `cism_month_unavailable`, the executor having no month form;
+ * `diag` and `formative` (one student's diagnostic or formative test, `DiagReportView` or `FaView`) take
+ * `params.testingNo`, `params.classNo` (0 or a positive key) and optionally `params.limitDate`; `new_diag` (one
+ * new-student application, `NewStudentReportView`) takes `params.paperNo`, `params.applyCode` and optionally
+ * `params.collegeKey` (default the owner's); `ganga` and `na_score` (one student's Gang-A or NA score test,
+ * `GaReportView` or `NaScoreResultView`) take what `diag` takes; `smart_book` (one student's SmartBook,
+ * `SmartBookReportView`) takes `params.bookCode`. The tool does not upload: the caller sends the PDF on. */
 export const officialReportTypes=['course_book','cism','diag','new_diag','formative','ganga','na_score','smart_book'] as const;
 /** The report types read from one student's `ReportViewServlet` view by test number and class. */
 const testingViews={diag:'DiagReportView',formative:'FaView',ganga:'GaReportView',na_score:'NaScoreResultView'} as const;
@@ -84,8 +84,8 @@ export const officialReportPdfGetSchema=z.object({
 export type OfficialReportPdfGet=z.infer<typeof officialReportPdfGetSchema>;
 
 export interface CourseBookReportBackend {
-  /** The read-only CISM week of `date` (`CismChartMain`), for `reportType` `cism`. */
-  readCismReport?(date:string):Promise<CismReport>;
+  /** The block data of the CISM week of `date` (`CismChartMain`, as its page function `makeCISMJSonData` builds it), for `reportType` `cism`. */
+  readCismBlockData?(date:string):Promise<CismBlockRead>;
   /** `DiagReportView`, `FaView`, `GaReportView` or `NaScoreResultView` of one student (direct-key-lookup.md R8), for
    * `reportType` `diag`, `formative`, `ganga` and `na_score`. */
   readStudentReportView?(input:{view:'DiagReportView'|'FaView'|'GaReportView'|'NaScoreResultView';displayName:string;studentKey?:string;testingNo:string;classNo:string;limitDate?:string}):Promise<{student:{studentId:string;displayName:string};raw:Record<string,unknown>}>;
@@ -128,19 +128,22 @@ export async function officialReportPath(rootReal:string,outputPath:string|undef
   throw Error('output_exists');
 }
 
-const testSummary=(input:{title:string;test_date:string;questions:unknown[]})=>({title:input.title,testDate:input.test_date,questions:input.questions.length});
+/** A failure of the call: its read-failure code and, once `report.info` was sent, the state of the PC (`pcCleanup`). */
+const failureOf=(error:unknown)=>({...readFailureResult(error,'official_report_unqualified_no_automatic_retry'),
+  ...(error instanceof PcExecutorError&&error.pcCleanup?{pcCleanup:error.pcCleanup}:{})});
+const renderedOf=(rendered:PcRendered)=>({status:'rendered' as const,outputPath:rendered.outputPath,sha256:rendered.sha256,pages:rendered.pages,pcCleanup:rendered.pcCleanup});
 
 export class OfficialReportPdfService {
-  constructor(readonly backend:CourseBookReportBackend|null,readonly runner:StudyqRunner|null,readonly outputRoot:string,readonly now:()=>Date=()=>new Date()){}
+  constructor(readonly backend:CourseBookReportBackend|null,readonly executor:PcExecutor|null,readonly outputRoot:string,readonly now:()=>Date=()=>new Date()){}
   async get(value:unknown){
     const input=officialReportPdfGetSchema.parse(value);
     if(input.reportType==='cism')return this.getCism(input);
     if(input.reportType!=='course_book')return this.getReportView(input);
     const displayName=(input.displayName??input.studentName)!;
     const base={reportType:input.reportType,displayName,academyWrites:0,parentSends:0,automaticRetryAllowed:false,
-      execution:'read_only_lms_local_pdf' as const,sourceContentIsUntrustedData:true};
+      execution:'read_only_lms_pc_executor' as const,sourceContentIsUntrustedData:true};
+    if(!this.executor)return {...base,status:'unavailable' as const,reasonCode:'pc_executor_not_configured'};
     if(!this.backend)return {...base,status:'unavailable' as const,reasonCode:'official_report_backend_not_configured'};
-    if(!this.runner)return {...base,status:'unavailable' as const,reasonCode:'studyq_runner_not_configured'};
     try{
       // The output root and a given path are settled before any LMS request.
       const root=await qualifiedOutputRoot(this.outputRoot);
@@ -151,107 +154,86 @@ export class OfficialReportPdfService {
       if(read.kind==='interview_required')return {...base,status:'interview_required' as const,...read};
       if(input.courseKey!==undefined&&(read.courseKey!==input.courseKey||read.bookNo!==input.bookNo))throw Error('official_report_scope_conflict');
       const path=await officialReportPath(root,input.outputPath,input.reportType,read.bookNo,this.now());
-      const report=read.report,input11=report.studyqInput;
+      const report=read.report,fields=courseBookSummary(report.raw);
       const summary={student:read.student,courseKey:read.courseKey,bookNo:read.bookNo,...(read.bindingSource?{bindingSource:read.bindingSource}:{}),
         ...(read.bookSelection?{bookSelection:read.bookSelection}:{}),
-        reportSummary:{bookTitle:report.metadata.bookTitle,period:input11.period,myAverage:input11.my_average,allAverage:input11.all_average,chapterCount:report.sourceChapterCount},
-        ...(courseBookTruncated(report.truncation)?{truncation:report.truncation}:{})};
-      // A book with no unit test yet has an empty test list, which the renderer refuses (it needs at least 1): answered here, before the runner is called.
-      if(input11.test_list.length<1)return {...base,...summary,status:'unavailable' as const,...readFailureResult(Error('course_book_no_tests'),'official_report_unqualified_no_automatic_retry')};
-      const rendered=await this.runner.renderCourseBook(input11,path);
-      if(rendered.status==='refused')return {...base,...summary,status:'refused' as const,reasonCode:'studyq_'+rendered.code,studyqDetail:rendered.detail};
-      return {...base,...summary,status:'rendered' as const,outputPath:rendered.outputPath,sha256:rendered.sha256,pages:rendered.pages,
-        parityOk:rendered.parityOk,parityMismatches:rendered.parityMismatches,parityRawRn:rendered.parityRawRn};
-    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'official_report_unqualified_no_automatic_retry')};}
+        reportSummary:{bookTitle:report.metadata.bookTitle,period:fields.period,myAverage:fields.myAverage,allAverage:fields.allAverage,chapterCount:report.sourceChapterCount}};
+      // The server's answer is passed verbatim: the executor renders what the server returns.
+      try{return {...base,...summary,...renderedOf(await this.executor.render({reportType:'course_book',keys:{},blockData:report.raw,outputPath:path}))};}
+      catch(error){return {...base,...summary,status:'unavailable' as const,...failureOf(error)};}
+    }catch(error){return {...base,status:'unavailable' as const,...failureOf(error)};}
   }
   /** `reportType` `diag`, `formative`, `ganga`, `na_score` (one student, `DiagReportView`, `FaView`, `GaReportView` or
    * `NaScoreResultView`), `smart_book` (one student and book, `SmartBookReportView`) and `new_diag` (one application,
-   * `NewStudentReportView`): one read-only POST of ReportViewServlet, projected to the strict input of the type,
-   * rendered and parity-checked. The output path is settled before any LMS request. */
+   * `NewStudentReportView`): one read-only POST of ReportViewServlet, its JSON passed verbatim to the PC executor with
+   * the keys of that request. The output path is settled before any LMS request. */
   private async getReportView(input:OfficialReportPdfGet){
     const reportType=input.reportType as Exclude<OfficialReportPdfGet['reportType'],'course_book'|'cism'>,params=input.params!;
     const displayName=input.displayName??input.studentName;
     const base={reportType,...(displayName!==undefined?{displayName}:{}),academyWrites:0,parentSends:0,automaticRetryAllowed:false,
-      execution:'read_only_lms_local_pdf' as const,sourceContentIsUntrustedData:true};
+      execution:'read_only_lms_pc_executor' as const,sourceContentIsUntrustedData:true};
+    if(!this.executor)return {...base,status:'unavailable' as const,reasonCode:'pc_executor_not_configured'};
     if(!this.backend)return {...base,status:'unavailable' as const,reasonCode:'official_report_backend_not_configured'};
-    if(!this.runner)return {...base,status:'unavailable' as const,reasonCode:'studyq_runner_not_configured'};
     try{
       const root=await qualifiedOutputRoot(this.outputRoot);
       if(input.outputPath!==undefined)await officialReportPath(root,input.outputPath,reportType,null,this.now());
-      let studyqInput:{student:string},student:{studentId:string;displayName:string}|undefined,keyNo:string,scope:Record<string,string>,reportSummary:Record<string,unknown>;
+      let raw:Record<string,unknown>,student:{studentId:string;displayName:string}|undefined,keyNo:string,scope:Record<string,string>,keys:ReportInfoKeys;
       if(reportType==='new_diag'){
         const read=this.backend.readNewStudentReportView?.bind(this.backend);
         if(!read)throw Error('report_view_source_port_unavailable');
-        const answer=await read({paperNo:params.paperNo!,applyCode:params.applyCode!,...(params.collegeKey!==undefined?{collegeKey:params.collegeKey}:{})});
-        const application=projectNewDiagReport(answer.raw);
-        studyqInput=application;
-        // A name the caller gives must be the application's student.
-        if(displayName!==undefined&&application.student!==displayName)throw Error('official_report_scope_conflict');
+        raw=(await read({paperNo:params.paperNo!,applyCode:params.applyCode!,...(params.collegeKey!==undefined?{collegeKey:params.collegeKey}:{})})).raw;
         keyNo=params.paperNo!;scope={paperNo:params.paperNo!};
-        reportSummary=testSummary(application);
+        keys={paperNo:params.paperNo!,applyCode:params.applyCode!};
       }else if(reportType==='smart_book'){
         const read=this.backend.readSmartBookReportView?.bind(this.backend);
         if(!read)throw Error('report_view_source_port_unavailable');
         const answer=await read({displayName:displayName!,...(input.studentKey!==undefined?{studentKey:input.studentKey}:{}),bookCode:params.bookCode!});
         if(answer.student.displayName!==displayName||(input.studentKey!==undefined&&answer.student.studentId!==input.studentKey))throw Error('official_report_scope_conflict');
-        student=answer.student;
-        const book=projectSmartBookReport(answer.raw,params.bookCode!);
-        studyqInput=book;
-        // The report must be the resolved student's.
-        if(book.student!==answer.student.displayName)throw Error('official_report_scope_conflict');
+        student=answer.student;raw=answer.raw;
         keyNo=params.bookCode!;scope={bookCode:params.bookCode!};
-        reportSummary={period:book.period,myAverage:book.my_average,allAverage:book.all_average,chapterCount:book.bunit_list.length,
-          questions:book.bunit_list.reduce((sum,c)=>sum+c.questions.length,0)};
+        keys={bookCode:params.bookCode!,studentKey:answer.student.studentId};
       }else{
         const read=this.backend.readStudentReportView?.bind(this.backend);
         if(!read)throw Error('report_view_source_port_unavailable');
         const answer=await read({view:testingViews[reportType],displayName:displayName!,...(input.studentKey!==undefined?{studentKey:input.studentKey}:{}),
           testingNo:params.testingNo!,classNo:params.classNo!,...(params.limitDate!==undefined?{limitDate:params.limitDate}:{})});
         if(answer.student.displayName!==displayName||(input.studentKey!==undefined&&answer.student.studentId!==input.studentKey))throw Error('official_report_scope_conflict');
-        student=answer.student;
-        const project={diag:projectDiagReport,formative:projectFormativeReport,ganga:projectGangaReport,na_score:projectNaScoreReport}[reportType];
-        const test=project(answer.raw);
-        studyqInput=test;
-        // The report must be the resolved student's.
-        if(test.student!==answer.student.displayName)throw Error('official_report_scope_conflict');
+        student=answer.student;raw=answer.raw;
         keyNo=params.testingNo!;scope={testingNo:params.testingNo!,classNo:params.classNo!};
-        reportSummary=testSummary(test);
+        keys={testingNo:params.testingNo!,studentKey:answer.student.studentId,classNo:params.classNo!};
       }
       const path=await officialReportPath(root,input.outputPath,reportType,keyNo,this.now());
-      const summary={...(student?{student}:{}),...scope,reportSummary};
-      const rendered=await this.runner.renderReport(reportType,studyqInput,path);
-      if(rendered.status==='refused')return {...base,...summary,status:'refused' as const,reasonCode:'studyq_'+rendered.code,studyqDetail:rendered.detail};
-      return {...base,...summary,status:'rendered' as const,outputPath:rendered.outputPath,sha256:rendered.sha256,pages:rendered.pages,
-        parityOk:rendered.parityOk,parityMismatches:rendered.parityMismatches,parityRawRn:rendered.parityRawRn};
-    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'official_report_unqualified_no_automatic_retry')};}
+      const summary={...(student?{student}:{}),...scope};
+      try{return {...base,...summary,...renderedOf(await this.executor.render({reportType,keys,blockData:raw,outputPath:path}))};}
+      catch(error){return {...base,...summary,status:'unavailable' as const,...failureOf(error)};}
+    }catch(error){return {...base,status:'unavailable' as const,...failureOf(error)};}
   }
-  /** `reportType` `cism`: the owner's CISM week or month, read-only, rendered and parity-checked. */
+  /** `reportType` `cism`: the owner's CISM week, its block data as the CismChartMain page builds it, rendered on the PC.
+   * A month has no form of the executor and refuses with `cism_month_unavailable`. */
   private async getCism(input:OfficialReportPdfGet){
     const scope=input.params!.scope!;
     const base={reportType:'cism' as const,scope,academyWrites:0,parentSends:0,automaticRetryAllowed:false,
-      execution:'read_only_lms_local_pdf' as const,sourceContentIsUntrustedData:true};
+      execution:'read_only_lms_pc_executor' as const,sourceContentIsUntrustedData:true};
+    if(!this.executor)return {...base,status:'unavailable' as const,reasonCode:'pc_executor_not_configured'};
+    if(scope==='month')return {...base,month:input.params!.month!,status:'unavailable' as const,reasonCode:'cism_month_unavailable'};
     if(!this.backend)return {...base,status:'unavailable' as const,reasonCode:'official_report_backend_not_configured'};
-    if(!this.runner)return {...base,status:'unavailable' as const,reasonCode:'studyq_runner_not_configured'};
     try{
       const root=await qualifiedOutputRoot(this.outputRoot);
       if(input.outputPath!==undefined)await officialReportPath(root,input.outputPath,'cism',null,this.now());
-      // The date or month is settled before any LMS request, and a failure after it still states it.
-      const target=scope==='week'?resolveAcademyDate(input.params!.date??'today',this.now().getTime()):input.params!.month!;
-      return await withResolvedDate(target,async()=>{
-        const read=this.backend!.readCismReport?.bind(this.backend);
+      // The date is settled before any LMS request, and a failure after it still states it.
+      const date=resolveAcademyDate(input.params!.date??'today',this.now().getTime());
+      return await withResolvedDate(date,async()=>{
+        const read=this.backend!.readCismBlockData?.bind(this.backend);
         if(!read)throw Error('cism_source_port_unavailable');
-        let studyqInput,reports:CismReport[];
-        if(scope==='week'){reports=[await read(target)];studyqInput=cismWeekToStudyqInput(reports[0]!);}
-        else{reports=[];for(const date of cismMonthDates(target))reports.push(await read(date));studyqInput=cismMonthToStudyqInput(target,reports);}
-        const path=await officialReportPath(root,input.outputPath,'cism-'+scope,target,this.now());
-        const summary={...(scope==='week'?{date:target}:{month:target}),weeks:reports.length,
-          reportSummary:{weekLabel:studyqInput.week_label,period:studyqInput.period,studentRows:studyqInput.chart_data.length,
-            filledSections:studyqInput.report_list.filter(s=>s.text.trim()).length}};
-        const rendered=await this.runner!.renderCism(studyqInput,path);
-        if(rendered.status==='refused')return {...base,...summary,status:'refused' as const,reasonCode:'studyq_'+rendered.code,studyqDetail:rendered.detail};
-        return {...base,...summary,status:'rendered' as const,outputPath:rendered.outputPath,sha256:rendered.sha256,pages:rendered.pages,
-          parityOk:rendered.parityOk,parityMismatches:rendered.parityMismatches,parityRawRn:rendered.parityRawRn};
+        const week=await read(date);
+        const path=await officialReportPath(root,input.outputPath,'cism-week',date,this.now());
+        const filled=(rows:unknown)=>Array.isArray(rows)?rows.filter((r:any)=>typeof r?.['2']==='string'&&r['2'].trim()!=='').length:0;
+        const summary={date,reportSummary:{weekLabel:week.weekLabel,period:week.periodStart+' ~ '+week.periodEnd,
+          groups:Array.isArray(week.blockData.block3)?week.blockData.block3.length:0,
+          filledSections:filled(week.blockData.block4)+filled(week.blockData.block5)+filled(week.blockData.block6)}};
+        try{return {...base,...summary,...renderedOf(await this.executor!.render({reportType:'cism',keys:{},blockData:week.blockData as unknown as Record<string,unknown>,outputPath:path}))};}
+        catch(error){return {...base,...summary,status:'unavailable' as const,...failureOf(error)};}
       });
-    }catch(error){const resolved=resolvedDateOf(error);return {...base,...(resolved?(scope==='week'?{date:resolved}:{month:resolved}):{}),status:'unavailable' as const,...readFailureResult(error,'official_report_unqualified_no_automatic_retry')};}
+    }catch(error){const resolved=resolvedDateOf(error);return {...base,...(resolved?{date:resolved}:{}),status:'unavailable' as const,...failureOf(error)};}
   }
 }
