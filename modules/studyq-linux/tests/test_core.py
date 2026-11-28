@@ -213,14 +213,14 @@ class WordsAndInput(TempDirCase):
         self.assertEqual((status, json.loads(line)["code"]), (1, "type_unknown"))
 
     def test_interim_unbuilt_targets_refuse_not_implemented(self):
-        for argv in (
-            ["render", "--type", "cism", "--assets", self.tmp, "--out", self.path("o.pdf")],
-            ["assemble-print", "--out", self.path("p.pdf")],
-        ):
-            status, line = run_cli(argv, b"{}")
-            doc = json.loads(line)
-            self.assertNotEqual(status, 0)
-            self.assertEqual((doc["status"], doc["code"]), ("error", "not_implemented"))
+        status, line = run_cli(["assemble-print", "--out", self.path("p.pdf")], b"{}")
+        doc = json.loads(line)
+        self.assertNotEqual(status, 0)
+        self.assertEqual((doc["status"], doc["code"]), ("error", "not_implemented"))
+        self.assertEqual(os.listdir(self.tmp), [])
+        # `render --type cism` is built: it reads its input (R4) instead of refusing as not built.
+        status, line = run_cli(["render", "--type", "cism", "--assets", self.tmp, "--out", self.path("o.pdf")], b"{}")
+        self.assertEqual(json.loads(line)["code"], "input_invalid")
         self.assertEqual(os.listdir(self.tmp), [])
 
     def refuse(self, stdin):

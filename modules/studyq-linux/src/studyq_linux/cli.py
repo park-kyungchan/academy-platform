@@ -11,10 +11,10 @@ import signal
 import sys
 import tempfile
 
-from .course_book import REPORT_TYPE
 from .errors import StudyqError, clip_detail
 from .manifest import verify_assets_dir
-from .schema import validate_course_book
+from .renderers.cism import REPORT_TYPE as CISM_TYPE
+from .schema import validate_cism, validate_course_book
 
 MAX_STDIN_BYTES = 4 * 1024 * 1024
 KNOWN_TYPES = ("course_book", "cism")
@@ -134,22 +134,21 @@ def _execute(argv, stdin):
     report_type = flags["type"]
     if report_type not in KNOWN_TYPES:
         raise StudyqError("type_unknown", "type is not course_book or cism")
-    if report_type == "cism":
-        raise StudyqError("not_implemented", "cism is not built yet")
     out_path = os.path.abspath(flags["out"])
     if os.path.lexists(out_path):
         raise StudyqError("output_exists", "output exists")
-    data = validate_course_book(read_input(stdin))
+    validate = validate_cism if report_type == CISM_TYPE else validate_course_book
+    data = validate(read_input(stdin))
     bundle = verify_assets_dir(flags["assets"])
-    from .render import render_course_book
+    from .render import render_cism, render_course_book
 
-    pdf = render_course_book(data, bundle)
+    pdf = (render_cism if report_type == CISM_TYPE else render_course_book)(data, bundle)
     pages = count_pages(pdf)
     write_atomic(out_path, pdf)
     return json.dumps(
         {
             "status": "ok",
-            "reportType": REPORT_TYPE,
+            "reportType": report_type,
             "pages": pages,
             "sha256": hashlib.sha256(pdf).hexdigest(),
             "outputPath": out_path,

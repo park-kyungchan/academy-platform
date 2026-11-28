@@ -54,7 +54,7 @@ const routeRoles:Readonly<Record<string,Readonly<Record<string,LmsRequestRole>>>
  // DailyRecord: the page read, and the field writes that are GET requests.
  [servlet+'cct.tutor.DayRecordServlet']:{Main:'read',udtPrg:'write',udtHw:'write',udtMemo:'write',udtAttn:'write'},
  [servlet+'cct.tutor.AttendanceServlet']:{Main:'read'},
- [servlet+'cct.common.CourseCommonServlet']:{SetCismContentData:'write',SetCismChartData:'write',SetDailyTest:'write',SetHomeWorkRate:'write'},
+ [servlet+'cct.common.CourseCommonServlet']:{CismChartMain:'read',SetCismContentData:'write',SetCismChartData:'write',SetDailyTest:'write',SetHomeWorkRate:'write'},
  [servlet+'tutor.base.TestPageListServlet']:{UserBySearchTestResult:'read',UserByMain:'read'},
  [servlet+'common.TestPageShowExServlet']:{GetLectureList:'read'},
  // lmsRouteRegistry.ts legacyRoutes class these read; that class supersedes the legacy write candidates of

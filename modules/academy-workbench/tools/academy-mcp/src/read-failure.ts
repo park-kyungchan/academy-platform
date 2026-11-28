@@ -77,6 +77,8 @@ const catalog={
   prestudy_report_section_ambiguous:['identity_ambiguity','source-owner:prestudy-report'],
   textbook_binding_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
   textbook_index_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  cism_week_number_unqualified:['contract_drift','apps/academy/dc-gang-a/src/lms/cismReportAdapter.ts:cismWeekNumber'],
+  cism_field_identity_missing:['contract_drift','apps/academy/dc-gang-a/src/lms/cismReportAdapter.ts:chartRows'],
   cism_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
   textbook_catalog_principal_rejected:['policy_denial','src/native-dailyrecord-backend.ts:scope'],
   cism_scope_conflict:['policy_denial','src/native-dailyrecord-backend.ts:scope'],

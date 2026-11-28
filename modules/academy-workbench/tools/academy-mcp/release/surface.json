@@ -740,14 +740,15 @@
   {
    "name": "academy_official_report_pdf_get",
    "title": "공식 리포트 PDF",
-   "description": "Official StudyQ report PDF (공식 리포트, 교재 리포트) of one student from read-only LMS data. reportType 'course_book': one book's course-book report. displayName or studentName. Book: courseKey, bookNo, studentKey together, or params.bookLabel (live list, then memory binding). Written under the owner output root (outputPath: optional .pdf name there, never overwritten); answers outputPath, sha256, pages, parityOk. No LMS write.",
+   "description": "Official StudyQ PDF (공식·교재 리포트), read-only LMS. reportType 'course_book': student book report (displayName/studentName; courseKey+bookNo+studentKey or params.bookLabel, live then memory). 'cism': CISM, no student (params.scope week+date or month). Saved under owner root (outputPath: optional .pdf, no overwrite); answers outputPath, sha256, pages, parityOk.",
    "inputSchema": {
     "type": "object",
     "properties": {
      "reportType": {
       "type": "string",
       "enum": [
-       "course_book"
+       "course_book",
+       "cism"
       ]
      },
      "displayName": {
