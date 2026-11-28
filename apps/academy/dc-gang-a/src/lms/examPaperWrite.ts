@@ -117,6 +117,14 @@ function qualifyPeriod(r: Record<string, unknown>): ExamPeriod {
 }
 
 const RANK: Record<ExamItemType, number> = {obj: 0, sbj: 1, des: 2};
+/**
+ * A source paper's rows in the OMR order obj, then sbj, then des, keeping the source order inside each type. `changed` is true when the order differed
+ * (the preview's `itemOrder` is `grouped_by_type`, else `source`).
+ */
+export function groupItemsByType<T extends {type: ExamItemType}>(items: readonly T[]): {items: T[]; changed: boolean} {
+  const grouped = [...items].sort((a, b) => RANK[a.type] - RANK[b.type]);
+  return {items: grouped, changed: grouped.some((item, i) => item !== items[i])};
+}
 /** 1 to 30 items in the OMR order obj, then sbj, then des; any other order is `invalid_item_order`. */
 export function qualifyItems(value: unknown, options: {exactly?: number; unique?: boolean} = {}): ExamItem[] {
   if (!Array.isArray(value) || value.length < 1) return invalid();
@@ -344,10 +352,14 @@ export function parseAutoModify(html: string): {testno: string; testname: string
 
 // ---- the creation page ----------------------------------------------------------------------------
 
-/** The form1 members of the fa page (item 4, step B); a member of this list that the fa page lacks is `wire_hash_mismatch`. */
-export const FA_FORM_MEMBERS = ['book', 'bunit1', 'bunit2', 'descriptquestion', 'evalgubun', 'exam_test', 'fran_no', 'grade', 'keyword_title', 'lecture_key', 'makecollege',
-  'makedate', 'maker', 'mem_type', 'munit1', 'munit2', 'object', 'objectviews', 'p_bookno', 'p_d_cnt', 'p_evalgubunno', 'p_gradeno', 'p_groupno', 'p_o_cnt', 'p_original_testno',
-  'p_prepare_testno', 'p_prino', 'p_process', 'p_s_cnt', 'p_subjectno', 'p_testgubunno', 'p_total_cnt', 'p_url', 'paper_type', 'pri_no', 'private_chk', 'subject', 'subjectquestion',
+/**
+ * The form1 members of the live Auto page (item 2, step B); a member of this list that the page's form1 lacks is `wire_hash_mismatch`. The page's other form
+ * `userForm` (`fran_no`, `mem_type`, `p_groupno`, `p_prino`, `p_url`, `pri_no`) and the input `lecture_key` outside both forms are not members of form1 and are
+ * neither required nor posted. The da form1 adds `courseNo` and `useterm`, handled apart.
+ */
+export const FA_FORM_MEMBERS = ['book', 'bunit1', 'bunit2', 'descriptquestion', 'evalgubun', 'exam_test', 'grade', 'keyword_title', 'makecollege',
+  'makedate', 'maker', 'munit1', 'munit2', 'object', 'objectviews', 'p_bookno', 'p_d_cnt', 'p_evalgubunno', 'p_gradeno', 'p_o_cnt', 'p_original_testno',
+  'p_prepare_testno', 'p_process', 'p_s_cnt', 'p_subjectno', 'p_testgubunno', 'p_total_cnt', 'paper_type', 'private_chk', 'subject', 'subjectquestion',
   'testgubun', 'testname', 'title_option', 'total'] as const;
 export interface CreationPage {
   testno: string;
@@ -454,10 +466,10 @@ export const assignPath = (family: ExamFamily, reqCmd: 'Save' | 'Validate', chan
   examHangPath(family) + '?' + encodeQuery(assignQuery(reqCmd, change, testno, munhangCount, dummy));
 
 /** The preview of a review: family, name, kind, item count by type, each target's name and class name, and the period. No other student data. */
-export function examPreview(change: ExamChange, clsNames: ReadonlyMap<string, string>, items: readonly ExamItem[] | null) {
+export function examPreview(change: ExamChange, clsNames: ReadonlyMap<string, string>, items: readonly ExamItem[] | null, itemOrder?: 'source' | 'grouped_by_type') {
   const counts = {obj: 0, sbj: 0, des: 0};
   for (const i of items ?? []) counts[i.type]++;
-  return {family: change.family, testName: change.testName, ...(change.steps === 'ABC' ? {testgubunNo: change.testgubunNo, itemCounts: counts} : {testno: change.testno, munhangCount: change.munhangCount}),
+  return {family: change.family, testName: change.testName, ...(change.steps === 'ABC' ? {testgubunNo: change.testgubunNo, itemCounts: counts, ...(itemOrder ? {itemOrder} : {})} : {testno: change.testno, munhangCount: change.munhangCount}),
     steps: change.steps, targets: change.targets.map(t => ({studentName: t.studentName, clsName: clsNames.get(t.studentKey) ?? null})),
     period: {start: change.start, end: change.end, testingMinutes: change.testingMinutes}};
 }

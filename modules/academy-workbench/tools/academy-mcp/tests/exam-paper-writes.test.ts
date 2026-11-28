@@ -7,10 +7,10 @@ import {lmsRequestRole} from './network-deny.ts';
 import {ExamPaperService} from '../src/exam-write-tools.ts';
 import {
   COURSE_NO,COURSE_PAPER,COOKIE_CANARY,KEY_A,KEY_B,NAME_A,NAME_B,SOURCE_PAPER,CLASS_A,CLASS_B,CLS_NAME_A,CLS_NAME_B,GRADE,FIRST_TESTNO,
-  assignmentPage,creationPage,examFixturePort,fixtureExamLms,itemKeys,pageHashes,type FixtureExamLms,
+  assignmentPage,creationPage,examFixturePort,fixtureExamLms,itemKeys,pageHashes,USER_FORM_MEMBERS,type FixtureExamLms,
 } from './exam-write-fixture-lms.ts';
 import {
-  ASSIGNMENT_FUNCTIONS,CREATION_FUNCTIONS,EXAM_PAGE_SHA256,FA_FORM_MEMBERS,EXAM_TOOL_FAMILY,expectedExamPageHash,examPageSha256,examScopeKey,examWireSha256,
+  ASSIGNMENT_FUNCTIONS,CREATION_FUNCTIONS,EXAM_PAGE_SHA256,FA_FORM_MEMBERS,EXAM_TOOL_FAMILY,expectedExamPageHash,parseCreationPage,examPageSha256,examScopeKey,examWireSha256,
   parseAutoModify,parseCheckMunhang,parseCoursePaperNo,parseSaveLogic,parseSaveMunhang,parseValidate,qualifyExamChange,qualifyExamRequest,sortedTargetStrings,xmlValues,
 } from '../../../../../apps/academy/dc-gang-a/src/lms/examPaperWrite.ts';
 import {GatedWriteLedger,canonicalJson,changeSha256Of,reviewTokenOf,sha256Hex,type AttemptRecord} from '../../../../../apps/academy/dc-gang-a/src/lms/gatedWriteLedger.ts';
@@ -272,6 +272,7 @@ describe('exam writes R1, R2: the review',()=>{
       expect(lms.requests.at(-1)!.form.get('p_no')).toBe(SOURCE_PAPER);
       expect(review.change).toMatchObject({sourcePaperNo:SOURCE_PAPER,items:[{key:'100000001',type:'obj'},{key:'100000002',type:'obj'},{key:'100000003',type:'sbj'},{key:'100000004',type:'des'}]});
       expect(review.preview.itemCounts).toEqual({obj:2,sbj:1,des:1});
+      expect(review.preview.itemOrder).toBe('source');
       // More than 30 items, a row without outer_lecture_key, an empty paper and an out-of-order paper.
       const refuse=async(rows:any[]|null,code:string)=>{
         const l=fixtureExamLms();if(rows)l.state.sourcePapers.set(SOURCE_PAPER,rows);else l.state.sourcePapers.delete(SOURCE_PAPER);
@@ -282,7 +283,6 @@ describe('exam writes R1, R2: the review',()=>{
       await refuse(itemKeys(31).map(k=>row(Number(k))),'too_many_items');
       await refuse([row(100000001),{sel_type:'obj',lecture_key:5}] as any,'paper_exam_list_unverified');
       await refuse(null,'paper_exam_list_empty');
-      await refuse([row(100000001,'sbj'),row(100000002,'obj')],'invalid_item_order');
     }finally{await s.cleanup();}
   });
   test('exam_writes_r1_da_review_reads_the_course_paper_and_needs_exactly_30_items',async()=>{
@@ -432,8 +432,8 @@ describe('exam writes R8, R14: the save of a paper and its assignment',()=>{
       expect(save.method).toBe('POST');expect(save.path+'?'+save.query).toBe(`${FA}TestPageRegServlet?reqCmd=Save`);
       expect(members).toMatchObject({p_process:'Save',testname:'Invented FA 1',keyword_title:'Invented FA 1',title_option:'',testgubun:'1180',private_chk:'1',total:'4',object:'2',subjectquestion:'1',
         descriptquestion:'1',grade:'23',subject:'22',book:'21',bunit1:'11',munit1:'12',bunit2:'13',munit2:'14',p_original_testno:testno,makecollege:'501',
-        evalgubun:'1001',p_url:'a&b=1',makedate:'2040-01-16',objectviews:'invented-views',exam_test:'x-exam_test'});
-      expect(Object.keys(members)).toHaveLength(FA_FORM_MEMBERS.length);                 // every form1 member the page serves, once
+        evalgubun:'1001',makedate:'2040-01-16',objectviews:'invented-views',exam_test:'x-exam_test'});
+      expect(Object.keys(members)).toHaveLength(FA_FORM_MEMBERS.length);                 // every form1 member the live page serves, once (35)
       expect(save.multipart!.filter(([n])=>n==='courseNo'||n==='useterm')).toEqual([]);
       expect(by('AutoModify').query.get('p_original_testno')).toBe(testno);
       // Step C: the assignment page, Validate and Save with the same members, the readback Validate.
@@ -475,6 +475,75 @@ describe('exam writes R8, R14: the save of a paper and its assignment',()=>{
       expect(Object.keys(members)).toHaveLength(FA_FORM_MEMBERS.length+2);
       expect(h.lms.state.saved.get(String(FIRST_TESTNO))).toEqual({testname:'Invented DA 1'});
       expect(steps(h)).toEqual(FULL_STEPS);
+    }finally{await s.cleanup();}
+  });
+  test('exam_writes_creation_page_with_user_form_members_outside_form1_is_accepted',async()=>{
+    const s=await scratch();
+    try{
+      // The fixture page has the live two-form layout: userForm first, the input lecture_key between the forms, then form1 (35 members for fa, 37 for da).
+      const html=creationPage('fa',FIRST_TESTNO);
+      expect(html.indexOf('name="userForm"')).toBeLessThan(html.indexOf('name="lecture_key"'));
+      expect(html.indexOf('name="lecture_key"')).toBeLessThan(html.indexOf('name="form1"'));
+      expect(FA_FORM_MEMBERS).toHaveLength(35);
+      for(const n of [...USER_FORM_MEMBERS.filter(m=>m!=='p_process'),'lecture_key'])expect(FA_FORM_MEMBERS as readonly string[]).not.toContain(n);
+      const fa=parseCreationPage(html,'fa',{testgubunNo:1180});
+      expect(fa.testno).toBe(String(FIRST_TESTNO));expect(fa.members).toHaveLength(35);
+      expect(parseCreationPage(creationPage('da',FIRST_TESTNO),'da',{testgubunNo:1180,courseNo:COURSE_NO}).members).toHaveLength(37);
+      // A save passes step A on this page, for fa and da.
+      for(const [family,input] of [['fa',faInput()],['da',daInput()]] as const){
+        const h=harness(join(s.dir,`two-form-${family}.jsonl`)),review=await h.reviewed(input);
+        expect(await h.service.save(h.approve(review))).toMatchObject({status:'saved',family,effectStatus:'persisted',academyWrites:4});
+      }
+      // A page lacking a member of form1 that remains required still refuses, and a member found only outside form1 does not stand in for it.
+      for(const missing of ['objectviews','p_process','makedate']){
+        expect(()=>parseCreationPage(creationPage('fa',FIRST_TESTNO,'',{omit:[missing]}),'fa',{testgubunNo:1180})).toThrow('wire_hash_mismatch');
+      }
+      const moved=creationPage('fa',FIRST_TESTNO,'',{omit:['maker']}).replace('<input type="hidden" name="lecture_key"','<input type="hidden" name="maker" value="m"><input type="hidden" name="lecture_key"');
+      expect(()=>parseCreationPage(moved,'fa',{testgubunNo:1180})).toThrow('wire_hash_mismatch');
+    }finally{await s.cleanup();}
+  });
+  test('exam_writes_step_b_posts_no_user_form_member',async()=>{
+    const s=await scratch();
+    try{
+      const h=harness(s.ledger),review=await h.reviewed(faInput());
+      await h.service.save(h.approve(review));
+      const save=h.lms.requests.find(r=>r.method==='POST'&&r.route.endsWith(' Save'))!;
+      const names=save.multipart!.map(([n])=>n);
+      expect(names).toEqual(creationPage('fa',FIRST_TESTNO).match(/<form name="form1"[\s\S]*<\/form>/)![0].match(/name="([^"]+)"/g)!.map(m=>m.slice(6,-1)).filter(n=>n!=='form1'));
+      for(const n of ['fran_no','mem_type','p_groupno','p_prino','p_url','pri_no','lecture_key'])expect(names).not.toContain(n);
+      expect(names).toHaveLength(35);
+      expect(new Set(names).size).toBe(35);
+      expect(Object.fromEntries(save.multipart!).p_process).toBe('Save');           // form1's own p_process, not userForm's
+      const da=harness(join(s.dir,'da.jsonl')),daReview=await da.reviewed(daInput());
+      await da.service.save(da.approve(daReview));
+      const daNames=da.lms.requests.find(r=>r.method==='POST'&&r.route.endsWith(' Save'))!.multipart!.map(([n])=>n);
+      expect(daNames).toHaveLength(37);
+      expect(daNames.slice(daNames.indexOf('testgubun'),daNames.indexOf('testgubun')+2)).toEqual(['testgubun','courseNo']);
+      for(const n of ['fran_no','mem_type','p_groupno','p_prino','p_url','pri_no','lecture_key'])expect(daNames).not.toContain(n);
+    }finally{await s.cleanup();}
+  });
+  test('exam_writes_source_paper_mixed_types_are_grouped_and_previewed',async()=>{
+    const s=await scratch();
+    try{
+      const row=(k:number,t:string)=>({sel_type:t,outer_lecture_key:k,lecture_key:5000+k});
+      const lms=fixtureExamLms();
+      lms.state.sourcePapers.set(SOURCE_PAPER,[row(100000001,'sbj'),row(100000002,'obj'),row(100000003,'des'),row(100000004,'obj'),row(100000005,'sbj'),row(100000006,'obj')]);
+      const h=harness(s.ledger,{lms});
+      const review=await h.reviewed(faPaperInput());
+      // obj, then sbj, then des; the source order is kept inside each type.
+      expect(review.change.items).toEqual([{key:'100000002',type:'obj'},{key:'100000004',type:'obj'},{key:'100000006',type:'obj'},{key:'100000001',type:'sbj'},{key:'100000005',type:'sbj'},{key:'100000003',type:'des'}]);
+      expect(review.preview).toMatchObject({itemCounts:{obj:3,sbj:2,des:1},itemOrder:'grouped_by_type'});
+      expect(lms.writes()).toEqual([]);
+      // The save stages the grouped order.
+      const out:any=await h.service.save(h.approve(review));
+      expect(out).toMatchObject({status:'saved',academyWrites:4});
+      expect(lms.requests.find(r=>r.route.includes('SaveMunhang'))!.query.get('exam_list')).toBe('100000002|_|1|,|100000004|_|1|,|100000006|_|1|,|100000001|_|2|,|100000005|_|2|,|100000003|_|3');
+      // A source already in order keeps it and says "source"; explicit items out of order still refuse.
+      expect((await harness(join(s.dir,'in-order.jsonl')).reviewed(faPaperInput())).preview.itemOrder).toBe('source');
+      expect(await harness(join(s.dir,'explicit.jsonl')).service.review(faInput({items:[{key:'100000001',type:'sbj'},{key:'100000002',type:'obj'}]}))).toMatchObject({status:'refused',code:'invalid_item_order',academyWrites:0});
+      // Another unknown row type is still refused by the item rules.
+      const bad=fixtureExamLms();bad.state.sourcePapers.set(SOURCE_PAPER,[row(100000001,'obj'),row(100000002,'zzz')]);
+      expect(await harness(join(s.dir,'bad.jsonl'),{lms:bad}).service.review(faPaperInput())).toMatchObject({status:'refused',academyWrites:0});
     }finally{await s.cleanup();}
   });
   test('exam_writes_r8_a_fa_save_of_a_source_paper_stages_its_copied_items',async()=>{

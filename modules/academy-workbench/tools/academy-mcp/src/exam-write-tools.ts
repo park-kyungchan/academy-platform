@@ -10,7 +10,7 @@ import {
 import {
   COURSE_PAPER_PATH,EXAM_TOOL_FAMILY,STUDENT_LOOKUP_PATH,assignMainPath,assignPath,autoModifyPath,autoPath,autoPageTestno,checkMunhangPath,coursePaperForm,examPageSha256,
   examPreview,examScopeKey,examWireSha256,expectedExamPageHash,parseAutoModify,parseCheckMunhang,parseCoursePaperNo,parseCreationPage,parseSaveLogic,parseSaveMunhang,
-  parseStudentList,parseValidate,paperSaveMembers,paperSavePath,qualifyExamChange,qualifyExamRequest,qualifyItems,saveMunhangPath,sortedTargetStrings,
+  groupItemsByType,parseStudentList,parseValidate,paperSaveMembers,paperSavePath,qualifyExamChange,qualifyExamRequest,qualifyItems,saveMunhangPath,sortedTargetStrings,
   studentKeysOfTargets,studentListForm,validateNamesAll,MAX_ITEMS,
   type ExamAssignChange,type ExamChange,type ExamItem,type ExamPaperChange,type ExamRequest,type ExamTarget,type ExpectedExamWireHashes,type CreationPage,
 } from '../../../../../apps/academy/dc-gang-a/src/lms/examPaperWrite';
@@ -79,9 +79,9 @@ export class ExamPaperService {
   // ---- review ---------------------------------------------------------------------------------------
 
   /** The items of the request: the teacher's own, the copy of an existing paper, or the 30 items of a DA course paper. */
-  async #items(request:ExamRequest):Promise<ExamItem[]>{
+  async #items(request:ExamRequest):Promise<{items:ExamItem[];itemOrder?:'source'|'grouped_by_type'}>{
     const b=this.backend!,source=request.source;
-    if(source.kind==='items')return source.items;
+    if(source.kind==='items')return {items:source.items};
     let rows:PaperExamRow[];
     if(source.kind==='paper'){
       rows=await b.readPaperExamList(source.sourcePaperNo);
@@ -92,7 +92,13 @@ export class ExamPaperService {
       if(rows.length!==MAX_ITEMS)throw new GatedWriteRefusal('da_item_count');
     }
     if(rows.some(r=>r.outerLectureKey===null))throw new GatedWriteRefusal('paper_exam_list_unverified');
-    return qualifyItems(rows.map(r=>({key:String(r.outerLectureKey),type:r.selType})));
+    const listed=rows.map(r=>({key:String(r.outerLectureKey),type:r.selType}));
+    // A copied FA paper may mix the types in any order: its items are grouped obj, sbj, des (the source order kept inside a type) and the preview says so.
+    if(source.kind==='paper'&&request.family==='fa'&&listed.every(i=>i.type==='obj'||i.type==='sbj'||i.type==='des')){
+      const grouped=groupItemsByType(listed);
+      return {items:qualifyItems(grouped.items),itemOrder:grouped.changed?'grouped_by_type':'source'};
+    }
+    return {items:qualifyItems(listed)};
   }
 
   /**
@@ -147,7 +153,7 @@ export class ExamPaperService {
         targets.sort((x,y)=>sortedTargetStrings([x])[0]!<sortedTargetStrings([y])[0]!?-1:1);
         const targetStrings=sortedTargetStrings(targets),scopeKey=examScopeKey(request.family,targets);
         if(open.some(a=>(a.targets??[]).join('\n')!==targetStrings.join('\n')))throw new ExamBlocked(keys);
-        const items=await this.#items(request);
+        const {items,itemOrder}=await this.#items(request);
         const paper:ExamPaperChange={steps:'ABC',family:request.family,testName:request.testName,testgubunNo:request.testgubunNo,items,
           ...(request.source.kind==='paper'?{sourcePaperNo:request.source.sourcePaperNo}:{}),...(request.source.kind==='course'?{courseNo:request.source.courseNo}:{}),
           targets,start:request.start,end:request.end,testingMinutes:request.testingMinutes};
@@ -182,7 +188,7 @@ export class ExamPaperService {
         const reviewedAt=new Date(this.#now()).toISOString(),expiresAt=new Date(this.#now()+REVIEW_TOKEN_TTL_MS).toISOString();
         const reviewToken=reviewTokenOf({tool:EXAM_TOOL_FAMILY,change,targets:targetStrings,scopeKey,wireSha256,expiresAt});
         this.ledger.append({kind:'reviewed',tool:EXAM_TOOL_FAMILY,reviewToken,changeSha256:changeSha256Of(change),targets:targetStrings,scopeKey,wireSha256,reviewedAt,expiresAt});
-        return {status:'reviewed' as const,family:request.family,scopeKey,change,preview:examPreview(change,clsNames,change.steps==='ABC'?change.items:null),reviewToken,wireSha256,reviewedAt,expiresAt,
+        return {status:'reviewed' as const,family:request.family,scopeKey,change,preview:examPreview(change,clsNames,change.steps==='ABC'?change.items:null,change.steps==='ABC'?itemOrder:undefined),reviewToken,wireSha256,reviewedAt,expiresAt,
           ...reconciledNote,
           nextStep:'Show the teacher the preview (exam, students and period); only after the teacher approves, call academy_exam_paper_save with reviewToken, userApproved: true and this change.',
           academyWrites:0,...CLEAN};

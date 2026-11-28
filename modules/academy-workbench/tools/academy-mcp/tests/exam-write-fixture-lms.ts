@@ -1,5 +1,5 @@
 import {lmsRequestRole,lmsRoute,type LmsRequestRole} from './network-deny.ts';
-import {FA_FORM_MEMBERS,examPageSha256,type ExpectedExamWireHashes} from '../../../../../apps/academy/dc-gang-a/src/lms/examPaperWrite';
+import {examPageSha256,type ExpectedExamWireHashes} from '../../../../../apps/academy/dc-gang-a/src/lms/examPaperWrite';
 import {paperExamListForm,parsePaperExamList} from '../../../../../apps/academy/dc-gang-a/src/lms/paperPrintRead';
 import type {ExamPaperBackend} from '../src/exam-write-tools.ts';
 
@@ -15,14 +15,32 @@ const ORIGIN='https://dc.gang-a.kr';
 export const itemKeys=(n:number,base=100000001)=>Array.from({length:n},(_,i)=>String(base+i));
 
 const functions=(names:string[])=>names.map((n,i)=>`function ${n}(a) {\n  var v = ${i + 1};\n  return v + 1;\n}`).join('\n');
+// The live Auto page of 2026-11-28 (finding ama-live-exam-form-members): `userForm` first (its own members, never posted), the input `lecture_key` between the two
+// forms, then `form1` (multipart) with its members in the live page order; the da form1 adds `courseNo` after `testgubun` and `useterm` after `grade`.
+const LIVE_FORM1=['p_process','p_original_testno','p_prepare_testno','p_bookno','p_evalgubunno','p_testgubunno','p_gradeno','p_subjectno','p_total_cnt','p_o_cnt','p_s_cnt','p_d_cnt',
+  'paper_type','evalgubun','exam_test','testgubun','testname','private_chk','total','object','objectviews','subjectquestion','descriptquestion','grade','bunit1','munit1','bunit2','munit2',
+  'title_option','keyword_title','makecollege','maker','makedate','subject','book'];
+export const USER_FORM_MEMBERS=['p_process','p_prino','p_groupno','p_url','fran_no','pri_no','mem_type'];
 export const creationPage=(family:'fa'|'da',testno:number|string,body='',members:{omit?:string[]}={}):string=>{
-  const inputs=FA_FORM_MEMBERS.filter(n=>!['testgubun','makecollege'].includes(n)&&!(members.omit??[]).includes(n)).map(n=>{
-    const value=n==='p_original_testno'?String(testno):n==='p_url'?'a&amp;b=1':n==='evalgubun'?(family==='fa'?'1001':'1000'):n==='private_chk'?'0':n==='objectviews'?'invented-views':n==='makedate'?'2040-01-16':n==='title_option'?'old':'x-'+n;
-    return `<input type="hidden" name="${n}" value="${value}">`;}).join('\n');
-  const da=family==='da'?`<input type="hidden" name="useterm" value="2">\n<select name="courseNo"><option value="-1">-</option><option value="${COURSE_NO}">Invented course</option></select>`:'';
-  return `<html><body>\r\n<script>\r\n${functions(['validationTestInfo','requestSave','onSaveButtonClick'])}\r\n${body}</script>\r\n<form name="form1" method="post" enctype="multipart/form-data">\r\n${inputs}\r\n${da}\r\n`
-    +`<select name="testgubun"><option value="-1">-</option><option value="1180">a</option><option value="1161">b</option><option value="1320">c</option></select>\r\n`
-    +`<select name="makecollege"><option value="-1">-</option><option value="">none</option><option value="501">Invented college</option></select>\r\n</form></body></html>`;
+  const omit=members.omit??[];
+  const select=(n:string,options:string)=>`<select name="${n}">${options}</select>`;
+  const field=(n:string):string=>{
+    if(omit.includes(n))return '';
+    if(n==='testgubun')return select(n,'<option value="-1">-</option><option value="1180">a</option><option value="1161">b</option><option value="1320">c</option>');
+    if(n==='makecollege')return select(n,'<option value="-1">-</option><option value="">none</option><option value="501">Invented college</option>');
+    if(['grade','bunit1','munit1','bunit2','munit2','subject','book'].includes(n))return select(n,`<option value="x-${n}" selected>x</option>`);
+    const value=n==='p_original_testno'?String(testno):n==='evalgubun'?(family==='fa'?'1001':'1000'):n==='private_chk'?'0':n==='objectviews'?'invented-views':n==='makedate'?'2040-01-16':n==='title_option'?'old':'x-'+n;
+    return `<input type="${['testname','keyword_title','maker','makedate'].includes(n)?'text':'hidden'}" name="${n}" value="${value}">`;
+  };
+  const inputs=LIVE_FORM1.flatMap(n=>{
+    const out=[field(n)];
+    if(family==='da'&&n==='testgubun')out.push(omit.includes('courseNo')?'':select('courseNo',`<option value="-1">-</option><option value="${COURSE_NO}">Invented course</option>`));
+    if(family==='da'&&n==='grade')out.push('<input type="hidden" name="useterm" value="2">');
+    return out;
+  }).filter(Boolean).join('\r\n');
+  const userForm=`<form name="userForm" method="post">\r\n${USER_FORM_MEMBERS.map(n=>`<input type="hidden" name="${n}" value="${n==='p_process'?'Auto':n==='p_url'?'a&amp;b=1':'u-'+n}">`).join('\r\n')}\r\n</form>\r\n`;
+  return `<html><body>\r\n<script>\r\n${functions(['validationTestInfo','requestSave','onSaveButtonClick'])}\r\n${body}</script>\r\n${userForm}<input type="hidden" name="lecture_key" value="u-lecture_key">\r\n`
+    +`<form name="form1" method="post" enctype="multipart/form-data">\r\n${inputs}\r\n</form></body></html>`;
 };
 export const assignmentPage=(body='')=>`<html><body>\r\n<script>\r\n${functions(['validate','onSave','showSaveResult'])}\r\n${body}</script>\r\n</body></html>`;
 export const pageHashes=():Required<{[F in 'fa'|'da']:{creation:string;assignment:string}}>=>({
