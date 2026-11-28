@@ -11,7 +11,7 @@ import {
 } from './exam-write-fixture-lms.ts';
 import {
   ASSIGNMENT_FUNCTIONS,CREATION_FUNCTIONS,EXAM_PAGE_SHA256,FA_FORM_MEMBERS,EXAM_TOOL_FAMILY,expectedExamPageHash,examPageSha256,examScopeKey,examWireSha256,
-  parseCheckMunhang,parseCoursePaperNo,parseSaveLogic,parseSaveMunhang,parseValidate,qualifyExamChange,qualifyExamRequest,sortedTargetStrings,xmlValues,
+  parseAutoModify,parseCheckMunhang,parseCoursePaperNo,parseSaveLogic,parseSaveMunhang,parseValidate,qualifyExamChange,qualifyExamRequest,sortedTargetStrings,xmlValues,
 } from '../../../../../apps/academy/dc-gang-a/src/lms/examPaperWrite.ts';
 import {GatedWriteLedger,canonicalJson,changeSha256Of,reviewTokenOf,sha256Hex,type AttemptRecord} from '../../../../../apps/academy/dc-gang-a/src/lms/gatedWriteLedger.ts';
 import {CLINIC_TOOL_FAMILY} from '../../../../../apps/academy/dc-gang-a/src/lms/clinicPaperWrite.ts';
@@ -743,6 +743,25 @@ describe('exam writes R11 to R13: open attempts, reconciliation and the step C r
       expect(h.lms.state.allocated).toEqual([FIRST_TESTNO,FIRST_TESTNO+1]);
     }finally{await s.cleanup();}
   });
+  test('exam_writes_r12_an_unreadable_or_foreign_automodify_page_never_closes_an_attempt_as_staged_only',async()=>{
+    const s=await scratch();
+    try{
+      const pages:[string,string][]=[['error page without form1','<html><body>Service temporarily unavailable</body></html>'],['empty','' ],
+        ['another paper number','<html><form name="form1"><input name="p_original_testno" value="1"><input name="testname" value=""></form></html>'],
+        ['form1 without the number','<html><form name="form1"><input name="testname" value=""></form></html>'],
+        ['the number and a name the review did not name','<html><form name="form1"><input name="p_original_testno" value="424001"><input name="testname" value="Another"></form></html>']];
+      let n=0;
+      for(const [label,page] of pages){
+        const h=harness(join(s.dir,`am-${n++}.jsonl`)),review=await h.reviewed(faInput());
+        h.lms.state.checkCount=-2;
+        expect(await h.service.save(h.approve(review))).toMatchObject({code:'check_munhang_2',effectStatus:'partially_persisted'});
+        h.lms.state.checkCount=1;h.lms.state.autoModifyAnswer=()=>page;h.lms.requests.length=0;h.clock.t+=1000;
+        expect({label,out:await h.service.review(faInput())}).toMatchObject({label,out:{status:'refused',code:'reconcile_blocks_retry',academyWrites:0,studentKeys:[KEY_A,KEY_B]}});
+        expect({label,state:last(h).state}).toEqual({label,state:'open'});
+        expect(h.lms.writes()).toEqual([]);
+      }
+    }finally{await s.cleanup();}
+  });
   test('exam_writes_r13_a_saved_paper_without_assignment_is_answered_with_a_review_of_step_c_alone_that_never_creates_a_second_paper',async()=>{
     const s=await scratch();
     try{
@@ -904,6 +923,9 @@ describe('exam writes: the answer parsers',()=>{
     expect(parseValidate('<r><result>success</result></r>')).toEqual({kind:'success'});
     expect(parseValidate('<r><result>A, B</result><info>x</info></r>')).toEqual({kind:'names',text:'A, B'});
     expect(parseValidate('<r><info>x</info></r>')).toEqual({kind:'unreadable'});expect(parseValidate('<r><result>x</r>')).toEqual({kind:'unreadable'});
+    expect(parseAutoModify('<html><body>Service temporarily unavailable</body></html>')).toBeNull();
+    expect(parseAutoModify('<form name="form1"><input name="testname" value="x"></form>')).toBeNull();
+    expect(parseAutoModify('<form name="form1"><input name="p_original_testno" value="5"><input name="testname" value="x"></form>')).toEqual({testno:'5',testname:'x'});
     expect(parseCoursePaperNo('{"pNo":6100,"result":"OK"}')).toBe('6100');expect(parseCoursePaperNo('{"pNo":"6100"}')).toBe('6100');
     expect([...xmlValues('<a><b> x &amp; y </b><c/><d><![CDATA[<z>]]></d></a>')]).toEqual([['b','x & y'],['c',''],['d','<z>']]);
     for(const bad of ['','<a>','<a></b>','<a/><b/>','text','<a><b></a></b>'])expect({bad,out:(()=>{try{xmlValues(bad);return 'parsed';}catch{return 'unparsable';}})()}).toEqual({bad,out:'unparsable'});

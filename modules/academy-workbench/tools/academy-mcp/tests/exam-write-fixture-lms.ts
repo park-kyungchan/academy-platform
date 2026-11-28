@@ -92,7 +92,7 @@ export function fixtureExamLms(){
       if(request.method==='GET'&&q.get('p_process')==='AutoModify'){
         if(state.autoModifyAnswer)return answer(state.autoModifyAnswer());
         const saved=state.saved.get(q.get('p_original_testno')??'');
-        return new Response(saved?`<html><form name="form1"><input name="p_original_testno" value="${q.get('p_original_testno')}"><input name="testname" value="${saved.testname}"></form></html>`:'<html><body>no such paper</body></html>');
+        return new Response(saved?`<html><form name="form1"><input name="p_original_testno" value="${q.get('p_original_testno')}"><input name="testname" value="${saved.testname}"></form></html>`:`<html><form name="form1"><input name="p_original_testno" value="${q.get('p_original_testno')}"><input name="testname" value=""></form></html>`);
       }
     }
     if(path.endsWith('.TestHangServlet')&&family){

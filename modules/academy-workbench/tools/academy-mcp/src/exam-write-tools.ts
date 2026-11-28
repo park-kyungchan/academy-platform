@@ -110,7 +110,9 @@ export class ExamPaperService {
     let modify:ReturnType<typeof parseAutoModify>;
     try{modify=parseAutoModify(await b.readExamRoute(autoModifyPath(change.family,testno)));}catch{return null;}
     const saved=modify!==null&&modify.testno===testno&&modify.testname===change.testName;
-    const notSaved=modify===null||modify.testno!==testno||modify.testname==='';
+    // Only a readable form1 that shows this paper number with no name is positive evidence that the paper was not saved. A page without form1 (an error page),
+    // another paper number or another name is an unreadable or unexpected readback: the attempt stays open.
+    const notSaved=modify!==null&&modify.testno===testno&&modify.testname==='';
     if(!saved&&!notSaved)return null;
     if(notSaved)return {state:'staged_only',testno};
     try{

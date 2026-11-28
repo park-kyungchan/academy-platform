@@ -337,7 +337,7 @@ export const validateNamesSome = (text: string, targets: readonly ExamTarget[]):
 /** The saved paper of `TestPageRegServlet?p_process=AutoModify&p_original_testno=<testno>`: its form1 paper number and name, or null when the page has no form1. */
 export function parseAutoModify(html: string): {testno: string; testname: string} | null {
   const {form} = readForm(html, 'form1');
-  if (!form) return null;
+  if (!form || !form.controls.some(c => c.tag === 'input' && c.name === 'p_original_testno')) return null;
   const value = (name: string) => form.controls.find(c => c.tag === 'input' && c.name === name)?.value ?? '';
   return {testno: value('p_original_testno').trim(), testname: value('testname')};
 }
