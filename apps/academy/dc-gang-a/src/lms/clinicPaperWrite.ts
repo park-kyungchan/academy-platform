@@ -43,7 +43,8 @@ export function wireSha256OfPage(kind: ClinicKind, html: string): string | null 
 
 // ---- input qualification --------------------------------------------------------------------------
 
-const KEY = /^[1-9][0-9]{0,15}$/;
+/** A key is at most 15 digits, so `Number(key)` in the posted condition is exact and converts back to the same text. */
+const KEY = /^[1-9][0-9]{0,14}$/;
 const PUBLIC_MEMBER = /public|all|everyone|every|academy|school|wide|global|pool/i;
 const KNOWN_MEMBERS = ['kind', 'studentKey', 'courseKey', 'bookNo', 'testingNo', 'testingNos', 'clinicMode', 'createSimilar', 'similarCount', 'createAdvance', 'advanceCount', 'patList'] as const;
 export const CLINIC_MODES = ['multiply', 'divide', 'custom'] as const;

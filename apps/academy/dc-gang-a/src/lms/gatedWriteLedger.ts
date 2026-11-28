@@ -55,7 +55,7 @@ export interface AttemptRecord {
 }
 export type LedgerRecord = ReviewedRecord | AttemptRecord;
 
-const KEY = /^[1-9][0-9]{0,15}$/;
+const KEY = /^[1-9][0-9]{0,14}$/;
 const STEPS = new Set<string>(['before_write', 'write_dispatched', 'response_received', 'reconciled']);
 const STATES = new Set<string>(['open', 'persisted', 'partially_persisted', 'absent']);
 const text = (v: unknown, max = 200): v is string => typeof v === 'string' && v.length > 0 && v.length <= max;

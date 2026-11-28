@@ -334,6 +334,30 @@ describe('gated writes R3 to R7: refusals before any request',()=>{
       }
     }finally{await s.cleanup();}
   });
+  test('gated_writes_r7_a_key_that_number_cannot_carry_exactly_is_refused_at_review_and_save_with_0_http_requests',async()=>{
+    const s=await scratch();
+    try{
+      const big='9007199254740993',long='1234567890123456',ok15='123456789012345';
+      const lms=fixtureLms(),h=harness(s.ledger,{lms});
+      for(const [label,input] of [['student',clinicInput({studentKey:big})],['student 16 digits',bookInput({studentKey:long})],['testing',clinicInput({testingNo:big})],
+        ['course',bookInput({courseKey:big})],['book',bookInput({bookNo:long})]] as const){
+        const out:any=await h.service.review(input);
+        expect({label,status:out.status,code:out.code}).toEqual({label,status:'refused',code:'public_scope_forbidden'});
+      }
+      expect((await h.service.review(bookInput({testingNos:[big]})) as any).code).toBe('clinic_input_invalid');
+      for(const change of [{kind:'clinic',studentKey:big,testingNo:TESTING,clinicMode:'multiply',similar:{create:1,mode:'multiply',exam_cnt:1},advance:{create:0}},
+        {kind:'book_incorrect',studentKey:STUDENT,courseKey:COURSE,bookNo:BOOK,testingNos:[big]}]){
+        const out:any=await h.service.save({reviewToken:'d'.repeat(64),userApproved:true,change});
+        expect(out.status).toBe('refused');expect(['public_scope_forbidden','review_token_invalid']).toContain(out.code);
+      }
+      expect(lms.requests).toEqual([]);
+      // Every accepted key is posted as the same number: 15 digits convert exactly.
+      const exact=harness(join(s.dir,'exact.jsonl'));
+      const {out}=await exact.saved(clinicInput({studentKey:ok15,testingNo:ok15}));
+      expect(out.status==='saved'||out.status==='unverified').toBe(true);
+      expect(String(write(exact.lms).condition!.pri_no)).toBe(ok15);expect(String(write(exact.lms).condition!.testing_no)).toBe(ok15);
+    }finally{await s.cleanup();}
+  });
   test('gated_writes_r7_public_all_student_or_missing_scope_is_refused_at_review_and_save_with_0_http_requests',async()=>{
     const s=await scratch();
     try{
