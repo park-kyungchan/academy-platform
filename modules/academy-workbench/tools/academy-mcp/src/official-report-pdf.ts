@@ -8,17 +8,27 @@ import {academyDateInputSchema,resolveAcademyDate,resolvedDateOf,withResolvedDat
 import {courseBookTruncated,type CourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport';
 import {cismMonthDates,type CismReport} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol';
 import {cismMonthToStudyqInput,cismWeekToStudyqInput} from '../../../../../apps/academy/dc-gang-a/src/lms/cismReportAdapter';
+import {projectDiagReport,projectFormativeReport,projectNewDiagReport} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient';
 
 /** `academy_official_report_pdf_get`: one official StudyQ report PDF, rendered on this host by
  * modules/studyq-linux from read-only LMS data. `reportType` names the report; `params` holds the
  * options of that type, so a later report type extends `reportType` and its own `params` without new
  * top-level members. `course_book` (one student and book) takes `params.bookLabel`; `cism` (the
  * owner's weekly or monthly CISM, no student) takes `params.scope` `week` (with `date`, default today)
- * or `month` (with `month`, `YYYY-MM`). */
-export const officialReportTypes=['course_book','cism'] as const;
+ * or `month` (with `month`, `YYYY-MM`); `diag` and `formative` (one student's diagnostic or formative
+ * test, `DiagReportView` or `FaView`) take `params.testingNo`, `params.classNo` and optionally
+ * `params.limitDate`; `new_diag` (one new-student application, `NewStudentReportView`) takes
+ * `params.paperNo`, `params.applyCode` and optionally `params.collegeKey` (default the owner's). */
+export const officialReportTypes=['course_book','cism','diag','new_diag','formative'] as const;
 const name=z.string().trim().min(1).max(200);
 const reportParams=z.object({bookLabel:z.string().trim().min(1).max(200).optional(),
-  scope:z.enum(['week','month']).optional(),date:academyDateInputSchema.optional(),month:z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/).optional()}).strict();
+  scope:z.enum(['week','month']).optional(),date:academyDateInputSchema.optional(),month:z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/).optional(),
+  testingNo:directKeySchema.optional(),classNo:directKeySchema.optional(),limitDate:z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/).optional(),
+  paperNo:directKeySchema.optional(),applyCode:z.string().min(1).max(64).regex(/^[^\u0000-\u001f\u007f]+$/).refine(v=>v.trim()===v).optional(),
+  collegeKey:directKeySchema.optional()}).strict();
+/** The `params` members each report type takes; any other member refuses. */
+const paramsOf:Record<(typeof officialReportTypes)[number],readonly string[]>={course_book:['bookLabel'],cism:['scope','date','month'],
+  diag:['testingNo','classNo','limitDate'],formative:['testingNo','classNo','limitDate'],new_diag:['paperNo','applyCode','collegeKey']};
 export const officialReportPdfGetSchema=z.object({
   reportType:z.enum(officialReportTypes),
   displayName:name.optional(),studentName:name.optional(),
@@ -27,6 +37,9 @@ export const officialReportPdfGetSchema=z.object({
   outputPath:z.string().min(5).max(512).optional(),
 }).strict().superRefine((v,c)=>{
   const params=v.params??{};
+  for(const k of Object.keys(params) as (keyof typeof params)[])
+    if(params[k]!==undefined&&!paramsOf[v.reportType].includes(k))c.addIssue({code:'custom',path:['params',k],message:v.reportType+'_params_'+paramsOf[v.reportType].join('_')+'_only'});
+  if(v.displayName!==undefined&&v.studentName!==undefined&&v.displayName!==v.studentName)c.addIssue({code:'custom',path:['studentName'],message:'name_conflict'});
   if(v.reportType==='cism'){
     for(const k of ['displayName','studentName','courseKey','bookNo','studentKey'] as const)if(v[k]!==undefined)c.addIssue({code:'custom',path:[k],message:'cism_takes_no_student_or_book'});
     if(params.bookLabel!==undefined)c.addIssue({code:'custom',path:['params','bookLabel'],message:'cism_takes_no_student_or_book'});
@@ -38,9 +51,18 @@ export const officialReportPdfGetSchema=z.object({
     }
     return;
   }
-  for(const k of ['scope','date','month'] as const)if(params[k]!==undefined)c.addIssue({code:'custom',path:['params',k],message:'course_book_params_bookLabel_only'});
+  if(v.reportType==='diag'||v.reportType==='formative'){
+    if(v.displayName===undefined&&v.studentName===undefined)c.addIssue({code:'custom',path:['displayName'],message:'student_name_required'});
+    for(const k of ['courseKey','bookNo'] as const)if(v[k]!==undefined)c.addIssue({code:'custom',path:[k],message:v.reportType+'_takes_no_course_or_book'});
+    for(const k of ['testingNo','classNo'] as const)if(params[k]===undefined)c.addIssue({code:'custom',path:['params',k],message:k+'_required'});
+    return;
+  }
+  if(v.reportType==='new_diag'){
+    for(const k of ['courseKey','bookNo','studentKey'] as const)if(v[k]!==undefined)c.addIssue({code:'custom',path:[k],message:'new_diag_takes_no_course_book_or_student_key'});
+    for(const k of ['paperNo','applyCode'] as const)if(params[k]===undefined)c.addIssue({code:'custom',path:['params',k],message:k+'_required'});
+    return;
+  }
   if(v.displayName===undefined&&v.studentName===undefined)c.addIssue({code:'custom',path:['displayName'],message:'student_name_required'});
-  if(v.displayName!==undefined&&v.studentName!==undefined&&v.displayName!==v.studentName)c.addIssue({code:'custom',path:['studentName'],message:'name_conflict'});
   const given=directKeyNames.filter(k=>v[k]!==undefined);
   if(given.length>0&&given.length<3)c.addIssue({code:'custom',path:[directKeyNames.find(k=>v[k]===undefined)!],message:'direct_keys_together_required'});
 });
@@ -49,6 +71,10 @@ export type OfficialReportPdfGet=z.infer<typeof officialReportPdfGetSchema>;
 export interface CourseBookReportBackend {
   /** The read-only CISM week of `date` (`CismChartMain`), for `reportType` `cism`. */
   readCismReport?(date:string):Promise<CismReport>;
+  /** `DiagReportView` or `FaView` of one student (direct-key-lookup.md R8), for `reportType` `diag` and `formative`. */
+  readStudentReportView?(input:{view:'DiagReportView'|'FaView';displayName:string;studentKey?:string;testingNo:string;classNo:string;limitDate?:string}):Promise<{student:{studentId:string;displayName:string};raw:Record<string,unknown>}>;
+  /** `NewStudentReportView` of one application (direct-key-lookup.md R8), for `reportType` `new_diag`. */
+  readNewStudentReportView?(input:{paperNo:string;applyCode:string;collegeKey?:string}):Promise<{raw:Record<string,unknown>}>;
   readCourseBookReportByName(input:{displayName:string;bookLabel?:string;courseKey?:string;bookNo?:string;studentKey?:string}):Promise<
     {kind:'report';student:{studentId:string;displayName:string};courseKey:string;bookNo:string;bindingSource?:'historical_key_registry';report:CourseBookReport;bookSelection?:BookSelection}
     |{kind:'interview_required';student:{studentId:string;displayName:string};bindings:{bookLabel:string;bookNo:string;hint?:string}[];reason:string;observedAt:string;bookSelection?:BookSelection}>;
@@ -89,6 +115,7 @@ export class OfficialReportPdfService {
   async get(value:unknown){
     const input=officialReportPdfGetSchema.parse(value);
     if(input.reportType==='cism')return this.getCism(input);
+    if(input.reportType==='diag'||input.reportType==='formative'||input.reportType==='new_diag')return this.getReportView(input);
     const displayName=(input.displayName??input.studentName)!;
     const base={reportType:input.reportType,displayName,academyWrites:0,parentSends:0,automaticRetryAllowed:false,
       execution:'read_only_lms_local_pdf' as const,sourceContentIsUntrustedData:true};
@@ -110,6 +137,49 @@ export class OfficialReportPdfService {
         reportSummary:{bookTitle:report.metadata.bookTitle,period:input11.period,myAverage:input11.my_average,allAverage:input11.all_average,chapterCount:report.sourceChapterCount},
         ...(courseBookTruncated(report.truncation)?{truncation:report.truncation}:{})};
       const rendered=await this.runner.renderCourseBook(input11,path);
+      if(rendered.status==='refused')return {...base,...summary,status:'refused' as const,reasonCode:'studyq_'+rendered.code,studyqDetail:rendered.detail};
+      return {...base,...summary,status:'rendered' as const,outputPath:rendered.outputPath,sha256:rendered.sha256,pages:rendered.pages,
+        parityOk:rendered.parityOk,parityMismatches:rendered.parityMismatches,parityRawRn:rendered.parityRawRn};
+    }catch(error){return {...base,status:'unavailable' as const,...readFailureResult(error,'official_report_unqualified_no_automatic_retry')};}
+  }
+  /** `reportType` `diag`, `formative` (one student, `DiagReportView` or `FaView`) and `new_diag` (one application,
+   * `NewStudentReportView`): one read-only POST of ReportViewServlet, projected to the strict input of the type,
+   * rendered and parity-checked. The output path is settled before any LMS request. */
+  private async getReportView(input:OfficialReportPdfGet){
+    const reportType=input.reportType as 'diag'|'formative'|'new_diag',params=input.params!;
+    const displayName=input.displayName??input.studentName;
+    const base={reportType,...(displayName!==undefined?{displayName}:{}),academyWrites:0,parentSends:0,automaticRetryAllowed:false,
+      execution:'read_only_lms_local_pdf' as const,sourceContentIsUntrustedData:true};
+    if(!this.backend)return {...base,status:'unavailable' as const,reasonCode:'official_report_backend_not_configured'};
+    if(!this.runner)return {...base,status:'unavailable' as const,reasonCode:'studyq_runner_not_configured'};
+    try{
+      const root=await qualifiedOutputRoot(this.outputRoot);
+      if(input.outputPath!==undefined)await officialReportPath(root,input.outputPath,reportType,null,this.now());
+      let studyqInput:{student:string;title:string;test_date:string;questions:unknown[]},student:{studentId:string;displayName:string}|undefined,keyNo:string,scope:Record<string,string>;
+      if(reportType==='new_diag'){
+        const read=this.backend.readNewStudentReportView?.bind(this.backend);
+        if(!read)throw Error('report_view_source_port_unavailable');
+        const answer=await read({paperNo:params.paperNo!,applyCode:params.applyCode!,...(params.collegeKey!==undefined?{collegeKey:params.collegeKey}:{})});
+        studyqInput=projectNewDiagReport(answer.raw);
+        // A name the caller gives must be the application's student.
+        if(displayName!==undefined&&studyqInput.student!==displayName)throw Error('official_report_scope_conflict');
+        keyNo=params.paperNo!;scope={paperNo:params.paperNo!};
+      }else{
+        const read=this.backend.readStudentReportView?.bind(this.backend);
+        if(!read)throw Error('report_view_source_port_unavailable');
+        const answer=await read({view:reportType==='diag'?'DiagReportView':'FaView',displayName:displayName!,...(input.studentKey!==undefined?{studentKey:input.studentKey}:{}),
+          testingNo:params.testingNo!,classNo:params.classNo!,...(params.limitDate!==undefined?{limitDate:params.limitDate}:{})});
+        if(answer.student.displayName!==displayName||(input.studentKey!==undefined&&answer.student.studentId!==input.studentKey))throw Error('official_report_scope_conflict');
+        student=answer.student;
+        studyqInput=reportType==='diag'?projectDiagReport(answer.raw):projectFormativeReport(answer.raw);
+        // The report must be the resolved student's.
+        if(studyqInput.student!==answer.student.displayName)throw Error('official_report_scope_conflict');
+        keyNo=params.testingNo!;scope={testingNo:params.testingNo!,classNo:params.classNo!};
+      }
+      const path=await officialReportPath(root,input.outputPath,reportType,keyNo,this.now());
+      const summary={...(student?{student}:{}),...scope,
+        reportSummary:{title:studyqInput.title,testDate:studyqInput.test_date,questions:studyqInput.questions.length}};
+      const rendered=await this.runner.renderReport(reportType,studyqInput,path);
       if(rendered.status==='refused')return {...base,...summary,status:'refused' as const,reasonCode:'studyq_'+rendered.code,studyqDetail:rendered.detail};
       return {...base,...summary,status:'rendered' as const,outputPath:rendered.outputPath,sha256:rendered.sha256,pages:rendered.pages,
         parityOk:rendered.parityOk,parityMismatches:rendered.parityMismatches,parityRawRn:rendered.parityRawRn};

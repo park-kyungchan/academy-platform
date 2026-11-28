@@ -13,11 +13,17 @@ import tempfile
 
 from .errors import StudyqError, clip_detail
 from .manifest import verify_assets_dir
-from .renderers.cism import REPORT_TYPE as CISM_TYPE
-from .schema import validate_cism, validate_course_book
+from .schema import validate_cism, validate_course_book, validate_diag, validate_formative, validate_new_diag
 
 MAX_STDIN_BYTES = 4 * 1024 * 1024
-KNOWN_TYPES = ("course_book", "cism")
+KNOWN_TYPES = ("course_book", "cism", "diag", "new_diag", "formative")
+VALIDATORS = {
+    "course_book": validate_course_book,
+    "cism": validate_cism,
+    "diag": validate_diag,
+    "new_diag": validate_new_diag,
+    "formative": validate_formative,
+}
 FLAGS = {"render": ("--type", "--assets", "--out"), "assemble-print": ("--out",)}
 
 
@@ -141,16 +147,15 @@ def _execute(argv, stdin):
         return _assemble_print(flags, stdin)
     report_type = flags["type"]
     if report_type not in KNOWN_TYPES:
-        raise StudyqError("type_unknown", "type is not course_book or cism")
+        raise StudyqError("type_unknown", "type is not course_book, cism, diag, new_diag or formative")
     out_path = os.path.abspath(flags["out"])
     if os.path.lexists(out_path):
         raise StudyqError("output_exists", "output exists")
-    validate = validate_cism if report_type == CISM_TYPE else validate_course_book
-    data = validate(read_input(stdin))
+    data = VALIDATORS[report_type](read_input(stdin))
     bundle = verify_assets_dir(flags["assets"])
-    from .render import render_cism, render_course_book
+    from .render import render_report
 
-    pdf = (render_cism if report_type == CISM_TYPE else render_course_book)(data, bundle)
+    pdf = render_report(report_type, data, bundle)
     pages = count_pages(pdf)
     write_atomic(out_path, pdf)
     return _ok_line(report_type, pages, hashlib.sha256(pdf).hexdigest(), out_path)

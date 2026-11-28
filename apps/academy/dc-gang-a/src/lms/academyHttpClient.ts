@@ -15,6 +15,8 @@ import {selectSourceFunction} from './sourceFunctionText';
 import {inspectAssessmentSearchMetadata,inspectStudentNameSearch,parseScoreView} from './assessmentReadProtocol';
 import {PAPER_EXAM_LIST_PATH,paperExamListForm,parsePaperExamList,printArchiveUrl,boundedPrintArchiveBody,type PaperExamRow,type PrintArchiveKind} from './paperPrintRead';
 import {COURSE_BOOK_REPORT_PATH,isLoginOrSessionPage,readCourseBookReportEnvelope,projectCourseBookReport,type CourseBookReport} from './courseBookReport';
+import {REPORT_VIEW_PATH,readReportViewEnvelope,reportViewForm} from './reportViewClient';
+import {validateReportViewName} from './reportViewRead';
 import {qualifyStudentPaperSearchPeriod,type StudentPaperSearchPeriod} from './studentPaperSearchPeriod';
 import {deriveTextbookSectionTitlePattern,mergeTextbookSectionRows,TEXTBOOK_PAPER_SEARCH_COVERAGE,type TextbookPaperSearchRow} from './textbookSectionIndex';
 import {decodePaperCode} from './printedPaperCode';
@@ -899,6 +901,16 @@ export class AcademyHttpClient {
     const {scope}=this.#historicalScope(input);
     const text=await this.#historicalPost(COURSE_BOOK_REPORT_PATH,{reqCmd:'getCourseBookReport',course_key:scope.courseKey,book_no:scope.bookNo,student_pri_no:scope.studentKey},'getCourseBookReport');
     return projectCourseBookReport(readCourseBookReportEnvelope(text),scope);
+  }
+  /** One read-only report view of `ReportViewServlet` (specs/academy-mcp/direct-key-lookup.md R8): the view
+   * name is validated before anything else, then the exact POST form of reportViewClient.ts is sent and the
+   * JSON of its `SERVER_RET = OK` answer returned. A login page, a session page or a redirect refuses with
+   * authentication_required (fail closed); another page with report_view_unqualified.
+   * `NewStudentReportView` takes the owner's college key when the caller gives none. */
+  async readReportView(view:unknown,params:Record<string,unknown>):Promise<Record<string,unknown>>{
+    const name=validateReportViewName(view);
+    const form=reportViewForm(name,name==='NewStudentReportView'&&params?.collegeKey===undefined?{...params,collegeKey:this.#principal.collegeKey}:params);
+    return readReportViewEnvelope(await this.#historicalPost(REPORT_VIEW_PATH,Object.fromEntries(form),name));
   }
   /** `getTestExamList` of one paper (specs/studyq-linux/core.md R20; a read, lmsRouteRegistry.ts): the rows
    * of its exam list. A login page refuses with authentication_required; a row whose `sel_type` is not

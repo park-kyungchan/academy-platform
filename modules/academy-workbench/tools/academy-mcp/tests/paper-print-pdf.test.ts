@@ -427,7 +427,9 @@ describe('the surface of academy_paper_print_pdf_get',()=>{
     expect(surface.tools).toHaveLength(17);
     // The 15 baseline tools are untouched at 18,317 bytes; the 17 tools stay within the running cap of 5 planned tools.
     expect(bytes(surface.tools.slice(0,15))).toBe(18317);
-    expect(bytes(surface.tools)).toBeLessThanOrEqual(19921);
+    // The diag, new_diag and formative report types of academy_official_report_pdf_get (+47 bytes) stay within
+    // 20,025 bytes, so a later batch keeps at least 45 bytes of headroom.
+    expect(bytes(surface.tools)).toBeLessThanOrEqual(20025);
     expect(bytes(surface.tools)).toBeLessThanOrEqual(24000-795*5);
     expect(surface.tools.length).toBeLessThanOrEqual(24-5);
     expect(Object.keys(entry.inputSchema.properties)).toEqual(['mode','paperNo','paperKeys','selType','includeAnswers','includeExplain','outputPath']);
