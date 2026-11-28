@@ -7,13 +7,20 @@ import {McpServer} from '@modelcontextprotocol/server';
 import {DailyRecordService} from './dailyrecord.ts';
 import {registerTextbookSourceTools} from './textbook-source-tools.ts';
 import {textbookPdfReaderConfiguration} from './textbook-pdf-reader.ts';
-import {dailyRecordToolConfiguration,registerDailyRecordTools} from './dailyrecord-tools.ts';
+import {dailyRecordToolConfiguration,registerDailyRecordTools,registerOfficialReportPdfTool} from './dailyrecord-tools.ts';
+import {historicalBindingReaderConfiguration} from './historical-binding-reader.ts';
+import {studyqRunnerConfiguration} from './studyq-runner.ts';
+import {OfficialReportPdfService} from './official-report-pdf.ts';
+import {join} from 'node:path';
 import {nativeDailyRecordConfiguration,nativeOwnerArtifactsRoot} from './native-dailyrecord-backend.ts';
 import {createDailyRecordWorkflow,dailyRecordWorkflowConfiguration} from './dailyrecord-workflow.ts';
 
 const runtimeIdentity=await runtimeIdentityConfiguration(process.argv.slice(2));
 const textbookReader=await textbookPdfReaderConfiguration(runtimeIdentity.remainingArgs);
-const learning=withoutRetiredLearningArguments(textbookReader.remainingArgs);
+// --memory-bindings <memoryBin> <storePath> and --studyq-runner <interpreter> <sha256> <srcDir> <sha256> <assetsDir>.
+const memoryBindings=historicalBindingReaderConfiguration(textbookReader.remainingArgs);
+const studyq=await studyqRunnerConfiguration(memoryBindings.remainingArgs);
+const learning=withoutRetiredLearningArguments(studyq.remainingArgs);
 const config=await dailyRecordToolConfiguration(learning.remainingArgs);
 // Native launches always run the owner workflow with its store inside the owner
 // home, wherever the flags appear. The store is created only after the native
@@ -21,7 +28,7 @@ const config=await dailyRecordToolConfiguration(learning.remainingArgs);
 const nativeLaunch=config.remainingArgs.includes('--dailyrecord-native');
 const ownerRoot=nativeLaunch?{requiredRoot:nativeOwnerArtifactsRoot,nativeDefaultStore:nativeOwnerArtifactsRoot+'dailyrecord-workflow'}:{};
 const workflowArgs=dailyRecordWorkflowConfiguration(config.remainingArgs,ownerRoot);
-const native=await nativeDailyRecordConfiguration(workflowArgs.remainingArgs,config.saveAdmission,config.saveStoreDir,config.saveRequestPath);
+const native=await nativeDailyRecordConfiguration(workflowArgs.remainingArgs,config.saveAdmission,config.saveStoreDir,config.saveRequestPath,memoryBindings.reader);
 const workflow=workflowArgs.storeDir?createDailyRecordWorkflow({storeDir:workflowArgs.storeDir,...(nativeLaunch?{requiredRoot:nativeOwnerArtifactsRoot}:{})}):null;
 const server=new McpServer({name:'academy-dailyrecord-review',version:'0.1.0'});
 installToolAudit(server,{endpoint:'dailyrecord',...(nativeLaunch?{root:nativeOwnerArtifactsRoot+'mcp-tool-audit'}:{})});
@@ -29,6 +36,7 @@ registerRuntimeIdentity(server,runtimeIdentity.identity);
 registerCismWeeklyTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'cism-weekly');
 registerTextbookSourceTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'textbook-samples',textbookReader.reader);
 registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,config.parentSafeguard,Date.now,null,native?.backend??null,workflow));
+registerOfficialReportPdfTool(server,new OfficialReportPdfService(native?.backend??null,studyq.runner,join(nativeOwnerArtifactsRoot,'official-reports')));
 if(native)process.once('exit',native.close);
 installStdioDiagnostics(server.server);
 await server.connect(createAcademyStdioTransport());

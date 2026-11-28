@@ -6,7 +6,7 @@ import {resolve} from 'node:path';
 import {createHash} from 'node:crypto';
 import {Client} from '@modelcontextprotocol/client';
 import {StdioClientTransport} from '@modelcontextprotocol/client/stdio';
-import {consolidatedTools,keptTools,surfaceOrder,planConsolidatedCall,ConsolidatedInputInvalid,compositionEntries,compositionUpstreams} from '../src/consolidated-tools.ts';
+import {consolidatedTools,keptTools,surfaceOrder,baselineSurfaceOrder,newSurfaceTools,planConsolidatedCall,ConsolidatedInputInvalid,compositionEntries,compositionUpstreams} from '../src/consolidated-tools.ts';
 import {surfaceText} from '../scripts/build-surface.ts';
 import {lmsRequestRole,writeForbiddenTransport} from './network-deny.ts';
 import {AcademyHttpClient} from '../../../../../apps/academy/dc-gang-a/src/lms/academyHttpClient.ts';
@@ -72,6 +72,7 @@ const hangul:Record<string,string[]>={
  academy_student_resolve:['오늘','어제','월','일'],
  academy_textbook_section_results_get:['교재','소단원','필수예제','유형다지기','가우스','다빈치','권','초'],
  academy_clinic_paper_status_get:['오답클리닉','유사클리닉','틀린','문항','오답'],
+ academy_official_report_pdf_get:['공식','리포트','교재'],
 };
 const skillPaths=readdirSync(resolve(repo,'content/skills')).filter(d=>d.startsWith('academy-')).map(d=>resolve(repo,'content/skills',d,'SKILL.md')).sort();
 const toolPattern=/\b(?:class2_)?academy_[a-z0-9_]+\b/g;
@@ -81,11 +82,14 @@ describe('the surface of release/surface.json',()=>{
   expect(readFileSync(resolve(root,'release/surface.json'),'utf8')).toBe(surfaceText());
  });
  test('tool_surface_r1_r8_fifteen_tools',()=>{
+  // R1 bounds the 15 tools of the consolidation; the new tools added since are bounded by R2.
   expect(surface.tools.map(t=>t.name)).toEqual([...surfaceOrder]);
-  expect(surface.tools).toHaveLength(15);
-  expect(names.size).toBe(15);
+  expect(surfaceOrder).toEqual([...baselineSurfaceOrder,...newSurfaceTools]);
+  const baseline=surface.tools.filter(t=>(baselineSurfaceOrder as readonly string[]).includes(t.name));
+  expect(baseline).toHaveLength(15);
+  expect(names.size).toBe(surface.tools.length);
   for(const name of names){expect(name).toMatch(/^academy_[a-z0-9_]+$/);expect(name.startsWith('class2_')).toBe(false);}
-  expect(compactBytes(surface.tools)).toBeLessThanOrEqual(18432);
+  expect(compactBytes(baseline)).toBeLessThanOrEqual(18432);
  });
  test('tool_surface_r2_running_cap',()=>{
   const planned=['academy_official_report_pdf_get','academy_paper_print_pdf_get','academy_lms_schedule_get','academy_clinic_paper_review',

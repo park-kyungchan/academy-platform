@@ -181,6 +181,11 @@
       "name": "academy_clinic_paper_status_get",
       "class": "read",
       "exposure": "open"
+    },
+    {
+      "name": "academy_official_report_pdf_get",
+      "class": "read",
+      "exposure": "open"
     }
   ],
   "closedUntilAttribution": [],

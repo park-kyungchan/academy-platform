@@ -9,10 +9,11 @@ import {studentResolveInputSchema} from '../src/student-resolver.ts';
 import {cismGetInput,cismMonthInput,cismReviewInput,cismSaveInput} from '../src/cism-weekly-tools.ts';
 import {textbookCatalogInput,textbookPdfInput} from '../src/textbook-source-tools.ts';
 import {textbookTocInput} from '../src/textbook-toc.ts';
+import {officialReportPdfGetSchema} from '../src/official-report-pdf.ts';
 
 // A recorded synthetic endpoint for tests/tool-surface.test.ts: it registers, with the
 // endpoint programs' own input schemas where they export them, every endpoint tool that
-// the 15 tools of release/surface.json route to, and answers each call with invented
+// the tools of release/surface.json route to, and answers each call with invented
 // values. Each call is recorded as one line `<endpoint> <tool> <arguments JSON>`.
 // Usage: bun tool-surface-fixture.ts <endpoint> <events file>
 const [endpoint,events]=process.argv.slice(2) as [string,string];
@@ -37,6 +38,7 @@ const tools:Record<string,Record<string,z.ZodType>>={
   academy_textbook_catalog:textbookCatalogInput,academy_textbook_toc_get:textbookTocInput,academy_textbook_pdf:textbookPdfInput,
   academy_prestudy_get:prestudyGetSchema,academy_prestudy_report_get:prestudyReportGetSchema,
   academy_cism_weekly_get:cismGetInput,academy_cism_month:cismMonthInput,academy_cism_weekly_review:cismReviewInput,academy_cism_weekly_save:cismSaveInput,
+  academy_official_report_pdf_get:officialReportPdfGetSchema,
  },
  paper1:{
   academy_daily_test_inventory:z.object({studentId:key,periods:selectors.optional()}).strict(),

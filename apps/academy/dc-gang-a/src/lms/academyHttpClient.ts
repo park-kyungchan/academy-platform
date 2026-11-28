@@ -12,7 +12,8 @@ import {canonicalJson,digest,assertExactKeys,assertDate} from '../learning/model
 import {applyJournalHttpAction,validateJournalHttpAction,assertJournalWireQualified,assertJournalAssessmentOptions,journalWireDigest,JOURNAL_HTTP_SOURCE_CONTRACT,type JournalHttpTarget,type JournalHttpState,type JournalHttpAction,type JournalHttpAdmission} from './lessonJournalHttp';
 import {parseItemMetadata} from './itemMetadataRead';
 import {selectSourceFunction} from './sourceFunctionText';
-import {inspectAssessmentSearchMetadata,inspectStudentNameSearch} from './assessmentReadProtocol';
+import {inspectAssessmentSearchMetadata,inspectStudentNameSearch,parseScoreView} from './assessmentReadProtocol';
+import {COURSE_BOOK_REPORT_PATH,isLoginOrSessionPage,readCourseBookReportEnvelope,projectCourseBookReport,type CourseBookReport} from './courseBookReport';
 import {qualifyStudentPaperSearchPeriod,type StudentPaperSearchPeriod} from './studentPaperSearchPeriod';
 import {deriveTextbookSectionTitlePattern,mergeTextbookSectionRows,TEXTBOOK_PAPER_SEARCH_COVERAGE,type TextbookPaperSearchRow} from './textbookSectionIndex';
 import {decodePaperCode} from './printedPaperCode';
@@ -57,6 +58,8 @@ export class AcademyHttpClient {
   #testPoolProtocol:{defaults:Record<string,string>;selectorSha256:string;html:string}|null=null;
   #reusablePoolCreateAttempted=false;
   #lectureUsageWriteAttempted=false;
+  /** Wrong-note attempts verified by readHistoricalTextbookIndex, per exact scope: the only attempts a historical section read may follow. */
+  #historicalAttempts=new Map<string,Map<string,{sourceTitle:string;paperKey:string;attemptKey:string}>>();
   constructor(principal:AcademyPrincipal,transport:SourceTransport=fetch){
     this.#principal={teacherLabel:readLiteralName(principal.teacherLabel),teacherKey:readLiteralKey(principal.teacherKey),collegeKey:readLiteralKey(principal.collegeKey)};
     this.#transport=transport;
@@ -836,6 +839,93 @@ export class AcademyHttpClient {
         ?'wrong_answer_note_index_plus_one_observed_student_paper_search_page_not_complete_history'
         :'wrong_answer_note_index_only_paper_search_not_observed_not_complete_history',
       sourceHandlersInvoked:false as const,generatedPaperMembership:'unqualified' as const,observedAt:new Date().toISOString()};
+  }
+  /** The exact scope of a historical read: the client's own teacher and three verified keys. */
+  #historicalScope(input:unknown,extra:readonly string[]=[]){
+    const data=readInputRecord(input),keys=['bookNo','courseKey','studentKey','studentName','teacherLabel',...extra].sort();
+    if(Object.keys(data).sort().join(',')!==keys.join(',')||data.teacherLabel!==this.#principal.teacherLabel)throw Error('historical_read_scope_rejected');
+    return {data,scope:{teacherLabel:this.#principal.teacherLabel,studentName:readLiteralName(data.studentName),studentKey:readLiteralKey(data.studentKey),
+      courseKey:readLiteralKey(data.courseKey),bookNo:readLiteralKey(data.bookNo)}};
+  }
+  /** One read request of the historical fallback. A login page, a session-error page or a
+   * redirect fails closed with authentication_required (R11); no error holds a request value. */
+  async #historicalPost(path:string,fields:Record<string,string>,operation:string):Promise<string>{
+    if(!this.#authenticated)throw Error('authentication_required');
+    let response:Response;
+    try{response=await this.#request(path,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams(fields).toString()},false,operation);}
+    catch(error){
+      if(error instanceof AcademyHttpFailure&&[401,403].includes(error.httpStatus)
+        ||error instanceof Error&&['source_redirect_rejected','foreign_source_redirect_rejected','source_redirect_contract_rejected'].includes(error.message)){this.close();throw Error('authentication_required');}
+      throw error;
+    }
+    const text=await response.text();
+    if(text.length>2000000)throw Error('source_response_too_large');
+    if(isLoginOrSessionPage(text)){this.close();throw Error('authentication_required');}
+    return text;
+  }
+  /** Direct-key historical index (specs/academy-mcp/direct-key-lookup.md R2-R4): the wrong-answer
+   * note of one exact course, book and student, for a book that the live getTextBookProgress
+   * list no longer holds. Every row must carry the student key as `pri_no` and the course key
+   * as `cls_no`, or the read refuses with historical_key_unverified. No paper search and no
+   * live-list request: the caller has already read the live list. */
+  async readHistoricalTextbookIndex(input:{teacherLabel:string;studentKey:string;studentName:string;courseKey:string;bookNo:string}){
+    const {scope}=this.#historicalScope(input);
+    const text=await this.#historicalPost('/servlet/controller.common.TestpageSelectExServlet',{p_process:'getWrongAnswerNoteResult',
+      answerNoteResult:JSON.stringify({courseKeyList:[scope.courseKey],bookNoList:[scope.bookNo],userKeyList:[scope.studentKey]})},'getWrongAnswerNoteResult');
+    let data:Record<string,unknown>;
+    try{data=readInputRecord(JSON.parse(text));}catch{throw Error('historical_key_unverified');}
+    if(data.result!=='ok'||!Array.isArray(data.noteResultList)||data.noteResultList.length>1000)throw Error('historical_key_unverified');
+    const verified=new Map<string,{sourceTitle:string;paperKey:string;attemptKey:string}>();
+    const rows=data.noteResultList.map(raw=>{
+      let row:Record<string,unknown>;
+      try{row=readInputRecord(raw);}catch{throw Error('historical_key_unverified');}
+      if(String(row.pri_no)!==scope.studentKey||String(row.cls_no)!==scope.courseKey)throw Error('historical_key_unverified');
+      let sourceTitle:string,paperKey:string,attemptKey:string;
+      try{sourceTitle=readLiteralName(row.testing_name);paperKey=sourceResponseKey(row.p_no);attemptKey=sourceResponseKey(row.testing_no);}
+      catch{throw Error('historical_key_unverified');}
+      const identity=JSON.stringify([paperKey,attemptKey]);
+      if(verified.has(identity))throw Error('ambiguous_textbook_index');
+      verified.set(identity,{sourceTitle,paperKey,attemptKey});
+      return {sourceTitle,paperKey,attemptKey,sourceDate:{literal:typeof row.apply_date==='string'?row.apply_date:null,meaning:'source_apply_date_not_exact_grade_time' as const}};
+    });
+    this.#historicalAttempts.set(JSON.stringify(scope),verified);
+    return {sourceOperation:'getWrongAnswerNoteResult' as const,rows,indexBasis:'wrong_answer_note_only' as const,observedAt:new Date().toISOString()};
+  }
+  /** `getCourseBookReport` of one exact course, book and student: SERVER_RET = OK, a book
+   * title, the student's name and every echoed key must hold (R4); the answer is the pinned
+   * projection of courseBookReport.ts. */
+  async readCourseBookReport(input:{teacherLabel:string;studentKey:string;studentName:string;courseKey:string;bookNo:string}):Promise<CourseBookReport>{
+    const {scope}=this.#historicalScope(input);
+    const text=await this.#historicalPost(COURSE_BOOK_REPORT_PATH,{reqCmd:'getCourseBookReport',course_key:scope.courseKey,book_no:scope.bookNo,student_pri_no:scope.studentKey},'getCourseBookReport');
+    return projectCourseBookReport(readCourseBookReportEnvelope(text),scope);
+  }
+  /** Section detail of the historical fallback: the single-user result of each attempt that
+   * readHistoricalTextbookIndex verified for this exact scope, never another attempt. */
+  async readHistoricalTextbookSections(input:{teacherLabel:string;studentKey:string;studentName:string;courseKey:string;bookNo:string;
+    attempts:{sourceTitle:string;paperKey:string;attemptKey:string;sourceDateLiteral:string|null}[]}){
+    const {data,scope}=this.#historicalScope(input,['attempts']);
+    const verified=this.#historicalAttempts.get(JSON.stringify(scope));
+    if(!verified||!Array.isArray(data.attempts)||data.attempts.length<1||data.attempts.length>12)throw Error('historical_key_unverified');
+    const records=[];
+    for(const raw of data.attempts){
+      const attempt=readInputRecord(raw),known=verified.get(JSON.stringify([attempt.paperKey,attempt.attemptKey]));
+      if(!known||known.sourceTitle!==attempt.sourceTitle)throw Error('historical_key_unverified');
+      const text=await this.#historicalPost('/servlet/controller.common.TestpageSelectExServlet',{p_process:'getStudyResultSingleTestingSingleUser',
+        condition:JSON.stringify({testing_no:Number(known.attemptKey),pri_no:Number(scope.studentKey),student_name:scope.studentName,
+          score:{create:1},incorrect:{create:0},similar:{create:0},advance:{create:0},report:{create:0}})},'getStudyResultSingleTestingSingleUser');
+      const result=readInputRecord(JSON.parse(text));
+      const detail=parseScoreView(result,{studentKey:scope.studentKey,studentName:scope.studentName,attemptKey:known.attemptKey});
+      const paper=readInputRecord((result.print_list as unknown[])[0]);
+      if(paper.sub_title!==known.sourceTitle)throw Error('source_title_conflict');
+      const items=(paper.exam_list as unknown[]).map(readInputRecord).map(item=>({originalOrdinal:sourceResponseKey(item.exam_no),
+        lectureKey:item.lecture_key==null?null:sourceResponseKey(item.lecture_key),outerLectureKey:item.outer_lecture_key==null?null:sourceResponseKey(item.outer_lecture_key),
+        scoring:item.scoring_result as 'O'|'X'})).sort((a,b)=>Number(a.originalOrdinal)-Number(b.originalOrdinal));
+      const literal=typeof attempt.sourceDateLiteral==='string'?attempt.sourceDateLiteral:null;
+      records.push({sourceTitle:known.sourceTitle,studentKey:scope.studentKey,studentName:scope.studentName,courseKey:scope.courseKey,bookNo:scope.bookNo,
+        paperKey:known.paperKey,attemptKey:known.attemptKey,score:detail.score,items,
+        sourceDate:{literal,precision:literal&&/^\d{2}-\d{2}$/.test(literal)?'month_day' as const:'unknown' as const,meaning:'source_apply_date_not_exact_grade_time' as const}});
+    }
+    return {family:'textbook' as const,status:'observed' as const,records,observedAt:new Date().toISOString(),coverage:'exact_selected_existing_records_not_whole_book' as const};
   }
   async inspectItemHeader(input:unknown){
     const plan=createAcademyReadPlan(input);

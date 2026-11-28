@@ -36,3 +36,14 @@ export function selectPaperRoute(scopes:PaperScopes|undefined,registry:any[],ent
   if(!candidate)throw unresolved();
   return candidate;
 }
+/** Install preflight (specs/academy-mcp/paper-admit.md R22): every active roster student is
+ * routed by exactly one paperScopes entry, so no paper read of a roster student ends in
+ * paper_scope_unresolved. A missing id has no entry; a duplicate id has more than one. */
+export function checkPaperScopesCoverRoster(scopes:PaperScopes,rosterStudentIds:readonly string[]){
+  const counts=new Map<string,number>();
+  for(const entry of scopes)for(const id of entry.studentIds)counts.set(id,(counts.get(id)??0)+1);
+  const roster=[...new Set(rosterStudentIds)];
+  const missingStudentIds=roster.filter(id=>!counts.has(id));
+  const duplicateStudentIds=roster.filter(id=>(counts.get(id)??0)>1);
+  return {covered:missingStudentIds.length===0&&duplicateStudentIds.length===0,missingStudentIds,duplicateStudentIds};
+}

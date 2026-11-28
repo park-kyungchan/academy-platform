@@ -14,6 +14,12 @@ import {getDefaultEnvironment,type StdioServerParameters} from '@modelcontextpro
 // 45` expired. Signalling the group reaches that child. The account lock
 // itself is unchanged: the next endpoint still takes it before any LMS use.
 
+/** flock's explicit conflict exit of the endpoint launch prefix `flock --wait 45
+ * --conflict-exit-code 75 <account lock>` (specs/academy-mcp/direct-key-lookup.md R10): the
+ * lock was still held after the wait, and the endpoint never started. Only this code means
+ * busy; a generic exit 1 does not. An inner command that itself exits 75 is read the same way. */
+export const ACCOUNT_LOCK_CONFLICT_EXIT=75;
+export const accountBusy=(exitCode:number|null|undefined)=>exitCode===ACCOUNT_LOCK_CONFLICT_EXIT;
 const delay=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms).unref?.());
 const groupAlive=(pgid:number)=>{
   try{process.kill(-pgid,0);return true;}
@@ -43,9 +49,14 @@ export class ProcessGroupStdioTransport implements Transport {
   #process:ChildProcess|undefined;
   #pgid:number|undefined;
   #closing:Promise<void>|undefined;
+  #exitCode:number|null=null;
   /** graceMs: how long the endpoint may take to exit by itself after stdin ends, and after SIGTERM. */
   constructor(params:StdioServerParameters,graceMs=2000){this.#params=params;this.#graceMs=graceMs;}
   get pid(){return this.#pgid??null;}
+  /** The endpoint command's exit status once it has exited; null while it runs or after a signal. */
+  get exitCode(){return this.#exitCode;}
+  /** The account lock was held for the whole wait: the endpoint never started (R10). */
+  get accountBusy(){return accountBusy(this.#exitCode);}
   async start(){
     if(this.#process)throw Error('upstream_transport_already_started');
     await new Promise<void>((resolve,reject)=>{
@@ -54,6 +65,7 @@ export class ProcessGroupStdioTransport implements Transport {
       this.#process=child;
       child.once('error',error=>{reject(error);this.onerror?.(error);});
       child.once('spawn',()=>{this.#pgid=child.pid;if(child.pid)liveGroups.add(child.pid);resolve();});
+      child.once('exit',code=>{this.#exitCode=code;});
       child.once('close',()=>{if(!this.#closing)void this.close();});
       child.stdin?.on('error',error=>this.onerror?.(error));
       child.stdout?.on('error',error=>this.onerror?.(error));

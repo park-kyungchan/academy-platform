@@ -18,9 +18,17 @@ export const endpointIdentitySchema=z.object({schemaVersion:z.literal('academy.e
 }).strict().refine(v=>v.artifacts.filter(a=>a.role==='entry').length===1,'one_endpoint_entry_required')
   .refine(v=>!v.artifacts.some(a=>a.runtimePath!==undefined)||v.runtimeManifestPath!==undefined,'runtime_manifest_path_required')
   .refine(v=>v.runtimeManifestPath===undefined||(v.launchPrefixSha256!==undefined&&v.accountLockPath!==undefined),'runtime_launcher_pin_required');
+/** The account-lock prefix of an endpoint launch (specs/academy-mcp/direct-key-lookup.md R10):
+ * `flock --nonblock <lock>` (the earlier form), or `flock --wait 45 --conflict-exit-code 75 <lock>`
+ * with the two options in either order, whose exit 75 the bridge reports as owner_account_busy. */
+export function accountLockPrefix(prefixArgs:readonly string[],lockPath:string):boolean{
+  const head=prefixArgs.slice(0,5).join('\0');
+  return prefixArgs[1]===lockPath&&prefixArgs[0]==='--nonblock'
+    ||prefixArgs[4]===lockPath&&[['--wait','45','--conflict-exit-code','75'],['--conflict-exit-code','75','--wait','45']].some(form=>head===[...form,lockPath].join('\0'));
+}
 export function verifyEndpointLauncher(manifest:z.infer<typeof endpointIdentitySchema>,command:string,prefixArgs:string[]){
   if(manifest.launchPrefixSha256&&createHash('sha256').update(JSON.stringify({command,prefixArgs})).digest('hex')!==manifest.launchPrefixSha256)throw Error('release_endpoint_identity_mismatch');
-  if(manifest.accountLockPath&&(command!=='/usr/bin/flock'||prefixArgs[0]!=='--nonblock'||prefixArgs[1]!==manifest.accountLockPath))throw Error('release_endpoint_identity_mismatch');
+  if(manifest.accountLockPath&&(command!=='/usr/bin/flock'||!accountLockPrefix(prefixArgs,manifest.accountLockPath)))throw Error('release_endpoint_identity_mismatch');
 }
 export async function verifyEndpointManifest(ref:z.infer<typeof artifactPinSchema>,environment:'host'|'runtime'='host'){
   const bytes=await readPinnedLocalBytes(ref.path,ref.sha256),manifest=endpointIdentitySchema.parse(JSON.parse(bytes.bytes.toString('utf8')));

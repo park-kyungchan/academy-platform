@@ -1,4 +1,4 @@
-/** Builds release/surface.json (academy.mcp-surface/1) from src/consolidated-tools.ts: the 15 tools of
+/** Builds release/surface.json (academy.mcp-surface/1) from src/consolidated-tools.ts: the tools of
  * specs/academy-mcp/tool-surface.md. Deterministic; tests/tool-surface.test.ts checks the file equals this output.
  * Usage: bun scripts/build-surface.ts [--check] */
 import {readFileSync,writeFileSync} from 'node:fs';

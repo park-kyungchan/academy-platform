@@ -67,6 +67,7 @@ export function sourceEndpointCandidates(): SourceEndpointCandidate[] {
     legacy('assessment_search', `${base}.TestPageListServlet?p_process=UserBySearchTestResult`, 'UserBySearchTestResult', 'POST', 'FA_USER_SEARCH_RESULT'),
     legacy('fa_pupil_detail', '/servlet/controller.tutor.fa.TestPageListServlet?p_process=PupilSearch', 'PupilSearch', 'GET', 'FA_PUPIL_SEARCH'),
     legacy('na_pupil_detail', '/servlet/controller.tutor.na.TestPageListServlet?p_process=PupilSearch', 'PupilSearch', 'GET', 'NA_PUPIL_SEARCH'),
+    // Superseded for requests: lmsRouteRegistry.ts classes getStudyResultSingleTestingSingleUser read (specs/academy-mcp/direct-key-lookup.md R3).
     legacy('typeset_single', '/servlet/controller.common.TestpageSelectExServlet?p_process=getStudyResultSingleTestingSingleUser', 'getStudyResultSingleTestingSingleUser', 'POST', 'TYPESET_STUDY_RESULT_SINGLE', 'write'),
     legacy('typeset_multi', '/servlet/controller.common.TestpageSelectExServlet?p_process=getStudyResultSingleTestingMultiUser', 'getStudyResultSingleTestingMultiUser', 'POST', 'TYPESET_STUDY_RESULT_MULTI', 'write'),
   );

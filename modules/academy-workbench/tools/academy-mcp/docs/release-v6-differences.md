@@ -37,7 +37,7 @@ Tools and the members that differ:
 | `academy_dailytest_history_with_headers` | `/properties/currentRequestRef`, `/properties/purpose`, `/properties/lessonDate`, `/required` | identity, date |
 | `academy_student_resolve` | `/properties/lessonDate`, `/required` | identity, date |
 | `academy_student_metadata_get` | `/properties/currentRequestRef`, `/properties/purpose`, `/properties/lessonDate`, `/properties/queries/items/oneOf/0/properties/period`, `/properties/queries/items/oneOf/4/properties/period`, `/required` | identity, dates |
-| `academy_textbook_section_results_get` | `/properties/currentRequestRef`, `/properties/purpose`, `/required` | identity; `bookLabel` keeps its schema and takes a loose book name |
+| `academy_textbook_section_results_get` | `/properties/currentRequestRef`, `/properties/purpose`, `/required`, `/properties/courseKey`, `/properties/bookNo`, `/properties/studentKey` | identity; `bookLabel` keeps its schema and takes a loose book name; the three optional keys of an archived book, given together (specs/academy-mcp/direct-key-lookup.md R2, R6) |
 | `academy_clinic_paper_status_get` | `/properties/currentRequestRef`, `/properties/purpose`, `/required` | identity; `bookLabel` as above |
 | `academy_item_section_trace` | `/properties/currentRequestRef`, `/properties/purpose`, `/required` | identity; `bookLabel` as above |
 | `academy_item_answer_lookup` | `/required` | identity |

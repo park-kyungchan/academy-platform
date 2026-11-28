@@ -8,6 +8,7 @@ import {readPinnedLocalBytes} from './item-label-store.ts';
 import {dailyRecordGetSchema,dailyRecordGetDescription} from './dailyrecord-read.ts';
 import {z} from 'zod';
 import {itemAnswerLookupSchema} from './item-answer-lookup.ts';
+import {OfficialReportPdfService,officialReportPdfGetSchema} from './official-report-pdf.ts';
 
 export function registerDailyRecordTools(server:McpServer,service=new DailyRecordService()){
   const annotations={...readOnlyAnnotations,openWorldHint:service.backend!==null,idempotentHint:service.backend===null};
@@ -59,7 +60,7 @@ export function registerDailyRecordTools(server:McpServer,service=new DailyRecor
   },async input=>result(await service.itemSectionTrace(input)));
   server.registerTool('academy_textbook_section_results_get',{
     title:'Read textbook section grading by student name',
-    description:academyRoutingDescription('academy_textbook_section_results_get','Read textbook section answer input and grading for one exact student name. The owner backend discovers the registered course/book bindings from the live progress page; caller-supplied native keys are not accepted. Two-step book selection: a first call without bookLabel may return interview_required with book candidates when several books are registered; call again with a bookLabel. bookLabel takes the bound label or a loose name: brand (가우스, 다빈치 …), grade and term (5-1, 초5-1, 5학년 1학기, 중1-1) and volume (-2, 2권), e.g. 가우스 5-1-2; the answer names the bound label in bookSelection, and a name that agrees with several books or none returns interview_required with the candidate labels. With exact sourceTitles returns score and per-item O/X per title; without titles returns the observed source-title index for explicit selection. The index basis is the wrong-answer-note index merged with one observed student paper-search page for the exact student, so all-correct sections are listed too; paper-search coverage is one page under the source form period, not complete history, and indexBasis/coverage state the basis. A title absent from both observed sources returns not_observed_in_either_source, never a no-record claim. Missing or ambiguous bindings/titles stop without guessing. This establishes observed answer input and grading only, not clinic solving, teacher acceptance, printing or whole-book completion. No writes, grading actions, printing, sending or automatic retry.'),
+    description:academyRoutingDescription('academy_textbook_section_results_get','Read textbook section answer input and grading for one exact student name. The owner backend discovers the registered course/book bindings from the live progress page. An archived book that the live page no longer lists is read by its keys (specs/academy-mcp/direct-key-lookup.md): courseKey, bookNo and studentKey given together (the studentKey must be the named student\'s), or the active edu-academy-memory binding that bookLabel selects; its answer has bindingSource historical_key_registry, a wrong-answer-note index and the course-book reportSummary. Two-step book selection: a first call without bookLabel may return interview_required with book candidates when several books are registered; call again with a bookLabel. bookLabel takes the bound label or a loose name: brand (가우스, 다빈치 …), grade and term (5-1, 초5-1, 5학년 1학기, 중1-1) and volume (-2, 2권), e.g. 가우스 5-1-2; the answer names the bound label in bookSelection, and a name that agrees with several books or none returns interview_required with the candidate labels. With exact sourceTitles returns score and per-item O/X per title; without titles returns the observed source-title index for explicit selection. The index basis is the wrong-answer-note index merged with one observed student paper-search page for the exact student, so all-correct sections are listed too; paper-search coverage is one page under the source form period, not complete history, and indexBasis/coverage state the basis. A title absent from both observed sources returns not_observed_in_either_source, never a no-record claim. Missing or ambiguous bindings/titles stop without guessing. This establishes observed answer input and grading only, not clinic solving, teacher acceptance, printing or whole-book completion. No writes, grading actions, printing, sending or automatic retry.'),
     inputSchema:textbookSectionResultsGetSchema,annotations,
   },async input=>result(await service.textbookSectionsByName(input)));
   server.registerTool('academy_clinic_paper_status_get',{
@@ -82,6 +83,18 @@ export function registerDailyRecordTools(server:McpServer,service=new DailyRecor
     description:academyRoutingDescription('academy_dailyrecord_execution_status','Metadata-only handoff view of one exact student/date record: per-field executions with request, state and who performed them, plus the request record and append-only audit when requestRef is given. Field and instruction text are reported only as digests. No source read, write or send.'),
     inputSchema:dailyRecordExecutionStatusSchema,annotations:{...annotations,openWorldHint:false},
   },async input=>result(await service.executionStatus(input)));
+}
+
+/** academy_official_report_pdf_get on the dailyrecord endpoint (src/dailyrecord-server.ts): one
+ * official StudyQ report PDF from read-only LMS data, written under the owner output root. */
+export function registerOfficialReportPdfTool(server:McpServer,service:OfficialReportPdfService){
+  const result=(value:unknown)=>{const structuredContent=JSON.parse(JSON.stringify(value)) as Record<string,unknown>;
+    return {content:[{type:'text' as const,text:JSON.stringify(structuredContent)}],structuredContent};};
+  server.registerTool('academy_official_report_pdf_get',{
+    title:'Render one official StudyQ report PDF from read-only LMS data',
+    description:academyRoutingDescription('academy_official_report_pdf_get','reportType course_book: the official course-book report of one student and book, read by getCourseBookReport and rendered on this host by the pinned studyq-linux executor, then checked by its parity run (parityOk, parityMismatches, parityRawRn). The book: courseKey, bookNo and studentKey together, or params.bookLabel (live book list first, then the active edu-academy-memory binding, as academy_textbook_section_results_get chooses it). The PDF is written under the owner output root (outputPath optional, .pdf, inside that root; never overwritten). No Academy write, printing or sending.'),
+    inputSchema:officialReportPdfGetSchema,annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:service.backend!==null},
+  },async input=>result(await service.get(input)));
 }
 
 /** Launch-time owner-selected definition bytes; never accept policy paths or code in a tool call. */
