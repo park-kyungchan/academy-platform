@@ -34,7 +34,11 @@ export function assertLmsPageSize(html: string): void {
 }
 /** R4: a login page, a session-error page or a page with a password input. */
 export function assertNotLoginPage(html: string): void {
-  if (isLoginOrSessionPage(html)) refuse('authentication_required');
+  if (isLmsLoginPage(html)) refuse('authentication_required');
+}
+/** A login page, a session-error page, a password input, or a script that sends the browser to the login page. */
+export function isLmsLoginPage(html: string): boolean {
+  return isLoginOrSessionPage(html) || /c_login\.jsp/i.test(html);
 }
 /** One page body, read with the 2 MiB bound before it is decoded in full (R8). */
 export async function readBoundedLmsPage(response: Response): Promise<string> {

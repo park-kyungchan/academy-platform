@@ -167,7 +167,7 @@ export class AcademyHttpClient {
     }
     if(error instanceof PrestudyFormDrift)return Error(error.scopeConflict?'scope_conflict':'source_drift');
     if(message==='prestudy_source_rejected')return Error('source_rejected');
-    if(['prestudy_search_form_missing','prestudy_row_unqualified','prestudy_summary_row_unqualified'].includes(message))return Error('source_drift');
+    if(['prestudy_search_form_missing','prestudy_summary_table_missing','prestudy_row_unqualified','prestudy_summary_row_unqualified'].includes(message))return Error('source_drift');
     return error instanceof Error?error:Error('source_cause_unclassified');
   }
   /** AI prestudy report for one exact uploaded-video record. The detail

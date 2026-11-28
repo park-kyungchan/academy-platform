@@ -133,6 +133,7 @@ const catalog={
   prestudy_source_rejected:['malformed_response','source-owner:response-contract'],
   prestudy_row_unqualified:['malformed_response','source-owner:response-contract'],
   prestudy_summary_row_unqualified:['malformed_response','source-owner:response-contract'],
+  prestudy_summary_table_missing:['contract_drift','source-owner:response-contract'],
   cism_date_rejected:['malformed_response','source-owner:response-contract'],
   cism_month_rejected:['malformed_response','source-owner:response-contract'],
   cism_document_rejected:['malformed_response','source-owner:response-contract'],

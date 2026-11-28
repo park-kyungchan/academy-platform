@@ -273,6 +273,9 @@ describe('lms-reads R4: a login or session page refuses and no login is retried'
     ['normal_session_error.jsp',()=>'<script>location.href="/common/normal_session_error.jsp"</script>'],
     ['popup_session_error.jsp',()=>'<script>location.href="/common/popup_session_error.jsp"</script>'],
     ['a page with a password input',()=>'<html><form id="form1"><input type="password" name="p"></form></html>'],
+    ['a login form without a password input',()=>'<html><form name="loginForm" method="post"></form></html>'],
+    ['a script that sends the browser to the login page',()=>`<script>top.location.href='/c_login.jsp'</script>`],
+    ['the login page marker of the password field',()=>'<html><div id="webUserPass"></div></html>'],
     ['a redirect to the login page',()=>new Response('',{status:302,headers:{location:'/c_login.jsp'}})],
     ['another 3xx redirect',()=>new Response('',{status:301,headers:{location:'/servlet/controller.coursemanage.CourseManageServlet?reqCmd=Other'}})],
     ['HTTP 401',()=>new Response('denied',{status:401})],
@@ -365,6 +368,22 @@ describe('lms-reads R5: scope_conflict and source_drift',()=>{
         expect({view,label,...code(out)}).toEqual({view,label,...refused(reasonCode)});
       }
     }
+  });
+  test('lms_reads_r5_prestudy_summary_page_without_its_table_is_source_drift',async()=>{
+    const pages:[string,string][]=[
+      ['an empty body',''],['a maintenance page','<html><body>Invented maintenance notice</body></html>'],
+      ['a table of other headers','<table><tr><th>Invented</th><th>Other</th></tr></table>'],
+      ['rows without the header row',summaryPage().replace(/<tr><th>.*?<\/tr>/,'')],
+      ['a shifted header row',summaryPage().replace('<th>학생</th>','<th>학생명</th>')],
+    ];
+    for(const [label,html] of pages)for(const extra of [{view:'teacher_summary'},{}]){
+      const out:any=await wire({TeacherPrestudySummary:html}).prestudy.prestudyGet(ask(STUDENT,extra));
+      expect({label,extra,status:out.status,reasonCode:out.reasonCode}).toEqual({label,extra,status:'unavailable',reasonCode:'source_drift'});
+      expect(out.summary).toBeUndefined();
+    }
+    // A summary page with its table and no row of the student is an empty answer, not a refusal.
+    const none:any=await wire({TeacherPrestudySummary:summaryPage({student:'Invented Other Name'})}).prestudy.prestudyGet(ask(STUDENT,{view:'teacher_summary'}));
+    expect({status:none.status,summary:none.summary}).toEqual({status:'observed',summary:[]});
   });
   test('lms_reads_r5_prestudy_search_form_scope_and_shape',async()=>{
     const cases:[string,Pages,Record<string,unknown>,string][]=[

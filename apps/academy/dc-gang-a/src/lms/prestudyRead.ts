@@ -9,6 +9,8 @@
  * and teacher review are distinct states; nothing here derives one from
  * another. Fictional fixtures only in tests. */
 
+import { isLmsLoginPage } from './lmsScheduleRead';
+
 export const PRESTUDY_PATH = '/servlet/controller.coursemanage.CourseManageServlet';
 export const PRESTUDY_VIEWS = ['videos', 'incomplete', 'teacher_summary'] as const;
 export type PrestudyView = typeof PRESTUDY_VIEWS[number];
@@ -25,7 +27,7 @@ export const PRESTUDY_MAX_ROWS = 1000;
 
 function rejectExpired(html: string): void {
   if (Buffer.byteLength(html, 'utf8') > PRESTUDY_MAX_PAGE_BYTES) throw Error('prestudy_source_rejected');
-  if (/normal_session_error\.jsp|popup_session_error\.jsp|세션이 만료|<input\b[^>]*type\s*=\s*["']?password/i.test(html))
+  if (/normal_session_error\.jsp|popup_session_error\.jsp|세션이 만료|<input\b[^>]*type\s*=\s*["']?password/i.test(html) || isLmsLoginPage(html))
     throw Error('prestudy_authentication_required');
 }
 
@@ -76,6 +78,8 @@ export function parsePrestudyList(html: string, parse: (html: string, mime: DOMP
   return rows;
 }
 
+/** The first headers of the summary table; the action column follows them. */
+export const PRESTUDY_SUMMARY_HEADERS = ['학생', '단원명', '날짜', 'Ai총점', '별점'] as const;
 export interface PrestudySummaryRow {
   studentLabel: string; unitLabel: string; dateLiteral: string;
   aiScoreLiteral: string; ratingLiteral: string; reportAvailable: boolean; videoAvailable: boolean;
@@ -84,6 +88,12 @@ export interface PrestudySummaryRow {
 export function parsePrestudySummary(html: string, parse: (html: string, mime: DOMParserSupportedType) => Document): PrestudySummaryRow[] {
   rejectExpired(html);
   const doc = parse(html, 'text/html');
+  // R5 of specs/academy-mcp/lms-reads.md: a page without the summary table's header row is drift, never an empty answer.
+  const headerRow = [...doc.querySelectorAll('tr')].find(tr => {
+    const headers = [...tr.querySelectorAll(':scope > th')].map(th => clean(th.textContent));
+    return PRESTUDY_SUMMARY_HEADERS.every((h, i) => headers[i] === h);
+  });
+  if (!headerRow) throw Error('prestudy_summary_table_missing');
   const rows: PrestudySummaryRow[] = [];
   for (const row of doc.querySelectorAll('tr')) {
     const handlers = [...row.querySelectorAll('[onclick]')].map(n => n.getAttribute('onclick') ?? '');
