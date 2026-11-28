@@ -156,7 +156,7 @@ describe('release v5 tools against the endpoint programs',()=>{
 
  test('saved and dailyrecord programs list the measured tool counts',()=>{
   expect(registered('saved').size).toBe(16);
-  expect(registered('dailyrecord').size).toBe(28);
+  expect(registered('dailyrecord').size).toBe(30);
  });
 
  for(const tool of fixture.tools.filter(t=>t.servedBy!=='bridge'&&isProgram(t.endpoint))){
