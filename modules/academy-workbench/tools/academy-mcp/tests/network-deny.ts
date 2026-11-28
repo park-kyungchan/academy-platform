@@ -51,7 +51,7 @@ const routeRoles:Readonly<Record<string,Readonly<Record<string,LmsRequestRole>>>
   WebUnPreStudy:'read',WebCtPreStudy:'read',WebPreStudy:'read',TeacherPrestudySummary:'read'},
  // The server-rendered AI report of one prestudy video (specs/academy-mcp/lms-reads.md: no operation, one GET path).
  '/app-ui/solution_common/prestudy/prestudy_ai_report.jsp':{'':'read'},
- [servlet+'coursemanage.TextBookManageServlet']:{getTextBookProgress:'read',getCourseBookReport:'read'},
+ [servlet+'coursemanage.TextBookManageServlet']:{getTextBookProgress:'read',getCourseBookReport:'read',getTextBookMain:'read'},
  [servlet+'dailyzerotest.DailyZeroTestServlet']:{DtResultSearch:'read'},
  // DailyRecord: the page read, and the field writes that are GET requests.
  [servlet+'cct.tutor.DayRecordServlet']:{Main:'read',udtPrg:'write',udtHw:'write',udtMemo:'write',udtAttn:'write'},
@@ -61,7 +61,7 @@ const routeRoles:Readonly<Record<string,Readonly<Record<string,LmsRequestRole>>>
  [servlet+'common.TestPageShowExServlet']:{GetLectureList:'read'},
  // lmsRouteRegistry.ts legacyRoutes class these read; that class supersedes the legacy write candidates of
  // endpointCandidates.ts for getStudyResultSingleTestingSingleUser (specs/academy-mcp/direct-key-lookup.md R3).
- [servlet+'common.TestpageSelectExServlet']:{getStudyResultSingleTestingSingleUser:'read',getStudyResultSingleTestingMultiUser:'read',getWrongAnswerNoteResult:'read',getTestExamList:'read'},
+ // TestpageSelectExServlet is classed by testpageSelectExRequestEffect below (its `condition` decides), not by this table.
  [servlet+'tutor.fa.TestPageListServlet']:{PupilSearch:'read'},
  [servlet+'tutor.na.TestPageListServlet']:{PupilSearch:'read'},
  [servlet+'tutor.fa.TestPageListGrpServlet']:{Main:'read'},
@@ -82,6 +82,27 @@ export function lmsRoute(url:string|URL,body?:unknown):{path:string;operation:st
  * query, or any other method is write. */
 const reportViewPath=servlet+'common.ReportViewServlet';
 const reportViews=new Set(['SmartBookReportView','DiagReportView','NewStudentReportView','FaView','GaReportView','NaScoreResultView']);
+/** TestpageSelectExServlet (specs/academy-mcp/gated-writes.md "Request classes"; lmsRouteRegistry.ts testpageSelectExRequestEffect):
+ * `getWrongAnswerNoteResult` and `getTestExamList` are read; the three score and clinic operations are read only when the
+ * `condition` member parses and none of `incorrect.create`, `similar.create`, `advance.create` equals 1, else write (an absent
+ * or malformed `condition` is write). Any other operation is write. Never by HTTP method. */
+const testpagePath=servlet+'common.TestpageSelectExServlet';
+const testpageConditionOperations=new Set(['getStudyResultSingleTestingSingleUser','getStudyResultSingleTestingMultiUser','getStudyResultMultiTestingMultiUser']);
+export function testpageRequestRole(operation:string,body?:unknown):LmsRequestRole{
+ if(operation==='getWrongAnswerNoteResult'||operation==='getTestExamList')return 'read';
+ if(!testpageConditionOperations.has(operation))return 'write';
+ const form=typeof body==='string'?new URLSearchParams(body):body instanceof URLSearchParams?body:null;
+ const raw=form?.get('condition');
+ if(typeof raw!=='string')return 'write';
+ let condition:any;try{condition=JSON.parse(raw);}catch{return 'write';}
+ if(condition===null||typeof condition!=='object'||Array.isArray(condition))return 'write';
+ for(const flag of ['incorrect','similar','advance']){
+  const member=condition[flag];
+  if(member!==undefined&&(member===null||typeof member!=='object'||Array.isArray(member)))return 'write';
+  if(member!==undefined&&member.create!==undefined&&member.create!==0)return 'write';
+ }
+ return 'read';
+}
 /** The static print archives of the StudyQ storage (specs/studyq-linux/core.md R20): `GET` of exactly
  * `https://storage.studyq.net/data/contents/{exam|examtext}/...-print.zip` is a read; the same path on
  * another host, or any other method, is not classed and so is write. */
@@ -91,6 +112,7 @@ export function lmsRequestRole(url:string|URL,body?:unknown,method?:string):LmsR
  const parsed=new URL(String(url),'https://lms.invalid');
  if(parsed.origin===printStorageOrigin&&!parsed.username&&!parsed.password&&!parsed.search&&!parsed.hash&&printArchivePath.test(parsed.pathname)&&(method??'GET').toUpperCase()==='GET')return 'read';
  const {path,operation}=lmsRoute(url,body);
+ if(parsed.pathname===testpagePath)return testpageRequestRole(operation,body);
  if(parsed.pathname===reportViewPath)return (method??'GET').toUpperCase()==='POST'&&!parsed.search&&reportViews.has(operation)?'read':'write';
  return routeRoles[path]?.[operation]??'write';
 }

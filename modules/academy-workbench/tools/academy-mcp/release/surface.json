@@ -878,6 +878,93 @@
      "view"
     ]
    }
+  },
+  {
+   "name": "academy_clinic_paper_review",
+   "title": "오답·클리닉지 검토",
+   "description": "Read-only review of a wrong-note (book_incorrect) or clinic paper; clinic modes multiply/divide/custom. Answers change, reviewToken.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "kind": {
+      "type": "string",
+      "enum": [
+       "book_incorrect",
+       "clinic"
+      ]
+     },
+     "studentKey": {
+      "type": "string"
+     },
+     "courseKey": {
+      "type": "string"
+     },
+     "bookNo": {
+      "type": "string"
+     },
+     "testingNo": {
+      "type": "string"
+     },
+     "testingNos": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "clinicMode": {
+      "type": "string",
+      "enum": [
+       "multiply",
+       "divide",
+       "custom"
+      ]
+     },
+     "createSimilar": {
+      "type": "boolean"
+     },
+     "similarCount": {
+      "type": "number"
+     },
+     "createAdvance": {
+      "type": "boolean"
+     },
+     "advanceCount": {
+      "type": "number"
+     },
+     "patList": {
+      "type": "array"
+     }
+    },
+    "required": [
+     "kind",
+     "studentKey"
+    ]
+   }
+  },
+  {
+   "name": "academy_clinic_paper_save",
+   "title": "오답·클리닉지 저장(LMS 쓰기)",
+   "description": "Creates the reviewed paper once, only after the teacher approves: reviewToken, userApproved true, the reviewed change. saved after readback, else unverified: no retry.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "reviewToken": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+     },
+     "userApproved": {
+      "type": "boolean"
+     },
+     "change": {
+      "type": "object"
+     }
+    },
+    "required": [
+     "reviewToken",
+     "userApproved",
+     "change"
+    ]
+   }
   }
  ]
 }

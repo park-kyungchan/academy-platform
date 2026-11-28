@@ -75,6 +75,8 @@ const hangul:Record<string,string[]>={
  academy_official_report_pdf_get:['공식','리포트','교재'],
  academy_paper_print_pdf_get:['시험지','클리닉지','인쇄'],
  academy_lms_schedule_get:['출결','학습일정','과정관리'],
+ academy_clinic_paper_review:['오답','클리닉지','검토'],
+ academy_clinic_paper_save:['오답','클리닉지','저장'],
 };
 const skillPaths=readdirSync(resolve(repo,'content/skills')).filter(d=>d.startsWith('academy-')).map(d=>resolve(repo,'content/skills',d,'SKILL.md')).sort();
 const toolPattern=/\b(?:class2_)?academy_[a-z0-9_]+\b/g;
@@ -134,7 +136,7 @@ describe('the surface of release/surface.json',()=>{
  });
  test('tool_surface_r13_no_write_route',()=>{
   for(const tool of consolidatedTools)for(const route of Object.values(tool.routes))expect(route.upstream).not.toMatch(/_(review|save)$/);
-  expect(keptTools.map(t=>t.name).filter(n=>/_save$/.test(n))).toEqual(['academy_dailyrecord_save','academy_cism_weekly_save']);
+  expect(keptTools.map(t=>t.name).filter(n=>/_save$/.test(n))).toEqual(['academy_dailyrecord_save','academy_cism_weekly_save','academy_clinic_paper_save']);
  });
  test('tool_surface_compositions_named_alike',()=>{
   const entries=compositionEntries();

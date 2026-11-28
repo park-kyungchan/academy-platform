@@ -9,7 +9,7 @@
 
 type Json={[key:string]:unknown};
 const str:Json={type:'string'},int:Json={type:'integer'},bool:Json={type:'boolean'},obj:Json={type:'object'},arr:Json={type:'array'};
-const strs:Json={type:'array',items:str};
+const strs:Json={type:'array',items:str},num:Json={type:'number'};
 const oneOf=(...values:string[]):Json=>({type:'string',enum:values});
 const sha:Json={type:'string',pattern:'^[a-f0-9]{64}$'};
 const fieldNames=['progress','homework','lessonMemo','attendance','dailyTestAssessment','previousHomeworkAssessment'];
@@ -168,6 +168,13 @@ export const keptTools:readonly {name:string;title:string;description:string;inp
  {name:'academy_lms_schedule_get',title:'출결·학습일정·과정관리',
   description:"Read-only LMS page. view: attendance (date or period, YYYY-MM-DD, ≤31 days, same month), study_schedule (gradeNo, groupKey, studentKey, courseKey), course_study_manager (gradeNo, semesterNo, levelNo, status).",
   inputSchema:schema({view:oneOf('attendance','study_schedule','course_study_manager'),date:str,period:obj,groupKey:str,studentKey:str,gradeNo:str,semesterNo:str,levelNo:str,courseKey:str,status:str},['view'])},
+ // The fourth and fifth new tools: the two phases of the gated wrong-note and clinic paper creation (specs/academy-mcp/gated-writes.md).
+ {name:'academy_clinic_paper_review',title:'오답·클리닉지 검토',
+  description:"Read-only review of a wrong-note (book_incorrect) or clinic paper; clinic modes multiply/divide/custom. Answers change, reviewToken.",
+  inputSchema:schema({kind:oneOf('book_incorrect','clinic'),studentKey:str,courseKey:str,bookNo:str,testingNo:str,testingNos:strs,clinicMode:oneOf('multiply','divide','custom'),createSimilar:bool,similarCount:num,createAdvance:bool,advanceCount:num,patList:arr},['kind','studentKey'])},
+ {name:'academy_clinic_paper_save',title:'오답·클리닉지 저장(LMS 쓰기)',
+  description:"Creates the reviewed paper once, only after the teacher approves: reviewToken, userApproved true, the reviewed change. saved after readback, else unverified: no retry.",
+  inputSchema:schema({reviewToken:sha,userApproved:bool,change:obj},['reviewToken','userApproved','change'])},
 ];
 
 /** Surface order: runtime, DailyRecord, student, DailyTest and paper, textbook, items and clinic, prestudy, CISM; then the new tools. */
@@ -175,7 +182,7 @@ export const baselineSurfaceOrder=['academy_runtime_inspect','academy_dailyrecor
  'academy_dailytest_history','academy_paper_inspect','academy_textbook_section_results_get','academy_clinic_paper_status_get','academy_item_lookup',
  'academy_textbook_catalog_get','academy_prestudy_get','academy_cism_get','academy_cism_weekly_review','academy_cism_weekly_save'] as const;
 /** The new tools of Waves 3 to 5 already built (specs/academy-mcp/tool-surface.md R2). */
-export const newSurfaceTools=['academy_official_report_pdf_get','academy_paper_print_pdf_get','academy_lms_schedule_get'] as const;
+export const newSurfaceTools=['academy_official_report_pdf_get','academy_paper_print_pdf_get','academy_lms_schedule_get','academy_clinic_paper_review','academy_clinic_paper_save'] as const;
 export const surfaceOrder=[...baselineSurfaceOrder,...newSurfaceTools] as const;
 
 /** `release/surface.json` as built from this module. */

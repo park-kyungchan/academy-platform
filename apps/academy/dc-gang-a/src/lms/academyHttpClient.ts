@@ -896,6 +896,26 @@ export class AcademyHttpClient {
     if(isLoginOrSessionPage(text)){this.close();throw Error('authentication_required');}
     return text;
   }
+  /** One GET of a page whose inline handler the gated clinic write pins (specs/academy-mcp/gated-writes.md "Wire hash"): the
+   * page text, under the 2 MiB bound; a login, session-error or redirect answer closes the session (`authentication_required`). */
+  async readClinicWirePage(path:'/servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookMain'|'/servlet/controller.tutor.fa.TestPageListGrpServlet?p_process=Main'):Promise<string>{
+    if(!this.#authenticated)throw Error('authentication_required');
+    let html:string;
+    try{html=await readBoundedLmsPage(await this.#request(path,{method:'GET'},false,'clinic_wire_page'));}
+    catch(error){
+      if(error instanceof AcademyHttpFailure&&[401,403].includes(error.httpStatus)||error instanceof Error&&['source_redirect_rejected','foreign_source_redirect_rejected','source_redirect_contract_rejected'].includes(error.message)){this.close();throw Error('authentication_required');}
+      throw error instanceof LmsReadRefusal?Error(error.code):error;
+    }
+    // Only a login form closes the session here: the page's own scripts may name a session-error page.
+    if(/<input\b[^>]*\btype\s*=\s*["']?password\b|<form\b[^>]*\bname\s*=\s*["']?loginForm\b/i.test(html)){this.close();throw Error('authentication_required');}
+    return html;
+  }
+  /** One POST form of `TestpageSelectExServlet` (the wrong-note read, a score view, or the paper creation of a reviewed clinic
+   * change): the raw answer text. Whether it is a read or a write is the class of its `p_process` and `condition`
+   * (lmsRouteRegistry.ts testpageSelectExRequestEffect); the caller owns that decision and its ledger. */
+  async postTestpageSelectEx(fields:{p_process:string}&Record<string,string>):Promise<string>{
+    return this.#historicalPost('/servlet/controller.common.TestpageSelectExServlet',fields,fields.p_process);
+  }
   /** Direct-key historical index (specs/academy-mcp/direct-key-lookup.md R2-R4): the wrong-answer
    * note of one exact course, book and student, for a book that the live getTextBookProgress
    * list no longer holds. Every row must carry the student key as `pri_no` and the course key

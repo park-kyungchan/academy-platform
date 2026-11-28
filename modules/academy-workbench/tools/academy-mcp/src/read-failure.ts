@@ -249,6 +249,21 @@ const catalog={
   dailytest_header_selection_changed:['contract_drift','src/dailytest-header-route.ts:readDailyTestHeaders'],
   dailytest_header_offset_out_of_range:['policy_denial','src/dailytest-header-route.ts:readDailyTestHeaders'],
   dailytest_header_result_too_large:['partial_coverage','src/dailytest-header-route.ts:readDailyTestHeaders'],
+  // The gated clinic write (specs/academy-mcp/gated-writes.md "Codes"); the reasons are refusals before any write unless a step says otherwise.
+  wire_hash_mismatch:['contract_drift','apps/academy/dc-gang-a/src/lms/clinicPaperWrite.ts:wireSha256OfPage'],
+  user_approval_required:['policy_denial','src/clinic-write-tools.ts:save'],
+  review_token_invalid:['policy_denial','apps/academy/dc-gang-a/src/lms/gatedWriteLedger.ts:verifyReviewToken'],
+  review_token_expired:['policy_denial','apps/academy/dc-gang-a/src/lms/gatedWriteLedger.ts:verifyReviewToken'],
+  public_scope_forbidden:['policy_denial','apps/academy/dc-gang-a/src/lms/clinicPaperWrite.ts:qualifyClinicRequest'],
+  ledger_unavailable:['upstream_unavailable','apps/academy/dc-gang-a/src/lms/gatedWriteLedger.ts:assertAvailable'],
+  attempt_already_open:['policy_denial','apps/academy/dc-gang-a/src/lms/gatedWriteLedger.ts:acquireLock'],
+  reconcile_blocks_retry:['policy_denial','src/clinic-write-tools.ts:save'],
+  clinic_input_invalid:['input_validation','apps/academy/dc-gang-a/src/lms/clinicPaperWrite.ts:qualifyClinicRequest'],
+  clinic_scope_unresolved:['contract_drift','apps/academy/dc-gang-a/src/lms/clinicPaperWrite.ts:parseWrongNoteResult'],
+  clinic_response_unverified:['malformed_response','apps/academy/dc-gang-a/src/lms/clinicPaperWrite.ts:parseWriteResponse'],
+  clinic_readback_unverified:['malformed_response','src/clinic-write-tools.ts:save'],
+  clinic_source_port_unavailable:['endpoint_absence','src/native-dailyrecord-backend.ts:sourcePort'],
+  clinic_source_failed:['upstream_unavailable','src/clinic-write-tools.ts:save'],
 
 } as const satisfies Record<string,readonly [ReadFailureCategory,string]>;
 export class AcademyReadFailure extends Error {

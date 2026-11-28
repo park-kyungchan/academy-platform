@@ -1047,3 +1047,53 @@ export function reportViewRoutes(): LmsRouteDefinition[] {
 export function lmsReadServletRoutes(): LmsRouteDefinition[] {
   return LMS_READ_ROUTES.map(def => ({ ...lmsReadLegacyRoute(def)[1] }));
 }
+
+/**
+ * The two pages whose inline handlers the gated clinic write pins by `wireSha256`
+ * (specs/academy-mcp/gated-writes.md "Wire hash"): both are plain GETs that change no data, classed read by their
+ * named route. Standalone, like `LMS_READ_ROUTES`: nothing here loads the canonical route registry file.
+ */
+export const CLINIC_READ_ROUTES: readonly {id: string; path: string; param: 'p_process' | 'reqCmd'; operation: string; method: 'GET'}[] = [
+  {id: 'CLINIC_TEXTBOOK_MAIN', path: '/servlet/controller.coursemanage.TextBookManageServlet', param: 'reqCmd', operation: 'getTextBookMain', method: 'GET'},
+  {id: 'CLINIC_FA_PAGE_MAIN', path: '/servlet/controller.tutor.fa.TestPageListGrpServlet', param: 'p_process', operation: 'Main', method: 'GET'},
+];
+
+export const TESTPAGE_SELECT_EX_PATH = '/servlet/controller.common.TestpageSelectExServlet';
+const TESTPAGE_ALWAYS_READ = ['getWrongAnswerNoteResult', 'getTestExamList'] as const;
+const TESTPAGE_CONDITION_OPERATIONS = ['getStudyResultSingleTestingSingleUser', 'getStudyResultSingleTestingMultiUser', 'getStudyResultMultiTestingMultiUser'] as const;
+const TESTPAGE_CREATE_FLAGS = ['incorrect', 'similar', 'advance'] as const;
+
+/**
+ * The class of one POST of `TestpageSelectExServlet` (specs/academy-mcp/gated-writes.md "Request classes").
+ * The score view and the paper-creation request share an operation name and differ in the `create` flags of
+ * the `condition` form member: the request is `read` only when `condition` parses to a JSON object and none
+ * of `incorrect.create`, `similar.create`, `advance.create` equals 1; any such flag equal to 1, or an absent
+ * or malformed `condition`, is `write`. `getWrongAnswerNoteResult` and `getTestExamList` are always `read`;
+ * an operation this function does not name is `write`. `body` is the form body as a string or a
+ * URLSearchParams.
+ */
+export function testpageSelectExRequestEffect(operation: string, body?: unknown): 'read' | 'write' {
+  if ((TESTPAGE_ALWAYS_READ as readonly string[]).includes(operation)) return 'read';
+  if (!(TESTPAGE_CONDITION_OPERATIONS as readonly string[]).includes(operation)) return 'write';
+  const form = typeof body === 'string' ? new URLSearchParams(body) : body instanceof URLSearchParams ? body : null;
+  const raw = form?.get('condition');
+  if (typeof raw !== 'string') return 'write';
+  let condition: unknown;
+  try { condition = JSON.parse(raw); } catch { return 'write'; }
+  if (condition === null || typeof condition !== 'object' || Array.isArray(condition)) return 'write';
+  for (const flag of TESTPAGE_CREATE_FLAGS) {
+    const member = (condition as Record<string, unknown>)[flag];
+    if (member !== undefined && (member === null || typeof member !== 'object' || Array.isArray(member))) return 'write';
+    const create = (member as Record<string, unknown> | undefined)?.create;
+    if (create !== undefined && create !== 0 && create !== 1) return 'write';
+    if (create === 1) return 'write';
+  }
+  return 'read';
+}
+
+/** The class of one clinic-related request by route (path and operation), for the standalone classification. */
+export function clinicRequestEffect(method: string | undefined, path: string, operation: string, body?: unknown): 'read' | 'write' {
+  const verb = (method ?? 'GET').toUpperCase();
+  if (path === TESTPAGE_SELECT_EX_PATH) return testpageSelectExRequestEffect(operation, body);
+  return verb === 'GET' && CLINIC_READ_ROUTES.some(r => r.path === path && r.operation === operation) ? 'read' : 'write';
+}
