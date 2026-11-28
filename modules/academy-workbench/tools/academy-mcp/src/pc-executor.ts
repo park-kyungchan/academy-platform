@@ -26,7 +26,8 @@ export class PcExecutorError extends Error {
 /** The keys of the `ReportViewServlet` request of a report (all absent for `course_book` and `cism`). */
 export interface ReportInfoKeys {testingNo?:string;bookCode?:string;paperNo?:string;studentKey?:string;classNo?:string;applyCode?:string}
 export interface PcRenderInput {reportType:PcReportType;keys:ReportInfoKeys;blockData:Record<string,unknown>;outputPath:string}
-export interface PcRendered {status:'rendered';pages:number;sha256:string;outputPath:string;pcCleanup:PcCleanup}
+/** `escapedCharacters`: the characters outside CP949 that `report.info` carries as JSON `\u` escapes (0 when none). */
+export interface PcRendered {status:'rendered';pages:number;sha256:string;outputPath:string;pcCleanup:PcCleanup;escapedCharacters:number}
 export interface PcExecutor {render(input:PcRenderInput):Promise<PcRendered>}
 
 /** The directory of the executor's files on the PC, under the user's home (scp form and PowerShell form). */
@@ -41,14 +42,18 @@ const EXE_TIMEOUT_WORD='pc-executor-timeout';
 
 /** A member of `report.info`: the digits of a key (leading zeros dropped), or 0. Every member is a JSON number. */
 const numberWord=(value:string|undefined)=>value!==undefined&&/^[0-9]{1,64}$/.test(value)?value.replace(/^0+(?=\d)/,''):'0';
-/** The text of `report.info`: the eight members of the dispatcher, `block_data` the server's answer as it is. */
-export function reportInfoText(reportType:PcReportType,keys:ReportInfoKeys,blockData:Record<string,unknown>):string{
+/** `report.info` and the number of its characters outside CP949, each written as its JSON escape (`cp949JsonText`). */
+export function reportInfo(reportType:PcReportType,keys:ReportInfoKeys,blockData:Record<string,unknown>):{text:string;escaped:number}{
   if(!Object.hasOwn(PC_REPORT_TYPES,reportType))throw new PcExecutorError('pc_executor_failed');
   if(blockData===null||typeof blockData!=='object'||Array.isArray(blockData))throw new PcExecutorError('pc_executor_failed');
-  return '{"testing_no":'+numberWord(keys.testingNo)+',"book_code":'+numberWord(keys.bookCode)+',"p_no":'+numberWord(keys.paperNo)
+  const block=cp949JsonText(JSON.stringify(blockData));
+  return {text:'{"testing_no":'+numberWord(keys.testingNo)+',"book_code":'+numberWord(keys.bookCode)+',"p_no":'+numberWord(keys.paperNo)
     +',"pri_no":'+numberWord(keys.studentKey)+',"cls_no":'+numberWord(keys.classNo)+',"apply_code":'+numberWord(keys.applyCode)
-    +',"report_type":'+PC_REPORT_TYPES[reportType]+',"block_data":'+JSON.stringify(blockData)+'}';
+    +',"report_type":'+PC_REPORT_TYPES[reportType]+',"block_data":'+block.text+'}',escaped:block.escaped};
 }
+/** The text of `report.info`: the eight members of the dispatcher, `block_data` the server's answer as `JSON.stringify` writes it,
+ * a character outside CP949 written as its JSON escape, so `JSON.parse` of it gives the server's answer back. */
+export const reportInfoText=(reportType:PcReportType,keys:ReportInfoKeys,blockData:Record<string,unknown>)=>reportInfo(reportType,keys,blockData).text;
 
 // CP949 (windows-949, the WHATWG `euc-kr`): the encoder is the reverse of the platform's decoder, built once.
 let cp949:Map<number,number>|null=null;
@@ -72,6 +77,20 @@ export function encodeCp949(text:string):Buffer{
     out.push(bytes>>8,bytes&0xff);
   }
   return Buffer.from(out);
+}
+/** JSON text with each character outside CP949 (the table of `encodeCp949`) written as its JSON escape `\uxxxx` (lowercase,
+ * four digits; a code point above U+FFFF as its two UTF-16 escapes), and the number of characters so written. In JSON text such a
+ * character occurs only inside a string, so `JSON.parse` gives the same value; a lone surrogate, which `JSON.stringify` already
+ * escapes, never occurs raw. Text wholly inside CP949 is returned as it is. */
+export function cp949JsonText(text:string):{text:string;escaped:number}{
+  const table=cp949Table();let escaped=0,out='';
+  for(const char of text){
+    const code=char.codePointAt(0)!;
+    if(code<0x80||table.has(code)){out+=char;continue;}
+    escaped++;
+    for(let i=0;i<char.length;i++)out+='\\u'+char.charCodeAt(i).toString(16).padStart(4,'0');
+  }
+  return {text:escaped?out:text,escaped};
 }
 export const decodeCp949=(bytes:Uint8Array)=>new TextDecoder('euc-kr',{fatal:true}).decode(bytes);
 
@@ -243,7 +262,7 @@ export function pcReportExecutor(config:PcExecutorConfig,options:PcExecutorOptio
     if(listing.ran.code!==0)fail('pc_executor_failed');
     const listed=new Set(listing.ran.stdout.split(/\r?\n/).map(line=>line.trim()).filter(Boolean));
     // 2. report.info, written in CP949 under a private temporary directory.
-    const bytes=encodeCp949(reportInfoText(input.reportType,input.keys,input.blockData));
+    const info=reportInfo(input.reportType,input.keys,input.blockData),bytes=encodeCp949(info.text);
     const local=await mkdtemp(join(tmpdir(),'pc-executor-'));
     try{
       await writeFile(join(local,'report.info'),bytes,{mode:0o600,flag:'wx'});
@@ -286,7 +305,7 @@ export function pcReportExecutor(config:PcExecutorConfig,options:PcExecutorOptio
         await chmod(file,0o600);
         try{await link(file,input.outputPath);}
         catch(e){fail((e as NodeJS.ErrnoException).code==='EEXIST'?'output_exists':'output_path_invalid');}
-        rendered={status:'rendered',pages:pages as number,sha256:createHash('sha256').update(pdf).digest('hex'),outputPath:input.outputPath,pcCleanup:'incomplete'};
+        rendered={status:'rendered',pages:pages as number,sha256:createHash('sha256').update(pdf).digest('hex'),outputPath:input.outputPath,pcCleanup:'incomplete',escapedCharacters:info.escaped};
       }finally{await unlink(join(directory,temp)).catch(()=>{});}
     }catch(e){error=e;}
     // 5. The PDF and report_result.info are deleted on the PC, also after a failure, once a qualified name is known.
@@ -297,7 +316,8 @@ export function pcReportExecutor(config:PcExecutorConfig,options:PcExecutorOptio
 
   return {async render(input){
     if(!Object.hasOwn(PC_REPORT_TYPES,input.reportType)||!isAbsolute(input.outputPath))throw new PcExecutorError('output_path_invalid');
-    // A character outside CP949 refuses before any remote step and before the lock.
+    // report.info is checked before the lock and any remote step: a character outside CP949 is escaped by reportInfo, so
+    // encodeCp949 (pc_input_unencodable) is only an internal guard here.
     encodeCp949(reportInfoText(input.reportType,input.keys,input.blockData));
     const deadline=Date.now()+deadlineMs;
     const result=tail.then(async()=>{

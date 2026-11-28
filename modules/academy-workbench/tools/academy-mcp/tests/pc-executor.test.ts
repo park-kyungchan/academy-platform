@@ -4,7 +4,7 @@ import {existsSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
-import {PC_REPORT_TYPES,PcExecutorError,decodeCp949,encodeCp949,pcExecutorConfiguration,pcReportExecutor,pdfProducer,processStartTime,reportInfoText,
+import {PC_REPORT_TYPES,PcExecutorError,cp949JsonText,decodeCp949,encodeCp949,pcExecutorConfiguration,pcReportExecutor,pdfProducer,processStartTime,reportInfoText,
   type PcExecutorOptions} from '../src/pc-executor.ts';
 import {sshOptionArgv} from '../src/ssh-argv.ts';
 
@@ -124,10 +124,32 @@ describe('report.info',()=>{
     for(const outside of ['\u{1F600}','\u00e9\u0301','\ufffd','\u4e02'])expect(()=>encodeCp949('x'+outside)).toThrow('pc_input_unencodable');
   });
 
-  test('pc_executor_unencodable_input_refuses_before_any_remote_step',async()=>{
-    const f=await fixture();
-    expect(await code(render(f,'emoji.pdf',{blockData:{text:'Invented \u{1F600}'}}))).toEqual({code:'pc_input_unencodable',pcCleanup:undefined});
-    expect(await f.log()).toEqual([]);
+  test('pc_executor_character_outside_cp949_is_escaped',async()=>{
+    // The helper: each character outside CP949 as its lowercase JSON escape, a code point above U+FFFF as two; the rest unchanged.
+    expect(cp949JsonText('"가 Ｉ-1 ~ 75\u207a%"')).toEqual({text:'"가 Ｉ-1 ~ 75\\u207a%"',escaped:1});
+    expect(cp949JsonText('"\u{1F600}\u4e02\ufffd\u0080x"')).toEqual({text:'"\\ud83d\\ude00\\u4e02\\ufffd\\u0080x"',escaped:4});
+    expect(cp949JsonText(JSON.stringify({a:'가 Ｉ-1'}))).toEqual({text:JSON.stringify({a:'가 Ｉ-1'}),escaped:0});
+    // A lone surrogate is escaped by JSON.stringify already and stays as it writes it.
+    expect(JSON.stringify('\ud800')).toBe('"\\ud800"');
+    expect(cp949JsonText(JSON.stringify({a:'\ud800'}))).toEqual({text:'{"a":"\\ud800"}',escaped:0});
+    // encodeCp949 still refuses raw text outside CP949 for any other caller.
+    expect(()=>encodeCp949('75\u207a')).toThrow('pc_input_unencodable');
+    // A block data wholly inside CP949 gives the report.info it always gave, byte for byte.
+    const head='{"testing_no":0,"book_code":0,"p_no":0,"pri_no":0,"cls_no":0,"apply_code":0,"report_type":22,"block_data":';
+    expect(encodeCp949(reportInfoText('course_book',{},BLOCK)).equals(encodeCp949(head+JSON.stringify(BLOCK)+'}'))).toBe(true);
+    // Every input: JSON.parse of report.info gives the server's answer back.
+    const outside={block3:[{'1':'Invented Group','4':'75\u207a%'},{'1':'Invented \u207a\u{1F600}','\u4e02 key':'\ud800 lone','4':'가'}],n:1.5,z:[null,true]};
+    for(const raw of [outside,BLOCK,{a:'\u0080\u00e9\u0301\ufffd'}])
+      expect(JSON.parse(reportInfoText('cism',{},raw)).block_data).toEqual(raw);
+    // One call: the exe reads the escapes in CP949, the answer counts them and holds no character value.
+    const f=await fixture({pages:1});
+    const answer=await render(f,'escaped.pdf',{reportType:'cism',blockData:outside});
+    expect(answer).toMatchObject({status:'rendered',pages:1,pcCleanup:'done',escapedCharacters:4});
+    const info=decodeCp949(await f.seen());
+    expect(info).toBe('{"testing_no":0,"book_code":0,"p_no":0,"pri_no":0,"cls_no":0,"apply_code":0,"report_type":200,"block_data":'
+      +'{"block3":[{"1":"Invented Group","4":"75\\u207a%"},{"1":"Invented \\u207a\\ud83d\\ude00","4":"가","\\u4e02 key":"\\ud800 lone"}],"n":1.5,"z":[null,true]}}');
+    expect(JSON.parse(info).block_data).toEqual(outside);
+    expect(JSON.stringify(answer)).not.toMatch(/207a|\u207a|Invented/);
     expect(existsSync(resolve(f.lockDir,'pc-executor.lock'))).toBe(false);
   });
 
@@ -208,7 +230,7 @@ describe('one call',()=>{
     const out=resolve(f.out,'book.pdf');
     const answer=await render(f,'book.pdf',{blockData:BLOCK});
     const bytes=await readFile(out);
-    expect(answer).toEqual({status:'rendered',pages:8,sha256:sha(bytes),outputPath:out,pcCleanup:'done'});
+    expect(answer).toEqual({status:'rendered',pages:8,sha256:sha(bytes),outputPath:out,pcCleanup:'done',escapedCharacters:0});
     expect(bytes.toString('latin1')).toBe(HARU);
     // report.info as the executor read it: CP949, the members, the block data verbatim.
     const info=await f.seen();

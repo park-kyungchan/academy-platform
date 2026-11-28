@@ -4,7 +4,7 @@ import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
 import {readFileSync} from 'node:fs';
 import {OfficialReportPdfService,officialReportPdfGetSchema,type CourseBookReportBackend} from '../src/official-report-pdf.ts';
-import {PcExecutorError,type PcExecutor,type PcRenderInput} from '../src/pc-executor.ts';
+import {PcExecutorError,cp949JsonText,type PcExecutor,type PcRenderInput} from '../src/pc-executor.ts';
 import {verifyCourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport.ts';
 import {CISM_NARRATIVES,CISM_WIRE_SHA256,cismWeek,type CismBlockRead} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol.ts';
 import {reportViewForm} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient.ts';
@@ -28,7 +28,7 @@ function fakeExecutor(fails?:PcExecutorError){
   const executor:PcExecutor={async render(input){calls.push(structuredClone(input));
     if(fails)throw fails;
     await writeFile(input.outputPath,'%PDF-1.3 invented');
-    return {status:'rendered',pages:8,sha256:'a'.repeat(64),outputPath:input.outputPath,pcCleanup:'done'};}};
+    return {status:'rendered',pages:8,sha256:'a'.repeat(64),outputPath:input.outputPath,pcCleanup:'done',escapedCharacters:cp949JsonText(JSON.stringify(input.blockData)).escaped};}};
   return {calls,executor};
 }
 function fixture(name:string,over:Partial<{answer:Awaited<ReturnType<CourseBookReportBackend['readCourseBookReportByName']>>;fails:PcExecutorError}>={}){
@@ -48,7 +48,7 @@ describe('academy_official_report_pdf_get',()=>{
     expect(answer).toEqual({reportType:'course_book',displayName:STUDENT,academyWrites:0,parentSends:0,automaticRetryAllowed:false,
       execution:'read_only_lms_pc_executor',sourceContentIsUntrustedData:true,student:{studentId:KEY,displayName:STUDENT},courseKey:COURSE,bookNo:BOOK,
       bindingSource:'historical_key_registry',reportSummary:{bookTitle:'가우스 초등 1-1 Invented',period:'2040-01-01 ~ 2040-03-01',myAverage:82.5,allAverage:75,chapterCount:1},
-      status:'rendered',outputPath:path,sha256:'a'.repeat(64),pages:8,pcCleanup:'done'});
+      status:'rendered',outputPath:path,sha256:'a'.repeat(64),pages:8,pcCleanup:'done',escapedCharacters:0});
     // No parity members: the original executor renders what the server returns.
     for(const gone of ['parityOk','parityMismatches','parityRawRn','truncation'])expect(answer[gone]).toBeUndefined();
     expect(f.calls.backend).toEqual([{displayName:STUDENT,courseKey:COURSE,bookNo:BOOK,studentKey:KEY}]);
@@ -176,13 +176,26 @@ describe('academy_official_report_pdf_get reportType cism',()=>{
     const f=cismFixture('cism-week',weekRead);
     const answer=await f.service.get({reportType:'cism',params:{scope:'week',date:'2040-01-16'}}) as any;
     const path=resolve(f.root,'cism-week-2040-01-16-20400116T090000Z.pdf');
-    expect(answer).toMatchObject({status:'rendered',reportType:'cism',scope:'week',date:'2040-01-16',outputPath:path,pages:8,pcCleanup:'done',academyWrites:0,
+    expect(answer).toMatchObject({status:'rendered',reportType:'cism',scope:'week',date:'2040-01-16',outputPath:path,pages:8,pcCleanup:'done',escapedCharacters:0,academyWrites:0,
       execution:'read_only_lms_pc_executor',reportSummary:{weekLabel:'2040-3 주차 (1월15일~1월21일)',period:'2040-01-15 ~ 2040-01-21',groups:1,filledSections:1}});
     expect(JSON.stringify(answer)).not.toContain('Invented Group');
     expect(f.calls.dates).toEqual(['2040-01-16']);
     expect(f.pc.calls).toEqual([{reportType:'cism',keys:{},blockData:weekRead('2040-01-16').blockData,outputPath:path}]);
     // The default date is today (Asia/Seoul); the default name holds no personal value.
     expect(await f.service.get({reportType:'cism',params:{scope:'week'}})).toMatchObject({status:'unavailable',reasonCode:'output_exists',date:'2040-01-16'});
+  });
+
+  test('official_report_rendered_answer_counts_escaped_characters',async()=>{
+    // Two superscript plus signs (U+207A, outside CP949) in block3 column 4: the block data reaches the executor as the page built it,
+    // and the answer holds only the count of escaped characters, no character value.
+    const read=(date:string):CismBlockRead=>{const week=weekRead(date);
+      return {...week,blockData:{...week.blockData,block3:[{'1':'Invented Group','2':'상','3':'3','4':'75\u207a%','5':'80%','6':'90점'},
+        {'1':'Invented Group Two','2':'','3':'','4':'60\u207a%','5':'%','6':'점'}]} as CismBlockRead['blockData']};};
+    const f=cismFixture('cism-escaped',read);
+    const answer=await f.service.get({reportType:'cism',params:{scope:'week',date:'2040-01-16'}}) as any;
+    expect(answer).toMatchObject({status:'rendered',reportType:'cism',pages:8,escapedCharacters:2,academyWrites:0});
+    expect(f.pc.calls.map(c=>c.blockData)).toEqual([read('2040-01-16').blockData]);
+    expect(JSON.stringify(answer)).not.toMatch(/\u207a|207a|Invented Group/);
   });
 
   test('official_report_cism_month_is_cism_month_unavailable',async()=>{
@@ -281,7 +294,7 @@ describe('academy_official_report_pdf_get report views',()=>{
       const f=viewFixture('view-'+type,()=>viewRaw());
       const answer=await f.service.get({reportType:type,displayName:STUDENT,params:{testingNo:TESTING,classNo:CLASS,limitDate:'2040-01-31'}}) as any;
       const path=resolve(f.root,type+'-'+TESTING+'-20400116T090000Z.pdf');
-      expect(answer).toMatchObject({status:'rendered',reportType:type,outputPath:path,pages:8,pcCleanup:'done',academyWrites:0,execution:'read_only_lms_pc_executor',
+      expect(answer).toMatchObject({status:'rendered',reportType:type,outputPath:path,pages:8,pcCleanup:'done',escapedCharacters:0,academyWrites:0,execution:'read_only_lms_pc_executor',
         student:{studentId:KEY,displayName:STUDENT},testingNo:TESTING,classNo:CLASS});
       expect(f.calls.student).toEqual([{view,displayName:STUDENT,testingNo:TESTING,classNo:CLASS,limitDate:'2040-01-31'}]);
       // The view's JSON as the server answered it, and the keys of the request: testing_no, pri_no, cls_no.
@@ -291,7 +304,7 @@ describe('academy_official_report_pdf_get report views',()=>{
     // new_diag: NewStudentReportView by paper and apply code, no student lookup; p_no and apply_code.
     const h=viewFixture('new-diag',()=>viewRaw(APPLICANT));
     const nd=await h.service.get({reportType:'new_diag',params:{paperNo:PAPER,applyCode:'APP-7'}}) as any;
-    expect(nd).toMatchObject({status:'rendered',reportType:'new_diag',paperNo:PAPER,outputPath:resolve(h.root,'new_diag-'+PAPER+'-20400116T090000Z.pdf')});
+    expect(nd).toMatchObject({status:'rendered',escapedCharacters:0,reportType:'new_diag',paperNo:PAPER,outputPath:resolve(h.root,'new_diag-'+PAPER+'-20400116T090000Z.pdf')});
     expect(nd.student).toBeUndefined();
     expect(h.calls.applicant).toEqual([{paperNo:PAPER,applyCode:'APP-7'}]);
     expect(h.pc.calls[0]).toMatchObject({reportType:'new_diag',keys:{paperNo:PAPER,applyCode:'APP-7'},blockData:viewRaw(APPLICANT)});
@@ -301,7 +314,7 @@ describe('academy_official_report_pdf_get report views',()=>{
     // smart_book: SmartBookReportView by book code; book_code and pri_no.
     const s=viewFixture('smart-book',()=>viewRaw());
     const sb=await s.service.get({reportType:'smart_book',displayName:STUDENT,params:{bookCode:BOOK_CODE}}) as any;
-    expect(sb).toMatchObject({status:'rendered',reportType:'smart_book',bookCode:BOOK_CODE,student:{studentId:KEY,displayName:STUDENT},
+    expect(sb).toMatchObject({status:'rendered',escapedCharacters:0,reportType:'smart_book',bookCode:BOOK_CODE,student:{studentId:KEY,displayName:STUDENT},
       outputPath:resolve(s.root,'smart_book-'+BOOK_CODE+'-20400116T090000Z.pdf')});
     expect(s.calls.book).toEqual([{displayName:STUDENT,bookCode:BOOK_CODE}]);
     expect(s.pc.calls[0]).toMatchObject({reportType:'smart_book',keys:{bookCode:BOOK_CODE,studentKey:KEY},blockData:viewRaw()});
