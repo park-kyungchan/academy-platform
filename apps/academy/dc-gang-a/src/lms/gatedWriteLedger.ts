@@ -38,39 +38,61 @@ export function canonicalJson(value: unknown): string {
 
 export const changeSha256Of = (change: unknown): string => sha256Hex(canonicalJson(change));
 
-export interface ReviewTokenInput {tool: string; change: unknown; studentKey: string; scopeKey: string; wireSha256: string; expiresAt: string}
-/** R2: the SHA-256 of the canonical JSON of the change, the student and scope keys, the wire hash and the expiry. */
+/** The ledger family of the FA and unit-exam tools: records of this tool have no single student (`studentKey` is absent) and keep `targets`. */
+export const EXAM_LEDGER_TOOL = 'academy_exam_paper';
+/**
+ * `studentKey` is the one student of a clinic record; an exam record has none and names its sorted `targets` instead
+ * (the strings `iden!priNo!gradeNo!classNo`, keys only), which enter the canonical token JSON in its place (R2).
+ */
+export interface ReviewTokenInput {tool: string; change: unknown; studentKey?: string; targets?: readonly string[]; scopeKey: string; wireSha256: string; expiresAt: string}
+/** R2: the SHA-256 of the canonical JSON of the change, the student (or target) and scope keys, the wire hash and the expiry. */
 export const reviewTokenOf = (input: ReviewTokenInput): string => sha256Hex(canonicalJson({
-  tool: input.tool, change: input.change, studentKey: input.studentKey, scopeKey: input.scopeKey, wireSha256: input.wireSha256, expiresAt: input.expiresAt}));
+  tool: input.tool, change: input.change, studentKey: input.studentKey, targets: input.targets, scopeKey: input.scopeKey, wireSha256: input.wireSha256, expiresAt: input.expiresAt}));
 
 export type AttemptStep = 'before_write' | 'write_dispatched' | 'response_received' | 'reconciled';
 export type AttemptState = 'open' | 'persisted' | 'partially_persisted' | 'absent';
+/** The three steps of an exam save (specs/academy-mcp/gated-writes.md R8): A stages the items, B saves the paper, C assigns it. */
+export type ExamStep = 'A' | 'B' | 'C';
 export interface ReviewedRecord {
-  kind: 'reviewed'; tool: string; reviewToken: string; changeSha256: string; studentKey: string; scopeKey: string;
+  kind: 'reviewed'; tool: string; reviewToken: string; changeSha256: string; studentKey?: string; targets?: string[]; scopeKey: string;
   wireSha256: string; reviewedAt: string; expiresAt: string;
 }
 export interface AttemptRecord {
-  kind: 'attempt'; attemptId: string; tool: string; reviewToken: string; changeSha256: string; studentKey: string; scopeKey: string;
-  step: AttemptStep; responseSha256?: string; paperKeys?: string[]; state: AttemptState; at: string; runId: string;
+  kind: 'attempt'; attemptId: string; tool: string; reviewToken: string; changeSha256: string; studentKey?: string; targets?: string[]; scopeKey: string;
+  step: AttemptStep; examStep?: ExamStep; testno?: string; responseSha256?: string; paperKeys?: string[]; state: AttemptState; at: string; runId: string;
 }
 export type LedgerRecord = ReviewedRecord | AttemptRecord;
 
 const KEY = /^[1-9][0-9]{0,14}$/;
 const STEPS = new Set<string>(['before_write', 'write_dispatched', 'response_received', 'reconciled']);
 const STATES = new Set<string>(['open', 'persisted', 'partially_persisted', 'absent']);
+const EXAM_STEPS = new Set<string>(['A', 'B', 'C']);
+/** One target of an exam record: `iden!priNo!gradeNo!classNo`, keys only (R16). */
+export const TARGET_STRING = /^[1-3]![1-9][0-9]{0,14}![0-9]{1,15}![0-9]{1,15}$/;
 const text = (v: unknown, max = 200): v is string => typeof v === 'string' && v.length > 0 && v.length <= max;
+/** The student or targets of a record: a clinic record has a numeric `studentKey` and no targets; an exam record has no `studentKey` and 1 to 40 sorted distinct targets. */
+function validSubject(r: Record<string, unknown>): boolean {
+  if (r.tool === EXAM_LEDGER_TOOL) {
+    return r.studentKey === undefined && Array.isArray(r.targets) && r.targets.length >= 1 && r.targets.length <= 40
+      && r.targets.every((t, i, all) => typeof t === 'string' && TARGET_STRING.test(t) && (i === 0 || (all[i - 1] as string) < t));
+  }
+  return typeof r.studentKey === 'string' && KEY.test(r.studentKey) && r.targets === undefined;
+}
 function validRecord(value: unknown): value is LedgerRecord {
   if (value === null || typeof value !== 'object') return false;
   const r = value as Record<string, unknown>;
   if (r.kind === 'reviewed') {
     return text(r.tool) && typeof r.reviewToken === 'string' && SHA256.test(r.reviewToken) && typeof r.changeSha256 === 'string' && SHA256.test(r.changeSha256)
-      && typeof r.studentKey === 'string' && KEY.test(r.studentKey) && text(r.scopeKey) && typeof r.wireSha256 === 'string' && SHA256.test(r.wireSha256)
+      && validSubject(r) && r.examStep === undefined && r.testno === undefined && text(r.scopeKey) && typeof r.wireSha256 === 'string' && SHA256.test(r.wireSha256)
       && text(r.reviewedAt, 40) && text(r.expiresAt, 40);
   }
   if (r.kind === 'attempt') {
+    const exam = r.tool === EXAM_LEDGER_TOOL;
     return text(r.attemptId, 80) && text(r.tool) && typeof r.reviewToken === 'string' && SHA256.test(r.reviewToken) && typeof r.changeSha256 === 'string' && SHA256.test(r.changeSha256)
-      && typeof r.studentKey === 'string' && KEY.test(r.studentKey) && text(r.scopeKey) && typeof r.step === 'string' && STEPS.has(r.step)
+      && validSubject(r) && text(r.scopeKey) && typeof r.step === 'string' && STEPS.has(r.step)
       && typeof r.state === 'string' && STATES.has(r.state) && text(r.at, 40) && text(r.runId, 80)
+      && (exam ? typeof r.examStep === 'string' && EXAM_STEPS.has(r.examStep) && (r.testno === undefined || (typeof r.testno === 'string' && KEY.test(r.testno)))
+        : r.examStep === undefined && r.testno === undefined)
       && (r.responseSha256 === undefined || (typeof r.responseSha256 === 'string' && SHA256.test(r.responseSha256)))
       && (r.paperKeys === undefined || (Array.isArray(r.paperKeys) && r.paperKeys.length <= 200 && r.paperKeys.every(k => typeof k === 'string' && KEY.test(k))));
   }
@@ -83,10 +105,16 @@ export function latestAttempts(records: readonly LedgerRecord[]): Map<string, At
   for (const r of records) if (r.kind === 'attempt') latest.set(r.attemptId, r);
   return latest;
 }
-export function openAttempts(records: readonly LedgerRecord[], where: {tool?: string; studentKey?: string; scopeKey?: string; runId?: string} = {}): AttemptRecord[] {
+/**
+ * `scopePrefix` and `targets` are the exam form of R11: an attempt of the same family (its `scopeKey` starts with the prefix) whose kept
+ * `targets` intersect `targets`, tested on the kept lists and not on hashes.
+ */
+export function openAttempts(records: readonly LedgerRecord[], where: {tool?: string; studentKey?: string; scopeKey?: string; runId?: string; scopePrefix?: string; targets?: readonly string[]} = {}): AttemptRecord[] {
   return [...latestAttempts(records).values()].filter(a => a.state === 'open'
     && (where.tool === undefined || a.tool === where.tool) && (where.studentKey === undefined || a.studentKey === where.studentKey)
-    && (where.scopeKey === undefined || a.scopeKey === where.scopeKey));
+    && (where.scopeKey === undefined || a.scopeKey === where.scopeKey)
+    && (where.scopePrefix === undefined || a.scopeKey.startsWith(where.scopePrefix))
+    && (where.targets === undefined || (a.targets ?? []).some(t => where.targets!.includes(t))));
 }
 /** The steps recorded for one attempt, in the order written. */
 export const stepsOf = (records: readonly LedgerRecord[], attemptId: string): AttemptRecord[] => records.filter((r): r is AttemptRecord => r.kind === 'attempt' && r.attemptId === attemptId);
@@ -97,12 +125,13 @@ export const stepsOf = (records: readonly LedgerRecord[], attemptId: string): At
  * recompute from its record gives `review_token_invalid`; a matching token older than its expiry gives
  * `review_token_expired`.
  */
-export function verifyReviewToken(records: readonly LedgerRecord[], input: {tool: string; token: string; change: unknown; studentKey: string; scopeKey: string; now: number}): ReviewedRecord {
+export function verifyReviewToken(records: readonly LedgerRecord[], input: {tool: string; token: string; change: unknown; studentKey?: string; targets?: readonly string[]; scopeKey: string; now: number}): ReviewedRecord {
   const reviewed = records.find((r): r is ReviewedRecord => r.kind === 'reviewed' && r.reviewToken === input.token);
   if (!reviewed || reviewed.tool !== input.tool) throw new GatedWriteRefusal('review_token_invalid');
   if (records.some(r => r.kind === 'attempt' && r.reviewToken === input.token)) throw new GatedWriteRefusal('review_token_invalid');
-  if (reviewed.changeSha256 !== changeSha256Of(input.change) || reviewed.studentKey !== input.studentKey || reviewed.scopeKey !== input.scopeKey) throw new GatedWriteRefusal('review_token_invalid');
-  const recomputed = reviewTokenOf({tool: reviewed.tool, change: input.change, studentKey: reviewed.studentKey, scopeKey: reviewed.scopeKey, wireSha256: reviewed.wireSha256, expiresAt: reviewed.expiresAt});
+  if (reviewed.changeSha256 !== changeSha256Of(input.change) || reviewed.studentKey !== input.studentKey || reviewed.scopeKey !== input.scopeKey
+    || JSON.stringify(reviewed.targets ?? null) !== JSON.stringify(input.targets ?? null)) throw new GatedWriteRefusal('review_token_invalid');
+  const recomputed = reviewTokenOf({tool: reviewed.tool, change: input.change, studentKey: reviewed.studentKey, targets: reviewed.targets, scopeKey: reviewed.scopeKey, wireSha256: reviewed.wireSha256, expiresAt: reviewed.expiresAt});
   if (recomputed !== input.token) throw new GatedWriteRefusal('review_token_invalid');
   const expires = Date.parse(reviewed.expiresAt);
   if (!Number.isFinite(expires) || input.now > expires) throw new GatedWriteRefusal('review_token_expired');

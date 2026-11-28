@@ -4,6 +4,7 @@ import {TEXTBOOK_CATALOG_PATH,MAX_TEXTBOOK_CATALOG_BYTES,MAX_TEXTBOOK_SAMPLE_BYT
 import {PRESTUDY_PATH,PRESTUDY_SUMMARY_PATH,PRESTUDY_REPORT_PATH,TEXTBOOK_PROGRESS_PATH,PRESTUDY_VIEWS,PrestudyFormDrift,type PrestudyView,parsePrestudySearchForm,parsePrestudyList,parsePrestudySummary,prestudyRowsForStudent,parseTextbookBindings,parsePrestudyDetail,parsePrestudyReport,type PrestudyListRow,type PrestudySummaryRow,type TextbookBinding,type PrestudyReport} from './prestudyRead';
 import {LmsReadRefusal,readBoundedLmsPage,qualifyLmsScheduleInput,lmsScheduleRequestPath,parseLmsSchedule,type LmsScheduleInput,type LmsScheduleRead} from './lmsScheduleRead';
 import {randomInt,createHash} from 'node:crypto';
+import {examRouteClass,examRouteOf} from './lmsRouteRegistry';
 import {createAcademyReadPlan,executeAcademyRead,readLiteralKey,readLiteralName,sourceResponseKey,parseTextbookScopeBinding,type AcademyReadResult,type ScopedAcademyReadPlan} from './academyReadProtocol';
 import {readInputRecord} from '../contracts/readInputRecord';
 import {currentDayRecordColumns} from './dayRecordColumnContract';
@@ -915,6 +916,42 @@ export class AcademyHttpClient {
    * (lmsRouteRegistry.ts testpageSelectExRequestEffect); the caller owns that decision and its ledger. */
   async postTestpageSelectEx(fields:{p_process:string}&Record<string,string>):Promise<string>{
     return this.#historicalPost('/servlet/controller.common.TestpageSelectExServlet',fields,fields.p_process);
+  }
+  /**
+   * One request of the gated FA and unit-exam pair (specs/academy-mcp/gated-writes.md R8, item 7 of the unit): the answer text under the 2 MiB bound.
+   * `expected` is the class the route must have in the exam route lists of lmsRouteRegistry.ts; a route that list does not class so is refused
+   * (`exam_route_class_mismatch`) before any request leaves. A login form, a redirect or a 401/403 closes the session (`authentication_required`).
+   */
+  async #examRequest(expected:'read'|'write',method:'GET'|'POST',path:string,operation:string,init:RequestInit):Promise<string>{
+    const {path:servlet}=examRouteOf(path);
+    if(examRouteClass(method,servlet,operation)!==expected)throw Error('exam_route_class_mismatch');
+    if(!this.#authenticated)throw Error('authentication_required');
+    let html:string;
+    try{html=await readBoundedLmsPage(await this.#request(path,{method,...init},false,'exam_'+operation));}
+    catch(error){
+      if(error instanceof AcademyHttpFailure&&[401,403].includes(error.httpStatus)||error instanceof Error&&['source_redirect_rejected','foreign_source_redirect_rejected','source_redirect_contract_rejected'].includes(error.message)){this.close();throw Error('authentication_required');}
+      throw error instanceof LmsReadRefusal?Error(error.code):error;
+    }
+    if(/<input\b[^>]*\btype\s*=\s*["']?password\b|<form\b[^>]*\bname\s*=\s*["']?loginForm\b/i.test(html)){this.close();throw Error('authentication_required');}
+    return html;
+  }
+  /** One GET of a route the exam lists class read: the AutoModify, CheckMunhang, TestHangServlet Main and Validate requests. */
+  async readExamRoute(path:string):Promise<string>{
+    return this.#examRequest('read','GET',path,examRouteOf(path).operation,{});
+  }
+  /** One POST form of a route the exam lists class read: `getStudentList` of ObjectSelectServlet and `GetPaperNo` of DiagnostManageServlet. */
+  async postExamRead(path:string,fields:Record<string,string>):Promise<string>{
+    return this.#examRequest('read','POST',path,fields.reqCmd??fields.p_process??'',{headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams(fields).toString()});
+  }
+  /** One mutating GET of a route the exam lists class write (the allocating Auto page, SaveMunhang, the assignment Save), called under the ledger lock only. */
+  async writeExamGet(path:string):Promise<string>{
+    return this.#examRequest('write','GET',path,examRouteOf(path).operation,{});
+  }
+  /** The multipart/form-data POST of the exam paper `Save` (a route the exam lists class write), called under the ledger lock only. The boundary is the transport's. */
+  async writeExamMultipart(path:string,members:readonly (readonly [string,string])[]):Promise<string>{
+    const body=new FormData();
+    for(const [name,value] of members)body.append(name,value);
+    return this.#examRequest('write','POST',path,examRouteOf(path).operation,{body});
   }
   /** Direct-key historical index (specs/academy-mcp/direct-key-lookup.md R2-R4): the wrong-answer
    * note of one exact course, book and student, for a book that the live getTextBookProgress

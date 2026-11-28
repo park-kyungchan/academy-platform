@@ -72,6 +72,11 @@ interface SourcePort {
   /** The gated clinic write (specs/academy-mcp/gated-writes.md): one page GET and one `TestpageSelectExServlet` POST form. */
   readClinicWirePage?(path:'/servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookMain'|'/servlet/controller.tutor.fa.TestPageListGrpServlet?p_process=Main'):Promise<string>;
   postTestpageSelectEx?(fields:{p_process:string}&Record<string,string>):Promise<string>;
+  /** The gated FA and unit-exam write (specs/academy-mcp/gated-writes.md): reads of routes classed read, and the mutating requests of the save under the ledger lock. */
+  readExamRoute?(path:string):Promise<string>;
+  postExamRead?(path:string,fields:Record<string,string>):Promise<string>;
+  writeExamGet?(path:string):Promise<string>;
+  writeExamMultipart?(path:string,members:readonly (readonly [string,string])[]):Promise<string>;
   readPrestudyReport?(input:{teacherLabel:string;studentName:string;studentKey:string;prestudyKey:string}):Promise<{sections:unknown[];scores:number[];prestudyKey:string;sourceRecord:{prestudyKey:string;unitLabel:string|null;dateLiteral:string|null};encodingResult:string|null;observedAt:string;coverage:string}>;
   readTextbookBindings?(input:{teacherLabel:string;studentName:string;studentKey:string}):Promise<{courseKey:string;bookNo:string;studentKey:string;bookLabel:string}[]>;
   inspectTextbookIndex?(input:unknown):Promise<{rows:{sourceTitle:string;sourceDate:{literal:string|null;meaning:string};sources?:string[]}[];indexBasis?:string;coverage?:string}>;
@@ -344,6 +349,30 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     if(!this.client.postTestpageSelectEx)throw Error('clinic_source_port_unavailable');
     await this.#authenticate();
     return this.client.postTestpageSelectEx({...fields});
+  }
+  /** One GET of a route classed read of the gated exam write (AutoModify, CheckMunhang, TestHangServlet Main and Validate). */
+  async readExamRoute(path:string):Promise<string>{
+    if(!this.client.readExamRoute)throw Error('exam_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.readExamRoute(path);
+  }
+  /** One POST form of a route classed read of the gated exam write (`getStudentList`, `GetPaperNo`). */
+  async postExamRead(path:string,fields:Record<string,string>):Promise<string>{
+    if(!this.client.postExamRead)throw Error('exam_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.postExamRead(path,{...fields});
+  }
+  /** One mutating GET of the gated exam write (the allocating Auto page, SaveMunhang, the assignment Save): called only inside the save, under the ledger lock. */
+  async writeExamGet(path:string):Promise<string>{
+    if(!this.client.writeExamGet)throw Error('exam_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.writeExamGet(path);
+  }
+  /** The multipart POST of the exam paper save: called only inside the save, under the ledger lock. */
+  async writeExamMultipart(path:string,members:readonly (readonly [string,string])[]):Promise<string>{
+    if(!this.client.writeExamMultipart)throw Error('exam_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.writeExamMultipart(path,members.map(([n,v])=>[n,v] as [string,string]));
   }
   /** AI prestudy report for one exact record of one student. The
    * client binds the detail record to the student key before following

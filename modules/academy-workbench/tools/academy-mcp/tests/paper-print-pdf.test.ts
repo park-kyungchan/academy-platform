@@ -19,7 +19,7 @@ let base:string;
 beforeAll(async()=>{base=await realpath(await mkdtemp(resolve(tmpdir(),'paper-print-')));});
 afterAll(async()=>{await rm(base,{recursive:true,force:true});});
 const now=()=>new Date('2040-01-16T09:00:00.123Z');
-const row=(over:Partial<PaperExamRow>={}):PaperExamRow=>({lectureKey:1234567,selType:'obj',examtextKey:0,patName:'Invented pattern',difficulty:'mid',unitName:'Invented unit',...over});
+const row=(over:Partial<PaperExamRow>={}):PaperExamRow=>({lectureKey:1234567,outerLectureKey:null,selType:'obj',examtextKey:0,patName:'Invented pattern',difficulty:'mid',unitName:'Invented unit',...over});
 const archiveBytes=(key:number)=>Buffer.from('PK\x03\x04 invented archive '+key,'latin1');
 
 interface Seen {input:any;path:string;scratch:{files:Record<string,{sha256:string;mode:number}>;rootMode:number}}
@@ -192,11 +192,13 @@ describe('the LMS read client',()=>{
   test('paper_print_exam_list_rows_are_parsed_and_every_sel_type_is_qualified',()=>{
     expect(paperExamListForm('5001')).toEqual({p_process:'getTestExamList',p_no:'5001',p_option_type:'2'});
     for(const bad of ['0','','x','01','1000000000',5 as never])expect(()=>paperExamListForm(bad)).toThrow('paper_no_invalid');
-    expect(parsePaperExamList(list([{lecture_key:1234567,sel_type:'obj',examtext_key:0,pat_name:'Pattern',difficulty:'3',unit_name:'Unit'},
-      {lecture_key:'8',sel_type:'sbj',examtext_key:'12',pat_name:null},{lecture_key:9,sel_type:'des'}]))).toEqual([
-      {lectureKey:1234567,selType:'obj',examtextKey:0,patName:'Pattern',difficulty:'3',unitName:'Unit'},
-      {lectureKey:8,selType:'sbj',examtextKey:12,patName:'',difficulty:'',unitName:''},
-      {lectureKey:9,selType:'des',examtextKey:0,patName:'',difficulty:'',unitName:''}]);
+    // `outerLectureKey` is the row's `outer_lecture_key` when the member is present, else null (the exam tools of specs/academy-mcp/gated-writes.md read it; the print path ignores it).
+    expect(parsePaperExamList(list([{lecture_key:1234567,outer_lecture_key:100000001,sel_type:'obj',examtext_key:0,pat_name:'Pattern',difficulty:'3',unit_name:'Unit'},
+      {lecture_key:'8',outer_lecture_key:'100000002',sel_type:'sbj',examtext_key:'12',pat_name:null},{lecture_key:9,sel_type:'des'}]))).toEqual([
+      {lectureKey:1234567,outerLectureKey:100000001,selType:'obj',examtextKey:0,patName:'Pattern',difficulty:'3',unitName:'Unit'},
+      {lectureKey:8,outerLectureKey:100000002,selType:'sbj',examtextKey:12,patName:'',difficulty:'',unitName:''},
+      {lectureKey:9,outerLectureKey:null,selType:'des',examtextKey:0,patName:'',difficulty:'',unitName:''}]);
+    for(const outer of [1000000000,-1,1.5,'x','1e3'])expect(()=>parsePaperExamList(list([{lecture_key:1,outer_lecture_key:outer,sel_type:'obj'}]))).toThrow('paper_exam_list_unverified');
     for(const sel of ['1','OBJ','',' obj',null,1,undefined])
       expect(()=>parsePaperExamList(list([{lecture_key:1,sel_type:'obj'},{lecture_key:2,sel_type:sel}]))).toThrow('paper_exam_sel_type_unqualified');
     for(const [text,code] of [['not json','paper_exam_list_unverified'],[list([{lecture_key:1,sel_type:'obj'}],'FAIL'),'paper_exam_list_unverified'],
@@ -228,7 +230,7 @@ describe('the LMS read client',()=>{
       const client=new AcademyHttpClient({teacherLabel:'Fictional Teacher',teacherKey:'90001',collegeKey:'88001'},guard.transport as never);
       await client.authenticate({username:'fictional',password:'fictional'});
       const result=await client.readPaperExamList('5001').then(rows=>({rows}),error=>({error:(error as Error).message}));
-      if(expected==='rows')expect(result).toEqual({rows:[{lectureKey:1234567,selType:'obj',examtextKey:0,patName:'Invented pattern',difficulty:'3',unitName:'Invented unit'}]});
+      if(expected==='rows')expect(result).toEqual({rows:[{lectureKey:1234567,outerLectureKey:null,selType:'obj',examtextKey:0,patName:'Invented pattern',difficulty:'3',unitName:'Invented unit'}]});
       else expect(result).toEqual({error:expected});
       expect(sent).toHaveLength(1);
       expect(sent[0]!.url).toBe('https://dc.gang-a.kr/servlet/controller.common.TestpageSelectExServlet');
@@ -424,15 +426,15 @@ describe('the surface of academy_paper_print_pdf_get',()=>{
     const entry=surface.tools.find(t=>t.name==='academy_paper_print_pdf_get')!;
     expect(entry).toBeDefined();
     expect(bytes(entry)).toBeLessThanOrEqual(795);
-    expect(surface.tools).toHaveLength(20);
-    // The 15 baseline tools are untouched at 18,317 bytes; the 20 tools stay within the running cap of the 2 planned tools that remain.
+    expect(surface.tools).toHaveLength(22);
+    // The 15 baseline tools are untouched at 18,317 bytes; the 22 tools stay within the cap of 24 tools and 24,000 bytes (no planned tool remains).
     expect(bytes(surface.tools.slice(0,15))).toBe(18317);
     // The diag, new_diag and formative report types of academy_official_report_pdf_get (+47 bytes), then ganga,
     // na_score and smart_book (+56 bytes, with a shorter description), then academy_lms_schedule_get (<= 795 bytes),
-    // stay within 20,820 bytes (specs/academy-mcp/lms-reads.md); the two gated clinic tools (<= 793 bytes each) bring the 20 tools to at most 22,406 bytes.
-    expect(bytes(surface.tools)).toBeLessThanOrEqual(22406);
-    expect(bytes(surface.tools)).toBeLessThanOrEqual(24000-795*2);
-    expect(surface.tools.length).toBeLessThanOrEqual(24-2);
+    // stay within 20,820 bytes (specs/academy-mcp/lms-reads.md); the two gated clinic tools (<= 793 bytes each) bring the 20 tools to at most 22,406 bytes,
+    // and the two gated exam tools (<= 1,997 bytes together) bring the 22 tools to at most 24,000 bytes.
+    expect(bytes(surface.tools)).toBeLessThanOrEqual(24000);
+    expect(surface.tools.length).toBeLessThanOrEqual(24);
     expect(Object.keys(entry.inputSchema.properties)).toEqual(['mode','paperNo','paperKeys','selType','includeAnswers','includeExplain','outputPath']);
     expect(entry.inputSchema.required).toEqual(['mode']);
     expect(entry.inputSchema.properties.mode.enum).toEqual(['exam','examtext','clinic']);

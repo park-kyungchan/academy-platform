@@ -289,10 +289,10 @@ describe('gated writes R3 to R7: refusals before any request',()=>{
         ['missing member',c=>{const {advance:_a,...rest}=c;return rest;}],
       ];
       for(const [label,change] of members)await refuse('change differs: '+label,h.approve(review,{change:change(review.change)}));
-      // A token of the other tool family is not accepted: write a reviewed record of the exam family and use it.
-      const foreignChange=review.change,foreignExpires=new Date(T0+60000).toISOString();
-      const foreignToken=reviewTokenOf({tool:'academy_exam_paper',change:foreignChange,studentKey:STUDENT,scopeKey:SAVE_SCOPE_CLINIC,wireSha256:pageHashes().clinic,expiresAt:foreignExpires});
-      new GatedWriteLedger(s.ledger).append({kind:'reviewed',tool:'academy_exam_paper',reviewToken:foreignToken,changeSha256:changeSha256Of(foreignChange),studentKey:STUDENT,scopeKey:SAVE_SCOPE_CLINIC,
+      // A token of the other tool family is not accepted: write a reviewed record of the exam family (it names targets, never a student) and use it.
+      const foreignChange=review.change,foreignExpires=new Date(T0+60000).toISOString(),foreignTargets=['1!'+STUDENT+'!2!31'],foreignScope='fa:'+'c'.repeat(64);
+      const foreignToken=reviewTokenOf({tool:'academy_exam_paper',change:foreignChange,targets:foreignTargets,scopeKey:foreignScope,wireSha256:pageHashes().clinic,expiresAt:foreignExpires});
+      new GatedWriteLedger(s.ledger).append({kind:'reviewed',tool:'academy_exam_paper',reviewToken:foreignToken,changeSha256:changeSha256Of(foreignChange),targets:foreignTargets,scopeKey:foreignScope,
         wireSha256:pageHashes().clinic,reviewedAt:new Date(T0).toISOString(),expiresAt:foreignExpires});
       await refuse('token of the other tool',h.approve({reviewToken:foreignToken,change:foreignChange}));
       expect(h.lms.requests).toEqual([]);
@@ -795,6 +795,31 @@ describe('gated writes: the audited endpoint and the bridge',()=>{
       expect(blocked.structuredContent).toMatchObject({status:'refused',code:'reconcile_blocks_retry'});
     });
   },60000);
+  test('gated_writes_bridge_a_saved_exam_records_academy_writes_4_and_a_dropped_assignment_records_an_unknown_effect',async()=>{
+    const exam=(extra:Record<string,unknown>={})=>({family:'fa',testName:'Invented FA 1',testgubunNo:1180,items:[{key:'100000001',type:'obj'},{key:'100000002',type:'sbj'}],
+      targets:[{studentName:'Invented Alpha',studentKey:'77001'}],start:'2040-01-16T09:00',end:'2040-01-16T10:30',testingMinutes:60,...extra});
+    await bridge(async({base,client})=>{
+      const tools=(await client.listTools()).tools.map(t=>t.name);
+      expect(tools).toContain('academy_exam_paper_review');expect(tools).toContain('academy_exam_paper_save');
+      const review:any=await client.callTool({name:'academy_exam_paper_review',arguments:exam()});
+      expect(review.structuredContent).toMatchObject({status:'reviewed',academyWrites:0,change:{steps:'ABC'}});
+      const saveOf=(r:any)=>({name:'academy_exam_paper_save',arguments:{reviewToken:r.structuredContent.reviewToken,userApproved:true,change:r.structuredContent.change}});
+      const saved:any=await client.callTool(saveOf(review));
+      expect(saved.structuredContent).toMatchObject({status:'saved',academyWrites:4,effectStatus:'persisted'});
+      const done=await receipts(base);
+      expect(done.filter(r=>r.name.endsWith('-result.json')&&r.value.tool==='academy_exam_paper_save').map(r=>r.value.academyWrites)).toEqual([4]);
+      expect(done.filter(r=>r.name.endsWith('-result.json')&&r.value.tool==='academy_exam_paper_review').map(r=>r.value.academyWrites)).toEqual([0]);
+      // The attempt ledger of the first process serves the next one: its token is used.
+      expect((await client.callTool(saveOf(review)) as any).structuredContent).toMatchObject({status:'refused',code:'review_token_invalid'});
+      // A write request that fails after it was dispatched is an unknown effect, never a retry.
+      await writeFile(resolve(base,'inject-hang-throw'),'on');
+      const second:any=await client.callTool({name:'academy_exam_paper_review',arguments:exam({testName:'Invented FA 2',targets:[{studentName:'Invented Beta',studentKey:'77002'}]})});
+      expect(second.structuredContent).toMatchObject({status:'reviewed'});
+      const crashed:any=await client.callTool(saveOf(second));
+      expect(crashed.structuredContent).toMatchObject({status:'blocked',academyWrites:null,effectStatus:'unknown',automaticRetryAllowed:false});
+      expect(crashed.structuredContent.code).not.toBe('review_token_invalid');
+    });
+  },60000);
   test('gated_writes_r9_a_held_account_lock_ends_each_call_with_owner_account_busy_and_sends_no_request',async()=>{
     // Through the bridge: the endpoint is launched as `flock --wait 0 --conflict-exit-code 75 <lock> …` while the lock is held.
     let holder:ReturnType<typeof Bun.spawn>|undefined;
@@ -831,12 +856,11 @@ describe('gated writes: the tool surface, the exposure manifest and the lesson-d
     expect(review.inputSchema.required).toEqual(['kind','studentKey']);
     expect(Object.keys(save.inputSchema.properties)).toEqual(['reviewToken','userApproved','change']);
     expect(save.inputSchema.required).toEqual(['reviewToken','userApproved','change']);
-    expect(surface.tools).toHaveLength(20);
+    expect(surface.tools).toHaveLength(22);
     expect(bytes(surface.tools.slice(0,15))).toBe(18317);
-    expect(bytes(surface.tools)).toBeLessThanOrEqual(22406);
-    expect(bytes(surface.tools)).toBeLessThanOrEqual(24000-795*2);
+    expect(bytes(surface.tools)).toBeLessThanOrEqual(24000);
     expect(newSurfaceTools).toContain('academy_clinic_paper_review');expect(newSurfaceTools).toContain('academy_clinic_paper_save');
-    expect(surfaceOrder.slice(-2)).toEqual(['academy_clinic_paper_review','academy_clinic_paper_save']);
+    expect(surfaceOrder.slice(-4)).toEqual(['academy_clinic_paper_review','academy_clinic_paper_save','academy_exam_paper_review','academy_exam_paper_save']);
     expect(keptTools.map(t=>t.name)).toEqual(expect.arrayContaining(['academy_clinic_paper_review','academy_clinic_paper_save']));
   });
   test('gated_writes_manifest_and_registration_class_the_save_as_a_gated_write_and_the_review_as_a_read',()=>{
@@ -844,8 +868,12 @@ describe('gated writes: the tool surface, the exposure manifest and the lesson-d
     expect(manifest.tools.find(t=>t.name==='academy_clinic_paper_review')).toEqual({name:'academy_clinic_paper_review',class:'read',exposure:'open'});
     expect(manifest.tools.find(t=>t.name==='academy_clinic_paper_save')).toEqual({name:'academy_clinic_paper_save',class:'write',exposure:'gated_save_admission'});
     const source=(file:string)=>readFileSync(resolve(root,'src',file),'utf8');
-    expect(source('neutral-server.ts')).toContain("['academy_dailyrecord_save','academy_cism_weekly_save','academy_clinic_paper_save'].includes(entry.upstreamName)");
-    expect(source('neutral-server.ts')).toContain("entry.upstreamName==='academy_clinic_paper_save')saveIssued=true");
+    expect(source('neutral-server.ts')).toContain("['academy_dailyrecord_save','academy_cism_weekly_save','academy_clinic_paper_save','academy_exam_paper_save'].includes(entry.upstreamName)");
+    expect(source('neutral-server.ts')).toContain("entry.upstreamName==='academy_clinic_paper_save'||entry.upstreamName==='academy_exam_paper_save')saveIssued=true");
+    expect(manifest.tools.find(t=>t.name==='academy_exam_paper_review')).toEqual({name:'academy_exam_paper_review',class:'read',exposure:'open'});
+    expect(manifest.tools.find(t=>t.name==='academy_exam_paper_save')).toEqual({name:'academy_exam_paper_save',class:'write',exposure:'gated_save_admission'});
+    expect(source('exam-write-tools.ts')).toMatch(/academy_exam_paper_save[\s\S]{0,900}readOnlyHint:false/);
+    expect(source('exam-write-tools.ts')).toMatch(/academy_exam_paper_review[\s\S]{0,900}readOnlyHint:true/);
     // tool-audit marks every tool whose annotations are not readOnlyHint true as a possible write.
     expect(source('tool-audit.ts')).toContain("config.annotations?.readOnlyHint!==true)writes.add(name)");
     expect(source('clinic-write-tools.ts')).toMatch(/academy_clinic_paper_save[\s\S]{0,900}readOnlyHint:false/);
@@ -858,7 +886,9 @@ describe('gated writes: the tool surface, the exposure manifest and the lesson-d
     expect(skill).toMatch(/manual|by hand|teacher inspect/i);
   });
   test('gated_writes_spec_tests_lines_name_tests_that_exist',()=>{
-    const spec=readFileSync(resolve(repo,'specs/academy-mcp/gated-writes.md'),'utf8'),source=readFileSync(import.meta.path,'utf8');
+    // The tests of the clinic pair are in this file, those of the exam pair in tests/exam-paper-writes.test.ts and tests/exam-write-client.test.ts.
+    const spec=readFileSync(resolve(repo,'specs/academy-mcp/gated-writes.md'),'utf8');
+    const source=['gated-writes.test.ts','exam-paper-writes.test.ts','exam-write-client.test.ts'].map(f=>readFileSync(resolve(import.meta.dir,f),'utf8')).join('\n');
     const rules=spec.split('\n').filter(l=>/^- R\d+:/.test(l));
     expect(rules.map(l=>l.match(/^- (R\d+):/)![1])).toEqual(Array.from({length:16},(_,i)=>'R'+(i+1)));
     for(const line of rules){

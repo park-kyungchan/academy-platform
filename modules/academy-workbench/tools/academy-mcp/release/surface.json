@@ -965,6 +965,84 @@
      "change"
     ]
    }
+  },
+  {
+   "name": "academy_exam_paper_review",
+   "title": "시험지 출제·배정 검토",
+   "description": "Read-only review of an FA (fa: sourcePaperNo or items {key,type obj|sbj|des}) or unit-exam (da: courseNo) paper for named students (targets {studentName,studentKey}, start/end YYYY-MM-DDTHH:MM). Answers change, preview, reviewToken.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "family": {
+      "type": "string",
+      "enum": [
+       "fa",
+       "da"
+      ]
+     },
+     "testName": {
+      "type": "string"
+     },
+     "testgubunNo": {
+      "type": "integer"
+     },
+     "sourcePaperNo": {
+      "type": "string"
+     },
+     "items": {
+      "type": "array"
+     },
+     "courseNo": {
+      "type": "integer"
+     },
+     "targets": {
+      "type": "array"
+     },
+     "start": {
+      "type": "string"
+     },
+     "end": {
+      "type": "string"
+     },
+     "testingMinutes": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "family",
+     "testName",
+     "testgubunNo",
+     "targets",
+     "start",
+     "end",
+     "testingMinutes"
+    ]
+   }
+  },
+  {
+   "name": "academy_exam_paper_save",
+   "title": "시험지 출제·배정 저장(LMS 쓰기)",
+   "description": "Creates and assigns the reviewed exam once, only after the teacher approves: reviewToken, userApproved true, the reviewed change. saved after readback, else unverified: no retry.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "reviewToken": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+     },
+     "userApproved": {
+      "type": "boolean"
+     },
+     "change": {
+      "type": "object"
+     }
+    },
+    "required": [
+     "reviewToken",
+     "userApproved",
+     "change"
+    ]
+   }
   }
  ]
 }

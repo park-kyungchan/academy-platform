@@ -175,6 +175,13 @@ export const keptTools:readonly {name:string;title:string;description:string;inp
  {name:'academy_clinic_paper_save',title:'오답·클리닉지 저장(LMS 쓰기)',
   description:"Creates the reviewed paper once, only after the teacher approves: reviewToken, userApproved true, the reviewed change. saved after readback, else unverified: no retry.",
   inputSchema:schema({reviewToken:sha,userApproved:bool,change:obj},['reviewToken','userApproved','change'])},
+ // The sixth and seventh new tools: the two phases of the gated FA and unit-exam creation and assignment (specs/academy-mcp/gated-writes.md).
+ {name:'academy_exam_paper_review',title:'시험지 출제·배정 검토',
+  description:"Read-only review of an FA (fa: sourcePaperNo or items {key,type obj|sbj|des}) or unit-exam (da: courseNo) paper for named students (targets {studentName,studentKey}, start/end YYYY-MM-DDTHH:MM). Answers change, preview, reviewToken.",
+  inputSchema:schema({family:oneOf('fa','da'),testName:str,testgubunNo:int,sourcePaperNo:str,items:arr,courseNo:int,targets:arr,start:str,end:str,testingMinutes:int},['family','testName','testgubunNo','targets','start','end','testingMinutes'])},
+ {name:'academy_exam_paper_save',title:'시험지 출제·배정 저장(LMS 쓰기)',
+  description:"Creates and assigns the reviewed exam once, only after the teacher approves: reviewToken, userApproved true, the reviewed change. saved after readback, else unverified: no retry.",
+  inputSchema:schema({reviewToken:sha,userApproved:bool,change:obj},['reviewToken','userApproved','change'])},
 ];
 
 /** Surface order: runtime, DailyRecord, student, DailyTest and paper, textbook, items and clinic, prestudy, CISM; then the new tools. */
@@ -182,7 +189,7 @@ export const baselineSurfaceOrder=['academy_runtime_inspect','academy_dailyrecor
  'academy_dailytest_history','academy_paper_inspect','academy_textbook_section_results_get','academy_clinic_paper_status_get','academy_item_lookup',
  'academy_textbook_catalog_get','academy_prestudy_get','academy_cism_get','academy_cism_weekly_review','academy_cism_weekly_save'] as const;
 /** The new tools of Waves 3 to 5 already built (specs/academy-mcp/tool-surface.md R2). */
-export const newSurfaceTools=['academy_official_report_pdf_get','academy_paper_print_pdf_get','academy_lms_schedule_get','academy_clinic_paper_review','academy_clinic_paper_save'] as const;
+export const newSurfaceTools=['academy_official_report_pdf_get','academy_paper_print_pdf_get','academy_lms_schedule_get','academy_clinic_paper_review','academy_clinic_paper_save','academy_exam_paper_review','academy_exam_paper_save'] as const;
 export const surfaceOrder=[...baselineSurfaceOrder,...newSurfaceTools] as const;
 
 /** `release/surface.json` as built from this module. */

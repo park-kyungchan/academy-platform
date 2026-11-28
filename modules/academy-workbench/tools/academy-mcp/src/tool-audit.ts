@@ -6,7 +6,7 @@ import {z} from 'zod';
 import {publicReadFailure,publicFailureFromData} from './read-failure.ts';
 import {toolResult,withToolMeta} from './tool-result.ts';
 const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)??'null').digest('hex');
-const statuses=new Set(['observed','resolved','configured','ready_for_review','prepared','reviewed','saved','persisted','held','unavailable','failed','blocked','interview_required','settled','partial','page','refused','available','plan_only','unverified','consistent_caller_reported','ready']);
+const statuses=new Set(['observed','resolved','configured','ready_for_review','prepared','reviewed','saved','persisted','partially_persisted','held','unavailable','failed','blocked','interview_required','settled','partial','page','refused','available','plan_only','unverified','consistent_caller_reported','ready']);
 /** Paths contain only declared schema keys and bounded numeric indices, never caller property names. A custom issue also names its refusal `code` when the schema's own message is one (a snake_case code, never caller text). */
 export function inputIssues(schema:z.ZodType,input:unknown){
  const parsed=schema.safeParse(input);if(parsed.success)return [];

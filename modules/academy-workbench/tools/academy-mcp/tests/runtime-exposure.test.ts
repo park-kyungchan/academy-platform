@@ -32,7 +32,7 @@ describe('runtime exposure manifest (P2)', () => {
   });
   test('reads are open and exact reviewed source writes stay gated', () => {
     for (const t of manifest.tools) {
-      if (['academy_dailyrecord_save','academy_cism_weekly_save','academy_clinic_paper_save'].includes(t.name)) {
+      if (['academy_dailyrecord_save','academy_cism_weekly_save','academy_clinic_paper_save','academy_exam_paper_save'].includes(t.name)) {
         expect(t.class).toBe('write');
         expect(t.exposure).toBe('gated_save_admission');
         continue;

@@ -607,10 +607,10 @@ describe('lms-reads: the tool surface and the lesson-day skill',()=>{
     expect(entry).toBeDefined();
     expect(bytes(entry)).toBeLessThanOrEqual(795);
     expect(bytes(entry.title)+bytes(entry.description)).toBeLessThanOrEqual(254);
-    // The 15 baseline tools stay untouched and the 20 tools stay within 22,406 bytes (specs/academy-mcp/tool-surface.md R2; the gated clinic tools are the 19th and 20th).
-    expect(surface.tools).toHaveLength(20);
+    // The 15 baseline tools stay untouched and the 22 tools stay within 24,000 bytes (specs/academy-mcp/tool-surface.md R2; the gated clinic and exam tools are the 19th to 22nd).
+    expect(surface.tools).toHaveLength(22);
     expect(bytes(surface.tools.slice(0,15))).toBe(18317);
-    expect(bytes(surface.tools)).toBeLessThanOrEqual(22406);
+    expect(bytes(surface.tools)).toBeLessThanOrEqual(24000);
     for(const text of ['attendance','study_schedule','course_study_manager','YYYY-MM-DD','31','same month','Read-only'])expect({text,found:entry.description.includes(text)}).toEqual({text,found:true});
     expect(entry.inputSchema.properties.view.enum).toEqual(['attendance','study_schedule','course_study_manager']);
     expect(entry.inputSchema.required).toEqual(['view']);

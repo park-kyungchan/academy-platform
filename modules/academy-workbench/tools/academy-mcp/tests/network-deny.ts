@@ -65,7 +65,15 @@ const routeRoles:Readonly<Record<string,Readonly<Record<string,LmsRequestRole>>>
  [servlet+'tutor.fa.TestPageListServlet']:{PupilSearch:'read'},
  [servlet+'tutor.na.TestPageListServlet']:{PupilSearch:'read'},
  [servlet+'tutor.fa.TestPageListGrpServlet']:{Main:'read'},
- [servlet+'tutor.diag.DiagnostManageServlet']:{TestPaperList:'read',TestResultList:'read'},
+ [servlet+'tutor.diag.DiagnostManageServlet']:{TestPaperList:'read',TestResultList:'read',GetPaperNo:'read'},
+ // The gated FA and unit-exam write (specs/academy-mcp/gated-writes.md "Request classes"; lmsRouteRegistry.ts EXAM_READ_ROUTES and EXAM_WRITE_ROUTES):
+ // an override of the standalone lists for the fixture. `Auto` allocates a paper number, so it is write although it is a GET.
+ [servlet+'tutor.fa.TestPageRegServlet']:{Auto:'write',CheckMunhang:'read',AutoModify:'read',Save:'write'},
+ [servlet+'tutor.da.TestPageRegServlet']:{Auto:'write',CheckMunhang:'read',AutoModify:'read',Save:'write'},
+ [servlet+'tutor.fa.TestHangServlet']:{Main:'read',Validate:'read',Save:'write'},
+ [servlet+'tutor.da.TestHangServlet']:{Main:'read',Validate:'read',Save:'write'},
+ [servlet+'common.TestpageSelectServlet']:{SaveMunhang:'write'},
+ [servlet+'common.ObjectSelectServlet']:{getStudentList:'read'},
  [servlet+'tutor.etest.TestPoolServlet']:{SaveTestPool:'write',SaveLectureUseLog:'write'},
  [servlet+'tutor.na.TestPageRegServlet']:{NonePaper:'write'},
  '/common/etest_pool.jsp':{'':'write'},
