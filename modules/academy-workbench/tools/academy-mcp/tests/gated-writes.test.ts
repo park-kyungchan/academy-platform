@@ -31,11 +31,11 @@ async function scratch(){
   const dir=await mkdtemp(join(tmpdir(),'gated-writes-'));await chmod(dir,0o700);
   return {dir,ledger:join(dir,'ledger.jsonl'),cleanup:()=>rm(dir,{recursive:true,force:true})};
 }
-function harness(ledger:string|null,options:{lms?:FixtureLms;hashes?:boolean;pidAlive?:(pid:number)=>boolean}={}){
+function harness(ledger:string|null,options:{lms?:FixtureLms;hashes?:boolean;pidAlive?:(pid:number)=>boolean;evidenceRoot?:string}={}){
   const lms=options.lms??fixtureLms(),clock={t:T0};
   let n=0;
   const service=new ClinicPaperService(fixturePort(lms),ledger,{now:()=>clock.t,newId:()=>'id-'+(++n),pidAlive:options.pidAlive,
-    ...(options.hashes===false?{}:{expectedWireHashes:pageHashes()})});
+    ...(options.hashes===false?{}:{expectedWireHashes:pageHashes()}),...(options.evidenceRoot===undefined?{}:{evidenceRoot:options.evidenceRoot})});
   const records=()=>existsSync(ledger??'/nonexistent')?readFileSync(ledger!,'utf8').split('\n').filter(Boolean).map(l=>JSON.parse(l)):[];
   return {lms,clock,service,records,
     attempts:()=>records().filter((r:any)=>r.kind==='attempt') as AttemptRecord[],
@@ -442,13 +442,13 @@ describe('gated writes R8, R14: the save and its readback',()=>{
     const s=await scratch();
     try{
       const answers:[string,(lms:FixtureLms)=>void,string,string][]=[
-        ['empty print_list',lms=>{lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:[]});},'clinic_response_unverified','write_dispatched'],
-        ['missing print_list',lms=>{lms.state.writeAnswer=()=>JSON.stringify({result:'OK'});},'clinic_response_unverified','write_dispatched'],
-        ['result not OK',lms=>{lms.state.writeAnswer=()=>JSON.stringify({result:'FAIL',print_list:[{exam_list:[{exam_no:1}]}]});},'clinic_response_unverified','write_dispatched'],
-        ['paper without exam items',lms=>{lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:[{p_no:1,exam_list:[]}]});},'clinic_response_unverified','write_dispatched'],
-        ['exam item without a key',lms=>{lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:[{p_no:1,exam_list:[{lecture_key:1}]}]});},'clinic_response_unverified','write_dispatched'],
-        ['another student paper',lms=>{lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:[{pri_no:78888,exam_list:[{exam_no:1}]}]});},'clinic_response_unverified','write_dispatched'],
-        ['not json',lms=>{lms.state.writeAnswer=()=>'<html>error</html>';},'clinic_response_unverified','write_dispatched'],
+        ['empty print_list',lms=>{lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:[]});},'clinic_response_unverified','response_unparsed'],
+        ['missing print_list',lms=>{lms.state.writeAnswer=()=>JSON.stringify({result:'OK'});},'clinic_response_unverified','response_unparsed'],
+        ['result not OK',lms=>{lms.state.writeAnswer=()=>JSON.stringify({result:'FAIL',print_list:[{exam_list:[{exam_no:1}]}]});},'clinic_response_unverified','response_unparsed'],
+        ['paper without exam items',lms=>{lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:[{p_no:1,exam_list:[]}]});},'clinic_response_unverified','response_unparsed'],
+        ['exam item without a key',lms=>{lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:[{p_no:1,exam_list:[{lecture_key:1}]}]});},'clinic_response_unverified','response_unparsed'],
+        ['another student paper',lms=>{lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:[{pri_no:78888,exam_list:[{exam_no:1}]}]});},'clinic_response_unverified','response_unparsed'],
+        ['not json',lms=>{lms.state.writeAnswer=()=>'<html>error</html>';},'clinic_response_unverified','response_unparsed'],
         ['readback refused',lms=>{lms.state.scoreAnswer=()=>new Response('denied',{status:403});},'clinic_readback_unverified','response_received'],
         ['readback without papers',lms=>{lms.state.scoreAnswer=()=>JSON.stringify({result:'OK',print_list:[]});},'clinic_readback_unverified','response_received'],
         ['readback result not OK',lms=>{lms.state.scoreAnswer=()=>JSON.stringify({result:'FAIL'});},'clinic_readback_unverified','response_received'],
@@ -459,6 +459,11 @@ describe('gated writes R8, R14: the save and its readback',()=>{
         expect({label,status:out.status,code:out.code,writes:h.lms.writes().length}).toEqual({label,status:'unverified',code,writes:1});
         expect(out).toMatchObject({academyWrites:null,effectStatus:'unknown'});
         expect(h.attempts().at(-1)).toMatchObject({step,state:'open'});
+        if(code==='clinic_response_unverified'){
+          // The unparsed answer is named by its hash; with no evidence root the save writes no file and says so.
+          expect(out.responseSha256).toMatch(/^[a-f0-9]{64}$/);expect(out.evidence).toBe('unavailable');
+          expect(h.attempts().at(-1)!.responseSha256).toBe(out.responseSha256);
+        }else{expect(out.responseSha256).toBeUndefined();expect(out.evidence).toBeUndefined();}
         // No further write is sent by this call, and a second save of the same target is blocked until a review reconciles it.
         expect(h.lms.writes()).toHaveLength(1);
         const second:any=await h.service.review(clinicInput());
@@ -480,6 +485,88 @@ describe('gated writes R8, R14: the save and its readback',()=>{
       expect(stepsOf(h)).toEqual(['before_write:open','write_dispatched:open']);
       expect(h.lms.writes()).toHaveLength(1);
       expect(existsSync(s.ledger+'.lock')).toBe(false);
+    }finally{await s.cleanup();}
+  });
+});
+
+// ---- R14: an unparsed write answer is kept as private evidence --------------------------------------------
+describe('gated writes R14: an unparsed write answer is kept as private evidence',()=>{
+  async function evidenceDir(){const dir=await mkdtemp(join(tmpdir(),'gated-writes-evidence-'));await chmod(dir,0o700);return dir;}
+  // An answer that is not UTF-8 (two EUC-KR bytes) under its own Content-Type: the file keeps the bytes as they came.
+  const RAW=new Uint8Array([...new TextEncoder().encode('<html><body>'),0xb0,0xa1,...new TextEncoder().encode('</body></html>')]);
+  const CONTENT_TYPE='text/html; charset=EUC-KR';
+  const unparsed=(lms:FixtureLms)=>{lms.state.writeAnswer=()=>new Response(RAW,{headers:{'Content-Type':CONTENT_TYPE}});};
+  const sha=(bytes:Uint8Array)=>new Bun.CryptoHasher('sha256').update(bytes).digest('hex');
+  test('clinic_save_unparsed_answer_is_kept_as_private_evidence',async()=>{
+    const s=await scratch(),dir=await evidenceDir();
+    try{
+      // A parsed answer: saved exactly as before, no file and no evidence member.
+      const ok=harness(s.ledger,{evidenceRoot:dir}),saved=await ok.saved(clinicInput());
+      expect(saved.out).toMatchObject({status:'saved',academyWrites:1});
+      expect(saved.out.evidence).toBeUndefined();expect(saved.out.responseSha256).toBeUndefined();
+      expect(await readdir(dir)).toEqual([]);
+      const parsedSig=sig(ok.lms);
+      // The same save answered by text the parser cannot read.
+      await rm(s.ledger,{force:true});
+      const h=harness(s.ledger,{evidenceRoot:dir});unparsed(h.lms);
+      const {out}=await h.saved(clinicInput());
+      expect(out).toMatchObject({status:'unverified',code:'clinic_response_unverified',academyWrites:null,effectStatus:'unknown',evidence:'kept',responseSha256:sha(RAW)});
+      // Every request is that of the parsed save up to its write, in the same order, routes and bodies; as before, an unverified
+      // answer sends no readback, no retry and no second write.
+      expect(sig(h.lms)).toEqual(parsedSig.slice(0,-1));
+      expect(h.lms.requests.map(r=>r.body)).toEqual(ok.lms.requests.slice(0,-1).map(r=>r.body));
+      expect(h.lms.writes()).toHaveLength(1);
+      // One 0600 file named by the attempt, holding the raw answer.
+      const attemptId=out.attemptId as string;
+      expect(await readdir(dir)).toEqual([attemptId+'.json']);
+      const file=join(dir,attemptId+'.json');
+      expect(statSync(file).mode&0o777).toBe(0o600);expect(statSync(dir).mode&0o777).toBe(0o700);
+      const kept=JSON.parse(readFileSync(file,'utf8'));
+      expect(Object.keys(kept).sort()).toEqual(['attemptId','contentType','rawBodyBase64','scopeKey','sha256']);
+      expect(kept).toMatchObject({attemptId,scopeKey:SAVE_SCOPE_CLINIC,contentType:CONTENT_TYPE,sha256:sha(RAW)});
+      expect(new Uint8Array(Buffer.from(kept.rawBodyBase64,'base64'))).toEqual(RAW);
+      // The ledger keeps the step and the hash only; the attempt stays open and the review refuses a retry (R12).
+      expect(stepsOf(h)).toEqual(['before_write:open','write_dispatched:open','response_unparsed:open']);
+      const last=h.attempts().at(-1)!;
+      expect(last.responseSha256).toBe(sha(RAW));
+      expect(Object.keys(last).sort()).toEqual(['at','attemptId','changeSha256','kind','responseSha256','reviewToken','runId','scopeKey','state','step','studentKey','tool']);
+      expect(readFileSync(s.ledger,'utf8')).not.toContain(kept.rawBodyBase64);
+      expect(JSON.stringify(out)).not.toContain(kept.rawBodyBase64);
+      const again:any=await h.service.review(clinicInput());
+      expect(again).toMatchObject({status:'refused',code:'reconcile_blocks_retry'});
+      expect(h.lms.writes()).toHaveLength(1);
+    }finally{await s.cleanup();await rm(dir,{recursive:true,force:true});}
+  });
+  test('clinic_save_unparsed_answer_without_usable_evidence_root_answers_evidence_unavailable',async()=>{
+    const s=await scratch(),dir=await evidenceDir(),target=await evidenceDir();
+    try{
+      const loose=join(dir,'loose');await mkdir(loose,{mode:0o755});await chmod(loose,0o755);
+      const link=join(dir,'link');await symlink(target,link);
+      const taken=join(dir,'taken');await mkdir(taken,{mode:0o700});await chmod(taken,0o700);await writeFile(join(taken,'id-3.json'),'',{mode:0o600});
+      const cases:[string,string|null|undefined][]=[['unset',undefined],['null',null],['relative','clinic-write/http-ack'],['group and others may read',loose],['symlink',link],['file already there',taken]];
+      for(const [label,root] of cases){
+        await rm(s.ledger,{force:true});
+        const h=harness(s.ledger,root===undefined?{}:{evidenceRoot:root as string});unparsed(h.lms);
+        const {out}=await h.saved(clinicInput());
+        // The status and the attempt's state are those of a kept answer; only the evidence member differs.
+        expect({label,status:out.status,code:out.code,evidence:out.evidence,responseSha256:out.responseSha256}).toEqual({label,status:'unverified',code:'clinic_response_unverified',evidence:'unavailable',responseSha256:sha(RAW)});
+        expect({label,steps:stepsOf(h)}).toEqual({label,steps:['before_write:open','write_dispatched:open','response_unparsed:open']});
+        expect(h.lms.writes()).toHaveLength(1);
+        expect(out.attemptId).toBe('id-3');
+      }
+      expect(await readdir(loose)).toEqual([]);expect(await readdir(target)).toEqual([]);
+      expect(await readdir(taken)).toEqual(['id-3.json']);expect(readFileSync(join(taken,'id-3.json'),'utf8')).toBe('');
+      expect(existsSync(resolve('clinic-write'))).toBe(false);
+    }finally{await s.cleanup();await rm(dir,{recursive:true,force:true});await rm(target,{recursive:true,force:true});}
+  });
+  test('gated_writes_ledger_accepts_and_reads_back_response_unparsed',async()=>{
+    const s=await scratch();
+    try{
+      const record:AttemptRecord={kind:'attempt',attemptId:'unparsed-1',tool:CLINIC_TOOL_FAMILY,reviewToken:'1'.repeat(64),changeSha256:'2'.repeat(64),studentKey:STUDENT,
+        scopeKey:SAVE_SCOPE_CLINIC,step:'response_unparsed',responseSha256:'3'.repeat(64),state:'open',at:new Date(T0).toISOString(),runId:'run-1'};
+      const ledger=new GatedWriteLedger(s.ledger);ledger.assertAvailable();ledger.append(record);
+      // A separate reader of the file accepts the step and returns the record unchanged.
+      expect(new GatedWriteLedger(s.ledger).read()).toEqual([record]);
     }finally{await s.cleanup();}
   });
 });
@@ -741,11 +828,11 @@ describe('gated writes R12, R13: the review reconciles an unresolved attempt by 
     const s=await scratch();
     try{
       for(const [kind,input,scope] of kinds){
-        for(const [label,step,readbackFails] of [['write_dispatched',  'write_dispatched',false],['before_write, readback refused','before_write',true],['response_received, readback refused','response_received',true]] as const){
+        for(const [label,step,readbackFails] of [['write_dispatched',  'write_dispatched',false],['response_unparsed','response_unparsed',false],['before_write, readback refused','before_write',true],['response_received, readback refused','response_received',true]] as const){
           const lms=fixtureLms();lms.state.allowWrite=false;
           if(readbackFails){lms.state.scoreAnswer=()=>new Response('denied',{status:403});lms.state.noteAnswer=()=>new Response('denied',{status:403});}
           const h=harness(s.ledger,{lms});
-          new GatedWriteLedger(s.ledger).append(attempt(scope,step,step==='response_received'?{responseSha256:'3'.repeat(64)}:{}));
+          new GatedWriteLedger(s.ledger).append(attempt(scope,step,step==='response_received'||step==='response_unparsed'?{responseSha256:'3'.repeat(64)}:{}));
           const out:any=await h.service.review(input);
           expect({kind,label,status:out.status,code:out.code}).toEqual({kind,label,status:'refused',code:'reconcile_blocks_retry'});
           expect(out.reviewToken).toBeUndefined();

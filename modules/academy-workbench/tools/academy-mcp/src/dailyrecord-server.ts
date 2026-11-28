@@ -54,7 +54,8 @@ registerOfficialReportPdfTool(server,new OfficialReportPdfService(native?.backen
 const paperPrint=new PaperPrintPdfService(native?.backend??null,paperExecutor,join(nativeOwnerArtifactsRoot,'print-pdfs'));
 registerPaperPrintPdfTool(server,paperPrint);
 registerLmsScheduleTool(server,new LmsScheduleService(native?.backend??null));
-registerClinicPaperTools(server,new ClinicPaperService(native?.backend??null,gatedLedger.path,{printer:paperPrint}));
+// An LMS write answer the clinic save cannot parse is kept here as private evidence (specs/academy-mcp/gated-writes.md, "Clinic and wrong-note papers").
+registerClinicPaperTools(server,new ClinicPaperService(native?.backend??null,gatedLedger.path,{printer:paperPrint,evidenceRoot:nativeOwnerArtifactsRoot+'clinic-write/http-ack'}));
 registerExamPaperTools(server,new ExamPaperService(native?.backend??null,gatedLedger.path));
 if(native)process.once('exit',native.close);
 installStdioDiagnostics(server.server);

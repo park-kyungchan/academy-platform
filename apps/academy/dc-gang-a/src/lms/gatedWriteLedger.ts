@@ -49,7 +49,8 @@ export interface ReviewTokenInput {tool: string; change: unknown; studentKey?: s
 export const reviewTokenOf = (input: ReviewTokenInput): string => sha256Hex(canonicalJson({
   tool: input.tool, change: input.change, studentKey: input.studentKey, targets: input.targets, scopeKey: input.scopeKey, wireSha256: input.wireSha256, expiresAt: input.expiresAt}));
 
-export type AttemptStep = 'before_write' | 'write_dispatched' | 'response_received' | 'reconciled';
+/** `response_unparsed`: a clinic write was answered with text `parseWriteResponse` could not read; its raw answer is kept as private evidence (indeterminate like `write_dispatched`, R12). */
+export type AttemptStep = 'before_write' | 'write_dispatched' | 'response_received' | 'response_unparsed' | 'reconciled';
 export type AttemptState = 'open' | 'persisted' | 'partially_persisted' | 'absent';
 /** The three steps of an exam save (specs/academy-mcp/gated-writes.md R8): A stages the items, B saves the paper, C assigns it. */
 export type ExamStep = 'A' | 'B' | 'C';
@@ -64,7 +65,7 @@ export interface AttemptRecord {
 export type LedgerRecord = ReviewedRecord | AttemptRecord;
 
 const KEY = /^[1-9][0-9]{0,14}$/;
-const STEPS = new Set<string>(['before_write', 'write_dispatched', 'response_received', 'reconciled']);
+const STEPS = new Set<string>(['before_write', 'write_dispatched', 'response_received', 'response_unparsed', 'reconciled']);
 const STATES = new Set<string>(['open', 'persisted', 'partially_persisted', 'absent']);
 const EXAM_STEPS = new Set<string>(['A', 'B', 'C']);
 /** One target of an exam record: `iden!priNo!gradeNo!classNo`, keys only (R16). */
