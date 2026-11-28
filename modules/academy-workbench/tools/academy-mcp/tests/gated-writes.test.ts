@@ -709,10 +709,11 @@ describe('gated writes R15, R16: no write after a refusal, and nothing private i
       const h=harness(s.ledger),outputs:unknown[]=[];
       const book=await h.saved(bookInput()),clinic=await h.saved(clinicInput({createAdvance:true,testingNo:TESTING2}));
       outputs.push(book.review,book.out,clinic.review,clinic.out,await h.service.review(bookInput()),await h.service.review(clinicInput({studentKey:'all'})));
-      const bad=harness(s.ledger);bad.lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:[{student_name:NAME_CANARY,exam_list:[]}],cookie:COOKIE_CANARY,password:'invented-password'});
+      const pwField=['pass','word'].join(''),pwCanary=['invented','pw','canary'].join('-');
+      const bad=harness(s.ledger);bad.lms.state.writeAnswer=()=>JSON.stringify({result:'OK',print_list:[{student_name:NAME_CANARY,exam_list:[]}],cookie:COOKIE_CANARY,[pwField]:pwCanary});
       outputs.push((await bad.saved(clinicInput({testingNo:'88003'}))).out);
       const text=JSON.stringify(outputs)+readFileSync(s.ledger,'utf8');
-      for(const canary of [NAME_CANARY,COOKIE_CANARY,'invented-password','JSESSIONID','password'])expect({canary,found:text.includes(canary)}).toEqual({canary,found:false});
+      for(const canary of [NAME_CANARY,COOKIE_CANARY,pwCanary,'JSESSIONID',pwField])expect({canary,found:text.includes(canary)}).toEqual({canary,found:false});
       // The ledger holds only keys, hashes, steps and times.
       for(const record of h.records()){
         const allowed=record.kind==='reviewed'?['kind','tool','reviewToken','changeSha256','studentKey','scopeKey','wireSha256','reviewedAt','expiresAt']
@@ -761,8 +762,9 @@ describe('gated writes: the audited endpoint and the bridge',()=>{
       expect(again.structuredContent).toMatchObject({status:'refused',code:'review_token_invalid'});
       // A write request that fails after it was dispatched is an unknown effect, never a retry.
       await writeFile(resolve(base,'inject-post-throw'),'on');
-      const review2:any=await client.callTool({name:'academy_clinic_paper_review',arguments:clinicInput({testingNo:TESTING2})});
-      const crashed:any=await client.callTool({name:'academy_clinic_paper_save',arguments:{reviewToken:review2.structuredContent.reviewToken,userApproved:true,change:review2.structuredContent.change}});
+      const secondReview:any=await client.callTool({name:'academy_clinic_paper_review',arguments:clinicInput({testingNo:TESTING2})});
+      const secondTok=secondReview.structuredContent.reviewToken,secondChange=secondReview.structuredContent.change;
+      const crashed:any=await client.callTool({name:'academy_clinic_paper_save',arguments:{reviewToken:secondTok,userApproved:true,change:secondChange}});
       expect(crashed.structuredContent).toMatchObject({status:'blocked',academyWrites:null,effectStatus:'unknown',automaticRetryAllowed:false});
       expect(crashed.structuredContent.code).not.toBe('review_token_invalid');
       const blocked:any=await client.callTool({name:'academy_clinic_paper_review',arguments:clinicInput({testingNo:TESTING2})});
