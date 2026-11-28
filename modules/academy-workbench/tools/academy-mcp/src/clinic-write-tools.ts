@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import type {McpServer} from '@modelcontextprotocol/server';
-import {publicReadFailure} from './read-failure.ts';
+import {publicReadFailure,readFailureResult} from './read-failure.ts';
 import {academyRoutingDescription} from './routing-context.ts';
 import {
   GatedWriteLedger,GatedWriteRefusal,REVIEW_TOKEN_TTL_MS,changeSha256Of,openAttempts,reviewTokenOf,stepsOf,verifyReviewToken,
@@ -18,7 +18,9 @@ import {
  * book and the similar or advance clinic paper of one attempt, made in two phases. The review reads the live page, checks its
  * wire hash, reconciles an unresolved attempt by read-only requests, freezes one change and answers a `reviewToken`; the save
  * writes only that change, only with `userApproved: true`, records each step in the private attempt ledger before the request
- * it guards, and reads the scope back. Every refusal before the write sends 0 write requests (R15).
+ * it guards, and reads the scope back. Every refusal before the write sends 0 write requests (R15). With `printPdf: true` a saved
+ * call hands the `print_list` of its own write answer to the paper printer (specs/academy-mcp/pc-paper-executor.md), after the
+ * attempt is recorded persisted and outside the serialized section and the ledger lock; the list is never stored.
  */
 export interface ClinicPaperBackend {
   readClinicWirePage(path:typeof BOOK_INCORRECT_PAGE|typeof CLINIC_PAGE):Promise<string>;
@@ -29,7 +31,10 @@ export interface ClinicPaperOptions {
   /** Test seam: replaces the pinned production wire hashes so synthetic pages can exercise every path. */
   expectedWireHashes?:ExpectedWireHashes;
   pidAlive?:(pid:number)=>boolean;
+  /** The paper printer of `printPdf` (src/paper-print-pdf.ts printClinicList); absent: the PDF part answers pc_executor_not_configured. */
+  printer?:ClinicPaperPrinter|null;
 }
+export interface ClinicPaperPrinter {printClinicList(printList:readonly unknown[],keyNo:string):Promise<{status:string;pdfs:unknown[]}&Record<string,unknown>>}
 
 const optional=z.unknown().optional();
 /** The review input. Target keys are checked by the service (a missing or non-numeric key is `public_scope_forbidden`, R7), and unknown members are kept so that a public-scope flag is refused by name. */
@@ -38,10 +43,11 @@ export const clinicPaperReviewSchema=z.looseObject({
   clinicMode:z.enum(CLINIC_MODES).optional(),createSimilar:z.boolean().optional(),similarCount:z.number().optional(),
   createAdvance:z.boolean().optional(),advanceCount:z.number().optional(),patList:z.array(z.unknown()).optional(),
 });
-/** The save input: exactly the token, the approval and the reviewed change. Their values are checked by the service, in the order of R3 to R7. */
-export const clinicPaperSaveSchema=z.object({reviewToken:z.string().max(200).optional(),userApproved:z.unknown().optional(),change:z.unknown().optional()}).strict();
+/** The save input: exactly the token, the approval, the reviewed change and optionally `printPdf`. Their values are checked by the service, in the order of R3 to R7. */
+export const clinicPaperSaveSchema=z.object({reviewToken:z.string().max(200).optional(),userApproved:z.unknown().optional(),change:z.unknown().optional(),printPdf:z.boolean().optional()}).strict();
 
 const CLEAN={parentSends:0,automaticRetryAllowed:false as const};
+interface PrintCarry {printList?:readonly unknown[];keyNo?:string}
 const refused=(error:unknown,extra:Record<string,unknown>={})=>{
   const failure=publicReadFailure(error,'clinic_source_failed');
   return {status:'refused' as const,code:failure.code,reasonCode:failure.code,failure,academyWrites:0,...CLEAN,...extra};
@@ -59,7 +65,27 @@ export class ClinicPaperService {
   #serial<T>(run:()=>Promise<T>):Promise<T>{const next=this.#tail.then(run,run);this.#tail=next.catch(()=>undefined);return next;}
 
   review(raw:unknown){return this.#serial(()=>this.#review(raw));}
-  save(raw:unknown){return this.#serial(()=>this.#save(raw));}
+  async save(raw:unknown){
+    const carry:PrintCarry={};
+    const answer=await this.#serial(()=>this.#save(raw,carry));
+    if(!(raw!==null&&typeof raw==='object'&&(raw as {printPdf?:unknown}).printPdf===true))return answer;
+    // An unverified or refused save does not print. The PDF part runs here, after the persisted ledger record and outside the
+    // serialized section and the ledger lock, in its own try/catch: a PC error only adds a pdf member to the saved answer.
+    const status=(answer as {status:string}).status;
+    if(status!=='saved'&&status!=='persisted')return answer;
+    let pdf:Record<string,unknown>;
+    try{
+      if(status!=='saved'||!carry.printList)pdf={status:'unavailable',reasonCode:'clinic_print_list_unavailable',pdfs:[]};
+      else if(!this.options.printer)pdf={status:'unavailable',reasonCode:'pc_executor_not_configured',pdfs:[]};
+      else pdf=await this.options.printer.printClinicList(carry.printList,carry.keyNo!);
+    }catch(error){pdf={status:'unavailable',...readFailureResult(error,'paper_print_unqualified_no_automatic_retry'),pdfs:[]};}
+    finally{delete carry.printList;}
+    const paperKeys=Array.isArray((answer as {paperKeys?:unknown}).paperKeys)?(answer as {paperKeys:string[]}).paperKeys:[];
+    if(pdf.status!=='rendered')pdf={...pdf,nextStep:paperKeys.length
+      ?'The save stands. Print again with academy_paper_print_pdf_get, source paper and each paperKey of this answer, when the LMS lists that paper; never call the save again.'
+      :'The save stands; this PDF part cannot be repeated (the answer names no paperKey). Never call the save again.'};
+    return {...answer,pdf};
+  }
 
   async #wire(kind:ClinicKind){
     const html=await this.backend!.readClinicWirePage(CLINIC_WIRE[kind].page as typeof BOOK_INCORRECT_PAGE|typeof CLINIC_PAGE);
@@ -125,7 +151,7 @@ export class ClinicPaperService {
     }catch(error){return refused(error);}
   }
 
-  async #save(raw:unknown){
+  async #save(raw:unknown,carry:PrintCarry){
     let lock:LedgerLock|null=null,dispatched=false;
     try{
       const input=clinicPaperSaveSchema.parse(raw);
@@ -174,6 +200,14 @@ export class ClinicPaperService {
       }catch{return unverified('clinic_readback_unverified',{printListSha256:parsed.printListSha256,paperKeys:parsed.paperKeys});}
       try{this.ledger.append(record('reconciled','persisted',{responseSha256:parsed.responseSha256,paperKeys:parsed.paperKeys}));}
       catch{return unverified('ledger_unavailable',{printListSha256:parsed.printListSha256,paperKeys:parsed.paperKeys});}
+      if(input.printPdf===true){
+        // The print list of this write answer, held in memory for the PDF part of this call only; nothing here may throw past the write.
+        try{
+          const list=(JSON.parse(answer) as {print_list?:unknown}).print_list;
+          if(Array.isArray(list))carry.printList=list;
+          carry.keyNo=parsed.paperKeys[0]??(change.kind==='clinic'?change.testingNo:change.testingNos[0]!);
+        }catch{delete carry.printList;}
+      }
       return {status:'saved' as const,kind:change.kind,studentKey,scopeKey,attemptId,paperKeys:parsed.paperKeys,paperCount:parsed.paperCount,printListSha256:parsed.printListSha256,
         readback:'scope_confirmed_by_read_only_request',academyWrites:1,...CLEAN};
     }catch(error){
@@ -195,7 +229,7 @@ export function registerClinicPaperTools(server:McpServer,service:ClinicPaperSer
   },async input=>result(await service.review(input)));
   server.registerTool('academy_clinic_paper_save',{
     title:'오답·클리닉지 저장(LMS 쓰기)',
-    description:academyRoutingDescription('academy_clinic_paper_save','Creates the wrong-note or clinic paper that academy_clinic_paper_review reviewed, once, only with the teacher\'s approval (userApproved true). Answers saved after a read-only scope readback, else unverified; never retry an unverified save.'),
+    description:academyRoutingDescription('academy_clinic_paper_save','Creates the wrong-note or clinic paper that academy_clinic_paper_review reviewed, once, only with the teacher\'s approval (userApproved true). Answers saved after a read-only scope readback, else unverified; never retry an unverified save. printPdf true: a saved call also prints the papers of its write answer on the PC (pdf member).'),
     inputSchema:clinicPaperSaveSchema,annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:service.backend!==null},
   },async input=>result(await service.save(input)));
 }

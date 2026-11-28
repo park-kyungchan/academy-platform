@@ -7,7 +7,8 @@ The eight official StudyQ reports (`course_book`, `cism`, `diag`, `new_diag`, `f
 user's Windows PC, reached over SSH from the host of the TypeScript Academy server. The data is
 read directly from the Academy server, read-only, and passed to the program verbatim, so the PDF
 is the one the Academy's own client makes; the Linux re-implementation of the report layouts,
-whose pages were clipped and misplaced, is retired ([studyq-linux/core.md](../studyq-linux/core.md)).
+whose pages were clipped and misplaced, is retired. The paper PDFs of the same install are
+[pc-paper-executor.md](pc-paper-executor.md).
 The contract is relied on by the teacher who prints the reports, by the agent that calls the tool
 and uploads the PDF, by the host step that installs the launch option, and by every later change
 of the tool.
@@ -39,7 +40,7 @@ Data, server-direct and verbatim
 - R15: `cism` with `params.scope` `month` refuses with `cism_month_unavailable` before any request (the executor has no month form). Tests: official_report_cism_month_is_cism_month_unavailable.
 - R16: A call that succeeds answers `status` `rendered` with `outputPath`, `sha256`, `pages`, `pcCleanup`, `execution` `read_only_lms_pc_executor` and `academyWrites` 0, and no parity member (`parityOk`, `parityMismatches`, `parityRawRn`) and no `truncation`. The tool does not upload: the calling agent sends the PDF on. Tests: official_report_course_book_passes_the_raw_answer_verbatim, official_report_cism_week_passes_the_page_block_data.
 - R17: No Academy write: every server request of a call is one of the existing read routes, under the mock transport that answers `write_forbidden` to every write. Tests: official_report_cism_reads_only_read_class_routes_i1_write_forbidden, official_report_report_views_read_only_read_class_routes_i1_write_forbidden, official_report_ganga_na_score_smart_book_read_only_read_class_routes_i1_write_forbidden.
-- R18: The StudyQ runner of the host (`--studyq-runner`) runs `assemble-print` only; it has no report render method. Tests: studyq_runner_runs_only_assemble_print_isolated_with_a_clean_environment.
+- R18: (removed)
 
 ## Interface
 
@@ -104,13 +105,13 @@ is off or unreachable the tool answers `pc_unreachable` and no other renderer is
 ### Tests
 
 `modules/academy-workbench/tools/academy-mcp/tests/pc-executor.test.ts` (fake `ssh` and `scp`
-programs that keep an invented PC directory on the test host), `tests/official-report-pdf.test.ts`,
-`tests/direct-key-lookup.test.ts` and `tests/studyq-runner.test.ts`, with invented values only.
+programs that keep an invented PC directory on the test host), `tests/official-report-pdf.test.ts`
+and `tests/direct-key-lookup.test.ts`, with invented values only.
 
 ## Not included
 
 - Installing the identity, the known-hosts file or the launch option: the host step.
 - Uploading the PDF: the calling agent sends it to Google Drive.
-- The exam and answer papers of the PC: a later contract.
+- The exam, answer, score and clinic papers of the PC: [pc-paper-executor.md](pc-paper-executor.md).
 - A month of CISM: the executor has no month form.
 - Checking the report's content against the student: the request's keys name the student.

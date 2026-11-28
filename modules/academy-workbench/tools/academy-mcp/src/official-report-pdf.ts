@@ -112,6 +112,10 @@ export async function qualifiedOutputRoot(root:string):Promise<string>{
  * `<root>/<reportType>-<bookNo>-<YYYYMMDDTHHMMSSZ>.pdf`, which holds no personal value. An
  * existing file refuses with output_exists. */
 export async function officialReportPath(rootReal:string,outputPath:string|undefined,reportType:string,bookNo:string|null,now:Date):Promise<string>{
+  return absentOutputPath(await officialReportTarget(rootReal,outputPath,reportType,bookNo,now));
+}
+/** The path rule of `officialReportPath` without the check that the file does not exist yet. */
+export async function officialReportTarget(rootReal:string,outputPath:string|undefined,reportType:string,bookNo:string|null,now:Date):Promise<string>{
   let target:string;
   if(outputPath!==undefined){
     if(!outputPath.endsWith('.pdf')||basename(outputPath)==='.pdf'||outputPath.split(/[\\/]/).includes('..')||outputPath.includes('\0'))throw Error('output_path_invalid');
@@ -124,6 +128,10 @@ export async function officialReportPath(rootReal:string,outputPath:string|undef
     if(bookNo===null)throw Error('output_path_invalid');
     target=join(rootReal,`${reportType}-${bookNo}-${now.toISOString().replace(/\.\d{3}Z$/,'Z').replace(/[-:]/g,'')}.pdf`);
   }
+  return target;
+}
+/** `target` when no file is there; an existing file refuses with output_exists. */
+export async function absentOutputPath(target:string):Promise<string>{
   try{await lstat(target);}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return target;throw Error('output_path_invalid');}
   throw Error('output_exists');
 }

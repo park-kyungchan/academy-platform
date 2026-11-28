@@ -98,14 +98,15 @@ export function registerOfficialReportPdfTool(server:McpServer,service:OfficialR
   },async input=>result(await service.get(input)));
 }
 
-/** academy_paper_print_pdf_get on the dailyrecord endpoint (src/dailyrecord-server.ts): the printable PDF of an
- * existing exam or clinic paper from read-only data, written under the owner print-pdfs root. */
+/** academy_paper_print_pdf_get on the dailyrecord endpoint (src/dailyrecord-server.ts): the native PDFs of an existing paper or
+ * of the score paper of one attempt, made on the user's PC (specs/academy-mcp/pc-paper-executor.md), written under the owner
+ * print-pdfs root. */
 export function registerPaperPrintPdfTool(server:McpServer,service:PaperPrintPdfService){
   const result=(value:unknown)=>{const structuredContent=JSON.parse(JSON.stringify(value)) as Record<string,unknown>;
     return {content:[{type:'text' as const,text:JSON.stringify(structuredContent)}],structuredContent};};
   server.registerTool('academy_paper_print_pdf_get',{
-    title:'Make the printable PDF of an existing exam or clinic paper from read-only data',
-    description:academyRoutingDescription('academy_paper_print_pdf_get','mode exam: one print archive for each row of the exam list of paperNo (getTestExamList), or for each exact exam key of paperKeys (selType default obj); mode examtext: passage archives of explicit paperKeys; mode clinic: the same archives as one clinic print. The archives are read from the static print storage with no Academy credential and assembled on this host by the pinned studyq-linux executor, which holds the archive key in a private file and opens no network connection. includeAnswers and includeExplain add the answer and explanation pages. The PDF is written under the owner print-pdfs root (outputPath optional, .pdf, inside that root; never overwritten). No Academy write, printing or sending.'),
+    title:'Make the native PDFs of an existing paper or of the score paper of one attempt on the user PC',
+    description:academyRoutingDescription('academy_paper_print_pdf_get','source paper: paperNo and printCase (teacher_paper by default, student_paper or answer_paper); the print item is built from getTestExamList as the LMS page builds it. source result: testingNo and studentKey; the print list of the score view of that attempt, as the server answers it. Each print item is made into one PDF on the user PC by StudyQPdfManager.exe and ETestMaker.exe, the native StudyQ programs, and copied under the owner print-pdfs root (outputPath optional, .pdf, inside that root; with more than one item -1, -2, ... before .pdf; never overwritten). pc_busy: the teacher is printing on the PC; try later. Clinic papers: academy_clinic_paper_save with printPdf true. No Academy write, printing or sending.'),
     inputSchema:paperPrintPdfGetSchema,annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:service.backend!==null},
   },async input=>result(await service.get(input)));
 }

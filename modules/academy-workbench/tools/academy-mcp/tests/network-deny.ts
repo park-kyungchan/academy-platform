@@ -111,14 +111,8 @@ export function testpageRequestRole(operation:string,body?:unknown):LmsRequestRo
  }
  return 'read';
 }
-/** The static print archives of the StudyQ storage (specs/studyq-linux/core.md R20): `GET` of exactly
- * `https://storage.studyq.net/data/contents/{exam|examtext}/...-print.zip` is a read; the same path on
- * another host, or any other method, is not classed and so is write. */
-const printStorageOrigin='https://storage.studyq.net';
-const printArchivePath=/^\/data\/contents\/(?:exam\/d6-\d{3}\/d4-\d{2}\/d2-\d{2}\/ek-\d+\/\d+-print\.zip|examtext\/d4-\d{2}\/d2-\d{2}\/etk-\d+\/\d+-print\.zip)$/;
 export function lmsRequestRole(url:string|URL,body?:unknown,method?:string):LmsRequestRole{
  const parsed=new URL(String(url),'https://lms.invalid');
- if(parsed.origin===printStorageOrigin&&!parsed.username&&!parsed.password&&!parsed.search&&!parsed.hash&&printArchivePath.test(parsed.pathname)&&(method??'GET').toUpperCase()==='GET')return 'read';
  const {path,operation}=lmsRoute(url,body);
  if(parsed.pathname===testpagePath)return testpageRequestRole(operation,body);
  if(parsed.pathname===reportViewPath)return (method??'GET').toUpperCase()==='POST'&&!parsed.search&&reportViews.has(operation)?'read':'write';

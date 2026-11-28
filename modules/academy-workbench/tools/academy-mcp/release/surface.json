@@ -787,47 +787,40 @@
   {
    "name": "academy_paper_print_pdf_get",
    "title": "시험지·클리닉지 인쇄 PDF",
-   "description": "Printable PDF (시험지·클리닉지) of an existing paper. mode 'exam': paperNo (its exam list) or paperKeys (selType default obj); 'examtext': passage paperKeys; 'clinic': clinic print of either. includeAnswers, includeExplain add pages. Saved under owner root (outputPath optional); answers outputPath, sha256. Read only.",
+   "description": "Native print PDF (시험지·정답지·채점지) by StudyQPdfManager+ETestMaker on PC, read-only LMS. source paper: paperNo, printCase (default teacher_paper). result: testingNo+studentKey (score paper). Clinic papers: academy_clinic_paper_save printPdf. Saved in owner root (outputPath, -n per item): pdfs[] outputPath, sha256. pc_busy: retry later.",
    "inputSchema": {
     "type": "object",
     "properties": {
-     "mode": {
+     "source": {
       "type": "string",
       "enum": [
-       "exam",
-       "examtext",
-       "clinic"
+       "paper",
+       "result"
       ]
      },
      "paperNo": {
       "type": "string"
      },
-     "paperKeys": {
-      "type": "array",
-      "items": {
-       "type": "string"
-      }
-     },
-     "selType": {
+     "printCase": {
       "type": "string",
       "enum": [
-       "obj",
-       "sbj",
-       "des"
+       "teacher_paper",
+       "student_paper",
+       "answer_paper"
       ]
      },
-     "includeAnswers": {
-      "type": "boolean"
+     "testingNo": {
+      "type": "string"
      },
-     "includeExplain": {
-      "type": "boolean"
+     "studentKey": {
+      "type": "string"
      },
      "outputPath": {
       "type": "string"
      }
     },
     "required": [
-     "mode"
+     "source"
     ]
    }
   },
@@ -960,7 +953,7 @@
   {
    "name": "academy_clinic_paper_save",
    "title": "오답·클리닉지 저장(LMS 쓰기)",
-   "description": "Creates the reviewed paper once, only after the teacher approves: reviewToken, userApproved true, the reviewed change. saved after readback, else unverified: no retry.",
+   "description": "Creates the reviewed paper once, only after the teacher approves: reviewToken, userApproved true, the reviewed change. saved after readback, else unverified: no retry. printPdf true: also its PDFs on PC (pdf).",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -973,6 +966,9 @@
      },
      "change": {
       "type": "object"
+     },
+     "printPdf": {
+      "type": "boolean"
      }
     },
     "required": [

@@ -33,7 +33,7 @@ export interface PcExecutor {render(input:PcRenderInput):Promise<PcRendered>}
 export const PC_REMOTE_DIR='AppData/Roaming/otwoline/studyq/report';
 const PS_REMOTE_DIR='AppData\\Roaming\\otwoline\\studyq\\report';
 export const PC_EXE_DIR=/^[A-Za-z]:\\[A-Za-z0-9 ()._\\-]+$/;
-const PC_TARGET=/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}@[A-Za-z0-9][A-Za-z0-9.-]{0,252}$/;
+export const PC_TARGET=/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}@[A-Za-z0-9][A-Za-z0-9.-]{0,252}$/;
 export const PC_PDF_NAME=/^\d{17}\.pdf$/;
 const EXE_WAIT_SECONDS=120,EXE_TIMEOUT_EXIT=124;
 /** Printed with the exit code 124, so a timeout is known also where the remote shell does not pass the code on. */
@@ -89,7 +89,7 @@ export function pdfProducer(bytes:Buffer):string|null{
   return Buffer.from(digits.length%2?digits+'0':digits,'hex').toString('latin1');
 }
 export const PC_PDF_PRODUCER='Haru Free PDF Library';
-const MAX_PDF_BYTES=64*1024*1024;
+export const MAX_PDF_BYTES=64*1024*1024;
 
 // The fixed PowerShell programs, each sent as one -EncodedCommand. Only exeDir (checked at launch) and a PDF
 // name that matched ^\d{17}\.pdf$ and was not listed before the run are ever part of one.
@@ -106,7 +106,7 @@ export const pcScripts={
       +"if(Test-Path -LiteralPath $r){Remove-Item -LiteralPath $r -Force};if(Test-Path -LiteralPath $i){Remove-Item -LiteralPath $i -Force};exit 0";
   },
 };
-const powershellWords=(script:string)=>'powershell -NoProfile -NonInteractive -EncodedCommand '+Buffer.from(script,'utf16le').toString('base64');
+export const powershellWords=(script:string)=>'powershell -NoProfile -NonInteractive -EncodedCommand '+Buffer.from(script,'utf16le').toString('base64');
 
 export interface PcExecutorConfig {target:string;identityFile:string;knownHostsFile:string;exeDir:string;lockDir:string}
 export interface PcExecutorOptions {
@@ -119,12 +119,12 @@ export interface PcExecutorOptions {
   afterTimeoutDelayMs?:number;
   lockPollMs?:number;
 }
-interface Ran {code:number|null;stdout:string;stderr:string;timedOut:boolean;failedToStart:boolean}
-const HOST_KEY=/Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED|No [A-Za-z0-9-]+ host key is known|host key for .* has changed/i;
-const CONNECT=/Connection (timed out|refused|closed|reset)|Could not resolve|No route to host|Network is unreachable|lost connection|connect to host|Permission denied|kex_exchange_identification/i;
-const sleep=(ms:number)=>new Promise(resolve=>setTimeout(resolve,Math.max(0,ms)));
+export interface Ran {code:number|null;stdout:string;stderr:string;timedOut:boolean;failedToStart:boolean}
+export const HOST_KEY=/Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED|No [A-Za-z0-9-]+ host key is known|host key for .* has changed/i;
+export const CONNECT=/Connection (timed out|refused|closed|reset)|Could not resolve|No route to host|Network is unreachable|lost connection|connect to host|Permission denied|kex_exchange_identification/i;
+export const sleep=(ms:number)=>new Promise(resolve=>setTimeout(resolve,Math.max(0,ms)));
 
-function runFixed(file:string,args:string[],timeoutMs:number,cwd?:string):Promise<Ran>{
+export function runFixed(file:string,args:string[],timeoutMs:number,cwd?:string):Promise<Ran>{
   return new Promise(resolve=>{
     let child;
     // A clean environment: the MCP user's ssh configuration never applies (-F none), and no Academy value is passed.
@@ -147,7 +147,7 @@ export async function processStartTime(pid:number):Promise<string|null>{
 
 /** The host-wide lock `<lockDir>/pc-executor.lock`: made by exclusive create, holding pid, process start time and a
  * nonce; a lock whose process is gone or started at another time is taken over by renaming a new lock file over it. */
-async function acquireLock(lockDir:string,deadline:number,pollMs:number):Promise<()=>Promise<void>>{
+export async function acquireLock(lockDir:string,deadline:number,pollMs:number):Promise<()=>Promise<void>>{
   await mkdir(lockDir,{recursive:true,mode:0o700});
   const path=join(lockDir,'pc-executor.lock'),nonce=randomBytes(16).toString('hex');
   const body=JSON.stringify({pid:process.pid,start:await processStartTime(process.pid),nonce})+'\n';
@@ -310,9 +310,10 @@ export function pcReportExecutor(config:PcExecutorConfig,options:PcExecutorOptio
 }
 
 /** `--pc-executor <user@host> <identityFile> <knownHostsFile> <exeDir>`: absolute regular files, exeDir of the
- * form `C:\...`. Without it the executor is null and every report answers `pc_executor_not_configured`. */
+ * form `C:\...`. Without it the executor is null and every report answers `pc_executor_not_configured`. `config` is the
+ * checked configuration, which the paper executor (src/pc-paper-executor.ts) shares: no further launch argument. */
 export async function pcExecutorConfiguration(args:readonly string[],base:{lockDir:string},options:PcExecutorOptions={}){
-  const remainingArgs:string[]=[];let executor:PcExecutor|null=null;
+  const remainingArgs:string[]=[];let executor:PcExecutor|null=null,config:PcExecutorConfig|null=null;
   for(let i=0;i<args.length;i++){
     if(args[i]!=='--pc-executor'){remainingArgs.push(args[i]!);continue;}
     if(executor||i+4>=args.length)throw Error('pc_executor_arguments_invalid');
@@ -321,8 +322,9 @@ export async function pcExecutorConfiguration(args:readonly string[],base:{lockD
       if(!isAbsolute(file))throw Error('pc_executor_arguments_invalid');
       try{if(!(await stat(file)).isFile())throw Error('pc_executor_arguments_invalid');}catch{throw Error('pc_executor_arguments_invalid');}
     }
-    executor=pcReportExecutor({target,identityFile,knownHostsFile,exeDir,lockDir:base.lockDir},options);
+    config={target,identityFile,knownHostsFile,exeDir,lockDir:base.lockDir};
+    executor=pcReportExecutor(config,options);
     i+=4;
   }
-  return {remainingArgs,executor};
+  return {remainingArgs,executor,config};
 }

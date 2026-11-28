@@ -22,7 +22,7 @@ import {TEXTBOOK_SECTION_NOT_IN_EITHER} from '../../../../../apps/academy/dc-gan
 import type {DailyRecordTeacherScope} from './dailyrecord-read.ts';
 import type {PrestudyView} from '../../../../../apps/academy/dc-gang-a/src/lms/prestudyRead';
 import type {LmsScheduleInput,LmsScheduleRead} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsScheduleRead';
-import type {PaperExamRow,PrintArchiveKind} from '../../../../../apps/academy/dc-gang-a/src/lms/paperPrintRead';
+import type {PaperExamRow,PaperPrintCase} from '../../../../../apps/academy/dc-gang-a/src/lms/paperPrintRead';
 
 const home='/opt/data/profiles/dc-gang-a-dev';
 /** Owner-private artifacts root; owner workflow stores and admissions must live here. */
@@ -45,7 +45,9 @@ interface SourcePort {
   readTextbookCatalog?(input:{teacherLabel:string;schoolLevel:TextbookSchoolLevel}):Promise<TextbookCatalogObservation>;
   readTextbookPdf?(input:{teacherLabel:string;schoolLevel:TextbookSchoolLevel;documentRef:string}):Promise<TextbookPdfObservation>;
   readPaperExamList?(paperNo:string):Promise<PaperExamRow[]>;
-  downloadPrintArchive?(kind:PrintArchiveKind,key:number):Promise<Uint8Array>;
+  readPaperPrintSource?(paperNo:string,printCase:PaperPrintCase):Promise<Record<string,unknown>>;
+  readResultPrintList?(testingNo:string,studentKey:string):Promise<Record<string,unknown>[]>;
+  paperPrintPrincipal?():{schoolKey:string;teacherKey:string};
   authenticate(credential:{username:string;password:string}):Promise<unknown>;
   discoverDayRecordGroups(input:{teacherLabel:string;date:string}):Promise<{groups:{groupId:string}[]}>;
   execute(input:unknown):Promise<{dayRecords:Row[]}>;
@@ -279,16 +281,29 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     await this.#authenticate();
     return this.client.readTextbookCatalog({teacherLabel:this.admission.teacherLabel,schoolLevel});
   }
-  /** `getTestExamList` of one paper (a read) for academy_paper_print_pdf_get. */
+  /** `getTestExamList` of one paper (a read) for the gated exam write. */
   async readPaperExamList(paperNo:string):Promise<PaperExamRow[]>{
     if(!this.client.readPaperExamList)throw Error('paper_print_source_port_unavailable');
     await this.#authenticate();
     return this.client.readPaperExamList(paperNo);
   }
-  /** One print archive of the static storage: a GET with no Academy credential, so no session is opened for it. */
-  async downloadPrintArchive(kind:PrintArchiveKind,key:number):Promise<Uint8Array>{
-    if(!this.client.downloadPrintArchive)throw Error('paper_print_source_port_unavailable');
-    return this.client.downloadPrintArchive(kind,key);
+  /** `getTestExamList` of one paper with a print case (a read) for academy_paper_print_pdf_get. */
+  async readPaperPrintSource(paperNo:string,printCase:PaperPrintCase):Promise<Record<string,unknown>>{
+    if(!this.client.readPaperPrintSource)throw Error('paper_print_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.readPaperPrintSource(paperNo,printCase);
+  }
+  /** The `print_list` of the score view of one attempt (a read) for academy_paper_print_pdf_get. */
+  async readResultPrintList(testingNo:string,studentKey:string):Promise<Record<string,unknown>[]>{
+    if(!this.client.readResultPrintList)throw Error('paper_print_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.readResultPrintList(testingNo,studentKey);
+  }
+  /** The school and teacher keys of the signed-in principal, for the print command of the PC. */
+  async paperPrintPrincipal():Promise<{schoolKey:string;teacherKey:string}>{
+    if(!this.client.paperPrintPrincipal)throw Error('paper_print_source_port_unavailable');
+    await this.#authenticate();
+    return this.client.paperPrintPrincipal();
   }
   async readTextbookPdf(schoolLevel:TextbookSchoolLevel,documentRef:string):Promise<TextbookPdfObservation>{
     if(!/^[a-f0-9]{64}$/.test(documentRef))throw Error('textbook_pdf_input_rejected');

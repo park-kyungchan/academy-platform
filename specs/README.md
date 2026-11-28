@@ -15,7 +15,7 @@ type or module is a rule.
 | [academy-mcp/lms-reads.md](academy-mcp/lms-reads.md) | The read-only LMS reads of `academy_lms_schedule_get` and `academy_prestudy_get` |
 | [academy-mcp/gated-writes.md](academy-mcp/gated-writes.md) | The two-phase writes `academy_clinic_paper_{review,save}` and `academy_exam_paper_{review,save}` |
 | [academy-mcp/pc-executor.md](academy-mcp/pc-executor.md) | The official StudyQ report PDFs of `academy_official_report_pdf_get`, made by `StudyQReport.exe` on the user's PC (option `--pc-executor`) |
-| [studyq-linux/core.md](studyq-linux/core.md) | The Linux StudyQ print executor `python3 -m studyq_linux` (`assemble-print`) |
+| [academy-mcp/pc-paper-executor.md](academy-mcp/pc-paper-executor.md) | The paper PDFs of `academy_paper_print_pdf_get` and of `printPdf` of `academy_clinic_paper_save`, made by `StudyQPdfManager.exe` and `ETestMaker.exe` on the user's PC, and the privacy check I6 of `./check` |
 
 ## The form of a specification
 

@@ -53,7 +53,8 @@ Refusals and privacy
 | `academy_clinic_paper_review` / `_save` | wrong-note paper of a book (`kind: 'book_incorrect'`), or the similar and advance clinic papers of one attempt (`kind: 'clinic'`); one step | `GET /servlet/controller.coursemanage.TextBookManageServlet?reqCmd=getTextBookMain` and `GET /servlet/controller.tutor.fa.TestPageListGrpServlet?p_process=Main` (the pages whose inline handlers are pinned; read), and `POST /servlet/controller.common.TestpageSelectExServlet`: `getWrongAnswerNoteResult` (read), `getStudyResultSingleTestingSingleUser` or `getStudyResultMultiTestingMultiUser` with a `create:1` condition (the write), and `getStudyResultSingleTestingSingleUser` with `score:{create:1}` and no other create flag (the clinic readback; read) |
 | `academy_exam_paper_review` / `_save` | FA (`fa`) or unit-exam (`da`) paper and its assignment to named students, three steps: stage the items, save the paper, assign it | the routes of the section "FA and unit-exam papers": `TestPageRegServlet`, `TestHangServlet` (both under `controller.tutor.fa` and `controller.tutor.da`), `TestpageSelectServlet`, `TestpageSelectExServlet` (`getTestExamList`), `ObjectSelectServlet` and `DiagnostManageServlet` |
 
-`*_save` takes exactly `reviewToken`, `userApproved` and the reviewed change; `*_review` takes
+`*_save` takes exactly `reviewToken`, `userApproved` and the reviewed change, and
+`academy_clinic_paper_save` also the optional `printPdf` ([pc-paper-executor.md](pc-paper-executor.md) R16); `*_review` takes
 the change and its scope (student keys, book and section keys, or paper keys).
 
 ### Request classes
@@ -240,6 +241,6 @@ as a dailyrecord endpoint, for the tests through the bridge (R9, and the write r
 ## Not included
 
 - Deleting or changing a paper once created, and unassigning it (an exam assignment is undone by hand, see "FA and unit-exam papers").
-- Printing the paper; that is `academy_paper_print_pdf_get`.
+- Printing the paper: `printPdf` of `academy_clinic_paper_save` and `academy_paper_print_pdf_get` ([pc-paper-executor.md](pc-paper-executor.md) R16 to R20); the PDF part never changes what this contract answers about the save.
 - Choosing which sections or items a clinic should hold; the review takes the change as given.
 - The DailyRecord and CISM writes, which keep their own contracts.
