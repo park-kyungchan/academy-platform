@@ -255,6 +255,35 @@ describe('gated writes: the posted condition',()=>{
       expect(await foreign.service.review(bookInput())).toMatchObject({status:'refused',code:'clinic_scope_unresolved'});
     }finally{await s.cleanup();}
   });
+  const liveNote=(rows:Record<string,unknown>[])=>JSON.stringify({result:'ok',noteResultList:rows.map(r=>({cls_no:0,apply_date:'03-14',p_no:Number(PAPER),name:NAME_CANARY,testing_name:'Invented wrong note',testing_no:Number(TESTING),pri_no:Number(STUDENT),...r}))});
+  test('clinic_book_incorrect_cls_no_zero_rows_are_in_scope',async()=>{
+    const s=await scratch();
+    try{
+      // The live shape: cls_no is 0 on every row; the request scope names the one course, book and student.
+      const live=harness(s.ledger);live.lms.state.noteAnswer=()=>liveNote([{testing_no:Number(TESTING2)},{testing_no:Number(TESTING)}]);
+      const review=await live.reviewed(bookInput());
+      expect(review.change.testingNos).toEqual([TESTING,TESTING2]);
+      const post=live.lms.requests.find(r=>r.process==='getWrongAnswerNoteResult')!;
+      expect(JSON.parse(new URLSearchParams(post.body).get('answerNoteResult')!)).toEqual({courseKeyList:[COURSE],bookNoList:[BOOK],userKeyList:[STUDENT]});
+      // The course key itself is still accepted as cls_no.
+      const keyed=harness(s.ledger);keyed.lms.state.noteAnswer=()=>liveNote([{cls_no:Number(COURSE)}]);
+      expect((await keyed.reviewed(bookInput())).change.testingNos).toEqual([TESTING]);
+      // A row of another student is never in scope, whatever its cls_no.
+      const foreign=harness(s.ledger);foreign.lms.state.noteAnswer=()=>liveNote([{pri_no:78888}]);
+      expect(await foreign.service.review(bookInput())).toMatchObject({status:'refused',code:'clinic_scope_unresolved'});
+      const missing=harness(s.ledger);missing.lms.state.noteAnswer=()=>liveNote([{pri_no:undefined}]);
+      expect(await missing.service.review(bookInput())).toMatchObject({status:'refused',code:'clinic_scope_unresolved'});
+    }finally{await s.cleanup();}
+  });
+  test('clinic_book_incorrect_cls_no_other_course_refuses_clinic_scope_unresolved',async()=>{
+    const s=await scratch();
+    try{
+      for(const cls of [Number(COURSE)+1,-1,'abc',null,undefined]){
+        const other=harness(s.ledger);other.lms.state.noteAnswer=()=>liveNote([{},{cls_no:cls,testing_no:Number(TESTING2)}]);
+        expect({cls,out:await other.service.review(bookInput())}).toMatchObject({out:{status:'refused',code:'clinic_scope_unresolved'}});
+      }
+    }finally{await s.cleanup();}
+  });
 });
 
 // ---- R3 to R7: refusals found from the input ---------------------------------------------------------
