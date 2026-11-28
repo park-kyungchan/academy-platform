@@ -9,8 +9,8 @@ The user is the teacher. A counseling is one conversation with a parent or a stu
 
 ## 1. Prepare
 
-1. `edu-academy-memory brief <slug>`: the student's card, bindings, newest observations and notes, open reminders and the newest counselings. Read the student's file under `consultations/` of edu-lessons as the skill `academy-lesson-day` reads it. Do not read the per-student memory files under `students/<slug>/`.
-2. A live read only for a fact the form needs that the brief does not hold, or that the teacher asks to be read fresh, as section 2 of `academy-lesson-day` says: `due` first, the binding's exact keys, one call at a time, `observed` after each read.
+1. `edu-academy-memory brief <slug>`: the student's card, bindings, newest observations and notes, open reminders and the newest counselings. Read the student's file under `consultations/` of edu-lessons as the skill `academy-lesson-day` reads it. Do not read the per-student memory files under `students/<slug>/`. The brief's `memory_as_of` is the last lesson date the memory closed: name it in the form's background, and treat an observation of a later date as not yet closed.
+2. A live read only for a fact the form needs that the brief does not hold, or that the teacher asks to be read fresh, as section 2 of `academy-lesson-day` says: `due` first, the binding's exact keys, one call at a time, `observed` after each read. A DailyRecord is read with `edu lesson record <date> <student>` and its fallbacks as that section's part "DailyRecord through `edu lesson`" says, and an observation older than the `captured_at` of the same date's `edu lesson` read is stale there: the form uses the newer reading, after it was written back.
 3. Write the form in Korean, in these sections, in this order; leave out a line no labelled source fills, and label each fact as `academy-lesson-day` labels it:
 
 ```text
