@@ -904,7 +904,8 @@ export class AcademyHttpClient {
       throw error;
     }
     // The raw bytes are read from a copy of the body, so the text the caller parses is decoded exactly as before.
-    const copy=onRawAnswer?response.clone():null;
+    let copy:Response|null=null;
+    if(onRawAnswer)try{copy=response.clone();}catch{copy=null;}
     const text=await response.text();
     if(text.length>2000000)throw Error('source_response_too_large');
     if(isLoginOrSessionPage(text)){this.close();throw Error('authentication_required');}

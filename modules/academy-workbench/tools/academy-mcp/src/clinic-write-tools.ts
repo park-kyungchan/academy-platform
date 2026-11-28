@@ -15,6 +15,8 @@ import {
   type ClinicChange,type ClinicKind,type ExpectedWireHashes,type WireFields,
 } from '../../../../../apps/academy/dc-gang-a/src/lms/clinicPaperWrite';
 
+/** The raw answer of the write as the port received it: the Content-Type header, the body bytes and their SHA-256. */
+export interface ClinicRawAnswer {contentType:string;raw:Uint8Array;sha256:string}
 /**
  * `academy_clinic_paper_review` and `academy_clinic_paper_save` (specs/academy-mcp/gated-writes.md): the wrong-note paper of a
  * book and the similar or advance clinic paper of one attempt, made in two phases. The review reads the live page, checks its
@@ -25,8 +27,6 @@ import {
  * attempt is recorded persisted and outside the serialized section and the ledger lock; the list is never stored. A write answer
  * that `parseWriteResponse` cannot read is kept, raw, as one private evidence file (`keepClinicWriteEvidence`).
  */
-/** The raw answer of the write as the port received it: the Content-Type header, the body bytes and their SHA-256. */
-export interface ClinicRawAnswer {contentType:string;raw:Uint8Array;sha256:string}
 export interface ClinicPaperBackend {
   readClinicWirePage(path:typeof BOOK_INCORRECT_PAGE|typeof CLINIC_PAGE):Promise<string>;
   /** `onRawAnswer`, when given, receives the raw answer besides the text answered; only the save's one write passes it. */
