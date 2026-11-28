@@ -10,6 +10,7 @@ import {cismGetInput,cismMonthInput,cismReviewInput,cismSaveInput} from '../src/
 import {textbookCatalogInput,textbookPdfInput} from '../src/textbook-source-tools.ts';
 import {textbookTocInput} from '../src/textbook-toc.ts';
 import {officialReportPdfGetSchema} from '../src/official-report-pdf.ts';
+import {paperPrintPdfGetSchema} from '../src/paper-print-pdf.ts';
 
 // A recorded synthetic endpoint for tests/tool-surface.test.ts: it registers, with the
 // endpoint programs' own input schemas where they export them, every endpoint tool that
@@ -38,7 +39,7 @@ const tools:Record<string,Record<string,z.ZodType>>={
   academy_textbook_catalog:textbookCatalogInput,academy_textbook_toc_get:textbookTocInput,academy_textbook_pdf:textbookPdfInput,
   academy_prestudy_get:prestudyGetSchema,academy_prestudy_report_get:prestudyReportGetSchema,
   academy_cism_weekly_get:cismGetInput,academy_cism_month:cismMonthInput,academy_cism_weekly_review:cismReviewInput,academy_cism_weekly_save:cismSaveInput,
-  academy_official_report_pdf_get:officialReportPdfGetSchema,
+  academy_official_report_pdf_get:officialReportPdfGetSchema,academy_paper_print_pdf_get:paperPrintPdfGetSchema,
  },
  paper1:{
   academy_daily_test_inventory:z.object({studentId:key,periods:selectors.optional()}).strict(),

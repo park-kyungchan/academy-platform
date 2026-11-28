@@ -355,6 +355,39 @@ export class LmsRouteRegistry {
       }
     ],
     [
+      'TESTPAGE_EXAM_LIST',
+      {
+        id: 'TESTPAGE_EXAM_LIST',
+        routeId: 'TESTPAGE_EXAM_LIST',
+        category: 'PaperPrint',
+        servletPath: '/servlet/controller.common.TestpageSelectExServlet',
+        processName: 'getTestExamList',
+        httpMethod: 'POST',
+        http_method: 'POST',
+        routeTemplate: '/servlet/controller.common.TestpageSelectExServlet?p_process=getTestExamList',
+        route_template: '/servlet/controller.common.TestpageSelectExServlet?p_process=getTestExamList',
+        operation: 'getTestExamList',
+        semanticEffect: 'read',
+        semantic_effect: 'read',
+        effect: 'READ_ONLY',
+        description: 'Exam list of one exact paper for the print PDFs (read; changes no data)',
+        reason: 'Exam list of one exact paper for the print PDFs (read; changes no data)',
+        evidenceGrade: 'live-route',
+        evidence_grade: 'live-route',
+        evidenceDate: '2026-11-28',
+        evidence_date: '2026-11-28',
+        joinKeyNames: Object.freeze(['p_no', 'p_option_type']),
+        join_key_names: Object.freeze(['p_no', 'p_option_type']),
+        sourceRefs: Object.freeze(['specs/studyq-linux/core.md#R20']),
+        source_refs: Object.freeze(['specs/studyq-linux/core.md#R20']),
+        safeToProbe: true,
+        safe_to_probe: true,
+        requiredParams: ['p_no', 'p_option_type'],
+        optionalParams: [],
+        responseFormat: 'JSON'
+      }
+    ],
+    [
       'FA_TEST_PAPER_LIST_GRP',
       {
         id: 'FA_TEST_PAPER_LIST_GRP',

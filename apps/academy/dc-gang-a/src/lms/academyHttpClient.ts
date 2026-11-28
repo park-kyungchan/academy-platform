@@ -13,6 +13,7 @@ import {applyJournalHttpAction,validateJournalHttpAction,assertJournalWireQualif
 import {parseItemMetadata} from './itemMetadataRead';
 import {selectSourceFunction} from './sourceFunctionText';
 import {inspectAssessmentSearchMetadata,inspectStudentNameSearch,parseScoreView} from './assessmentReadProtocol';
+import {PAPER_EXAM_LIST_PATH,paperExamListForm,parsePaperExamList,printArchiveUrl,boundedPrintArchiveBody,type PaperExamRow,type PrintArchiveKind} from './paperPrintRead';
 import {COURSE_BOOK_REPORT_PATH,isLoginOrSessionPage,readCourseBookReportEnvelope,projectCourseBookReport,type CourseBookReport} from './courseBookReport';
 import {qualifyStudentPaperSearchPeriod,type StudentPaperSearchPeriod} from './studentPaperSearchPeriod';
 import {deriveTextbookSectionTitlePattern,mergeTextbookSectionRows,TEXTBOOK_PAPER_SEARCH_COVERAGE,type TextbookPaperSearchRow} from './textbookSectionIndex';
@@ -898,6 +899,23 @@ export class AcademyHttpClient {
     const {scope}=this.#historicalScope(input);
     const text=await this.#historicalPost(COURSE_BOOK_REPORT_PATH,{reqCmd:'getCourseBookReport',course_key:scope.courseKey,book_no:scope.bookNo,student_pri_no:scope.studentKey},'getCourseBookReport');
     return projectCourseBookReport(readCourseBookReportEnvelope(text),scope);
+  }
+  /** `getTestExamList` of one paper (specs/studyq-linux/core.md R20; a read, lmsRouteRegistry.ts): the rows
+   * of its exam list. A login page refuses with authentication_required; a row whose `sel_type` is not
+   * obj, sbj or des refuses the whole list with paper_exam_sel_type_unqualified, before any download. */
+  async readPaperExamList(paperNo:string):Promise<PaperExamRow[]>{
+    const form=paperExamListForm(paperNo);
+    return parsePaperExamList(await this.#historicalPost(PAPER_EXAM_LIST_PATH,form,'getTestExamList'));
+  }
+  /** One `print.zip` of the static storage: a read-only GET of the pinned URL made from the integer key,
+   * with no Academy cookie or credential (`credentials: 'omit'`, no redirect), HTTP 200 only and at most
+   * 16 MiB. The bytes are only data for modules/studyq-linux; nothing here opens an archive. */
+  async downloadPrintArchive(kind:PrintArchiveKind,key:number):Promise<Uint8Array>{
+    const url=printArchiveUrl(kind,key);let response:Response;
+    try{response=await this.#transport(url.href,{method:'GET',headers:{Accept:'application/zip, application/octet-stream'},credentials:'omit',redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(30000)});}
+    catch{throw Error('paper_print_transport_failed');}
+    if(response.url&&response.url!==url.href)throw Error('paper_print_archive_rejected');
+    return boundedPrintArchiveBody(response);
   }
   /** Section detail of the historical fallback: the single-user result of each attempt that
    * readHistoricalTextbookIndex verified for this exact scope, never another attempt. */

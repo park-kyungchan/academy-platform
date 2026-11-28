@@ -42,7 +42,12 @@ def check_parity(pymupdf, pdf_bytes, plan, tolerance=TOLERANCE_PT):
             for f in pp.fields:
                 found = False
                 for line in f.text.split("\n"):
-                    hits = [r for r in page.search_for(line) if _inside(r, f.box, tolerance) and r not in claimed]
+                    # No dehyphenation: MuPDF would strip the trailing hyphen of a value such as `A-`. The
+                    # search is clipped to the field's box (with the tolerance) so that a text drawn on many
+                    # lines (a narrative of repeated words) is matched on its own line, not across lines.
+                    flags = pymupdf.TEXTFLAGS_SEARCH & ~pymupdf.TEXT_DEHYPHENATE
+                    clip = pymupdf.Rect(f.box[0] - tolerance, f.box[1] - tolerance, f.box[2] + tolerance, f.box[3] + tolerance)
+                    hits = [r for r in page.search_for(line, clip=clip, flags=flags) if _inside(r, f.box, tolerance) and r not in claimed]
                     if not hits:
                         failed.append(f.id)
                         found = None

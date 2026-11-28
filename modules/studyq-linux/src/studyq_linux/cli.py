@@ -1,4 +1,4 @@
-"""The command line: `render` and `assemble-print` (specs/studyq-linux/core.md R1-R7).
+"""The command line: `render` and `assemble-print` (specs/studyq-linux/core.md R1-R7, R20-R25).
 
 One run, one PDF, one line on standard output. Refusals print
 `{"status":"error","code":...,"detail":...}`; a detail never holds a value of the input.
@@ -127,10 +127,18 @@ def _error_line(code, detail):
     return json.dumps({"status": "error", "code": code, "detail": clip_detail(detail)}, ensure_ascii=False, separators=(",", ":"))
 
 
+def _ok_line(report_type, pages, sha256, out_path):
+    return json.dumps(
+        {"status": "ok", "reportType": report_type, "pages": pages, "sha256": sha256, "outputPath": out_path},
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
 def _execute(argv, stdin):
     verb, flags = parse_words(argv)
     if verb == "assemble-print":
-        raise StudyqError("not_implemented", "assemble-print is not built yet")
+        return _assemble_print(flags, stdin)
     report_type = flags["type"]
     if report_type not in KNOWN_TYPES:
         raise StudyqError("type_unknown", "type is not course_book or cism")
@@ -145,17 +153,19 @@ def _execute(argv, stdin):
     pdf = (render_cism if report_type == CISM_TYPE else render_course_book)(data, bundle)
     pages = count_pages(pdf)
     write_atomic(out_path, pdf)
-    return json.dumps(
-        {
-            "status": "ok",
-            "reportType": report_type,
-            "pages": pages,
-            "sha256": hashlib.sha256(pdf).hexdigest(),
-            "outputPath": out_path,
-        },
-        ensure_ascii=False,
-        separators=(",", ":"),
-    )
+    return _ok_line(report_type, pages, hashlib.sha256(pdf).hexdigest(), out_path)
+
+
+def _assemble_print(flags, stdin):
+    """`assemble-print` (R20-R25): local archives only, the key from the private file of the environment (R23)."""
+    out_path = os.path.abspath(flags["out"])
+    if os.path.lexists(out_path):
+        raise StudyqError("output_exists", "output exists")
+    from .print_zip import assemble_print
+
+    pdf, pages, report_type, sha256 = assemble_print(read_input(stdin), os.environ)
+    write_atomic(out_path, pdf)
+    return _ok_line(report_type, pages, sha256, out_path)
 
 
 def main(argv=None):

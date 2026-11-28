@@ -160,6 +160,10 @@ export const keptTools:readonly {name:string;title:string;description:string;inp
  {name:'academy_official_report_pdf_get',title:'공식 리포트 PDF',
   description:"Official StudyQ PDF (공식·교재 리포트), read-only LMS. reportType 'course_book': student book report (displayName/studentName; courseKey+bookNo+studentKey or params.bookLabel, live then memory). 'cism': CISM, no student (params.scope week+date or month). Saved under owner root (outputPath: optional .pdf, no overwrite); answers outputPath, sha256, pages, parityOk.",
   inputSchema:schema({reportType:oneOf('course_book','cism'),displayName:str,studentName:str,courseKey:str,bookNo:str,studentKey:str,params:obj,outputPath:str},['reportType'])},
+ // The second new tool: the printable PDF of an existing paper (CreateTotalPrint, CreateClinic), read-only.
+ {name:'academy_paper_print_pdf_get',title:'시험지·클리닉지 인쇄 PDF',
+  description:"Printable PDF (시험지·클리닉지) of an existing paper. mode 'exam': paperNo (its exam list) or paperKeys (selType default obj); 'examtext': passage paperKeys; 'clinic': clinic print of either. includeAnswers, includeExplain add pages. Saved under owner root (outputPath optional); answers outputPath, sha256. Read only.",
+  inputSchema:schema({mode:oneOf('exam','examtext','clinic'),paperNo:str,paperKeys:strs,selType:oneOf('obj','sbj','des'),includeAnswers:bool,includeExplain:bool,outputPath:str},['mode'])},
 ];
 
 /** Surface order: runtime, DailyRecord, student, DailyTest and paper, textbook, items and clinic, prestudy, CISM; then the new tools. */
@@ -167,7 +171,7 @@ export const baselineSurfaceOrder=['academy_runtime_inspect','academy_dailyrecor
  'academy_dailytest_history','academy_paper_inspect','academy_textbook_section_results_get','academy_clinic_paper_status_get','academy_item_lookup',
  'academy_textbook_catalog_get','academy_prestudy_get','academy_cism_get','academy_cism_weekly_review','academy_cism_weekly_save'] as const;
 /** The new tools of Waves 3 to 5 already built (specs/academy-mcp/tool-surface.md R2). */
-export const newSurfaceTools=['academy_official_report_pdf_get'] as const;
+export const newSurfaceTools=['academy_official_report_pdf_get','academy_paper_print_pdf_get'] as const;
 export const surfaceOrder=[...baselineSurfaceOrder,...newSurfaceTools] as const;
 
 /** `release/surface.json` as built from this module. */

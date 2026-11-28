@@ -29,7 +29,7 @@ function fixture(name:string,over:Partial<{answer:Awaited<ReturnType<CourseBookR
     return over.answer??{kind:'report',student:{studentId:KEY,displayName:STUDENT},courseKey:COURSE,bookNo:BOOK,bindingSource:'historical_key_registry',report};}};
   const runner:StudyqRunner={async renderCourseBook(input,path){calls.runner.push({input,path});
     return over.rendered??{status:'rendered',pages:8,sha256:'a'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};},
-    async renderCism(){throw Error('not_called_for_course_book');}};
+    async assemblePrint(){throw Error('not_called');},async renderCism(){throw Error('not_called_for_course_book');}};
   const root=resolve(base,name,'official-reports');
   return {calls,root,service:new OfficialReportPdfService(backend,runner,root,now)};
 }
@@ -112,7 +112,7 @@ function cismFixture(name:string,reports:(date:string)=>CismReport,rendered?:Awa
   const calls={dates:[] as string[],runner:[] as {input:any;path:string}[]};
   const backend:CourseBookReportBackend={async readCourseBookReportByName(){throw Error('not_called_for_cism');},async readCismReport(date){calls.dates.push(date);return reports(date);}};
   const runner:StudyqRunner={async renderCourseBook(){throw Error('not_called_for_cism');},
-    async renderCism(input,path){calls.runner.push({input,path});return rendered??{status:'rendered',pages:3,sha256:'b'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};}};
+    async assemblePrint(){throw Error('not_called');},async renderCism(input,path){calls.runner.push({input,path});return rendered??{status:'rendered',pages:3,sha256:'b'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};}};
   const root=resolve(base,name,'official-reports');
   return {calls,root,service:new OfficialReportPdfService(backend,runner,root,now)};
 }
@@ -243,7 +243,7 @@ describe('academy_official_report_pdf_get reportType cism',()=>{
     const admission={teacherId:'90001',teacherLabel:'Fictional Teacher',date:'2040-01-04',students:[{studentId:'9101',displayName:'Invented Student'}],sourceBundleSha256:'b'.repeat(64)};
     const client=new AcademyHttpClient({teacherLabel:'Fictional Teacher',teacherKey:'90001',collegeKey:'88001'},guard.transport as never);
     const backend=new NativeDailyRecordBackend(client as never,admission,()=>({username:'fictional',password:'fictional'}));
-    const runner:StudyqRunner={async renderCourseBook(){throw Error('x');},async renderCism(input,path){seen.push(input);return {status:'rendered',pages:2,sha256:'c'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};}};
+    const runner:StudyqRunner={async renderCourseBook(){throw Error('x');},async assemblePrint(){throw Error('not_called');},async renderCism(input,path){seen.push(input);return {status:'rendered',pages:2,sha256:'c'.repeat(64),outputPath:path,parityOk:true,parityMismatches:0,parityRawRn:0};}};
     const seen:any[]=[];
     const service=new OfficialReportPdfService(backend as never,runner,resolve(base,'cism-i1','official-reports'),now);
     const week=await service.get({reportType:'cism',params:{scope:'week',date:'2040-10-15'}}) as any;

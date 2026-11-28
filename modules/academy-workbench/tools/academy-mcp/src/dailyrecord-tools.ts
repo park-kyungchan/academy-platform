@@ -9,6 +9,7 @@ import {dailyRecordGetSchema,dailyRecordGetDescription} from './dailyrecord-read
 import {z} from 'zod';
 import {itemAnswerLookupSchema} from './item-answer-lookup.ts';
 import {OfficialReportPdfService,officialReportPdfGetSchema} from './official-report-pdf.ts';
+import {PaperPrintPdfService,paperPrintPdfGetSchema} from './paper-print-pdf.ts';
 
 export function registerDailyRecordTools(server:McpServer,service=new DailyRecordService()){
   const annotations={...readOnlyAnnotations,openWorldHint:service.backend!==null,idempotentHint:service.backend===null};
@@ -94,6 +95,18 @@ export function registerOfficialReportPdfTool(server:McpServer,service:OfficialR
     title:'Render one official StudyQ report PDF from read-only LMS data',
     description:academyRoutingDescription('academy_official_report_pdf_get','reportType course_book: the official course-book report of one student and book, read by getCourseBookReport and rendered on this host by the pinned studyq-linux executor, then checked by its parity run (parityOk, parityMismatches, parityRawRn). The book: courseKey, bookNo and studentKey together, or params.bookLabel (live book list first, then the active edu-academy-memory binding, as academy_textbook_section_results_get chooses it). reportType cism: the owner CISM report of one week (params.scope week, params.date) or one month (params.scope month, params.month YYYY-MM), read by CismChartMain; no student or book member. The PDF is written under the owner output root (outputPath optional, .pdf, inside that root; never overwritten). No Academy write, printing or sending.'),
     inputSchema:officialReportPdfGetSchema,annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:service.backend!==null},
+  },async input=>result(await service.get(input)));
+}
+
+/** academy_paper_print_pdf_get on the dailyrecord endpoint (src/dailyrecord-server.ts): the printable PDF of an
+ * existing exam or clinic paper from read-only data, written under the owner print-pdfs root. */
+export function registerPaperPrintPdfTool(server:McpServer,service:PaperPrintPdfService){
+  const result=(value:unknown)=>{const structuredContent=JSON.parse(JSON.stringify(value)) as Record<string,unknown>;
+    return {content:[{type:'text' as const,text:JSON.stringify(structuredContent)}],structuredContent};};
+  server.registerTool('academy_paper_print_pdf_get',{
+    title:'Make the printable PDF of an existing exam or clinic paper from read-only data',
+    description:academyRoutingDescription('academy_paper_print_pdf_get','mode exam: one print archive for each row of the exam list of paperNo (getTestExamList), or for each exact exam key of paperKeys (selType default obj); mode examtext: passage archives of explicit paperKeys; mode clinic: the same archives as one clinic print. The archives are read from the static print storage with no Academy credential and assembled on this host by the pinned studyq-linux executor, which holds the archive key in a private file and opens no network connection. includeAnswers and includeExplain add the answer and explanation pages. The PDF is written under the owner print-pdfs root (outputPath optional, .pdf, inside that root; never overwritten). No Academy write, printing or sending.'),
+    inputSchema:paperPrintPdfGetSchema,annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:service.backend!==null},
   },async input=>result(await service.get(input)));
 }
 
