@@ -740,7 +740,7 @@
   {
    "name": "academy_official_report_pdf_get",
    "title": "공식 리포트 PDF",
-   "description": "Official StudyQ PDF (공식·교재 리포트), read-only LMS. reportType course_book: displayName; courseKey+bookNo+studentKey or params.bookLabel. cism: params.scope week+date|month. diag/formative/ganga/na_score: displayName+params.testingNo+classNo. smart_book: displayName+params.bookCode. new_diag: params.paperNo+applyCode. Saved under owner root (no overwrite); answers outputPath, sha256, pages, parityOk.",
+   "description": "Official StudyQ PDF (공식·교재 리포트) by StudyQReport.exe on PC, read-only LMS. reportType course_book: displayName; courseKey+bookNo+studentKey or params.bookLabel. cism: params.scope week+date. diag/formative/ganga/na_score: displayName+params.testingNo+classNo. smart_book: displayName+params.bookCode. new_diag: params.paperNo+applyCode. Saved in owner root (no overwrite): outputPath, sha256, pages.",
    "inputSchema": {
     "type": "object",
     "properties": {

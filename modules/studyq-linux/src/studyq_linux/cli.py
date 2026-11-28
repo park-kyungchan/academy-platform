@@ -1,10 +1,9 @@
-"""The command line: `render` and `assemble-print` (specs/studyq-linux/core.md R1-R7, R20-R25).
+"""The command line: `assemble-print` (specs/studyq-linux/core.md R1-R4, R6-R8, R20-R25).
 
 One run, one PDF, one line on standard output. Refusals print
 `{"status":"error","code":...,"detail":...}`; a detail never holds a value of the input.
 """
 
-import hashlib
 import json
 import os
 import signal
@@ -12,35 +11,13 @@ import sys
 import tempfile
 
 from .errors import StudyqError, clip_detail
-from .manifest import verify_assets_dir
-from .schema import (
-    validate_cism,
-    validate_course_book,
-    validate_diag,
-    validate_formative,
-    validate_ganga,
-    validate_na_score,
-    validate_new_diag,
-    validate_smart_book,
-)
 
 MAX_STDIN_BYTES = 4 * 1024 * 1024
-KNOWN_TYPES = ("course_book", "cism", "diag", "new_diag", "formative", "ganga", "na_score", "smart_book")
-VALIDATORS = {
-    "course_book": validate_course_book,
-    "cism": validate_cism,
-    "diag": validate_diag,
-    "new_diag": validate_new_diag,
-    "formative": validate_formative,
-    "ganga": validate_ganga,
-    "na_score": validate_na_score,
-    "smart_book": validate_smart_book,
-}
-FLAGS = {"render": ("--type", "--assets", "--out"), "assemble-print": ("--out",)}
+FLAGS = {"assemble-print": ("--out",)}
 
 
 def parse_words(argv):
-    """The two forms of the Interface; anything else is `usage_invalid`. Returns (verb, flags)."""
+    """The form of the Interface; anything else is `usage_invalid`. Returns (verb, flags)."""
     if not argv or argv[0] not in FLAGS:
         raise StudyqError("usage_invalid", "unknown verb")
     verb, allowed, flags = argv[0], FLAGS[argv[0]], {}
@@ -118,17 +95,6 @@ def write_atomic(out_path, data):
             pass
 
 
-def count_pages(pdf_bytes):
-    from .render import load_pymupdf
-
-    pymupdf = load_pymupdf()
-    doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
-    try:
-        return doc.page_count
-    finally:
-        doc.close()
-
-
 def run(argv, stdin):
     """Run one command; return (exit status, the one line for standard output)."""
     try:
@@ -154,23 +120,8 @@ def _ok_line(report_type, pages, sha256, out_path):
 
 
 def _execute(argv, stdin):
-    verb, flags = parse_words(argv)
-    if verb == "assemble-print":
-        return _assemble_print(flags, stdin)
-    report_type = flags["type"]
-    if report_type not in KNOWN_TYPES:
-        raise StudyqError("type_unknown", "type is not one of the eight report types")
-    out_path = os.path.abspath(flags["out"])
-    if os.path.lexists(out_path):
-        raise StudyqError("output_exists", "output exists")
-    data = VALIDATORS[report_type](read_input(stdin))
-    bundle = verify_assets_dir(flags["assets"])
-    from .render import render_report
-
-    pdf = render_report(report_type, data, bundle)
-    pages = count_pages(pdf)
-    write_atomic(out_path, pdf)
-    return _ok_line(report_type, pages, hashlib.sha256(pdf).hexdigest(), out_path)
+    _verb, flags = parse_words(argv)
+    return _assemble_print(flags, stdin)
 
 
 def _assemble_print(flags, stdin):

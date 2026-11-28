@@ -14,9 +14,8 @@ type or module is a rule.
 | [academy-mcp/direct-key-lookup.md](academy-mcp/direct-key-lookup.md) | The direct-key historical fallback of `academy_textbook_section_results_get` and the read-only `ReportViewServlet` views |
 | [academy-mcp/lms-reads.md](academy-mcp/lms-reads.md) | The read-only LMS reads of `academy_lms_schedule_get` and `academy_prestudy_get` |
 | [academy-mcp/gated-writes.md](academy-mcp/gated-writes.md) | The two-phase writes `academy_clinic_paper_{review,save}` and `academy_exam_paper_{review,save}` |
-| [studyq-linux/core.md](studyq-linux/core.md) | The Linux StudyQ executor `python3 -m studyq_linux` (`render`, `assemble-print`) |
-| [studyq-linux/reports-batch1.md](studyq-linux/reports-batch1.md) | The report types `diag`, `new_diag` and `formative` of `python3 -m studyq_linux render` |
-| [studyq-linux/reports-batch2.md](studyq-linux/reports-batch2.md) | The report types `ganga`, `na_score` and `smart_book` of `python3 -m studyq_linux render` |
+| [academy-mcp/pc-executor.md](academy-mcp/pc-executor.md) | The official StudyQ report PDFs of `academy_official_report_pdf_get`, made by `StudyQReport.exe` on the user's PC (option `--pc-executor`) |
+| [studyq-linux/core.md](studyq-linux/core.md) | The Linux StudyQ print executor `python3 -m studyq_linux` (`assemble-print`) |
 
 ## The form of a specification
 

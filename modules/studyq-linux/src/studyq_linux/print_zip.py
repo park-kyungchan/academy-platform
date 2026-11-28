@@ -359,10 +359,17 @@ def layout_images(sizes):
     return placed
 
 
+def load_pymupdf():
+    """PyMuPDF, imported only when a PDF is drawn (R26, R27); its absence refuses with `render_failed`."""
+    try:
+        import pymupdf
+    except ImportError:
+        raise StudyqError("render_failed", "pymupdf_unavailable") from None
+    return pymupdf
+
+
 def assemble_pdf(parts):
     """`(pdf bytes, page count)` for the parts, deterministic (no id, no time) (R8)."""
-    from .render import load_pymupdf
-
     pymupdf = load_pymupdf()
     doc = pymupdf.open()
     try:

@@ -139,7 +139,7 @@ CISM 4 to 3).
 
 | Tool | Contract |
 | --- | --- |
-| `academy_official_report_pdf_get` | [studyq-linux/core.md](../studyq-linux/core.md), `render` |
+| `academy_official_report_pdf_get` | [pc-executor.md](pc-executor.md): `StudyQReport.exe` on the user's PC, the Academy server's answer passed verbatim |
 | `academy_paper_print_pdf_get` | [studyq-linux/core.md](../studyq-linux/core.md), `assemble-print` |
 | `academy_lms_schedule_get` | [lms-reads.md](lms-reads.md) |
 | `academy_clinic_paper_review` | [gated-writes.md](gated-writes.md) |

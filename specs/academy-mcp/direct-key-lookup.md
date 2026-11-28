@@ -26,7 +26,7 @@ relied on by the teacher's lesson and counseling sessions, by the tool surface
 - R10: Account lock: before its first LMS request a call of the TypeScript server takes the shared account lock of `docs/academy-account-lock.md`, waiting up to 45 seconds, and holds it until its last request; when the lock is still held after 45 seconds the call ends with a tool error carrying `owner_account_busy`, and 0 HTTP requests are sent. A Rust owner that finds the lock held fails at once with `owner_account_busy`, and `edu lesson` retries for up to its `lockWaitSeconds`, as that document states. Tests: `direct_key_r10_account_busy`.
 - R11: A page that is the LMS login page, a session-error page or a redirect to either refuses the call with `authentication_required` and answers no row (fail closed). Tests: `direct_key_r11_login_page_fails_closed`.
 - R12: No error and no log line of the fallback holds a student name, a record text or a key value. Tests: `direct_key_r12_no_value_in_errors`.
-- R13: `academy_official_report_pdf_get` `reportType` `course_book` of a book whose report holds no test (the `block5` list of `getCourseBookReport` is empty: live fact, 2026-11-28, an active book, which the renderer of [reports-batch1.md](../studyq-linux/reports-batch1.md) refuses with `studyq_input_invalid` because it needs at least 1 test) answers `status` `unavailable` with `reasonCode` `course_book_no_tests` and the `reportSummary` of the report, before the StudyQ runner is called and with no file made. The check is in the TypeScript server (`official-report-pdf.ts`, on the projected `test_list`); `modules/studyq-linux` and its schema do not change. Tests: `official_report_course_book_without_tests_is_course_book_no_tests`.
+- R13: (removed)
 
 ## Interface
 
@@ -67,7 +67,6 @@ With `sourceTitles` it holds `records[]` as the live read does (score and per-it
 | `owner_account_busy` | R10 |
 | `authentication_required` | R8, R11 |
 | `report_view_name_invalid`, `report_view_form_unavailable`, `report_view_params_invalid`, `report_view_unqualified` | R8 |
-| `course_book_no_tests` | R13 |
 
 ### Account lock
 

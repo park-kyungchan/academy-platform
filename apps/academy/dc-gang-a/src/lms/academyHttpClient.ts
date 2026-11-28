@@ -16,7 +16,7 @@ import {parseItemMetadata} from './itemMetadataRead';
 import {selectSourceFunction} from './sourceFunctionText';
 import {inspectAssessmentSearchMetadata,inspectStudentNameSearch,parseScoreView} from './assessmentReadProtocol';
 import {PAPER_EXAM_LIST_PATH,paperExamListForm,parsePaperExamList,printArchiveUrl,boundedPrintArchiveBody,type PaperExamRow,type PrintArchiveKind} from './paperPrintRead';
-import {COURSE_BOOK_REPORT_PATH,isLoginOrSessionPage,readCourseBookReportEnvelope,projectCourseBookReport,type CourseBookReport} from './courseBookReport';
+import {COURSE_BOOK_REPORT_PATH,isLoginOrSessionPage,readCourseBookReportEnvelope,verifyCourseBookReport,type CourseBookReport} from './courseBookReport';
 import {REPORT_VIEW_PATH,readReportViewEnvelope,reportViewForm} from './reportViewClient';
 import {validateReportViewName} from './reportViewRead';
 import {qualifyStudentPaperSearchPeriod,type StudentPaperSearchPeriod} from './studentPaperSearchPeriod';
@@ -992,12 +992,12 @@ export class AcademyHttpClient {
     return {sourceOperation:'getWrongAnswerNoteResult' as const,rows,indexBasis:'wrong_answer_note_only' as const,observedAt:new Date().toISOString()};
   }
   /** `getCourseBookReport` of one exact course, book and student: SERVER_RET = OK, a book
-   * title, the student's name and every echoed key must hold (R4); the answer is the pinned
-   * projection of courseBookReport.ts. */
+   * title, the student's name and every echoed key must hold (R4); the answer is kept as the
+   * server sent it (courseBookReport.ts). */
   async readCourseBookReport(input:{teacherLabel:string;studentKey:string;studentName:string;courseKey:string;bookNo:string}):Promise<CourseBookReport>{
     const {scope}=this.#historicalScope(input);
     const text=await this.#historicalPost(COURSE_BOOK_REPORT_PATH,{reqCmd:'getCourseBookReport',course_key:scope.courseKey,book_no:scope.bookNo,student_pri_no:scope.studentKey},'getCourseBookReport');
-    return projectCourseBookReport(readCourseBookReportEnvelope(text),scope);
+    return verifyCourseBookReport(readCourseBookReportEnvelope(text),scope);
   }
   /** One read-only report view of `ReportViewServlet` (specs/academy-mcp/direct-key-lookup.md R8): the view
    * name is validated before anything else, then the exact POST form of reportViewClient.ts is sent and the

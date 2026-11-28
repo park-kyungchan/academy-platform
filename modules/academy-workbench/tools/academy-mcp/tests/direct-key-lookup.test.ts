@@ -8,7 +8,7 @@ import {lmsRequestRole,writeForbiddenTransport} from './network-deny.ts';
 import {REPORT_VIEW_PATH,readReportViewEnvelope,reportViewForm} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewClient.ts';
 import {reportViewRequestEffect,reportViewRoutes} from '../../../../../apps/academy/dc-gang-a/src/lms/lmsRouteRegistry.ts';
 import {AcademyHttpClient} from '../../../../../apps/academy/dc-gang-a/src/lms/academyHttpClient.ts';
-import {projectCourseBookReport,readCourseBookReportEnvelope} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport.ts';
+import {courseBookSummary,readCourseBookReportEnvelope,verifyCourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport.ts';
 import {REPORT_VIEW_NAMES,validateReportViewName} from '../../../../../apps/academy/dc-gang-a/src/lms/reportViewRead.ts';
 import {DailyRecordService,textbookSectionResultsGetSchema,clinicPaperStatusGetSchema} from '../src/dailyrecord.ts';
 import {NativeDailyRecordBackend,bookTitleAgrees} from '../src/native-dailyrecord-backend.ts';
@@ -489,26 +489,23 @@ describe('direct-key historical lookup (specs/academy-mcp/direct-key-lookup.md)'
   expect(reader.calls).toBe(0);expect(empty.calls.concat(live.calls).filter(c=>c==='historical'||c==='report')).toEqual([]);
  });
 
- test('direct_key_course_book_projection',()=>{
+ test('direct_key_course_book_report_is_kept_as_the_server_sent_it',()=>{
   const raw=reportRaw({block5:Array.from({length:10},(_,i)=>({'1':i+1,'2':'Invented test '+i,'3':10,'4':70,'5':80,'6':'03-01'})),
    block12:Array.from({length:12},(_,i)=>({'2':'Invented unit '+i,'3':3,'4':i?4:0,'5':70})),block11:[{'2':71}]});
-  const report=projectCourseBookReport(readCourseBookReportEnvelope(envelope(raw)),{studentName:STUDENT,studentKey:KEY,courseKey:COURSE,bookNo:BOOK});
-  expect(Object.keys(report.studyqInput).sort()).toEqual(['all_average','bunit_list','comment','difficulty','grade','munit_list','my_average','period','score_range','student','test_list']);
+  const report=verifyCourseBookReport(readCourseBookReportEnvelope(envelope(raw)),{studentName:STUDENT,studentKey:KEY,courseKey:COURSE,bookNo:BOOK});
+  // The answer is not projected or cut: the executor on the PC receives it verbatim (specs/academy-mcp/pc-executor.md).
+  expect(report.raw).toEqual(raw);
+  expect(Object.keys(report).sort()).toEqual(['metadata','raw','sourceChapterCount']);
   expect(report.metadata).toEqual({bookTitle:REPORT_TITLE});
-  expect(JSON.stringify(report.studyqInput)).not.toContain(REPORT_TITLE);
-  expect(report.studyqInput).toMatchObject({period:'2040-01-01 ~ 2040-03-01',student:STUDENT,grade:5,my_average:82.5,all_average:75,comment:'Invented comment',
-   score_range:{my:82.5,average:75},difficulty:{top:{questions:1,score:90},high:{questions:2,score:80},mid:{questions:3,score:70},low:{questions:4,score:60}}});
-  expect(report.studyqInput.test_list).toHaveLength(8);
-  expect(report.studyqInput.bunit_list[0]).toEqual({name:'Invented chapter',my_score:80,average:70,questions:[
-   {no:1,type:'Invented type',question_type:'객관식',difficulty:'중',correct_rate:66,correct:true},
-   {no:2,type:'Other type',question_type:'서술형',difficulty:'최상',correct_rate:40,correct:false}]});
-  expect(report.studyqInput.munit_list).toHaveLength(11);
-  expect(report.studyqInput.munit_list[0]).toEqual({name:'Invented unit 0',correct:3,total:1,average:71});
-  expect(report.studyqInput.munit_list[1]).toEqual({name:'Invented unit 1',correct:3,total:4,average:70});
-  expect(report.truncation).toEqual({testsDropped:2,chaptersDropped:0,questionsDropped:0,munitsDropped:1});
-  // An empty type is kept empty: the renderer refuses it, no label is invented.
-  const blank=projectCourseBookReport(reportRaw({bunit_list:[{'1':'c','3':1,'4':1,exam_result:[{'1':1,'3':1,'4':9,'5':1,'6':'X'}]}]}),{studentName:STUDENT,studentKey:KEY,courseKey:COURSE,bookNo:BOOK});
-  expect(blank.studyqInput.bunit_list[0]!.questions[0]).toMatchObject({type:'',question_type:'9'});
+  expect(report.sourceChapterCount).toBe((raw.bunit_list as unknown[]).length);
+  // The summary reads the raw fields: block1[0] 2, 3 and 4, block2[0] 3 and 4.
+  expect(courseBookSummary(report.raw)).toEqual({student:STUDENT,period:'2040-01-01 ~ 2040-03-01',myAverage:82.5,allAverage:75});
+  expect((report.raw.block5 as unknown[])).toHaveLength(10);
+  expect((report.raw.block12 as unknown[])).toHaveLength(12);
+  // An empty type is kept as the server sent it.
+  const blank=verifyCourseBookReport(reportRaw({bunit_list:[{'1':'c','3':1,'4':1,exam_result:[{'1':1,'3':1,'4':9,'5':1,'6':'X'}]}]}),{studentName:STUDENT,studentKey:KEY,courseKey:COURSE,bookNo:BOOK});
+  expect((blank.raw.bunit_list as any)[0].exam_result[0]).toEqual({'1':1,'3':1,'4':9,'5':1,'6':'X'});
+  expect(()=>verifyCourseBookReport(reportRaw({block1:[{'1':REPORT_TITLE,'2':'2040-01-01','3':'2040-03-01','4':'Other Invented'}]}),{studentName:STUDENT,studentKey:KEY,courseKey:COURSE,bookNo:BOOK})).toThrow('historical_key_unverified');
   expect(()=>readCourseBookReportEnvelope(loginPage)).toThrow('authentication_required');
   expect(()=>readCourseBookReportEnvelope('SERVER_RET = OK<BR>not json<END_DATA>')).toThrow('historical_key_unverified');
  });

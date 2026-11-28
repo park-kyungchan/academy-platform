@@ -14,6 +14,7 @@ import {ExamPaperService,registerExamPaperTools} from './exam-write-tools.ts';
 import {gatedWriteLedgerConfiguration} from '../../../../../apps/academy/dc-gang-a/src/lms/gatedWriteLedger';
 import {historicalBindingReaderConfiguration} from './historical-binding-reader.ts';
 import {studyqRunnerConfiguration} from './studyq-runner.ts';
+import {pcExecutorConfiguration} from './pc-executor.ts';
 import {OfficialReportPdfService} from './official-report-pdf.ts';
 import {PaperPrintPdfService} from './paper-print-pdf.ts';
 import {join} from 'node:path';
@@ -27,7 +28,11 @@ const textbookReader=await textbookPdfReaderConfiguration(gatedLedger.remainingA
 // --memory-bindings <memoryBin> <storePath> and --studyq-runner <interpreter> <sha256> <srcDir> <sha256> <assetsDir>.
 const memoryBindings=historicalBindingReaderConfiguration(textbookReader.remainingArgs);
 const studyq=await studyqRunnerConfiguration(memoryBindings.remainingArgs);
-const learning=withoutRetiredLearningArguments(studyq.remainingArgs);
+// --pc-executor <user@host> <identityFile> <knownHostsFile> <exeDir>: the official report PDFs are made by StudyQReport.exe
+// on the user's PC (specs/academy-mcp/pc-executor.md); without it every report answers pc_executor_not_configured.
+const officialReportsRoot=join(nativeOwnerArtifactsRoot,'official-reports');
+const pc=await pcExecutorConfiguration(studyq.remainingArgs,{lockDir:officialReportsRoot});
+const learning=withoutRetiredLearningArguments(pc.remainingArgs);
 const config=await dailyRecordToolConfiguration(learning.remainingArgs);
 // Native launches always run the owner workflow with its store inside the owner
 // home, wherever the flags appear. The store is created only after the native
@@ -43,7 +48,7 @@ registerRuntimeIdentity(server,runtimeIdentity.identity);
 registerCismWeeklyTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'cism-weekly');
 registerTextbookSourceTools(server,native?.backend??null,nativeOwnerArtifactsRoot+'textbook-samples',textbookReader.reader);
 registerDailyRecordTools(server,new DailyRecordService(native?.backend??null,config.parentSafeguard,Date.now,null,native?.backend??null,workflow));
-registerOfficialReportPdfTool(server,new OfficialReportPdfService(native?.backend??null,studyq.runner,join(nativeOwnerArtifactsRoot,'official-reports')));
+registerOfficialReportPdfTool(server,new OfficialReportPdfService(native?.backend??null,pc.executor,officialReportsRoot));
 registerPaperPrintPdfTool(server,new PaperPrintPdfService(native?.backend??null,studyq.runner,join(nativeOwnerArtifactsRoot,'print-pdfs')));
 registerLmsScheduleTool(server,new LmsScheduleService(native?.backend??null));
 registerClinicPaperTools(server,new ClinicPaperService(native?.backend??null,gatedLedger.path));

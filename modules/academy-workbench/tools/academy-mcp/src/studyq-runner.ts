@@ -5,15 +5,14 @@ import {tmpdir} from 'node:os';
 import {isAbsolute,join,relative} from 'node:path';
 import {verifyInterpreter} from './textbook-pdf-reader.ts';
 
-/** The Linux-native StudyQ executor (modules/studyq-linux, specs/studyq-linux/core.md) run from a
+/** The Linux StudyQ print executor (modules/studyq-linux, specs/studyq-linux/core.md: `assemble-print`) run from a
  * launch-pinned interpreter and source tree. Before every spawn both are verified again: the
  * interpreter's bytes, and the tree `<studyqSrcDir>/studyq_linux/`, which holds no symbolic link,
  * no `__pycache__` directory or `.pyc` file and nothing group or world writable, and whose
  * sorted `<relpath>\0<sha256>\n` lines over its `.py` files hash to the pinned digest. Tool
- * callers supply no executable or path of the runner. */
-export interface StudyqRenderOk {status:'rendered';pages:number;sha256:string;outputPath:string;parityOk:boolean;parityMismatches:number;parityRawRn:number}
+ * callers supply no executable or path of the runner. The official report PDFs are not made here:
+ * they are made by `StudyQReport.exe` on the PC (src/pc-executor.ts). */
 export interface StudyqRefusal {status:'refused';code:string;detail:string}
-export type StudyqRenderResult=StudyqRenderOk|StudyqRefusal;
 export interface StudyqPrintOk {status:'rendered';reportType:string;pages:number;sha256:string;outputPath:string}
 export type StudyqPrintResult=StudyqPrintOk|StudyqRefusal;
 export interface StudyqRunner {
@@ -21,16 +20,7 @@ export interface StudyqRunner {
    * into `outputPath`. The archive key is read by the executor from the file named by the launch's `STUDYQ_PRINT_KEY_FILE`;
    * the runner takes no key from a caller. The executor opens no network connection. */
   assemblePrint(input:unknown,outputPath:string):Promise<StudyqPrintResult>;
-  /** Render `input` (the eleven `course_book` members) to `outputPath`, then check its parity. */
-  renderCourseBook(input:unknown,outputPath:string):Promise<StudyqRenderResult>;
-  /** Render `input` (the six `cism` members) to `outputPath`, then check its parity (`parity --type cism`). */
-  renderCism(input:unknown,outputPath:string):Promise<StudyqRenderResult>;
-  /** Render `input` of `reportType` (`render --type <reportType>`, specs/studyq-linux/core.md R5) to `outputPath`,
-   * then check its parity (`parity --type <reportType>`). */
-  renderReport(reportType:StudyqReportType,input:unknown,outputPath:string):Promise<StudyqRenderResult>;
 }
-export const studyqReportTypes=['course_book','cism','diag','new_diag','formative','ganga','na_score','smart_book'] as const;
-export type StudyqReportType=typeof studyqReportTypes[number];
 
 const PACKAGE='studyq_linux';
 /** The digest of the source tree `<srcDir>/studyq_linux/`, or a refusal (`studyq_source_rejected`). */
@@ -56,18 +46,18 @@ export async function verifyStudyqSourceTree(srcDir:string,expected:string){
   if(await studyqSourceTreeSha256(srcDir)!==expected)throw Error('studyq_source_rejected');
 }
 
-/** The one program the interpreter runs: the pinned tree first on sys.path, then the module's main. */
-const program=(module:'cli'|'parity')=>`import sys; sys.path.insert(0, sys.argv.pop(1)); from ${PACKAGE}.${module} import main; sys.exit(main(sys.argv[1:]))`;
+/** The one program the interpreter runs: the pinned tree first on sys.path, then the command line's main. */
+const program=`import sys; sys.path.insert(0, sys.argv.pop(1)); from ${PACKAGE}.cli import main; sys.exit(main(sys.argv[1:]))`;
 interface Pinned {interpreter:string;interpreterSha256:string;srcDir:string;sourceSha256:string;assetsDir:string;printKeyFile?:string|undefined;timeoutMs?:number}
 
-async function runPinned(pin:Pinned,module:'cli'|'parity',args:string[],stdin:Buffer):Promise<{exitCode:number|null;stdout:string}>{
+async function runPinned(pin:Pinned,args:string[],stdin:Buffer):Promise<{exitCode:number|null;stdout:string}>{
   await verifyInterpreter(pin.interpreter,pin.interpreterSha256,'studyq_interpreter_rejected');
   await verifyStudyqSourceTree(pin.srcDir,pin.sourceSha256);
   const cache=await mkdtemp(join(tmpdir(),'studyq-pycache-'));
   try{
     return await new Promise((resolve,reject)=>{
       // A clean environment: no Academy credential, only the archive key file when configured.
-      const child=spawn(pin.interpreter,['-I','-B','-X','pycache_prefix='+cache,'-c',program(module),pin.srcDir,...args],
+      const child=spawn(pin.interpreter,['-I','-B','-X','pycache_prefix='+cache,'-c',program,pin.srcDir,...args],
         {env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8',...(pin.printKeyFile?{STUDYQ_PRINT_KEY_FILE:pin.printKeyFile}:{})},stdio:['pipe','pipe','pipe'],shell:false});
       const out:Buffer[]=[];let size=0;
       const timer=setTimeout(()=>child.kill('SIGKILL'),pin.timeoutMs??90000);
@@ -88,27 +78,9 @@ const lastJsonLine=(stdout:string):Record<string,unknown>|null=>{
 const safeDetail=(value:unknown)=>typeof value==='string'?value.slice(0,256):'';
 
 export function pinnedStudyqRunner(pin:Pinned):StudyqRunner{
-  async function render(type:StudyqReportType,input:unknown,outputPath:string):Promise<StudyqRenderResult>{
-    if(!(studyqReportTypes as readonly string[]).includes(type))throw Error('studyq_report_type_invalid');
-    if(!isAbsolute(outputPath))throw Error('output_path_invalid');
-    const json=Buffer.from(JSON.stringify(input),'utf8');
-    const run=await runPinned(pin,'cli',['render','--type',type,'--assets',pin.assetsDir,'--out',outputPath],json);
-    const line=lastJsonLine(run.stdout);
-    if(!line)throw Error('studyq_runner_failed');
-    // A refusal of the executor (input_invalid, output_exists …) is its own answer; its detail holds no input value (R7 of core.md).
-    if(line.status==='error'&&typeof line.code==='string'&&/^[a-z_]{1,64}$/.test(line.code))return {status:'refused',code:line.code,detail:safeDetail(line.detail)};
-    if(run.exitCode!==0||line.status!=='ok'||line.outputPath!==outputPath||typeof line.sha256!=='string'||!/^[a-f0-9]{64}$/.test(line.sha256)
-      ||typeof line.pages!=='number'||!Number.isInteger(line.pages))throw Error('studyq_runner_failed');
-    if(createHash('sha256').update(await readFile(outputPath)).digest('hex')!==line.sha256)throw Error('studyq_runner_failed');
-    // parity.main exits 1 on a mismatch while printing its JSON: read stdout whatever the exit status.
-    const parity=lastJsonLine((await runPinned(pin,'parity',['--pdf',outputPath,'--assets',pin.assetsDir,...(type==='course_book'?[]:['--type',type])],json)).stdout);
-    if(!parity||(parity.status!=='ok'&&parity.status!=='mismatch')||typeof parity.mismatches!=='number'||typeof parity.rawRn!=='number')throw Error('studyq_runner_failed');
-    return {status:'rendered',pages:line.pages,sha256:line.sha256,outputPath,
-      parityOk:parity.status==='ok'&&parity.mismatches===0&&parity.rawRn===0,parityMismatches:parity.mismatches,parityRawRn:parity.rawRn};
-  }
   async function assemblePrint(input:unknown,outputPath:string):Promise<StudyqPrintResult>{
     if(!isAbsolute(outputPath))throw Error('output_path_invalid');
-    const run=await runPinned(pin,'cli',['assemble-print','--out',outputPath],Buffer.from(JSON.stringify(input),'utf8'));
+    const run=await runPinned(pin,['assemble-print','--out',outputPath],Buffer.from(JSON.stringify(input),'utf8'));
     const line=lastJsonLine(run.stdout);
     if(!line)throw Error('studyq_runner_failed');
     if(line.status==='error'&&typeof line.code==='string'&&/^[a-z_]{1,64}$/.test(line.code))return {status:'refused',code:line.code,detail:safeDetail(line.detail)};
@@ -117,12 +89,12 @@ export function pinnedStudyqRunner(pin:Pinned):StudyqRunner{
     if(createHash('sha256').update(await readFile(outputPath)).digest('hex')!==line.sha256)throw Error('studyq_runner_failed');
     return {status:'rendered',reportType:line.reportType,pages:line.pages,sha256:line.sha256,outputPath};
   }
-  return {renderCourseBook:(input,outputPath)=>render('course_book',input,outputPath),renderCism:(input,outputPath)=>render('cism',input,outputPath),
-    renderReport:(reportType,input,outputPath)=>render(reportType,input,outputPath),assemblePrint};
+  return {assemblePrint};
 }
 
 /** `--studyq-runner <interpreter> <interpreterSha256> <studyqSrcDir> <studyqSourceSha256> <assetsDir>`:
- * every path absolute, both pins verified at launch and again before every spawn. */
+ * every path absolute, both pins verified at launch and again before every spawn. `<assetsDir>` is kept in the
+ * launch words of the installed generations and is not used by `assemble-print`. */
 export async function studyqRunnerConfiguration(args:readonly string[],env:Record<string,string|undefined>=process.env){
   const remainingArgs:string[]=[];let runner:StudyqRunner|null=null;
   for(let i=0;i<args.length;i++){

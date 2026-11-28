@@ -1,8 +1,7 @@
-"""Tests of specs/studyq-linux/core.md. Synthetic fixtures with invented values only.
+"""Tests of the shared and print rules of specs/studyq-linux/core.md. Synthetic fixtures with invented values only.
 
-The pure-Python tests need neither assets nor PyMuPDF (R26). The rendering tests run when
-CHECK_STUDYQ_PYMUPDF=1 is set or `pymupdf` imports (R27); then they build synthetic templates
-with PyMuPDF and the repository's NanumGothic font.
+The pure-Python tests need neither assets nor PyMuPDF (R26). The tests that draw a PDF run when
+CHECK_STUDYQ_PYMUPDF=1 is set or `pymupdf` imports (R27); they are in test_print_zip.py.
 """
 
 import hashlib
@@ -21,11 +20,8 @@ MODULE = os.path.dirname(HERE)
 ROOT = os.path.dirname(os.path.dirname(MODULE))
 sys.path.insert(0, os.path.join(MODULE, "src"))
 
-from studyq_linux import course_book as cb  # noqa: E402
-from studyq_linux import geometry, manifest, textutil  # noqa: E402
-from studyq_linux import cli  # noqa: E402
+from studyq_linux import cli, manifest  # noqa: E402
 from studyq_linux.errors import StudyqError  # noqa: E402
-from studyq_linux.schema import validate_course_book  # noqa: E402
 
 FONT_PATH = os.path.join(ROOT, "apps/academy/dc-gang-a/src/academy/web/assets/NanumGothic-Regular.ttf")
 
@@ -41,72 +37,6 @@ RENDER_ENABLED = os.environ.get("CHECK_STUDYQ_PYMUPDF") == "1" or HAVE_PYMUPDF
 if not RENDER_ENABLED:
     sys.stderr.write("skip: studyq_linux rendering tests (no pymupdf; set CHECK_STUDYQ_PYMUPDF=1 to require it)\n")
 needs_pymupdf = unittest.skipUnless(RENDER_ENABLED, "pymupdf not available")
-ASSETS_DIR = os.environ.get("STUDYQ_ASSETS_DIR")
-if not ASSETS_DIR:
-    sys.stderr.write("skip: studyq_linux parity against the official templates (no assets directory given)\n")
-
-IMAGE_SIZES = {
-    "image/mark_o.jpg": (75, 56),
-    "image/mark_x.jpg": (75, 56),
-    "image/course_book/1p/grade_03.jpg": (1040, 709),
-    cb.SCORE_RANGE.rel: (2128, 261),
-    cb.TEST_LIST.rel: (2198, 1017),
-    cb.MUNIT.rel: (2198, 1017),
-    cb.DOT: (36, 36),
-    cb.STAR: (44, 44),
-    cb.SQUARE: (36, 36),
-}
-for _n in range(1, 8):
-    IMAGE_SIZES[cb.TEMPLATE_DIR + "coursebook_%d.jpg" % _n] = (248, 351)
-
-FAKE_CTX = cb.PlanContext(lambda text, size: len(text) * size * 0.6, lambda rel: IMAGE_SIZES[rel])
-
-
-def synthetic_input(chapters=3, questions=3):
-    """A synthetic `course_book` input: invented words and numbers only."""
-    return {
-        "period": "2026.01.01 ~ 2026.03.31",
-        "student": "Sample Learner",
-        "grade": 3,
-        "my_average": 82.5,
-        "all_average": 70,
-        "comment": "First sentence of the comment.\\r\\nSecond sentence, a return visit.\nThird line.\r\nFourth line.",
-        "score_range": {"my": 82.5, "average": 70},
-        "test_list": [
-            {"no": i + 1, "title": "Sample test %d" % (i + 1), "questions": 20 + i, "average": 60 + i, "score": 70 + 2 * i, "date": "2026-02-%02d" % (i + 1)}
-            for i in range(4)
-        ],
-        "bunit_list": [
-            {
-                "name": "Chapter %d" % (c + 1),
-                "my_score": 60 + 10 * c,
-                "average": 50 + 5 * c,
-                "questions": [
-                    {
-                        "no": q + 1,
-                        "type": "Kind %d-%d" % (c + 1, q + 1),
-                        "question_type": "Objective" if q % 2 == 0 else "Subjective",
-                        "difficulty": ["Top", "High", "Mid", "Low"][q % 4],
-                        "correct_rate": (30 + 3 * q + c) % 100,
-                        "correct": q % 2 == 0,
-                    }
-                    for q in range(questions)
-                ],
-            }
-            for c in range(chapters)
-        ],
-        "difficulty": {
-            "top": {"questions": 2, "score": 40},
-            "high": {"questions": 3, "score": 55.5},
-            "mid": {"questions": 4, "score": 70},
-            "low": {"questions": 1, "score": 100},
-        },
-        "munit_list": [{"name": "Unit %d" % (i + 1), "correct": 5 + i, "total": 10, "average": 55 + i} for i in range(5)],
-    }
-
-
-def planned(data=None):
-    return cb.plan_course_book(validate_course_book(data or synthetic_input()), FAKE_CTX)
 
 
 def run_cli(argv, stdin=b""):
@@ -148,31 +78,6 @@ def font_bytes():
         return handle.read()
 
 
-def picture(width, height, fmt):
-    pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, width, height), False)
-    pix.clear_with(245)
-    return pix.tobytes(fmt)
-
-
-_CONTENTS = {}
-
-
-def synthetic_contents(overflow=False):
-    if overflow not in _CONTENTS:
-        _CONTENTS[overflow] = _build_contents(overflow)
-    return _CONTENTS[overflow]
-
-
-def _build_contents(overflow):
-    """Synthetic templates and pictures (real picture sizes, plain colours) plus the repo font."""
-    contents = {manifest.FONT_REL: font_bytes()}
-    for rel, (w, h) in IMAGE_SIZES.items():
-        contents[rel] = picture(w, h, "png" if rel.endswith(".png") else "jpg")
-    if overflow:
-        contents[cb.TEMPLATE_DIR + "coursebook_5.jpg"] = picture(248, 351, "jpg")
-    return contents
-
-
 class TempDirCase(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="studyq-test-")
@@ -191,15 +96,14 @@ class WordsAndInput(TempDirCase):
         cases = [
             [],
             ["bogus"],
-            ["render"],
-            ["render", "--type", "course_book", "--assets", "a"],
-            ["render", "--type", "course_book", "--type", "cism", "--assets", "a", "--out", "o"],
-            ["render", "--type", "course_book", "--assets", "a", "--out", "o", "--extra", "x"],
-            ["render", "--type", "course_book", "--assets", "a", "--out", "o", "positional"],
-            ["render", "--type=course_book", "--assets", "a", "--out", "o"],
-            ["render", "--type", "--assets", "a", "--out", "o"],
+            ["render", "--type", "course_book", "--assets", "a", "--out", "o"],
             ["assemble-print"],
+            ["assemble-print", "--out"],
             ["assemble-print", "--out", "o", "--assets", "a"],
+            ["assemble-print", "--out", "o", "--out", "p"],
+            ["assemble-print", "--out", "o", "positional"],
+            ["assemble-print", "--out=o"],
+            ["assemble-print", "--out", "--other"],
         ]
         for argv in cases:
             status, line = cli.run(argv, Poison())
@@ -208,18 +112,8 @@ class WordsAndInput(TempDirCase):
             self.assertEqual(doc["code"], "usage_invalid", argv)
             self.assertEqual(set(doc), {"status", "code", "detail"})
 
-    def test_r5_type_unknown(self):
-        for other in ("other", "smartbook", "gang_a", "na-score", "DIAG", "new-diag", "SMART_BOOK"):
-            status, line = run_cli(["render", "--type", other, "--assets", self.tmp, "--out", self.path("o.pdf")], b"{}")
-            self.assertEqual((status, json.loads(line)["code"]), (1, "type_unknown"), other)
-        # The eight types of R5 are known: an empty object is refused as their input, not as a type.
-        for known in ("course_book", "cism", "diag", "new_diag", "formative", "ganga", "na_score", "smart_book"):
-            status, line = run_cli(["render", "--type", known, "--assets", self.tmp, "--out", self.path("o.pdf")], b"{}")
-            self.assertEqual((status, json.loads(line)["code"]), (1, "input_invalid"), known)
-        self.assertEqual(os.listdir(self.tmp), [])
-
     def refuse(self, stdin):
-        status, line = run_cli(["render", "--type", "course_book", "--assets", self.tmp, "--out", self.path("o.pdf")], stdin)
+        status, line = run_cli(["assemble-print", "--out", self.path("o.pdf")], stdin)
         doc = json.loads(line)
         self.assertNotEqual(status, 0)
         self.assertEqual(doc["code"], "input_invalid", line)
@@ -227,47 +121,28 @@ class WordsAndInput(TempDirCase):
         return doc["detail"]
 
     def test_r4_input_invalid(self):
-        good = synthetic_input()
         self.refuse(b"\xff\xfe{}")
         self.refuse(b"")
         self.refuse(b"[]")
         self.refuse(b"{} {}")
         self.refuse(b'{"a":1,"a":2}')
-        self.refuse(b'{"grade":NaN}')
+        self.refuse(b'{"kind":NaN}')
         self.refuse(b" " * (4 * 1024 * 1024 + 1))
-        missing = dict(good)
-        del missing["comment"]
-        self.assertEqual(self.refuse(json.dumps(missing).encode()), "missing:comment")
-        extra = dict(good, surplus=1)
-        self.refuse(json.dumps(extra).encode())
-        wrong = dict(good, grade="3")
-        self.assertEqual(self.refuse(json.dumps(wrong).encode()), "type:grade")
-        wrong = dict(good, grade=True)
-        self.refuse(json.dumps(wrong).encode())
-        deep = json.loads(json.dumps(good))
-        deep["bunit_list"][1]["questions"][0]["correct"] = 1
-        self.assertEqual(self.refuse(json.dumps(deep).encode()), "type:bunit_list[1].questions[0].correct")
-        deep = json.loads(json.dumps(good))
-        deep["bunit_list"] = []
-        self.refuse(json.dumps(deep).encode())
-        deep = json.loads(json.dumps(good))
-        deep["test_list"] = deep["test_list"] * 3
-        self.refuse(json.dumps(deep).encode())
+        self.refuse(b"{}")
+        self.refuse(json.dumps({"archive_root": self.tmp, "kind": "exam", "items": [], "surplus": 1}).encode())
+        self.refuse(json.dumps({"archive_root": self.tmp, "kind": "exam", "items": "x"}).encode())
 
     def test_r7_details_hold_no_input_value(self):
         secret = "Zq" + "Xv" + "Student-Name"
-        data = synthetic_input()
-        data["student"] = secret
-        data["bunit_list"][0]["questions"][0]["no"] = "oops-" + secret
-        data["surplus-" + secret] = 1
-        status, line = run_cli(["render", "--type", "course_book", "--assets", self.tmp, "--out", self.path("o.pdf")], json.dumps(data).encode())
-        self.assertNotIn(secret, line)
-        self.assertLessEqual(len(json.loads(line)["detail"].encode()), 256)
-        data = synthetic_input()
-        data["student"] = secret
-        status, line = run_cli(["render", "--type", "course_book", "--assets", self.tmp, "--out", self.path("o.pdf")], json.dumps(data).encode())
-        self.assertNotIn(secret, line)
-        self.assertEqual(json.loads(line)["code"], "asset_manifest_invalid")
+        for doc in (
+            {"archive_root": self.tmp, "kind": "exam", "items": [{"lecture_key": "oops-" + secret, "sel_type": "obj"}]},
+            {"archive_root": self.tmp, "kind": "exam", "items": [], "surplus-" + secret: 1},
+            {"archive_root": "/" + secret, "kind": "examtext", "items": [{"examtext_key": 1, "sel_type": "obj"}]},
+        ):
+            status, line = run_cli(["assemble-print", "--out", self.path("o.pdf")], json.dumps(doc).encode())
+            self.assertNotEqual(status, 0)
+            self.assertNotIn(secret, line)
+            self.assertLessEqual(len(json.loads(line)["detail"].encode()), 256)
         self.assertLessEqual(len(StudyqError("render_failed", "é" * 400).detail.encode()), 256)
 
     def test_r7_unexpected_failure_reports_class_only(self):
@@ -275,12 +150,12 @@ class WordsAndInput(TempDirCase):
             def read(self, _n=-1):
                 raise RuntimeError("secret-student-value")
 
-        status, line = cli.run(["render", "--type", "course_book", "--assets", self.tmp, "--out", self.path("o.pdf")], Boom())
+        status, line = cli.run(["assemble-print", "--out", self.path("o.pdf")], Boom())
         doc = json.loads(line)
         self.assertEqual((doc["code"], doc["detail"]), ("render_failed", "RuntimeError"))
 
     def test_r2_error_line_is_one_line_with_a_known_code(self):
-        status, line = run_cli(["render", "--type", "course_book", "--assets", self.tmp, "--out", self.path("o.pdf")], b"[]")
+        status, line = run_cli(["assemble-print", "--out", self.path("o.pdf")], b"[]")
         self.assertEqual(line.count("\n"), 0)
         self.assertEqual(list(json.loads(line)), ["status", "code", "detail"])
         self.assertIn(json.loads(line)["code"], __import__("studyq_linux.errors", fromlist=["CODES"]).CODES)
@@ -292,6 +167,40 @@ class WordsAndInput(TempDirCase):
         self.assertEqual(json.loads(proc.stdout)["code"], "usage_invalid")
         self.assertEqual(proc.stdout.count("\n"), 1)
         self.assertEqual(proc.stderr, "")
+
+
+class AtomicWrite(TempDirCase):
+    def test_r6_written_beside_and_renamed_never_partial(self):
+        out = self.path("sub", "r.pdf")
+        os.makedirs(os.path.dirname(out))
+        cli.write_atomic(out, b"%PDF-1.4 invented")
+        self.assertEqual(os.listdir(os.path.dirname(out)), ["r.pdf"])
+        with self.assertRaises(StudyqError) as caught:
+            cli.write_atomic(out, b"%PDF-1.4 other")
+        self.assertEqual(caught.exception.code, "output_exists")
+        self.assertEqual(os.listdir(os.path.dirname(out)), ["r.pdf"])
+        with open(out, "rb") as handle:
+            self.assertEqual(handle.read(), b"%PDF-1.4 invented")
+
+    def test_r6_temp_file_removed_when_the_rename_loses_a_race(self):
+        out = self.path("race.pdf")
+        original = os.link
+
+        def late_file(src, dst, *a, **k):
+            with open(dst, "wb") as handle:
+                handle.write(b"winner")
+            return original(src, dst, *a, **k)
+
+        os.link = late_file
+        try:
+            with self.assertRaises(StudyqError) as caught:
+                cli.write_atomic(out, b"%PDF-1.4 loser")
+        finally:
+            os.link = original
+        self.assertEqual(caught.exception.code, "output_exists")
+        self.assertEqual(sorted(os.listdir(self.tmp)), ["race.pdf"])
+        with open(out, "rb") as handle:
+            self.assertEqual(handle.read(), b"winner")
 
 
 class AssetManifest(TempDirCase):
@@ -369,13 +278,6 @@ class AssetManifest(TempDirCase):
             manifest.verify_assets_dir(self.tmp)
         self.assertEqual(caught.exception.code, "asset_missing")
 
-    def test_r9_refusal_through_the_command_writes_no_pdf(self):
-        write_assets(self.tmp, self.base(), extra_manifest={"fontSha256": "0" * 64})
-        out = self.path("o.pdf")
-        status, line = run_cli(["render", "--type", "course_book", "--assets", self.tmp, "--out", out], json.dumps(synthetic_input()).encode())
-        self.assertEqual((status, json.loads(line)["code"]), (1, "asset_hash_mismatch"))
-        self.assertEqual([n for n in os.listdir(self.tmp) if n.endswith(".pdf") or n.endswith(".tmp")], [])
-
     def test_r9_file_changed_after_verification_is_refused_on_read(self):
         bundle = self.verify(self.base())
         with open(self.path("image", "mark_o.jpg"), "wb") as handle:
@@ -408,132 +310,15 @@ class AssetManifest(TempDirCase):
         socket.socket.connect = no_network
         try:
             manifest.verify_assets_dir(self.tmp)
-            run_cli(["render", "--type", "course_book", "--assets", self.tmp, "--out", self.path("elsewhere.pdf")], json.dumps(synthetic_input()).encode())
+            doc = {"archive_root": self.tmp, "kind": "exam", "items": [{"lecture_key": 5, "sel_type": "obj"}]}
+            status, line = run_cli(["assemble-print", "--out", self.path("elsewhere.pdf")], json.dumps(doc).encode())
+            self.assertNotEqual(status, 0, line)
         finally:
             socket.socket.connect = original
-        after = snapshot()
-        after[0].pop(self.path("elsewhere.pdf"), None)
-        self.assertEqual(before, (after[0], [n for n in after[1] if n != "elsewhere.pdf"]))
+        self.assertEqual(before, snapshot())
 
 
-class Layout(unittest.TestCase):
-    def test_r29_template_sequence(self):
-        plan = planned()
-        self.assertEqual(
-            [p.template.rsplit("/", 1)[1] for p in plan.pages],
-            ["coursebook_1.jpg", "coursebook_2.jpg", "coursebook_3.jpg"] + ["coursebook_4.jpg"] * 3 + ["coursebook_6.jpg", "coursebook_7.jpg"],
-        )
-        self.assertEqual(len(plan.pages), 8)
-
-    def test_r29_overflow_uses_template_5_and_page_count_follows_chapters(self):
-        self.assertEqual(len(planned(synthetic_input(chapters=1)).pages), 6)
-        self.assertEqual(len(planned(synthetic_input(chapters=5)).pages), 10)
-        plan = planned(synthetic_input(chapters=2, questions=26))
-        names = [p.template.rsplit("/", 1)[1] for p in plan.pages]
-        self.assertEqual(names[3:7], ["coursebook_4.jpg", "coursebook_5.jpg", "coursebook_4.jpg", "coursebook_5.jpg"])
-        self.assertEqual(names[-2:], ["coursebook_6.jpg", "coursebook_7.jpg"])
-        self.assertEqual(cb.template_sequence([25, 26]).count(cb.TEMPLATE_DIR + "coursebook_5.jpg"), 1)
-        self.assertIn(cb.TEMPLATE_DIR + "coursebook_5.jpg", cb.required_assets(validate_course_book(synthetic_input(2, 26))))
-        self.assertNotIn(cb.TEMPLATE_DIR + "coursebook_5.jpg", cb.required_assets(validate_course_book(synthetic_input())))
-
-    def test_r13_removed_rule_is_marked_in_the_specification(self):
-        with open(os.path.join(ROOT, "specs/studyq-linux/core.md")) as handle:
-            spec = handle.read()
-        self.assertTrue(("- R13: (removed)\n" in spec), "R13 is not marked (removed)")
-        self.assertIn("- R29: ", spec)
-
-    def test_r14_page_4_values_sit_in_the_column_of_their_heading(self):
-        data = synthetic_input()
-        plan = planned(data)
-        page = plan.pages[3]
-        by_id = {f.id: f for f in page.fields}
-        q = data["bunit_list"][0]["questions"][1]
-        expected = {
-            "no": str(q["no"]),
-            "type": q["type"],
-            "question_type": q["question_type"],
-            "difficulty": q["difficulty"],
-            "correct_rate": textutil.format_number(q["correct_rate"]),
-        }
-        for name, text in expected.items():
-            f = by_id["p4.c0.row1.%s" % name]
-            self.assertEqual(f.text, text)
-            x0, x1 = cb.CHAPTER_COLUMNS_PX[name]
-            self.assertEqual((f.box[0], f.box[2]), (geometry.px(x0), geometry.px(x1)))
-        columns = sorted(cb.CHAPTER_COLUMNS_PX.items(), key=lambda kv: kv[1][0])
-        self.assertEqual([n for n, _ in columns], ["no", "type", "question_type", "difficulty", "correct_rate"])
-
-    def test_r14_rows_start_at_1110_px_with_a_step_of_88_px_and_marks_follow_the_answer(self):
-        page = planned().pages[3]
-        tops = [f.box[1] for f in page.fields if f.id.endswith(".no") and ".row" in f.id]
-        self.assertEqual(tops, [geometry.px(1110 + 88 * i) for i in range(3)])
-        marks = [im for im in page.images if im.rel.startswith("image/mark_")]
-        self.assertEqual([m.rel for m in marks], ["image/mark_o.jpg", "image/mark_x.jpg", "image/mark_o.jpg"])
-        self.assertTrue(all(abs(m.rect[0] - 503.86) < 1e-9 for m in marks))
-
-    def test_r15_charts_sit_at_the_origin_of_their_box_without_the_36_px_offset(self):
-        plan = planned()
-        h = geometry.PAGE_H
-        self.assertAlmostEqual(h, 841.8898)
-        placed = {im.rel: im.rect for p in plan.pages for im in p.images}
-        self.assertAlmostEqual(placed[cb.MUNIT.rel][1], h - 697.90, places=6)
-        self.assertAlmostEqual(placed[cb.TEST_LIST.rel][1], h - 577.90, places=6)
-        self.assertAlmostEqual(placed[cb.SCORE_RANGE.rel][1], h - 721.89, places=6)
-        grade = placed["image/course_book/1p/grade_03.jpg"]
-        self.assertAlmostEqual(grade[0], 35.99, places=6)
-        self.assertAlmostEqual(grade[1], h - 745.89, places=6)
-        x, y0 = cb.MUNIT.point(348.5, 0)
-        _, y100 = cb.MUNIT.point(348.5, 100)
-        self.assertAlmostEqual(y0, (h - 697.90) + 904.5 * geometry.PX, places=9)
-        self.assertAlmostEqual(y100, (h - 697.90) + 144.5 * geometry.PX, places=9)
-        self.assertAlmostEqual(cb.TEST_LIST.point(0, 0)[1], (h - 577.90) + 904.5 * geometry.PX, places=9)
-        # a unit marker of score 0 sits on the baseline of the chart, not 36 px lower
-        dot = [im for im in plan.pages[-1].images if im.rel == cb.DOT]
-        self.assertTrue(dot)
-        self.assertGreater(len(plan.pages[-1].images), 3)
-
-    def test_r16_line_break_tokens_break_and_are_not_printed(self):
-        for token in ("\n", "\r\n", "\\n", "\\r\\n", "\\\\n", "\\\\r\\\\n"):
-            lines = textutil.split_lines("alpha" + token + "beta")
-            self.assertEqual(lines, ["alpha", "beta"], repr(token))
-            self.assertEqual(textutil.single_line("alpha" + token + "beta"), "alpha beta")
-        self.assertEqual(textutil.split_lines("return and warn and turn"), ["return and warn and turn"])
-        plan = planned()
-        words = [w for p in plan.pages for f in p.fields for w in f.text.split()]
-        self.assertNotIn("rn", words)
-        comment = [f.text for f in plan.pages[1].fields if f.id.startswith("p2.comment")]
-        self.assertEqual(comment[:4], ["First sentence of the comment.", "Second sentence, a return visit.", "Third line.", "Fourth line."])
-        data = synthetic_input()
-        data["bunit_list"][0]["name"] = "Name\\r\\nwith break"
-        self.assertEqual(validate_course_book(data)["bunit_list"][0]["name"], "Name with break")
-
-    def test_r26_field_tables_are_deterministic_and_fit_their_boxes(self):
-        first, second = planned(), planned()
-        self.assertEqual(first.pages, second.pages)
-        for page in first.pages:
-            ids = [f.id for f in page.fields]
-            self.assertEqual(len(ids), len(set(ids)))
-            for f in page.fields:
-                x0, y0, x1, y1 = f.box
-                self.assertGreater(x1 - x0, 0)
-                self.assertLessEqual(FAKE_CTX.measure(f.text, f.size), x1 - x0 - 2 * cb.PAD_PT + 1e-9, f.id)
-                self.assertLessEqual(f.size, y1 - y0, f.id)
-
-    def test_r26_long_values_shrink_then_are_cut_with_an_ellipsis(self):
-        data = synthetic_input()
-        data["bunit_list"][0]["questions"][0]["type"] = "x" * 150
-        field = {f.id: f for f in planned(data).pages[3].fields}["p4.c0.row0.type"]
-        self.assertTrue(field.text.endswith("..."))
-        self.assertEqual(field.size, 6.0)
-
-    def test_r26_wrap_and_number_format(self):
-        self.assertEqual(textutil.format_number(70), "70")
-        self.assertEqual(textutil.format_number(82.5), "82.5")
-        self.assertEqual(textutil.format_number(0.04), "0.0")
-        lines = textutil.wrap_text(lambda t, s: len(t) * 10, "aaa bbb ccc", 10, 70)
-        self.assertEqual(lines, ["aaa bbb", "ccc"])
-        self.assertEqual(geometry.hpdf_to_fitz_y(745.89), geometry.PAGE_H - 745.89)
-
+class Pure(unittest.TestCase):
     def test_r26_image_dimensions_are_read_from_headers(self):
         import struct
 
@@ -545,253 +330,6 @@ class Layout(unittest.TestCase):
         self.assertEqual(image_dimensions(jpeg), (2198, 1017))
         self.assertIsNone(image_dimensions(b"GIF89a"))
         self.assertIsNone(image_dimensions(b"\xff\xd8\xff"))
-
-    def test_r26_difficulty_page_shares_and_bars(self):
-        page = planned().pages[-2]
-        shares = {f.id: f.text for f in page.fields if f.id.endswith(".share")}
-        self.assertEqual(shares, {"p6.top.share": "20% / 2", "p6.high.share": "30% / 3", "p6.mid.share": "40% / 4", "p6.low.share": "10% / 1"})
-        self.assertEqual(len([s for s in page.shapes if s.kind == "poly"]), 4)
-        self.assertEqual(len([s for s in page.shapes if s.kind == "rect"]), 4)
-
-    def test_r26_unit_chart_marks_sit_on_the_score_rows(self):
-        plan = planned()
-        page = plan.pages[-1]
-        bars = [s for s in page.shapes if s.fill == cb.COLOR_AVG and s.geometry[3] - s.geometry[1] > 20]
-        self.assertEqual(len(bars), 5)
-        first = bars[0].geometry
-        self.assertAlmostEqual(first[3], cb.MUNIT.point(348.5, 0)[1], places=9)
-        self.assertAlmostEqual(first[1], cb.MUNIT.point(348.5, 55)[1], places=9)
-
-
-class RenderCase(TempDirCase):
-    """Rendering tests: need PyMuPDF (R27)."""
-
-    def assets(self, overflow=False):
-        directory = self.path("assets")
-        os.makedirs(directory, exist_ok=True)
-        write_assets(directory, synthetic_contents(overflow))
-        return directory
-
-    def render(self, data=None, out=None, overflow=False):
-        out = out or self.path("out.pdf")
-        status, line = run_cli(
-            ["render", "--type", "course_book", "--assets", self.assets(overflow), "--out", out],
-            json.dumps(data or synthetic_input()).encode(),
-        )
-        return status, json.loads(line), out
-
-
-@needs_pymupdf
-class Rendering(RenderCase):
-    def test_r1_success_line_and_pdf(self):
-        status, doc, out = self.render()
-        self.assertEqual(status, 0, doc)
-        self.assertEqual(list(doc), ["status", "reportType", "pages", "sha256", "outputPath"])
-        self.assertEqual((doc["status"], doc["reportType"], doc["pages"]), ("ok", "course_book", 8))
-        with open(out, "rb") as handle:
-            self.assertEqual(hashlib.sha256(handle.read()).hexdigest(), doc["sha256"])
-        self.assertEqual(doc["outputPath"], os.path.abspath(out))
-        self.assertEqual(pymupdf.open(out).page_count, 8)
-
-    def test_r1_exactly_one_line_on_stdout_through_python_dash_m(self):
-        assets = self.assets()
-        env = dict(os.environ, PYTHONPATH=os.path.join(MODULE, "src"))
-        env.pop("PYTHONWARNINGS", None)
-        out = self.path("m.pdf")
-        proc = subprocess.run(
-            [sys.executable, "-B", "-m", "studyq_linux", "render", "--type", "course_book", "--assets", assets, "--out", out],
-            input=json.dumps(synthetic_input()).encode(),
-            env=env,
-            capture_output=True,
-        )
-        self.assertEqual(proc.returncode, 0, proc.stdout)
-        self.assertEqual(proc.stdout.count(b"\n"), 1)
-        self.assertEqual(proc.stderr, b"")
-        self.assertEqual(json.loads(proc.stdout)["pages"], 8)
-
-    def test_r2_failed_run_leaves_no_file_and_keeps_an_existing_one(self):
-        out = self.path("kept.pdf")
-        with open(out, "wb") as handle:
-            handle.write(b"previous")
-        status, doc, _ = self.render(out=out)
-        self.assertEqual((status, doc["code"]), (1, "output_exists"))
-        with open(out, "rb") as handle:
-            self.assertEqual(handle.read(), b"previous")
-        data = synthetic_input()
-        data["grade"] = 9  # its grade picture is not in the synthetic bundle
-        status, doc, out2 = self.render(data=data, out=self.path("new.pdf"))
-        self.assertEqual((status, doc["code"]), (1, "asset_missing"))
-        self.assertFalse(os.path.exists(out2))
-        self.assertEqual([n for n in os.listdir(self.tmp) if n.endswith(".tmp")], [])
-
-    def test_r6_written_beside_and_renamed_never_partial(self):
-        out = self.path("sub", "r.pdf")
-        os.makedirs(os.path.dirname(out))
-        status, doc, _ = self.render(out=out)
-        self.assertEqual(status, 0)
-        self.assertEqual(os.listdir(os.path.dirname(out)), ["r.pdf"])
-        status, doc, _ = self.render(out=out)
-        self.assertEqual(doc["code"], "output_exists")
-        self.assertEqual(os.listdir(os.path.dirname(out)), ["r.pdf"])
-
-    def test_r6_temp_file_removed_when_the_rename_loses_a_race(self):
-        out = self.path("race.pdf")
-        original = os.link
-
-        def late_file(src, dst, *a, **k):
-            with open(dst, "wb") as handle:
-                handle.write(b"winner")
-            return original(src, dst, *a, **k)
-
-        os.link = late_file
-        try:
-            status, doc, _ = self.render(out=out)
-        finally:
-            os.link = original
-        self.assertEqual(doc["code"], "output_exists")
-        self.assertEqual(sorted(os.listdir(self.tmp)), ["assets", "race.pdf"])
-        with open(out, "rb") as handle:
-            self.assertEqual(handle.read(), b"winner")
-
-    def test_r8_same_input_same_bytes_and_no_time_or_random_id(self):
-        _, first, out1 = self.render(out=self.path("a.pdf"))
-        _, second, out2 = self.render(out=self.path("b.pdf"))
-        self.assertEqual(first["sha256"], second["sha256"])
-        with open(out1, "rb") as handle:
-            raw = handle.read()
-        self.assertNotIn(b"CreationDate", raw)
-        self.assertNotIn(b"ModDate", raw)
-        self.assertNotIn(b"/ID", raw)
-        meta = pymupdf.open(out1).metadata
-        self.assertEqual(meta["creationDate"], "")
-        self.assertEqual(meta["modDate"], "")
-
-    def test_r12_only_nanum_gothic_is_embedded_on_every_page(self):
-        _, doc, out = self.render()
-        pdf = pymupdf.open(out)
-        for page in pdf:
-            fonts = page.get_fonts()
-            self.assertTrue(fonts)
-            self.assertEqual({f[3] for f in fonts}, {"NanumGothic Regular"})
-            self.assertTrue(all(f[1] == "ttf" and f[2] == "Type0" for f in fonts))
-        self.assertGreater(len(pdf.extract_font(pdf[0].get_fonts()[0][0])[-1]), 100000)
-
-    def test_r14_rendered_page_4_text_sits_in_its_own_columns(self):
-        _, doc, out = self.render()
-        page = pymupdf.open(out)[3]
-        words = {w[4]: w for w in page.get_text("words")}
-        q = synthetic_input()["bunit_list"][0]["questions"][1]
-        for name, token in (("question_type", q["question_type"]), ("difficulty", q["difficulty"])):
-            x0, x1 = cb.CHAPTER_COLUMNS_PX[name]
-            word = words[token]
-            self.assertGreaterEqual(word[0], geometry.px(x0) - 2)
-            self.assertLessEqual(word[2], geometry.px(x1) + 2)
-            self.assertAlmostEqual(word[1] + (word[3] - word[1]) / 2, geometry.px(1110 + 88 * 1 + 44), delta=3)
-
-    def test_r15_rendered_chart_is_placed_at_its_box_origin(self):
-        _, doc, out = self.render()
-        page = pymupdf.open(out)[7]
-        info = [i for i in page.get_image_info() if i["width"] == 2198 and i["height"] == 1017]
-        self.assertEqual(len(info), 1)
-        self.assertAlmostEqual(info[0]["bbox"][1], geometry.PAGE_H - 697.90, delta=0.01)
-        self.assertAlmostEqual(info[0]["bbox"][0], 35.99, delta=0.01)
-
-    def test_r16_no_raw_rn_token_in_any_page(self):
-        _, doc, out = self.render()
-        pdf = pymupdf.open(out)
-        for page in pdf:
-            self.assertNotIn("rn", [w[4] for w in page.get_text("words")])
-        text = pdf[1].get_text()
-        self.assertIn("First sentence of the comment.", text)
-        self.assertIn("return visit", text)
-
-    def test_r17_parity_reports_zero_mismatches_and_zero_raw_rn(self):
-        from studyq_linux import parity
-        from studyq_linux.render import make_context
-
-        directory = self.assets()
-        bundle = manifest.verify_assets_dir(directory)
-        data = validate_course_book(synthetic_input())
-        plan = cb.plan_course_book(data, make_context(pymupdf, bundle))
-        _, doc, out = self.render()
-        with open(out, "rb") as handle:
-            result = parity.check_parity(pymupdf, handle.read(), plan)
-        self.assertEqual((result["mismatches"], result["rawRn"], result["failed"]), (0, 0, []))
-        self.assertGreater(result["fields"], 50)
-        self.assertEqual(result["pages"], 8)
-
-    def test_r17_parity_counts_a_displaced_field_and_an_unexplained_text(self):
-        from studyq_linux import parity
-        from studyq_linux.render import make_context
-
-        directory = self.assets()
-        bundle = manifest.verify_assets_dir(directory)
-        plan = cb.plan_course_book(validate_course_book(synthetic_input()), make_context(pymupdf, bundle))
-        _, doc, out = self.render()
-        pdf = pymupdf.open(out)
-        pdf[3].insert_text((100, 700), "stray text rn", fontsize=10)
-        result = parity.check_parity(pymupdf, pdf.tobytes(), plan)
-        self.assertEqual(result["rawRn"], 1)
-        self.assertGreaterEqual(result["mismatches"], 3)
-        swapped = cb.plan_course_book(validate_course_book(synthetic_input()), make_context(pymupdf, bundle))
-        page = swapped.pages[3]
-        i = next(k for k, f in enumerate(page.fields) if f.id == "p4.c0.row0.difficulty")
-        j = next(k for k, f in enumerate(page.fields) if f.id == "p4.c0.row0.question_type")
-        a, b = page.fields[i], page.fields[j]
-        page.fields[i] = cb.Field(a.id, a.text, b.box, b.align, a.size)
-        page.fields[j] = cb.Field(b.id, b.text, a.box, a.align, b.size)
-        with open(out, "rb") as handle:
-            clean = parity.check_parity(pymupdf, handle.read(), swapped)
-        named = {f for f in clean["failed"] if not f.endswith(".unexplained")}
-        self.assertEqual(named, {"p4.c0.row0.difficulty", "p4.c0.row0.question_type"})
-        self.assertEqual(len(clean["failed"]) - len(named), 2)  # their two words are explained by no field
-
-    def test_r17_parity_module_prints_counts_only(self):
-        directory = self.assets()
-        _, doc, out = self.render()
-        env = dict(os.environ, PYTHONPATH=os.path.join(MODULE, "src"))
-        proc = subprocess.run(
-            [sys.executable, "-B", "-m", "studyq_linux.parity", "--pdf", out, "--assets", directory],
-            input=json.dumps(synthetic_input()).encode(),
-            env=env,
-            capture_output=True,
-        )
-        self.assertEqual(proc.returncode, 0, proc.stdout)
-        result = json.loads(proc.stdout)
-        self.assertEqual((result["status"], result["mismatches"], result["rawRn"]), ("ok", 0, 0))
-        self.assertNotIn(b"Sample Learner", proc.stdout)
-
-    def test_r29_rendered_pages_use_the_verified_template_sequence(self):
-        _, doc, out = self.render(data=synthetic_input(chapters=2, questions=26), overflow=True)
-        self.assertEqual(doc["pages"], 9)
-
-    def test_r27_gate_is_open_in_this_run(self):
-        self.assertTrue(HAVE_PYMUPDF)
-
-    def test_seam_renders_from_an_already_verified_bundle_without_a_directory(self):
-        from studyq_linux.render import render_course_book
-
-        bundle = manifest.AssetBundle.from_mapping(synthetic_contents())
-        pdf = render_course_book(synthetic_input(), bundle)
-        self.assertEqual(pymupdf.open(stream=pdf, filetype="pdf").page_count, 8)
-        self.assertEqual(pdf, render_course_book(synthetic_input(), bundle))
-        with self.assertRaises(StudyqError):
-            render_course_book(synthetic_input(), manifest.AssetBundle.from_mapping({manifest.FONT_REL: font_bytes()}))
-
-
-@unittest.skipUnless(ASSETS_DIR and RENDER_ENABLED, "no assets directory given (STUDYQ_ASSETS_DIR)")
-class OfficialTemplates(TempDirCase):
-    def test_r17_parity_against_the_official_templates(self):
-        from studyq_linux import parity
-        from studyq_linux.render import make_context, render_course_book
-
-        bundle = manifest.verify_assets_dir(ASSETS_DIR)
-        data = validate_course_book(synthetic_input())
-        pdf = render_course_book(data, bundle)
-        plan = cb.plan_course_book(data, make_context(pymupdf, bundle))
-        result = parity.check_parity(pymupdf, pdf, plan)
-        self.assertEqual((result["mismatches"], result["rawRn"], result["pages"]), (0, 0, 8))
-
 
 class PrivacyCheck(TempDirCase):
     """I6 (R28): the patterns live only in `check`; positive fixtures are built here from split strings."""
@@ -865,7 +403,7 @@ class Gate(unittest.TestCase):
     def test_r26_pure_tests_do_not_import_pymupdf_for_planning(self):
         code = (
             "import sys; sys.path.insert(0, %r); sys.modules['pymupdf'] = None; "
-            "from studyq_linux import course_book, cli, manifest, schema, textutil, geometry; print('ok')"
+            "from studyq_linux import cli, errors, imageinfo, manifest, print_zip; print('ok')"
         ) % os.path.join(MODULE, "src")
         proc = subprocess.run([sys.executable, "-B", "-I", "-c", code], capture_output=True, text=True)
         self.assertEqual((proc.returncode, proc.stdout.strip()), (0, "ok"), proc.stderr)
@@ -873,14 +411,22 @@ class Gate(unittest.TestCase):
     def test_r27_rendering_without_pymupdf_refuses_with_render_failed(self):
         code = (
             "import sys, io, json; sys.path.insert(0, %r); sys.modules['pymupdf'] = None; "
-            "from studyq_linux import render; "
-            "\ntry:\n render.load_pymupdf()\nexcept Exception as e:\n print(e.code, e.detail)\n"
+            "from studyq_linux import print_zip; "
+            "\ntry:\n print_zip.load_pymupdf()\nexcept Exception as e:\n print(e.code, e.detail)\n"
         ) % os.path.join(MODULE, "src")
         proc = subprocess.run([sys.executable, "-B", "-I", "-c", code], capture_output=True, text=True)
         self.assertEqual(proc.stdout.strip(), "render_failed pymupdf_unavailable", proc.stderr)
 
     def test_r27_gate_condition_is_documented_in_the_module(self):
         self.assertEqual(RENDER_ENABLED, os.environ.get("CHECK_STUDYQ_PYMUPDF") == "1" or HAVE_PYMUPDF)
+
+    def test_retired_report_rules_are_marked_in_the_specification(self):
+        with open(os.path.join(ROOT, "specs/studyq-linux/core.md")) as handle:
+            text = handle.read()
+        for n in (5, 12, 13, 14, 15, 16, 17, 18, 19, 29):
+            self.assertIn("- R%d: (removed)" % n, text)
+        for name in ("course_book.py", "parity.py", "render.py", "renderers", "schema.py", "textutil.py", "geometry.py"):
+            self.assertFalse(os.path.exists(os.path.join(MODULE, "src", "studyq_linux", name)), name)
 
 
 if __name__ == "__main__":

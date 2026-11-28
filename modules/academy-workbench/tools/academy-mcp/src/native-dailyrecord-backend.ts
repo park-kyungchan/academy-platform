@@ -1,4 +1,4 @@
-import type {CismReport} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol';
+import type {CismBlockRead,CismReport} from '../../../../../apps/academy/dc-gang-a/src/lms/cismWeeklyProtocol';
 import {createHash,randomUUID} from 'node:crypto';
 import {readFileSync,lstatSync,realpathSync,closeSync,fsyncSync,mkdirSync,openSync,writeSync} from 'node:fs';
 import {dirname,resolve} from 'node:path';
@@ -17,7 +17,7 @@ import {isTextbookBookLabel} from '../../../../../apps/academy/dc-gang-a/src/lms
 import {itemAnswerLookupSchema} from './item-answer-lookup.ts';
 import {bookSelectionOf,chooseBookBinding,type BookSelection} from './read-input.ts';
 import type {HistoricalBindingReader} from './historical-binding-reader.ts';
-import type {CourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport';
+import {courseBookSummary,type CourseBookReport} from '../../../../../apps/academy/dc-gang-a/src/lms/courseBookReport';
 import {TEXTBOOK_SECTION_NOT_IN_EITHER} from '../../../../../apps/academy/dc-gang-a/src/lms/textbookSectionIndex';
 import type {DailyRecordTeacherScope} from './dailyrecord-read.ts';
 import type {PrestudyView} from '../../../../../apps/academy/dc-gang-a/src/lms/prestudyRead';
@@ -247,19 +247,32 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     await this.#authenticate();
     return {raw:await this.client.readReportView('NewStudentReportView',{paperNo:input.paperNo,applyCode:input.applyCode,...(input.collegeKey!==undefined?{collegeKey:input.collegeKey}:{})})};
   }
+  /** The CISM week of `date` as the CISM tools answer it: the parsed fields, without the block data of the report PDF. */
   async readCismReport(date:string):Promise<CismReport>{
     if(!this.client.readCismReport)throw Error('cism_source_port_unavailable');await this.#authenticate();
-    return this.client.readCismReport({teacherLabel:this.admission.teacherLabel,date});
+    const {blockData:_blockData,...report}=await this.client.readCismReport({teacherLabel:this.admission.teacherLabel,date});
+    return report;
+  }
+  /** The block data of the CISM week of `date` for academy_official_report_pdf_get (specs/academy-mcp/pc-executor.md):
+   * the object the CismChartMain page builds for the StudyQ executor, from the same read-only page read. */
+  async readCismBlockData(date:string):Promise<CismBlockRead>{
+    if(!this.client.readCismReport)throw Error('cism_source_port_unavailable');await this.#authenticate();
+    const report=await this.client.readCismReport({teacherLabel:this.admission.teacherLabel,date});
+    if(!report.blockData)throw Error('cism_fields_unqualified');
+    return {date:report.date,periodStart:report.periodStart,periodEnd:report.periodEnd,weekLabel:report.weekLabel,blockData:report.blockData};
   }
   async applyCismField(input:{date:string;fieldRef:string;before:string;after:string;wireSha256:string;completeExistingNarrative?:boolean},authorize:()=>Promise<boolean>){
     if(!this.client.applyCismField)throw Error('cism_source_port_unavailable');await this.#authenticate();
-    return this.client.applyCismField({...input,teacherLabel:this.admission.teacherLabel},authorize,async value=>{
+    const outcome=await this.client.applyCismField({...input,teacherLabel:this.admission.teacherLabel},authorize,async value=>{
       const root=nativeOwnerArtifactsRoot+'cism-weekly/http-ack';mkdirSync(root,{recursive:true,mode:0o700});
       const st=lstatSync(root);if(!st.isDirectory()||st.isSymbolicLink()||(st.mode&0o077)!==0||st.uid!==process.getuid?.()||realpathSync(root)!==root)throw Error('cism_store_unqualified');
       const fd=openSync(resolve(root,input.date+'-'+input.fieldRef+'-'+randomUUID()+'.json'),'wx',0o600);
       try{writeSync(fd,JSON.stringify({date:input.date,fieldRef:input.fieldRef,contentType:value.contentType,sha256:value.sha256,rawBodyBase64:Buffer.from(value.raw).toString('base64')})+'\n');fsyncSync(fd);}finally{closeSync(fd);}
       const directory=openSync(root,'r');try{fsyncSync(directory);}finally{closeSync(directory);}
     });
+    // The readback is answered as the CISM tools answer a week: without the block data of the report PDF.
+    const {blockData:_blockData,...report}=outcome.report;
+    return {...outcome,report};
   }
   async readTextbookCatalog(schoolLevel:TextbookSchoolLevel='middle'):Promise<TextbookCatalogObservation>{
     if(!this.client.readTextbookCatalog)throw Error('textbook_catalog_source_port_unavailable');
@@ -544,7 +557,7 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
     try{report=await this.client.readCourseBookReport({teacherLabel:this.admission.teacherLabel,studentKey:student.studentId,studentName:student.displayName,
       courseKey:keys.courseKey,bookNo:keys.bookNo});}
     catch(error){if(error instanceof Error&&error.message==='authentication_required')throw error;throw Error('historical_key_unverified');}
-    if(!report?.metadata?.bookTitle||report.studyqInput?.student!==student.displayName||(label!==null&&!bookTitleAgrees(report.metadata.bookTitle,label)))
+    if(!report?.metadata?.bookTitle||!report.raw||courseBookSummary(report.raw).student!==student.displayName||(label!==null&&!bookTitleAgrees(report.metadata.bookTitle,label)))
       throw Error('historical_key_unverified');
     return report;
   }
@@ -580,8 +593,9 @@ export class NativeDailyRecordBackend implements DailyRecordReadBackend,DailyRec
       return {student:studentOut,courseKey:choice.courseKey,bookNo:choice.bookNo,records,observedAt:raw.observedAt,
         coverage:'exact_selected_existing_records_not_whole_book',bindingSource:'historical_key_registry',...choice.bookSelection};
     }
-    const reportSummary:HistoricalReportSummary={bookTitle:report.metadata.bookTitle,period:report.studyqInput.period,
-      myAverage:report.studyqInput.my_average,allAverage:report.studyqInput.all_average,chapterCount:report.sourceChapterCount};
+    const fields=courseBookSummary(report.raw);
+    const reportSummary:HistoricalReportSummary={bookTitle:report.metadata.bookTitle,period:fields.period,
+      myAverage:fields.myAverage,allAverage:fields.allAverage,chapterCount:report.sourceChapterCount};
     return {student:studentOut,courseKey:choice.courseKey,bookNo:choice.bookNo,bookLabel:choice.label??report.metadata.bookTitle,
       index:rows.map(r=>({sourceTitle:r.sourceTitle,sourceDate:{literal:r.sourceDate.literal,meaning:r.sourceDate.meaning}})),
       observedAt:note.observedAt,indexBasis:'wrong_answer_note_only',bindingSource:'historical_key_registry',reportSummary,...choice.bookSelection,

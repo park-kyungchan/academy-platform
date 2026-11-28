@@ -158,7 +158,7 @@ export const keptTools:readonly {name:string;title:string;description:string;inp
  // The first new tool of specs/academy-mcp/tool-surface.md "New tools". `params` holds the options of a report type,
  // so a later report type adds a reportType value and its own params, not new members.
  {name:'academy_official_report_pdf_get',title:'공식 리포트 PDF',
-  description:"Official StudyQ PDF (공식·교재 리포트), read-only LMS. reportType course_book: displayName; courseKey+bookNo+studentKey or params.bookLabel. cism: params.scope week+date|month. diag/formative/ganga/na_score: displayName+params.testingNo+classNo. smart_book: displayName+params.bookCode. new_diag: params.paperNo+applyCode. Saved under owner root (no overwrite); answers outputPath, sha256, pages, parityOk.",
+  description:"Official StudyQ PDF (공식·교재 리포트) by StudyQReport.exe on PC, read-only LMS. reportType course_book: displayName; courseKey+bookNo+studentKey or params.bookLabel. cism: params.scope week+date. diag/formative/ganga/na_score: displayName+params.testingNo+classNo. smart_book: displayName+params.bookCode. new_diag: params.paperNo+applyCode. Saved in owner root (no overwrite): outputPath, sha256, pages.",
   inputSchema:schema({reportType:oneOf('course_book','cism','diag','new_diag','formative','ganga','na_score','smart_book'),displayName:str,studentName:str,courseKey:str,bookNo:str,studentKey:str,params:obj,outputPath:str},['reportType'])},
  // The second new tool: the printable PDF of an existing paper (CreateTotalPrint, CreateClinic), read-only.
  {name:'academy_paper_print_pdf_get',title:'시험지·클리닉지 인쇄 PDF',

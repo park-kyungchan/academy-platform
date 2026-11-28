@@ -4,7 +4,6 @@ CODES = frozenset(
     {
         "usage_invalid",
         "input_invalid",
-        "type_unknown",
         "output_exists",
         "asset_manifest_invalid",
         "asset_missing",
